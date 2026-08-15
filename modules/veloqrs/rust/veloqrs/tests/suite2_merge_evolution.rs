@@ -201,19 +201,18 @@ fn near_duplicate_corridors_stay_disjoint() {
     );
 }
 
-/// Target gate: a cross-sport corridor must keep a per-sport view: no visible
-/// section may pool a Ride and a Run under one heading. Red today: the auto
-/// `merge_cross_sport_sections` in the apply tail collapses same-ground
-/// Ride/Run sections into one, so a running effort lands under a Ride section
-/// with a nonsensical pace PR. Invariant 2 is pooled DETECTION, not collapsed
-/// STORAGE; the Battery arm keeps the split.
+/// Gate: a cross-sport corridor keeps a per-sport view, so no visible section
+/// pools a Ride and a Run under one heading. A red means a running effort lands
+/// under a Ride section with a nonsensical pace PR. Invariant 2 is collapsed
+/// STORAGE, so it runs on the arm whose detection partitions by sport. Corridor
+/// pools at detection and derives a dominant label, which the invariant cannot
+/// distinguish from a storage collapse.
 #[test]
-#[ignore = "invariant 2: merge_cross_sport_sections collapses same-ground per-sport sections, losing the per-sport performance view"]
 fn cross_sport_corridor_keeps_per_sport_view() {
     let corpus = corpus();
     let smap = sport_map(&corpus);
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let mixed: Vec<(String, BTreeSet<String>)> = cold

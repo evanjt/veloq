@@ -1,11 +1,9 @@
 //! Lock-contention baseline.
 //!
-//! Today's `apply_sections` holds the engine write lock through
-//! `save_sections` + `merge_cross_sport_sections` +
+//! `apply_sections` holds the engine write lock through `save_sections` +
 //! `recompute_activity_indicators`. While that's running, every UI-side
 //! read FFI call blocks behind it. This test measures **how long readers
-//! wait** under that contention, baseline-only — Tier 1.1 will split the
-//! lock, after which this test's recorded p99 should drop dramatically.
+//! wait** under that contention.
 //!
 //! Methodology:
 //! 1. Build scenario-B state (150 activities) on a fresh engine.

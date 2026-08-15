@@ -543,6 +543,9 @@ impl PersistentRouteEngine {
             sport_map.insert(id.clone(), m.sport_type.clone());
             activity_ids.push(id.clone());
         }
+        // Metadata iterates in HashMap order, so sort by the activities primary
+        // key to give the detector a deterministic input order.
+        activity_ids.sort();
 
         // Activity start times for the occasion support floor: ground
         // visited only within one stay is a trip, not repetition. Dates
@@ -1147,37 +1150,23 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Deferred tail of apply_sections: cross-sport merge + activity-
-    /// indicator recompute. Both are best-effort (errors are logged, not
-    /// returned) because they don't affect the ability to query the just-
-    /// saved sections - they only refine derived state. Safe to invoke on
-    /// a background thread after `apply_sections_save` returns.
+    /// Deferred tail of apply_sections: activity-indicator recompute. It is
+    /// best-effort (errors are logged, not returned) because it doesn't affect
+    /// the ability to query the just-saved sections, it only refines derived
+    /// state. Safe to invoke on a background thread after
+    /// `apply_sections_save` returns.
     pub fn apply_sections_finalize(&mut self) {
         self.apply_sections_finalize_with_progress(None);
     }
 
     /// Variant that emits phase markers to the supplied progress tracker
-    /// so the UI can show "still working on cross-sport merge / indicator
-    /// recompute" instead of a frozen-looking 100% bar (Tier 4).
+    /// so the UI can show "still recomputing indicators" instead of a
+    /// frozen-looking 100% bar.
     pub fn apply_sections_finalize_with_progress(
         &mut self,
         progress: Option<&super::super::SectionDetectionProgress>,
     ) {
         if let Some(p) = progress {
-            p.set_phase("merging_cross_sport", 1);
-        }
-        // Pooled detection cuts shared ground once and labels it afterwards, so
-        // a cross-sport pair is a relabelling, not two sections to fuse.
-        if !self.section_config.pool_sports
-            && let Err(e) = self.merge_cross_sport_sections()
-        {
-            log::warn!(
-                "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
-                e
-            );
-        }
-        if let Some(p) = progress {
-            p.increment();
             p.set_phase("recomputing_indicators", 1);
         }
         if let Err(e) = self.recompute_activity_indicators() {

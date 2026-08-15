@@ -160,13 +160,11 @@ fn merging_two_sections_keeps_the_count_true() {
 }
 
 #[test]
-fn cross_sport_merge_keeps_the_count_true() {
+fn merging_across_sports_keeps_the_count_true() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
     insert_activity(&s.raw, "a2", 1_700_086_400);
     insert_activity(&s.raw, "a3", 1_700_172_800);
-    // Same corridor walked and ridden: identical bounds and distance, so the
-    // cross-sport pass sees one section under two sports.
     insert_section(&s.raw, "ride", "Ride");
     insert_section(&s.raw, "run", "Run");
     insert_traversal(&s.raw, "ride", "a1");
@@ -174,14 +172,14 @@ fn cross_sport_merge_keeps_the_count_true() {
     insert_traversal(&s.raw, "run", "a3");
 
     s.engine
-        .merge_cross_sport_sections()
-        .expect("cross-sport merge");
+        .merge_user_sections("ride", "run")
+        .expect("merge across sports");
 
-    assert_counts_true(&s.raw, "a cross-sport merge");
+    assert_counts_true(&s.raw, "a merge across sports");
     assert_eq!(
         orphan_junction_rows(&s.raw),
         0,
-        "cross-sport merge left orphan rows"
+        "merge across sports left orphan rows"
     );
 }
 
