@@ -23,8 +23,15 @@ pub mod settings_keys {
     pub const SECTION_MIN_LENGTH: &str = "__section_min_length";
     /// SectionConfig.min_activities (u32 stored as decimal string).
     pub const SECTION_MIN_ACTIVITIES: &str = "__section_min_activities";
-    /// SectionConfig.detection_method (string: "corridor", "density_grid", "flow_graph").
+    /// SectionConfig.detection_method (string: "corridor", "density_grid",
+    /// "flow_graph", "unified").
     pub const SECTION_DETECTION_METHOD: &str = "__section_detection_method";
+    /// The last unrecognised value seen in `SECTION_DETECTION_METHOD`, so a
+    /// silent reversion to the default method outlives the process that saw
+    /// it. Cleared only on a load that reaches the individual keys, which a
+    /// parseable config blob short-circuits.
+    pub const SECTION_DETECTION_METHOD_UNRECOGNISED: &str =
+        "__section_detection_method_unrecognised";
     /// The WHOLE SectionConfig as a JSON blob. The individual keys above persist
     /// the strictness-slider fields; this captures every field so a restart
     /// restores the EXACT config that was last set. Without it the load path
@@ -154,10 +161,40 @@ impl PersistentRouteEngine {
             }
         }
         if let Some(raw) = self.get_setting(settings_keys::SECTION_DETECTION_METHOD)? {
-            if let Ok(v) = raw.parse::<tracematch::DetectionMethod>() {
-                self.section_config.detection_method = v;
+            match parse_detection_method(&raw) {
+                Some(v) => {
+                    self.section_config.detection_method = v;
+                    // Best-effort like every other write here: a busy database
+                    // must not stop the config loading.
+                    let _ =
+                        self.delete_setting(settings_keys::SECTION_DETECTION_METHOD_UNRECOGNISED);
+                }
+                None => {
+                    log::warn!(
+                        "tracematch: [load_section_config] unrecognised detection method {:?}, keeping {}",
+                        raw,
+                        self.section_config.detection_method
+                    );
+                    let _ = self.set_setting(
+                        settings_keys::SECTION_DETECTION_METHOD_UNRECOGNISED,
+                        raw.chars().take(64).collect::<String>().as_str(),
+                    );
+                }
             }
         }
         Ok(())
+    }
+}
+
+/// `DetectionMethod::from_str` maps anything unknown onto the default, so the
+/// accepted spellings are matched here to tell a real value from a fallback.
+fn parse_detection_method(raw: &str) -> Option<tracematch::DetectionMethod> {
+    use tracematch::DetectionMethod;
+    match raw.trim().to_lowercase().as_str() {
+        "corridor" => Some(DetectionMethod::Corridor),
+        "density_grid" | "densitygrid" | "density" => Some(DetectionMethod::DensityGrid),
+        "flow_graph" | "flowgraph" | "flow" => Some(DetectionMethod::FlowGraph),
+        "unified" => Some(DetectionMethod::Unified),
+        _ => None,
     }
 }
