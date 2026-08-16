@@ -123,6 +123,7 @@ export default function DetectionSettingsScreen() {
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
+  const danger = isDark ? darkColors.error : colors.error;
 
   const activePreset = useMemo(() => getDetectionPresetByValue(strictnessValue), [strictnessValue]);
   const activeStrictness: DetectionStrictness = activePreset.strictness;
@@ -204,6 +205,7 @@ export default function DetectionSettingsScreen() {
     isScanning,
     progress: rescanProgress,
     result: rescanResult,
+    failed: rescanFailed,
     clearResult,
   } = useSectionRescan();
 
@@ -480,6 +482,15 @@ export default function DetectionSettingsScreen() {
           {rescanResult && (
             <Text style={[styles.rescanResult, { color: textSecondary }]}>
               {rescanResult.after} {t('settings.sectionsDetected', 'sections detected')}
+            </Text>
+          )}
+
+          {rescanFailed && (
+            <Text style={[styles.rescanResult, { color: danger }]}>
+              {t(
+                'settings.rescanFailed',
+                'The rescan could not finish. Some activity tracks could not be read.'
+              )}
             </Text>
           )}
         </View>

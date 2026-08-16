@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Rianalizza sezioni",
     "reanalyzeWarning": "Verranno sostituite tutte le sezioni rilevate automaticamente non accettate. Le sezioni accettate (fissate) saranno conservate.",
     "sectionsDetected": "sezioni rilevate",
+    "rescanFailed": "Non è stato possibile completare la nuova analisi. Alcune tracce non sono leggibili.",
     "cleanupOverlapping": "Pulisci sovrapposizioni",
     "cleanupResult": "{{count}} sovrapposizioni rimosse",
     "disconnectAndClearData": "Disconnetti ed elimina tutti i dati",

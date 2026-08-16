@@ -1641,6 +1641,7 @@
     "reanalyzeSections": "Ponownie przeanalizuj sekcje",
     "reanalyzeWarning": "Spowoduje to zastąpienie wszystkich niezaakceptowanych sekcji wykrytych automatycznie. Zaakceptowane (przypięte) sekcje zostaną zachowane.",
     "sectionsDetected": "odcinków wykrytych",
+    "rescanFailed": "Nie udało się ukończyć ponownego skanowania. Niektórych śladów nie można odczytać.",
     "cleanupOverlapping": "Wyczyść nakładające się",
     "cleanupResult": "Usunięto {{count}} nakładających się",
     "disconnectAndClearData": "Wyloguj się i usuń wszystkie dane",

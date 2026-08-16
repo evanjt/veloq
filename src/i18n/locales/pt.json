@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Reanalisar troços",
     "reanalyzeWarning": "Isto substituirá todos os troços detetados automaticamente que não foram aceites. Troços aceites (fixados) serão preservados.",
     "sectionsDetected": "trocos detetados",
+    "rescanFailed": "Não foi possível concluir a nova análise. Alguns trajetos não puderam ser lidos.",
     "cleanupOverlapping": "Limpar sobreposições",
     "cleanupResult": "{{count}} sobreposições removidas",
     "disconnectAndClearData": "Terminar sessao e eliminar todos os dados",

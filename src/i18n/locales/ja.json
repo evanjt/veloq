@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "セクションを再分析",
     "reanalyzeWarning": "未承認の自動検出セクションをすべて置き換えます。承認済み(ピン留め)のセクションは保持されます。",
     "sectionsDetected": "セクション検出済み",
+    "rescanFailed": "再スキャンを完了できませんでした。一部のアクティビティの軌跡を読み取れません。",
     "cleanupOverlapping": "重複を整理",
     "cleanupResult": "{{count}}件の重複を削除しました",
     "disconnectAndClearData": "サインアウトしてすべてのデータを削除",

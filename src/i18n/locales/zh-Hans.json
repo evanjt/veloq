@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "重新分析路段",
     "reanalyzeWarning": "这将替换所有未接受的自动检测路段。已接受(已固定)的路段将予以保留。",
     "sectionsDetected": "路段已检测",
+    "rescanFailed": "无法完成重新扫描。部分活动轨迹无法读取。",
     "cleanupOverlapping": "清理重叠",
     "cleanupResult": "已删除 {{count}} 个重叠",
     "disconnectAndClearData": "退出登录并删除所有数据",

@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Abschnitt neu analysierä",
     "reanalyzeWarning": "Das ersetzt all nöd akzeptierti automatisch erkannti Abschnitt. Akzeptierti (aagheftet) Abschnitt bliibed erhalte.",
     "sectionsDetected": "Abschnitt erkannt",
+    "rescanFailed": "Der Suchlauf konnte nicht abgeschlossen werden. Einige Aktivitätsaufzeichnungen sind nicht lesbar.",
     "cleanupOverlapping": "Überschniidige bereinige",
     "cleanupResult": "{{count}} Überschniidige entfernt",
     "disconnectAndClearData": "Usmälde und alli Date lösche",

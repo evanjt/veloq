@@ -1603,6 +1603,7 @@
     "reanalyzeSections": "Reanalyse sections",
     "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
     "sectionsDetected": "sections detected",
+    "rescanFailed": "The rescan could not finish. Some activity tracks could not be read.",
     "cleanupOverlapping": "Clean up overlapping",
     "cleanupResult": "Removed {{count}} overlapping",
     "showSparkline": "Show Sparkline",

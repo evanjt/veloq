@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Reanalisar trechos",
     "reanalyzeWarning": "Isso substituirá todos os trechos detectados automaticamente que não foram aceitos. Trechos aceitos (fixados) serão preservados.",
     "sectionsDetected": "trechos detectados",
+    "rescanFailed": "Não foi possível concluir a nova análise. Alguns trajetos não puderam ser lidos.",
     "cleanupOverlapping": "Limpar sobreposições",
     "cleanupResult": "{{count}} sobreposições removidas",
     "disconnectAndClearData": "Sair e excluir todos os dados",
