@@ -563,8 +563,10 @@ impl PersistentRouteEngine {
                     // Sport stays with the identity, not the winning candidate:
                     // per-sport detection can hand a prior to another sport's
                     // cut of the same ground, and a single add must never flip
-                    // a visible section's sport. Pooled detection (B3) makes
-                    // sport derived and retires this carry.
+                    // a visible section's sport. Pooled detection does not
+                    // retire the carry, it re-justifies it: the label is
+                    // derived from the cut, so the carry is what freezes it
+                    // against a later batch deriving a different one.
                     row.section.sport_type = prior.sport_type.clone();
                     graft_prior_members(self, &mut row.section, &prior, proximity);
                     // An adopted carry keeps learning new traffic exactly as a
