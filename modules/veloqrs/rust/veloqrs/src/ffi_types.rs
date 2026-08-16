@@ -739,6 +739,8 @@ pub struct FfiSection {
     pub scale: Option<String>,
     pub is_user_defined: bool,
     pub stability: Option<f64>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
     pub version: Option<u32>,
     pub updated_at: Option<String>,
     pub created_at: String,
@@ -772,6 +774,8 @@ impl From<crate::sections::Section> for FfiSection {
             scale: s.scale,
             is_user_defined: s.is_user_defined,
             stability: s.stability,
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
             version: s.version,
             updated_at: s.updated_at,
             created_at: s.created_at,
@@ -2129,6 +2133,8 @@ mod tests {
             scale: Some("medium".to_string()),
             is_user_defined: true,
             stability: Some(0.85),
+            elevation_gain_m: Some(120.5),
+            avg_grade_percent: Some(4.2),
             version: Some(3),
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
@@ -2164,6 +2170,8 @@ mod tests {
         assert_eq!(ffi.scale, Some("medium".to_string()));
         assert!(ffi.is_user_defined);
         assert_eq!(ffi.stability, Some(0.85));
+        assert_eq!(ffi.elevation_gain_m, Some(120.5));
+        assert_eq!(ffi.avg_grade_percent, Some(4.2));
         assert_eq!(ffi.version, Some(3));
         assert_eq!(ffi.updated_at, Some("2024-06-01T00:00:00Z".to_string()));
         assert_eq!(ffi.created_at, "2024-01-01T00:00:00Z");

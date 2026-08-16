@@ -22,3 +22,8 @@ export { SportTypeSelector } from './SportTypeSelector';
 export { RouteDetailChart } from './RouteDetailChart';
 export { RouteDetailDebugPanel } from './RouteDetailDebugPanel';
 export { styles as routeDetailScreenStyles, MAP_HEIGHT } from './RouteDetailScreen.styles';
+export { PreviewCentrePicker } from './preview/PreviewCentrePicker';
+export { PreviewParamPanel } from './preview/PreviewParamPanel';
+export { PreviewMapView } from './preview/PreviewMapView';
+export { PreviewDiffStrip } from './preview/PreviewDiffStrip';
+export { PreviewSectionPopover } from './preview/PreviewSectionPopover';

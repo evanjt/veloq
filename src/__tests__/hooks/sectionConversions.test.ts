@@ -62,13 +62,43 @@ jest.mock('veloqrs', () => ({
     }
 
     const count = readVarint();
-    const points: { latitude: number; longitude: number }[] = [];
+    const points: { latitude: number; longitude: number; elevation?: number }[] = [];
     let lat = 0;
     let lng = 0;
     for (let i = 0; i < count; i++) {
+      if (pos >= bytes.length) break;
       lat += readZigzag();
       lng += readZigzag();
       points.push({ latitude: lat / SCALE, longitude: lng / SCALE });
+    }
+
+    // Optional trailing elevation section: 0xE1 tag, mode byte (bit 0 =
+    // presence bitmap, bit 1 = exact f64 LE), then per-point payloads.
+    if (pos >= bytes.length || bytes[pos] !== 0xe1) return points;
+    pos++;
+    if (pos >= bytes.length) return points;
+    const mode = bytes[pos++];
+    const exact = (mode & 0b10) !== 0;
+    let bitmap: Uint8Array | null = null;
+    if ((mode & 0b01) !== 0) {
+      const len = Math.ceil(points.length / 8);
+      if (bytes.length < pos + len) return points;
+      bitmap = bytes.subarray(pos, pos + len);
+      pos += len;
+    }
+    const view = new DataView(buf);
+    let prev = 0;
+    for (let i = 0; i < points.length; i++) {
+      if (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) === 0) continue;
+      if (exact) {
+        if (bytes.length < pos + 8) return points;
+        points[i].elevation = view.getFloat64(pos, true);
+        pos += 8;
+      } else {
+        if (pos >= bytes.length) return points;
+        prev += readZigzag();
+        points[i].elevation = prev / 10;
+      }
     }
     return points;
   },
@@ -241,5 +271,25 @@ describe('convertNativeSectionToApp', () => {
     expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
     expect(result.polyline[1]).toEqual({ lat: 3.0, lng: 4.0 });
     expect(result.polyline[2]).toEqual({ lat: 5.0, lng: 6.0 });
+  });
+
+  it('decodes a polyline carrying the trailing elevation section unchanged', () => {
+    const base = new Uint8Array(
+      encodeCoords([
+        { latitude: 1.0, longitude: 2.0 },
+        { latitude: 3.0, longitude: 4.0 },
+      ])
+    );
+    const suffix = [0xe1, 0x00, 0xd0, 0x0f, 0x0a];
+    const withElevation = new Uint8Array(base.length + suffix.length);
+    withElevation.set(base);
+    withElevation.set(suffix, base.length);
+
+    const native = makeNativeFrequentSection({ encodedPolyline: withElevation.buffer });
+    const result = convertNativeSectionToApp(native as any);
+
+    expect(result.polyline).toHaveLength(2);
+    expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
+    expect(result.polyline[1]).toEqual({ lat: 3.0, lng: 4.0 });
   });
 });

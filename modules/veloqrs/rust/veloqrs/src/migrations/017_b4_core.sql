@@ -186,3 +186,45 @@ CREATE TABLE IF NOT EXISTS section_pins (
     version INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Cutover archive: a snapshot of the auto catalogue taken before the one-time
+-- Corridor-to-Unified migration. The rows are the revert substrate: if the
+-- user rolls back, these are restored as is_user_defined = 1 (pinned) sections,
+-- which survive every later detect by construction. One archive per token, so
+-- a re-run of the same cutover replaces its own prior snapshot. No FK to
+-- sections: these rows outlive the wipe.
+CREATE TABLE IF NOT EXISTS section_catalogue_archive (
+    token TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    name TEXT,
+    sport_type TEXT NOT NULL,
+    polyline_blob BLOB,
+    polyline_json TEXT,
+    distance_meters REAL NOT NULL DEFAULT 0,
+    visit_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT,
+    bounds_min_lat REAL,
+    bounds_max_lat REAL,
+    bounds_min_lng REAL,
+    bounds_max_lng REAL,
+    PRIMARY KEY (token, section_id)
+);
+
+-- The members of each archived section. A section restored without these is a
+-- geometry with no traversals: the card reads a visit count off the row while
+-- the detail screen lists nothing, and every lap time is gone. The wipe
+-- cascades section_activities away, so they have to be archived to come back.
+CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
+    token TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    direction TEXT NOT NULL DEFAULT 'same',
+    start_index INTEGER NOT NULL DEFAULT 0,
+    end_index INTEGER NOT NULL DEFAULT 0,
+    distance_meters REAL NOT NULL DEFAULT 0,
+    lap_time REAL,
+    lap_pace REAL,
+    excluded INTEGER NOT NULL DEFAULT 0,
+    avg_hr REAL,
+    PRIMARY KEY (token, section_id, activity_id, start_index)
+);

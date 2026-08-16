@@ -22,7 +22,62 @@ use crate::objects::detection::{DetectionPoll, poll_detection_once};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::with_persistent_engine;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+
+// ============================================================================
+// Detection suspension
+// ============================================================================
+
+/// Live [`DetectionSuspendGuard`] count. Above zero, no detection run may
+/// start on any arm.
+///
+/// A partly elevated library is worse than a uniformly flat one: a candidate
+/// lift span survives when its own track carries no elevation, but a rescuing
+/// track without elevation cannot rescue it. Mid-backfill a real climb is
+/// therefore vetoed, the spurious section is written, and it takes a durable
+/// ledger id that outlives the backfill. Detection has to be all-or-nothing
+/// against a backfill, and this counter is how.
+///
+/// Never persisted, and deliberately so. A process that dies mid-backfill
+/// comes back with detection enabled; the backfill's own `elevation_state`
+/// provenance is what lets it resume, so nothing is lost by forgetting the
+/// suspension. The opposite failure, a suspension that survives a restart,
+/// means the user's sections never update again.
+static DETECTION_SUSPENSIONS: AtomicUsize = AtomicUsize::new(0);
+
+/// True while any [`DetectionSuspendGuard`] is alive.
+pub fn detection_suspended() -> bool {
+    DETECTION_SUSPENSIONS.load(Ordering::SeqCst) > 0
+}
+
+/// Holds detection suspended for as long as it lives.
+///
+/// Release is structural: the count falls on drop, so an early return, a `?`
+/// or a panic on the backfill path cannot leave detection wedged.
+#[must_use = "detection resumes the moment the guard is dropped"]
+#[derive(Debug)]
+pub struct DetectionSuspendGuard {
+    _private: (),
+}
+
+impl Drop for DetectionSuspendGuard {
+    fn drop(&mut self) {
+        // Saturating: an underflow would wrap to a huge count and suspend
+        // detection for the rest of the process.
+        let _ = DETECTION_SUSPENSIONS.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+            Some(n.saturating_sub(1))
+        });
+    }
+}
+
+/// Suspend detection until the returned guard is dropped. Guards nest: two
+/// overlapping backfills both have to finish before detection resumes.
+pub fn suspend_detection() -> DetectionSuspendGuard {
+    DETECTION_SUSPENSIONS.fetch_add(1, Ordering::SeqCst);
+    log::info!("tracematch: [conditioning] detection suspended");
+    DetectionSuspendGuard { _private: () }
+}
 
 /// Stored activities between conditioning runs during a backfill. One run
 /// costs roughly a pool load plus the touched clusters, so every 50 adds
@@ -80,6 +135,11 @@ pub fn note_stored(n: u32) {
 /// still unprocessed, so they simply count toward the next batch or the
 /// sync-end detect.
 pub fn maybe_condition_backfill() -> bool {
+    if detection_suspended() {
+        // Leave the counter standing: the adds are still unprocessed, so the
+        // first batch after release covers them.
+        return false;
+    }
     let due = CONDITIONER
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -91,6 +151,9 @@ pub fn maybe_condition_backfill() -> bool {
 }
 
 fn try_start_conditioning() -> bool {
+    if detection_suspended() {
+        return false;
+    }
     {
         let guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -168,6 +231,14 @@ fn spawn_conditioning_driver() {
 mod tests {
     use super::*;
 
+    /// Suspension and the cadence counter are process-wide, so the tests that
+    /// touch them run one at a time.
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn serial() -> std::sync::MutexGuard<'static, ()> {
+        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn batch_fires_at_threshold_and_resets() {
         let mut c = Conditioner::new();
@@ -186,6 +257,82 @@ mod tests {
         c.note_stored(CONDITIONING_BATCH_ADDS + 3);
         assert!(c.take_batch(), "a full batch accumulated mid-run fires");
         assert!(!c.take_batch());
+    }
+
+    /// Expected behaviour: a process that has never suspended detects. A
+    /// suspension is process-lifetime only, so a fresh process starts here.
+    #[test]
+    fn a_fresh_process_is_not_suspended() {
+        let _serial = serial();
+        assert!(!detection_suspended());
+    }
+
+    #[test]
+    fn the_guard_releases_on_drop() {
+        let _serial = serial();
+        {
+            let _guard = suspend_detection();
+            assert!(detection_suspended());
+        }
+        assert!(!detection_suspended());
+    }
+
+    /// Expected behaviour: an early return out of a suspended scope still
+    /// releases, because release is the guard's drop and not a matched call.
+    #[test]
+    fn the_guard_releases_on_an_early_return() {
+        let _serial = serial();
+        fn bails_out() -> Option<()> {
+            let _guard = suspend_detection();
+            assert!(detection_suspended());
+            None?;
+            unreachable!()
+        }
+        assert!(bails_out().is_none());
+        assert!(!detection_suspended());
+    }
+
+    #[test]
+    fn the_guard_releases_on_a_panic() {
+        let _serial = serial();
+        let outcome = std::panic::catch_unwind(|| {
+            let _guard = suspend_detection();
+            panic!("backfill blew up");
+        });
+        assert!(outcome.is_err());
+        assert!(!detection_suspended());
+    }
+
+    #[test]
+    fn nested_guards_hold_until_the_last_one_drops() {
+        let _serial = serial();
+        let outer = suspend_detection();
+        let inner = suspend_detection();
+        drop(inner);
+        assert!(detection_suspended(), "the outer guard still holds");
+        drop(outer);
+        assert!(!detection_suspended());
+    }
+
+    /// The conditioning arm: a due batch is refused while suspended, and the
+    /// adds it was going to cover still fire once detection resumes.
+    #[test]
+    fn conditioning_refuses_while_suspended() {
+        let _serial = serial();
+        let guard = suspend_detection();
+        note_stored(CONDITIONING_BATCH_ADDS);
+        assert!(
+            !maybe_condition_backfill(),
+            "suspended must not start a run"
+        );
+        drop(guard);
+        assert!(
+            CONDITIONER
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take_batch(),
+            "the refused batch is still pending after release"
+        );
     }
 
     #[test]

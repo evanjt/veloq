@@ -6,7 +6,22 @@
  * Only the value exports need a body. Types are erased before Jest sees them.
  */
 
-export const decodeCoords = jest.fn(() => [] as Array<{ lat: number; lng: number }>);
+export const decodeCoords = jest.fn(
+  () => [] as Array<{ latitude: number; longitude: number; elevation?: number }>
+);
+
+/** Fresh jest.fn PreviewClient, one per test, defaulting to an idle engine. */
+export const createPreviewClientStub = () => ({
+  getPreviewCentres: jest.fn(() => []),
+  startPreviewDetect: jest.fn(() => false),
+  pollPreviewDetect: jest.fn(() => 'idle'),
+  getPreviewProgress: jest.fn(() => null),
+  takePreviewResult: jest.fn(() => null),
+  cancelPreviewDetect: jest.fn(),
+  getSectionConfig: jest.fn(() => null),
+  setSectionConfig: jest.fn(),
+  forceRedetectSections: jest.fn(() => false),
+});
 export const startFetchAndStore = jest.fn();
 export const takeFetchAndStoreResult = jest.fn(() => null);
 export const getDownloadProgress = jest.fn(() => null);

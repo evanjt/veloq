@@ -409,3 +409,117 @@ mod tests {
         assert!(ratio > 3.0, "compression ratio {} should be > 3x", ratio);
     }
 }
+
+/// Byte-literal vectors shared with the TS decoder suite
+/// (src/__tests__/bindings/coordsElevationDecode.test.ts). Both suites assert
+/// the same bytes verbatim, pinning the wire format on both sides.
+#[cfg(test)]
+mod shared_vectors {
+    use super::*;
+
+    /// 2 points, (1e-7, 2e-7) and (3e-7, 4e-7).
+    const PREFIX: [u8; 5] = [0x02, 0x02, 0x04, 0x04, 0x04];
+
+    fn point(lat: f64, lng: f64, ele: Option<f64>) -> crate::GpsPoint {
+        crate::GpsPoint {
+            latitude: lat,
+            longitude: lng,
+            elevation: ele,
+        }
+    }
+
+    fn points(e0: Option<f64>, e1: Option<f64>) -> Vec<crate::GpsPoint> {
+        vec![point(1e-7, 2e-7, e0), point(3e-7, 4e-7, e1)]
+    }
+
+    fn with_suffix(suffix: &[u8]) -> Vec<u8> {
+        let mut buf = PREFIX.to_vec();
+        buf.extend_from_slice(suffix);
+        buf
+    }
+
+    fn assert_coords_intact(decoded: &[crate::GpsPoint]) {
+        assert_eq!(decoded.len(), 2);
+        assert!((decoded[0].latitude - 1e-7).abs() < 1e-12);
+        assert!((decoded[0].longitude - 2e-7).abs() < 1e-12);
+        assert!((decoded[1].latitude - 3e-7).abs() < 1e-12);
+        assert!((decoded[1].longitude - 4e-7).abs() < 1e-12);
+    }
+
+    fn elevations(decoded: &[crate::GpsPoint]) -> Vec<Option<f64>> {
+        decoded.iter().map(|p| p.elevation).collect()
+    }
+
+    #[test]
+    fn v1_all_present_quantised() {
+        let buf = with_suffix(&[0xE1, 0x00, 0xD0, 0x0F, 0x0A]);
+        assert_eq!(encode(&points(Some(100.0), Some(100.5))), buf);
+        let decoded = decode(&buf);
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![Some(100.0), Some(100.5)]);
+    }
+
+    #[test]
+    fn v2_bitmap_quantised() {
+        let buf = with_suffix(&[0xE1, 0x01, 0x01, 0xD0, 0x0F]);
+        assert_eq!(encode(&points(Some(100.0), None)), buf);
+        let decoded = decode(&buf);
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![Some(100.0), None]);
+    }
+
+    #[test]
+    fn v3_all_present_exact() {
+        let buf = with_suffix(&[
+            0xE1, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x59, 0x40, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0xF8, 0xBF,
+        ]);
+        assert_eq!(encode(&points(Some(100.25), Some(-1.5))), buf);
+        let decoded = decode(&buf);
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![Some(100.25), Some(-1.5)]);
+    }
+
+    #[test]
+    fn v4_bitmap_exact() {
+        let buf = with_suffix(&[
+            0xE1, 0x03, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x59, 0x40,
+        ]);
+        assert_eq!(encode(&points(None, Some(100.25))), buf);
+        let decoded = decode(&buf);
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![None, Some(100.25)]);
+    }
+
+    #[test]
+    fn v5_truncated_after_mode_byte() {
+        let decoded = decode(&with_suffix(&[0xE1, 0x00]));
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![None, None]);
+    }
+
+    /// Pins read_varint partial-value semantics: a lone continuation byte
+    /// yields its payload bits, so the first elevation still decodes.
+    #[test]
+    fn v6_truncated_mid_varint() {
+        let decoded = decode(&with_suffix(&[0xE1, 0x00, 0xD0]));
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![Some(4.0), None]);
+    }
+
+    #[test]
+    fn v7_prefix_alone() {
+        let decoded = decode(&PREFIX);
+        assert_coords_intact(&decoded);
+        assert_eq!(elevations(&decoded), vec![None, None]);
+    }
+
+    #[test]
+    fn every_prefix_cut_of_v1_decodes_without_panic() {
+        let full = with_suffix(&[0xE1, 0x00, 0xD0, 0x0F, 0x0A]);
+        for cut in 0..full.len() {
+            let decoded = decode(&full[..cut]);
+            assert!(decoded.len() <= 2);
+        }
+    }
+}

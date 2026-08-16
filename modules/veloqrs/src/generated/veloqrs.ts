@@ -109,6 +109,21 @@ export function detectSectionsStandalone(
   );
 }
 /**
+ * The stored cutover diff payload, if any.
+ */
+export function getCutoverDiff(): string | undefined {
+  return FfiConverterOptionalString.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get current download progress for FFI polling.
  *
  * TypeScript should poll this every 100ms during fetch operations
@@ -122,6 +137,126 @@ export function getDownloadProgress(): DownloadProgressResult {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_download_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Read the elevation backfill's progress. Safe to poll at any time.
+ */
+export function getElevationBackfillProgress(): ElevationBackfillProgress {
+  return FfiConverterTypeElevationBackfillProgress.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * How many stored tracks the backfill still has to ask upstream about.
+ * Zero means the library has been fully asked, so the launch trigger can
+ * stop attempting runs for this install.
+ */
+export function getElevationBackfillRemaining(): /*u32*/ number {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Whether the Corridor-to-Unified cutover is pending.
+ */
+export function isCutoverPending(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Whether a cutover run is currently in flight.
+ */
+export function isCutoverRunning(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Restore the archived catalogue and switch back to Corridor. Returns the
+ * number of sections restored, which is legitimately zero for a user whose
+ * catalogue was entirely pinned. A real failure is an error, not a zero, so
+ * the caller can tell "nothing to put back" from "putting it back failed".
+ */
+export function restoreFromCutoverArchive(): /*u32*/ number /*throws*/ {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_restore_from_cutover_archive(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Run the cutover in the calling thread. Returns the diff JSON on
+ * success. Shaped for a background worker.
+ */
+export function runDetectorCutover(): string /*throws*/ {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_run_detector_cutover(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Start the elevation backfill on a background thread.
+ *
+ * Returns false when nothing is outstanding, when a run is already in flight,
+ * or when no credential is set yet, so it is safe to call on every launch.
+ */
+export function startElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
           callStatus,
         );
       },
@@ -428,6 +563,91 @@ const FfiConverterTypeDownloadProgressResult = (() => {
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterBool.allocationSize(value.active)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Progress of the one-shot elevation backfill.
+ *
+ * `phase` is the terminal signal as well as the live one: "complete" when
+ * nothing is outstanding, "partial" when the pass finished but activities
+ * remain for a later run, "failed" when it could not proceed at all.
+ *
+ * The single re-cut that follows a conversion runs detached and reports
+ * through `DetectionManager::get_progress`, so this record covers the download
+ * alone rather than duplicating a second detection progress surface.
+ */
+export type ElevationBackfillProgress = {
+  /**
+   * idle, fetching, complete, partial or failed.
+   */
+  phase: string;
+  /**
+   * Activities this run has finished with.
+   */
+  completed: /*u32*/ number;
+  /**
+   * Activities the run started with.
+   */
+  total: /*u32*/ number;
+  /**
+   * Activities whose fetch failed, so a later run retries them.
+   */
+  failed: /*u32*/ number;
+  /**
+   * Whole percent of the queue handled. An empty queue reads 100.
+   */
+  percent: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link ElevationBackfillProgress} record objects.
+ */
+export const ElevationBackfillProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      ElevationBackfillProgress,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<ElevationBackfillProgress>,
+  });
+})();
+
+const FfiConverterTypeElevationBackfillProgress = (() => {
+  type TypeName = ElevationBackfillProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        phase: FfiConverterString.read(from),
+        completed: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        failed: FfiConverterUInt32.read(from),
+        percent: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.phase, into);
+      FfiConverterUInt32.write(value.completed, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.failed, into);
+      FfiConverterUInt32.write(value.percent, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.phase) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.failed) +
+        FfiConverterUInt32.allocationSize(value.percent)
       );
     }
   }
@@ -4678,6 +4898,82 @@ const FfiConverterTypeFfiPotentialSection = (() => {
 })();
 
 /**
+ * A ranked riding area: one occupied ~5 km bin of the user's library.
+ */
+export type FfiPreviewCentre = {
+  /**
+   * "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
+   */
+  binKey: string;
+  lat: /*f64*/ number;
+  lng: /*f64*/ number;
+  /**
+   * Sum of section visit counts in the bin, or activity count on fallback.
+   */
+  visitTotal: /*u32*/ number;
+  /**
+   * 0 on the activities fallback.
+   */
+  sectionCount: /*u32*/ number;
+  /**
+   * "sections" | "activities"
+   */
+  source: string;
+};
+
+/**
+ * Generated factory for {@link FfiPreviewCentre} record objects.
+ */
+export const FfiPreviewCentre = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPreviewCentre, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPreviewCentre>,
+  });
+})();
+
+const FfiConverterTypeFfiPreviewCentre = (() => {
+  type TypeName = FfiPreviewCentre;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        binKey: FfiConverterString.read(from),
+        lat: FfiConverterFloat64.read(from),
+        lng: FfiConverterFloat64.read(from),
+        visitTotal: FfiConverterUInt32.read(from),
+        sectionCount: FfiConverterUInt32.read(from),
+        source: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.binKey, into);
+      FfiConverterFloat64.write(value.lat, into);
+      FfiConverterFloat64.write(value.lng, into);
+      FfiConverterUInt32.write(value.visitTotal, into);
+      FfiConverterUInt32.write(value.sectionCount, into);
+      FfiConverterString.write(value.source, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.binKey) +
+        FfiConverterFloat64.allocationSize(value.lat) +
+        FfiConverterFloat64.allocationSize(value.lng) +
+        FfiConverterUInt32.allocationSize(value.visitTotal) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterString.allocationSize(value.source)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * GPS track for a single activity (for feed map previews).
  */
 export type FfiPreviewTrack = {
@@ -5599,6 +5895,8 @@ export type FfiSection = {
   scale?: string;
   isUserDefined: boolean;
   stability?: /*f64*/ number;
+  elevationGainM?: /*f64*/ number;
+  avgGradePercent?: /*f64*/ number;
   version?: /*u32*/ number;
   updatedAt?: string;
   createdAt: string;
@@ -5648,6 +5946,8 @@ const FfiConverterTypeFfiSection = (() => {
         scale: FfiConverterOptionalString.read(from),
         isUserDefined: FfiConverterBool.read(from),
         stability: FfiConverterOptionalFloat64.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
         version: FfiConverterOptionalUInt32.read(from),
         updatedAt: FfiConverterOptionalString.read(from),
         createdAt: FfiConverterString.read(from),
@@ -5676,6 +5976,8 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterOptionalFloat64.write(value.stability, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterOptionalUInt32.write(value.version, into);
       FfiConverterOptionalString.write(value.updatedAt, into);
       FfiConverterString.write(value.createdAt, into);
@@ -5706,6 +6008,8 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterOptionalFloat64.allocationSize(value.stability) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterOptionalUInt32.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.updatedAt) +
         FfiConverterString.allocationSize(value.createdAt) +
@@ -8409,6 +8713,14 @@ export type SectionSummary = {
    */
   bounds?: FfiBounds;
   /**
+   * Elevation gain (m) over the representative slice; None when unknown
+   */
+  elevationGainM?: /*f64*/ number;
+  /**
+   * Net grade (%) over the representative slice; None when unknown
+   */
+  avgGradePercent?: /*f64*/ number;
+  /**
    * ISO timestamp when section was created
    */
   createdAt: string;
@@ -8463,6 +8775,8 @@ const FfiConverterTypeSectionSummary = (() => {
         confidence: FfiConverterFloat64.read(from),
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
         isUserDefined: FfiConverterBool.read(from),
@@ -8482,6 +8796,8 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterFloat64.write(value.confidence, into);
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
       FfiConverterBool.write(value.isUserDefined, into);
@@ -8503,6 +8819,8 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
@@ -13495,6 +13813,284 @@ const FfiConverterTypeSectionManager = new FfiConverterObject(
   uniffiTypeSectionManagerObjectFactory,
 );
 
+export interface SectionPreviewLike {
+  /**
+   * Cooperative: aborts within one load chunk; once inside the detect the
+   * run completes and is discarded.
+   */
+  cancel() /*throws*/ : void;
+  /**
+   * Ranked riding areas. Sections substrate (bounds cache + visit_count)
+   * when any auto section carries bounds, activity-bbox bins otherwise
+   * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
+   */
+  centres(limit: /*u32*/ number) /*throws*/ : Array<FfiPreviewCentre>;
+  getProgress() /*throws*/ : FfiDetectionProgress | undefined;
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll() /*throws*/ : string;
+  /**
+   * Resolve the whole geo component containing (lat, lng) and start the
+   * pure preview detect over it. Only the five exposed fields of `config`
+   * overlay the engine's live config. Returns false when a preview or real
+   * detect is running, detection is suspended for a backfill, or no
+   * activity covers the point.
+   */
+  start(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+    config: FfiSectionConfig,
+  ) /*throws*/ : boolean;
+  /**
+   * The one JSON payload, once. None while running or after taken.
+   */
+  takeResult() /*throws*/ : string | undefined;
+}
+/**
+ * @deprecated Use `SectionPreviewLike` instead.
+ */
+export type SectionPreviewInterface = SectionPreviewLike;
+
+export class SectionPreview
+  extends UniffiAbstractObject
+  implements SectionPreviewLike
+{
+  readonly [uniffiTypeNameSymbol] = "SectionPreview";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeSectionPreviewObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Cooperative: aborts within one load chunk; once inside the detect the
+   * run completes and is discarded.
+   */
+  cancel(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
+          uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Ranked riding areas. Sections substrate (bounds cache + visit_count)
+   * when any auto section carries bounds, activity-bbox bins otherwise
+   * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
+   */
+  centres(limit: /*u32*/ number): Array<FfiPreviewCentre> /*throws*/ {
+    return FfiConverterArrayTypeFfiPreviewCentre.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(limit),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getProgress(): FfiDetectionProgress | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiDetectionProgress.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Resolve the whole geo component containing (lat, lng) and start the
+   * pure preview detect over it. Only the five exposed fields of `config`
+   * overlay the engine's live config. Returns false when a preview or real
+   * detect is running, detection is suspended for a backfill, or no
+   * activity covers the point.
+   */
+  start(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+    config: FfiSectionConfig,
+  ): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_start(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(lat),
+            FfiConverterFloat64.lower(lng),
+            FfiConverterTypeFfiSectionConfig.lower(config),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The one JSON payload, once. None while running or after taken.
+   */
+  takeResult(): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeSectionPreviewObjectFactory.pointer(this);
+      uniffiTypeSectionPreviewObjectFactory.freePointer(pointer);
+      uniffiTypeSectionPreviewObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is SectionPreview {
+    return uniffiTypeSectionPreviewObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeSectionPreviewObjectFactory: UniffiObjectFactory<SectionPreviewLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): SectionPreviewLike {
+        const instance = Object.create(SectionPreview.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "SectionPreview";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: SectionPreviewLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: SectionPreviewLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is SectionPreviewLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "SectionPreview"
+        );
+      },
+    };
+  })();
+// FfiConverter for SectionPreviewLike
+const FfiConverterTypeSectionPreview = new FfiConverterObject(
+  uniffiTypeSectionPreviewObjectFactory,
+);
+
 export interface SettingsManagerLike {
   /**
    * Clear the cached athlete profile and sport settings blobs without
@@ -15870,6 +16466,11 @@ const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
   FfiConverterTypeFfiPotentialSection,
 );
 
+// FfiConverter for Array<FfiPreviewCentre>
+const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
+  FfiConverterTypeFfiPreviewCentre,
+);
+
 // FfiConverter for Array<FfiPreviewTrack>
 const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
@@ -16051,11 +16652,75 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff() !==
+    21804
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_cutover_diff",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
     60736
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_download_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress() !==
+    50851
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_elevation_backfill_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
+    24524
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !==
+    63840
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_is_cutover_pending",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_running() !==
+    39788
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_is_cutover_running",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_restore_from_cutover_archive() !==
+    50147
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_restore_from_cutover_archive",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_run_detector_cutover() !==
+    53398
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_run_detector_cutover",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
+    54941
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_start_elevation_backfill",
     );
   }
   if (
@@ -16752,6 +17417,54 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_query_viewport",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel() !==
+    25120
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres() !==
+    22879
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_centres",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
+    62565
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_get_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
+    23284
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start() !==
+    55443
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_start",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result() !==
+    25527
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_take_result",
     );
   }
   if (
@@ -17843,6 +18556,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new() !==
+    51441
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_sectionpreview_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new() !==
     38739
   ) {
@@ -17901,6 +18622,7 @@ export default Object.freeze({
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
+    FfiConverterTypeElevationBackfillProgress,
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,
@@ -17956,6 +18678,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
+    FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
@@ -18007,6 +18730,7 @@ export default Object.freeze({
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRouteManager,
     FfiConverterTypeSectionManager,
+    FfiConverterTypeSectionPreview,
     FfiConverterTypeSectionSummary,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,

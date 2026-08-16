@@ -127,7 +127,9 @@ impl PersistentRouteEngine {
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
+        Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
+        Self::ensure_catalogue_archive(conn);
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -278,6 +280,21 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Add the nullable elevation pair to `sections`. NULL means the row
+    /// predates elevation metadata; the next detect's wipe-and-reinsert
+    /// fills auto rows lazily. Keyed on column presence because
+    /// `ALTER TABLE ADD COLUMN` is not idempotent and 017 reruns.
+    fn ensure_section_elevation_columns(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_gain_m FROM sections LIMIT 0")
+            .is_err()
+        {
+            conn.execute("ALTER TABLE sections ADD COLUMN elevation_gain_m REAL", [])?;
+            conn.execute("ALTER TABLE sections ADD COLUMN avg_grade_percent REAL", [])?;
+        }
+        Ok(())
+    }
+
     /// Add the `section_geometry` provenance triple. Keyed on column presence,
     /// because 017 creates the table only when absent and so cannot reach one a
     /// database already carries. Nullable throughout: a corridor-era version is
@@ -331,6 +348,49 @@ impl PersistentRouteEngine {
                 "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
             ),
             Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
+        }
+    }
+
+    /// Ensure the cutover archive tables exist. Databases that ran 017 before
+    /// these tables were added need the CREATE IF NOT EXISTS here. The DDL
+    /// must stay byte-identical to 017's, or two populations diverge.
+    fn ensure_catalogue_archive(conn: &Connection) {
+        if let Err(e) = conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS section_catalogue_archive (
+                 token TEXT NOT NULL,
+                 section_id TEXT NOT NULL,
+                 name TEXT,
+                 sport_type TEXT NOT NULL,
+                 polyline_blob BLOB,
+                 polyline_json TEXT,
+                 distance_meters REAL NOT NULL DEFAULT 0,
+                 visit_count INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT,
+                 bounds_min_lat REAL,
+                 bounds_max_lat REAL,
+                 bounds_min_lng REAL,
+                 bounds_max_lng REAL,
+                 PRIMARY KEY (token, section_id)
+             );
+             CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
+                 token TEXT NOT NULL,
+                 section_id TEXT NOT NULL,
+                 activity_id TEXT NOT NULL,
+                 direction TEXT NOT NULL DEFAULT 'same',
+                 start_index INTEGER NOT NULL DEFAULT 0,
+                 end_index INTEGER NOT NULL DEFAULT 0,
+                 distance_meters REAL NOT NULL DEFAULT 0,
+                 lap_time REAL,
+                 lap_pace REAL,
+                 excluded INTEGER NOT NULL DEFAULT 0,
+                 avg_hr REAL,
+                 PRIMARY KEY (token, section_id, activity_id, start_index)
+             )",
+        ) {
+            log::warn!(
+                "tracematch: [Migration] ensure_catalogue_archive failed: {}",
+                e
+            );
         }
     }
 

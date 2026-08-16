@@ -29,6 +29,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -195,6 +196,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // have to be in SQLite before any screen queries the engine.
             if (useAuthStore.getState().isDemoMode) {
               seedDemoEngine();
+            } else {
+              // Tracks stored before elevation was fetched need a re-fetch;
+              // the trigger keeps attempting each launch until nothing is
+              // left to ask. Runs after the credential push so Rust has
+              // something to authenticate with.
+              startElevationBackfillAfterUpdate().catch(() => {});
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();

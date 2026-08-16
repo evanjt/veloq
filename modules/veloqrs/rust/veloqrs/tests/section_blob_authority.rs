@@ -138,6 +138,8 @@ fn detection_save_writes_blob_as_authority() {
             scale: None,
             is_user_defined: false,
             stability: 1.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
             version: 1,
             updated_at: None,
             created_at: None,

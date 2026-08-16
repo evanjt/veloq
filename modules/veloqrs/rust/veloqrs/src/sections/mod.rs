@@ -64,6 +64,10 @@ pub struct Section {
 
     /// How well the reference trace aligns with the consensus polyline (0.0-1.0)
     pub stability: Option<f64>,
+    /// Elevation gain (m) over the representative slice; None when unknown
+    pub elevation_gain_m: Option<f64>,
+    /// Net grade (%) over the representative slice; None when unknown
+    pub avg_grade_percent: Option<f64>,
     /// Number of times this section has been recalibrated
     pub version: Option<u32>,
     /// ISO timestamp of last recalibration
@@ -145,6 +149,10 @@ pub struct SectionSummary {
     pub scale: Option<String>,
     /// Bounding box for map display
     pub bounds: Option<crate::FfiBounds>,
+    /// Elevation gain (m) over the representative slice; None when unknown
+    pub elevation_gain_m: Option<f64>,
+    /// Net grade (%) over the representative slice; None when unknown
+    pub avg_grade_percent: Option<f64>,
     /// ISO timestamp when section was created
     pub created_at: String,
     /// All sport types present in this section's activities

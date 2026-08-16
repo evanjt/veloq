@@ -86,6 +86,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   StrengthManager: 'strength.rs',
   HeatmapManager: 'tiles.rs',
   SyncManager: 'sync.rs',
+  SectionPreview: 'preview.rs',
 };
 
 const STANDALONE_EXPORTS = FFI_EXPORTS.filter((e) => !e.object);
@@ -96,9 +97,11 @@ describe('FFI Binding Validation', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
-      // detection). Adjust if a new standalone is added - but prefer putting
-      // engine-coupled logic on a UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(6);
+      // detection, elevation backfill start, progress and remaining, and the
+      // five detector-cutover calls). Adjust if a new
+      // standalone is added - but prefer putting engine-coupled logic on a
+      // UniFFI Object.
+      expect(STANDALONE_EXPORTS.length).toBe(14);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -109,6 +112,14 @@ describe('FFI Binding Validation', () => {
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
       expect(names.has('detect_sections_standalone')).toBe(true);
+      expect(names.has('start_elevation_backfill')).toBe(true);
+      expect(names.has('get_elevation_backfill_progress')).toBe(true);
+      expect(names.has('get_elevation_backfill_remaining')).toBe(true);
+      expect(names.has('is_cutover_pending')).toBe(true);
+      expect(names.has('is_cutover_running')).toBe(true);
+      expect(names.has('run_detector_cutover')).toBe(true);
+      expect(names.has('restore_from_cutover_archive')).toBe(true);
+      expect(names.has('get_cutover_diff')).toBe(true);
     });
 
     it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {

@@ -11,7 +11,7 @@ import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
-import { formatDistance } from '@/shared/format/format';
+import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 
@@ -118,6 +118,15 @@ export function SectionHeader({
             stats={[
               formatDistance(section.distanceMeters, isMetric),
               `${activityCount} ${t('sections.traversals')}`,
+              ...(section.elevationGainM != null && section.elevationGainM >= 10
+                ? [formatElevation(section.elevationGainM, isMetric)]
+                : []),
+              ...(section.elevationGainM != null &&
+              section.elevationGainM >= 10 &&
+              section.avgGradePercent != null &&
+              Math.abs(section.avgGradePercent) >= 1.0
+                ? [`${section.avgGradePercent.toFixed(1)}%`]
+                : []),
             ]}
           />
         </>

@@ -17,7 +17,8 @@ impl PersistentRouteEngine {
          representative_activity_id, confidence, observation_count, average_spread,
          point_density_json, scale, version, is_user_defined, stability,
          source_activity_id, start_index, end_index, created_at, updated_at,
-         disabled, superseded_by, polyline_blob, point_density_blob";
+         disabled, superseded_by, polyline_blob, point_density_blob,
+         elevation_gain_m, avg_grade_percent";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(super) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
@@ -77,6 +78,8 @@ impl PersistentRouteEngine {
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                elevation_gain_m: row.get(24)?,
+                avg_grade_percent: row.get(25)?,
                 version: row.get(12)?,
                 updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
@@ -245,7 +248,8 @@ impl PersistentRouteEngine {
         let base_cols = "id, section_type, name, sport_type, distance_meters,
                          representative_activity_id, created_at, confidence, scale,
                          bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                         is_user_defined, disabled, superseded_by, visit_count";
+                         is_user_defined, disabled, superseded_by, visit_count,
+                         elevation_gain_m, avg_grade_percent";
         let query = match (section_type, visible_only) {
             (Some(st), true) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -314,6 +318,8 @@ impl PersistentRouteEngine {
                 confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
                 scale: row.get(8)?,
                 bounds,
+                elevation_gain_m: row.get(17)?,
+                avg_grade_percent: row.get(18)?,
                 created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
                 sport_types,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
@@ -427,6 +433,8 @@ impl PersistentRouteEngine {
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                elevation_gain_m: row.get(24)?,
+                avg_grade_percent: row.get(25)?,
                 version: row.get(12)?,
                 updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
