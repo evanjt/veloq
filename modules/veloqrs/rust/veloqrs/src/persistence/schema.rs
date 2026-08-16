@@ -351,8 +351,9 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Ensure the cutover archive table exists. Databases that ran 017
-    /// before this table was added need the CREATE IF NOT EXISTS here.
+    /// Ensure the cutover archive tables exist. Databases that ran 017 before
+    /// these tables were added need the CREATE IF NOT EXISTS here. The DDL
+    /// must stay byte-identical to 017's, or two populations diverge.
     fn ensure_catalogue_archive(conn: &Connection) {
         if let Err(e) = conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS section_catalogue_archive (
@@ -365,8 +366,25 @@ impl PersistentRouteEngine {
                  distance_meters REAL NOT NULL DEFAULT 0,
                  visit_count INTEGER NOT NULL DEFAULT 0,
                  created_at TEXT,
-                 member_ids_json TEXT,
+                 bounds_min_lat REAL,
+                 bounds_max_lat REAL,
+                 bounds_min_lng REAL,
+                 bounds_max_lng REAL,
                  PRIMARY KEY (token, section_id)
+             );
+             CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
+                 token TEXT NOT NULL,
+                 section_id TEXT NOT NULL,
+                 activity_id TEXT NOT NULL,
+                 direction TEXT NOT NULL DEFAULT 'same',
+                 start_index INTEGER NOT NULL DEFAULT 0,
+                 end_index INTEGER NOT NULL DEFAULT 0,
+                 distance_meters REAL NOT NULL DEFAULT 0,
+                 lap_time REAL,
+                 lap_pace REAL,
+                 excluded INTEGER NOT NULL DEFAULT 0,
+                 avg_hr REAL,
+                 PRIMARY KEY (token, section_id, activity_id, start_index)
              )",
         ) {
             log::warn!(

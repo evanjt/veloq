@@ -31,6 +31,12 @@ const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
 /// Sentinel written on revert, so the cutover does not re-fire.
 const CUTOVER_REVERTED: &str = "reverted";
 
+/// Written before the detect and promoted to `CUTOVER_ID` only once the diff
+/// is durable. A token found in this state means a previous run died partway:
+/// the config already says Unified, so the method check cannot detect it, and
+/// without this the install would sit on a half-finished migration forever.
+const CUTOVER_INFLIGHT: &str = "unified-1-inflight";
+
 static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
 static CUTOVER_PENDING: Mutex<Option<bool>> = Mutex::new(None);
 
@@ -51,10 +57,12 @@ pub fn cutover_running() -> bool {
     CUTOVER_RUNNING.load(Ordering::SeqCst)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CutoverState {
-    /// Token absent or unrecognised: never cut over, owed now.
-    Pending,
+    /// Token absent or unrecognised: never cut over.
+    Never,
+    /// A previous run committed the switch and died before finishing.
+    InFlight,
     /// Token matches CUTOVER_ID: already done.
     Done,
     /// Token is the reverted sentinel: user rolled back.
@@ -66,11 +74,13 @@ impl PersistentRouteEngine {
     /// process-global pending flag. Nothing slow, nothing fallible beyond
     /// a missing settings table (which returns None).
     pub(super) fn check_cutover_state(&self) {
-        let state = self.cutover_state_from_db();
-        let pending = matches!(state, CutoverState::Pending);
-        *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(pending);
-        if pending {
-            info!("tracematch: [cutover] Cutover to Unified is pending");
+        // Recomputed per engine, not accumulated: an engine re-initialised
+        // onto another database file (a restore, a quarantine) must not
+        // inherit the previous file's answer.
+        let owed = self.cutover_is_owed();
+        *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(owed);
+        if owed {
+            info!("tracematch: [cutover] Cutover to Unified is owed");
         }
     }
 
@@ -78,17 +88,43 @@ impl PersistentRouteEngine {
         match self.get_setting(CUTOVER_KEY) {
             Ok(Some(ref v)) if v == CUTOVER_ID => CutoverState::Done,
             Ok(Some(ref v)) if v == CUTOVER_REVERTED => CutoverState::Reverted,
-            _ => CutoverState::Pending,
+            Ok(Some(ref v)) if v == CUTOVER_INFLIGHT => CutoverState::InFlight,
+            _ => CutoverState::Never,
         }
     }
 
-    /// True when the cutover token is absent or unrecognised AND the live
-    /// config is still on Corridor. A user who has already manually selected
-    /// Unified does not need the migration.
+    /// Whether the migration still has work to do.
+    ///
+    /// An in-flight token is always owed: its config already reads Unified, so
+    /// the method check below would wave it through as finished when in fact
+    /// it died mid-run. A never-seen token is owed only while the live config
+    /// is still Corridor, so a user who chose Unified by hand is left alone.
     pub fn cutover_is_owed(&self) -> bool {
-        matches!(self.cutover_state_from_db(), CutoverState::Pending)
-            && self.section_config.detection_method != DetectionMethod::Unified
+        match self.cutover_state_from_db() {
+            CutoverState::InFlight => true,
+            CutoverState::Never => self.section_config.detection_method != DetectionMethod::Unified,
+            CutoverState::Done | CutoverState::Reverted => false,
+        }
     }
+}
+
+/// (min_lat, max_lat, min_lng, max_lng) over a polyline. None on an empty one,
+/// which leaves the columns NULL exactly as an undrawable section has them.
+fn bounds_of(points: &[tracematch::GpsPoint]) -> Option<(f64, f64, f64, f64)> {
+    let first = points.first()?;
+    let mut bounds = (
+        first.latitude,
+        first.latitude,
+        first.longitude,
+        first.longitude,
+    );
+    for p in points.iter().skip(1) {
+        bounds.0 = bounds.0.min(p.latitude);
+        bounds.1 = bounds.1.max(p.latitude);
+        bounds.2 = bounds.2.min(p.longitude);
+        bounds.3 = bounds.3.max(p.longitude);
+    }
+    Some(bounds)
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -96,14 +132,25 @@ impl PersistentRouteEngine {
 // ───────────────────────────────────────────────────────────────────
 
 impl PersistentRouteEngine {
-    /// Step 1: snapshot every auto section about to be wiped into the
-    /// archive table. The same predicate as `write_catalogue`'s DELETE.
+    /// Step 1: snapshot every auto section about to be wiped, and its
+    /// members. The row predicate is `write_catalogue`'s DELETE predicate:
+    /// exactly the rows the coming detect destroys, no more.
+    ///
+    /// Members ride along because the wipe cascades `section_activities`
+    /// away. Bounds ride along because the restore needs them: the accepted
+    /// dedup in `write_catalogue` keys on `bounds_min_lat IS NOT NULL`, and
+    /// that dedup is the mechanism that stops a restored catalogue being
+    /// re-detected alongside itself.
     fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Wipe any prior archive for the same cutover.
+        // A re-run replaces its own snapshot rather than appending to it.
         tx.execute(
             "DELETE FROM section_catalogue_archive WHERE token = ?",
+            params![CUTOVER_ID],
+        )?;
+        tx.execute(
+            "DELETE FROM section_catalogue_archive_members WHERE token = ?",
             params![CUTOVER_ID],
         )?;
 
@@ -111,12 +158,10 @@ impl PersistentRouteEngine {
             "INSERT INTO section_catalogue_archive
                  (token, section_id, name, sport_type, polyline_blob,
                   polyline_json, distance_meters, visit_count, created_at,
-                  member_ids_json)
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
              SELECT ?, id, name, sport_type, polyline_blob,
                     polyline_json, distance_meters, visit_count, created_at,
-                    (SELECT json_group_array(DISTINCT activity_id)
-                     FROM section_activities
-                     WHERE section_id = sections.id AND excluded = 0)
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
              FROM sections
              WHERE section_type = 'auto'
                AND original_polyline_json IS NULL
@@ -125,10 +170,29 @@ impl PersistentRouteEngine {
             params![CUTOVER_ID],
         )?;
 
+        // Every portion, excluded ones included: an exclusion is a user
+        // decision and restoring without it would silently re-admit a
+        // traversal the user threw out.
+        let members = tx.execute(
+            "INSERT INTO section_catalogue_archive_members
+                 (token, section_id, activity_id, direction, start_index,
+                  end_index, distance_meters, lap_time, lap_pace, excluded, avg_hr)
+             SELECT ?, sa.section_id, sa.activity_id, sa.direction, sa.start_index,
+                    sa.end_index, sa.distance_meters, sa.lap_time, sa.lap_pace,
+                    sa.excluded, sa.avg_hr
+             FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE s.section_type = 'auto'
+               AND s.original_polyline_json IS NULL
+               AND s.is_user_defined = 0
+               AND s.disabled = 0",
+            params![CUTOVER_ID],
+        )?;
+
         tx.commit()?;
         info!(
-            "tracematch: [cutover] Archived {} auto sections under token '{}'",
-            count, CUTOVER_ID
+            "tracematch: [cutover] Archived {} auto sections and {} members under token '{}'",
+            count, members, CUTOVER_ID
         );
         Ok(count as u32)
     }
@@ -158,17 +222,36 @@ impl PersistentRouteEngine {
                 config.detection_method.as_str()
             ],
         )?;
+        // In-flight, not done: the detect and the diff have not happened yet.
+        // Promoted by `finish_cutover` once the diff is durable.
         tx.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            params![CUTOVER_KEY, CUTOVER_INFLIGHT],
+        )?;
+        // Cleared inside the switch, so a crash before the detect cannot leave
+        // a full processed set that would short-circuit the next detect into
+        // re-emitting the Corridor catalogue under a Unified label.
+        tx.execute("DELETE FROM processed_activities", [])?;
+        tx.commit()?;
+
+        self.processed_activity_ids.clear();
+        // The processed set and the evidence cache are two shadows of the same
+        // state, so they clear in lockstep and the detect below cold-rebatches
+        // under the new detector.
+        self.invalidate_evidence_cache();
+        self.section_config = config;
+        info!("tracematch: [cutover] Committed switch to Unified, token in flight");
+        Ok(())
+    }
+
+    /// Promote the in-flight token once the diff is stored. Until this runs,
+    /// the cutover is owed and re-runs from the top on the next launch.
+    fn finish_cutover(&self) -> rusqlite::Result<()> {
+        self.db.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![CUTOVER_KEY, CUTOVER_ID],
         )?;
-        tx.commit()?;
-
-        self.section_config = config;
-        info!(
-            "tracematch: [cutover] Committed switch to Unified, token '{}'",
-            CUTOVER_ID
-        );
+        info!("tracematch: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
 
@@ -261,35 +344,51 @@ impl PersistentRouteEngine {
     /// the cutover does not re-fire.
     pub fn restore_from_archive(&mut self) -> rusqlite::Result<u32> {
         let archived = self.load_archived_sections(CUTOVER_ID)?;
-        if archived.is_empty() {
-            return Ok(0);
-        }
 
         let tx = self.db.unchecked_transaction()?;
 
-        // An id the Unified detect reused through identity carry already sits
-        // in the table. UPDATE rather than re-insert: the row keeps its
-        // junction links, and the user gets their old geometry back with the
-        // pinned flag that makes it survive future detects.
-        let mut upsert = tx.prepare(
+        // Take the Unified catalogue out first. Without this both catalogues
+        // stand at once: the ids do not collide (pooled Unified mints
+        // `sec_all_*`, the archive holds `sec_ride_*`), so every uncarried
+        // Unified row would survive beside the restored one over the same
+        // ground. The predicate is `write_catalogue`'s, so a custom, accepted
+        // or disabled row is spared exactly as it is by a detect.
+        tx.execute(
+            "DELETE FROM sections
+             WHERE section_type = 'auto' AND original_polyline_json IS NULL
+               AND is_user_defined = 0 AND disabled = 0",
+            [],
+        )?;
+
+        // A carried id can survive the delete as a pinned row the user
+        // accepted after the cutover. Its geometry and its portions belong to
+        // the Unified cut, so replacing the row wholesale is what puts the
+        // archived state back; the cascade takes its stale portions with it.
+        let mut clear_one = tx.prepare("DELETE FROM sections WHERE id = ?")?;
+        for s in &archived {
+            clear_one.execute(params![s.id])?;
+        }
+        drop(clear_one);
+
+        // Bounds come back with the row. `write_catalogue` dedupes fresh auto
+        // detections against accepted bounds and skips any row whose
+        // `bounds_min_lat` is NULL, so a restore without them switches off the
+        // very guard that stops the next detect re-cutting this ground.
+        let mut insert = tx.prepare(
             "INSERT INTO sections
                  (id, section_type, name, sport_type, polyline_json,
                   polyline_blob, distance_meters, visit_count, is_user_defined,
-                  created_at, updated_at)
-             VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'))
-             ON CONFLICT(id) DO UPDATE SET
-                 polyline_json = excluded.polyline_json,
-                 polyline_blob = excluded.polyline_blob,
-                 distance_meters = excluded.distance_meters,
-                 is_user_defined = 1,
-                 updated_at = datetime('now')",
+                  created_at, updated_at,
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+             VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), ?, ?, ?, ?)",
         )?;
 
         let mut restored = 0u32;
         for s in &archived {
             let json = serde_json::to_string(&s.polyline).unwrap_or_else(|_| "[]".into());
             let blob = codec::encode_polyline(&s.polyline);
-            let affected = upsert.execute(params![
+            let bounds = bounds_of(&s.polyline);
+            let affected = insert.execute(params![
                 s.id,
                 s.name,
                 s.sport_type,
@@ -298,10 +397,35 @@ impl PersistentRouteEngine {
                 s.distance_meters,
                 s.visit_count,
                 s.created_at,
+                bounds.map(|b| b.0),
+                bounds.map(|b| b.1),
+                bounds.map(|b| b.2),
+                bounds.map(|b| b.3),
             ])?;
             restored += affected as u32;
         }
-        drop(upsert);
+        drop(insert);
+
+        // The members, or the restored rows are geometry with no traversals:
+        // a card claiming visits over a detail screen listing none.
+        let restored_members = tx.execute(
+            "INSERT OR REPLACE INTO section_activities
+                 (section_id, activity_id, direction, start_index, end_index,
+                  distance_meters, lap_time, lap_pace, excluded, avg_hr)
+             SELECT m.section_id, m.activity_id, m.direction, m.start_index,
+                    m.end_index, m.distance_meters, m.lap_time, m.lap_pace,
+                    m.excluded, m.avg_hr
+             FROM section_catalogue_archive_members m
+             WHERE m.token = ?
+               AND m.section_id IN (SELECT id FROM sections)
+               AND m.activity_id IN (SELECT id FROM activities)",
+            params![CUTOVER_ID],
+        )?;
+
+        // The processed set still names every activity the Unified detect
+        // folded. Left alone, the next detect short-circuits and re-emits that
+        // catalogue instead of cutting a Corridor one.
+        tx.execute("DELETE FROM processed_activities", [])?;
 
         // Switch config back to Corridor.
         let mut config = self.section_config.clone();
@@ -338,8 +462,8 @@ impl PersistentRouteEngine {
         }
 
         info!(
-            "tracematch: [cutover] Restored {} sections from archive, config back to Corridor",
-            restored
+            "tracematch: [cutover] Restored {} sections and {} members from archive, config back to Corridor",
+            restored, restored_members
         );
         Ok(restored)
     }
@@ -381,27 +505,34 @@ pub fn run_cutover() -> Result<String, String> {
         return Ok("not_owed".into());
     }
 
+    // Refuses every NEW start. A worker already in the slot is untouched by
+    // it, which is what the drain below is for.
     let _suspend = suspend_detection();
 
-    // Step 1: archive.
+    // A Corridor run started before the suspension is still live, and
+    // `poll_detection_once` applies whatever it returns. Left alone it lands
+    // its Corridor catalogue after the cutover has finished, over a config
+    // and a token that both say Unified. Drive it to its end first; the
+    // suspension keeps the slot empty once it drains.
+    drain_detection_slot()?;
+
+    // Step 1: archive. Additive and idempotent per token, so a crash here
+    // leaves the user on Corridor with an intact catalogue and the cutover
+    // still owed.
     let archived = with_persistent_engine(|e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
     info!("tracematch: [cutover] Archived {} sections", archived);
 
-    // Step 2: commit the switch.
+    // Step 2: commit the switch. Config, in-flight token and the cleared
+    // processed set land together, so a crash after this point resumes rather
+    // than stranding the install on a half-migrated catalogue.
     with_persistent_engine(|e| e.commit_switch())
         .ok_or("no engine")?
         .map_err(|e| format!("switch failed: {}", e))?;
 
-    // Step 3: cold detect. Clear processed ids so everything is re-evaluated
-    // under Unified, then run one detect through the unchecked path (the
-    // suspension guard is still held).
-    with_persistent_engine(|e| {
-        e.clear_processed_activity_ids();
-    })
-    .ok_or("no engine")?;
-
+    // Step 3: cold detect through the unchecked path, since the guard we hold
+    // would otherwise refuse our own run.
     let handle =
         with_persistent_engine(|e| e.detect_sections_background_unchecked()).ok_or("no engine")?;
 
@@ -419,13 +550,36 @@ pub fn run_cutover() -> Result<String, String> {
     .ok_or("no engine")?
     .map_err(|e| format!("apply: {}", e))?;
 
-    // Step 4: diff.
+    // Step 4: diff, then promote the token. The promotion is last, so any
+    // failure above leaves the token in flight and the whole run is retried
+    // from the top on the next launch.
     let diff = with_persistent_engine(|e| e.build_cutover_diff())
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
+
+    with_persistent_engine(|e| e.finish_cutover())
+        .ok_or("no engine")?
+        .map_err(|e| format!("token promotion failed: {}", e))?;
 
     *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(false);
 
     info!("tracematch: [cutover] Cutover complete");
     Ok(diff)
+}
+
+/// Drive any run already holding the detection slot to its end, applying its
+/// result through the shared poll. Mirrors the backfill's drain: with the
+/// suspension held, an emptied slot stays empty.
+fn drain_detection_slot() -> Result<(), String> {
+    use crate::objects::detection::{DetectionPoll, poll_detection_once};
+    const POLL: std::time::Duration = std::time::Duration::from_millis(100);
+
+    loop {
+        match poll_detection_once() {
+            Ok(DetectionPoll::Idle) => return Ok(()),
+            Ok(DetectionPoll::Running) => std::thread::sleep(POLL),
+            Ok(DetectionPoll::Applied) | Ok(DetectionPoll::Died) => continue,
+            Err(e) => return Err(format!("could not drain the detection slot: {}", e)),
+        }
+    }
 }

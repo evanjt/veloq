@@ -308,7 +308,8 @@ class RouteEngineClient implements DelegateHost {
 
   runDetectorCutover = (): CutoverDiff | null => cutoverDelegates.runDetectorCutover(this);
 
-  restoreFromCutoverArchive = (): number => cutoverDelegates.restoreFromCutoverArchive(this);
+  restoreFromCutoverArchive = (): number | null =>
+    cutoverDelegates.restoreFromCutoverArchive(this);
 
   getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 

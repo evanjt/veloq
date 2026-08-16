@@ -203,6 +203,28 @@ CREATE TABLE IF NOT EXISTS section_catalogue_archive (
     distance_meters REAL NOT NULL DEFAULT 0,
     visit_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT,
-    member_ids_json TEXT,
+    bounds_min_lat REAL,
+    bounds_max_lat REAL,
+    bounds_min_lng REAL,
+    bounds_max_lng REAL,
     PRIMARY KEY (token, section_id)
+);
+
+-- The members of each archived section. A section restored without these is a
+-- geometry with no traversals: the card reads a visit count off the row while
+-- the detail screen lists nothing, and every lap time is gone. The wipe
+-- cascades section_activities away, so they have to be archived to come back.
+CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
+    token TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    direction TEXT NOT NULL DEFAULT 'same',
+    start_index INTEGER NOT NULL DEFAULT 0,
+    end_index INTEGER NOT NULL DEFAULT 0,
+    distance_meters REAL NOT NULL DEFAULT 0,
+    lap_time REAL,
+    lap_pace REAL,
+    excluded INTEGER NOT NULL DEFAULT 0,
+    avg_hr REAL,
+    PRIMARY KEY (token, section_id, activity_id, start_index)
 );

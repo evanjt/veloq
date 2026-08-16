@@ -90,15 +90,18 @@ export function runDetectorCutover(host: DelegateHost): CutoverDiff | null {
 
 /**
  * Put the archived catalogue back as pinned sections and return the config to
- * Corridor. Returns how many sections were restored.
+ * Corridor. Returns how many sections were restored, which is legitimately
+ * zero for a catalogue that was entirely pinned already, or null when the
+ * restore failed. The caller must tell those apart: zero means the revert
+ * happened and had nothing to move, null means the user is still on Unified.
  */
-export function restoreFromCutoverArchive(host: DelegateHost): number {
-  if (!host.ready) return 0;
+export function restoreFromCutoverArchive(host: DelegateHost): number | null {
+  if (!host.ready) return null;
   try {
     return host.timed('restoreFromCutoverArchive', () => ffiRestoreFromCutoverArchive());
   } catch (e) {
     console.error('[RouteEngine] restoreFromCutoverArchive threw:', e);
-    return 0;
+    return null;
   }
 }
 

@@ -589,12 +589,15 @@ pub fn run_detector_cutover() -> Result<String, crate::VeloqError> {
     crate::persistence::cutover::run_cutover().map_err(|msg| crate::VeloqError::Database { msg })
 }
 
-/// Restore the archived catalogue and switch back to Corridor.
-/// Returns the number of sections restored.
+/// Restore the archived catalogue and switch back to Corridor. Returns the
+/// number of sections restored, which is legitimately zero for a user whose
+/// catalogue was entirely pinned. A real failure is an error, not a zero, so
+/// the caller can tell "nothing to put back" from "putting it back failed".
 #[uniffi::export]
-pub fn restore_from_cutover_archive() -> u32 {
-    crate::persistence::with_persistent_engine(|e| e.restore_from_archive().unwrap_or(0))
-        .unwrap_or(0)
+pub fn restore_from_cutover_archive() -> Result<u32, crate::VeloqError> {
+    crate::persistence::with_persistent_engine(|e| e.restore_from_archive())
+        .ok_or(crate::VeloqError::NotInitialized)?
+        .map_err(|e| crate::VeloqError::Database { msg: e.to_string() })
 }
 
 /// The stored cutover diff payload, if any.

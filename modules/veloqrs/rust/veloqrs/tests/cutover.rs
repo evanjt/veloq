@@ -124,20 +124,25 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
             .unwrap();
     assert!(!pre_ids.is_empty());
 
+    // Member counts before the cutover, to compare after the revert.
+    let pre_visits: Vec<(String, u32)> = with_persistent_engine(|e| {
+        e.get_sections()
+            .iter()
+            .map(|s| (s.id.clone(), s.visit_count))
+            .collect()
+    })
+    .unwrap();
+
     veloqrs::ffi::run_detector_cutover().unwrap();
 
-    // Restore.
-    let restored = veloqrs::ffi::restore_from_cutover_archive();
+    let restored = veloqrs::ffi::restore_from_cutover_archive().expect("restore");
     assert!(restored > 0, "nothing was restored");
 
-    // Config should be back to Corridor.
     let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
     assert_eq!(method, DetectionMethod::Corridor);
 
-    // Should NOT be pending (reverted sentinel).
     assert!(!veloqrs::ffi::is_cutover_pending());
 
-    // The restored sections should be marked user-defined (pinned).
     let pinned: Vec<bool> = with_persistent_engine(|e| {
         e.get_sections()
             .iter()
@@ -147,9 +152,97 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
     })
     .unwrap();
     assert!(
-        pinned.iter().all(|&p| p),
+        !pinned.is_empty() && pinned.iter().all(|&p| p),
         "restored sections should be is_user_defined = true"
     );
+
+    // A restored section with no members is geometry with nothing behind it:
+    // the card would claim visits the detail screen cannot list.
+    let post_visits: Vec<(String, u32)> = with_persistent_engine(|e| {
+        e.get_sections()
+            .iter()
+            .filter(|s| pre_ids.contains(&s.id))
+            .map(|s| (s.id.clone(), s.visit_count))
+            .collect()
+    })
+    .unwrap();
+    for (id, before) in &pre_visits {
+        let after = post_visits.iter().find(|(pid, _)| pid == id);
+        assert_eq!(
+            after.map(|(_, v)| *v),
+            Some(*before),
+            "section {id} came back without its members"
+        );
+    }
+
+    // Only the restored catalogue stands. A leftover Unified row over the same
+    // ground would show the user two sections where they had one.
+    let leftover = with_persistent_engine(|e| {
+        e.get_sections()
+            .iter()
+            .filter(|s| !pre_ids.contains(&s.id))
+            .count()
+    })
+    .unwrap();
+    assert_eq!(leftover, 0, "Unified sections survived the revert");
+}
+
+/// A user whose catalogue is entirely pinned archives nothing. Revert must
+/// still take them back to Corridor rather than silently doing nothing.
+#[test]
+fn revert_rolls_back_the_config_even_with_an_empty_archive() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    with_persistent_engine(|engine| {
+        let mut cfg = engine.get_section_config();
+        cfg.detection_method = DetectionMethod::Corridor;
+        engine.set_section_config(cfg);
+    })
+    .unwrap();
+
+    veloqrs::ffi::run_detector_cutover().expect("cutover over an empty library");
+
+    let restored = veloqrs::ffi::restore_from_cutover_archive().expect("restore");
+    assert_eq!(restored, 0, "an empty archive restores nothing");
+
+    let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
+    assert_eq!(
+        method,
+        DetectionMethod::Corridor,
+        "revert must roll the config back even when the archive is empty"
+    );
+    assert!(!veloqrs::ffi::is_cutover_pending());
+}
+
+/// A run that dies after the switch leaves the token in flight. The config
+/// already reads Unified, so only the token can say the migration is unfinished.
+#[test]
+fn an_interrupted_run_is_still_owed() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    // Stand in for a process that died between the switch and the diff.
+    with_persistent_engine(|e| {
+        e.set_setting("__detector_cutover", "unified-1-inflight")
+            .expect("write in-flight token");
+        let mut cfg = e.get_section_config();
+        cfg.detection_method = DetectionMethod::Unified;
+        e.set_section_config(cfg);
+    })
+    .unwrap();
+
+    let owed = with_persistent_engine(|e| e.cutover_is_owed()).unwrap();
+    assert!(
+        owed,
+        "an in-flight token is owed even though the config already says Unified"
+    );
+
+    veloqrs::ffi::run_detector_cutover().expect("resumed cutover");
+    assert!(!veloqrs::ffi::is_cutover_pending());
 }
 
 #[test]

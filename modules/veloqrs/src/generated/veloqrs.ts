@@ -207,12 +207,17 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
- * Restore the archived catalogue and switch back to Corridor.
- * Returns the number of sections restored.
+ * Restore the archived catalogue and switch back to Corridor. Returns the
+ * number of sections restored, which is legitimately zero for a user whose
+ * catalogue was entirely pinned. A real failure is an error, not a zero, so
+ * the caller can tell "nothing to put back" from "putting it back failed".
  */
-export function restoreFromCutoverArchive(): /*u32*/ number {
+export function restoreFromCutoverArchive(): /*u32*/ number /*throws*/ {
   return FfiConverterUInt32.lift(
-    uniffiCaller.rustCall(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_restore_from_cutover_archive(
           callStatus,
@@ -16696,7 +16701,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_restore_from_cutover_archive() !==
-    35831
+    50147
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_restore_from_cutover_archive",
