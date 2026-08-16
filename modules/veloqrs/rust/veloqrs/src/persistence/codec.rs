@@ -305,7 +305,10 @@ pub fn decode_polyline_row(
 // `section_geometry` (encoding 1). Corpus-measured (lab geometry_codec,
 // REPORT round 10): ~3.1 B/point vs ~62 B/point JSON, and 1e-6 deg
 // quantisation is exact on real 6-decimal exports, so a revert restores
-// the polyline byte-identically. Each version is stored independently
+// the line a rider follows. Elevation quantises to 0.1 m, so a revert
+// restores a height to a decimetre and not to the stored f64. Comparison
+// is encoded bytes against encoded bytes, so neither flaps. Each version
+// is stored independently
 // (no cross-version delta chains): the 10-year retention budget holds
 // without them, every row decodes alone, and a quarantine salvage
 // cannot lose a version to a torn predecessor.
