@@ -62,3 +62,44 @@ fn lift_detection_needs_point_elevation() {
         "the same geometry without elevation raises no candidate"
     );
 }
+
+#[test]
+fn a_track_without_elevation_still_stores() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+
+    engine
+        .add_activity(
+            "flat-1".to_string(),
+            climbing_line(false),
+            "Ride".to_string(),
+        )
+        .unwrap();
+
+    let loaded = engine.get_gps_track("flat-1").unwrap();
+    assert_eq!(loaded.len(), 100);
+    assert!(loaded.iter().all(|p| p.elevation.is_none()));
+}
+
+#[test]
+fn a_track_with_elevation_gaps_stores_the_gaps_as_absent() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+
+    let mut points = climbing_line(true);
+    points[10].elevation = None;
+    points[11].elevation = None;
+
+    engine
+        .add_activity("mixed-1".to_string(), points, "Ride".to_string())
+        .unwrap();
+
+    let loaded = engine.get_gps_track("mixed-1").unwrap();
+    assert_eq!(loaded.len(), 100);
+    assert_eq!(loaded[9].elevation, Some(1045.0));
+    assert_eq!(loaded[10].elevation, None);
+    assert_eq!(loaded[11].elevation, None);
+    assert_eq!(loaded[12].elevation, Some(1060.0));
+}
