@@ -7,7 +7,9 @@ mod identity;
 mod merging;
 mod named;
 mod naming;
+pub(crate) mod preview;
 mod ranking;
+pub(crate) mod track_pool;
 
 pub use history::{DetectorGeneration, SectionGeometryVersion, SectionHistoryEvent};
 pub(crate) use identity::SectionIdentity;
@@ -19,6 +21,7 @@ pub use named::{NamedCorridor, NamedOverlay};
 // variant (`run_accumulator_backfill`) is re-exported pub so integration
 // tests in `tests/` can drive it deterministically - it's a test-only
 // entry point, not a FFI surface.
+pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
 pub use detection::run_accumulator_backfill;
 pub(super) use detection::spawn_accumulator_backfill;
 
@@ -310,7 +313,8 @@ impl PersistentRouteEngine {
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
-                        polyline_blob, point_density_blob
+                        polyline_blob, point_density_blob,
+                        elevation_gain_m, avg_grade_percent
                  FROM sections
                  WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
                  ORDER BY id",
@@ -394,6 +398,8 @@ impl PersistentRouteEngine {
                         },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
+                        elevation_gain_m: row.get(20)?,
+                        avg_grade_percent: row.get(21)?,
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
@@ -705,12 +711,15 @@ impl PersistentRouteEngine {
             Option<String>,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
+            Option<f64>,
+            Option<f64>,
         )> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, polyline_blob, point_density_blob
+                        created_at, updated_at, polyline_blob, point_density_blob,
+                        elevation_gain_m, avg_grade_percent
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -737,6 +746,8 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<String>>(15)?,  // updated_at
                     row.get::<_, Option<Vec<u8>>>(16)?, // polyline_blob
                     row.get::<_, Option<Vec<u8>>>(17)?, // point_density_blob
+                    row.get::<_, Option<f64>>(18)?,     // elevation_gain_m
+                    row.get::<_, Option<f64>>(19)?,     // avg_grade_percent
                 ))
             })
             .ok()
@@ -761,6 +772,8 @@ impl PersistentRouteEngine {
             updated_at,
             polyline_blob,
             point_density_blob,
+            elevation_gain_m,
+            avg_grade_percent,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
@@ -849,6 +862,8 @@ impl PersistentRouteEngine {
             }),
             is_user_defined: is_user_defined.unwrap_or(0) != 0,
             stability: stability.unwrap_or(0.0),
+            elevation_gain_m,
+            avg_grade_percent,
             version: version.unwrap_or(1),
             updated_at,
             created_at,
@@ -945,7 +960,8 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    is_user_defined, disabled, superseded_by, visit_count
+                    is_user_defined, disabled, superseded_by, visit_count,
+                    elevation_gain_m, avg_grade_percent
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -999,6 +1015,8 @@ impl PersistentRouteEngine {
                     confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
                     scale: row.get(5)?,
                     bounds,
+                    elevation_gain_m: row.get(17)?,
+                    avg_grade_percent: row.get(18)?,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
                     is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
@@ -1116,6 +1134,8 @@ impl PersistentRouteEngine {
             scale: section.scale.and_then(|s| s.parse().ok()),
             is_user_defined: section.is_user_defined,
             stability: section.stability.unwrap_or(0.0),
+            elevation_gain_m: section.elevation_gain_m,
+            avg_grade_percent: section.avg_grade_percent,
             version: section.version.unwrap_or(1),
             updated_at: section.updated_at,
             created_at: Some(section.created_at),
@@ -1566,8 +1586,9 @@ impl PersistentRouteEngine {
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                consensus_state_blob, polyline_blob, point_density_blob
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                consensus_state_blob, polyline_blob, point_density_blob,
+                elevation_gain_m, avg_grade_percent
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -1761,6 +1782,8 @@ impl PersistentRouteEngine {
                 consensus_state_blob,
                 polyline_blob,
                 point_density_blob,
+                section.elevation_gain_m,
+                section.avg_grade_percent,
             ])?;
 
             // Diagnostic: a section that claims attached activities but has

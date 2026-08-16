@@ -384,6 +384,10 @@ export interface Section {
 
   /** How well the reference trace aligns with the consensus (0.0-1.0) */
   stability?: number;
+  /** Elevation gain in metres over the representative slice, absent when unknown */
+  elevationGainM?: number;
+  /** Net grade percent over the representative slice, absent when unknown */
+  avgGradePercent?: number;
   /** Number of times this section has been recalibrated */
   version?: number;
   /** ISO timestamp of last recalibration */
@@ -451,6 +455,10 @@ export interface SectionSummary {
   visitCount: number;
   representativeActivityId?: string;
   createdAt: string;
+  /** Elevation gain in metres over the representative slice, absent when unknown */
+  elevationGainM?: number;
+  /** Net grade percent over the representative slice, absent when unknown */
+  avgGradePercent?: number;
 }
 
 /**

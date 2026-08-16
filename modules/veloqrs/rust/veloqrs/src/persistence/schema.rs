@@ -127,6 +127,7 @@ impl PersistentRouteEngine {
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
+        Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
 
         // Post-migration data population for pre-0.2.2 databases.
@@ -274,6 +275,21 @@ impl PersistentRouteEngine {
                 "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0",
                 [],
             )?;
+        }
+        Ok(())
+    }
+
+    /// Add the nullable elevation pair to `sections`. NULL means the row
+    /// predates elevation metadata; the next detect's wipe-and-reinsert
+    /// fills auto rows lazily. Keyed on column presence because
+    /// `ALTER TABLE ADD COLUMN` is not idempotent and 017 reruns.
+    fn ensure_section_elevation_columns(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_gain_m FROM sections LIMIT 0")
+            .is_err()
+        {
+            conn.execute("ALTER TABLE sections ADD COLUMN elevation_gain_m REAL", [])?;
+            conn.execute("ALTER TABLE sections ADD COLUMN avg_grade_percent REAL", [])?;
         }
         Ok(())
     }
