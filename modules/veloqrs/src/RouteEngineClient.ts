@@ -71,6 +71,8 @@ import * as detectionDelegates from './delegates/detection';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
 import * as fitnessDelegates from './delegates/fitness';
+import * as previewDelegates from './delegates/preview';
+import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
@@ -274,6 +276,21 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
+
+  getPreviewCentres = (limit: number): PreviewCentre[] =>
+    previewDelegates.getPreviewCentres(this, limit);
+
+  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
+    previewDelegates.startPreviewDetect(this, lat, lng, config);
+
+  pollPreviewDetect = (): PreviewPollStatus => previewDelegates.pollPreviewDetect(this);
+
+  getPreviewProgress = (): SectionDetectionProgress | null =>
+    previewDelegates.getPreviewProgress(this);
+
+  takePreviewResult = (): PreviewResult | null => previewDelegates.takePreviewResult(this);
+
+  cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
 

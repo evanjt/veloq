@@ -4813,6 +4813,82 @@ const FfiConverterTypeFfiPotentialSection = (() => {
 })();
 
 /**
+ * A ranked riding area: one occupied ~5 km bin of the user's library.
+ */
+export type FfiPreviewCentre = {
+  /**
+   * "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
+   */
+  binKey: string;
+  lat: /*f64*/ number;
+  lng: /*f64*/ number;
+  /**
+   * Sum of section visit counts in the bin, or activity count on fallback.
+   */
+  visitTotal: /*u32*/ number;
+  /**
+   * 0 on the activities fallback.
+   */
+  sectionCount: /*u32*/ number;
+  /**
+   * "sections" | "activities"
+   */
+  source: string;
+};
+
+/**
+ * Generated factory for {@link FfiPreviewCentre} record objects.
+ */
+export const FfiPreviewCentre = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPreviewCentre, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPreviewCentre>,
+  });
+})();
+
+const FfiConverterTypeFfiPreviewCentre = (() => {
+  type TypeName = FfiPreviewCentre;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        binKey: FfiConverterString.read(from),
+        lat: FfiConverterFloat64.read(from),
+        lng: FfiConverterFloat64.read(from),
+        visitTotal: FfiConverterUInt32.read(from),
+        sectionCount: FfiConverterUInt32.read(from),
+        source: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.binKey, into);
+      FfiConverterFloat64.write(value.lat, into);
+      FfiConverterFloat64.write(value.lng, into);
+      FfiConverterUInt32.write(value.visitTotal, into);
+      FfiConverterUInt32.write(value.sectionCount, into);
+      FfiConverterString.write(value.source, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.binKey) +
+        FfiConverterFloat64.allocationSize(value.lat) +
+        FfiConverterFloat64.allocationSize(value.lng) +
+        FfiConverterUInt32.allocationSize(value.visitTotal) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterString.allocationSize(value.source)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * GPS track for a single activity (for feed map previews).
  */
 export type FfiPreviewTrack = {
@@ -5734,6 +5810,8 @@ export type FfiSection = {
   scale?: string;
   isUserDefined: boolean;
   stability?: /*f64*/ number;
+  elevationGainM?: /*f64*/ number;
+  avgGradePercent?: /*f64*/ number;
   version?: /*u32*/ number;
   updatedAt?: string;
   createdAt: string;
@@ -5783,6 +5861,8 @@ const FfiConverterTypeFfiSection = (() => {
         scale: FfiConverterOptionalString.read(from),
         isUserDefined: FfiConverterBool.read(from),
         stability: FfiConverterOptionalFloat64.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
         version: FfiConverterOptionalUInt32.read(from),
         updatedAt: FfiConverterOptionalString.read(from),
         createdAt: FfiConverterString.read(from),
@@ -5811,6 +5891,8 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterOptionalFloat64.write(value.stability, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterOptionalUInt32.write(value.version, into);
       FfiConverterOptionalString.write(value.updatedAt, into);
       FfiConverterString.write(value.createdAt, into);
@@ -5841,6 +5923,8 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterOptionalFloat64.allocationSize(value.stability) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterOptionalUInt32.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.updatedAt) +
         FfiConverterString.allocationSize(value.createdAt) +
@@ -8544,6 +8628,14 @@ export type SectionSummary = {
    */
   bounds?: FfiBounds;
   /**
+   * Elevation gain (m) over the representative slice; None when unknown
+   */
+  elevationGainM?: /*f64*/ number;
+  /**
+   * Net grade (%) over the representative slice; None when unknown
+   */
+  avgGradePercent?: /*f64*/ number;
+  /**
    * ISO timestamp when section was created
    */
   createdAt: string;
@@ -8598,6 +8690,8 @@ const FfiConverterTypeSectionSummary = (() => {
         confidence: FfiConverterFloat64.read(from),
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
         isUserDefined: FfiConverterBool.read(from),
@@ -8617,6 +8711,8 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterFloat64.write(value.confidence, into);
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
       FfiConverterBool.write(value.isUserDefined, into);
@@ -8638,6 +8734,8 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
@@ -13630,6 +13728,284 @@ const FfiConverterTypeSectionManager = new FfiConverterObject(
   uniffiTypeSectionManagerObjectFactory,
 );
 
+export interface SectionPreviewLike {
+  /**
+   * Cooperative: aborts within one load chunk; once inside the detect the
+   * run completes and is discarded.
+   */
+  cancel() /*throws*/ : void;
+  /**
+   * Ranked riding areas. Sections substrate (bounds cache + visit_count)
+   * when any auto section carries bounds, activity-bbox bins otherwise
+   * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
+   */
+  centres(limit: /*u32*/ number) /*throws*/ : Array<FfiPreviewCentre>;
+  getProgress() /*throws*/ : FfiDetectionProgress | undefined;
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll() /*throws*/ : string;
+  /**
+   * Resolve the whole geo component containing (lat, lng) and start the
+   * pure preview detect over it. Only the five exposed fields of `config`
+   * overlay the engine's live config. Returns false when a preview or real
+   * detect is running, detection is suspended for a backfill, or no
+   * activity covers the point.
+   */
+  start(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+    config: FfiSectionConfig,
+  ) /*throws*/ : boolean;
+  /**
+   * The one JSON payload, once. None while running or after taken.
+   */
+  takeResult() /*throws*/ : string | undefined;
+}
+/**
+ * @deprecated Use `SectionPreviewLike` instead.
+ */
+export type SectionPreviewInterface = SectionPreviewLike;
+
+export class SectionPreview
+  extends UniffiAbstractObject
+  implements SectionPreviewLike
+{
+  readonly [uniffiTypeNameSymbol] = "SectionPreview";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeSectionPreviewObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Cooperative: aborts within one load chunk; once inside the detect the
+   * run completes and is discarded.
+   */
+  cancel(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
+          uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Ranked riding areas. Sections substrate (bounds cache + visit_count)
+   * when any auto section carries bounds, activity-bbox bins otherwise
+   * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
+   */
+  centres(limit: /*u32*/ number): Array<FfiPreviewCentre> /*throws*/ {
+    return FfiConverterArrayTypeFfiPreviewCentre.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(limit),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getProgress(): FfiDetectionProgress | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiDetectionProgress.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Resolve the whole geo component containing (lat, lng) and start the
+   * pure preview detect over it. Only the five exposed fields of `config`
+   * overlay the engine's live config. Returns false when a preview or real
+   * detect is running, detection is suspended for a backfill, or no
+   * activity covers the point.
+   */
+  start(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+    config: FfiSectionConfig,
+  ): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_start(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(lat),
+            FfiConverterFloat64.lower(lng),
+            FfiConverterTypeFfiSectionConfig.lower(config),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The one JSON payload, once. None while running or after taken.
+   */
+  takeResult(): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeSectionPreviewObjectFactory.pointer(this);
+      uniffiTypeSectionPreviewObjectFactory.freePointer(pointer);
+      uniffiTypeSectionPreviewObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is SectionPreview {
+    return uniffiTypeSectionPreviewObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeSectionPreviewObjectFactory: UniffiObjectFactory<SectionPreviewLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): SectionPreviewLike {
+        const instance = Object.create(SectionPreview.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "SectionPreview";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: SectionPreviewLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: SectionPreviewLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_sectionpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is SectionPreviewLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "SectionPreview"
+        );
+      },
+    };
+  })();
+// FfiConverter for SectionPreviewLike
+const FfiConverterTypeSectionPreview = new FfiConverterObject(
+  uniffiTypeSectionPreviewObjectFactory,
+);
+
 export interface SettingsManagerLike {
   /**
    * Clear the cached athlete profile and sport settings blobs without
@@ -16005,6 +16381,11 @@ const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
   FfiConverterTypeFfiPotentialSection,
 );
 
+// FfiConverter for Array<FfiPreviewCentre>
+const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
+  FfiConverterTypeFfiPreviewCentre,
+);
+
 // FfiConverter for Array<FfiPreviewTrack>
 const FfiConverterArrayTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
@@ -16911,6 +17292,54 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_query_viewport",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel() !==
+    25120
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres() !==
+    22879
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_centres",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
+    62565
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_get_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
+    23284
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start() !==
+    55443
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_start",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result() !==
+    25527
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_take_result",
     );
   }
   if (
@@ -18002,6 +18431,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new() !==
+    51441
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_sectionpreview_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new() !==
     38739
   ) {
@@ -18116,6 +18553,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPotentialSection,
+    FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
@@ -18167,6 +18605,7 @@ export default Object.freeze({
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRouteManager,
     FfiConverterTypeSectionManager,
+    FfiConverterTypeSectionPreview,
     FfiConverterTypeSectionSummary,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,

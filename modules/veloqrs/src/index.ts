@@ -6,18 +6,16 @@
  */
 
 // Import the Turbo Module to install JSI bindings
-import NativeVeloqrs from "./NativeVeloqrs";
+import NativeVeloqrs from './NativeVeloqrs';
 
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
 if (!installed && __DEV__) {
-  console.warn(
-    "[RouteMatcher] Failed to install Rust crate. Native functions may not work.",
-  );
+  console.warn('[RouteMatcher] Failed to install Rust crate. Native functions may not work.');
 }
 
 // Re-export all generated types and functions
-export * from "./generated/veloqrs";
+export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
 export {
@@ -26,31 +24,42 @@ export {
   routePointsToGpsPoints,
   validateId,
   validateName,
-} from "./conversions";
-export { decodeCoords, type LatLng } from "./coords";
+} from './conversions';
+export { decodeCoords, type LatLng } from './coords';
 export type {
   RoutePoint,
   SectionDetectionProgress,
   CustomSection,
   FetchProgressEvent,
-} from "./conversions";
+} from './conversions';
 
 // Re-export RouteEngineClient and its locally-defined types
-export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./RouteEngineClient";
+export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from './RouteEngineClient';
 
 // Sync service (SyncManager) consumer types
-export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
+export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
 export type {
   FfiCallOutcome as CallOutcome,
   FfiManualActivity as ManualActivity,
-} from "./generated/veloqrs";
+} from './generated/veloqrs';
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
 
+// Preview detection consumer types
+export type {
+  PreviewCentre,
+  PreviewClient,
+  PreviewParams,
+  PreviewPollStatus,
+  PreviewResult,
+  PreviewSection,
+  PreviewSectionStatus,
+} from './delegates/preview';
+
 // Delegate-shaped bundles returned by the façade
-export type { ActivityHighlightsBundle } from "./delegates/activities";
-export type { RouteDetailData } from "./delegates/routes";
+export type { ActivityHighlightsBundle } from './delegates/activities';
+export type { RouteDetailData } from './delegates/routes';
 
 // Import generated functions for top-level aliases
 import {
@@ -94,9 +103,9 @@ import {
   type FfiSectionWithPolyline,
   type FfiPotentialSection,
   type FfiStalePrOpportunity,
-} from "./generated/veloqrs";
+} from './generated/veloqrs';
 
-import { RouteEngineClient } from "./RouteEngineClient";
+import { RouteEngineClient } from './RouteEngineClient';
 
 // Re-export types with shorter names for convenience
 export type { FfiBounds };
@@ -158,7 +167,7 @@ export type {
 export type {
   FfiExerciseSet as ExerciseSet,
   FfiMuscleGroup as MuscleGroup,
-} from "./generated/veloqrs";
+} from './generated/veloqrs';
 
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -497,6 +497,18 @@ export default function DetectionSettingsScreen() {
             </Text>
           )}
 
+          <Pressable
+            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => router.push('/detection-preview' as Href)}
+            testID="detection-preview-row"
+          >
+            <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
+            <Text style={[styles.previewRowText, { color: textPrimary }]}>
+              {t('settings.previewSections')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
+          </Pressable>
+
           <ElevationBackfillStatus />
         </View>
       </ScrollView>
@@ -647,5 +659,20 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: layout.borderRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.md,
+  },
+  previewRowText: {
+    ...typography.body,
+    flex: 1,
   },
 });

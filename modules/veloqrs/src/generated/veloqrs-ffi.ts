@@ -517,6 +517,45 @@ interface NativeModuleInterface {
     maxLng: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_sectionpreview(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_sectionpreview_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_cancel(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
+    ptr: bigint,
+    limit: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_poll(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_start(
+    ptr: bigint,
+    lat: number,
+    lng: number,
+    config: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_take_result(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_routemanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1551,6 +1590,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_take_result(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_activity_route_highlights(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
@@ -1687,6 +1732,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
@@ -1711,6 +1757,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

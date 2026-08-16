@@ -6,8 +6,8 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 9 standalone `#[uniffi::export]` functions plus
- * 225 methods inside `#[uniffi::export] impl` blocks across
- * 11 UniFFI Objects.
+ * 232 methods inside `#[uniffi::export] impl` blocks across
+ * 12 UniFFI Objects.
  */
 
 export interface FfiExportInfo {
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 234 exports (9 standalone + 225 methods)
+ * Total: 241 exports (9 standalone + 232 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -887,6 +887,69 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     paramCount: 1,
     returnType: 'Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError>',
     object: 'MapManager',
+  },
+  {
+    name: 'new',
+    camelName: 'new',
+    file: 'objects/preview.rs',
+    line: 30,
+    paramCount: 0,
+    returnType: 'Arc<Self>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'centres',
+    camelName: 'centres',
+    file: 'objects/preview.rs',
+    line: 37,
+    paramCount: 1,
+    returnType: 'Result<Vec<FfiPreviewCentre>, VeloqError>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'start',
+    camelName: 'start',
+    file: 'objects/preview.rs',
+    line: 60,
+    paramCount: 3,
+    returnType: 'Result<bool, VeloqError>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'poll',
+    camelName: 'poll',
+    file: 'objects/preview.rs',
+    line: 112,
+    paramCount: 0,
+    returnType: 'Result<String, VeloqError>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'get_progress',
+    camelName: 'getProgress',
+    file: 'objects/preview.rs',
+    line: 136,
+    paramCount: 0,
+    returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'take_result',
+    camelName: 'takeResult',
+    file: 'objects/preview.rs',
+    line: 155,
+    paramCount: 0,
+    returnType: 'Result<Option<String>, VeloqError>',
+    object: 'SectionPreview',
+  },
+  {
+    name: 'cancel',
+    camelName: 'cancel',
+    file: 'objects/preview.rs',
+    line: 173,
+    paramCount: 0,
+    returnType: 'Result<(), VeloqError>',
+    object: 'SectionPreview',
   },
   {
     name: 'new',
@@ -2232,6 +2295,13 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getAllSignatures',
   'getSignaturesForIds',
   'new',
+  'centres',
+  'start',
+  'poll',
+  'getProgress',
+  'takeResult',
+  'cancel',
+  'new',
   'getAll',
   'getById',
   'getSummaries',
@@ -2472,6 +2542,9 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_bounds_for_range: 'getBoundsForRange',
   get_all_signatures: 'getAllSignatures',
   get_signatures_for_ids: 'getSignaturesForIds',
+  centres: 'centres',
+  take_result: 'takeResult',
+  cancel: 'cancel',
   get_all: 'getAll',
   get_by_id: 'getById',
   get_summaries: 'getSummaries',
@@ -2576,7 +2649,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   upload_activity: 'uploadActivity',
   create_manual_activity: 'createManualActivity',
   validate_credentials: 'validateCredentials',
-  cancel: 'cancel',
   get_sync_status: 'getSyncStatus',
   set_tiles_path: 'setTilesPath',
   clear_tiles_path: 'clearTilesPath',
@@ -2596,6 +2668,7 @@ export const UNIFFI_OBJECTS = [
   'VeloqEngine',
   'FitnessManager',
   'MapManager',
+  'SectionPreview',
   'RouteManager',
   'SectionManager',
   'SettingsManager',

@@ -115,6 +115,18 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
     }
 }
 
+/// Ask a running preview to stop. Cooperative and non-blocking: the preview
+/// worker aborts at its next cancellation point and its poller reads
+/// "cancelled".
+fn cancel_running_preview() {
+    if let Ok(slot) = crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE.lock() {
+        if let Some(handle) = slot.as_ref() {
+            handle.request_cancel();
+            info!("tracematch: [DetectionManager] Cancelled the running preview");
+        }
+    }
+}
+
 #[uniffi::export]
 impl DetectionManager {
     #[uniffi::constructor]
@@ -140,7 +152,19 @@ impl DetectionManager {
             }
         }
 
+        // A real detect supersedes any running preview: the preview's answer
+        // is for a catalogue that is about to move, so cancel it rather than
+        // let the two runs overlap.
+        cancel_running_preview();
+
         let handle = with_engine(|e| e.detect_sections_background())?;
+        // The funnel refuses with a dead handle when a backfill takes the
+        // suspension between the check above and here. Installing it would
+        // occupy the slot with a run that never happened.
+        if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
+            info!("tracematch: [DetectionManager] Start refused: detection is suspended");
+            return Ok(false);
+        }
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -199,12 +223,18 @@ impl DetectionManager {
             }
         }
 
+        cancel_running_preview();
+
         // Clear processed activity IDs to force full re-evaluation
         with_engine(|e| {
             e.clear_processed_activity_ids();
         })?;
 
         let handle = with_engine(|e| e.detect_sections_background())?;
+        if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
+            info!("tracematch: [DetectionManager] Force redetect refused: detection is suspended");
+            return Ok(false);
+        }
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
