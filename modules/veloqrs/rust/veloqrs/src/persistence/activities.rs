@@ -569,9 +569,18 @@ impl PersistentRouteEngine {
         sport_type: &str,
         bounds: &Bounds,
     ) -> SqlResult<()> {
+        // An upsert, never REPLACE: SQLite runs REPLACE as DELETE then INSERT,
+        // and the delete cascades to every child row keyed on the activity
+        // (section_activities, signatures, time_streams). A re-ingest must
+        // update the row in place so those links and the unnamed columns
+        // (date, name, distance) survive.
         self.db.execute(
-            "INSERT OR REPLACE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 sport_type = excluded.sport_type,
+                 min_lat = excluded.min_lat, max_lat = excluded.max_lat,
+                 min_lng = excluded.min_lng, max_lng = excluded.max_lng",
             params![
                 id,
                 sport_type,
