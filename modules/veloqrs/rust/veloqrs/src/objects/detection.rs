@@ -123,6 +123,13 @@ impl DetectionManager {
     }
 
     fn start(&self) -> Result<bool, VeloqError> {
+        // Refuse before touching the shared handle: installing a refused
+        // handle would occupy the slot with a dead run and block the
+        // backfill's final re-cut behind it.
+        if crate::persistence::detection_suspended() {
+            info!("tracematch: [DetectionManager] Start refused: detection is suspended");
+            return Ok(false);
+        }
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
@@ -173,6 +180,13 @@ impl DetectionManager {
     /// This ensures all activities are re-evaluated against sections.
     /// Returns false if detection is already running.
     fn force_redetect(&self) -> Result<bool, VeloqError> {
+        // Refuse before clearing the processed set: a refused run must not
+        // cost the evidence cache, and must not park a dead handle in the
+        // slot the backfill's final re-cut needs.
+        if crate::persistence::detection_suspended() {
+            info!("tracematch: [DetectionManager] Force redetect refused: detection is suspended");
+            return Ok(false);
+        }
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()

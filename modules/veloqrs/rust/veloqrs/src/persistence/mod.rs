@@ -50,6 +50,7 @@ mod routes;
 mod schema;
 mod screens;
 pub mod sections;
+pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
 pub use settings::settings_keys;
 pub mod bodies;
@@ -653,8 +654,10 @@ pub struct PersistentRouteEngine {
     /// convergence truth (order-free, tracks the batch every step) the parity
     /// gates compare against. The two DIFFER by design: the damped view can hold a
     /// section a debounced dissolve has not yet retired, so it lags the raw batch
-    /// by up to `k` steps. In-memory only.
-    raw_sections: Vec<FrequentSection>,
+    /// by up to `k` steps. In-memory only. `None` until a detect has applied in
+    /// this process: an applied EMPTY batch is a known answer, not an absence,
+    /// so the two must stay distinguishable.
+    raw_sections: Option<Vec<FrequentSection>>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
@@ -749,7 +752,7 @@ impl PersistentRouteEngine {
             named_overlay: std::sync::RwLock::new(sections::NamedOverlay::default()),
             named_overlay_stamp: std::sync::atomic::AtomicI64::new(-1),
             identity: sections::SectionIdentity::default(),
-            raw_sections: Vec::new(),
+            raw_sections: None,
             processed_activity_ids: HashSet::new(),
             section_evidence_cache: SectionEvidenceCache::new(),
             cache_folded_ids: HashSet::new(),

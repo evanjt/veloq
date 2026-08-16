@@ -175,7 +175,7 @@ impl PersistentRouteEngine {
     /// gates compare this so a legitimate hysteresis lag is not read as a
     /// detection desync.
     pub fn raw_detection_catalogue(&self) -> &[FrequentSection] {
-        &self.raw_sections
+        self.raw_sections.as_deref().unwrap_or(&[])
     }
 
     /// Test-only fingerprint of the full section registry state (visible ids,

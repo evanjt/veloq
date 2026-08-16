@@ -778,7 +778,51 @@ fn seed_consensus_state(
     }
 }
 
+/// Phase reported by a handle that was refused because detection is
+/// suspended. It is not one of the weighted run phases, so `get_percent`
+/// reports the unknown-phase 50 rather than pretending to progress.
+pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
+
 impl PersistentRouteEngine {
+    /// A handle for a run that never started: no worker, both senders dropped.
+    ///
+    /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
+    /// "error". A refusal is therefore visible to the caller and distinct from
+    /// a run that completed and changed nothing, which reports "complete".
+    fn refused_detection_handle() -> SectionDetectionHandle {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        drop(tx);
+        drop(cache_tx);
+        let progress = SectionDetectionProgress::new();
+        progress.set_phase(DETECTION_PHASE_SUSPENDED, 0);
+        SectionDetectionHandle {
+            receiver: rx,
+            cache_receiver: cache_rx,
+            progress,
+        }
+    }
+
+    /// Stored tracks that do not yet carry elevation, ie. the size of the
+    /// remaining backfill plus the tracks upstream can never fill.
+    pub fn elevation_backfill_outstanding(&self) -> u64 {
+        self.elevation_state_counts()
+            .map(|counts| counts.not_fetched())
+            .unwrap_or(0)
+    }
+
+    /// True when every stored track has been asked about its elevation and
+    /// answered, so lift rescue reads the same way for every track in the pool.
+    ///
+    /// Detection does NOT gate on this. A library that has simply never been
+    /// backfilled reads as non-uniform, and refusing it would leave a user who
+    /// never updates with no sections at all. The gate is the suspension
+    /// guard a backfill holds; this is the query a backfill uses to decide
+    /// whether it has work, and a diagnostic for everyone else.
+    pub fn library_uniformly_elevated(&self) -> bool {
+        self.elevation_backfill_outstanding() == 0
+    }
+
     /// Start section detection in a background thread.
     ///
     /// Returns a handle that can be polled for completion and progress.
@@ -790,6 +834,22 @@ impl PersistentRouteEngine {
     /// All heavy operations (groups loading, track loading, detection) happen
     /// in the background thread to keep the UI responsive.
     pub fn detect_sections_background(&mut self) -> SectionDetectionHandle {
+        // The single funnel every detection arm passes through, so the
+        // suspension gate sits here rather than at each caller.
+        if super::conditioning::detection_suspended() {
+            log::info!(
+                "tracematch: [SectionDetection] Refused: detection is suspended for a backfill"
+            );
+            return Self::refused_detection_handle();
+        }
+        self.detect_sections_background_unchecked()
+    }
+
+    /// The run behind [`detect_sections_background`], without the suspension
+    /// gate. Only the backfill's own final re-cut may call this: it holds the
+    /// guard precisely so nothing else can run, and its detect is the one the
+    /// suspension exists to protect.
+    pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
         // Out-of-band channel for the Unified detector's evidence-cache update.
         // Left unsent by the legacy detectors and the short-circuit, so the
@@ -892,18 +952,20 @@ impl PersistentRouteEngine {
         // lag the batch while a dissolve debounces, and echoing it back through
         // identity would count as a decisive continuation and hold the laggards
         // forever. The raw batch is what a re-fold over the unchanged pool would
-        // emit, so the debounce keeps pressing and the view converges. The raw
-        // batch lives in memory only; in a fresh process the visible catalogue
-        // is the best available echo.
+        // emit, so the debounce keeps pressing and the view converges. A known
+        // EMPTY raw batch is echoed as empty for the same reason: it is the
+        // detector's answer, and echoing the visible view instead would
+        // resurrect sections the pool no longer supports. The raw batch lives
+        // in memory only; in a fresh process the visible catalogue is the best
+        // available echo.
         if new_activity_ids.is_empty() && !existing_sections.is_empty() {
             log::info!(
                 "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let sections_copy = if self.raw_sections.is_empty() {
-                existing_sections.clone()
-            } else {
-                self.raw_sections.clone()
+            let sections_copy = match &self.raw_sections {
+                Some(raw) => raw.clone(),
+                None => existing_sections.clone(),
             };
             let all_ids = activity_ids.clone();
             tx.send((sections_copy, all_ids)).ok();
@@ -1427,7 +1489,7 @@ impl PersistentRouteEngine {
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
             Ok(()) => {
-                self.raw_sections = raw_for_convergence;
+                self.raw_sections = Some(raw_for_convergence);
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't
