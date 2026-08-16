@@ -145,6 +145,16 @@ fn fill(v: &[Option<f64>]) -> Vec<f64> {
     v.iter().map(|x| x.unwrap_or(f64::NAN)).collect()
 }
 
+/// A coordinate the engine will store. The validity mask, the parsed `latlng`
+/// and the stored track share this gate, so every series stays in the index
+/// space the stored points actually occupy.
+pub(crate) fn is_storable(lat: f64, lng: f64) -> bool {
+    lat.is_finite()
+        && lng.is_finite()
+        && (-90.0..=90.0).contains(&lat)
+        && (-180.0..=180.0).contains(&lng)
+}
+
 /// Sample validity taken from `latlng`: true where both lat and lng are present.
 /// `None` when the response carries no usable `latlng`, in which case every
 /// series keeps its own length.
@@ -178,7 +188,10 @@ fn latlng_mask(raw: &[StreamDto], misaligned: &mut Vec<SeriesLengthMismatch>) ->
     }
     Some(
         (0..n)
-            .map(|i| s.data[i].is_some() && lng[i].is_some())
+            .map(|i| match (s.data[i], lng[i]) {
+                (Some(la), Some(lo)) => is_storable(la, lo),
+                _ => false,
+            })
             .collect(),
     )
 }
@@ -241,7 +254,7 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
                     let n = s.data.len().min(lng.len());
                     out.latlng = (0..n)
                         .filter_map(|i| match (s.data[i], lng[i]) {
-                            (Some(la), Some(lo)) => Some([la, lo]),
+                            (Some(la), Some(lo)) if is_storable(la, lo) => Some([la, lo]),
                             _ => None,
                         })
                         .collect();
@@ -606,6 +619,34 @@ mod tests {
         // ga_velocity 5 m/s -> 1000/5/60 = 3.333.. min/km; 0 -> 0.
         assert!((s.gap[0] - (1000.0 / 5.0 / 60.0)).abs() < 1e-9);
         assert_eq!(s.gap[1], 0.0);
+    }
+
+    #[test]
+    fn parse_streams_drops_altitude_at_a_null_coordinate() {
+        // Distinct altitude per index, so a series that compacted independently
+        // of latlng would land on the wrong samples rather than the right ones.
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "latlng", "data": [42.5, null, 42.7, null, 42.9],
+             "data2": [1.1, null, 1.3, null, 1.5]},
+            {"type": "altitude", "data": [100.0, 200.0, 300.0, 400.0, 500.0]}
+        ]))
+        .unwrap();
+        let s = parse_streams(raw);
+        assert_eq!(s.latlng, vec![[42.5, 1.1], [42.7, 1.3], [42.9, 1.5]]);
+        assert_eq!(s.altitude, vec![100.0, 300.0, 500.0]);
+        assert!(s.misaligned.is_empty());
+    }
+
+    #[test]
+    fn parse_streams_leaves_altitude_empty_when_the_series_is_absent() {
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "latlng", "data": [42.5, 42.6], "data2": [1.1, 1.2]}
+        ]))
+        .unwrap();
+        let s = parse_streams(raw);
+        assert_eq!(s.latlng.len(), 2);
+        assert!(s.altitude.is_empty());
+        assert!(!s.altitude_is_fixed);
     }
 
     #[test]

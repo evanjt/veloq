@@ -227,13 +227,34 @@ fn streams_mock(server: &MockServer, body: serde_json::Value) -> httpmock::Mock<
 }
 
 #[test]
-fn a_misaligned_response_is_refused_not_returned() {
+fn a_ragged_series_is_padded_into_the_index_space_not_shifted() {
     let server = MockServer::start();
     let _mock = streams_mock(
         &server,
         json!([
             {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0, 20.1, 20.2]},
             {"type": "temp", "data": [7.0]}
+        ]),
+    );
+
+    let t = fast_transport(server.base_url());
+    let s = veloqrs::runtime::block_on(endpoints::fetch_streams(&t, "77", None, Lane::Interactive))
+        .unwrap();
+
+    assert_eq!(s.latlng.len(), 3);
+    assert_eq!(s.temp.len(), 3);
+    assert_eq!(s.temp[0], 7.0);
+    assert!(s.temp[1].is_nan() && s.temp[2].is_nan());
+}
+
+#[test]
+fn a_broken_latlng_series_is_refused_not_returned() {
+    let server = MockServer::start();
+    let _mock = streams_mock(
+        &server,
+        json!([
+            {"type": "latlng", "data": [10.0, 10.1, 10.2], "data2": [20.0]},
+            {"type": "temp", "data": [7.0, 7.1, 7.2]}
         ]),
     );
 
@@ -245,10 +266,34 @@ fn a_misaligned_response_is_refused_not_returned() {
     match err {
         NetError::Decode(m) => {
             assert!(m.contains("77"), "{m}");
-            assert!(m.contains("temp has 1 of 3"), "{m}");
+            assert!(m.contains("latlng"), "{m}");
         }
         other => panic!("expected a decode refusal, got {other}"),
     }
+}
+
+#[test]
+fn the_time_stream_lands_in_the_stored_point_index_space() {
+    // Scenario: a null coordinate drops a point from the stored track.
+    // Expected behaviour: the time stream drops the same sample, so a section
+    // holding indices into the track reads the seconds that belong to it.
+    let server = MockServer::start();
+    let _mock = streams_mock(
+        &server,
+        json!([
+            {"type": "time", "data": [0, 10, 20, 30, 40]},
+            {"type": "latlng",
+             "data": [10.0, null, 10.2, 10.3, 10.4],
+             "data2": [20.0, null, 20.2, 20.3, 20.4]}
+        ]),
+    );
+
+    let t = fast_transport(server.base_url());
+    let times =
+        veloqrs::runtime::block_on(endpoints::fetch_time_stream(&t, "77", Lane::Interactive))
+            .unwrap();
+
+    assert_eq!(times, vec![0, 20, 30, 40]);
 }
 
 #[test]
