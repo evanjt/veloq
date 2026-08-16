@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Genanalysér sektioner",
     "reanalyzeWarning": "Dette erstatter alle ikke-accepterede automatisk detekterede sektioner. Accepterede (fastgjorte) sektioner bevares.",
     "sectionsDetected": "sektioner registreret",
+    "rescanFailed": "Genscanningen kunne ikke fuldføres. Nogle aktivitetsspor kunne ikke læses.",
     "cleanupOverlapping": "Ryd op i overlap",
     "cleanupResult": "{{count}} overlap fjernet",
     "disconnectAndClearData": "Log ud og slet alle data",

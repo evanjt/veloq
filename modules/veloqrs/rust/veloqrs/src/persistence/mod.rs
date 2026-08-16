@@ -35,6 +35,10 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
+pub use activities::{
+    ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
+    ElevationStateCounts,
+};
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
 pub mod codec;

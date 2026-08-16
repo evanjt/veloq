@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Réanalyser les sections",
     "reanalyzeWarning": "Cela remplacera toutes les sections détectées automatiquement non acceptées. Les sections acceptées (épinglées) seront conservées.",
     "sectionsDetected": "sections détectées",
+    "rescanFailed": "La nouvelle analyse n'a pas pu aboutir. Certains tracés d'activité sont illisibles.",
     "cleanupOverlapping": "Nettoyer les chevauchements",
     "cleanupResult": "{{count}} chevauchements supprimés",
     "disconnectAndClearData": "Se déconnecter et supprimer toutes les données",

@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Secties heranalyseren",
     "reanalyzeWarning": "Hiermee worden alle niet-geaccepteerde automatisch gedetecteerde secties vervangen. Geaccepteerde (vastgezette) secties blijven behouden.",
     "sectionsDetected": "secties gedetecteerd",
+    "rescanFailed": "De herscan kon niet worden voltooid. Sommige activiteitstracks zijn onleesbaar.",
     "cleanupOverlapping": "Overlap opruimen",
     "cleanupResult": "{{count}} overlappende verwijderd",
     "disconnectAndClearData": "Uitloggen en alle gegevens verwijderen",

@@ -1639,6 +1639,7 @@
     "reanalyzeSections": "Abschnitte neu analysieren",
     "reanalyzeWarning": "Dies ersetzt alle nicht akzeptierten automatisch erkannten Abschnitte. Akzeptierte (angeheftete) Abschnitte bleiben erhalten.",
     "sectionsDetected": "Abschnitte erkannt",
+    "rescanFailed": "Der Suchlauf konnte nicht abgeschlossen werden. Einige Aktivitätsaufzeichnungen sind nicht lesbar.",
     "cleanupOverlapping": "Überschneidungen bereinigen",
     "cleanupResult": "{{count}} Überschneidungen entfernt",
     "disconnectAndClearData": "Abmelden und alle Daten löschen",

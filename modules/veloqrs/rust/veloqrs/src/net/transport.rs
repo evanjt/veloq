@@ -71,6 +71,8 @@ impl Transport {
         governor: Arc<Governor>,
     ) -> Result<Self, String> {
         let client = Client::builder()
+            // Sends `Accept-Encoding: gzip` and decodes the body transparently.
+            .gzip(true)
             .pool_max_idle_per_host(16)
             .pool_idle_timeout(Duration::from_secs(60))
             .tcp_keepalive(Duration::from_secs(30))

@@ -1,13 +1,20 @@
-//! Bulk GPS-map and FIT downloads for intervals.icu.
+//! Bulk GPS-track and FIT downloads for intervals.icu.
 //!
 //! Everything here goes through the shared `Transport`, so there is one client
 //! in the process: one connection pool, one governor choke point, one retry
 //! and `Retry-After` policy, and one place that classifies a 401. This module
 //! keeps only what `Transport` does not do - fanning a batch out across
 //! `MAX_CONCURRENCY` tasks and reporting progress to the FFI poll.
+//!
+//! Tracks come from `streams.json` rather than the map endpoint, because the
+//! map endpoint carries coordinates alone. `parse_streams` reduces every series
+//! to one validity mask taken from `latlng`, so `latlngs[i]` and `elevations[i]`
+//! describe the same sample and stored section indices keep addressing the same
+//! ground.
 
 use crate::governor::Lane;
 use crate::net::transport::{NetError, Transport};
+use crate::net::types::{StreamDto, parse_streams};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -73,12 +80,20 @@ pub fn get_download_progress() -> (u32, u32, bool) {
 // decides how many activities may be in flight at once.
 const MAX_CONCURRENCY: usize = 50; // Network latency ~200-400ms per activity
 
-/// Result of fetching activity map data
+/// One activity's track as fetched: coordinates, the elevation that belongs to
+/// each of them, and the bytes the body cost.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityMapResult {
     pub activity_id: String,
     pub bounds: Option<MapBounds>,
     pub latlngs: Option<Vec<[f64; 2]>>,
+    /// Same length and same index space as `latlngs`, or `None` when the
+    /// response carried no usable altitude. A sample with no altitude, or a
+    /// non-finite one, is `None` at its own index rather than a fabricated
+    /// number.
+    pub elevations: Option<Vec<Option<f64>>>,
+    /// Response body size after transfer decoding, for the throughput log.
+    pub body_bytes: u32,
     pub success: bool,
     pub error: Option<String>,
 }
@@ -90,17 +105,24 @@ pub struct MapBounds {
     pub sw: [f64; 2], // [lat, lng]
 }
 
-/// API response for activity map endpoint
-#[derive(Debug, Deserialize)]
-struct MapApiResponse {
-    bounds: Option<ApiBounds>,
-    latlngs: Option<Vec<Option<[f64; 2]>>>,
-}
+/// Corner-to-corner extent of a coordinate list. `None` for an empty list.
+use crate::net::types::is_storable;
 
-#[derive(Debug, Deserialize)]
-struct ApiBounds {
-    ne: [f64; 2],
-    sw: [f64; 2],
+fn bounds_of(latlngs: &[[f64; 2]]) -> Option<MapBounds> {
+    let mut kept = latlngs.iter().filter(|p| is_storable(p[0], p[1]));
+    let first = kept.next()?;
+    let (mut min_lat, mut max_lat) = (first[0], first[0]);
+    let (mut min_lng, mut max_lng) = (first[1], first[1]);
+    for p in kept {
+        min_lat = min_lat.min(p[0]);
+        max_lat = max_lat.max(p[0]);
+        min_lng = min_lng.min(p[1]);
+        max_lng = max_lng.max(p[1]);
+    }
+    Some(MapBounds {
+        ne: [max_lat, max_lng],
+        sw: [min_lat, min_lng],
+    })
 }
 
 /// Progress callback type
@@ -204,13 +226,13 @@ impl ActivityFetcher {
                     let dispatch_num = counter.next_dispatch_number();
                     let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_map(transport, &id).await;
+                    let result = Self::fetch_single_track(transport, &id).await;
 
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                     // Update global progress for FFI polling
                     increment_download_progress();
-                    let bytes = result.latlngs.as_ref().map_or(0, |v| v.len() * 16) as u32;
+                    let bytes = result.body_bytes;
                     total_bytes.fetch_add(bytes, Ordering::Relaxed);
                     let complete_time = start_time.elapsed();
 
@@ -274,23 +296,26 @@ impl ActivityFetcher {
         results
     }
 
-    /// One activity's map. Transport owns pacing, retry, `Retry-After` and
-    /// 401 classification, so this is request, decode, flatten.
-    async fn fetch_single_map(transport: &Transport, activity_id: &str) -> ActivityMapResult {
+    /// One activity's track. Transport owns pacing, retry, `Retry-After` and
+    /// 401 classification, so this is request, decode, reduce to one index
+    /// space.
+    async fn fetch_single_track(transport: &Transport, activity_id: &str) -> ActivityMapResult {
         let req_start = Instant::now();
 
         let failed = |error: String| ActivityMapResult {
             activity_id: activity_id.to_string(),
             bounds: None,
             latlngs: None,
+            elevations: None,
+            body_bytes: 0,
             success: false,
             error: Some(error),
         };
 
         let bytes = match transport
             .get_bytes(
-                &format!("/activity/{}/map", activity_id),
-                &[],
+                &format!("/activity/{}/streams.json", activity_id),
+                &[("types", crate::net::endpoints::TRACK_STREAM_TYPES)],
                 Lane::Interactive,
             )
             .await
@@ -305,32 +330,57 @@ impl ActivityFetcher {
         let body_size = bytes.len();
 
         let json_start = Instant::now();
-        let data: MapApiResponse = match serde_json::from_slice(&bytes) {
+        let raw: Vec<StreamDto> = match serde_json::from_slice(&bytes) {
             Ok(d) => d,
             Err(e) => return failed(format!("JSON parse error: {}", e)),
         };
+        let parsed = parse_streams(raw);
         let json_elapsed = json_start.elapsed();
-        let point_count = data.latlngs.as_ref().map_or(0, |v| v.len());
 
-        let bounds = data.bounds.map(|b| MapBounds { ne: b.ne, sw: b.sw });
-        let latlngs = data
-            .latlngs
-            .map(|coords| coords.into_iter().flatten().collect());
+        // A latlng series that disagrees with itself has no trustworthy index
+        // space, and every stored section index addresses that space.
+        if parsed.misaligned.iter().any(|m| m.series == "latlng") {
+            return failed("latlng misaligned".to_string());
+        }
+
+        let point_count = parsed.latlng.len();
+        // Altitude rides the latlng mask, so a length that still disagrees
+        // means the series was never in this index space. Drop the elevation
+        // and keep the track rather than losing the activity.
+        let altitude_aligned = parsed.altitude.len() == point_count
+            && !parsed
+                .misaligned
+                .iter()
+                .any(|m| m.series == "altitude" || m.series == "fixed_altitude");
+        let elevations = if altitude_aligned && point_count > 0 {
+            Some(
+                parsed
+                    .altitude
+                    .iter()
+                    .map(|e| e.is_finite().then_some(*e))
+                    .collect(),
+            )
+        } else {
+            None
+        };
 
         debug!(
-            "[Fetch {}] body={:?}({:.1}KB) json={:?} total={:?} points={}",
+            "[Fetch {}] body={:?}({:.1}KB) json={:?} total={:?} points={} elevation={}",
             activity_id,
             body_elapsed,
             body_size as f64 / 1024.0,
             json_elapsed,
             req_start.elapsed(),
-            point_count
+            point_count,
+            elevations.is_some()
         );
 
         ActivityMapResult {
             activity_id: activity_id.to_string(),
-            bounds,
-            latlngs,
+            bounds: bounds_of(&parsed.latlng),
+            latlngs: Some(parsed.latlng),
+            elevations,
+            body_bytes: body_size as u32,
             success: true,
             error: None,
         }
@@ -352,39 +402,203 @@ mod tests {
         )
     }
 
-    #[test]
-    fn map_fetch_flattens_coordinates_and_bounds() {
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/activity/a1/map");
-            then.status(200).json_body(json!({
-                "bounds": {"ne": [46.95, 7.45], "sw": [46.94, 7.44]},
-                "latlngs": [[46.941, 7.441], null, [46.942, 7.442]]
-            }));
-        });
+    /// A `streams.json` body: latlng split across data/data2, one series per
+    /// requested type. `lat`/`lng`/`alt` entries may be JSON null.
+    fn streams_body(
+        lat: serde_json::Value,
+        lng: serde_json::Value,
+        series: Vec<serde_json::Value>,
+    ) -> serde_json::Value {
+        let mut out = vec![json!({"type": "latlng", "data": lat, "data2": lng})];
+        out.extend(series);
+        json!(out)
+    }
 
+    fn fetch_one(server: &MockServer, id: &str) -> ActivityMapResult {
         let f = fetcher_to(server.base_url());
-        let results = crate::runtime::block_on(f.fetch_activity_maps(vec!["a1".into()], None));
-
-        mock.assert();
-        assert!(results[0].success);
-        // The null hole is dropped, not carried through as a gap.
-        assert_eq!(
-            results[0].latlngs.as_ref().unwrap(),
-            &vec![[46.941, 7.441], [46.942, 7.442]]
-        );
-        let bounds = results[0].bounds.as_ref().unwrap();
-        assert_eq!(bounds.ne, [46.95, 7.45]);
-        assert_eq!(bounds.sw, [46.94, 7.44]);
+        crate::runtime::block_on(f.fetch_activity_maps(vec![id.to_string()], None))
+            .pop()
+            .unwrap()
     }
 
     #[test]
-    fn map_fetch_names_unauthorized_rather_than_a_bare_http_code() {
+    fn track_fetch_reduces_coordinates_and_derives_bounds() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", "latlng,fixed_altitude,altitude");
+            then.status(200).json_body(streams_body(
+                json!([46.941, null, 46.942]),
+                json!([7.441, null, 7.442]),
+                vec![],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        mock.assert();
+        assert!(r.success);
+        // The null hole is dropped, not carried through as a gap.
+        assert_eq!(
+            r.latlngs.as_ref().unwrap(),
+            &vec![[46.941, 7.441], [46.942, 7.442]]
+        );
+        let bounds = r.bounds.as_ref().unwrap();
+        assert_eq!(bounds.ne, [46.942, 7.442]);
+        assert_eq!(bounds.sw, [46.941, 7.441]);
+        assert!(r.body_bytes > 0);
+    }
+
+    #[test]
+    fn elevation_follows_the_original_index_of_each_surviving_coordinate() {
+        // Nulls at 1 and 3 of a five-sample track. Altitude is full length and
+        // distinct per index, so a compaction that shifted it would show.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, null, 46.12, null, 46.14]),
+                json!([7.10, null, 7.12, null, 7.14]),
+                vec![json!({"type": "altitude",
+                            "data": [100.0, 200.0, 300.0, 400.0, 500.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.latlngs.as_ref().unwrap(),
+            &vec![[46.10, 7.10], [46.12, 7.12], [46.14, 7.14]]
+        );
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(100.0), Some(300.0), Some(500.0)]
+        );
+    }
+
+    #[test]
+    fn fixed_altitude_wins_over_altitude() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11]),
+                json!([7.10, 7.11]),
+                vec![
+                    json!({"type": "altitude", "data": [100.0, 101.0]}),
+                    json!({"type": "fixed_altitude", "data": [900.0, 901.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(900.0), Some(901.0)]
+        );
+    }
+
+    #[test]
+    fn a_track_with_no_altitude_series_still_fetches() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11]),
+                json!([7.10, 7.11]),
+                vec![],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 2);
+        assert!(r.elevations.is_none());
+    }
+
+    #[test]
+    fn a_gap_in_the_altitude_series_is_none_at_that_point_alone() {
+        // A null altitude sample parses to NaN, which would poison every
+        // comparison the detector makes on it.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11, 46.12]),
+                json!([7.10, 7.11, 7.12]),
+                vec![json!({"type": "altitude", "data": [100.0, null, 102.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(100.0), None, Some(102.0)]
+        );
+    }
+
+    #[test]
+    fn altitude_does_not_change_the_point_count() {
+        let lat = json!([46.10, null, 46.12, 46.13, null]);
+        let lng = json!([7.10, null, 7.12, 7.13, null]);
+
+        let bare = MockServer::start();
+        bare.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200)
+                .json_body(streams_body(lat.clone(), lng.clone(), vec![]));
+        });
+        let with_alt = MockServer::start();
+        with_alt.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                lat,
+                lng,
+                vec![json!({"type": "fixed_altitude", "data": [1.0, 2.0, 3.0, 4.0, 5.0]})],
+            ));
+        });
+
+        let a = fetch_one(&bare, "a1");
+        let b = fetch_one(&with_alt, "a1");
+
+        assert_eq!(a.latlngs.as_ref().unwrap().len(), 3);
+        assert_eq!(a.latlngs, b.latlngs);
+        assert_eq!(
+            b.elevations.as_ref().unwrap(),
+            &vec![Some(1.0), Some(3.0), Some(4.0)]
+        );
+    }
+
+    #[test]
+    fn an_altitude_series_of_the_wrong_length_costs_the_elevation_not_the_track() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11, 46.12]),
+                json!([7.10, 7.11, 7.12]),
+                vec![json!({"type": "altitude", "data": [100.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 3);
+        assert!(r.elevations.is_none());
+    }
+
+    #[test]
+    fn track_fetch_names_unauthorized_rather_than_a_bare_http_code() {
         // 401 classification is what the sync service turns into a re-login,
         // and this path could not see it before it went through Transport.
         let server = MockServer::start();
         server.mock(|when, then| {
-            when.method(GET).path("/activity/a1/map");
+            when.method(GET).path("/activity/a1/streams.json");
             then.status(401);
         });
 
@@ -399,12 +613,15 @@ mod tests {
     fn a_failing_activity_does_not_sink_the_batch() {
         let server = MockServer::start();
         server.mock(|when, then| {
-            when.method(GET).path("/activity/good/map");
-            then.status(200)
-                .json_body(json!({"latlngs": [[46.9, 7.4], [46.91, 7.41]]}));
+            when.method(GET).path("/activity/good/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.9, 46.91]),
+                json!([7.4, 7.41]),
+                vec![],
+            ));
         });
         server.mock(|when, then| {
-            when.method(GET).path("/activity/gone/map");
+            when.method(GET).path("/activity/gone/streams.json");
             then.status(404);
         });
 
@@ -420,11 +637,11 @@ mod tests {
     }
 
     #[test]
-    fn map_fetch_reports_progress_per_activity() {
+    fn track_fetch_reports_progress_per_activity() {
         let server = MockServer::start();
         server.mock(|when, then| {
-            when.method(GET).path_contains("/map");
-            then.status(200).json_body(json!({"latlngs": []}));
+            when.method(GET).path_contains("/streams.json");
+            then.status(200).json_body(json!([]));
         });
 
         let seen = Arc::new(AtomicU32::new(0));
