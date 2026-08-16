@@ -129,6 +129,7 @@ impl PersistentRouteEngine {
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
+        Self::ensure_catalogue_archive(conn);
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -347,6 +348,31 @@ impl PersistentRouteEngine {
                 "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
             ),
             Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
+        }
+    }
+
+    /// Ensure the cutover archive table exists. Databases that ran 017
+    /// before this table was added need the CREATE IF NOT EXISTS here.
+    fn ensure_catalogue_archive(conn: &Connection) {
+        if let Err(e) = conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS section_catalogue_archive (
+                 token TEXT NOT NULL,
+                 section_id TEXT NOT NULL,
+                 name TEXT,
+                 sport_type TEXT NOT NULL,
+                 polyline_blob BLOB,
+                 polyline_json TEXT,
+                 distance_meters REAL NOT NULL DEFAULT 0,
+                 visit_count INTEGER NOT NULL DEFAULT 0,
+                 created_at TEXT,
+                 member_ids_json TEXT,
+                 PRIMARY KEY (token, section_id)
+             )",
+        ) {
+            log::warn!(
+                "tracematch: [Migration] ensure_catalogue_archive failed: {}",
+                e
+            );
         }
     }
 

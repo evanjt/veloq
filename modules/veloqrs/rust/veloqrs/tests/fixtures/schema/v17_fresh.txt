@@ -194,6 +194,18 @@ table section_activities
   index auto(section_id,activity_id,start_index) unique=1 origin=pk partial=0 cols=[section_id,activity_id,start_index]
   fk activity_id -> activities.id on_update=NO ACTION on_delete=CASCADE
   fk section_id -> sections.id on_update=NO ACTION on_delete=CASCADE
+table section_catalogue_archive
+  column created_at type=TEXT notnull=0 default=<none> pk=0
+  column distance_meters type=REAL notnull=1 default=0 pk=0
+  column member_ids_json type=TEXT notnull=0 default=<none> pk=0
+  column name type=TEXT notnull=0 default=<none> pk=0
+  column polyline_blob type=BLOB notnull=0 default=<none> pk=0
+  column polyline_json type=TEXT notnull=0 default=<none> pk=0
+  column section_id type=TEXT notnull=1 default=<none> pk=2
+  column sport_type type=TEXT notnull=1 default=<none> pk=0
+  column token type=TEXT notnull=1 default=<none> pk=1
+  column visit_count type=INTEGER notnull=1 default=0 pk=0
+  index auto(token,section_id) unique=1 origin=pk partial=0 cols=[token,section_id]
 table section_geometry
   column blob type=BLOB notnull=1 default=<none> pk=0
   column created_at type=TEXT notnull=1 default=datetime('now') pk=0

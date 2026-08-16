@@ -70,6 +70,8 @@ import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
+import * as cutoverDelegates from './delegates/cutover';
+import type { CutoverDiff } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
 import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
@@ -299,6 +301,16 @@ class RouteEngineClient implements DelegateHost {
 
   getElevationBackfillRemaining = (): number | null =>
     elevationDelegates.getElevationBackfillRemaining(this);
+
+  isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
+
+  isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
+
+  runDetectorCutover = (): CutoverDiff | null => cutoverDelegates.runDetectorCutover(this);
+
+  restoreFromCutoverArchive = (): number => cutoverDelegates.restoreFromCutoverArchive(this);
+
+  getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 
   setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
     syncDelegates.setSyncCredentials(this, method, secret, athleteId);

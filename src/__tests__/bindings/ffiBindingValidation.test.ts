@@ -97,10 +97,11 @@ describe('FFI Binding Validation', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
-      // detection, elevation backfill start, progress and remaining). Adjust if a new
+      // detection, elevation backfill start, progress and remaining, and the
+      // five detector-cutover calls). Adjust if a new
       // standalone is added - but prefer putting engine-coupled logic on a
       // UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(9);
+      expect(STANDALONE_EXPORTS.length).toBe(14);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -114,6 +115,11 @@ describe('FFI Binding Validation', () => {
       expect(names.has('start_elevation_backfill')).toBe(true);
       expect(names.has('get_elevation_backfill_progress')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
+      expect(names.has('is_cutover_pending')).toBe(true);
+      expect(names.has('is_cutover_running')).toBe(true);
+      expect(names.has('run_detector_cutover')).toBe(true);
+      expect(names.has('restore_from_cutover_archive')).toBe(true);
+      expect(names.has('get_cutover_diff')).toBe(true);
     });
 
     it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {

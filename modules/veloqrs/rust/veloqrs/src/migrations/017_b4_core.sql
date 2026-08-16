@@ -186,3 +186,23 @@ CREATE TABLE IF NOT EXISTS section_pins (
     version INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Cutover archive: a snapshot of the auto catalogue taken before the one-time
+-- Corridor-to-Unified migration. The rows are the revert substrate: if the
+-- user rolls back, these are restored as is_user_defined = 1 (pinned) sections,
+-- which survive every later detect by construction. One archive per token, so
+-- a re-run of the same cutover replaces its own prior snapshot. No FK to
+-- sections: these rows outlive the wipe.
+CREATE TABLE IF NOT EXISTS section_catalogue_archive (
+    token TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    name TEXT,
+    sport_type TEXT NOT NULL,
+    polyline_blob BLOB,
+    polyline_json TEXT,
+    distance_meters REAL NOT NULL DEFAULT 0,
+    visit_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT,
+    member_ids_json TEXT,
+    PRIMARY KEY (token, section_id)
+);

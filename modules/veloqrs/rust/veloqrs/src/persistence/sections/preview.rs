@@ -220,17 +220,17 @@ struct PayloadConfig {
 }
 
 #[derive(serde::Serialize)]
-struct PayloadCounts {
-    current: u32,
-    proposed: u32,
-    unchanged: u32,
-    changed: u32,
-    new: u32,
-    gone: u32,
+pub(crate) struct PayloadCounts {
+    pub(crate) current: u32,
+    pub(crate) proposed: u32,
+    pub(crate) unchanged: u32,
+    pub(crate) changed: u32,
+    pub(crate) new: u32,
+    pub(crate) gone: u32,
 }
 
 #[derive(serde::Serialize)]
-struct PayloadSection {
+pub(crate) struct PayloadSection {
     id: String,
     live_id: Option<String>,
     status: &'static str,
@@ -251,6 +251,17 @@ struct PreviewPayload {
     config: PayloadConfig,
     counts: PayloadCounts,
     sections: Vec<PayloadSection>,
+}
+
+/// Diff two catalogues. `proposed` is the new state, `live` is the old.
+/// Used by both the preview and the cutover.
+pub(crate) fn diff_catalogues_public(
+    proposed: &[&FrequentSection],
+    live: &[FrequentSection],
+) -> (PayloadCounts, Vec<PayloadSection>) {
+    let proposed_owned: Vec<FrequentSection> = proposed.iter().map(|s| (*s).clone()).collect();
+    let pinned = HashSet::new();
+    diff_catalogues(&proposed_owned, live, &pinned)
 }
 
 fn encoded_polyline(points: &[tracematch::GpsPoint]) -> String {

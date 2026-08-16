@@ -42,6 +42,7 @@ pub use activities::{
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
 pub mod codec;
+pub mod cutover;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
@@ -808,6 +809,9 @@ impl PersistentRouteEngine {
                 return Err(e);
             }
         }
+
+        // Read the cutover token and set the pending flag. Nothing slow.
+        self.check_cutover_state();
 
         // B2: seed the identity registry from the sections just loaded so an
         // existing install adopts its current ids as stable seeds. The evidence

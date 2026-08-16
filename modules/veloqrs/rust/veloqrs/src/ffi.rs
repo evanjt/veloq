@@ -570,6 +570,39 @@ pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
     }
 }
 
+/// Whether the Corridor-to-Unified cutover is pending.
+#[uniffi::export]
+pub fn is_cutover_pending() -> bool {
+    crate::persistence::cutover::cutover_pending()
+}
+
+/// Whether a cutover run is currently in flight.
+#[uniffi::export]
+pub fn is_cutover_running() -> bool {
+    crate::persistence::cutover::cutover_running()
+}
+
+/// Run the cutover in the calling thread. Returns the diff JSON on
+/// success. Shaped for a background worker.
+#[uniffi::export]
+pub fn run_detector_cutover() -> Result<String, crate::VeloqError> {
+    crate::persistence::cutover::run_cutover().map_err(|msg| crate::VeloqError::Database { msg })
+}
+
+/// Restore the archived catalogue and switch back to Corridor.
+/// Returns the number of sections restored.
+#[uniffi::export]
+pub fn restore_from_cutover_archive() -> u32 {
+    crate::persistence::with_persistent_engine(|e| e.restore_from_archive().unwrap_or(0))
+        .unwrap_or(0)
+}
+
+/// The stored cutover diff payload, if any.
+#[uniffi::export]
+pub fn get_cutover_diff() -> Option<String> {
+    crate::persistence::with_persistent_engine(|e| e.cutover_diff()).flatten()
+}
+
 /// Run section detection on arbitrary GPS traces without the persistent engine.
 ///
 /// Used for illustrations and previews. Takes JSON-encoded inputs and returns
