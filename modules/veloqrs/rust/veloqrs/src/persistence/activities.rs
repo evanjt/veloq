@@ -3,7 +3,7 @@
 use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
 use rstar::{AABB, RTree};
 use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use super::codec;
@@ -18,6 +18,36 @@ fn fail_chunk(decoded: &mut HashMap<String, TrackRead>, chunk: &[String], reason
         decoded
             .entry(id.clone())
             .or_insert_with(|| TrackRead::Corrupt(reason.to_string()));
+    }
+}
+
+/// Elevation provenance a stored track can be in: `elevation_state` 0.
+pub const ELEVATION_STATE_UNKNOWN: u8 = 0;
+/// Elevation provenance a stored track can be in: `elevation_state` 1.
+pub const ELEVATION_STATE_FETCHED: u8 = 1;
+/// Elevation provenance a stored track can be in: `elevation_state` 2.
+pub const ELEVATION_STATE_UNAVAILABLE: u8 = 2;
+
+/// How many stored tracks sit in each elevation provenance state.
+///
+/// The question the rest of the system asks is whether the library is
+/// uniformly elevated, which is a scalar. Counts answer it without loading a
+/// list of ids the caller would then have to walk.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ElevationStateCounts {
+    /// Never asked, or stored before the provenance column existed.
+    pub unknown: u64,
+    /// Points carry elevation.
+    pub fetched: u64,
+    /// Asked, and upstream had no usable altitude series.
+    pub unavailable: u64,
+}
+
+impl ElevationStateCounts {
+    /// Tracks in a state other than `fetched`, ie. the size of the remaining
+    /// backfill plus the activities that can never be filled.
+    pub fn not_fetched(&self) -> u64 {
+        self.unknown + self.unavailable
     }
 }
 
@@ -580,6 +610,70 @@ impl PersistentRouteEngine {
             params![id, track_data, coords.len() as i64],
         )?;
         Ok(())
+    }
+
+    /// Record elevation provenance for tracks that are already stored, where
+    /// `state` is 0 unknown, 1 fetched, 2 unavailable upstream.
+    ///
+    /// Provenance cannot ride on the insert: the batch tuple is
+    /// `(id, coords, sport)` with no room for it, and an activity whose
+    /// upstream has no altitude still stores its points, so state 2 has nothing
+    /// to attach to. This writer touches `elevation_state` alone, leaving the
+    /// points blob, `point_count` and every activity column untouched, and an
+    /// id with no track row updates nothing rather than minting a phantom.
+    ///
+    /// `store_gps_track` writes with `INSERT OR REPLACE`, which resets the
+    /// column to its default, so a re-ingest must record state AFTER storing
+    /// the track.
+    ///
+    /// One statement per chunk, grouped by state, chunked like `tracks_batch`
+    /// to stay under SQLite's parameter limit.
+    pub fn record_elevation_state(&self, states: &[(String, u8)]) -> SqlResult<()> {
+        const CHUNK: usize = 500;
+        let mut by_state: BTreeMap<u8, Vec<&String>> = BTreeMap::new();
+        for (id, state) in states {
+            by_state.entry(*state).or_default().push(id);
+        }
+
+        for (state, ids) in by_state {
+            let state = i64::from(state);
+            for chunk in ids.chunks(CHUNK) {
+                let placeholders = std::iter::repeat_n("?", chunk.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "UPDATE gps_tracks SET elevation_state = ? WHERE activity_id IN ({})",
+                    placeholders
+                );
+                let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() + 1);
+                params_vec.push(&state);
+                params_vec.extend(chunk.iter().map(|s| *s as &dyn rusqlite::ToSql));
+                self.db.execute(&sql, params_vec.as_slice())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// How many stored tracks sit in each elevation provenance state. Any value
+    /// outside the known set counts as unknown, which is the honest reading of
+    /// a state this build does not understand.
+    pub fn elevation_state_counts(&self) -> SqlResult<ElevationStateCounts> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT elevation_state, COUNT(*) FROM gps_tracks GROUP BY elevation_state")?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?;
+
+        let mut counts = ElevationStateCounts::default();
+        for row in rows {
+            let (state, n) = row?;
+            let n = n.max(0) as u64;
+            match u8::try_from(state).unwrap_or(ELEVATION_STATE_UNKNOWN) {
+                ELEVATION_STATE_FETCHED => counts.fetched += n,
+                ELEVATION_STATE_UNAVAILABLE => counts.unavailable += n,
+                _ => counts.unknown += n,
+            }
+        }
+        Ok(counts)
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {

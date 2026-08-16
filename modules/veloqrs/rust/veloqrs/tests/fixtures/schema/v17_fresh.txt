@@ -121,6 +121,7 @@ table ftp_history
   index idx_ftp_history_date unique=0 origin=c partial=0 cols=[date]
 table gps_tracks
   column activity_id type=TEXT notnull=0 default=<none> pk=1
+  column elevation_state type=INTEGER notnull=1 default=0 pk=0
   column point_count type=INTEGER notnull=1 default=<none> pk=0
   column track_data type=BLOB notnull=1 default=<none> pk=0
   index auto(activity_id) unique=1 origin=pk partial=0 cols=[activity_id]

@@ -126,6 +126,7 @@ impl PersistentRouteEngine {
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
+        Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
 
         // Post-migration data population for pre-0.2.2 databases.
@@ -251,6 +252,28 @@ impl PersistentRouteEngine {
     fn ensure_wellness_raw_column(conn: &Connection) -> SqlResult<()> {
         if conn.prepare("SELECT raw FROM wellness LIMIT 0").is_err() {
             conn.execute("ALTER TABLE wellness ADD COLUMN raw TEXT", [])?;
+        }
+        Ok(())
+    }
+
+    /// Add `gps_tracks.elevation_state`, the per-activity elevation provenance:
+    /// 0 unknown, 1 fetched, 2 unavailable upstream. Default 0, so a row stored
+    /// before the column existed reads as unknown rather than as a claim that
+    /// its points carry elevation.
+    ///
+    /// Lives in a hook rather than in 017.sql because `ALTER TABLE ADD COLUMN`
+    /// is not idempotent and that file is applied repeatedly by
+    /// `migration_017_is_rerunnable`. Keyed on column presence, so it is safe to
+    /// run after every migration pass.
+    fn ensure_gps_track_elevation_state(conn: &Connection) -> SqlResult<()> {
+        if conn
+            .prepare("SELECT elevation_state FROM gps_tracks LIMIT 0")
+            .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
         }
         Ok(())
     }

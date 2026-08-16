@@ -74,6 +74,14 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- would fail the second pass. The hook is pragma-guarded and idempotent, and it
 -- runs after the junction rebuild so the triggers bind the rebuilt table.
 
+-- The gps_tracks.elevation_state column (0 unknown, 1 fetched, 2 unavailable
+-- upstream) belongs to this version and is added the same way, by the hook
+-- `ensure_gps_track_elevation_state`, for the same re-runnability reason. It
+-- records whether an activity's stored points carry elevation, so a backfill is
+-- resumable and detection can be gated on the library being uniformly elevated:
+-- a partly elevated library vetoes genuine climbs as lifts, because a track
+-- without elevation can mint a lift candidate but can never rescue one.
+
 -- Phase 2: durable suppression records for user-disabled and user-deleted
 -- corridors (invariant 6: evidence is permanent, sections are views; a
 -- user-hidden or user-removed corridor must NOT re-emerge from detection, ever,
