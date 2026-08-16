@@ -6,8 +6,53 @@
 
 use std::io::Write;
 
-use super::{PersistentRouteEngine, codec};
+use super::PersistentRouteEngine;
+use super::codec::TrackRead;
 use crate::GpsPoint;
+
+/// One activity left out of an export, with the reason it was left out. An
+/// export that silently drops an unreadable track is indistinguishable from
+/// one the user simply has no data for, so every skip is named.
+struct SkippedActivity {
+    activity_id: String,
+    reason: String,
+    /// The skip was a decode failure rather than an absence of data.
+    unreadable: bool,
+}
+
+impl SkippedActivity {
+    fn new(activity_id: &str, reason: impl Into<String>) -> Self {
+        SkippedActivity {
+            activity_id: activity_id.to_string(),
+            reason: reason.into(),
+            unreadable: false,
+        }
+    }
+
+    fn unreadable(activity_id: &str, reason: &str) -> Self {
+        SkippedActivity {
+            activity_id: activity_id.to_string(),
+            reason: format!("unreadable track: {}", reason),
+            unreadable: true,
+        }
+    }
+
+    fn as_json(&self) -> serde_json::Value {
+        serde_json::json!({ "id": self.activity_id, "reason": self.reason })
+    }
+}
+
+/// Log the unreadable skips at error, so a decode failure reaches the log even
+/// when nobody opens the export.
+fn log_unreadable(skipped: &[SkippedActivity]) {
+    for entry in skipped.iter().filter(|s| s.unreadable) {
+        log::error!(
+            "[BulkExport] activity {} not exported: {}",
+            entry.activity_id,
+            entry.reason
+        );
+    }
+}
 
 /// Result of a bulk GPX export.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
@@ -32,7 +77,7 @@ impl PersistentRouteEngine {
             .compression_level(Some(6));
 
         let mut exported: u32 = 0;
-        let mut skipped: u32 = 0;
+        let mut skipped: Vec<SkippedActivity> = Vec::new();
         let mut total_bytes: u64 = 0;
 
         // Query all activities with GPS tracks in one pass
@@ -71,23 +116,29 @@ impl PersistentRouteEngine {
             let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
                 match row_result {
                     Ok(r) => r,
-                    Err(_) => {
-                        skipped += 1;
+                    Err(e) => {
+                        skipped.push(SkippedActivity::new(
+                            "unknown",
+                            format!("row read failed: {}", e),
+                        ));
                         continue;
                     }
                 };
 
-            // Deserialize GPS track
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
-                Ok(p) => p,
-                Err(_) => {
-                    skipped += 1;
+            let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
+                TrackRead::Present(points) => points,
+                TrackRead::Missing => {
+                    skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
+                    continue;
+                }
+                TrackRead::Corrupt(reason) => {
+                    skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
                     continue;
                 }
             };
 
             if points.is_empty() {
-                skipped += 1;
+                skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
                 continue;
             }
 
@@ -126,12 +177,18 @@ impl PersistentRouteEngine {
             // Write to ZIP
             if let Err(e) = zip.start_file(&filename, options) {
                 log::warn!("Failed to start ZIP entry {}: {}", filename, e);
-                skipped += 1;
+                skipped.push(SkippedActivity::new(
+                    &activity_id,
+                    format!("archive entry failed: {}", e),
+                ));
                 continue;
             }
             if let Err(e) = zip.write_all(gpx.as_bytes()) {
                 log::warn!("Failed to write ZIP entry {}: {}", filename, e);
-                skipped += 1;
+                skipped.push(SkippedActivity::new(
+                    &activity_id,
+                    format!("archive write failed: {}", e),
+                ));
                 continue;
             }
 
@@ -189,7 +246,7 @@ impl PersistentRouteEngine {
                     "movingTime": moving_time.unwrap_or(0),
                     "hasGpx": false,
                 }));
-                skipped += 1;
+                skipped.push(SkippedActivity::new(&id, "no stored track"));
             }
         }
 
@@ -202,19 +259,31 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to write metadata: {}", e))?;
         total_bytes += meta_json.len() as u64;
 
+        // The archive carries its own omissions, so a user who opens it can
+        // see which activities are absent and why without reading a log.
+        let skipped_json =
+            serde_json::to_string_pretty(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
+                .unwrap_or_else(|_| "[]".to_string());
+        zip.start_file("skipped.json", options)
+            .map_err(|e| format!("Failed to write skip list: {}", e))?;
+        zip.write_all(skipped_json.as_bytes())
+            .map_err(|e| format!("Failed to write skip list: {}", e))?;
+        total_bytes += skipped_json.len() as u64;
+
         zip.finish()
             .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
 
+        log_unreadable(&skipped);
         log::info!(
             "[BulkExport] Exported {} activities ({} skipped), {} bytes uncompressed",
             exported,
-            skipped,
+            skipped.len(),
             total_bytes
         );
 
         Ok(BulkExportResult {
             exported,
-            skipped,
+            skipped: skipped.len() as u32,
             total_bytes,
         })
     }
@@ -231,7 +300,7 @@ impl PersistentRouteEngine {
         let mut writer = BufWriter::new(file);
 
         let mut exported: u32 = 0;
-        let mut skipped: u32 = 0;
+        let mut skipped: Vec<SkippedActivity> = Vec::new();
         let mut total_bytes: u64 = 0;
 
         // Write FeatureCollection header
@@ -265,22 +334,29 @@ impl PersistentRouteEngine {
             let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
                 match row_result {
                     Ok(r) => r,
-                    Err(_) => {
-                        skipped += 1;
+                    Err(e) => {
+                        skipped.push(SkippedActivity::new(
+                            "unknown",
+                            format!("row read failed: {}", e),
+                        ));
                         continue;
                     }
                 };
 
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
-                Ok(p) => p,
-                Err(_) => {
-                    skipped += 1;
+            let points: Vec<GpsPoint> = match TrackRead::from_blob(&track_blob) {
+                TrackRead::Present(points) => points,
+                TrackRead::Missing => {
+                    skipped.push(SkippedActivity::new(&activity_id, "no stored track"));
+                    continue;
+                }
+                TrackRead::Corrupt(reason) => {
+                    skipped.push(SkippedActivity::unreadable(&activity_id, &reason));
                     continue;
                 }
             };
 
             if points.is_empty() {
-                skipped += 1;
+                skipped.push(SkippedActivity::new(&activity_id, "track holds no points"));
                 continue;
             }
 
@@ -299,7 +375,10 @@ impl PersistentRouteEngine {
                 .collect();
 
             if coords.is_empty() {
-                skipped += 1;
+                skipped.push(SkippedActivity::new(
+                    &activity_id,
+                    "track holds no finite coordinates",
+                ));
                 continue;
             }
 
@@ -336,22 +415,34 @@ impl PersistentRouteEngine {
             first = false;
         }
 
-        // Close FeatureCollection
+        // Close the feature array and carry the omissions as a foreign member,
+        // so the file states what it is missing and why.
+        let skipped_json =
+            serde_json::to_string(&skipped.iter().map(|s| s.as_json()).collect::<Vec<_>>())
+                .unwrap_or_else(|_| "[]".to_string());
         writer
-            .write_all(b"\n]}")
+            .write_all(b"\n],\"skipped\":")
+            .map_err(|e| format!("Write failed: {}", e))?;
+        writer
+            .write_all(skipped_json.as_bytes())
+            .map_err(|e| format!("Write failed: {}", e))?;
+        writer
+            .write_all(b"}")
             .map_err(|e| format!("Write failed: {}", e))?;
         writer.flush().map_err(|e| format!("Flush failed: {}", e))?;
+        total_bytes += skipped_json.len() as u64;
 
+        log_unreadable(&skipped);
         log::info!(
             "[BulkExport] GeoJSON exported {} activities ({} skipped), {} bytes",
             exported,
-            skipped,
+            skipped.len(),
             total_bytes
         );
 
         Ok(BulkExportResult {
             exported,
-            skipped,
+            skipped: skipped.len() as u32,
             total_bytes,
         })
     }

@@ -4,12 +4,13 @@
 //! following the same pattern as section detection. The engine mutex is held
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
-use super::{PersistentRouteEngine, TileGenerationHandle, codec};
+use super::codec::TrackRead;
+use super::{PersistentRouteEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -23,6 +24,30 @@ const TILE_FORMAT_VERSION: &str = "7";
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
 const DIRTY_MARKER: &str = ".dirty";
+
+/// Number of unreadable activities named individually in the log.
+const CORRUPT_ID_LOG_CAP: usize = 20;
+
+/// Ids whose stored track did not decode on the last run, kept beside the tile
+/// version. A tile drawn while an activity was unreadable is short that
+/// activity, and `tile_exists` would serve it forever, so the next run redraws
+/// the tiles those activities reach whether or not they are readable again.
+const CORRUPT_RECORD: &str = "corrupt-activities.json";
+
+/// Every activity's track, plus the ones whose stored blob did not decode.
+struct LoadedTracks {
+    tracks: HashMap<String, Arc<Vec<GpsPoint>>>,
+    corrupt: Vec<(String, String)>,
+}
+
+/// What one background tile run produced. `corrupt` is the number of
+/// activities whose stored track did not decode, so the caller can tell a
+/// complete tile set from one drawn over part of the library.
+#[derive(Debug, Default, Clone, Copy)]
+struct TileGeneration {
+    generated: u32,
+    corrupt: usize,
+}
 
 impl PersistentRouteEngine {
     /// Check whether heatmap tiles need (re)generation.
@@ -137,15 +162,26 @@ impl PersistentRouteEngine {
         let total_clone = total_counter.clone();
 
         std::thread::spawn(move || {
-            let generated = background_generate_tiles(
+            let run = background_generate_tiles(
                 &db_path,
                 &tiles_path,
                 &activities,
                 &gen_clone,
                 &total_clone,
             );
+            // The pass ran, so the marker clears. Holding it for an unreadable
+            // activity would re-run the whole pass at every launch for as long
+            // as the row stays bad. The redraw the incomplete tiles need is
+            // carried by the corrupt record instead, which is scoped to the
+            // tiles those activities reach.
             clear_dirty_marker(&tiles_path);
-            tx.send(generated).ok();
+            if run.corrupt > 0 {
+                log::error!(
+                    "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
+                    run.corrupt
+                );
+            }
+            tx.send(run.generated).ok();
         });
 
         Some(TileGenerationHandle {
@@ -191,6 +227,52 @@ impl PersistentRouteEngine {
     }
 }
 
+/// Ids whose track did not decode on the last run. An absent or unreadable
+/// record reads as none, which costs one redraw of nothing.
+fn read_corrupt_record(base: &Path) -> Vec<String> {
+    std::fs::read_to_string(base.join(CORRUPT_RECORD))
+        .ok()
+        .and_then(|body| serde_json::from_str::<Vec<String>>(&body).ok())
+        .unwrap_or_default()
+}
+
+/// Store the ids whose track did not decode on this run. A run with nothing
+/// unreadable removes the record, so a repaired library stops paying for it.
+fn write_corrupt_record(base: &Path, ids: &[String]) {
+    let path = base.join(CORRUPT_RECORD);
+    if ids.is_empty() {
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => log::warn!("[heatmap] Failed to clear the corrupt record: {}", e),
+        }
+        return;
+    }
+    let mut sorted: Vec<&str> = ids.iter().map(|id| id.as_str()).collect();
+    sorted.sort_unstable();
+    match serde_json::to_string(&sorted) {
+        Ok(body) => {
+            if let Err(e) = std::fs::write(&path, body) {
+                log::warn!("[heatmap] Failed to write the corrupt record: {}", e);
+            }
+        }
+        Err(e) => log::warn!("[heatmap] Failed to encode the corrupt record: {}", e),
+    }
+}
+
+/// Whether an activity's bounding box reaches a tile. Bounds are all an
+/// unreadable activity leaves behind, so the swept track coverage is not
+/// available and the box is the widest the redraw can be.
+fn bounds_reach_tile(bounds: &Bounds, z: u8, x: u32, y: u32) -> bool {
+    let x0 = tiles::lon_to_tile_x(bounds.min_lng, z).floor();
+    let x1 = tiles::lon_to_tile_x(bounds.max_lng, z).floor();
+    // Tile y grows southwards, so the northern edge gives the lower index.
+    let y0 = tiles::lat_to_tile_y(bounds.max_lat, z).floor();
+    let y1 = tiles::lat_to_tile_y(bounds.min_lat, z).floor();
+    let (x, y) = (x as f64, y as f64);
+    x >= x0 && x <= x1 && y >= y0 && y <= y1
+}
+
 /// Remove the dirty marker from the tiles directory after successful generation.
 fn clear_dirty_marker(tiles_path: &str) {
     let marker = Path::new(tiles_path).join(DIRTY_MARKER);
@@ -220,13 +302,13 @@ fn background_generate_tiles(
     activities: &[(String, Bounds)],
     generated_counter: &AtomicU32,
     total_counter: &AtomicU32,
-) -> u32 {
+) -> TileGeneration {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
 
     if activities.is_empty() {
-        return 0;
+        return TileGeneration::default();
     }
 
     // Open own SQLite connection (same pattern as section detection).
@@ -234,14 +316,55 @@ fn background_generate_tiles(
         Ok(c) => c,
         Err(e) => {
             log::error!("[heatmap] Failed to open database: {}", e);
-            return 0;
+            return TileGeneration::default();
         }
     };
 
     // --- Phase 1: bulk-load all GPS tracks into an Arc cache ----------------
+    let previously_corrupt = read_corrupt_record(base);
     let load_started = std::time::Instant::now();
-    let tracks_by_id = bulk_load_tracks(&conn, activities);
+    let LoadedTracks {
+        tracks: tracks_by_id,
+        corrupt,
+    } = bulk_load_tracks(&conn, activities);
     let load_ms = load_started.elapsed().as_millis();
+
+    // Only a repaired track needs its ground redrawn. A track still unreadable
+    // contributed nothing to the tiles that exist, which therefore still hold
+    // the heat it laid down while it was readable, and redrawing without it
+    // would drop that heat rather than restore it.
+    let unreadable_now: HashSet<&str> = corrupt.iter().map(|(id, _)| id.as_str()).collect();
+    let stale_ids: HashSet<&str> = previously_corrupt
+        .iter()
+        .map(|id| id.as_str())
+        .filter(|id| !unreadable_now.contains(id))
+        .collect();
+    let stale_bounds: Vec<&Bounds> = activities
+        .iter()
+        .filter(|(id, _)| stale_ids.contains(id.as_str()))
+        .map(|(_, bounds)| bounds)
+        .collect();
+
+    for (id, reason) in corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
+        log::error!(
+            "[heatmap] activity {} omitted from the tile set, track unreadable: {}",
+            id,
+            reason
+        );
+    }
+    if corrupt.len() > CORRUPT_ID_LOG_CAP {
+        log::error!(
+            "[heatmap] {} further activities omitted, tracks unreadable",
+            corrupt.len() - CORRUPT_ID_LOG_CAP
+        );
+    }
+    if !corrupt.is_empty() {
+        log::error!(
+            "[heatmap] {} of {} activities missing from the tile set: the heatmap is incomplete",
+            corrupt.len(),
+            activities.len()
+        );
+    }
 
     // --- Phase 2: build (z,x,y) → [Arc<track>] via polyline sweep ------------
     let plan_started = std::time::Instant::now();
@@ -265,10 +388,31 @@ fn background_generate_tiles(
     let plan_ms = plan_started.elapsed().as_millis();
 
     // --- Phase 3: filter existing, sort for deterministic progress ----------
+    // A tile an unreadable activity reaches is redrawn even when it exists,
+    // because what is on disk was drawn while that activity was missing.
+    let mut redrawn = 0u32;
     let mut pending: Vec<((u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>)> = tile_tracks
         .into_iter()
-        .filter(|(coord, _)| !tiles::tile_exists(base, coord.0, coord.1, coord.2))
+        .filter(|(coord, _)| {
+            if !tiles::tile_exists(base, coord.0, coord.1, coord.2) {
+                return true;
+            }
+            let stale = stale_bounds
+                .iter()
+                .any(|bounds| bounds_reach_tile(bounds, coord.0, coord.1, coord.2));
+            if stale {
+                redrawn += 1;
+            }
+            stale
+        })
         .collect();
+    if redrawn > 0 {
+        info!(
+            "[heatmap] Redrawing {} existing tiles reached by {} repaired activities",
+            redrawn,
+            stale_bounds.len()
+        );
+    }
     // Deterministic ordering keeps progress reporting stable across runs -
     // otherwise HashMap iteration order shuffles `processed_counter` deltas.
     pending.sort_unstable_by_key(|((z, x, y), _)| (*z, *x, *y));
@@ -277,11 +421,18 @@ fn background_generate_tiles(
     total_counter.store(total, Ordering::SeqCst);
 
     if total == 0 {
+        write_corrupt_record(
+            base,
+            &corrupt.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+        );
         info!(
             "[heatmap] Background: nothing to generate (load={}ms plan={}ms)",
             load_ms, plan_ms
         );
-        return 0;
+        return TileGeneration {
+            generated: 0,
+            corrupt: corrupt.len(),
+        };
     }
 
     info!(
@@ -316,27 +467,37 @@ fn background_generate_tiles(
 
     let generated = generated.load(Ordering::SeqCst);
 
+    // Recorded only once the tiles it guards are on disk. A run killed before
+    // this point leaves the previous record standing, so the next run still
+    // knows which ground is owed a redraw.
+    write_corrupt_record(
+        base,
+        &corrupt.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+    );
+
     info!(
         "[heatmap] Background: generated {} tiles / {} scheduled, total wall time {}ms",
         generated,
         total,
         start.elapsed().as_millis()
     );
-    generated
+    TileGeneration {
+        generated,
+        corrupt: corrupt.len(),
+    }
 }
 
 /// Bulk-load every activity's GPS track in chunked `IN (...)` queries.
-/// Returns a map from activity_id → Arc<Vec<GpsPoint>>. Missing rows and
-/// failed deserialization log warnings and are omitted (same behaviour as
-/// the old per-tile `load_gps_track`).
-fn bulk_load_tracks(
-    conn: &Connection,
-    activities: &[(String, Bounds)],
-) -> HashMap<String, Arc<Vec<GpsPoint>>> {
+/// Returns a map from activity_id → Arc<Vec<GpsPoint>> and the ids whose
+/// stored track did not decode. An unreadable track is omitted rather than
+/// mapped to an empty one: the map must not claim to hold a track it could
+/// not read.
+fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> LoadedTracks {
     // SQLite's default parameter limit is 999; chunk well under that so the
     // query never fails for large corpora.
     const CHUNK: usize = 500;
-    let mut out: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+    let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+    let mut corrupt: Vec<(String, String)> = Vec::new();
 
     for chunk in activities.chunks(CHUNK) {
         let placeholders: String = std::iter::repeat("?")
@@ -373,21 +534,15 @@ fn bulk_load_tracks(
 
         for row in rows {
             let Ok((id, blob)) = row else { continue };
-            match codec::deserialize_points(&blob) {
-                Ok(track) => {
-                    out.insert(id, Arc::new(track));
+            match TrackRead::from_blob(&blob) {
+                TrackRead::Present(track) => {
+                    tracks.insert(id, Arc::new(track));
                 }
-                Err(e) => {
-                    log::warn!(
-                        "[heatmap] Failed to deserialize GPS track for activity {}: {}",
-                        id,
-                        e
-                    );
-                    out.insert(id, Arc::new(Vec::new()));
-                }
+                TrackRead::Missing => {}
+                TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
             }
         }
     }
 
-    out
+    LoadedTracks { tracks, corrupt }
 }
