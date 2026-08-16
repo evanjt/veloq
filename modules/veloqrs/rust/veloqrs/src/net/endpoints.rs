@@ -181,7 +181,9 @@ pub async fn fetch_oldest_activity_date(
     Ok(oldest_activity_date(&acts))
 }
 
-/// `GET /activity/{id}/streams.json` → parsed streams (parseStreams parity).
+/// `GET /activity/{id}/streams.json` → parsed streams, every series reduced to
+/// the `latlng` index space. A response whose series lengths disagree with that
+/// space is rejected rather than padded, so no caller reads a fabricated sample.
 pub async fn fetch_streams(
     t: &Transport,
     activity_id: &str,
@@ -195,7 +197,20 @@ pub async fn fetch_streams(
             lane,
         )
         .await?;
-    Ok(parse_streams(raw))
+    let parsed = parse_streams(raw);
+    if !parsed.misaligned.is_empty() {
+        let detail = parsed
+            .misaligned
+            .iter()
+            .map(|m| format!("{} has {} of {}", m.series, m.len, m.expected))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(NetError::Decode(format!(
+            "activity {} streams misaligned: {}",
+            activity_id, detail
+        )));
+    }
+    Ok(parsed)
 }
 
 /// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
@@ -231,19 +246,17 @@ pub async fn fetch_activity_body(
 }
 
 /// An activity's `time` stream as whole seconds, for the section-performance
-/// lap maths. Non-finite and negative samples are dropped rather than cast.
+/// lap maths. Section indices address this array positionally, so a negative
+/// sample is clamped rather than dropped and the length is preserved. The
+/// request asks for `time` alone, so the response carries no `latlng` and the
+/// index-space mask never applies.
 pub async fn fetch_time_stream(
     t: &Transport,
     activity_id: &str,
     lane: Lane,
 ) -> Result<Vec<u32>, NetError> {
     let parsed = fetch_streams(t, activity_id, Some("time"), lane).await?;
-    Ok(parsed
-        .time
-        .into_iter()
-        .filter(|v| *v >= 0)
-        .map(|v| v as u32)
-        .collect())
+    Ok(parsed.time.into_iter().map(|v| v.max(0) as u32).collect())
 }
 
 /// `GET /activity/{id}/intervals` - work/recovery intervals.
