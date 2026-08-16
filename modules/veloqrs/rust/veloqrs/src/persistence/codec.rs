@@ -101,8 +101,38 @@ pub fn serialize_points(points: &[crate::GpsPoint]) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Leading byte of an rmp-serde sequence: fixarray, array16 or array32. Every
+/// legacy point blob is a sequence, so any other leading byte means the blob is
+/// not rmp and the fallback must not be attempted on it.
+fn is_rmp_array_header(b: u8) -> bool {
+    matches!(b, 0x90..=0x9f | 0xdc | 0xdd)
+}
+
+/// rmp decode that rejects trailing bytes. A quantised polyline whose leading
+/// varint lands in the fixarray range would otherwise decode as a short array
+/// and silently return the wrong points.
+fn rmp_exact<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
+    let mut de = rmp_serde::Deserializer::new(std::io::Cursor::new(bytes));
+    let value = T::deserialize(&mut de).map_err(|e| e.to_string())?;
+    let consumed = de.position() as usize;
+    if consumed == bytes.len() {
+        Ok(value)
+    } else {
+        Err(format!(
+            "rmp decode left {} trailing bytes",
+            bytes.len() - consumed
+        ))
+    }
+}
+
+/// Decode a stored point blob, trying framed postcard, unframed postcard and
+/// rmp-serde in that order. On failure the error names the containers that were
+/// tried and what each said, plus the blob length and its first byte, so a log
+/// line is enough to identify the format. A blob claimed by no container (the
+/// quantised polyline stream carries no version byte, it opens on a varint
+/// count) reports as unrecognised rather than as a postcard error.
 pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> {
-    let expand = |compact: Vec<CompactGpsPoint>| {
+    let expand = |compact: Vec<CompactGpsPoint>| -> Vec<crate::GpsPoint> {
         compact
             .into_iter()
             .map(|p| crate::GpsPoint {
@@ -112,15 +142,122 @@ pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> 
             })
             .collect()
     };
-    if let Some(payload) = unframe_postcard(bytes) {
-        if let Ok(compact) = postcard_exact::<Vec<CompactGpsPoint>>(payload) {
-            return Ok(expand(compact));
+    let Some(&first) = bytes.first() else {
+        return Err("empty blob, 0 B".to_string());
+    };
+
+    let mut steps: Vec<String> = Vec::new();
+    let mut claimed = false;
+
+    if first == POSTCARD_TAG {
+        claimed = true;
+        match unframe_postcard(bytes) {
+            Some(payload) => match postcard_exact::<Vec<CompactGpsPoint>>(payload) {
+                Ok(compact) => return Ok(expand(compact)),
+                Err(e) => steps.push(format!("framed postcard body: {}", e)),
+            },
+            None => steps.push("framed postcard: length prefix disagrees with payload".to_string()),
         }
     }
-    if let Ok(compact) = postcard_exact::<Vec<CompactGpsPoint>>(bytes) {
-        return Ok(expand(compact));
+
+    match postcard_exact::<Vec<CompactGpsPoint>>(bytes) {
+        Ok(compact) => return Ok(expand(compact)),
+        Err(e) => steps.push(format!("unframed postcard: {}", e)),
     }
-    rmp_serde::from_slice(bytes).map_err(|e| e.to_string())
+
+    if is_rmp_array_header(first) {
+        claimed = true;
+        match rmp_exact::<Vec<crate::GpsPoint>>(bytes) {
+            Ok(points) => return Ok(points),
+            Err(e) => steps.push(format!("rmp-serde: {}", e)),
+        }
+    } else {
+        steps.push("rmp-serde: not attempted, no array header".to_string());
+    }
+
+    let lead = if claimed {
+        "every container rejected the blob"
+    } else {
+        "unrecognised container"
+    };
+    Err(format!(
+        "{}, first byte 0x{:02x}, {} B: {}",
+        lead,
+        first,
+        bytes.len(),
+        steps.join("; ")
+    ))
+}
+
+// ------------------------------------------------- track reads
+
+/// The outcome of reading one stored track. `Missing` is the absence of a row,
+/// `Corrupt` is a row whose bytes did not decode. The reason names the failed
+/// decode step, the blob length and the first byte, and carries no coordinate,
+/// so it is safe to log.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TrackRead {
+    Present(Vec<crate::GpsPoint>),
+    Missing,
+    Corrupt(String),
+}
+
+impl TrackRead {
+    /// Classify a stored blob. A row always holds bytes, so this never yields
+    /// `Missing`.
+    pub fn from_blob(bytes: &[u8]) -> Self {
+        match deserialize_points(bytes) {
+            Ok(points) => TrackRead::Present(points),
+            Err(reason) => TrackRead::Corrupt(reason),
+        }
+    }
+
+    /// The points, or an empty slice for a missing or corrupt read.
+    pub fn points(&self) -> &[crate::GpsPoint] {
+        match self {
+            TrackRead::Present(points) => points,
+            _ => &[],
+        }
+    }
+
+    /// Degrade to `Option` for callers that still return one, logging the
+    /// reason at warn first so a corrupt row is not indistinguishable from an
+    /// activity that was never synced.
+    pub fn into_option(self, context: &str, activity_id: &str) -> Option<Vec<crate::GpsPoint>> {
+        match self {
+            TrackRead::Present(points) => Some(points),
+            TrackRead::Missing => None,
+            TrackRead::Corrupt(reason) => {
+                log::warn!(
+                    "[{}] activity {}: corrupt stored points, {}",
+                    context,
+                    activity_id,
+                    reason
+                );
+                None
+            }
+        }
+    }
+}
+
+/// What one full walk over the stored tracks saw. `failed` counts rows the
+/// driver could not hand over at all, so a caller can say its result is
+/// incomplete instead of reporting a short list as the whole library.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TrackWalk {
+    /// Rows handed to the callback, corrupt ones included.
+    pub visited: usize,
+    /// Rows whose bytes did not decode.
+    pub corrupt: usize,
+    /// Rows lost to a query or column-read failure.
+    pub failed: usize,
+}
+
+impl TrackWalk {
+    /// True when the walk did not see every stored row.
+    pub fn is_incomplete(&self) -> bool {
+        self.failed > 0
+    }
 }
 
 /// Types containing GpsPoint (like ConsensusAccumulator) can't use postcard

@@ -2,11 +2,24 @@
 
 use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
 use rstar::{AABB, RTree};
-use rusqlite::{Result as SqlResult, params, types::Type};
+use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::codec;
+use super::codec::{TrackRead, TrackWalk};
 use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+
+/// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
+/// the query already answered alone.
+fn fail_chunk(decoded: &mut HashMap<String, TrackRead>, chunk: &[String], reason: &str) {
+    log::error!("[tracks_batch] {}", reason);
+    for id in chunk {
+        decoded
+            .entry(id.clone())
+            .or_insert_with(|| TrackRead::Corrupt(reason.to_string()));
+    }
+}
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -729,43 +742,67 @@ impl PersistentRouteEngine {
         Some(arc)
     }
 
+    /// Load a stored signature. A corrupt points blob names itself in the log
+    /// before the read gives up, so route grouping never drops an activity in
+    /// silence.
     fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {
-        let mut stmt = self
+        let mut stmt = match self
             .db
             .prepare(
                 "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
                  FROM signatures WHERE activity_id = ?",
-            )
-            .ok()?;
+            ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[load_signature_from_db] activity {}: query failed: {}", id, e);
+                return None;
+            }
+        };
 
-        stmt.query_row(params![id], |row| {
-            let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
-            let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
-            let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
-            let total_distance: f64 = row.get(5)?;
-
-            // Compute bounds and center from points
-            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
-            let center = bounds.center();
-
-            Ok(RouteSignature {
-                activity_id: id.to_string(),
-                points,
-                total_distance,
-                start_point,
-                end_point,
-                bounds,
-                center,
+        let row = stmt
+            .query_row(params![id], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    GpsPoint::new(row.get(1)?, row.get(2)?),
+                    GpsPoint::new(row.get(3)?, row.get(4)?),
+                    row.get::<_, f64>(5)?,
+                ))
             })
+            .optional();
+
+        let (points_blob, start_point, end_point, total_distance) = match row {
+            Ok(Some(values)) => values,
+            Ok(None) => return None,
+            Err(e) => {
+                log::warn!(
+                    "[load_signature_from_db] activity {}: row read failed: {}",
+                    id,
+                    e
+                );
+                return None;
+            }
+        };
+
+        let points =
+            TrackRead::from_blob(&points_blob).into_option("load_signature_from_db", id)?;
+
+        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+            min_lat: 0.0,
+            max_lat: 0.0,
+            min_lng: 0.0,
+            max_lng: 0.0,
+        });
+        let center = bounds.center();
+
+        Some(RouteSignature {
+            activity_id: id.to_string(),
+            points,
+            total_distance,
+            start_point,
+            end_point,
+            bounds,
+            center,
         })
-        .ok()
     }
 
     /// Get all map signatures in a single query.
@@ -795,9 +832,10 @@ impl PersistentRouteEngine {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Some(points) =
+                TrackRead::from_blob(&points_blob).into_option("map_signatures", &activity_id)
+            else {
+                continue;
             };
             if points.is_empty() {
                 continue;
@@ -863,9 +901,10 @@ impl PersistentRouteEngine {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Some(points) =
+                TrackRead::from_blob(&points_blob).into_option("map_signatures", &activity_id)
+            else {
+                continue;
             };
             if points.is_empty() {
                 continue;
@@ -890,118 +929,216 @@ impl PersistentRouteEngine {
         result
     }
 
-    /// Get GPS track from database (on-demand, never cached).
-    pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
-        let mut stmt = self
+    // ========================================================================
+    // Track reads
+    // ========================================================================
+
+    /// Read one stored track, distinguishing an activity with no row from a row
+    /// that did not decode. The single decode path: every other track read on
+    /// this engine goes through here.
+    pub fn track(&self, activity_id: &str) -> TrackRead {
+        let mut stmt = match self
             .db
             .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .ok()?;
+        {
+            Ok(s) => s,
+            Err(e) => return TrackRead::Corrupt(format!("track query failed: {}", e)),
+        };
+        let blob: Option<Vec<u8>> = match stmt
+            .query_row(params![activity_id], |row| row.get::<_, Vec<u8>>(0))
+            .optional()
+        {
+            Ok(b) => b,
+            Err(e) => return TrackRead::Corrupt(format!("track row read failed: {}", e)),
+        };
+        match blob {
+            Some(bytes) => TrackRead::from_blob(&bytes),
+            None => TrackRead::Missing,
+        }
+    }
 
-        stmt.query_row(params![id], |row| {
-            let track_blob: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize_points(&track_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?)
-        })
-        .ok()
+    /// Read many tracks in one query per chunk. Ids with no row come back as
+    /// `Missing`, and the result carries one entry per requested id in the
+    /// order requested, repeated ids included. A SQL failure is reported as
+    /// `Corrupt` for every id it covers, the same classification [`track`]
+    /// gives the same event, so a readable row is never reported as an
+    /// activity that was never synced.
+    ///
+    /// [`track`]: Self::track
+    pub fn tracks_batch(&self, ids: &[String]) -> Vec<(String, TrackRead)> {
+        // SQLite's default parameter limit is 999; stay well under it.
+        const CHUNK: usize = 500;
+        let mut decoded: HashMap<String, TrackRead> = HashMap::with_capacity(ids.len());
+
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                placeholders
+            );
+            let mut stmt = match self.db.prepare(&sql) {
+                Ok(s) => s,
+                Err(e) => {
+                    fail_chunk(&mut decoded, chunk, &format!("track query failed: {}", e));
+                    continue;
+                }
+            };
+            let params_vec: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+            let rows = stmt.query_map(params_vec.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            });
+            let rows = match rows {
+                Ok(r) => r,
+                Err(e) => {
+                    fail_chunk(&mut decoded, chunk, &format!("track query failed: {}", e));
+                    continue;
+                }
+            };
+            let mut row_failures = 0usize;
+            for row in rows {
+                match row {
+                    Ok((id, bytes)) => {
+                        let read = TrackRead::from_blob(&bytes);
+                        if let TrackRead::Corrupt(reason) = &read {
+                            log::warn!("[tracks_batch] activity {}: corrupt track, {}", id, reason);
+                        }
+                        decoded.insert(id, read);
+                    }
+                    Err(e) => {
+                        row_failures += 1;
+                        log::warn!("[tracks_batch] row read failed: {}", e);
+                    }
+                }
+            }
+            // The failed rows carry no id, so every id the chunk did not
+            // account for is unresolved rather than known to be absent.
+            if row_failures > 0 {
+                fail_chunk(
+                    &mut decoded,
+                    chunk,
+                    &format!(
+                        "track row read failed for {} rows in this batch",
+                        row_failures
+                    ),
+                );
+            }
+        }
+
+        ids.iter()
+            .map(|id| {
+                let read = decoded.get(id).cloned().unwrap_or(TrackRead::Missing);
+                (id.clone(), read)
+            })
+            .collect()
+    }
+
+    /// Visit every stored track once, streaming. The callback borrows the
+    /// points for the length of the call and the decoded buffer is dropped
+    /// before the next row, so the whole library is never resident at once.
+    /// A corrupt row is logged and visited with an empty slice. The returned
+    /// [`TrackWalk`] counts what the walk saw and what it lost, so a caller
+    /// can tell a short result from a complete one.
+    pub fn for_each_track(&self, mut f: impl FnMut(&str, &[GpsPoint])) -> TrackWalk {
+        let mut walk = TrackWalk::default();
+        let mut stmt = match self
+            .db
+            .prepare("SELECT activity_id, track_data FROM gps_tracks")
+        {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[for_each_track] prepare failed: {}", e);
+                walk.failed += 1;
+                return walk;
+            }
+        };
+        let mut rows = match stmt.query([]) {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("[for_each_track] query failed: {}", e);
+                walk.failed += 1;
+                return walk;
+            }
+        };
+        loop {
+            // rusqlite resets the statement on a row error, so the next call
+            // ends the walk. The count is what tells the caller it was short.
+            let row = match rows.next() {
+                Ok(Some(row)) => row,
+                Ok(None) => break,
+                Err(e) => {
+                    log::warn!("[for_each_track] row read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            let (id, blob): (String, Vec<u8>) = match (row.get(0), row.get(1)) {
+                (Ok(id), Ok(blob)) => (id, blob),
+                (Err(e), _) | (_, Err(e)) => {
+                    log::warn!("[for_each_track] column read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            walk.visited += 1;
+            match TrackRead::from_blob(&blob) {
+                TrackRead::Present(points) => f(&id, &points),
+                TrackRead::Missing => f(&id, &[]),
+                TrackRead::Corrupt(reason) => {
+                    walk.corrupt += 1;
+                    log::warn!(
+                        "[for_each_track] activity {}: corrupt track, {}",
+                        id,
+                        reason
+                    );
+                    f(&id, &[]);
+                }
+            }
+        }
+        walk
+    }
+
+    /// Get GPS track from database (on-demand, never cached).
+    pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
+        self.track(id).into_option("get_gps_track", id)
     }
 
     /// Get all GPS tracks from database for tile generation.
     /// Returns a vector of track point arrays, suitable for heatmap rendering.
     pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
-        log::info!("[get_all_tracks] Starting query...");
-
-        let mut stmt = match self.db.prepare("SELECT track_data FROM gps_tracks") {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[get_all_tracks] Failed to prepare statement: {:?}", e);
-                return Vec::new();
+        let mut tracks: Vec<Vec<GpsPoint>> = Vec::new();
+        let mut total_points = 0usize;
+        let walk = self.for_each_track(|_, points| {
+            if points.is_empty() {
+                return;
             }
-        };
-
-        let rows = stmt.query_map([], |row| {
-            let track_blob: Vec<u8> = row.get(0)?;
-            let blob_len = track_blob.len();
-            let track: Vec<GpsPoint> = codec::deserialize_points(&track_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
-            log::debug!(
-                "[get_all_tracks] Blob {} bytes -> {} points",
-                blob_len,
-                track.len()
-            );
-            Ok(track)
+            total_points += points.len();
+            tracks.push(points.to_vec());
         });
-
-        match rows {
-            Ok(iter) => {
-                let mut success_count = 0;
-                let mut error_count = 0;
-                let mut empty_count = 0;
-                let mut total_points = 0usize;
-                let mut sample_points: Vec<(f64, f64)> = Vec::new();
-
-                let result: Vec<Vec<GpsPoint>> = iter
-                    .filter_map(|r| match r {
-                        Ok(track) => {
-                            if track.is_empty() {
-                                empty_count += 1;
-                                None
-                            } else {
-                                // Sample first few points from first track
-                                if success_count == 0 && sample_points.len() < 5 {
-                                    for point in track.iter().take(5) {
-                                        sample_points.push((point.latitude, point.longitude));
-                                    }
-                                }
-                                total_points += track.len();
-                                success_count += 1;
-                                Some(track)
-                            }
-                        }
-                        Err(e) => {
-                            error_count += 1;
-                            log::warn!("[get_all_tracks] Row error: {:?}", e);
-                            None
-                        }
-                    })
-                    .collect();
-
-                log::info!(
-                    "[get_all_tracks] Results: {} tracks, {} total points, {} errors, {} empty",
-                    success_count,
-                    total_points,
-                    error_count,
-                    empty_count
-                );
-
-                if !sample_points.is_empty() {
-                    log::info!(
-                        "[get_all_tracks] Sample points from first track: {:?}",
-                        sample_points
-                    );
-                }
-
-                result
-            }
-            Err(e) => {
-                log::error!("[get_all_tracks] Query failed: {:?}", e);
-                Vec::new()
-            }
+        if walk.corrupt > 0 || walk.is_incomplete() {
+            log::warn!(
+                "[get_all_tracks] {} tracks, {} total points, {} corrupt, {} unreadable rows: the result is incomplete",
+                tracks.len(),
+                total_points,
+                walk.corrupt,
+                walk.failed
+            );
+        } else {
+            log::info!(
+                "[get_all_tracks] {} tracks, {} total points",
+                tracks.len(),
+                total_points
+            );
         }
+        tracks
     }
 
     /// Load original GPS track from database (separate function to avoid borrow issues)
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
-        let mut stmt = self
-            .db
-            .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .ok()?;
-
-        stmt.query_row(params![activity_id], |row| {
-            let data: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize_points(&data).ok())
-        })
-        .ok()
-        .flatten()
+        self.track(activity_id)
+            .into_option("load_gps_track_from_db", activity_id)
     }
 
     // ========================================================================
