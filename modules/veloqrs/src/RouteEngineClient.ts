@@ -68,6 +68,8 @@ import type { RoutePoint, SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
+import * as elevationDelegates from './delegates/elevation';
+import type { ElevationBackfillProgress } from './delegates/elevation';
 import * as fitnessDelegates from './delegates/fitness';
 import * as heatmapDelegates from './delegates/heatmap';
 import * as mapsDelegates from './delegates/maps';
@@ -272,6 +274,14 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
+
+  startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
+
+  getElevationBackfillProgress = (): ElevationBackfillProgress | null =>
+    elevationDelegates.getElevationBackfillProgress(this);
+
+  getElevationBackfillRemaining = (): number | null =>
+    elevationDelegates.getElevationBackfillRemaining(this);
 
   setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
     syncDelegates.setSyncCredentials(this, method, secret, athleteId);

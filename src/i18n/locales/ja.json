@@ -1670,7 +1670,13 @@
     "data": "データ",
     "notificationsAndStorage": "通知とストレージ",
     "routesAndSections": "ルートとセクション",
-    "sinceDateSubtitle": "{{date}}以降"
+    "sinceDateSubtitle": "{{date}}以降",
+    "elevationBackfillRunning": "アクティビティの軌跡に標高を追加しています",
+    "elevationBackfillProgress": "{{total}} 件中 {{completed}} 件",
+    "elevationBackfillComplete": "すべてのアクティビティの軌跡に標高があります",
+    "elevationBackfillPartial": "一部のアクティビティの軌跡に標高がありません。後で再試行します。",
+    "elevationBackfillRetrying": "{{value}} 件のアクティビティの軌跡を更新できませんでした。後で再試行します。",
+    "elevationBackfillFailed": "標高の更新を実行できませんでした。"
   },
   "stats": {
     "activities": "アクティビティ",

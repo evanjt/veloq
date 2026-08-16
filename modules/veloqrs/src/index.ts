@@ -45,6 +45,9 @@ export type {
   FfiManualActivity as ManualActivity,
 } from "./generated/veloqrs";
 
+// Elevation backfill consumer types
+export type { ElevationBackfillPhase } from './delegates/elevation';
+
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from "./delegates/activities";
 export type { RouteDetailData } from "./delegates/routes";

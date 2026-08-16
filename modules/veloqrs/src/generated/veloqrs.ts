@@ -130,6 +130,56 @@ export function getDownloadProgress(): DownloadProgressResult {
   );
 }
 /**
+ * Read the elevation backfill's progress. Safe to poll at any time.
+ */
+export function getElevationBackfillProgress(): ElevationBackfillProgress {
+  return FfiConverterTypeElevationBackfillProgress.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * How many stored tracks the backfill still has to ask upstream about.
+ * Zero means the library has been fully asked, so the launch trigger can
+ * stop attempting runs for this install.
+ */
+export function getElevationBackfillRemaining(): /*u32*/ number {
+  return FfiConverterUInt32.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * Start the elevation backfill on a background thread.
+ *
+ * Returns false when nothing is outstanding, when a run is already in flight,
+ * or when no credential is set yet, so it is safe to call on every launch.
+ */
+export function startElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Start a background fetch that downloads GPS data and stores it directly
  * in the persistent engine. This eliminates the FFI round-trip where GPS
  * data would otherwise be sent to TypeScript and back.
@@ -428,6 +478,91 @@ const FfiConverterTypeDownloadProgressResult = (() => {
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
         FfiConverterBool.allocationSize(value.active)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Progress of the one-shot elevation backfill.
+ *
+ * `phase` is the terminal signal as well as the live one: "complete" when
+ * nothing is outstanding, "partial" when the pass finished but activities
+ * remain for a later run, "failed" when it could not proceed at all.
+ *
+ * The single re-cut that follows a conversion runs detached and reports
+ * through `DetectionManager::get_progress`, so this record covers the download
+ * alone rather than duplicating a second detection progress surface.
+ */
+export type ElevationBackfillProgress = {
+  /**
+   * idle, fetching, complete, partial or failed.
+   */
+  phase: string;
+  /**
+   * Activities this run has finished with.
+   */
+  completed: /*u32*/ number;
+  /**
+   * Activities the run started with.
+   */
+  total: /*u32*/ number;
+  /**
+   * Activities whose fetch failed, so a later run retries them.
+   */
+  failed: /*u32*/ number;
+  /**
+   * Whole percent of the queue handled. An empty queue reads 100.
+   */
+  percent: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link ElevationBackfillProgress} record objects.
+ */
+export const ElevationBackfillProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      ElevationBackfillProgress,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<ElevationBackfillProgress>,
+  });
+})();
+
+const FfiConverterTypeElevationBackfillProgress = (() => {
+  type TypeName = ElevationBackfillProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        phase: FfiConverterString.read(from),
+        completed: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        failed: FfiConverterUInt32.read(from),
+        percent: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.phase, into);
+      FfiConverterUInt32.write(value.completed, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.failed, into);
+      FfiConverterUInt32.write(value.percent, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.phase) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.failed) +
+        FfiConverterUInt32.allocationSize(value.percent)
       );
     }
   }
@@ -16059,6 +16194,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress() !==
+    50851
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_elevation_backfill_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
+    24524
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
+    54941
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_start_elevation_backfill",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
     62119
   ) {
@@ -17901,6 +18060,7 @@ export default Object.freeze({
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
+    FfiConverterTypeElevationBackfillProgress,
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,

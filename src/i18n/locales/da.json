@@ -1670,7 +1670,13 @@
     "data": "Datalagring",
     "notificationsAndStorage": "Notifikationer & Lager",
     "routesAndSections": "Ruter & Sektioner",
-    "sinceDateSubtitle": "Siden {{date}}"
+    "sinceDateSubtitle": "Siden {{date}}",
+    "elevationBackfillRunning": "Tilføjer højde til aktivitetsspor",
+    "elevationBackfillProgress": "{{completed}} af {{total}} aktiviteter",
+    "elevationBackfillComplete": "Alle aktivitetsspor har højde",
+    "elevationBackfillPartial": "Nogle aktivitetsspor mangler stadig højde. De forsøges igen senere.",
+    "elevationBackfillRetrying": "{{value}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
+    "elevationBackfillFailed": "Højdeopdateringen kunne ikke køre."
   },
   "stats": {
     "activities": "Aktiviteter",

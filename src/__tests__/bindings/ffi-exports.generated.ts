@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 6 standalone `#[uniffi::export]` functions plus
+ * 9 standalone `#[uniffi::export]` functions plus
  * 225 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 231 exports (6 standalone + 225 methods)
+ * Total: 234 exports (9 standalone + 225 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -52,7 +52,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start_fetch_and_store',
     camelName: 'startFetchAndStore',
     file: 'ffi.rs',
-    line: 141,
+    line: 184,
     paramCount: 2,
     returnType: 'void',
   },
@@ -60,15 +60,39 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'take_fetch_and_store_result',
     camelName: 'takeFetchAndStoreResult',
     file: 'ffi.rs',
-    line: 450,
+    line: 492,
     paramCount: 0,
     returnType: 'Option<FetchAndStoreResult>',
+  },
+  {
+    name: 'start_elevation_backfill',
+    camelName: 'startElevationBackfill',
+    file: 'ffi.rs',
+    line: 544,
+    paramCount: 0,
+    returnType: 'bool',
+  },
+  {
+    name: 'get_elevation_backfill_remaining',
+    camelName: 'getElevationBackfillRemaining',
+    file: 'ffi.rs',
+    line: 553,
+    paramCount: 0,
+    returnType: 'u32',
+  },
+  {
+    name: 'get_elevation_backfill_progress',
+    camelName: 'getElevationBackfillProgress',
+    file: 'ffi.rs',
+    line: 562,
+    paramCount: 0,
+    returnType: 'ElevationBackfillProgress',
   },
   {
     name: 'detect_sections_standalone',
     camelName: 'detectSectionsStandalone',
     file: 'ffi.rs',
-    line: 475,
+    line: 578,
     paramCount: 3,
     returnType: 'Result<String, crate::VeloqError>',
   },
@@ -256,7 +280,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/detection.rs',
-    line: 122,
+    line: 121,
     paramCount: 0,
     returnType: 'Arc<Self>',
     object: 'DetectionManager',
@@ -265,7 +289,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start',
     camelName: 'start',
     file: 'objects/detection.rs',
-    line: 126,
+    line: 125,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     object: 'DetectionManager',
@@ -274,7 +298,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'poll',
     camelName: 'poll',
     file: 'objects/detection.rs',
-    line: 147,
+    line: 153,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     object: 'DetectionManager',
@@ -283,7 +307,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 156,
+    line: 162,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     object: 'DetectionManager',
@@ -292,7 +316,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 176,
+    line: 182,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     object: 'DetectionManager',
@@ -301,7 +325,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 204,
+    line: 217,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     object: 'DetectionManager',
@@ -310,7 +334,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 210,
+    line: 223,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
     object: 'DetectionManager',
@@ -319,7 +343,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 214,
+    line: 227,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     object: 'DetectionManager',
@@ -328,7 +352,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 241,
+    line: 254,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     object: 'DetectionManager',
@@ -337,7 +361,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'detect_potentials',
     camelName: 'detectPotentials',
     file: 'objects/detection.rs',
-    line: 248,
+    line: 261,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiPotentialSection>, VeloqError>',
     object: 'DetectionManager',
@@ -2101,7 +2125,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1700,
+    line: 1708,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2115,6 +2139,9 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'validateBackupDatabase',
   'startFetchAndStore',
   'takeFetchAndStoreResult',
+  'startElevationBackfill',
+  'getElevationBackfillRemaining',
+  'getElevationBackfillProgress',
   'detectSectionsStandalone',
   'new',
   'add',
@@ -2356,6 +2383,9 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   validate_backup_database: 'validateBackupDatabase',
   start_fetch_and_store: 'startFetchAndStore',
   take_fetch_and_store_result: 'takeFetchAndStoreResult',
+  start_elevation_backfill: 'startElevationBackfill',
+  get_elevation_backfill_remaining: 'getElevationBackfillRemaining',
+  get_elevation_backfill_progress: 'getElevationBackfillProgress',
   detect_sections_standalone: 'detectSectionsStandalone',
   new: 'new',
   add: 'add',

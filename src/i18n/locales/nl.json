@@ -1670,7 +1670,13 @@
     "data": "Gegevens",
     "notificationsAndStorage": "Meldingen en opslag",
     "routesAndSections": "Routes en secties",
-    "sinceDateSubtitle": "Sinds {{date}}"
+    "sinceDateSubtitle": "Sinds {{date}}",
+    "elevationBackfillRunning": "Hoogte wordt aan activiteitensporen toegevoegd",
+    "elevationBackfillProgress": "{{completed}} van {{total}} activiteiten",
+    "elevationBackfillComplete": "Alle activiteitensporen hebben hoogte",
+    "elevationBackfillPartial": "Sommige activiteitensporen hebben nog geen hoogte. Ze worden later opnieuw geprobeerd.",
+    "elevationBackfillRetrying": "{{value}} activiteitensporen konden niet worden bijgewerkt. Ze worden later opnieuw geprobeerd.",
+    "elevationBackfillFailed": "De hoogte-update kon niet worden uitgevoerd."
   },
   "stats": {
     "activities": "Activiteiten",

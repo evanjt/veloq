@@ -1300,6 +1300,15 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_get_download_progress(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
@@ -1452,6 +1461,9 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(): number;
+  ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;
   ubrn_uniffi_veloqrs_checksum_func_validate_backup_database(): number;

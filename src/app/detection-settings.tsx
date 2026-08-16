@@ -18,7 +18,10 @@ import { useTheme } from '@/shared/app';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { DetectionMethodIllustration } from '@/features/settings/components';
+import {
+  DetectionMethodIllustration,
+  ElevationBackfillStatus,
+} from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
@@ -493,6 +496,8 @@ export default function DetectionSettingsScreen() {
               )}
             </Text>
           )}
+
+          <ElevationBackfillStatus />
         </View>
       </ScrollView>
     </ScreenSafeAreaView>

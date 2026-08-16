@@ -1670,7 +1670,13 @@
     "data": "Dati",
     "notificationsAndStorage": "Notifiche e archiviazione",
     "routesAndSections": "Percorsi e sezioni",
-    "sinceDateSubtitle": "Dal {{date}}"
+    "sinceDateSubtitle": "Dal {{date}}",
+    "elevationBackfillRunning": "Aggiunta dell'altitudine ai tracciati delle attività",
+    "elevationBackfillProgress": "{{completed}} di {{total}} attività",
+    "elevationBackfillComplete": "Tutti i tracciati delle attività hanno l'altitudine",
+    "elevationBackfillPartial": "Alcuni tracciati delle attività non hanno ancora l'altitudine. Verranno ritentati più tardi.",
+    "elevationBackfillRetrying": "Non è stato possibile aggiornare {{value}} tracciati delle attività. Verranno ritentati più tardi.",
+    "elevationBackfillFailed": "Non è stato possibile eseguire l'aggiornamento dell'altitudine."
   },
   "stats": {
     "activities": "Attività",

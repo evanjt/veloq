@@ -1670,7 +1670,13 @@
     "data": "数据",
     "notificationsAndStorage": "通知与存储",
     "routesAndSections": "路线与区间",
-    "sinceDateSubtitle": "自 {{date}} 起"
+    "sinceDateSubtitle": "自 {{date}} 起",
+    "elevationBackfillRunning": "正在为活动轨迹添加海拔",
+    "elevationBackfillProgress": "{{total}} 项活动中的 {{completed}} 项",
+    "elevationBackfillComplete": "所有活动轨迹均已包含海拔",
+    "elevationBackfillPartial": "部分活动轨迹仍缺少海拔，稍后将重试。",
+    "elevationBackfillRetrying": "{{value}} 条活动轨迹更新失败，稍后将重试。",
+    "elevationBackfillFailed": "无法运行海拔更新。"
   },
   "stats": {
     "activities": "活动",

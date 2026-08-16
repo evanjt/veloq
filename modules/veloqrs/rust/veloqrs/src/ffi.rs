@@ -509,6 +509,67 @@ pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
     result
 }
 
+// =============================================================================
+// Elevation backfill
+// =============================================================================
+
+/// Progress of the one-shot elevation backfill.
+///
+/// `phase` is the terminal signal as well as the live one: "complete" when
+/// nothing is outstanding, "partial" when the pass finished but activities
+/// remain for a later run, "failed" when it could not proceed at all.
+///
+/// The single re-cut that follows a conversion runs detached and reports
+/// through `DetectionManager::get_progress`, so this record covers the download
+/// alone rather than duplicating a second detection progress surface.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ElevationBackfillProgress {
+    /// idle, fetching, complete, partial or failed.
+    pub phase: String,
+    /// Activities this run has finished with.
+    pub completed: u32,
+    /// Activities the run started with.
+    pub total: u32,
+    /// Activities whose fetch failed, so a later run retries them.
+    pub failed: u32,
+    /// Whole percent of the queue handled. An empty queue reads 100.
+    pub percent: u32,
+}
+
+/// Start the elevation backfill on a background thread.
+///
+/// Returns false when nothing is outstanding, when a run is already in flight,
+/// or when no credential is set yet, so it is safe to call on every launch.
+#[uniffi::export]
+pub fn start_elevation_backfill() -> bool {
+    init_logging();
+    crate::net::elevation_backfill::start_elevation_backfill()
+}
+
+/// How many stored tracks the backfill still has to ask upstream about.
+/// Zero means the library has been fully asked, so the launch trigger can
+/// stop attempting runs for this install.
+#[uniffi::export]
+pub fn get_elevation_backfill_remaining() -> u32 {
+    crate::persistence::with_persistent_engine(|e| e.elevation_backfill_remaining())
+        .unwrap_or(0)
+        .try_into()
+        .unwrap_or(u32::MAX)
+}
+
+/// Read the elevation backfill's progress. Safe to poll at any time.
+#[uniffi::export]
+pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
+    let snapshot = crate::net::elevation_backfill::backfill_progress();
+    ElevationBackfillProgress {
+        phase: snapshot.phase.to_string(),
+        completed: snapshot.completed,
+        total: snapshot.total,
+        failed: snapshot.failed,
+        percent: snapshot.percent(),
+    }
+}
+
 /// Run section detection on arbitrary GPS traces without the persistent engine.
 ///
 /// Used for illustrations and previews. Takes JSON-encoded inputs and returns

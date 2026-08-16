@@ -1709,7 +1709,13 @@
     "data": "Data",
     "notificationsAndStorage": "Notifications & Storage",
     "routesAndSections": "Routes & Sections",
-    "sinceDateSubtitle": "Since {{date}}"
+    "sinceDateSubtitle": "Since {{date}}",
+    "elevationBackfillRunning": "Adding elevation to activity tracks",
+    "elevationBackfillProgress": "{{completed}} of {{total}} activities",
+    "elevationBackfillComplete": "All activity tracks have elevation",
+    "elevationBackfillPartial": "Some activity tracks still need elevation. They will be retried later.",
+    "elevationBackfillRetrying": "{{value}} activity tracks could not be updated. They will be retried later.",
+    "elevationBackfillFailed": "The elevation update could not run."
   },
   "stats": {
     "activities": "Activities",

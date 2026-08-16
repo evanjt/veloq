@@ -4,6 +4,7 @@ export { DataCacheSection } from './DataCacheSection';
 export { DetectionMethodIllustration } from './DetectionMethodIllustration';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
+export { ElevationBackfillStatus } from './ElevationBackfillStatus';
 export { FooterSection } from './FooterSection';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';

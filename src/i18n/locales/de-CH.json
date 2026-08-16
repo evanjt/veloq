@@ -1670,7 +1670,13 @@
     "data": "Date",
     "notificationsAndStorage": "Benachrichtigunge & Speicher",
     "routesAndSections": "Route & Abschnitt",
-    "sinceDateSubtitle": "Sit {{date}}"
+    "sinceDateSubtitle": "Sit {{date}}",
+    "elevationBackfillRunning": "Höhendaten werden zu Aktivitätsspuren hinzugefügt",
+    "elevationBackfillProgress": "{{completed}} von {{total}} Aktivitäten",
+    "elevationBackfillComplete": "Alle Aktivitätsspuren haben Höhendaten",
+    "elevationBackfillPartial": "Einigen Aktivitätsspuren fehlen noch Höhendaten. Sie werden später erneut versucht.",
+    "elevationBackfillRetrying": "{{value}} Aktivitätsspuren konnten nicht aktualisiert werden. Sie werden später erneut versucht.",
+    "elevationBackfillFailed": "Die Höhenaktualisierung konnte nicht ausgeführt werden."
   },
   "stats": {
     "activities": "Aktivitäte",

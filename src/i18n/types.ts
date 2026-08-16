@@ -356,6 +356,12 @@ export interface TranslationResource {
     detectionMethod_unified: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
+    elevationBackfillRunning: string;
+    elevationBackfillProgress: string;
+    elevationBackfillComplete: string;
+    elevationBackfillPartial: string;
+    elevationBackfillRetrying: string;
+    elevationBackfillFailed: string;
     cleanupOverlapping: string;
     cleanupResult: string;
     total: string;

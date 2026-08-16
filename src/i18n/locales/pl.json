@@ -1672,7 +1672,13 @@
     "data": "Dane",
     "notificationsAndStorage": "Powiadomienia i pamięć",
     "routesAndSections": "Trasy i odcinki",
-    "sinceDateSubtitle": "Od {{date}}"
+    "sinceDateSubtitle": "Od {{date}}",
+    "elevationBackfillRunning": "Dodawanie wysokości do śladów aktywności",
+    "elevationBackfillProgress": "{{completed}} z {{total}} aktywności",
+    "elevationBackfillComplete": "Wszystkie ślady aktywności mają wysokość",
+    "elevationBackfillPartial": "Niektóre ślady aktywności nadal nie mają wysokości. Zostaną ponowione później.",
+    "elevationBackfillRetrying": "Nie udało się zaktualizować {{value}} śladów aktywności. Zostaną ponowione później.",
+    "elevationBackfillFailed": "Nie udało się uruchomić aktualizacji wysokości."
   },
   "stats": {
     "activities": "Aktywności",

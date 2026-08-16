@@ -348,7 +348,9 @@ const LEGACY_BACKUP_VERSION = 2;
  * 'terrain-preview-cache-version', 'veloq-recording-library' (points at local
  * FIT files that are not in the backup), 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
- * stale timestamp could suppress a needed re-registration for a day).
+ * stale timestamp could suppress a needed re-registration for a day),
+ * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
+ * it onto another install would suppress that device's own backfill).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
