@@ -38,7 +38,7 @@ function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<strin
       tracks.set(track.activityId, {
         activityId: track.activityId,
         coordinates: coords,
-        altitude: undefined, // encoded format does not include elevation
+        altitude: undefined, // preview cards render position only
       });
     }
   }
