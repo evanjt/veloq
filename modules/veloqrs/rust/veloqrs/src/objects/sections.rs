@@ -305,7 +305,7 @@ impl SectionManager {
         section_id: String,
     ) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
         with_engine(|e| {
-            e.get_section_calendar_summary(&section_id)
+            e.get_section_calendar_summary(&section_id, None)
                 .map(crate::FfiCalendarSummary::from)
         })
     }
@@ -674,7 +674,9 @@ impl SectionManager {
                 // Use the unfiltered variant
                 e.get_all_section_summaries(None)
                     .into_iter()
-                    .filter(|s| s.sport_type == *sport)
+                    .filter(|s| {
+                        crate::persistence::PersistentRouteEngine::summary_covers_sport(s, sport)
+                    })
                     .collect()
             }
             None => e.get_all_section_summaries(None),
@@ -887,10 +889,11 @@ impl SectionManager {
         section_ids: Vec<String>,
     ) -> Result<Vec<String>, VeloqError> {
         with_engine(|e| {
+            let sport = e.sport_of_activity(&activity_id);
             section_ids
                 .into_iter()
                 .filter(|sid| {
-                    e.get_section_performances(sid)
+                    e.get_section_performances_filtered(sid, sport.as_deref())
                         .best_record
                         .as_ref()
                         .is_some_and(|r| r.activity_id == activity_id)

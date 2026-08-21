@@ -647,6 +647,7 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
+            sportType={activity.type}
             encounters={encounters}
             coordinates={coordinates}
             isDark={isDark}

@@ -22,8 +22,8 @@ impl PersistentRouteEngine {
     ) -> Vec<crate::FfiRankedSection> {
         let start = std::time::Instant::now();
 
-        // Query all sections for this sport type with their traversal data
-        // Join section_activities with activity_metrics to get dates and lap times
+        // Rank within one sport: a run's lap and a ride's over the same ground
+        // are not comparable efforts.
         struct TraversalRow {
             section_id: String,
             section_name: String,
@@ -37,7 +37,8 @@ impl PersistentRouteEngine {
                  FROM sections s
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE s.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
+                 JOIN activities a ON sa.activity_id = a.id
+                 WHERE a.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
                    AND s.disabled = 0 AND s.superseded_by IS NULL
                  ORDER BY s.id, am.date ASC",
             ) {
@@ -324,7 +325,8 @@ impl PersistentRouteEngine {
             return ranked
                 .into_iter()
                 .map(|rs| {
-                    let perf = self.get_section_performances(&rs.section_id);
+                    let perf =
+                        self.get_section_performances_filtered(&rs.section_id, Some(sport_type));
                     enrich_from_ranked(rs, perf)
                 })
                 .collect();
@@ -342,7 +344,7 @@ impl PersistentRouteEngine {
         summaries
             .into_iter()
             .filter_map(|summary| {
-                let perf = self.get_section_performances(&summary.id);
+                let perf = self.get_section_performances_filtered(&summary.id, Some(sport_type));
                 if perf.records.is_empty() {
                     return None;
                 }

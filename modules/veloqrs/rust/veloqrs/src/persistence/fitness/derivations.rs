@@ -261,16 +261,17 @@ impl PersistentRouteEngine {
     }
 
     /// Get a calendar-aligned Year > Month performance summary for a section.
-    /// Returns full history (no date range filter).
+    /// Returns full history (no date range filter), for one sport when given.
     pub fn get_section_calendar_summary(
         &mut self,
         section_id: &str,
+        sport_filter: Option<&str>,
     ) -> Option<crate::CalendarSummary> {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
         // for activities without time streams, matching the strict behavior).
-        let perf_result = self.get_section_performances(section_id);
+        let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {
             return None;
@@ -1007,12 +1008,14 @@ impl PersistentRouteEngine {
         let mut encounters = Vec::new();
 
         for trav in &traversals {
-            // Get history for this (section, direction): all traversals sorted by activity date
+            // History for this (section, direction), in this activity's sport: a
+            // run's progress over shared ground is its own, not the rides'.
             let history_query =
                 "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
                  FROM section_activities sa
-                 LEFT JOIN activities a ON a.id = sa.activity_id
+                 JOIN activities a ON a.id = sa.activity_id
                  WHERE sa.section_id = ?1 AND sa.direction = ?2
+                   AND a.sport_type = (SELECT sport_type FROM activities WHERE id = ?3)
                    AND sa.excluded = 0 AND sa.lap_time IS NOT NULL AND sa.lap_time > 0
                  ORDER BY act_date ASC";
 
@@ -1025,11 +1028,10 @@ impl PersistentRouteEngine {
             let mut history_ids: Vec<String> = Vec::new();
             let mut best_time: f64 = f64::MAX;
 
-            if let Ok(rows) = hist_stmt
-                .query_map(rusqlite::params![trav.section_id, trav.direction], |row| {
-                    Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?))
-                })
-            {
+            if let Ok(rows) = hist_stmt.query_map(
+                rusqlite::params![trav.section_id, trav.direction, activity_id],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+            ) {
                 for row in rows.flatten() {
                     if row.0 < best_time {
                         best_time = row.0;

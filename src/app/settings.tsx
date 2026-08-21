@@ -172,11 +172,10 @@ export default function SettingsScreen() {
 
   // Subtitle: Routes & Sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
-  const detectionMethod = useRouteSettings((s) => s.settings.detectionMethod);
-  const detectionSubtitle = useMemo(() => {
-    if (!routeMatchingEnabled) return t('common.off');
-    return t(`settings.detectionMethod_${detectionMethod}` as never) as string;
-  }, [routeMatchingEnabled, detectionMethod, t]);
+  const detectionSubtitle = useMemo(
+    () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
+    [routeMatchingEnabled, t]
+  );
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);

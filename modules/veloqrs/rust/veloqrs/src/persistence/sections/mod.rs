@@ -665,6 +665,54 @@ impl PersistentRouteEngine {
             .len() as u32
     }
 
+    /// Whether a sport traverses this section. Ground is neutral: the section's
+    /// own `sport_type` is only the dominant label of its traversals.
+    /// Counts the same population as `outings`.
+    pub(crate) fn covers_sport(&self, s: &FrequentSection, sport: &str) -> bool {
+        if s.sport_type == sport {
+            return true;
+        }
+        let mut traversers = s
+            .activity_portions
+            .iter()
+            .map(|p| &p.activity_id)
+            .peekable();
+        if traversers.peek().is_some() {
+            return traversers.any(|id| self.sport_of(id) == Some(sport));
+        }
+        s.activity_ids
+            .iter()
+            .any(|id| self.sport_of(id) == Some(sport))
+    }
+
+    /// The activity's sport, falling back to the `activities` row when the
+    /// in-memory maps have not been loaded.
+    pub(crate) fn sport_of_activity(&self, activity_id: &str) -> Option<String> {
+        if let Some(sport) = self.sport_of(activity_id) {
+            return Some(sport.to_string());
+        }
+        self.db
+            .query_row(
+                "SELECT sport_type FROM activities WHERE id = ?",
+                rusqlite::params![activity_id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+    }
+
+    /// `activity_metadata` is the authority: it is written on ingest, while
+    /// `activity_metrics` fills only once metrics load.
+    pub(crate) fn sport_of(&self, activity_id: &str) -> Option<&str> {
+        self.activity_metadata
+            .get(activity_id)
+            .map(|m| m.sport_type.as_str())
+            .or_else(|| {
+                self.activity_metrics
+                    .get(activity_id)
+                    .map(|m| m.sport_type.as_str())
+            })
+    }
+
     /// Get sections filtered by sport type and/or minimum outings.
     /// Filters in-memory sections to avoid FFI overhead for non-matching entries.
     pub fn get_sections_filtered(
@@ -674,12 +722,31 @@ impl PersistentRouteEngine {
     ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
         // Outings, not passes: laps show ground covered, not that the athlete
-        // came back.
+        // came back. Under a sport filter the floor counts that sport's
+        // outings, so a road ridden weekly cannot admit itself to the Run list
+        // on one run.
         self.sections
             .iter()
-            .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && Self::outings(s) >= min)
+            .filter(|s| match sport_type {
+                Some(st) => self.covers_sport(s, st) && self.outings_in_sport(s, st) >= min,
+                None => Self::outings(s) >= min,
+            })
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
+    }
+
+    /// [`outings`](Self::outings) restricted to one sport's traversals.
+    pub(crate) fn outings_in_sport(&self, s: &FrequentSection, sport: &str) -> u32 {
+        let matches = |id: &String| self.sport_of(id) == Some(sport);
+        if s.activity_portions.is_empty() {
+            return s.activity_ids.iter().filter(|id| matches(id)).count() as u32;
+        }
+        s.activity_portions
+            .iter()
+            .map(|p| &p.activity_id)
+            .filter(|id| matches(id))
+            .collect::<HashSet<_>>()
+            .len() as u32
     }
 
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
@@ -928,11 +995,12 @@ impl PersistentRouteEngine {
                 .unwrap_or_default()
         };
 
-        // Get distinct sport types per section from activities
+        // Sport comes from `activities`, written on ingest. `activity_metrics`
+        // fills only once metrics load, so joining it hides a sport until then.
         let section_sport_types: HashMap<String, Vec<String>> = {
             let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type) FROM section_activities sa
-                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                 JOIN activities a ON sa.activity_id = a.id
                  WHERE sa.excluded = 0
                  GROUP BY sa.section_id"
             ) {
@@ -1073,8 +1141,14 @@ impl PersistentRouteEngine {
     pub fn get_section_summaries_for_sport(&self, sport_type: &str) -> Vec<SectionSummary> {
         self.get_section_summaries()
             .into_iter()
-            .filter(|s| s.sport_type == sport_type)
+            .filter(|s| Self::summary_covers_sport(s, sport_type))
             .collect()
+    }
+
+    /// [`covers_sport`](Self::covers_sport) over a summary, which already
+    /// carries every sport its traversals hold in `sport_types`.
+    pub(crate) fn summary_covers_sport(s: &SectionSummary, sport: &str) -> bool {
+        s.sport_type == sport || s.sport_types.iter().any(|t| t == sport)
     }
 
     /// Get a single section by ID with LRU caching.

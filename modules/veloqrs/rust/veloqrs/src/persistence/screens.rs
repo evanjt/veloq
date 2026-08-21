@@ -38,16 +38,23 @@ impl super::PersistentRouteEngine {
         let seven_days_ago = now_ts - 7 * 86400;
         let mut recent_prs = Vec::new();
         let available_sports = self.get_available_sport_types();
-        let mut all_summaries: Vec<_> = available_sports
+        // One candidate per (section, sport): shared ground holds a record in
+        // each sport that travels it, and neither may be measured against the
+        // other's laps.
+        let mut all_summaries: Vec<(String, crate::SectionSummary)> = available_sports
             .iter()
-            .flat_map(|sport| self.get_section_summaries_for_sport(sport))
+            .flat_map(|sport| {
+                self.get_section_summaries_for_sport(sport)
+                    .into_iter()
+                    .map(move |s| (sport.clone(), s))
+            })
             // Outings, not passes: a PR slot is earned by returning.
-            .filter(|s| s.activity_count >= 3)
+            .filter(|(_, s)| s.activity_count >= 3)
             .collect();
-        all_summaries.sort_by_key(|s| std::cmp::Reverse(s.visit_count));
+        all_summaries.sort_by_key(|(_, s)| std::cmp::Reverse(s.visit_count));
 
-        for s in &all_summaries {
-            let perf = self.get_section_performances_filtered(&s.id, None);
+        for (sport, s) in &all_summaries {
+            let perf = self.get_section_performances_filtered(&s.id, Some(sport));
             // Prefer per-direction bests: they're computed lap-by-lap and
             // line up with what the section detail page shows. The combined
             // `best_record` is each activity's minimum lap, which can pick
@@ -72,12 +79,24 @@ impl super::PersistentRouteEngine {
                 && record.activity_date >= seven_days_ago
             {
                 let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
-                recent_prs.push(crate::FfiRecentPR {
-                    section_id: s.id.clone(),
-                    section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
-                    best_time: record.best_time,
-                    days_ago,
-                });
+                // One row per section, the freshest. A section holds a record
+                // in each sport that travels it, and the surface shows one.
+                match recent_prs
+                    .iter_mut()
+                    .find(|p: &&mut crate::FfiRecentPR| p.section_id == s.id)
+                {
+                    Some(held) if days_ago < held.days_ago => {
+                        held.best_time = record.best_time;
+                        held.days_ago = days_ago;
+                    }
+                    Some(_) => {}
+                    None => recent_prs.push(crate::FfiRecentPR {
+                        section_id: s.id.clone(),
+                        section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
+                        best_time: record.best_time,
+                        days_ago,
+                    }),
+                }
             }
         }
 
@@ -249,10 +268,13 @@ impl super::PersistentRouteEngine {
                 .collect()
         };
 
+        // A record is held against the same sport's efforts, so the activity's
+        // own sport decides which efforts it is measured against.
+        let activity_sport = self.sport_of_activity(activity_id);
         let pr_section_ids: Vec<String> = targets
             .iter()
             .filter(|(section_id, _)| {
-                self.get_section_performances(section_id)
+                self.get_section_performances_filtered(section_id, activity_sport.as_deref())
                     .best_record
                     .as_ref()
                     .is_some_and(|r| r.activity_id == activity_id)
@@ -330,9 +352,8 @@ impl super::PersistentRouteEngine {
     /// The section detail reads that need lap times, so the caller runs this
     /// once the missing time streams have been fetched.
     ///
-    /// The calendar summary is computed first because it reads the unfiltered
-    /// performances; the filtered read that follows then hits the performance
-    /// cache whenever no sport filter is in play.
+    /// Every read here takes the same `sport_filter`, so the calendar, the lap
+    /// list and the chart describe one sport's efforts.
     pub fn section_detail_performance(
         &mut self,
         section_id: &str,
@@ -340,7 +361,7 @@ impl super::PersistentRouteEngine {
         sport_filter: Option<&str>,
     ) -> crate::FfiSectionPerformanceData {
         let calendar_summary = self
-            .get_section_calendar_summary(section_id)
+            .get_section_calendar_summary(section_id, sport_filter)
             .map(crate::FfiCalendarSummary::from);
         let performances = crate::FfiSectionPerformanceResult::from(
             self.get_section_performances_filtered(section_id, sport_filter),

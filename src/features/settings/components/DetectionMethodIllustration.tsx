@@ -3,17 +3,11 @@ import { View } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/shared/app';
 import { brand } from '@/theme';
-import type { DetectionMethod } from '@/shared/native/routeEngine';
 
 interface Props {
-  method: DetectionMethod;
   proximity: number;
   minSectionLength: number;
   minActivities: number;
-  minCorridorTracks: number;
-  minRoutes: number;
-  jaccardThreshold: number;
-  minCellVisits: number;
   divergenceThreshold: number;
 }
 
@@ -160,40 +154,20 @@ function densify(pts: [number, number][]): { latitude: number; longitude: number
   return out;
 }
 
-const FFI_METHOD: Record<Props['method'], string> = {
-  corridor: 'corridor',
-  density: 'density_grid',
-  flow: 'flow_graph',
-  unified: 'unified',
-};
-
-const FALLBACK: Record<Props['method'], string[]> = {
-  corridor: [
-    '15,100 60,92 120,85 200,80 280,85 340,92 385,100',
-    '15,101 60,93 120,86 200,81',
-    '280,86 340,93 385,101',
-    '170,82 200,70 230,68 250,78',
-  ],
-  density: ['60,92 120,85 200,80', '280,85 340,92 385,100'],
-  flow: ['120,85 160,83', '200,80 240,83', '280,85 320,90'],
-  unified: ['15,100 60,92 120,85 200,80 280,85 340,92 385,100'],
-};
+/** The single line the detector draws on the sample traces when a live cut
+ *  is unavailable. */
+const FALLBACK = ['15,100 60,92 120,85 200,80 280,85 340,92 385,100'];
 
 export function DetectionMethodIllustration({
-  method,
   proximity,
   minSectionLength,
   minActivities,
-  minCorridorTracks,
-  minRoutes,
-  jaccardThreshold,
-  minCellVisits,
   divergenceThreshold,
 }: Props) {
   const { isDark } = useTheme();
   const bg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
 
-  const [highlights, setHighlights] = useState<string[]>(FALLBACK[method]);
+  const [highlights, setHighlights] = useState<string[]>(FALLBACK);
 
   const traces = useMemo(() => buildTraces(), []);
   const inputData = useMemo(() => {
@@ -217,13 +191,12 @@ export function DetectionMethodIllustration({
         const { getNativeModule } = require('@/shared/native/routeEngine');
         const mod = getNativeModule();
         if (!mod) {
-          setHighlights(FALLBACK[method]);
+          setHighlights(FALLBACK);
           return;
         }
 
-        const flowProx = method === 'flow' ? Math.max(25, Math.round(proximity / 3)) : proximity;
         const config = JSON.stringify({
-          proximityThreshold: flowProx,
+          proximityThreshold: proximity,
           minSectionLength,
           maxSectionLength: 200000,
           minActivities,
@@ -252,14 +225,9 @@ export function DetectionMethodIllustration({
             },
           ],
           preserveHierarchy: true,
-          jaccardThreshold,
-          minRoutes,
           enableDensitySplits: false,
-          mergeDistanceMultiplier: 4.0,
-          minCellVisits,
           divergenceThreshold,
-          minCorridorTracks,
-          detectionMethod: FFI_METHOD[method],
+          detectionMethod: 'unified',
         });
 
         const resultJson: string = await mod.detectSectionsStandalone(
@@ -280,10 +248,10 @@ export function DetectionMethodIllustration({
             )
           );
         } else {
-          setHighlights(FALLBACK[method]);
+          setHighlights(FALLBACK);
         }
       } catch {
-        setHighlights(FALLBACK[method]);
+        setHighlights(FALLBACK);
       }
     };
 
@@ -291,18 +259,7 @@ export function DetectionMethodIllustration({
     return () => {
       cancelled = true;
     };
-  }, [
-    method,
-    proximity,
-    minSectionLength,
-    minActivities,
-    minCorridorTracks,
-    minRoutes,
-    jaccardThreshold,
-    minCellVisits,
-    divergenceThreshold,
-    inputData,
-  ]);
+  }, [proximity, minSectionLength, minActivities, divergenceThreshold, inputData]);
 
   const displayTraces = BASE_TRACES.map((t) => t.pts.map((p) => p.join(',')).join(' '));
 
@@ -323,7 +280,7 @@ export function DetectionMethodIllustration({
         ))}
         {highlights.map((points, i) => (
           <Polyline
-            key={`h-${method}-${i}`}
+            key={`h-${i}`}
             points={points}
             fill="none"
             stroke={brand.tealLight}
