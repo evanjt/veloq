@@ -56,9 +56,10 @@
     "check:expo": "node scripts/check-expo-sdk.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
+    "lint:reachability": "node scripts/reachability-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge"
+    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -1,6 +1,5 @@
 export {
   FitnessChart,
-  FitnessFormChart,
   FormZoneChart,
   ActivityDotsChart,
   SeasonBestsSection,
