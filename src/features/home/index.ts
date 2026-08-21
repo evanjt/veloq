@@ -1,7 +1,6 @@
 export {
   SummaryCard,
   type SummaryCardProps,
-  MiniFormChart,
   SummaryCardSparkline,
   SummaryCardHRVSparkline,
   InsightLine,

@@ -1,5 +1,4 @@
 export { RoutesList } from './RoutesList';
-export { CacheScopeNotice } from './CacheScopeNotice';
 export { RouteRow } from './RouteRow';
 export { RoutePerformanceSection } from './performance/RoutePerformanceSection';
 export { RouteMapView } from './RouteMapView';

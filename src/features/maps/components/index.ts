@@ -24,7 +24,6 @@ export { ActivityPopup, SectionPopup } from './regional';
 export * from './mapStyles';
 
 // Extracted components from ActivityMapView
-export { SectionCreationTools } from './SectionCreationTools';
 export {
   AttributionOverlay,
   type AttributionOverlayRef,

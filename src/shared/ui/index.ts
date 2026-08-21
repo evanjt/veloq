@@ -5,7 +5,6 @@ export {
   StatsPillSkeleton,
   WellnessCardSkeleton,
 } from './Shimmer';
-export { GradientText } from './GradientText';
 export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabBar';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export {
@@ -27,14 +26,6 @@ export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAt
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { OfflineBanner } from './OfflineBanner';
 export { ShaderWarmup } from './ShaderWarmup';
-export {
-  ScreenTransition,
-  StaggeredItem,
-  AnimatedSection,
-  AnimatedCardEntrance,
-  HeroStatEntrance,
-  type AnimationPreset,
-} from './ScreenTransition';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';
 export { GlobalErrorBoundary } from './GlobalErrorBoundary';
