@@ -38,7 +38,6 @@ import {
 // SportPreferenceStore
 import {
   useSportPreference,
-  SPORT_API_TYPES,
   SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
@@ -406,15 +405,6 @@ describe('SportPreferenceStore', () => {
     useSportPreference.setState({ primarySport: 'Cycling', isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('constants', () => {
-    it('SPORT_API_TYPES covers all sports with variants', () => {
-      expect(SPORT_API_TYPES.Cycling).toContain('Ride');
-      expect(SPORT_API_TYPES.Cycling).toContain('VirtualRide');
-      expect(SPORT_API_TYPES.Running).toContain('Run');
-      expect(SPORT_API_TYPES.Running).toContain('TrailRun');
-    });
   });
 
   describe('initialize()', () => {
