@@ -804,10 +804,8 @@ impl PersistentRouteEngine {
             _ => return Ok((0, 0)),
         };
 
-        let sport_type = self
-            .activity_metrics
-            .get(activity_id)
-            .map(|m| m.sport_type.clone());
+        let sport_type = self.sport_of_activity(activity_id);
+        let pooled = self.section_config.pool_sports;
 
         // Collect matched section polylines up front: get_sections() borrows the
         // in-memory Vec, and the insert loop below needs &mut self.
@@ -829,10 +827,13 @@ impl PersistentRouteEngine {
                     .filter(|m| seen.insert(m.section_id.clone()))
                     .filter_map(|m| {
                         let section = sections.iter().find(|s| s.id == m.section_id)?;
-                        if let Some(sport) = &sport_type {
-                            if &section.sport_type != sport {
-                                return None;
-                            }
+                        // Mirror detection's partition, or attach builds a
+                        // catalogue a re-detect disagrees with.
+                        if !pooled
+                            && let Some(sport) = &sport_type
+                            && &section.sport_type != sport
+                        {
+                            return None;
                         }
                         Some((section.id.clone(), section.polyline.clone()))
                     })
@@ -947,9 +948,9 @@ impl PersistentRouteEngine {
         summary
     }
 
-    /// Match all activities with the same sport type against a section polyline.
-    /// Adds any activities that overlap (≥3 points) to the junction table.
-    /// Used when creating custom sections to find all matching activities.
+    /// Match activities against a section polyline, adding any that overlap
+    /// (≥3 points) to the junction table. Pooled, every activity is a
+    /// candidate: a section's sport names it, it does not fence it.
     pub fn match_activities_to_section(
         &mut self,
         section_id: &str,
@@ -960,20 +961,23 @@ impl PersistentRouteEngine {
             return Ok(0);
         }
 
-        // Get all activity IDs with matching sport type
-        let activity_ids = self.get_activity_ids_by_sport(sport_type);
+        let activity_ids = if self.section_config.pool_sports {
+            self.get_activity_ids()
+        } else {
+            self.get_activity_ids_by_sport(sport_type)
+        };
 
         if activity_ids.is_empty() {
             return Ok(0);
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Checking {} activities with sport_type '{}'",
+            "tracematch: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
             activity_ids.len(),
+            section_id,
             sport_type
         );
 
-        // Build track map for all activities with matching sport type
         let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
