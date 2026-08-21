@@ -9,7 +9,6 @@ export { SectionMapView } from './SectionMapView';
 export { DateRangeSummary } from './DateRangeSummary';
 export { DataRangeFooter } from './DataRangeFooter';
 export { MiniTraceView } from './MiniTraceView';
-export { SectionMiniPreview } from './SectionMiniPreview';
 export { DebugInfoPanel } from './DebugInfoPanel';
 export { DebugWarningBanner } from './DebugWarningBanner';
 export { SyncDebugTab } from './SyncDebugTab';
