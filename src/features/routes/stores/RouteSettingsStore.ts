@@ -3,6 +3,7 @@
  * Controls whether route matching is enabled and other route-related preferences.
  */
 
+import { DETECTION_METHODS } from '@/shared/native/routeEngine';
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
@@ -40,6 +41,8 @@ const DEFAULT_SETTINGS: RouteSettings = {
   detectionMethod: 'corridor',
 };
 
+const VALID_DETECTION_METHODS = new Set<string>(DETECTION_METHODS);
+
 /**
  * Type guard for RouteSettings
  */
@@ -56,8 +59,16 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
-  if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
-  if ('detectionMethod' in obj && typeof obj.detectionMethod !== 'string') return false;
+  // A value of the right type is not necessarily a valid one. An unknown method
+  // resolves to undefined inside applyDetectionPresetForMethod.
+  if ('detectionStrictness' in obj) {
+    const strictness = obj.detectionStrictness;
+    if (typeof strictness !== 'number' || !Number.isFinite(strictness)) return false;
+    if (strictness < 0 || strictness > 100) return false;
+  }
+  if ('detectionMethod' in obj && !VALID_DETECTION_METHODS.has(obj.detectionMethod as string)) {
+    return false;
+  }
   return true;
 }
 
