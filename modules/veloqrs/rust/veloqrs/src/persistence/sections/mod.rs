@@ -57,14 +57,7 @@ pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> St
 }
 
 /// Haversine distance between two lat/lng points in meters.
-pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
-    let r = 6_371_000.0; // Earth radius in meters
-    let d_lat = (lat2 - lat1).to_radians();
-    let d_lng = (lng2 - lng1).to_radians();
-    let a = (d_lat / 2.0).sin().powi(2)
-        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lng / 2.0).sin().powi(2);
-    r * 2.0 * a.sqrt().asin()
-}
+pub(super) use crate::persistence::haversine_distance_meters as haversine_distance;
 
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
