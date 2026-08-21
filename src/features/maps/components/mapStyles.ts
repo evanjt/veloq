@@ -3,17 +3,6 @@
 
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
-import {
-  isPointInSwitzerland,
-  isPointInFrance,
-  isPointInUSA,
-  isPointInSpain,
-  isPointInAustria,
-  isPointInNetherlands,
-  isPointInCzechia,
-  isPointInPoland,
-  isPointInLuxembourg,
-} from './countryBoundaries';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -63,7 +52,7 @@ const REGIONS = {
     maxLng: -66.9,
     minZoom: 10, // NAIP high-res kicks in at zoom 10+
   },
-  // Spain (mainland + Balearics; Canaries handled by isPointInSpain bbox check)
+  // Spain (mainland + Balearics; the Canaries sit outside these bounds)
   spain: {
     minLat: 36.0,
     maxLat: 43.8,
@@ -479,37 +468,36 @@ export function getSatelliteAttribution(sourceId: SatelliteSourceId): string {
  * Get combined attribution for all satellite sources visible in the current viewport.
  * Uses precise polygon boundaries for accurate attribution.
  */
-export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
-  const attributions: string[] = [];
+// Each regional source and the zoom gate that governs it. Attribution is
+// derived from the same bounds MapLibre clips the raster to, so the credit
+// line always names the imagery actually drawn.
+const REGIONAL_ATTRIBUTION_SOURCES: [SatelliteSourceId, keyof typeof REGIONS][] = [
+  ['swisstopo', 'switzerland'],
+  ['luxembourg', 'luxembourg'],
+  ['austria', 'austria'],
+  ['netherlands', 'netherlands'],
+  ['ign', 'france'],
+  ['czechia', 'czechia'],
+  ['spain', 'spain'],
+  ['poland', 'poland'],
+  ['naip', 'usa'],
+];
 
-  // Check which regional sources are visible using precise polygon checks
-  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.swisstopo.attribution);
-  }
-  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.luxembourg.attribution);
-  }
-  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.austria.attribution);
-  }
-  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.netherlands.attribution);
-  }
-  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.ign.attribution);
-  }
-  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.czechia.attribution);
-  }
-  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.spain.attribution);
-  }
-  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.poland.attribution);
-  }
-  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.naip.attribution);
-  }
+function boundsContain(
+  bounds: [number, number, number, number] | undefined,
+  lng: number,
+  lat: number
+): boolean {
+  if (!bounds) return false;
+  const [west, south, east, north] = bounds;
+  return lng >= west && lng <= east && lat >= south && lat <= north;
+}
+
+export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
+  const attributions = REGIONAL_ATTRIBUTION_SOURCES.filter(
+    ([id, region]) =>
+      zoom >= REGIONS[region].minZoom && boundsContain(SATELLITE_SOURCES[id].bounds, lng, lat)
+  ).map(([id]) => SATELLITE_SOURCES[id].attribution);
 
   // Always include EOX as the global base
   attributions.push(SATELLITE_SOURCES.eox.attribution);
