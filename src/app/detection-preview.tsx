@@ -32,20 +32,12 @@ import {
   PreviewParamPanel,
   PreviewSectionPopover,
 } from '@/features/routes/components';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getRouteEngine, UNIFIED_CONFIG } from '@/shared/native/routeEngine';
 import type {
   PreviewCentre,
   PreviewParams,
   PreviewSection,
 } from '../../modules/veloqrs/src/delegates/preview';
-
-const DEFAULT_PARAMS: PreviewParams = {
-  proximityThreshold: 100,
-  minSectionLength: 200,
-  maxSectionLength: 10000,
-  minActivities: 3,
-  divergenceThreshold: 0.2,
-};
 
 export default function DetectionPreviewScreen() {
   const { t } = useTranslation();
@@ -59,7 +51,7 @@ export default function DetectionPreviewScreen() {
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
     const config = client?.getSectionConfig();
-    if (!config) return DEFAULT_PARAMS;
+    if (!config) return UNIFIED_CONFIG;
     return {
       proximityThreshold: config.proximityThreshold,
       minSectionLength: config.minSectionLength,
