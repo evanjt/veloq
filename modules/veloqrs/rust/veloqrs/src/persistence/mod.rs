@@ -1718,18 +1718,21 @@ pub fn compute_polyline_overlap(
     let points_b: Vec<[f64; 2]> = coords_b.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
     let rtree = RTree::bulk_load(points_b);
 
-    // Approximate threshold in degrees (rough: 1 degree ≈ 111km at equator)
-    // Use a generous buffer and verify with haversine
-    let threshold_deg = threshold_meters / 111_000.0 * 1.5; // 1.5x safety factor
+    // Threshold in degrees, with a 1.5x buffer; the haversine below is the real
+    // test. A degree of longitude shrinks with latitude, so padding both axes
+    // by the same amount reaches too little east-west away from the equator.
+    // Same form as bboxes_touch in sections/named.rs.
+    let pad_lat = threshold_meters / 111_320.0 * 1.5;
 
     let mut matched = 0u32;
     for chunk in coords_a.chunks_exact(2) {
         let lat_a = chunk[0];
         let lng_a = chunk[1];
+        let pad_lng = threshold_meters / (111_320.0 * lat_a.to_radians().cos().max(0.01)) * 1.5;
 
         let envelope = AABB::from_corners(
-            [lat_a - threshold_deg, lng_a - threshold_deg],
-            [lat_a + threshold_deg, lng_a + threshold_deg],
+            [lat_a - pad_lat, lng_a - pad_lng],
+            [lat_a + pad_lat, lng_a + pad_lng],
         );
 
         let mut found = false;
@@ -2585,5 +2588,61 @@ mod haversine_parity_tests {
     fn uses_the_iugg_mean_radius() {
         let half_great_circle = haversine_distance_meters(0.0, 0.0, 0.0, 180.0);
         assert!((half_great_circle - 20_015_114.44).abs() < 0.5);
+    }
+}
+
+#[cfg(test)]
+mod polyline_overlap_latitude_tests {
+    use super::compute_polyline_overlap;
+
+    /// A degree of longitude is about 111 km at the equator and about 62 km at
+    /// 56 N. Padding the search envelope equally on both axes therefore reaches
+    /// too little east-west at high latitude, and points inside the threshold
+    /// are never handed to the haversine check.
+    #[test]
+    fn east_west_overlap_is_found_at_nordic_latitudes() {
+        // Two north-south lines separated EAST-WEST by 45 m, inside the 50 m
+        // threshold. At 55.7 N that is 7.17e-4 degrees of longitude, wider than
+        // the 6.76e-4 degrees a latitude-blind envelope reaches, so the old
+        // envelope missed every point and the haversine never ran.
+        let lat: f64 = 55.7;
+        let offset_deg = 45.0 / (111_320.0 * lat.to_radians().cos());
+
+        let a: Vec<f64> = (0..20)
+            .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5])
+            .collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5 + offset_deg])
+            .collect();
+
+        let overlap = compute_polyline_overlap(a, b, 50.0);
+        assert!(
+            overlap > 0.9,
+            "expected the lines to overlap at latitude {lat}, got {overlap}"
+        );
+    }
+
+    #[test]
+    fn the_same_geometry_overlaps_at_the_equator() {
+        // Unchanged by the fix: at the equator the two paddings coincide.
+        let offset_deg = 45.0 / 111_320.0;
+        let a: Vec<f64> = (0..20).flat_map(|i| vec![i as f64 * 0.0005, 0.0]).collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![i as f64 * 0.0005, offset_deg])
+            .collect();
+
+        assert!(compute_polyline_overlap(a, b, 50.0) > 0.9);
+    }
+
+    #[test]
+    fn distant_lines_do_not_overlap() {
+        let a: Vec<f64> = (0..20)
+            .flat_map(|i| vec![55.7, 12.5 + i as f64 * 0.0005])
+            .collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![55.9, 12.5 + i as f64 * 0.0005])
+            .collect();
+
+        assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
     }
 }
