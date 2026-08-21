@@ -2554,3 +2554,36 @@ mod tests {
         assert_eq!(lap_pace, Some(5.0));
     }
 }
+
+#[cfg(test)]
+mod haversine_parity_tests {
+    use super::haversine_distance_meters;
+
+    /// Shared with `src/__tests__/lib/haversineParity.test.ts`. Both sides assert
+    /// the same fixtures, so a change to either formula or radius fails here and
+    /// there rather than drifting into two screens showing different numbers.
+    const FIXTURES: &[(f64, f64, f64, f64, f64)] = &[
+        (46.2044, 6.1432, 46.5197, 6.6323, 51_359.28),
+        (46.2276, 7.3597, 46.2276, 7.3597, 0.0),
+        (-37.8136, 144.9631, -33.8688, 151.2093, 713_428.47),
+        (0.0, 0.0, 0.0, 1.0, 111_195.08),
+        (0.0, 0.0, 1.0, 0.0, 111_195.08),
+    ];
+
+    #[test]
+    fn distances_match_the_typescript_fixtures() {
+        for &(lat1, lng1, lat2, lng2, expected) in FIXTURES {
+            let actual = haversine_distance_meters(lat1, lng1, lat2, lng2);
+            assert!(
+                (actual - expected).abs() < 0.05,
+                "({lat1}, {lng1}) to ({lat2}, {lng2}): expected {expected}, got {actual}"
+            );
+        }
+    }
+
+    #[test]
+    fn uses_the_iugg_mean_radius() {
+        let half_great_circle = haversine_distance_meters(0.0, 0.0, 0.0, 180.0);
+        assert!((half_great_circle - 20_015_114.44).abs() < 0.5);
+    }
+}

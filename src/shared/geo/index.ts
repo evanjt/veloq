@@ -1,4 +1,4 @@
 export * from './polyline';
 export * from './geocoding';
-export { computeCenter } from './distance';
-export type { Bounds } from './distance';
+export { computeCenter, haversineDistance } from './distance';
+export type { Bounds, LatLng } from './distance';
