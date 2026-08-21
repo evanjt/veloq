@@ -8,10 +8,8 @@
  * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-// Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
@@ -117,130 +115,6 @@ export function createEngineHook<T>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [trigger]);
   };
-}
-
-// ============================================================================
-// useRouteEngine - Main hook for engine access (lifecycle, not data)
-// ============================================================================
-
-interface UseRouteEngineResult {
-  /** Whether the engine is initialized */
-  isReady: boolean;
-  /** Number of activities in the engine */
-  activityCount: number;
-  /** Whether using persistent storage (SQLite) */
-  isPersistent: boolean;
-  /** Initialize with persistent storage (RECOMMENDED - data survives app restarts) */
-  initWithPath: (dbPath?: string) => boolean;
-  /** Clear all engine state */
-  clear: () => void;
-}
-
-/**
- * Main hook for route engine lifecycle management.
- * Initialize once at app startup, typically in the root layout.
- *
- * IMPORTANT: Use initWithPath() for persistent storage.
- * This stores GPS tracks, routes, and sections in SQLite for instant loading.
- */
-export function useRouteEngine(): UseRouteEngineResult {
-  const [isReady, setIsReady] = useState(false);
-  const [activityCount, setActivityCount] = useState(0);
-  const [isPersistent, setIsPersistent] = useState(false);
-
-  /**
-   * Initialize with persistent SQLite storage (RECOMMENDED).
-   * Data persists across app restarts - routes load instantly.
-   */
-  const initWithPath = useCallback((dbPath?: string): boolean => {
-    const engine = getRouteEngine();
-    if (!engine) return false;
-
-    const path = dbPath || getRouteDbPath();
-    if (!path) return false;
-
-    // Security: Validate path to prevent path traversal attacks
-    const docDir = FileSystem.documentDirectory;
-    if (!docDir) return false;
-
-    // Normalize document directory (strip file:// prefix for comparison)
-    const normalizedDocDir = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
-
-    // Normalize the provided path (strip file:// prefix if present)
-    const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
-
-    // Reject paths containing path traversal sequences
-    if (normalizedPath.includes('..')) {
-      return false;
-    }
-
-    // Ensure path is within the document directory
-    if (!normalizedPath.startsWith(normalizedDocDir)) {
-      return false;
-    }
-
-    const success = engine.initWithPath(normalizedPath);
-
-    if (success) {
-      setIsReady(true);
-      setIsPersistent(true);
-      setActivityCount(engine.getActivityCount());
-    }
-    return success;
-  }, []);
-
-  const clear = useCallback(() => {
-    const engine = getRouteEngine();
-    if (engine) engine.clear();
-    setActivityCount(0);
-  }, []);
-
-  // Subscribe to activity changes - retry if engine not ready on mount
-  useEffect(() => {
-    let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
-
-    function trySubscribe(): boolean {
-      const engine = getRouteEngine();
-      if (!engine) return false;
-      unsubscribe = engine.subscribe('activities', () => {
-        if (cancelled) return;
-        const eng = getRouteEngine();
-        setActivityCount(eng ? eng.getActivityCount() : 0);
-      });
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
-
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-  }, []);
-
-  // Check if already initialized on mount (e.g., if initialized elsewhere)
-  useEffect(() => {
-    const engine = getRouteEngine();
-    if (engine?.isInitialized()) {
-      setIsReady(true);
-      setIsPersistent(engine.isPersistent());
-      setActivityCount(engine.getActivityCount());
-    }
-  }, []);
-
-  return { isReady, activityCount, isPersistent, initWithPath, clear };
 }
 
 // ============================================================================
