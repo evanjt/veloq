@@ -128,7 +128,7 @@ export function buildChartData(
 
   // Calculate min/max for each series for normalization
   const seriesRanges = series.map((s) => {
-    const values = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
+    const values = s.rawData.filter((v) => Number.isFinite(v));
     const min = Math.min(...values);
     const max = Math.max(...values);
     return { min, max, range: max - min || 1 };
@@ -192,7 +192,7 @@ export function computeAllAverages(
     const rawData = config.getStream?.(streams);
     if (!rawData || rawData.length === 0) continue;
 
-    const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
+    const validValues = rawData.filter((v) => Number.isFinite(v));
     if (validValues.length === 0) continue;
 
     let computed: number;
@@ -202,8 +202,11 @@ export function computeAllAverages(
       // Sum of positive deltas (elevation gain)
       let gain = 0;
       for (let i = 1; i < rawData.length; i++) {
+        // Both samples must be real. A null neighbour differences to a whole
+        // sample's worth of fabricated gain.
+        if (!Number.isFinite(rawData[i]) || !Number.isFinite(rawData[i - 1])) continue;
         const delta = rawData[i] - rawData[i - 1];
-        if (delta > 0 && isFinite(delta)) gain += delta;
+        if (delta > 0) gain += delta;
       }
       computed = gain;
       valuePrefix = '+';
@@ -337,7 +340,7 @@ export function computeIntervalBands(
           : primarySeries.id === 'heartrate'
             ? interval.average_heartrate
             : null;
-      if (avgRaw != null && isFinite(avgRaw)) {
+      if (avgRaw != null && Number.isFinite(avgRaw)) {
         const { min, range } = primarySeries.range;
         avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
       }
