@@ -90,8 +90,10 @@ impl PersistentRouteEngine {
         //    can show up as a "PR" of 1:24 in feed badges.
         //  - Skip rows whose actual GPS distance is < 70% of the section's
         //    canonical distance (matches `get_section_performances_filtered`).
+        //  - Group by sport. A record and a trend are earned against the same
+        //    sport's efforts, so shared ground carries one of each per sport.
         let pair_sql = format!(
-            "SELECT sa.section_id, sa.direction, COUNT(DISTINCT sa.activity_id) as cnt
+            "SELECT sa.section_id, sa.direction, a.sport_type, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
@@ -102,16 +104,20 @@ impl PersistentRouteEngine {
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
                     OR sa.distance_meters >= s.distance_meters * 0.7)
-             GROUP BY sa.section_id, sa.direction
+             GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
             effective_time_expr
         );
 
         let mut pair_stmt = tx.prepare(&pair_sql)?;
 
-        let pairs: Vec<(String, String)> = pair_stmt
+        let pairs: Vec<(String, String, String)> = pair_stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -131,7 +137,7 @@ impl PersistentRouteEngine {
 
         let mut total = 0;
 
-        // For each (section, direction) pair: query traversals ordered by date.
+        // For each (section, direction, sport) group: traversals ordered by date.
         // Same completeness filter as the pair query above so the per-traversal
         // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
@@ -141,6 +147,7 @@ impl PersistentRouteEngine {
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
+               AND a.sport_type = ?
                AND sa.excluded = 0
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
@@ -150,9 +157,9 @@ impl PersistentRouteEngine {
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
-        for (section_id, direction) in &pairs {
+        for (section_id, direction, sport_type) in &pairs {
             let passes: Vec<(String, f64)> = traversal_stmt
-                .query_map(params![section_id, direction], |row| {
+                .query_map(params![section_id, direction, sport_type], |row| {
                     let time: Option<f64> = row.get(1)?;
                     Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
                 })?

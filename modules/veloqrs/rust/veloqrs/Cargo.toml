@@ -119,6 +119,10 @@ name = "detection_pool_invariance"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_sport_membership"
+required-features = ["synthetic"]
+
+[[test]]
 name = "heatmap_parity"
 required-features = ["synthetic"]
 
