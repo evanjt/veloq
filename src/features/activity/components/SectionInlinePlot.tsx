@@ -23,8 +23,8 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { isSwimmingActivity } from '@/features/activity/lib/activityUtils';
-import { formatDistance, formatPace, formatSwimPace } from '@/shared/format/format';
+import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import type { ActivityType } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
@@ -52,6 +52,19 @@ interface SectionInlinePlotProps {
     dragX: Animated.AnimatedInterpolation<number>
   ) => React.ReactNode;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+}
+
+/** Pace for foot and water sports, elapsed time otherwise, as SectionInfoCard. */
+function formatLap(
+  distanceMeters: number,
+  lapTime: number,
+  sportType: string | undefined,
+  isMetric: boolean
+): string {
+  const type = sportType as ActivityType;
+  if (isSwimmingActivity(type)) return formatSwimPace(distanceMeters / lapTime, isMetric);
+  if (isRunningActivity(type)) return formatPace(distanceMeters / lapTime, isMetric);
+  return formatDuration(lapTime);
 }
 
 export const SectionInlinePlot = memo(
@@ -200,9 +213,12 @@ export const SectionInlinePlot = memo(
                       <>
                         <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
                         <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                          {isSwimmingActivity(sportType as ActivityType)
-                            ? formatSwimPace(encounter.distanceMeters / encounter.lapTime, isMetric)
-                            : formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
+                          {formatLap(
+                            encounter.distanceMeters,
+                            encounter.lapTime,
+                            sportType,
+                            isMetric
+                          )}
                         </RNText>
                       </>
                     )}
