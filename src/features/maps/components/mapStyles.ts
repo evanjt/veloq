@@ -231,62 +231,6 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
 };
 
-/**
- * Determine the best satellite source for a given location and zoom level.
- * Returns the source ID and whether regional high-res imagery is available.
- */
-export function getSatelliteSourceId(lat: number, lng: number, zoom: number): SatelliteSourceId {
-  // Check smallest/highest-priority countries first, then larger regions
-
-  // Switzerland - highest priority (maxzoom 20, 10cm)
-  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
-    return 'swisstopo';
-  }
-
-  // Luxembourg - tiny, must check before France (maxzoom 21, 10cm, CC0)
-  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
-    return 'luxembourg';
-  }
-
-  // Austria - borders Switzerland (maxzoom 20, 20cm)
-  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
-    return 'austria';
-  }
-
-  // Netherlands (maxzoom 21, 8cm)
-  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
-    return 'netherlands';
-  }
-
-  // France - excludes Switzerland and Luxembourg (maxzoom 20, 20cm)
-  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
-    return 'ign';
-  }
-
-  // Czech Republic (maxzoom 18, 12.5cm)
-  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
-    return 'czechia';
-  }
-
-  // Spain (maxzoom 20, 25-50cm)
-  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
-    return 'spain';
-  }
-
-  // Poland (maxzoom 19, 25cm)
-  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
-    return 'poland';
-  }
-
-  // USA - NAIP (maxzoom 17, 60cm)
-  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
-    return 'naip';
-  }
-
-  // Global fallback
-  return 'eox';
-}
-
 // Type for combined satellite MapLibre style with multiple regional sources
 export interface CombinedSatelliteMapStyle {
   version: 8;
