@@ -25,6 +25,9 @@ export interface SectionContentAreaProps {
   bestForwardRecord: SectionPerformanceRecord | null;
   bestReverseRecord: SectionPerformanceRecord | null;
   calendarSummary: CalendarSummary | null;
+  /** The sport whose efforts are on screen. Units follow it, not the
+   *  section's own label, which is only the dominant sport of the ground. */
+  effectiveSportType?: string;
   isRunning: boolean;
   activityColor: string;
   navActivityId?: string;
@@ -54,6 +57,7 @@ export function SectionContentArea({
   bestForwardRecord,
   bestReverseRecord,
   calendarSummary,
+  effectiveSportType,
   isRunning,
   activityColor,
   navActivityId,
@@ -111,7 +115,7 @@ export function SectionContentArea({
       {/* Performance chart with eye toggle */}
       <SectionPerformanceSection
         isDark={isDark}
-        section={section}
+        sportType={effectiveSportType ?? section.sportType}
         chartData={combinedChartData}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
@@ -138,7 +142,7 @@ export function SectionContentArea({
         bestReverseRecord={bestReverseRecord}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
-        sportType={section.sportType}
+        sportType={effectiveSportType ?? section.sportType}
         isDark={isDark}
       />
 

@@ -14,11 +14,7 @@ import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthC
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
 import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
-import {
-  getRouteEngine,
-  applyDetectionPresetForMethod,
-  getStrictnessFromValue,
-} from '@/shared/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
@@ -101,19 +97,6 @@ export function GlobalDataSync() {
       statsSeededRef.current = true;
     }
   }, [activities]);
-
-  // Apply persisted detection strictness to the Rust engine on first mount.
-  const strictnessAppliedRef = useRef(false);
-  useEffect(() => {
-    if (strictnessAppliedRef.current) return;
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const { detectionStrictness, detectionMethod } = routeSettings;
-    if (detectionStrictness !== 60) {
-      applyDetectionPresetForMethod(detectionMethod, getStrictnessFromValue(detectionStrictness));
-    }
-    strictnessAppliedRef.current = true;
-  }, [routeSettings]);
 
   // Update fetching state in store
   useEffect(() => {

@@ -635,19 +635,6 @@ impl PersistentRouteEngine {
         &mut self,
         section_id: &str,
     ) -> Vec<SectionPerformanceRecord> {
-        // Find section sport type
-        let sport_type: String = match self.sections.iter().find(|s| s.id == section_id) {
-            Some(s) => s.sport_type.clone(),
-            None => match self.db.query_row(
-                "SELECT sport_type FROM sections WHERE id = ?",
-                params![section_id],
-                |row| row.get(0),
-            ) {
-                Ok(st) => st,
-                Err(_) => return Vec::new(),
-            },
-        };
-
         let section_distance: f64 = self
             .sections
             .iter()
@@ -663,12 +650,14 @@ impl PersistentRouteEngine {
                     .unwrap_or(0.0)
             });
 
+        // Every excluded traversal, whatever its sport. This lists what the
+        // user may restore, so a run excluded on ground labelled Ride must
+        // still appear.
         let mut stmt = match self.db.prepare(
             "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
                     sa.distance_meters, sa.lap_time, sa.lap_pace
              FROM section_activities sa
-             JOIN activity_metrics am ON sa.activity_id = am.activity_id
-             WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 1
+             WHERE sa.section_id = ? AND sa.excluded = 1
              ORDER BY sa.activity_id, sa.start_index",
         ) {
             Ok(s) => s,
@@ -685,7 +674,7 @@ impl PersistentRouteEngine {
             lap_pace: Option<f64>,
         }
 
-        let portions: Vec<Portion> = match stmt.query_map(params![section_id, &sport_type], |row| {
+        let portions: Vec<Portion> = match stmt.query_map(params![section_id], |row| {
             Ok(Portion {
                 activity_id: row.get(0)?,
                 direction: row.get(1)?,

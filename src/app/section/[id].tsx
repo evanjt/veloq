@@ -411,6 +411,7 @@ export default function SectionDetailScreen() {
               bestForwardRecord={computedBestForward}
               bestReverseRecord={computedBestReverse}
               calendarSummary={calendarSummary}
+              effectiveSportType={effectiveSportType}
               isRunning={isRunning}
               activityColor={activityColor}
               navActivityId={navActivityId}

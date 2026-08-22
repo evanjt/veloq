@@ -614,7 +614,7 @@ fn section_performance_matches_the_calls_it_replaces() {
     let mut s = populated();
     let bundle = s.engine.section_detail_performance("auto1", 0, None);
 
-    let calendar = s.engine.get_section_calendar_summary("auto1");
+    let calendar = s.engine.get_section_calendar_summary("auto1", None);
     assert_eq!(bundle.calendar_summary.is_some(), calendar.is_some());
 
     let direct = s.engine.get_section_performances_filtered("auto1", None);

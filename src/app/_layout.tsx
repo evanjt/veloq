@@ -54,11 +54,7 @@ import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvi
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
-import {
-  isHeatmapEnabled,
-  getDetectionStrictness,
-  getDetectionMethod,
-} from '@/features/routes/stores/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
@@ -71,12 +67,7 @@ import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/wh
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
-import {
-  getRouteEngine,
-  getRouteDbPath,
-  applyDetectionPresetForMethod,
-  getStrictnessFromValue,
-} from '@/shared/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
@@ -171,14 +162,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               engine.enableHeatmapTiles();
             } else {
               engine.disableHeatmapTiles();
-            }
-            // Apply persisted detection strictness if not default
-            const strictness = getDetectionStrictness();
-            if (strictness !== 60) {
-              applyDetectionPresetForMethod(
-                getDetectionMethod(),
-                getStrictnessFromValue(strictness)
-              );
             }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
