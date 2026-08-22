@@ -47,10 +47,6 @@ const ALLOWLIST = new Map([
     'src/features/home/components/InsightLine.tsx',
     'deliberately disabled, see the note at src/app/(tabs)/index.tsx:207',
   ],
-  [
-    'src/features/settings/lib/exportIndex.ts',
-    'reached only through the settings barrel, which is itself unused; delete both or neither',
-  ],
 ]);
 
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
