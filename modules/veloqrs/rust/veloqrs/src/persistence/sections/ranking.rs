@@ -126,9 +126,7 @@ impl PersistentRouteEngine {
                 let days_since_last = crate::calendar_days_between(last_date, now_secs);
 
                 // --- Recency score (weight 0.35) ---
-                // Time constant, so the half-life is 180*ln2. A fortnight-scale
-                // decay reads as zero across the whole range a section can be stale.
-                let recency_score = (-1.0 * days_since_last as f64 / 180.0).exp();
+                let recency_score = recency_score(days_since_last);
 
                 // --- Improvement signal (weight 0.30) ---
                 // Compare median of last 3 efforts to median of previous 3
@@ -499,6 +497,17 @@ fn trend_label(trend: i32) -> String {
     }
 }
 
+/// Freshness of a section's last traversal, the largest single term in the
+/// relevance score.
+///
+/// 180 is the time constant, so the half-life is 180*ln2, about 125 days. A
+/// fortnight-scale constant saturates within weeks, which flattens every
+/// section that has gone unridden long enough to be worth resurfacing into the
+/// same near-zero score and stops the term ranking anything.
+pub(crate) fn recency_score(days_since_last: u32) -> f64 {
+    (-f64::from(days_since_last) / 180.0).exp()
+}
+
 fn days_since_epoch(unix_seconds: i64) -> i32 {
     let now = Utc::now().timestamp();
     (((now - unix_seconds) / 86_400).max(0)) as i32
@@ -698,18 +707,16 @@ impl PersistentRouteEngine {
 /// section scores the same near-zero and the term stops ranking anything.
 #[cfg(test)]
 mod recency_decay_tests {
-    fn recency_score(days: f64) -> f64 {
-        (-days / 180.0).exp()
-    }
+    use super::recency_score;
 
     #[test]
     fn separates_sections_across_a_year() {
-        let year = recency_score(365.0);
+        let year = recency_score(365);
         assert!(
             year > 0.05,
             "a year-old section scored {year}, too flat to rank"
         );
-        for (near, far) in [(30.0, 90.0), (90.0, 180.0), (180.0, 365.0)] {
+        for (near, far) in [(30, 90), (90, 180), (180, 365)] {
             let gap = recency_score(near) - recency_score(far);
             assert!(
                 gap > 0.05,
@@ -720,9 +727,9 @@ mod recency_decay_tests {
 
     #[test]
     fn decays_monotonically_from_one() {
-        assert!((recency_score(0.0) - 1.0).abs() < f64::EPSILON);
+        assert!((recency_score(0) - 1.0).abs() < f64::EPSILON);
         let mut previous = f64::INFINITY;
-        for days in [0.0, 30.0, 90.0, 180.0, 365.0, 730.0] {
+        for days in [0, 30, 90, 180, 365, 730] {
             let score = recency_score(days);
             assert!(score < previous, "not monotonic at {days}d");
             previous = score;
