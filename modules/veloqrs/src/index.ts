@@ -56,6 +56,7 @@ if (!installed && __DEV__) {
 }
 
 // Re-export all generated types and functions
+// eslint-disable-next-line import/export -- getDownloadProgress is deliberately wrapped below
 export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
@@ -155,6 +156,8 @@ export type {
   FfiMuscleGroup as MuscleGroup,
 } from './generated/veloqrs';
 
+// Wraps the generated call; the explicit export deliberately wins over `export *`.
+// eslint-disable-next-line import/export
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }

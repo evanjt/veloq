@@ -45,6 +45,15 @@ module.exports = [
       'no-useless-escape': 'warn',
       'consistent-return': 'warn',
 
+      // React Compiler readiness rules, on by default in the SDK 56 config.
+      // Real signal, but a separate workstream from dead code: warn, do not block.
+      'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/use-memo': 'warn',
+
       'react/jsx-key': 'error',
       'react/no-unused-prop-types': 'warn',
       'react/no-direct-mutation-state': 'error',

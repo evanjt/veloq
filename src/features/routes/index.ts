@@ -1,4 +1,5 @@
 export * from './components';
+/* eslint-disable import/export -- RouteSignature is disambiguated below on purpose */
 export * from './hooks';
 export * from './lib';
 export * from './stores';
