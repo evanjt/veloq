@@ -24,10 +24,10 @@ const BODY_INTRINSIC_W = 200;
 const BODY_INTRINSIC_H = 400;
 
 interface BodyPairWithLoupeProps {
-  data: ReadonlyArray<ExtendedBodyPart>;
+  data: readonly ExtendedBodyPart[];
   gender: 'male' | 'female';
   scale: number;
-  colors: ReadonlyArray<string>;
+  colors: readonly string[];
   defaultFill?: string;
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;

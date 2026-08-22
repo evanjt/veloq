@@ -7,7 +7,7 @@ import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
+import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 

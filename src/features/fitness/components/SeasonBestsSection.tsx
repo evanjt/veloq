@@ -9,7 +9,7 @@ import { useTheme } from '@/shared/app';
 import { formatLocalDate } from '@/shared/format/format';
 import { formatEffortValue, formatEffortTime } from '../lib/bestEfforts';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { type BestEffort } from '@/features/stats';
 
 interface SeasonBestsSectionProps {

@@ -5,13 +5,13 @@
  * Expected behaviour: a malformed root is rejected with the normal error rather
  * than throwing a TypeError, and only keys the export writes are restored.
  */
+import { restoreBackup } from '@/features/settings/lib/backup';
+
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
   getRouteDbPath: () => '/tmp/routes.db',
   getNativeModule: () => null,
 }));
-
-import { restoreBackup } from '@/features/settings/lib/backup';
 
 describe('restoreBackup input validation', () => {
   it('rejects a file containing bare null without a TypeError', async () => {

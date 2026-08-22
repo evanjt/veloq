@@ -48,13 +48,13 @@ import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import type { Activity } from '@/types';
+import type { SyncProgress } from './useRouteSyncProgress';
 
 /** How long to let the Rust time-stream backfill run before moving on. It
  *  resumes on the next sync, so a slow drain never blocks the banner. */
 const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
 const STREAM_BACKFILL_POLL_MS = 500;
-import type { Activity } from '@/types';
-import type { SyncProgress } from './useRouteSyncProgress';
 
 interface UseRouteDataSyncResult {
   /** Current sync progress */

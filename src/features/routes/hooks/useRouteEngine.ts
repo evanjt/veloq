@@ -376,7 +376,7 @@ export function useViewportActivities(bounds: Bounds | null): UseViewportActivit
 
 interface UseConsensusRouteResult {
   /** Consensus route points [{ lat, lng }, ...] or null if not available */
-  points: Array<{ lat: number; lng: number }> | null;
+  points: { lat: number; lng: number }[] | null;
   /** Whether the consensus is being computed */
   isLoading: boolean;
 }
@@ -385,10 +385,13 @@ interface UseConsensusRouteResult {
  * Hook for getting the consensus (representative) route for a group.
  */
 export function useConsensusRoute(groupId: string | null): UseConsensusRouteResult {
-  const [points, setPoints] = useState<Array<{
-    lat: number;
-    lng: number;
-  }> | null>(null);
+  const [points, setPoints] = useState<
+    | {
+        lat: number;
+        lng: number;
+      }[]
+    | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -477,7 +480,7 @@ export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
 
 interface UseSectionPolylineResult {
   /** Section polyline as RoutePoints (lat/lng), or empty array if not found */
-  polyline: Array<{ lat: number; lng: number }>;
+  polyline: { lat: number; lng: number }[];
 }
 
 /**

@@ -8,7 +8,7 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 export { haversineDistance } from '@/shared/geo/distance';
 
 /** Flatten a RoutePoint[] to [lat, lng, lat, lng, ...] for Rust FFI. */
-function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[] {
+function flattenPolyline(polyline: { lat: number; lng: number }[]): number[] {
   const flat = new Array(polyline.length * 2);
   for (let i = 0; i < polyline.length; i++) {
     flat[i * 2] = polyline[i].lat;
@@ -28,8 +28,8 @@ function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[
  * @returns Overlap ratio (0-1)
  */
 export function computePolylineOverlap(
-  polylineA: Array<{ lat: number; lng: number }>,
-  polylineB: Array<{ lat: number; lng: number }>,
+  polylineA: { lat: number; lng: number }[],
+  polylineB: { lat: number; lng: number }[],
   thresholdMeters = 50
 ): number {
   if (polylineA.length === 0 || polylineB.length === 0) return 0;

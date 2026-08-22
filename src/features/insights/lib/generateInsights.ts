@@ -57,14 +57,14 @@ export interface InsightInputData {
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: Array<{
+  wellnessWindow?: {
     date: string;
     hrv?: number;
     restingHR?: number;
     sleepSecs?: number;
     ctl?: number;
     atl?: number;
-  }>;
+  }[];
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
@@ -82,7 +82,7 @@ export interface InsightInputData {
 
 export interface PipelineOutcome {
   kept: Insight[];
-  rejected: Array<{ insight: Insight; reason: GateReason }>;
+  rejected: { insight: Insight; reason: GateReason }[];
   scored: ScoredInsight[];
   capDropped: DropRecord[];
 }
@@ -139,7 +139,6 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
       process.env &&
       (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
     ) {
-      // eslint-disable-next-line no-console
       console.warn(`[insights/${label}] generator failed; isolating:`, err);
     }
     return fallback;
@@ -222,7 +221,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
 
   // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
-  const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
+  const rejected: { insight: Insight; reason: GateReason }[] = [];
   const passed: Insight[] = [];
 
   for (const insight of candidates) {

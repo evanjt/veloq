@@ -13,19 +13,19 @@
  * semantics change and needs explicit baseline review, not a silent diff.
  */
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
-}));
-jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
-  isRouteMatchingEnabled: jest.fn(() => true),
-}));
-
 import {
   computeInsightsFromData,
   type WellnessInput,
 } from '@/features/insights/lib/computeInsightsData';
 import type { InsightsData, SummaryCardData } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: jest.fn(),
+}));
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
+  isRouteMatchingEnabled: jest.fn(() => true),
+}));
 
 const t = (key: string, params?: Record<string, string | number>) => {
   if (!params) return key;

@@ -64,7 +64,7 @@ const OVERLAP_THRESHOLD = 0.8;
  */
 function findSupersededSections(
   customPolyline: RoutePoint[],
-  autoSections: Array<{ id: string; polyline: RoutePoint[] }>
+  autoSections: { id: string; polyline: RoutePoint[] }[]
 ): string[] {
   const superseded: string[] = [];
 

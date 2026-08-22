@@ -8,6 +8,18 @@
  * must never be silently re-queued. The FIT file is never deleted.
  */
 
+import { uploadActivityFile } from '@/features/recording/lib/upload/intervalsUploads';
+import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import {
+  recordingFitExists,
+  markRecordingUploading,
+  markRecordingUploaded,
+  markRecordingUploadFailed,
+  markRecordingRejected,
+  markRecordingPermissionBlocked,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import type { RecordingLibraryEntry } from '@/types';
+
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
   uploadActivityFile: jest.fn(),
 }));
@@ -20,18 +32,6 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingRejected: jest.fn().mockResolvedValue(undefined),
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
 }));
-
-import { uploadActivityFile } from '@/features/recording/lib/upload/intervalsUploads';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
-import {
-  recordingFitExists,
-  markRecordingUploading,
-  markRecordingUploaded,
-  markRecordingUploadFailed,
-  markRecordingRejected,
-  markRecordingPermissionBlocked,
-} from '@/features/recording/lib/storage/recordingLibrary';
-import type { RecordingLibraryEntry } from '@/types';
 
 const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;

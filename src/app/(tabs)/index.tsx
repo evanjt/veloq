@@ -12,7 +12,15 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  NetworkErrorState,
+  ErrorStatePreset,
+  ScreenErrorBoundary,
+  ComponentErrorBoundary,
+  ActivityCardSkeleton,
+  TAB_BAR_SAFE_PADDING,
+} from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo } from '@/shared/app/navigation';
@@ -28,14 +36,6 @@ import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/features/home/store';
 import { ActivityCard } from '@/features/activity/components';
-import {
-  NetworkErrorState,
-  ErrorStatePreset,
-  ScreenErrorBoundary,
-  ComponentErrorBoundary,
-  ActivityCardSkeleton,
-  TAB_BAR_SAFE_PADDING,
-} from '@/shared/ui';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import { useStartupData } from '@/features/home/hooks/useStartupData';

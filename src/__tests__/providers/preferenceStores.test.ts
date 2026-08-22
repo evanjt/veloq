@@ -38,11 +38,9 @@ import {
 // SportPreferenceStore
 import {
   useSportPreference,
-  SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
-import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -116,7 +114,7 @@ describe('ThemeProvider', () => {
     jest.doMock('react-native', () => ({
       Appearance: { setColorScheme: jest.fn() },
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });

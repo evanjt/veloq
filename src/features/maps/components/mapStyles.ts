@@ -1,7 +1,6 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
-import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
@@ -234,7 +233,7 @@ export interface CombinedSatelliteMapStyle {
       bounds?: [number, number, number, number];
     }
   >;
-  layers: Array<
+  layers: (
     | {
         id: string;
         type: 'raster';
@@ -247,7 +246,7 @@ export interface CombinedSatelliteMapStyle {
         type: 'background';
         paint: { 'background-color': string };
       }
-  >;
+  )[];
 }
 
 // Legacy type alias for backwards compatibility
@@ -521,7 +520,7 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
   if (rewritten.sources) {
-    for (const source of Object.values(rewritten.sources) as Array<Record<string, unknown>>) {
+    for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
       if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
         delete source.url;
         source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];

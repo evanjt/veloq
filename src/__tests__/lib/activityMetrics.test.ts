@@ -7,10 +7,10 @@
  * - Documents inconsistent zone time serialization (powerZoneTimes vs hrZoneTimes)
  */
 
-jest.mock('veloqrs', () => ({}), { virtual: true });
-
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import type { Activity } from '@/types';
+
+jest.mock('veloqrs', () => ({}), { virtual: true });
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {

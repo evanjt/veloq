@@ -6,12 +6,12 @@
  * costs one launch and nothing is written on the JS side.
  */
 
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
+
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 
 const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
 

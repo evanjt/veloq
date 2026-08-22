@@ -6,6 +6,8 @@
  * with no in-app way to fix that is not offered at all.
  */
 
+import { getOfferableBackends, getAvailableBackends } from '@/features/settings/lib/autobackup';
+
 const mockGetSetting = jest.fn<string | undefined, [string]>();
 
 jest.mock('@/shared/native/routeEngine', () => ({
@@ -14,8 +16,6 @@ jest.mock('@/shared/native/routeEngine', () => ({
     setSetting: jest.fn(),
   }),
 }));
-
-import { getOfferableBackends, getAvailableBackends } from '@/features/settings/lib/autobackup';
 
 describe('getOfferableBackends', () => {
   beforeEach(() => {

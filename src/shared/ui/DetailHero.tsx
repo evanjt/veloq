@@ -154,9 +154,9 @@ export function HeroNameRow({ name, nameTestID, icon, editable }: HeroNameRowPro
 
 export interface HeroStatsRowProps {
   /** Stat strings rendered with dot dividers; null/undefined entries are skipped. */
-  stats: Array<string | null | undefined>;
+  stats: (string | null | undefined)[];
   testID?: string;
-  statTestIDs?: Array<string | undefined>;
+  statTestIDs?: (string | undefined)[];
 }
 
 export function HeroStatsRow({ stats, testID, statTestIDs }: HeroStatsRowProps) {

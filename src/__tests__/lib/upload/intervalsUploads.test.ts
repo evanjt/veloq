@@ -9,6 +9,14 @@
  * where the body is actually built.
  */
 
+import { routeEngine } from 'veloqrs';
+import {
+  uploadActivityFile,
+  createManualActivity,
+  UploadFailure,
+} from '@/features/recording/lib/upload/intervalsUploads';
+import type { ManualActivityData } from '@/types';
+
 jest.mock('veloqrs', () => ({
   routeEngine: {
     uploadActivityFile: jest.fn(),
@@ -22,14 +30,6 @@ jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: { getState: () => mockAuthState },
   DEMO_ATHLETE_ID: 'demo',
 }));
-
-import { routeEngine } from 'veloqrs';
-import {
-  uploadActivityFile,
-  createManualActivity,
-  UploadFailure,
-} from '@/features/recording/lib/upload/intervalsUploads';
-import type { ManualActivityData } from '@/types';
 
 const mockUploadActivityFile = routeEngine.uploadActivityFile as jest.Mock;
 const mockCreateManualActivity = routeEngine.createManualActivity as jest.Mock;

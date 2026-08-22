@@ -92,7 +92,7 @@ export type StrengthInsightSeries = FfiStrengthInsightSeries;
 export function getStrengthInsightSeries(
   host: DelegateHost,
   monthly: { startTs: number; endTs: number },
-  weekly: Array<{ startTs: number; endTs: number }>
+  weekly: { startTs: number; endTs: number }[]
 ): StrengthInsightSeries {
   return host.timed('getStrengthInsightSeries', () =>
     host.engine.strength().getStrengthInsightSeries(
@@ -109,7 +109,7 @@ export function getStrengthInsightSeries(
  */
 export function getStrengthSummaryBatch(
   host: DelegateHost,
-  ranges: Array<{ startTs: number; endTs: number }>
+  ranges: { startTs: number; endTs: number }[]
 ): FfiStrengthSummary[] {
   if (ranges.length === 0) return [];
   return host.timed('getStrengthSummaryBatch', () =>

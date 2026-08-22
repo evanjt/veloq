@@ -1,5 +1,4 @@
-import type { ActivityType } from '@/types';
-import type { RecordingStreams, RecordingLap } from '@/types';
+import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('FitGenerator');

@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,7 +10,7 @@ import {
   SwipeableTabs,
   type SwipeableTab,
 } from '@/shared/ui';
-import { InsightsPanel, StrengthTab } from '@/features/insights';
+import { InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
 import { RoutesList } from '@/features/routes/components/RoutesList';
 import { SectionsList } from '@/features/routes/components/SectionsList';
@@ -19,7 +18,6 @@ import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
 import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
 import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
-import { useInsights } from '@/features/insights';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
 import { useTheme } from '@/shared/app';

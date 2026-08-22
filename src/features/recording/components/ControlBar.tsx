@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';

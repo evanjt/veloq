@@ -12,7 +12,6 @@ import {
   StyleSheet,
   FlatList,
   Platform,
-  TouchableOpacity,
   Alert,
   Animated,
   ActivityIndicator,
@@ -26,7 +25,10 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { useUnifiedSections } from '@/features/routes/hooks/useUnifiedSections';
+import {
+  useUnifiedSections,
+  generateSectionName,
+} from '@/features/routes/hooks/useUnifiedSections';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
@@ -40,7 +42,6 @@ import { debug } from '@/shared/debug/debug';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
-import { generateSectionName } from '@/features/routes/hooks/useUnifiedSections';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 
 const log = debug.create('SectionsList');

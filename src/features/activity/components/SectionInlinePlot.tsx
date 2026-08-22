@@ -25,10 +25,9 @@ import {
 } from '@/theme';
 import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
-import type { ActivityType } from '@/types';
+import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
-import type { PerformanceDataPoint } from '@/types';
 
 interface SectionInlinePlotProps {
   encounter: SectionEncounter;

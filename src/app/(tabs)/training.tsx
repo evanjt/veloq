@@ -48,7 +48,7 @@ export default function HealthScreen() {
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     perfEnd();
   });

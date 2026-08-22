@@ -6,7 +6,7 @@
  */
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 
-const FIXTURES: Array<[string, number]> = [
+const FIXTURES: [string, number][] = [
   ['2026-08-22T18:30:00', 1787423400],
   ['2026-01-01T00:00:00', 1767225600],
   ['2026-12-31T23:59:59', 1798761599],

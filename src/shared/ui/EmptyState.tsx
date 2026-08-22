@@ -5,16 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/shared/app';
-import {
-  spacing,
-  layout,
-  brand,
-  colors,
-  gradients,
-  colorWithOpacity,
-  shadows,
-  typography,
-} from '@/theme';
+import { spacing, layout, colors, gradients, colorWithOpacity, shadows, typography } from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */

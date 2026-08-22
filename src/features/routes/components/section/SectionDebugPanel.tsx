@@ -26,10 +26,10 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
     acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
     return acc;
   }, {});
-  const warnings: Array<{
+  const warnings: {
     level: 'warn' | 'error';
     message: string;
-  }> = [];
+  }[] = [];
   const actCount = section.activityIds.length;
   if (actCount > 500)
     warnings.push({

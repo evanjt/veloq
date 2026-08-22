@@ -19,12 +19,11 @@ import {
   formatHeartRate,
   formatPower,
   formatCalories,
-  formatLocalDate,
   formatTSS,
 } from '@/shared/format/format';
 import { parseStreams } from '@/features/activity/lib/streams';
-import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
-import type { RawStreamItem, WellnessData } from '@/types';
+import { getFormZone } from '@/features/fitness/lib/fitness';
+import type { RawStreamItem } from '@/types';
 
 // Mock veloqrs native module - toActivityMetrics imports the type
 jest.mock('veloqrs', () => ({}));

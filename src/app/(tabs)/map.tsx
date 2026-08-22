@@ -18,7 +18,6 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
-  getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
 } from '@/features/maps/components/ActivityTypeFilter';

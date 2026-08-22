@@ -7,6 +7,10 @@
  * implementation has to keep, so they avoid MapLibre-specific prop shapes.
  */
 
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
+import { RecordingMap } from '@/features/recording/components/RecordingMap';
+
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ preferences: { defaultStyle: 'light' } }),
 }));
@@ -14,10 +18,6 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
-
-import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
-import { RecordingMap } from '@/features/recording/components/RecordingMap';
 
 const TRACK: [number, number][] = [
   [46.948, 7.447],
@@ -103,7 +103,7 @@ describe('RecordingMap', () => {
   });
 
   describe('degenerate input', () => {
-    const cases: Array<[string, React.ComponentProps<typeof RecordingMap>]> = [
+    const cases: [string, React.ComponentProps<typeof RecordingMap>][] = [
       ['an empty coordinate array', { coordinates: [], currentLocation: null }],
       ['a single coordinate', { coordinates: [TRACK[0]], currentLocation: null }],
       [

@@ -89,7 +89,6 @@ export interface InsightsConfig {
   };
 }
 
-// eslint-disable-next-line no-underscore-dangle
 const __dev__ = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export const INSIGHTS_CONFIG: InsightsConfig = {

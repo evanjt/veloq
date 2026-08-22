@@ -71,7 +71,7 @@ export function setActivityMetricsReady(host: DelegateHost, metrics: FfiActivity
 
 export function setTimeStreams(
   host: DelegateHost,
-  streams: Array<{ activityId: string; times: number[] }>
+  streams: { activityId: string; times: number[] }[]
 ): void {
   if (!host.ready || streams.length === 0) return;
 

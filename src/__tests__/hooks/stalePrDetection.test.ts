@@ -39,7 +39,7 @@ describe('detectStalePROpportunities', () => {
       previousDate: NOW_TS - 90 * DAYS,
     };
 
-    const cases: Array<{ name: string; input: StalePRInput }> = [
+    const cases: { name: string; input: StalePRInput }[] = [
       {
         name: 'ftpTrend is null',
         input: { sections: [rideSection()], ftpTrend: null, paceTrend: null },

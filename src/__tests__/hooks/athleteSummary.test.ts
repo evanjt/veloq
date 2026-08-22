@@ -3,6 +3,8 @@
  * Tests getISOWeekNumber and formatWeekRange without React hooks.
  */
 
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
+
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: jest.fn(),
 }));
@@ -22,15 +24,13 @@ jest.mock('@/shared/format/format', () => ({
   getIntlLocale: () => 'en-US',
 }));
 
-import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
-
 // ---------------------------------------------------------------------------
 // getISOWeekNumber
 // ---------------------------------------------------------------------------
 
 describe('getISOWeekNumber', () => {
   it('returns ISO week 1 for week-1 dates across year boundaries', () => {
-    const cases: Array<[Date, string]> = [
+    const cases: [Date, string][] = [
       [new Date(2024, 0, 1), 'Jan 1 2024 (Monday) is ISO week 1'],
       [new Date(2024, 11, 31), 'Dec 31 2024 (Tuesday) → ISO week 1 of 2025'],
       [new Date(2026, 0, 1), 'Jan 1 2026 (Thursday) → first-Thursday week is week 1'],
@@ -56,7 +56,7 @@ describe('getISOWeekNumber', () => {
 
 describe('formatWeekRange', () => {
   it('formats same-month, cross-month, and cross-year week ranges', () => {
-    const cases: Array<[Date, string]> = [
+    const cases: [Date, string][] = [
       [new Date(2025, 0, 20), 'Jan 20-26'], // same month
       [new Date(2025, 0, 27), 'Jan 27 - Feb 2'], // cross month
       [new Date(2025, 11, 29), 'Dec 29 - Jan 4'], // cross year

@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useActivities } from '@/features/activity/hooks';
-import { useSeasonBests, type BestEffort } from '@/features/stats';
+import { useSeasonBests } from '@/features/stats';
 import { useTheme } from '@/shared/app';
 import { formatLocalDate } from '@/shared/format/format';
 import { formatEffortValue, formatEffortTime } from '@/features/fitness/lib';

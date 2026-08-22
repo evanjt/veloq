@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
 import { useChartColors } from '@/shared/charts';

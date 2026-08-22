@@ -7,6 +7,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+
 const mockVersion = { current: '0.3.1' };
 
 jest.mock('expo-constants', () => ({
@@ -23,9 +26,6 @@ jest.mock('expo-constants', () => ({
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 
 const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
 

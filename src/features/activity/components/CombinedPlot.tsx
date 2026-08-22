@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useTheme } from '@/shared/app';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { CartesianChart, Area, Line } from 'victory-native';
 import {
   LinearGradient,
@@ -16,12 +16,10 @@ import Animated, {
   runOnJS,
   useDerivedValue,
   useAnimatedStyle,
-  withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, chartStyles } from '@/theme';
-import { useMetricSystem } from '@/shared/app';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
@@ -418,7 +416,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 points,
                 chartBounds,
               }: {
-                points: Record<string, Array<{ x: number }>>;
+                points: Record<string, { x: number }[]>;
                 chartBounds: ChartBounds;
               }) => {
                 // Sync chartBounds and point coordinates for UI thread crosshair

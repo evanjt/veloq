@@ -19,11 +19,11 @@ const EFFICIENCY_PER_SPORT = 5;
 const toTs = (d: Date) => BigInt(Math.floor(d.getTime() / 1000));
 
 /** The four trailing weeks the strength insights compare. */
-function trailingStrengthWeeks(): Array<{ startTs: bigint; endTs: bigint }> {
+function trailingStrengthWeeks(): { startTs: bigint; endTs: bigint }[] {
   const end = new Date();
   end.setHours(23, 59, 59, 0);
 
-  const ranges: Array<{ startTs: bigint; endTs: bigint }> = [];
+  const ranges: { startTs: bigint; endTs: bigint }[] = [];
   for (let index = 3; index >= 0; index -= 1) {
     const rangeEnd = new Date(end);
     rangeEnd.setDate(rangeEnd.getDate() - index * 7);

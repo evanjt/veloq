@@ -7,7 +7,6 @@
 
 import { useMemo } from 'react';
 import { i18n } from '@/i18n';
-import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
 import { useEngineSubscription } from './useRouteEngine';

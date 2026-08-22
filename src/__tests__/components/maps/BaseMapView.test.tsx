@@ -7,6 +7,11 @@
  * remain valid if the underlying map library changes.
  */
 
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/BaseMapView';
+
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
@@ -18,11 +23,6 @@ jest.mock('expo-location', () => ({
     .mockResolvedValue({ coords: { latitude: 46.948, longitude: 7.447 } }),
   Accuracy: { Balanced: 3 },
 }));
-
-import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/BaseMapView';
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -143,7 +143,7 @@ describe('BaseMapView', () => {
   });
 
   describe('degenerate input', () => {
-    const cases: Array<[string, Partial<BaseMapViewProps>]> = [
+    const cases: [string, Partial<BaseMapViewProps>][] = [
       ['no props at all', {}],
       ['an empty coordinate array', { routeCoordinates: [] }],
       ['a single coordinate', { routeCoordinates: [ROUTE[0]] }],

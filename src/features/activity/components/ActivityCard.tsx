@@ -51,13 +51,13 @@ interface ActivityCardProps {
   /** Forces re-render when theme changes (enableFreeze suppresses useColorScheme updates) */
   colorScheme?: boolean;
   /** Section highlights for this activity (PRs, trends) from batch FFI query */
-  sectionHighlights?: Array<{
+  sectionHighlights?: {
     sectionName: string;
     isPr: boolean;
     trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
     startIndex: number;
     endIndex: number;
-  }>;
+  }[];
   /** Route highlight for this activity (trend, PR) */
   routeHighlight?: {
     routeName: string;

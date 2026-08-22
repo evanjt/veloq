@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useCallback, useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
