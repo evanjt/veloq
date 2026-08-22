@@ -6,6 +6,7 @@ use std::sync::{Mutex, MutexGuard};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::sections::DetectionMethod;
+use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
@@ -80,10 +81,12 @@ fn cutover_archives_switches_and_detects() {
     // The cutover should be owed: we are on Corridor and no token exists.
     assert!(veloqrs::ffi::is_cutover_pending());
 
-    let result = veloqrs::ffi::run_detector_cutover();
+    let result = veloqrs::persistence::cutover::run_cutover();
     assert!(result.is_ok(), "cutover failed: {:?}", result.err());
 
-    let diff_json = result.unwrap();
+    let CutoverOutcome::Completed(diff_json) = result.unwrap() else {
+        panic!("the first run should complete, not report not-owed");
+    };
     assert!(!diff_json.is_empty(), "diff payload is empty");
 
     // Config should now be Unified.
@@ -94,8 +97,8 @@ fn cutover_archives_switches_and_detects() {
     assert!(!veloqrs::ffi::is_cutover_pending());
 
     // A second run is a no-op.
-    let second = veloqrs::ffi::run_detector_cutover().unwrap();
-    assert_eq!(second, "not_owed");
+    let second = veloqrs::persistence::cutover::run_cutover().unwrap();
+    assert_eq!(second, CutoverOutcome::NotOwed);
 }
 
 #[test]
@@ -105,11 +108,11 @@ fn cutover_is_idempotent_on_rerun() {
     let path = dir.path().join("routes.db");
     seed_corridor_engine(&path);
 
-    let r1 = veloqrs::ffi::run_detector_cutover();
+    let r1 = veloqrs::persistence::cutover::run_cutover();
     assert!(r1.is_ok());
 
-    let r2 = veloqrs::ffi::run_detector_cutover().unwrap();
-    assert_eq!(r2, "not_owed", "second run should be a no-op");
+    let r2 = veloqrs::persistence::cutover::run_cutover().unwrap();
+    assert_eq!(r2, CutoverOutcome::NotOwed, "second run should be a no-op");
 }
 
 #[test]
@@ -133,9 +136,11 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
     })
     .unwrap();
 
-    veloqrs::ffi::run_detector_cutover().unwrap();
+    veloqrs::persistence::cutover::run_cutover().unwrap();
 
-    let restored = veloqrs::ffi::restore_from_cutover_archive().expect("restore");
+    let restored = with_persistent_engine(|e| e.restore_from_archive())
+        .unwrap()
+        .expect("restore");
     assert!(restored > 0, "nothing was restored");
 
     let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
@@ -202,9 +207,11 @@ fn revert_rolls_back_the_config_even_with_an_empty_archive() {
     })
     .unwrap();
 
-    veloqrs::ffi::run_detector_cutover().expect("cutover over an empty library");
+    veloqrs::persistence::cutover::run_cutover().expect("cutover over an empty library");
 
-    let restored = veloqrs::ffi::restore_from_cutover_archive().expect("restore");
+    let restored = with_persistent_engine(|e| e.restore_from_archive())
+        .unwrap()
+        .expect("restore");
     assert_eq!(restored, 0, "an empty archive restores nothing");
 
     let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
@@ -241,7 +248,7 @@ fn an_interrupted_run_is_still_owed() {
         "an in-flight token is owed even though the config already says Unified"
     );
 
-    veloqrs::ffi::run_detector_cutover().expect("resumed cutover");
+    veloqrs::persistence::cutover::run_cutover().expect("resumed cutover");
     assert!(!veloqrs::ffi::is_cutover_pending());
 }
 
@@ -252,7 +259,7 @@ fn diff_payload_is_retrievable_after_restart() {
     let path = dir.path().join("routes.db");
     seed_corridor_engine(&path);
 
-    veloqrs::ffi::run_detector_cutover().unwrap();
+    veloqrs::persistence::cutover::run_cutover().unwrap();
 
     let diff = veloqrs::ffi::get_cutover_diff();
     assert!(diff.is_some(), "diff should be stored");
@@ -263,5 +270,146 @@ fn diff_payload_is_retrievable_after_restart() {
     assert!(
         payload["counts"]["current"].as_u64().unwrap_or(0) > 0,
         "diff should report non-zero current sections"
+    );
+}
+
+/// A fresh install has nothing to migrate, so the one-shot token must not be
+/// spent on an empty archive.
+#[test]
+fn a_fresh_install_is_not_owed_a_cutover() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+
+    let owed = with_persistent_engine(|e| e.cutover_is_owed()).unwrap();
+    assert!(
+        !owed,
+        "an empty catalogue on the compiled default is not a migration"
+    );
+    assert!(!veloqrs::persistence::cutover::start_cutover());
+}
+
+/// A run that died after the switch retries against a catalogue that already
+/// says Unified. Re-archiving then would bury the snapshot the restore needs.
+#[test]
+fn a_resumed_run_reuses_its_archive_snapshot() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("first run");
+
+    let snapshot = |p: &std::path::Path| -> Vec<(String, String)> {
+        let db = rusqlite::Connection::open(p).expect("open");
+        let mut stmt = db
+            .prepare(
+                "SELECT section_id, sport_type FROM section_catalogue_archive
+                 ORDER BY section_id",
+            )
+            .expect("prepare");
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .expect("query")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("rows")
+    };
+
+    let before = snapshot(&path);
+    assert!(!before.is_empty(), "nothing was archived");
+
+    // Put the token back in flight, as a run that died after the switch does.
+    {
+        let db = rusqlite::Connection::open(&path).expect("open");
+        db.execute(
+            "UPDATE settings SET value = 'unified-1-inflight' WHERE key = '__detector_cutover'",
+            [],
+        )
+        .expect("force in-flight");
+    }
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+    veloqrs::persistence::cutover::run_cutover().expect("resumed run");
+
+    assert_eq!(
+        before,
+        snapshot(&path),
+        "the resumed run overwrote the pre-cutover snapshot"
+    );
+}
+
+/// Not-owed is a distinct outcome, not a failure and not a completed run.
+#[test]
+fn not_owed_is_a_distinct_outcome() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    assert!(matches!(
+        veloqrs::persistence::cutover::run_cutover().unwrap(),
+        CutoverOutcome::Completed(_)
+    ));
+    assert_eq!(
+        veloqrs::persistence::cutover::run_cutover().unwrap(),
+        CutoverOutcome::NotOwed
+    );
+}
+
+/// A full reset drops the catalogue, so it must drop the token and config that
+/// describe it. Otherwise the next athlete inherits a spent cutover and a
+/// detector they cannot change.
+#[test]
+fn clear_drops_the_cutover_token_and_config() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("cutover");
+    with_persistent_engine(|e| e.clear().expect("clear")).unwrap();
+
+    let leftovers: i64 = {
+        let db = rusqlite::Connection::open(&path).expect("open");
+        db.query_row(
+            "SELECT COUNT(*) FROM settings
+             WHERE key IN ('__detector_cutover', '__detector_cutover_diff',
+                           '__section_config_json')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count")
+    };
+    assert_eq!(leftovers, 0, "cutover state outlived the reset");
+}
+
+/// The diff is the change card's whole content. Ids are minted by the identity
+/// registry, so a filter keyed on any id prefix silently empties the live side
+/// and reports the entire catalogue as lost.
+#[test]
+fn the_diff_sees_the_catalogue_the_cut_produced() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    let CutoverOutcome::Completed(json) =
+        veloqrs::persistence::cutover::run_cutover().expect("cutover")
+    else {
+        panic!("the first run should complete");
+    };
+
+    let diff: serde_json::Value = serde_json::from_str(&json).expect("diff parses");
+    let counts = &diff["counts"];
+    let proposed = counts["proposed"].as_u64().expect("proposed");
+    let gone = counts["gone"].as_u64().expect("gone");
+    let current = counts["current"].as_u64().expect("current");
+
+    assert!(
+        proposed > 0,
+        "the cut produced sections but the diff sees none: {counts}"
+    );
+    assert!(
+        gone < current,
+        "every archived section reported lost, which means the live side was empty: {counts}"
     );
 }

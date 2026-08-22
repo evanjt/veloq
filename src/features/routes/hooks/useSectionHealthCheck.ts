@@ -43,8 +43,16 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
           return;
         }
 
-        await AsyncStorage.setItem(FLAG_KEY, 'done');
-        engine.forceRedetectSections();
+        // A cutover suspends detection and re-cuts the whole catalogue
+        // itself, so a redetect here is refused and the empty catalogue is
+        // expected. Stamping through it would spend the one-shot on nothing.
+        if (engine.isCutoverPending?.() || engine.isCutoverRunning?.()) return;
+
+        // Stamp only on a redetect the engine actually accepted. A refusal
+        // means detection is suspended, and the check is owed a later launch.
+        if (engine.forceRedetectSections()) {
+          await AsyncStorage.setItem(FLAG_KEY, 'done');
+        }
       } catch {
         // best-effort
       }

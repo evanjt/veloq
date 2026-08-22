@@ -23,10 +23,10 @@ use tracematch::sections::DetectionMethod;
 const CUTOVER_ID: &str = "unified-1";
 
 /// Settings key for the cutover token.
-const CUTOVER_KEY: &str = "__detector_cutover";
+pub(super) const CUTOVER_KEY: &str = "__detector_cutover";
 
 /// Settings key for the serialised diff payload (JSON).
-const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
+pub(super) const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
 
 /// Sentinel written on revert, so the cutover does not re-fire.
 const CUTOVER_REVERTED: &str = "reverted";
@@ -38,18 +38,81 @@ const CUTOVER_REVERTED: &str = "reverted";
 const CUTOVER_INFLIGHT: &str = "unified-1-inflight";
 
 static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
-static CUTOVER_PENDING: Mutex<Option<bool>> = Mutex::new(None);
+
+/// Where a run has got to, for the settings status line. Terminal phases are
+/// set before the guard drops, so a reader never sees `running = false` beside
+/// a phase that is still mid-flight.
+pub const PHASE_IDLE: &str = "idle";
+pub const PHASE_DRAINING: &str = "draining";
+pub const PHASE_ARCHIVING: &str = "archiving";
+pub const PHASE_DETECTING: &str = "detecting";
+pub const PHASE_DIFFING: &str = "diffing";
+pub const PHASE_COMPLETE: &str = "complete";
+pub const PHASE_FAILED: &str = "failed";
+
+static CUTOVER_PHASE: Mutex<&'static str> = Mutex::new(PHASE_IDLE);
+
+fn set_phase(phase: &'static str) {
+    *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+}
+
+/// The current phase, for the status surface.
+pub fn cutover_phase() -> &'static str {
+    *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// What a run did. `NotOwed` is a success with nothing to do, which a bare
+/// string return cannot express: the caller needs to tell it apart from a
+/// completed migration and from a failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CutoverOutcome {
+    NotOwed,
+    Completed(String),
+}
+
+/// Start a cutover on a detached thread.
+///
+/// Returns false when there is no engine, when the migration is not owed, or
+/// when a run is already in flight, so a caller can fire this at every launch
+/// and let it decide. The running flag is claimed here rather than inside the
+/// run, so a caller that polls immediately never reads `false` against a run
+/// it just started.
+pub fn start_cutover() -> bool {
+    let owed = with_persistent_engine(|e| e.cutover_is_owed()).unwrap_or(false);
+    if !owed {
+        return false;
+    }
+    if CUTOVER_RUNNING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return false;
+    }
+    std::thread::spawn(|| {
+        // The flag is already claimed, so the run adopts it rather than
+        // taking it again.
+        let outcome = run_cutover_claimed();
+        if let Err(ref e) = outcome {
+            log::warn!("tracematch: [cutover] Run failed: {}", e);
+        }
+    });
+    true
+}
 
 // ───────────────────────────────────────────────────────────────────
 // State queries
 // ───────────────────────────────────────────────────────────────────
 
-/// Whether the cutover has not yet completed. Populated by `load()`.
+/// Whether the cutover has not yet completed.
+///
+/// Computed live. A cached answer goes stale the moment the catalogue changes,
+/// and the catalogue routinely arrives after `load()`: a first sync detects,
+/// and a quarantined reopen swaps the database underneath. Both would leave a
+/// cached `false` on an install that is owed a migration. The read is one
+/// EXISTS against a small table, on a path that runs at launch and on a status
+/// poll, so the cache was never buying anything.
 pub fn cutover_pending() -> bool {
-    CUTOVER_PENDING
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .unwrap_or(false)
+    with_persistent_engine(|e| e.cutover_is_owed()).unwrap_or(false)
 }
 
 /// Whether a cutover run is in flight.
@@ -74,12 +137,7 @@ impl PersistentRouteEngine {
     /// process-global pending flag. Nothing slow, nothing fallible beyond
     /// a missing settings table (which returns None).
     pub(super) fn check_cutover_state(&self) {
-        // Recomputed per engine, not accumulated: an engine re-initialised
-        // onto another database file (a restore, a quarantine) must not
-        // inherit the previous file's answer.
-        let owed = self.cutover_is_owed();
-        *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(owed);
-        if owed {
+        if self.cutover_is_owed() {
             info!("tracematch: [cutover] Cutover to Unified is owed");
         }
     }
@@ -102,9 +160,30 @@ impl PersistentRouteEngine {
     pub fn cutover_is_owed(&self) -> bool {
         match self.cutover_state_from_db() {
             CutoverState::InFlight => true,
-            CutoverState::Never => self.section_config.detection_method != DetectionMethod::Unified,
+            CutoverState::Never => {
+                self.section_config.detection_method != DetectionMethod::Unified
+                    && self.has_archivable_catalogue()
+            }
             CutoverState::Done | CutoverState::Reverted => false,
         }
+    }
+
+    /// Whether there is a Corridor-era catalogue to migrate. A fresh install
+    /// has none, and burning the one-shot token on an empty archive would
+    /// leave it with nothing to show and nothing to restore.
+    fn has_archivable_catalogue(&self) -> bool {
+        self.db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sections
+                 WHERE section_type = 'auto'
+                   AND original_polyline_json IS NULL
+                   AND is_user_defined = 0
+                   AND disabled = 0)",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n == 1)
+            .unwrap_or(false)
     }
 }
 
@@ -144,15 +223,23 @@ impl PersistentRouteEngine {
     fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
         let tx = self.db.unchecked_transaction()?;
 
-        // A re-run replaces its own snapshot rather than appending to it.
-        tx.execute(
-            "DELETE FROM section_catalogue_archive WHERE token = ?",
+        // Write-once per token. A run that died after the switch and before
+        // the diff may retry with a Unified catalogue already on disk, and
+        // re-archiving would bury the Corridor snapshot the restore needs.
+        let already: i64 = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM section_catalogue_archive WHERE token = ?)",
             params![CUTOVER_ID],
+            |row| row.get(0),
         )?;
-        tx.execute(
-            "DELETE FROM section_catalogue_archive_members WHERE token = ?",
-            params![CUTOVER_ID],
-        )?;
+        if already == 1 {
+            let kept: u32 = tx.query_row(
+                "SELECT COUNT(*) FROM section_catalogue_archive WHERE token = ?",
+                params![CUTOVER_ID],
+                |row| row.get(0),
+            )?;
+            info!("tracematch: [cutover] Reusing archive of {} sections", kept);
+            return Ok(kept);
+        }
 
         let count = tx.execute(
             "INSERT INTO section_catalogue_archive
@@ -266,7 +353,11 @@ impl PersistentRouteEngine {
         let live: Vec<&tracematch::sections::FrequentSection> = self
             .sections
             .iter()
-            .filter(|s| s.id.starts_with("sec_") && !s.is_user_defined)
+            // `is_user_defined` is the whole test. Ids are minted by the
+            // identity registry, so no prefix identifies an auto section.
+            // `is_user_defined` is the whole test. Ids are minted by the
+            // identity registry, so no prefix identifies an auto section.
+            .filter(|s| !s.is_user_defined)
             .collect();
 
         // Reuse diff_catalogues with archive = old, live = new.
@@ -453,7 +544,6 @@ impl PersistentRouteEngine {
         tx.commit()?;
 
         self.section_config = config;
-        *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(false);
 
         // Reload so in-memory state sees the restored, pinned sections.
         if let Err(e) = self.load_sections() {
@@ -483,14 +573,18 @@ impl PersistentRouteEngine {
 /// Run the full cutover: archive, switch, cold detect, diff.
 /// Shaped on `run_elevation_backfill`: suspends detection, holds the
 /// guard across the whole pass, fires one terminal re-cut.
-pub fn run_cutover() -> Result<String, String> {
+pub fn run_cutover() -> Result<CutoverOutcome, String> {
     if CUTOVER_RUNNING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
         return Err("cutover already running".into());
     }
+    run_cutover_claimed()
+}
 
+/// The run itself, with [`CUTOVER_RUNNING`] already claimed by the caller.
+fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // Ensure we clear the flag on all exit paths.
     struct RunGuard;
     impl Drop for RunGuard {
@@ -500,11 +594,15 @@ pub fn run_cutover() -> Result<String, String> {
     }
     let _guard = RunGuard;
 
+    // A failure anywhere below leaves the phase saying so, because every
+    // success path overwrites it before returning.
+    set_phase(PHASE_FAILED);
+
     // Check whether the cutover is actually owed.
     let owed = with_persistent_engine(|e| e.cutover_is_owed()).ok_or("no engine")?;
     if !owed {
-        *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(false);
-        return Ok("not_owed".into());
+        set_phase(PHASE_IDLE);
+        return Ok(CutoverOutcome::NotOwed);
     }
 
     // Refuses every NEW start. A worker already in the slot is untouched by
@@ -516,11 +614,13 @@ pub fn run_cutover() -> Result<String, String> {
     // its Corridor catalogue after the cutover has finished, over a config
     // and a token that both say Unified. Drive it to its end first; the
     // suspension keeps the slot empty once it drains.
+    set_phase(PHASE_DRAINING);
     drain_detection_slot()?;
 
     // Step 1: archive. Additive and idempotent per token, so a crash here
     // leaves the user on Corridor with an intact catalogue and the cutover
     // still owed.
+    set_phase(PHASE_ARCHIVING);
     let archived = with_persistent_engine(|e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
@@ -535,6 +635,12 @@ pub fn run_cutover() -> Result<String, String> {
 
     // Step 3: cold detect through the unchecked path, since the guard we hold
     // would otherwise refuse our own run.
+    set_phase(PHASE_DETECTING);
+    // The pool as it stood when the detect was spawned. A sync running
+    // alongside a multi-minute cut adds activities the detect never saw, and
+    // the apply below clears `sections_dirty` for all of them.
+    let pool_at_spawn =
+        with_persistent_engine(|e| e.get_activity_ids().len()).ok_or("no engine")?;
     let handle =
         with_persistent_engine(|e| e.detect_sections_background_unchecked()).ok_or("no engine")?;
 
@@ -547,6 +653,11 @@ pub fn run_cutover() -> Result<String, String> {
             .map_err(|err| format!("apply failed: {}", err))?;
         e.save_processed_activity_ids(&processed_ids)
             .map_err(|err| format!("save processed ids failed: {}", err))?;
+        // Anything that arrived mid-cut is neither processed nor dirty
+        // otherwise, so the next launch would never section it.
+        if e.get_activity_ids().len() > pool_at_spawn {
+            e.mark_sections_dirty();
+        }
         Ok::<(), String>(())
     })
     .ok_or("no engine")?
@@ -555,6 +666,7 @@ pub fn run_cutover() -> Result<String, String> {
     // Step 4: diff, then promote the token. The promotion is last, so any
     // failure above leaves the token in flight and the whole run is retried
     // from the top on the next launch.
+    set_phase(PHASE_DIFFING);
     let diff = with_persistent_engine(|e| e.build_cutover_diff())
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
@@ -563,10 +675,9 @@ pub fn run_cutover() -> Result<String, String> {
         .ok_or("no engine")?
         .map_err(|e| format!("token promotion failed: {}", e))?;
 
-    *CUTOVER_PENDING.lock().unwrap_or_else(|e| e.into_inner()) = Some(false);
-
+    set_phase(PHASE_COMPLETE);
     info!("tracematch: [cutover] Cutover complete");
-    Ok(diff)
+    Ok(CutoverOutcome::Completed(diff))
 }
 
 /// Drive any run already holding the detection slot to its end, applying its

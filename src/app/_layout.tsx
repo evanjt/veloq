@@ -30,6 +30,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -185,6 +186,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               // left to ask. Runs after the credential push so Rust has
               // something to authenticate with.
               startElevationBackfillAfterUpdate().catch(() => {});
+              // An install that saved Corridor keeps it until this runs; the
+              // trigger declines while the backfill still owes fetches, so a
+              // catalogue is never cut over a half-elevated library.
+              startDetectorCutoverAfterUpdate().catch(() => {});
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();

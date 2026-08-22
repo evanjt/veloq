@@ -780,13 +780,16 @@ impl PersistentRouteEngine {
             Option<Vec<u8>>,
             Option<f64>,
             Option<f64>,
+            Option<u32>,
+            Option<u32>,
         )> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, polyline_blob, point_density_blob,
-                        elevation_gain_m, avg_grade_percent
+                        elevation_gain_m, avg_grade_percent,
+                        rep_start_index, rep_end_index
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -815,6 +818,8 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<Vec<u8>>>(17)?, // point_density_blob
                     row.get::<_, Option<f64>>(18)?,     // elevation_gain_m
                     row.get::<_, Option<f64>>(19)?,     // avg_grade_percent
+                    row.get::<_, Option<u32>>(20)?,     // rep_start_index
+                    row.get::<_, Option<u32>>(21)?,     // rep_end_index
                 ))
             })
             .ok()
@@ -841,6 +846,8 @@ impl PersistentRouteEngine {
             point_density_blob,
             elevation_gain_m,
             avg_grade_percent,
+            rep_start_index,
+            rep_end_index,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
@@ -903,7 +910,9 @@ impl PersistentRouteEngine {
             sport_type,
             polyline,
             representative_activity_id: representative_activity_id.unwrap_or_default(),
-            representative_range: None,
+            // Dropping this here would demote an exact section to consensus on
+            // the next save, permanently.
+            representative_range: rep_start_index.zip(rep_end_index),
             activity_ids,
             // From the junction table: `save_sections` writes junction rows
             // FROM this field, so a blank here turns the next save into a
