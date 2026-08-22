@@ -12,7 +12,7 @@
  */
 
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { applyDetectionStrictness, getRouteEngine } from '@/shared/native/routeEngine';
 import type { Activity, WellnessData } from '@/types';
 
 /** The curve windows the stats screens request. */
@@ -30,6 +30,16 @@ function todayTimestamp(): number {
 export function seedDemoEngine(): void {
   const engine = getRouteEngine();
   if (!engine) return;
+
+  // Demo has no Corridor catalogue to migrate, so the cutover never runs here.
+  // Every tier0 flow runs in demo, so leaving it on the retired detector would
+  // point the E2E suite at code on its way out. Guarded separately: the
+  // fixtures must land whether or not the config write does.
+  try {
+    applyDetectionStrictness('default');
+  } catch (err) {
+    if (__DEV__) console.warn('[seedDemoEngine] Failed to set the detector:', err);
+  }
 
   try {
     // Deferred require, matching fetchDemoGps: the fixtures are ~400KB and a
