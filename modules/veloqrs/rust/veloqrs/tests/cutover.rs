@@ -413,3 +413,65 @@ fn the_diff_sees_the_catalogue_the_cut_produced() {
         "every archived section reported lost, which means the live side was empty: {counts}"
     );
 }
+
+/// A corridor section's line is a verbatim slice of one real track, so it owes
+/// a range that re-slices to it. The opposite claim sat in a comment for months
+/// while the field was hardcoded to None, because nothing asserted it. This is
+/// what lets the pre-cutover catalogue be stored as a reference.
+#[test]
+fn a_corridor_section_records_the_range_it_was_sliced_from() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    let rows: Vec<(
+        String,
+        Option<String>,
+        Option<u32>,
+        Option<u32>,
+        Option<String>,
+    )> = {
+        let db = rusqlite::Connection::open(&path).expect("open");
+        let mut stmt = db
+            .prepare(
+                "SELECT id, representative_activity_id, rep_start_index, rep_end_index,
+                        geometry_source
+                 FROM sections WHERE section_type = 'auto' ORDER BY id",
+            )
+            .expect("prepare");
+        stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })
+        .expect("query")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows")
+    };
+    assert!(!rows.is_empty(), "the corridor detect produced no sections");
+
+    let mut checked = 0;
+    for (id, rep, start, end, source) in &rows {
+        assert_eq!(
+            source.as_deref(),
+            Some("exact"),
+            "corridor section {id} was stored without a usable reference"
+        );
+        let rep = rep.as_deref().expect("an exact row names its activity");
+        let (start, end) = (start.expect("start") as usize, end.expect("end") as usize);
+
+        let (track, polyline) = with_persistent_engine(|e| {
+            let track = e.get_gps_track(rep).expect("the stream is stored");
+            let polyline = e.get_section_by_id(id).expect("readable").polyline;
+            (track, polyline)
+        })
+        .unwrap();
+
+        assert_eq!(
+            &track[start..end],
+            polyline.as_slice(),
+            "corridor section {id} does not re-slice to the line it drew"
+        );
+        checked += 1;
+    }
+    assert!(checked > 0, "nothing was checked");
+}
