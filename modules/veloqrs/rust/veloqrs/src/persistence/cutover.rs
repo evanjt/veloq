@@ -318,6 +318,7 @@ impl PersistentRouteEngine {
                 visit_count: row.get::<_, Option<u32>>(6)?.unwrap_or(0),
                 created_at: row.get(7)?,
                 representative_activity_id: String::new(),
+                representative_range: None,
                 activity_ids: Vec::new(),
                 activity_portions: Vec::new(),
                 route_ids: Vec::new(),
@@ -386,7 +387,8 @@ impl PersistentRouteEngine {
         let mut restored = 0u32;
         for s in &archived {
             let json = serde_json::to_string(&s.polyline).unwrap_or_else(|_| "[]".into());
-            let blob = codec::encode_polyline(&s.polyline);
+            let blob = codec::serialize_points(&s.polyline)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
             let bounds = bounds_of(&s.polyline);
             let affected = insert.execute(params![
                 s.id,

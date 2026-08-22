@@ -31,6 +31,10 @@ const ENCODING_QUANTISED: i64 = 1;
 /// which is why its representative triple is NULL.
 pub const SOURCE_CONSENSUS: &str = "consensus";
 
+/// A line sliced whole from one activity, so re-slicing its triple reproduces
+/// the stored blob and the blob is a droppable cache.
+pub const SOURCE_EXACT: &str = "exact";
+
 /// Baseline row an upgrade writes for a section that pre-dates the ledger.
 pub const KIND_BASELINE: &str = "baseline";
 
@@ -76,6 +80,7 @@ pub(super) fn record_geometry_on(
     section_id: &str,
     polyline: &[GpsPoint],
     milestone: bool,
+    reference: Option<(&str, u32, u32)>,
 ) -> rusqlite::Result<i64> {
     let version: i64 = conn.query_row(
         "SELECT COALESCE(MAX(version), 0) + 1 FROM section_geometry WHERE section_id = ?",
@@ -83,14 +88,24 @@ pub(super) fn record_geometry_on(
         |row| row.get(0),
     )?;
     conn.execute(
-        "INSERT INTO section_geometry (section_id, version, encoding, blob, milestone)
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO section_geometry
+             (section_id, version, encoding, blob, milestone,
+              rep_activity_id, rep_start_index, rep_end_index, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             section_id,
             version,
             ENCODING_QUANTISED,
             codec::encode_polyline(polyline),
             milestone as i64,
+            reference.map(|(id, _, _)| id),
+            reference.map(|(_, start, _)| start),
+            reference.map(|(_, _, end)| end),
+            if reference.is_some() {
+                SOURCE_EXACT
+            } else {
+                SOURCE_CONSENSUS
+            },
         ],
     )?;
     // Newest-N is by surviving version rank, not version arithmetic:
@@ -333,10 +348,27 @@ pub(super) fn milestone_prior_geometry_on(
         )
         .optional()?;
     let current = current.filter(|points| !points.is_empty());
+    // The outgoing line's provenance is whatever the row still says it is.
+    let reference: Option<(String, u32, u32)> = conn
+        .query_row(
+            "SELECT representative_activity_id, rep_start_index, rep_end_index
+             FROM sections WHERE id = ? AND geometry_source = 'exact'",
+            params![section_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<u32>>(1)?,
+                    row.get::<_, Option<u32>>(2)?,
+                ))
+            },
+        )
+        .optional()?
+        .and_then(|(id, start, end)| Some((id?, start?, end?)));
+    let reference = reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e));
     match (newest, current) {
-        (Some((_, blob)), Some(points)) if codec::encode_polyline(points) != blob => {
-            Ok(Some(record_geometry_on(conn, section_id, points, true)?))
-        }
+        (Some((_, blob)), Some(points)) if codec::encode_polyline(points) != blob => Ok(Some(
+            record_geometry_on(conn, section_id, points, true, reference)?,
+        )),
         (Some((version, _)), _) => {
             conn.execute(
                 "UPDATE section_geometry SET milestone = 1 WHERE section_id = ? AND version = ?",
@@ -344,7 +376,9 @@ pub(super) fn milestone_prior_geometry_on(
             )?;
             Ok(Some(version))
         }
-        (None, Some(points)) => Ok(Some(record_geometry_on(conn, section_id, points, true)?)),
+        (None, Some(points)) => Ok(Some(record_geometry_on(
+            conn, section_id, points, true, reference,
+        )?)),
         (None, None) => Ok(None),
     }
 }
@@ -467,8 +501,9 @@ impl PersistentRouteEngine {
         section_id: &str,
         polyline: &[GpsPoint],
         milestone: bool,
+        reference: Option<(&str, u32, u32)>,
     ) -> rusqlite::Result<i64> {
-        record_geometry_on(&self.db, section_id, polyline, milestone)
+        record_geometry_on(&self.db, section_id, polyline, milestone, reference)
     }
 
     /// Decode one stored geometry version. None when the version is absent,

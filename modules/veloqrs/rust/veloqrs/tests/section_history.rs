@@ -39,11 +39,15 @@ fn geometry_versions_increment_and_round_trip_exactly() {
     let first = poly(0);
     let second = poly(1);
     assert_eq!(
-        engine.record_section_geometry(SID, &first, false).unwrap(),
+        engine
+            .record_section_geometry(SID, &first, false, None)
+            .unwrap(),
         1
     );
     assert_eq!(
-        engine.record_section_geometry(SID, &second, false).unwrap(),
+        engine
+            .record_section_geometry(SID, &second, false, None)
+            .unwrap(),
         2
     );
     assert_eq!(engine.section_geometry_polyline(SID, 1).unwrap(), first);
@@ -61,13 +65,13 @@ fn retention_keeps_birth_milestones_pin_and_newest_three() {
     let (mut engine, _dir) = fresh_engine();
     for seed in 1..=4 {
         engine
-            .record_section_geometry(SID, &poly(seed), seed == 2)
+            .record_section_geometry(SID, &poly(seed), seed == 2, None)
             .unwrap();
     }
     assert!(engine.pin_section_geometry(SID, 4).unwrap());
     for seed in 5..=8 {
         engine
-            .record_section_geometry(SID, &poly(seed), false)
+            .record_section_geometry(SID, &poly(seed), false, None)
             .unwrap();
     }
     assert_eq!(versions_of(&engine, SID), vec![1, 2, 4, 6, 7, 8]);
@@ -86,19 +90,19 @@ fn unpin_releases_the_version_to_retention() {
     let (mut engine, _dir) = fresh_engine();
     for seed in 1..=4 {
         engine
-            .record_section_geometry(SID, &poly(seed), false)
+            .record_section_geometry(SID, &poly(seed), false, None)
             .unwrap();
     }
     assert!(engine.pin_section_geometry(SID, 3).unwrap());
     engine
-        .record_section_geometry(SID, &poly(5), false)
+        .record_section_geometry(SID, &poly(5), false, None)
         .unwrap();
     assert_eq!(versions_of(&engine, SID), vec![1, 3, 4, 5]);
 
     engine.unpin_section_geometry(SID).unwrap();
     assert_eq!(engine.pinned_section_version(SID), None);
     engine
-        .record_section_geometry(SID, &poly(6), false)
+        .record_section_geometry(SID, &poly(6), false, None)
         .unwrap();
     assert_eq!(versions_of(&engine, SID), vec![1, 4, 5, 6]);
 }
@@ -109,14 +113,14 @@ fn unpin_releases_the_version_to_retention() {
 fn pin_refuses_a_missing_version() {
     let (mut engine, _dir) = fresh_engine();
     engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
     assert!(!engine.pin_section_geometry(SID, 7).unwrap());
     assert_eq!(engine.pinned_section_version(SID), None);
 
     for seed in 2..=5 {
         engine
-            .record_section_geometry(SID, &poly(seed), false)
+            .record_section_geometry(SID, &poly(seed), false, None)
             .unwrap();
     }
     // Version 2 was pruned by the newest-three window.
@@ -132,7 +136,7 @@ fn pin_refuses_a_missing_version() {
 fn history_events_append_in_order_and_read_back() {
     let (mut engine, _dir) = fresh_engine();
     let v = engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
     engine
         .append_section_history(SID, "recut", Some(r#"{"shift_m":44}"#), Some(v))
@@ -162,9 +166,11 @@ fn history_events_append_in_order_and_read_back() {
 fn history_geometry_and_pin_survive_restart() {
     let (mut engine, dir) = fresh_engine();
     engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
-    engine.record_section_geometry(SID, &poly(2), true).unwrap();
+    engine
+        .record_section_geometry(SID, &poly(2), true, None)
+        .unwrap();
     assert!(engine.pin_section_geometry(SID, 1).unwrap());
     engine
         .append_section_history(SID, "recut", None, Some(2))
