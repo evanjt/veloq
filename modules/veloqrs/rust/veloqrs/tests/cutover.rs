@@ -381,3 +381,35 @@ fn clear_drops_the_cutover_token_and_config() {
     };
     assert_eq!(leftovers, 0, "cutover state outlived the reset");
 }
+
+/// The diff is the change card's whole content. Ids are minted by the identity
+/// registry, so a filter keyed on any id prefix silently empties the live side
+/// and reports the entire catalogue as lost.
+#[test]
+fn the_diff_sees_the_catalogue_the_cut_produced() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    let CutoverOutcome::Completed(json) =
+        veloqrs::persistence::cutover::run_cutover().expect("cutover")
+    else {
+        panic!("the first run should complete");
+    };
+
+    let diff: serde_json::Value = serde_json::from_str(&json).expect("diff parses");
+    let counts = &diff["counts"];
+    let proposed = counts["proposed"].as_u64().expect("proposed");
+    let gone = counts["gone"].as_u64().expect("gone");
+    let current = counts["current"].as_u64().expect("current");
+
+    assert!(
+        proposed > 0,
+        "the cut produced sections but the diff sees none: {counts}"
+    );
+    assert!(
+        gone < current,
+        "every archived section reported lost, which means the live side was empty: {counts}"
+    );
+}

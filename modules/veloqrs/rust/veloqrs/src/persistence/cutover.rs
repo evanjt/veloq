@@ -353,7 +353,11 @@ impl PersistentRouteEngine {
         let live: Vec<&tracematch::sections::FrequentSection> = self
             .sections
             .iter()
-            .filter(|s| s.id.starts_with("sec_") && !s.is_user_defined)
+            // `is_user_defined` is the whole test. Ids are minted by the
+            // identity registry, so no prefix identifies an auto section.
+            // `is_user_defined` is the whole test. Ids are minted by the
+            // identity registry, so no prefix identifies an auto section.
+            .filter(|s| !s.is_user_defined)
             .collect();
 
         // Reuse diff_catalogues with archive = old, live = new.
