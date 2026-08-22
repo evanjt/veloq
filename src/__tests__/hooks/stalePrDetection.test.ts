@@ -42,7 +42,7 @@ describe('detectStalePROpportunities', () => {
     const cases: Array<{ name: string; input: StalePRInput }> = [
       {
         name: 'ftpTrend is null',
-        input: { sections: [rideSection()], ftpTrend: null, paceTrend: null, recentPRs: [] },
+        input: { sections: [rideSection()], ftpTrend: null, paceTrend: null },
       },
       {
         name: 'FTP has not changed',
@@ -50,7 +50,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 200 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -59,7 +58,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 180 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -68,12 +66,11 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 204 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
         name: 'there are no sections',
-        input: { sections: [], ftpTrend: ftpGain, paceTrend: null, recentPRs: [] },
+        input: { sections: [], ftpTrend: ftpGain, paceTrend: null },
       },
       {
         name: 'section had a recent PR (within 30 days)',
@@ -81,7 +78,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection({ daysSinceLast: 5 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
         },
       },
       {
@@ -90,7 +86,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection({ daysSinceLast: 10 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -107,7 +102,6 @@ describe('detectStalePROpportunities', () => {
           ],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -116,7 +110,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: undefined },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -125,7 +118,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, previousFtp: undefined },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -134,7 +126,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: NaN },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -143,7 +134,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection({ traversalCount: 0 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
     ];
@@ -177,7 +167,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -210,7 +199,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       // Fails closed: an unknown age cannot establish staleness, and the
       // engine reports an age for every section it returns.
@@ -239,43 +227,8 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       expect(detectStalePROpportunities(input)).toHaveLength(0);
-    });
-
-    it('filters out sections with recent PRs but keeps stale ones', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            daysSinceLast: 60,
-            sportType: 'Ride',
-          },
-          {
-            sectionId: 's2',
-            sectionName: 'River Path',
-            bestTimeSecs: 600,
-            traversalCount: 8,
-            daysSinceLast: 45,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
-      };
-      const result = detectStalePROpportunities(input);
-      expect(result).toHaveLength(1);
-      expect(result[0].sectionId).toBe('s2');
     });
 
     it('limits results to 3 opportunities', () => {
@@ -296,7 +249,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(3);
@@ -329,7 +281,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(2);
@@ -356,7 +307,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: BigInt(NOW_TS - 90 * DAYS),
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -381,7 +331,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -414,7 +363,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 3.0,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -445,7 +393,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toEqual([]);
@@ -483,7 +430,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 2.95,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(2);
@@ -524,7 +470,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 1.0,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
 
       const result = detectStalePROpportunities(input);

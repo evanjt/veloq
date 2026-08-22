@@ -44,13 +44,6 @@ export interface StalePRFtpTrend {
   previousDate?: bigint | number;
 }
 
-export interface StalePRRecentPR {
-  sectionId: string;
-  sectionName: string;
-  bestTime: number;
-  daysAgo: number;
-}
-
 export interface StalePRPaceTrend {
   latestPace?: number;
   latestDate?: bigint | number;
@@ -65,7 +58,6 @@ export interface StalePRInput {
   paceTrend?: StalePRPaceTrend | null;
   runPaceTrend?: StalePRPaceTrend | null;
   swimPaceTrend?: StalePRPaceTrend | null;
-  recentPRs: StalePRRecentPR[];
 }
 
 export interface StalePROpportunity {
@@ -176,21 +168,15 @@ function getFitnessImprovement(
  * relevant fitness metric has improved by 3%+.
  */
 export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
-  const { sections, ftpTrend, paceTrend, runPaceTrend, swimPaceTrend, recentPRs } = input;
+  const { sections, ftpTrend, paceTrend, runPaceTrend, swimPaceTrend } = input;
   const resolvedRunPaceTrend = runPaceTrend ?? paceTrend ?? null;
 
   // No fitness data at all → nothing to flag
   if (!ftpTrend && !resolvedRunPaceTrend && !swimPaceTrend) return [];
 
-  // Build a set of section IDs that had a recent PR (within 30 days)
-  const recentPRSectionIds = new Set(
-    recentPRs.filter((pr) => pr.daysAgo <= getStaleThresholdDays()).map((pr) => pr.sectionId)
-  );
-
   const opportunities: StalePROpportunity[] = [];
 
   for (const section of sections) {
-    if (recentPRSectionIds.has(section.sectionId)) continue;
     if (section.traversalCount === 0 || !Number.isFinite(section.bestTimeSecs)) continue;
 
     // Fails closed. A section whose age is unknown cannot be shown to be stale,
@@ -347,7 +333,6 @@ export interface GenerateStalePRInsightsInput {
   ftpTrend: StalePRFtpTrend | null;
   runPaceTrend: StalePRPaceTrend | null;
   swimPaceTrend: StalePRPaceTrend | null;
-  recentPRs: StalePRRecentPR[];
   /** IDs of insights already generated (to avoid duplicating section_pr cards) */
   existingInsightIds: Set<string>;
 }
@@ -404,7 +389,6 @@ export function generateStalePRInsights(
       ftpTrend: input.ftpTrend,
       runPaceTrend: input.runPaceTrend,
       swimPaceTrend: input.swimPaceTrend,
-      recentPRs: input.recentPRs,
     });
     filtered = opportunities.filter(
       (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)

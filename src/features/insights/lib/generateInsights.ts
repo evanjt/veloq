@@ -192,7 +192,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
             ftpTrend: data.ftpTrend,
             runPaceTrend: data.paceTrend,
             swimPaceTrend: data.swimPaceTrend ?? null,
-            recentPRs: data.recentPRs,
             existingInsightIds: existingStalePrIds,
           },
           t,
