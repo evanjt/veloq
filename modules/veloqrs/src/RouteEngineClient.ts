@@ -71,7 +71,7 @@ import * as detectionDelegates from './delegates/detection';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
 import * as cutoverDelegates from './delegates/cutover';
-import type { CutoverDiff } from './delegates/cutover';
+import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
 import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
@@ -306,10 +306,9 @@ class RouteEngineClient implements DelegateHost {
 
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
 
-  runDetectorCutover = (): CutoverDiff | null => cutoverDelegates.runDetectorCutover(this);
+  startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
 
-  restoreFromCutoverArchive = (): number | null =>
-    cutoverDelegates.restoreFromCutoverArchive(this);
+  getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
 
   getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 

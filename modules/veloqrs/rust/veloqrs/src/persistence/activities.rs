@@ -726,6 +726,12 @@ impl PersistentRouteEngine {
         self.activity_metadata.len()
     }
     /// Get all activity IDs.
+    /// Flag the catalogue as owing a detect. Used where a caller knows the
+    /// pool moved under a run that has already reported its own result.
+    pub fn mark_sections_dirty(&mut self) {
+        self.sections_dirty = true;
+    }
+
     pub fn get_activity_ids(&self) -> Vec<String> {
         self.activity_metadata.keys().cloned().collect()
     }

@@ -124,6 +124,21 @@ export function getCutoverDiff(): string | undefined {
   );
 }
 /**
+ * How far the running cutover has got.
+ */
+export function getCutoverProgress(): CutoverProgress {
+  return FfiConverterTypeCutoverProgress.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_cutover_progress(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get current download progress for FFI polling.
  *
  * TypeScript should poll this every 100ms during fetch operations
@@ -207,38 +222,16 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
- * Restore the archived catalogue and switch back to Corridor. Returns the
- * number of sections restored, which is legitimately zero for a user whose
- * catalogue was entirely pinned. A real failure is an error, not a zero, so
- * the caller can tell "nothing to put back" from "putting it back failed".
+ * Start the cutover on a background thread. Returns whether a run was
+ * started: false means no engine, not owed, or already running. A full cut is
+ * a cold detect over the whole library, so it must never be driven from the
+ * calling thread.
  */
-export function restoreFromCutoverArchive(): /*u32*/ number /*throws*/ {
-  return FfiConverterUInt32.lift(
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
+export function startDetectorCutover(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_restore_from_cutover_archive(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
- * Run the cutover in the calling thread. Returns the diff JSON on
- * success. Shaped for a background worker.
- */
-export function runDetectorCutover(): string /*throws*/ {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_run_detector_cutover(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(
           callStatus,
         );
       },
@@ -499,6 +492,61 @@ const FfiConverterTypeBulkExportResult = (() => {
         FfiConverterUInt32.allocationSize(value.exported) +
         FfiConverterUInt32.allocationSize(value.skipped) +
         FfiConverterUInt64.allocationSize(value.totalBytes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * How far a detector cutover has got. The phase is the whole story: a cut has
+ * no unit of work to count, unlike the elevation queue.
+ */
+export type CutoverProgress = {
+  /**
+   * idle, draining, archiving, detecting, diffing, complete or failed.
+   */
+  phase: string;
+  /**
+   * Whether a run holds the slot right now.
+   */
+  running: boolean;
+};
+
+/**
+ * Generated factory for {@link CutoverProgress} record objects.
+ */
+export const CutoverProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<CutoverProgress, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<CutoverProgress>,
+  });
+})();
+
+const FfiConverterTypeCutoverProgress = (() => {
+  type TypeName = CutoverProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        phase: FfiConverterString.read(from),
+        running: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.phase, into);
+      FfiConverterBool.write(value.running, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.phase) +
+        FfiConverterBool.allocationSize(value.running)
       );
     }
   }
@@ -16660,6 +16708,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress() !==
+    54863
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_cutover_progress",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
     60736
   ) {
@@ -16700,19 +16756,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_restore_from_cutover_archive() !==
-    50147
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover() !==
+    46310
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_restore_from_cutover_archive",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_run_detector_cutover() !==
-    53398
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_run_detector_cutover",
+      "uniffi_veloqrs_checksum_func_start_detector_cutover",
     );
   }
   if (
@@ -18620,6 +18668,7 @@ export default Object.freeze({
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
     FfiConverterTypeBulkExportResult,
+    FfiConverterTypeCutoverProgress,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
