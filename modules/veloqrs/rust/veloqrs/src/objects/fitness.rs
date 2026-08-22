@@ -398,6 +398,7 @@ impl FitnessManager {
                         section_name: section.section_name,
                         best_time_secs: section.best_time_secs,
                         traversal_count: section.traversal_count,
+                        days_since_last: section.days_since_last,
                         fitness_metric: gain.metric.to_string(),
                         current_value: gain.current,
                         previous_value: gain.previous,

@@ -180,6 +180,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       sectionName: s.sectionName,
       bestTimeSecs: s.bestTimeSecs,
       traversalCount: s.traversalCount,
+      daysSinceLast: s.daysSinceLast,
       sportType: s.sportType,
     }));
     const existingStalePrIds = new Set(candidates.map((i) => i.id));

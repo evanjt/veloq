@@ -98,6 +98,23 @@ function makeRankedSections(sportType: string) {
       trend: 0.02,
       latestIsPr: false,
     },
+    {
+      // Past the staleness floor, so this is the only section a stale-PR
+      // suggestion may name. A at 4 days and B at 12 must never be.
+      sectionId: `sec-${sportType.toLowerCase()}-neglected-C`,
+      sectionName: `${sportType} Neglected C`,
+      relevanceScore: 0.2,
+      recencyScore: 0.05,
+      improvementScore: 0.2,
+      anomalyScore: 0.1,
+      engagementScore: 0.3,
+      traversalCount: 6,
+      bestTimeSecs: 410,
+      medianRecentSecs: 430,
+      daysSinceLast: 65,
+      trend: 0.0,
+      latestIsPr: false,
+    },
   ];
 }
 

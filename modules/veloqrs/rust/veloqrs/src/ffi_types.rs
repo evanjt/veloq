@@ -2507,6 +2507,9 @@ pub struct FfiStalePrOpportunity {
     pub section_name: String,
     pub best_time_secs: f64,
     pub traversal_count: u32,
+    /// Days since the last traversal. The insight gates on this, so it has to
+    /// travel with the opportunity rather than be recovered downstream.
+    pub days_since_last: u32,
     /// "power" for cycling (FTP), "pace" for running/swimming (critical speed)
     pub fitness_metric: String,
     pub current_value: f64,

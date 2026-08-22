@@ -30,8 +30,9 @@ export interface StalePRSectionData {
   sectionName: string;
   bestTimeSecs: number;
   traversalCount: number;
-  /** Timestamp (seconds since epoch) of the most recent traversal, if known */
-  lastTraversalTs?: number;
+  /** Days since the most recent traversal. The engine reports days, not an
+   *  instant, so this mirrors the unit rather than converting. */
+  daysSinceLast?: number;
   /** Sport type: 'Run', 'Ride', etc. */
   sportType?: string;
 }
@@ -78,6 +79,10 @@ export interface StalePROpportunity {
   gainPercent: number;
   /** Unit label: 'W' for power, '/km' for running, '/100m' for swimming */
   unit: string;
+  /** Days since the last traversal. Feeds the recency gate. */
+  daysSinceLast: number;
+  /** Lifetime traversals. Feeds the repetition gate. */
+  traversalCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,10 +194,13 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
     if (recentPRSectionIds.has(section.sectionId)) continue;
     if (section.traversalCount === 0 || !Number.isFinite(section.bestTimeSecs)) continue;
 
-    // Check staleness
-    if (section.lastTraversalTs != null && Number.isFinite(section.lastTraversalTs)) {
-      const daysSinceLast = (now - section.lastTraversalTs) / 86400;
-      if (daysSinceLast < getStaleThresholdDays()) continue;
+    // Fails closed. A section whose age is unknown cannot be shown to be stale,
+    // and suggesting a retest on one that was ridden this morning reads as broken.
+    if (
+      !Number.isFinite(section.daysSinceLast) ||
+      (section.daysSinceLast as number) < getStaleThresholdDays()
+    ) {
+      continue;
     }
 
     // Get sport-appropriate fitness improvement
@@ -208,6 +216,8 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
       sectionId: section.sectionId,
       sectionName: section.sectionName,
       bestTimeSecs: section.bestTimeSecs,
+      daysSinceLast: section.daysSinceLast ?? 0,
+      traversalCount: section.traversalCount,
       fitnessMetric: improvement.metric,
       currentValue: improvement.current,
       previousValue: improvement.previous,
@@ -261,11 +271,6 @@ export function stalePROpportunityToInsight(
   const displayedCurrent = isPower ? currentStr : `${currentStr}${opportunity.unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${opportunity.unit}`;
 
-  // stale_pr omits sourceTimestamp: the detector already filtered by min
-  // staleness (30+ days). The rules pipeline's G1 min-age check is
-  // therefore redundant; signalling it via meta would require plumbing
-  // lastTraversalTs through the engine path, which isn't worth the
-  // duplication today.
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
@@ -291,7 +296,10 @@ export function stalePROpportunityToInsight(
     isNew: true,
     meta: {
       comparisonKind: 'self',
-      repetitionCount: undefined,
+      repetitionCount: opportunity.traversalCount,
+      // The age of the last traversal, not of the card. The recency gate reads
+      // this, and stamping it with `now` would age every card at zero days.
+      sourceTimestamp: timestamp - opportunity.daysSinceLast * 86_400_000,
       specificity: { hasNumber: true, hasPlace: true, hasDate: false },
     },
     supportingData: {
@@ -378,6 +386,8 @@ export function generateStalePRInsights(
         sectionId: r.sectionId,
         sectionName: r.sectionName,
         bestTimeSecs: r.bestTimeSecs,
+        daysSinceLast: r.daysSinceLast,
+        traversalCount: r.traversalCount,
         fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
         currentValue: r.currentValue,
         previousValue: r.previousValue,
@@ -447,8 +457,12 @@ export function generateStalePRInsights(
       timestamp: now,
       isNew: false,
       meta: {
-        // See note above - stale_pr opts out of G1 via unset sourceTimestamp.
         comparisonKind: 'self',
+        // The freshest member, so the group is only as stale as its least stale
+        // section. The same for repetitions: one thin member should not let a
+        // group through a gate that member would fail alone.
+        sourceTimestamp: now - Math.min(...filtered.map((o) => o.daysSinceLast)) * 86_400_000,
+        repetitionCount: Math.min(...filtered.map((o) => o.traversalCount)),
         specificity: { hasNumber: true, hasPlace: false, hasDate: false },
       },
       supportingData: {

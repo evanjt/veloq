@@ -452,6 +452,7 @@ describe('generateInsights', () => {
               medianRecentSecs: 620,
               bestTimeSecs: 590,
               traversalCount: 8,
+              daysSinceLast: 60,
               sportType: 'Ride',
             },
             {
@@ -461,6 +462,7 @@ describe('generateInsights', () => {
               medianRecentSecs: 390,
               bestTimeSecs: 360,
               traversalCount: 5,
+              daysSinceLast: 75,
               sportType: 'Swim',
             },
           ],

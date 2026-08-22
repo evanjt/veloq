@@ -28,7 +28,7 @@ describe('detectStalePROpportunities', () => {
       sectionName: 'Hill Climb',
       bestTimeSecs: 300,
       traversalCount: 10,
-      lastTraversalTs: NOW_TS - 60 * DAYS,
+      daysSinceLast: 60,
       sportType: 'Ride' as const,
       ...overrides,
     });
@@ -78,7 +78,7 @@ describe('detectStalePROpportunities', () => {
       {
         name: 'section had a recent PR (within 30 days)',
         input: {
-          sections: [rideSection({ lastTraversalTs: NOW_TS - 5 * DAYS })],
+          sections: [rideSection({ daysSinceLast: 5 })],
           ftpTrend: ftpGain,
           paceTrend: null,
           recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
@@ -87,7 +87,7 @@ describe('detectStalePROpportunities', () => {
       {
         name: 'section was visited recently (within 30 days)',
         input: {
-          sections: [rideSection({ lastTraversalTs: NOW_TS - 10 * DAYS })],
+          sections: [rideSection({ daysSinceLast: 10 })],
           ftpTrend: ftpGain,
           paceTrend: null,
           recentPRs: [],
@@ -166,7 +166,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill Climb',
             bestTimeSecs: 300,
             traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -191,7 +191,7 @@ describe('detectStalePROpportunities', () => {
       expect(result[0].unit).toBe('W');
     });
 
-    it('section has no lastTraversalTs but is absent from recent PRs', () => {
+    it('section with no known age is not treated as stale', () => {
       const input: StalePRInput = {
         sections: [
           {
@@ -200,7 +200,7 @@ describe('detectStalePROpportunities', () => {
             bestTimeSecs: 600,
             traversalCount: 5,
             sportType: 'Ride',
-            // no lastTraversalTs
+            // no daysSinceLast
           },
         ],
         ftpTrend: {
@@ -212,9 +212,9 @@ describe('detectStalePROpportunities', () => {
         paceTrend: null,
         recentPRs: [],
       };
-      const result = detectStalePROpportunities(input);
-      expect(result).toHaveLength(1);
-      expect(result[0].sectionId).toBe('s1');
+      // Fails closed: an unknown age cannot establish staleness, and the
+      // engine reports an age for every section it returns.
+      expect(detectStalePROpportunities(input)).toHaveLength(0);
     });
 
     it('filters out sections with recent PRs but keeps stale ones', () => {
@@ -225,7 +225,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill Climb',
             bestTimeSecs: 300,
             traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
           {
@@ -233,7 +233,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'River Path',
             bestTimeSecs: 600,
             traversalCount: 8,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            daysSinceLast: 45,
             sportType: 'Ride',
           },
         ],
@@ -257,7 +257,7 @@ describe('detectStalePROpportunities', () => {
         sectionName: `Section ${i}`,
         bestTimeSecs: 300 + i * 60,
         traversalCount: 10 - i,
-        lastTraversalTs: NOW_TS - (40 + i * 10) * DAYS,
+        daysSinceLast: 40 + i * 10,
         sportType: 'Ride' as const,
       }));
       const input: StalePRInput = {
@@ -283,7 +283,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Rarely visited',
             bestTimeSecs: 300,
             traversalCount: 2,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
           {
@@ -291,7 +291,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Often visited',
             bestTimeSecs: 600,
             traversalCount: 20,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            daysSinceLast: 45,
             sportType: 'Ride',
           },
         ],
@@ -318,7 +318,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill Climb',
             bestTimeSecs: 300,
             traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -343,7 +343,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill',
             bestTimeSecs: 300,
             traversalCount: 5,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -376,7 +376,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Park Loop',
             bestTimeSecs: 420,
             traversalCount: 8,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Run',
           },
         ],
@@ -407,7 +407,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Park Loop',
             bestTimeSecs: 420,
             traversalCount: 8,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Run',
           },
         ],
@@ -432,7 +432,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Mountain Pass',
             bestTimeSecs: 600,
             traversalCount: 12,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            daysSinceLast: 45,
             sportType: 'Ride',
           },
           {
@@ -440,7 +440,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'River Trail',
             bestTimeSecs: 360,
             traversalCount: 15,
-            lastTraversalTs: NOW_TS - 40 * DAYS,
+            daysSinceLast: 40,
             sportType: 'Run',
           },
         ],
@@ -485,7 +485,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Pool Set',
             bestTimeSecs: 95,
             traversalCount: 7,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Swim',
           },
         ],
@@ -520,6 +520,8 @@ describe('detectStalePROpportunities', () => {
       sectionId: 's1',
       sectionName: 'Hill Climb',
       bestTimeSecs: 263,
+      daysSinceLast: 60,
+      traversalCount: 5,
       fitnessMetric: 'power',
       currentValue: 220,
       previousValue: 200,
@@ -581,11 +583,24 @@ describe('detectStalePROpportunities', () => {
       expect(insight.timestamp).toBeLessThanOrEqual(after);
     });
 
+    it('dates the card by the traversal, not by when it was built', () => {
+      const now = Date.UTC(2026, 7, 22, 9, 0, 0);
+      const insight = stalePROpportunityToInsight(opportunity, mockT, now);
+
+      // The recency gate reads sourceTimestamp. Stamping it with `now` would
+      // report every card as zero days old and fail the minimum-age check.
+      const ageDays = (now - insight.meta!.sourceTimestamp!) / 86_400_000;
+      expect(ageDays).toBeCloseTo(opportunity.daysSinceLast, 6);
+      expect(insight.meta!.repetitionCount).toBe(opportunity.traversalCount);
+    });
+
     it('formats pace-based opportunity correctly', () => {
       const paceOpportunity: StalePROpportunity = {
         sectionId: 'r1',
         sectionName: 'Park Loop',
         bestTimeSecs: 420,
+        daysSinceLast: 45,
+        traversalCount: 4,
         fitnessMetric: 'pace',
         currentValue: 3.3,
         previousValue: 3.0,
