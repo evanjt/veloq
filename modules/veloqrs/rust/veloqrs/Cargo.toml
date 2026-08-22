@@ -13,6 +13,9 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 [features]
 default = []
 synthetic = ["tracematch/synthetic"]
+# Targets that read the owner's private GPX corpora. The traces never enter the
+# repository, so a machine without them must not build these at all.
+real-corpus = []
 
 [dependencies]
 # Core algorithm library
@@ -279,3 +282,7 @@ path = "uniffi-bindgen.rs"
 [[example]]
 name = "detection_audit"
 path = "examples/detection_audit.rs"
+
+[[test]]
+name = "corpus_migration"
+required-features = ["real-corpus"]
