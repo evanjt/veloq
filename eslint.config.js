@@ -19,6 +19,9 @@ module.exports = [
       'coverage/**',
       'dist/**',
       '.expo/**',
+      // Agent worktrees are whole checkouts of this repo living inside it.
+      // Linting them reports another branch's problems as this one's.
+      '.claude/**',
       'src/features/maps/components/styles/liberty/**',
     ],
   },
