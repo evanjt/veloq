@@ -23,10 +23,10 @@ use tracematch::sections::DetectionMethod;
 const CUTOVER_ID: &str = "unified-1";
 
 /// Settings key for the cutover token.
-const CUTOVER_KEY: &str = "__detector_cutover";
+pub(super) const CUTOVER_KEY: &str = "__detector_cutover";
 
 /// Settings key for the serialised diff payload (JSON).
-const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
+pub(super) const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
 
 /// Sentinel written on revert, so the cutover does not re-fire.
 const CUTOVER_REVERTED: &str = "reverted";

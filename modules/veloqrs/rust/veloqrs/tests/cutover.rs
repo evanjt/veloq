@@ -354,3 +354,30 @@ fn not_owed_is_a_distinct_outcome() {
         CutoverOutcome::NotOwed
     );
 }
+
+/// A full reset drops the catalogue, so it must drop the token and config that
+/// describe it. Otherwise the next athlete inherits a spent cutover and a
+/// detector they cannot change.
+#[test]
+fn clear_drops_the_cutover_token_and_config() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("cutover");
+    with_persistent_engine(|e| e.clear().expect("clear")).unwrap();
+
+    let leftovers: i64 = {
+        let db = rusqlite::Connection::open(&path).expect("open");
+        db.query_row(
+            "SELECT COUNT(*) FROM settings
+             WHERE key IN ('__detector_cutover', '__detector_cutover_diff',
+                           '__section_config_json')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count")
+    };
+    assert_eq!(leftovers, 0, "cutover state outlived the reset");
+}
