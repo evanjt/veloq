@@ -1909,6 +1909,7 @@ mod tests {
             sport_type: "cycling".to_string(),
             polyline,
             representative_activity_id: representative_activity_id.to_string(),
+            representative_range: None,
             activity_ids: activity_ids.clone(),
             activity_portions: activity_ids
                 .iter()

@@ -318,6 +318,7 @@ impl PersistentRouteEngine {
                 visit_count: row.get::<_, Option<u32>>(6)?.unwrap_or(0),
                 created_at: row.get(7)?,
                 representative_activity_id: String::new(),
+                representative_range: None,
                 activity_ids: Vec::new(),
                 activity_portions: Vec::new(),
                 route_ids: Vec::new(),

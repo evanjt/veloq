@@ -314,7 +314,8 @@ impl PersistentRouteEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob,
-                        elevation_gain_m, avg_grade_percent
+                        elevation_gain_m, avg_grade_percent,
+                        rep_start_index, rep_end_index
                  FROM sections
                  WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
                  ORDER BY id",
@@ -371,12 +372,18 @@ impl PersistentRouteEngine {
                         .collect();
                     let visit_count = portions.len() as u32;
 
+                    // Both columns or neither: a half-range indexes nothing.
+                    let rep_start: Option<u32> = row.get(22)?;
+                    let rep_end: Option<u32> = row.get(23)?;
+                    let representative_range = rep_start.zip(rep_end);
+
                     Ok(FrequentSection {
                         id,
                         name: row.get(2)?,
                         sport_type: row.get(3)?,
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
+                        representative_range,
                         activity_ids,
                         activity_portions: portions,
                         route_ids: vec![],
@@ -903,6 +910,7 @@ impl PersistentRouteEngine {
             sport_type,
             polyline,
             representative_activity_id: representative_activity_id.unwrap_or_default(),
+            representative_range: None,
             activity_ids,
             // From the junction table: `save_sections` writes junction rows
             // FROM this field, so a blank here turns the next save into a
@@ -1195,6 +1203,7 @@ impl PersistentRouteEngine {
             sport_type: section.sport_type,
             polyline: section.polyline,
             representative_activity_id: section.representative_activity_id.unwrap_or_default(),
+            representative_range: None,
             activity_ids: section.activity_ids,
             activity_portions: portions,
             route_ids: section.route_ids.unwrap_or_default(),
@@ -1661,8 +1670,9 @@ impl PersistentRouteEngine {
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                 consensus_state_blob, polyline_blob, point_density_blob,
-                elevation_gain_m, avg_grade_percent
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                elevation_gain_m, avg_grade_percent,
+                rep_start_index, rep_end_index, geometry_source
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -1828,6 +1838,15 @@ impl PersistentRouteEngine {
                 .as_ref()
                 .and_then(|acc| codec::serialize_gps_composite(acc).ok());
 
+            // A range is only truth alongside the activity it indexes. Without
+            // one the line is an average, which is a slice of nothing.
+            let geometry_source = if section.representative_range.is_some()
+                && !section.representative_activity_id.is_empty()
+            {
+                history::SOURCE_EXACT
+            } else {
+                history::SOURCE_CONSENSUS
+            };
             section_stmt.execute(params![
                 section.id,
                 name_to_save,
@@ -1858,6 +1877,9 @@ impl PersistentRouteEngine {
                 point_density_blob,
                 section.elevation_gain_m,
                 section.avg_grade_percent,
+                section.representative_range.map(|(start, _)| start),
+                section.representative_range.map(|(_, end)| end),
+                geometry_source,
             ])?;
 
             // Diagnostic: a section that claims attached activities but has
@@ -1947,6 +1969,10 @@ impl PersistentRouteEngine {
                     &event.real_id,
                     polyline,
                     false,
+                    event
+                        .reference
+                        .as_ref()
+                        .map(|(id, start, end)| (id.as_str(), *start, *end)),
                 )?),
                 None => None,
             };

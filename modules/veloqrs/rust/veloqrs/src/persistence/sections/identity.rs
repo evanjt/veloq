@@ -54,6 +54,15 @@ use tracematch::{
 /// `identity_state.key` for the section registry blob (B4 migration 013).
 pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
+/// A section's geometry provenance, when its line is a real slice.
+fn reference_of(section: &FrequentSection) -> Option<(String, u32, u32)> {
+    let (start, end) = section.representative_range?;
+    if section.representative_activity_id.is_empty() {
+        return None;
+    }
+    Some((section.representative_activity_id.clone(), start, end))
+}
+
 /// One fired lifecycle change, keyed by real id, produced by the identity
 /// apply (the one emitter) and written to `section_history` /
 /// `section_geometry` inside the catalogue-save transaction. `kind` is the
@@ -66,6 +75,8 @@ pub(crate) struct SectionLifecycleEvent {
     pub kind: &'static str,
     pub details: Option<String>,
     pub geometry: Option<Vec<GpsPoint>>,
+    /// Where `geometry` was sliced from, when it is a slice of one activity.
+    pub reference: Option<(String, u32, u32)>,
 }
 
 /// Version byte on the persisted section-registry blob. Bump on any
@@ -698,6 +709,7 @@ impl PersistentRouteEngine {
                         kind: "formed",
                         details,
                         geometry: Some(row.section.polyline.clone()),
+                        reference: reference_of(&row.section),
                     });
                 }
                 CandidateFate::Restored => {
@@ -707,6 +719,7 @@ impl PersistentRouteEngine {
                             kind: "restored",
                             details: None,
                             geometry: Some(row.section.polyline.clone()),
+                            reference: reference_of(&row.section),
                         });
                     }
                 }
@@ -721,6 +734,7 @@ impl PersistentRouteEngine {
                 kind: "split",
                 details: Some(serde_json::Value::Object(details).to_string()),
                 geometry: None,
+                reference: None,
             });
         }
         for pid in &out.recut_ids {
@@ -734,6 +748,7 @@ impl PersistentRouteEngine {
                     serde_json::Value::Object(self.section_era_snapshot(real_id)).to_string(),
                 ),
                 geometry: Some(row.section.polyline.clone()),
+                reference: reference_of(&row.section),
             });
         }
         for retirement in &out.retired {
@@ -758,6 +773,7 @@ impl PersistentRouteEngine {
                 kind,
                 details: Some(serde_json::Value::Object(details).to_string()),
                 geometry: None,
+                reference: None,
             });
         }
 

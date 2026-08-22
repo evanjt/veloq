@@ -123,6 +123,10 @@ name = "section_sport_membership"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_geometry_reference"
+required-features = ["synthetic"]
+
+[[test]]
 name = "heatmap_parity"
 required-features = ["synthetic"]
 
