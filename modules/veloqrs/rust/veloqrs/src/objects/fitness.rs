@@ -379,7 +379,10 @@ impl FitnessManager {
                     continue;
                 };
 
-                for section in e.get_ranked_sections(sport, 100) {
+                // Relevance order is discarded below, so a cut here only hides
+                // eligible sections. Ranking favours recent traversals, which is
+                // the opposite of what staleness selects for.
+                for section in e.get_ranked_sections(sport, u32::MAX) {
                     if exclude.contains(&section.section_id) {
                         continue;
                     }
