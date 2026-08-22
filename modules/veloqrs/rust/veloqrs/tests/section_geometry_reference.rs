@@ -180,3 +180,36 @@ fn provenance_and_the_triple_agree() {
         }
     }
 }
+
+/// A refresh reads the row back whole. Dropping the range here would demote an
+/// exact section to consensus on the next save.
+#[test]
+fn refreshing_a_section_keeps_its_provenance() {
+    let (dir, mut engine) = detected();
+    let db = Connection::open(dir.path().join("geometry.db")).expect("open");
+
+    let exact: Vec<Stored> = stored_rows(&db)
+        .into_iter()
+        .filter(|r| r.source.as_deref() == Some("exact"))
+        .collect();
+    assert!(
+        !exact.is_empty(),
+        "no exact section to refresh, so this test would pass vacuously"
+    );
+
+    for row in &exact {
+        engine.refresh_section_in_memory(&row.id);
+        let refreshed = engine
+            .get_sections()
+            .iter()
+            .find(|s| s.id == row.id)
+            .cloned()
+            .expect("the refreshed section is in memory");
+        assert_eq!(
+            refreshed.representative_range,
+            row.start.zip(row.end),
+            "section {} lost its range across a refresh",
+            row.id
+        );
+    }
+}
