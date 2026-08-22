@@ -82,7 +82,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
 
       {/* Zone bars */}
       <View style={styles.barsContainer}>
-        {processedData.map((zone, idx) => (
+        {processedData.map((zone) => (
           <View key={zone.zone} style={styles.barRow}>
             {/* Zone label */}
             <View style={styles.barLabel}>

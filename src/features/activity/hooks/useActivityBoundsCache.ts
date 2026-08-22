@@ -52,7 +52,7 @@ interface UseActivityBoundsCacheReturn {
  * Activity data is now provided by useEngineMapActivities hook.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
-  const [progress, setProgress] = useState<SyncProgress>({
+  const [progress] = useState<SyncProgress>({
     completed: 0,
     total: 0,
     status: 'idle',

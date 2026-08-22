@@ -35,7 +35,7 @@ export function GlobalDataSync() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { settings: routeSettings } = useRouteSettings();
+  useRouteSettings();
 
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);

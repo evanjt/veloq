@@ -106,7 +106,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const pointXCoordsShared = useSharedValue<number[]>([]);
 
   // React state for metrics panel (bridges to JS only for text updates)
-  const [metricValues, setMetricValues] = useState<MetricValue[]>([]);
+  const [, setMetricValues] = useState<MetricValue[]>([]);
   const [currentX, setCurrentX] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(false);
 

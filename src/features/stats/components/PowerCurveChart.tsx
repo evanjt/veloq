@@ -45,7 +45,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
-  const lineColour = color ?? chartColors.powerCurve;
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 

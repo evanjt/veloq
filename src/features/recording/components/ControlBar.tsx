@@ -35,7 +35,7 @@ function ControlBarInner({
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
 
   // Long-press stop state - fully Animated, no React state re-renders
   const stopAnim = useRef(new Animated.Value(0)).current;

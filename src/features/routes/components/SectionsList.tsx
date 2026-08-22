@@ -321,7 +321,6 @@ export const SectionsList = memo(function SectionsList({
   const { createSection, removeSection } = useCustomSections();
   const { rescan, isScanning } = useSectionRescan();
 
-  const trueAutoCount = totalSectionCount != null ? totalSectionCount : autoCount;
   const trueDisabledCount = disabledCount;
 
   // Track open swipeable refs to close them when another opens

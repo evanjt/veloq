@@ -31,7 +31,7 @@ export function useTimer(): {
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const laps = useRecordingStore((s) => s.laps);
 
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Start/stop interval based on status

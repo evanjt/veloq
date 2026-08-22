@@ -4,8 +4,6 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
-const DAY_MS = 86_400_000;
-
 /**
  * Stale PR / Opportunity Detection
  *

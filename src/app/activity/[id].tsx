@@ -103,7 +103,7 @@ export default function ActivityDetailScreen() {
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
   // Track whether 3D map mode is active
-  const [is3DMapActive, setIs3DMapActive] = useState(false);
+  const [, setIs3DMapActive] = useState(false);
 
   // Snackbar for 3D camera override feedback
   const [snackbarVisible, setSnackbarVisible] = useState(false);

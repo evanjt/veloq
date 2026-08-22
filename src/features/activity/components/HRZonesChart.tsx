@@ -160,7 +160,6 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
   };
 
   // Data source label
-  const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
     <ChartErrorBoundary height={200} label="Heart Rate Zones">

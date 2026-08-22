@@ -594,7 +594,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }, [coordinates]);
 
     // Use initial center/zoom when no coordinates provided
-    const hasRoute = coordinates.length > 0;
 
     // Generate the HTML for the WebView
     // IMPORTANT: Only depends on style-related props, NOT GeoJSON data

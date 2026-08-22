@@ -101,11 +101,7 @@ export default function MapScreen() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const {
-    isLoading: isLoadingActivities,
-    isError: isActivitiesError,
-    refetch: refetchActivities,
-  } = useActivities({
+  const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
@@ -113,7 +109,7 @@ export default function MapScreen() {
   });
 
   // Get sync state from engine cache
-  const { isReady, progress, cacheStats } = useActivityBoundsCache();
+  const { isReady, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 

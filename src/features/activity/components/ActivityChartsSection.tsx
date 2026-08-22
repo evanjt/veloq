@@ -98,7 +98,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
   const { getPageMetrics } = useFFITimer();
 
   // Chart state

@@ -71,8 +71,6 @@ const ACTIVITY_TYPE_GROUPS = {
   ],
 };
 
-const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
-
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
 const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;

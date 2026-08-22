@@ -119,7 +119,6 @@ export default function DetectionSettingsScreen() {
   const {
     forceRescan,
     isScanning,
-    progress: rescanProgress,
     result: rescanResult,
     failed: rescanFailed,
     clearResult,

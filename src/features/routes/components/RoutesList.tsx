@@ -280,7 +280,6 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const displayRouteCount = totalGroupCount ?? allGroups.length;
-  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
 
   const renderHeader = () => (
     <View>

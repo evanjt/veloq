@@ -113,7 +113,6 @@ export default function HealthScreen() {
   const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
   // Combined loading states
-  const isLoading = activitiesLoading || wellnessLoading;
   const isFetching = activitiesFetching || wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries

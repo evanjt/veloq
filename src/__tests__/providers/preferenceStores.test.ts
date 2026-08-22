@@ -72,7 +72,6 @@ const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 const DASHBOARD_STORAGE_KEY = 'dashboard_preferences';
-const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 const HR_ZONES_KEY = 'veloq-hr-zones';
 const MAP_PREFS_KEY = 'veloq-map-preferences';
 

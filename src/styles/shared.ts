@@ -38,8 +38,6 @@ export const createSharedStyles = (isDark: boolean) => {
 };
 
 const buildSharedStyles = (isDark: boolean) => {
-  const c = isDark ? darkColors : colors;
-
   return StyleSheet.create({
     // =========================================================================
     // LAYOUT CONTAINERS
