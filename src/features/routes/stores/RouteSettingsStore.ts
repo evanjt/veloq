@@ -87,7 +87,7 @@ interface RouteSettingsState {
   setDetectionMethod: (method: DetectionMethod) => Promise<void>;
 }
 
-export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
+export const useRouteSettings = create<RouteSettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
 

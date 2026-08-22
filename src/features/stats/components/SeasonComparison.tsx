@@ -19,12 +19,6 @@ interface SeasonComparisonProps {
   previousYearActivities?: Activity[];
 }
 
-interface MonthData {
-  month: string;
-  current: number;
-  previous: number;
-}
-
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Aggregate activities by month from the activity array.

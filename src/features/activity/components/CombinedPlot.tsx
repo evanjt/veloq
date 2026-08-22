@@ -76,9 +76,6 @@ interface ChartBounds {
   bottom: number;
 }
 
-/** Series info type used by this component (mirrors the lib type). */
-type SeriesInfo = ReturnType<typeof buildChartData>['seriesInfo'][number];
-
 const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 20 } as const;
 const NORMALIZED_DOMAIN = { y: [0, 1] as [number, number] };
 
