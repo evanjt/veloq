@@ -64,7 +64,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   coordinates,
   streams,
   isMetric,
-  isDark,
   debugEnabled,
   insetTop,
   mapHeight,

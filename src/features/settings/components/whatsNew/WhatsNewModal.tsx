@@ -294,7 +294,6 @@ function NavigationButtons({
   onSkip,
   onNext,
   onShowMe,
-  textColor,
   mutedColor,
   primaryColor,
   skipLabel,

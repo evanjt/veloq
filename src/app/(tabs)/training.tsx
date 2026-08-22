@@ -79,7 +79,7 @@ export default function HealthScreen() {
   const [highlightDate, setHighlightDate] = useState<string | null>(null);
 
   // Fetch activities for calendar year comparison (current + previous year)
-  const { oldest, newest, currentYearStart } = useMemo(() => {
+  const { oldest, newest } = useMemo(() => {
     const n = new Date();
     return {
       oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),

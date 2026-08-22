@@ -70,7 +70,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   }, []);
 
   // Process data for the chart
-  const { chartData, indexMap, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
+  const { chartData, maxFitness } = useMemo(() => {
     if (!data || data.length === 0) {
       return {
         chartData: [],

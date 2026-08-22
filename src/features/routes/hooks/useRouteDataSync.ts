@@ -123,7 +123,6 @@ export function useRouteDataSync(
     isDemoModeRef,
     isOnlineRef,
     isSyncingRef,
-    syncAbortRef,
     createAbortController,
     canStartSync,
     markSyncComplete,

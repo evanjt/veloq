@@ -295,25 +295,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const xUnit = xAxisMode === 'time' ? '' : isMetric ? 'km' : 'mi';
 
   // Calculate averages for display when not scrubbing
-  const averageValues = useMemo(() => {
-    return seriesInfo.map((s) => {
-      const validValues = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
-      if (validValues.length === 0) return { id: s.id, avg: 0, formatted: '-' };
-
-      let avg = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
-
-      if (!isMetric && s.config.convertToImperial) {
-        avg = s.config.convertToImperial(avg);
-      }
-
-      const formatted = s.config.formatValue
-        ? s.config.formatValue(avg, isMetric)
-        : Math.round(avg).toString();
-
-      return { id: s.id, avg, formatted };
-    });
-  }, [seriesInfo, isMetric]);
-
   // Compute averages for ALL available chart types (not just selected)
   const allAverages = useMemo(
     () => computeAllAverages(chartConfigs, streams, isMetric),

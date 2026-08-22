@@ -180,8 +180,6 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
 export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
-  startDate,
-  endDate,
   batchGroups,
   onLoadMore,
   hasMore = false,

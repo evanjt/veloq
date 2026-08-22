@@ -311,9 +311,7 @@ export const SectionsList = memo(function SectionsList({
   const {
     sections: unifiedSections,
     count: totalCount,
-    autoCount,
     customCount,
-    potentialCount,
     disabledCount,
     isLoading,
   } = data;

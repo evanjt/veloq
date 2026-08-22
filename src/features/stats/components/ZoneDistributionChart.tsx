@@ -13,8 +13,6 @@ interface ZoneDistributionChartProps {
   data?: ZoneDistribution[];
   /** Type of zones to display */
   type?: 'power' | 'hr';
-  /** Chart height */
-  height?: number;
   /** Title override */
   title?: string;
   /** Time period label */
@@ -24,7 +22,6 @@ interface ZoneDistributionChartProps {
 export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   data,
   type = 'power',
-  height = 200,
   title,
   periodLabel,
 }: ZoneDistributionChartProps) {

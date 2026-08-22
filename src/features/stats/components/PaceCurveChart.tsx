@@ -221,13 +221,12 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     setTooltipData(null);
   }, []);
 
-  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
-    useChartGestures<ChartPoint>({
-      data: chartData,
-      onSelect: handleSelect,
-      onInteractionChange: handleInteractionChange,
-      crosshairMode: 'finger',
-    });
+  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<ChartPoint>({
+    data: chartData,
+    onSelect: handleSelect,
+    onInteractionChange: handleInteractionChange,
+    crosshairMode: 'finger',
+  });
 
   // Display data - either selected point, persisted point, or latest (longest distance)
   const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];

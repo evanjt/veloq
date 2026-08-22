@@ -72,7 +72,6 @@ export const SectionInlinePlot = memo(
     activityId,
     sportType,
     index,
-    style,
     isHighlighted,
     isDark,
     isMetric,
