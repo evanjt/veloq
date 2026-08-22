@@ -26,15 +26,10 @@ export const MethodologySection = React.memo(function MethodologySection({
   const algorithmDescription = supportingData?.algorithmDescription;
   const activities = supportingData?.activities;
   const hasActivities = activities != null && activities.length > 0;
-  const hasLegacyReference = methodology?.reference != null;
   const hasDescription = methodology?.description != null;
 
   const hasAnyContent =
-    formula != null ||
-    algorithmDescription != null ||
-    hasActivities ||
-    hasLegacyReference ||
-    hasDescription;
+    formula != null || algorithmDescription != null || hasActivities || hasDescription;
 
   if (!hasAnyContent) return null;
 
@@ -61,15 +56,6 @@ export const MethodologySection = React.memo(function MethodologySection({
 
         {/* Source activities */}
         {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
-
-        {/* Legacy single reference */}
-        {hasLegacyReference ? (
-          <LegacyReference
-            reference={methodology!.reference!}
-            referenceUrl={methodology!.referenceUrl}
-            isDark={isDark}
-          />
-        ) : null}
       </View>
     </View>
   );
@@ -139,45 +125,6 @@ const SourceActivitiesList = React.memo(function SourceActivitiesList({
           +{activities.length - 5} more
         </Text>
       ) : null}
-    </View>
-  );
-});
-
-/** Renders a single legacy reference */
-const LegacyReference = React.memo(function LegacyReference({
-  reference,
-  referenceUrl,
-  isDark,
-}: {
-  reference: string;
-  referenceUrl?: string;
-  isDark: boolean;
-}) {
-  const handlePress = useCallback(() => {
-    if (referenceUrl) {
-      Linking.openURL(referenceUrl);
-    }
-  }, [referenceUrl]);
-
-  if (referenceUrl) {
-    return (
-      <Pressable onPress={handlePress} style={styles.legacyReferenceContainer}>
-        <Text
-          style={[
-            styles.referenceText,
-            isDark && styles.referenceTextDark,
-            styles.referenceTappable,
-          ]}
-        >
-          {reference}
-        </Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <View style={styles.legacyReferenceContainer}>
-      <Text style={[styles.referenceText, isDark && styles.referenceTextDark]}>{reference}</Text>
     </View>
   );
 });
