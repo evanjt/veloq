@@ -19,7 +19,6 @@ import type { FrequentSection } from '@/types';
 // Engine Type Helper
 // ============================================================================
 
-type Engine = ReturnType<typeof getRouteEngine>;
 type EngineEvent = 'activities' | 'groups' | 'sections';
 
 // ============================================================================
@@ -313,20 +312,6 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
 // ============================================================================
 // Simple hooks without factory (unique patterns)
 // ============================================================================
-
-interface Bounds {
-  minLat: number;
-  maxLat: number;
-  minLng: number;
-  maxLng: number;
-}
-
-interface UseViewportActivitiesResult {
-  /** Activity IDs visible in the viewport */
-  activityIds: string[];
-  /** Number of activities in viewport */
-  count: number;
-}
 
 interface UseConsensusRouteResult {
   /** Consensus route points [{ lat, lng }, ...] or null if not available */
