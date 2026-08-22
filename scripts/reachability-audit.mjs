@@ -38,7 +38,7 @@ const rel = (p) => relative(ROOT, p);
 const ALLOWLIST = new Map([
   // Deliberately unmounted while recording is feature-gated off. Kept for
   // re-enabling, and guarded by src/__tests__/bugs/noWritePermissionPrompt.test.ts,
-  // which asserts nothing outside the settings barrel imports it.
+  // which asserts no shipping file mounts it.
   [
     'src/features/settings/components/RecordingPermissionSection.tsx',
     'intentionally unwired, see US-PRM1 test',
