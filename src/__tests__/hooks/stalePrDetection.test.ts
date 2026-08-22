@@ -217,6 +217,33 @@ describe('detectStalePROpportunities', () => {
       expect(detectStalePROpportunities(input)).toHaveLength(0);
     });
 
+    it('excludes a recently PRd section on age alone', () => {
+      // A PR is set on a traversal, so a PR within the window implies a
+      // traversal within it. The age floor already covers the case, which is
+      // why the engine path not sharing the recent-PR set does not diverge.
+      const input: StalePRInput = {
+        sections: [
+          {
+            sectionId: 's1',
+            sectionName: 'River Path',
+            bestTimeSecs: 600,
+            traversalCount: 5,
+            daysSinceLast: 20,
+            sportType: 'Ride',
+          },
+        ],
+        ftpTrend: {
+          latestFtp: 250,
+          latestDate: NOW_TS,
+          previousFtp: 230,
+          previousDate: NOW_TS - 90 * DAYS,
+        },
+        paceTrend: null,
+        recentPRs: [],
+      };
+      expect(detectStalePROpportunities(input)).toHaveLength(0);
+    });
+
     it('filters out sections with recent PRs but keeps stale ones', () => {
       const input: StalePRInput = {
         sections: [

@@ -187,7 +187,6 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
     recentPRs.filter((pr) => pr.daysAgo <= getStaleThresholdDays()).map((pr) => pr.sectionId)
   );
 
-  const now = Date.now() / 1000;
   const opportunities: StalePROpportunity[] = [];
 
   for (const section of sections) {
