@@ -22,7 +22,6 @@ interface ControlBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  onDiscard?: () => void;
   style?: ViewStyle;
 }
 
@@ -33,7 +32,6 @@ function ControlBarInner({
   onPause,
   onResume,
   onStop,
-  onDiscard,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
