@@ -25,13 +25,11 @@ import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesCon
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import {
   initializeRouteSettings,
   isHeatmapEnabled,
 } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
@@ -384,8 +382,6 @@ export default function RootLayout() {
           initializeUnitPreference(),
           initializeHRZones(),
           initializeRouteSettings(),
-          initializeSupersededSections(),
-          initializeDisabledSections(),
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
           initializeTileCacheStore(),

@@ -85,9 +85,6 @@ jest.mock('@/features/maps/stores/TileCacheStore', () => ({
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/routes/stores/DisabledSectionsStore', () => ({
-  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
   initializePotentialSections: jest.fn().mockResolvedValue(undefined),
 }));
@@ -96,9 +93,6 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 }));
 jest.mock('@/features/routes/stores/SectionDismissalsStore', () => ({
   initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/SupersededSectionsStore', () => ({
-  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
   initializeDebugStore: jest.fn().mockResolvedValue(undefined),

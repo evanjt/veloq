@@ -20,11 +20,9 @@ import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore'
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { initializeSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
-import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -56,9 +54,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeHRZones(),
     initializeUnitPreference(),
     initializeRouteSettings(),
-    initializeDisabledSections(),
     initializeSectionDismissals(),
-    initializeSupersededSections(),
     initializePotentialSections(),
     initializeDashboardPreferences(),
     initializeDebugStore(),
