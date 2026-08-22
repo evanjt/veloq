@@ -1533,3 +1533,36 @@ mod tests {
         assert_eq!(svc.snapshot().state, "syncing");
     }
 }
+
+/// The same fixtures are asserted in `src/__tests__/lib/startDateParity.test.ts`.
+/// A change to either parser fails on both sides rather than drifting.
+#[cfg(test)]
+mod start_date_parity_tests {
+    use super::start_date_to_timestamp;
+
+    const FIXTURES: [(&str, i64); 5] = [
+        ("2026-08-22T18:30:00", 1787423400),
+        ("2026-01-01T00:00:00", 1767225600),
+        ("2026-12-31T23:59:59", 1798761599),
+        ("2026-06-15T12:00:00.000", 1781524800),
+        ("2024-02-29T06:45:30", 1709189130),
+    ];
+
+    #[test]
+    fn matches_the_typescript_parser() {
+        for (input, expected) in FIXTURES {
+            assert_eq!(
+                start_date_to_timestamp(Some(input)),
+                Some(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_missing_or_unparseable_input() {
+        assert_eq!(start_date_to_timestamp(None), None);
+        assert_eq!(start_date_to_timestamp(Some("")), None);
+        assert_eq!(start_date_to_timestamp(Some("not a date")), None);
+    }
+}

@@ -61,8 +61,7 @@ describe('toActivityMetrics', () => {
     const activity = makeActivity({ start_date_local: '2026-01-15T08:00:00' });
     const metrics = toActivityMetrics(activity);
     expect(typeof metrics.date).toBe('bigint');
-    const expected = BigInt(Math.floor(new Date('2026-01-15T08:00:00').getTime() / 1000));
-    expect(metrics.date).toBe(expected);
+    expect(metrics.date).toBe(BigInt(Date.UTC(2026, 0, 15, 8, 0, 0) / 1000));
   });
 
   it('handles partial activity with missing optional fields', () => {
