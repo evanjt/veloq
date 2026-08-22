@@ -556,7 +556,6 @@ export default function ActivityDetailScreen() {
           coordinates={coordinates}
           streams={streams}
           isMetric={isMetric}
-          isDark={isDark}
           debugEnabled={debugEnabled}
           insetTop={insets.top}
           mapHeight={MAP_HEIGHT}
