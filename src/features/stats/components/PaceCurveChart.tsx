@@ -4,7 +4,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
-import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
+import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
@@ -17,8 +17,8 @@ import {
   formatLocalDate,
   speedToSecsPerKm,
   formatPaceFromSecsPerKm,
+  formatDuration,
 } from '@/shared/format/format';
-import { formatDuration } from '@/shared/format/format';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -229,6 +229,19 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       crosshairMode: 'finger',
     });
 
+  // Display data - either selected point, persisted point, or latest (longest distance)
+  const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
+
+  // Get activity info for the selected point
+  const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;
+
+  // Navigate to activity when tapped
+  const handleActivityTap = useCallback(() => {
+    if (displayData?.activityId) {
+      router.push(`/activity/${displayData.activityId}`);
+    }
+  }, [displayData?.activityId]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, { height }]}>
@@ -254,19 +267,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       </View>
     );
   }
-
-  // Display data - either selected point, persisted point, or latest (longest distance)
-  const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
-
-  // Get activity info for the selected point
-  const selectedActivity = displayData?.activityId ? activityMap.get(displayData.activityId) : null;
-
-  // Navigate to activity when tapped
-  const handleActivityTap = useCallback(() => {
-    if (displayData?.activityId) {
-      router.push(`/activity/${displayData.activityId}`);
-    }
-  }, [displayData?.activityId]);
 
   return (
     <View style={[styles.container, { height }]}>

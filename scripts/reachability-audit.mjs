@@ -290,7 +290,7 @@ function exportSurface(file, seen = new Set()) {
   for (const s of entry.reExports.stars) {
     if (s.namespaced) {
       // `export * as ns from './m'` publishes exactly one name, `ns`.
-      if (s.ns) surface.add(s.ns);
+      if (s.ns) names.add(s.ns);
       continue;
     }
     for (const n of exportSurface(s.file, seen)) names.add(n);

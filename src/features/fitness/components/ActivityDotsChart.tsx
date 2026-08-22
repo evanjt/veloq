@@ -49,12 +49,12 @@ interface ActivityDotsChartProps {
 interface DotData {
   x: number;
   date: string;
-  activities: Array<{
+  activities: {
     id: string;
     name: string;
     type: ActivityType;
     load: number;
-  }>;
+  }[];
   fitness: number;
   fatigue: number;
   form: number;
@@ -74,12 +74,15 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const [selectedData, setSelectedData] = useState<DotData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   // Persisted activities after scrub ends (for tappable label)
-  const [persistedActivities, setPersistedActivities] = useState<Array<{
-    id: string;
-    name: string;
-    type: ActivityType;
-    load: number;
-  }> | null>(null);
+  const [persistedActivities, setPersistedActivities] = useState<
+    | {
+        id: string;
+        name: string;
+        type: ActivityType;
+        load: number;
+      }[]
+    | null
+  >(null);
   const [showPicker, setShowPicker] = useState(false);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -91,10 +94,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   // Build a map of activities by date
   const activitiesByDate = useMemo(() => {
-    const map = new Map<
-      string,
-      Array<{ id: string; name: string; type: ActivityType; load: number }>
-    >();
+    const map = new Map<string, { id: string; name: string; type: ActivityType; load: number }[]>();
     for (const activity of activities) {
       const date = activity.start_date_local?.split('T')[0];
       if (!date) continue;
@@ -237,10 +237,6 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     [updateFromSharedIdx, crosshairX]
   );
 
-  if (dotData.length === 0) {
-    return null;
-  }
-
   // Get activities to display:
   // - During scrub (this chart or other charts via sharedSelectedIdx): use selectedData
   // - After scrub ends: use persistedActivities
@@ -277,6 +273,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     setPersistedActivities(null);
     router.push(`/activity/${activityId}`);
   }, []);
+
+  // Below every hook, so the hook count stays fixed across renders.
+  if (dotData.length === 0) {
+    return null;
+  }
 
   const displayData =
     selectedData || (selectedDate ? dotData.find((d) => d.date === selectedDate) : null);
