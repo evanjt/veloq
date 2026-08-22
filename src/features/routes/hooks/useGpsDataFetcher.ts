@@ -643,14 +643,19 @@ export function useGpsDataFetcher() {
         if (__DEV__) {
           console.log('[fetchApiGps] ⏱ calling startSectionDetection...');
         }
+        // A cutover holds the detection slot and re-cuts everything at its
+        // end, so a start here would be refused. Skipping explicitly keeps
+        // that refusal out of the stale-handle drain below, which exists for
+        // a different failure and would retry into the same wall.
+        const cutoverOwnsSlot = routeEngine.isCutoverPending() || routeEngine.isCutoverRunning();
         const detStart = Date.now();
-        let started = nativeModule.routeEngine.startSectionDetection();
+        let started = cutoverOwnsSlot ? false : nativeModule.routeEngine.startSectionDetection();
         if (__DEV__) {
           console.log(
             `[fetchApiGps] ⏱ startSectionDetection returned ${started} in ${Date.now() - detStart}ms`
           );
         }
-        if (!started) {
+        if (!started && !cutoverOwnsSlot) {
           // Drain any stale detection result that's blocking the handle
           const drainStatus = nativeModule.routeEngine.pollSectionDetection();
           if (drainStatus === 'complete') {
