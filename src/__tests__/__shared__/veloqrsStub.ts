@@ -7,7 +7,7 @@
  */
 
 export const decodeCoords = jest.fn(
-  () => [] as Array<{ latitude: number; longitude: number; elevation?: number }>
+  () => [] as { latitude: number; longitude: number; elevation?: number }[]
 );
 
 /** Fresh jest.fn PreviewClient, one per test, defaulting to an idle engine. */

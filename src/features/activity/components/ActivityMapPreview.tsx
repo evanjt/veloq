@@ -50,7 +50,7 @@ interface ActivityMapPreviewProps {
   /** Whether the snapshot WebView workers are mounted and ready */
   snapshotReady?: boolean;
   /** GPS track index ranges for PR sections to highlight in gold */
-  prSectionIndices?: Array<{ startIndex: number; endIndex: number }>;
+  prSectionIndices?: { startIndex: number; endIndex: number }[];
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({

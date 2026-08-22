@@ -297,45 +297,6 @@ export interface RouteProcessingProgress {
   cachedSignatureCount?: number;
 }
 
-/** Configuration for route matching algorithm */
-export interface RouteMatchConfig {
-  /** Tolerance for Douglas-Peucker simplification (meters) */
-  simplificationTolerance: number;
-  /** Target number of simplified points */
-  targetPoints: number;
-  /** Maximum distance between matched points (meters) */
-  distanceThreshold: number;
-  /** Minimum match percentage to consider a match (for showing in activity view) */
-  minMatchPercentage: number;
-  /**
-   * Minimum match percentage to GROUP activities into the same route.
-   * This is intentionally much higher than minMatchPercentage because grouping
-   * should only happen for truly identical journeys, not shared sections.
-   */
-  minGroupingPercentage: number;
-  /** Minimum bounds overlap required (0-1) */
-  minBoundsOverlap: number;
-  /** Maximum distance difference to consider (fraction, e.g., 0.5 = 50%) for MATCHING */
-  maxDistanceDifference: number;
-  /** Distance threshold for loop detection (meters) */
-  loopThreshold: number;
-  /** Grid size for region hashing (degrees, ~500m at equator) */
-  regionGridSize: number;
-}
-
-/** Default configuration values */
-export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
-  simplificationTolerance: 15, // meters
-  targetPoints: 100,
-  distanceThreshold: 50, // meters
-  minMatchPercentage: 20, // Lower threshold to discover partial matches (for display)
-  minGroupingPercentage: 70, // High threshold - activities must share most of the route to group
-  minBoundsOverlap: 0.2, // Lower overlap requirement
-  maxDistanceDifference: 0.5, // Allow 50% distance difference for partial matches
-  loopThreshold: 100, // meters
-  regionGridSize: 0.005, // ~500m
-};
-
 // =============================================================================
 // Sections (Unified auto-detected + custom sections)
 // =============================================================================
@@ -480,26 +441,6 @@ export interface ActivitySectionRecord {
 /** Backward compatibility alias */
 export type SectionPortion = ActivitySectionRecord;
 
-/** Configuration for section detection */
-export interface SectionConfig {
-  proximityThreshold: number;
-  minSectionLength: number;
-  maxSectionLength: number;
-  minActivities: number;
-  clusterTolerance: number;
-  samplePoints: number;
-}
-
-/** Default section detection configuration */
-export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 150,
-  minSectionLength: 200,
-  maxSectionLength: 5000,
-  minActivities: 3,
-  clusterTolerance: 80,
-  samplePoints: 50,
-};
-
 /** Parameters for creating a section */
 export interface CreateSectionParams {
   sportType: string;
@@ -544,31 +485,4 @@ export interface DirectionStats {
   count: number;
   /** Average speed across traversals (m/s). Populated for route stats; null for section. */
   avgSpeed: number | null;
-}
-
-/**
- * Raw direction stats from Rust (before Date conversion).
- * Used internally for parsing JSON responses.
- */
-export interface RawDirectionStats {
-  avgTime?: number;
-  lastActivity?: number; // Unix timestamp in seconds
-  count?: number;
-  avgSpeed?: number;
-}
-
-/**
- * Parse direction stats from Rust engine response.
- * Converts Unix timestamps (seconds) to JS Date objects.
- */
-export function parseDirectionStats(
-  stats: RawDirectionStats | null | undefined
-): DirectionStats | null {
-  if (!stats) return null;
-  return {
-    avgTime: stats.avgTime ?? null,
-    lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
-    count: stats.count ?? 0,
-    avgSpeed: stats.avgSpeed ?? null,
-  };
 }

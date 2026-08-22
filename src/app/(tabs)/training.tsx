@@ -48,7 +48,7 @@ export default function HealthScreen() {
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     perfEnd();
   });
@@ -79,7 +79,7 @@ export default function HealthScreen() {
   const [highlightDate, setHighlightDate] = useState<string | null>(null);
 
   // Fetch activities for calendar year comparison (current + previous year)
-  const { oldest, newest, currentYearStart } = useMemo(() => {
+  const { oldest, newest } = useMemo(() => {
     const n = new Date();
     return {
       oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),
@@ -113,7 +113,6 @@ export default function HealthScreen() {
   const { data: summaryData, isLoading: summaryLoading } = useAthleteSummary(4);
 
   // Combined loading states
-  const isLoading = activitiesLoading || wellnessLoading;
   const isFetching = activitiesFetching || wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries

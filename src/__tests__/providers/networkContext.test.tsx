@@ -13,6 +13,8 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react-native';
 
+import { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
+
 // Mock expo-network so we can drive addNetworkStateListener and getNetworkStateAsync.
 // jest.mock factory runs before imports; its factory must not reference out-of-scope
 // non-"mock"-prefixed variables. We expose state via globalThis so tests can drive it.
@@ -30,14 +32,12 @@ jest.mock('expo-network', () => {
       mockState.listener = listener;
       return { remove: mockState.remove };
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     getNetworkStateAsync: (...args: unknown[]) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mockState.getNetworkStateAsync as (...a: unknown[]) => any).apply(mockState, args),
   };
 });
-
-import { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
 
 type NetworkStateShape = {
   isConnected?: boolean;

@@ -53,7 +53,7 @@ interface RecordingPreferencesState {
   dismissBatteryOptNudge: () => void;
 }
 
-export const useRecordingPreferences = create<RecordingPreferencesState>((set, get) => ({
+export const useRecordingPreferences = create<RecordingPreferencesState>((set) => ({
   recentActivityTypes: [],
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },

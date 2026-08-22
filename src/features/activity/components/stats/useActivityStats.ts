@@ -178,12 +178,19 @@ export function useActivityStats({
     if (sameType.length === 0) {
       return { avgLoad: null, avgIntensity: null, avgHR: null };
     }
+    // Average only over activities that actually carry the field. Coercing a
+    // missing value to 0 and dividing by the full count drags the average down
+    // and makes an ordinary ride look exceptional.
+    const meanOf = (pick: (a: (typeof sameType)[number]) => number | null | undefined) => {
+      const values = sameType.map(pick).filter((v): v is number => Number.isFinite(v));
+      if (values.length === 0) return null;
+      return values.reduce((sum, v) => sum + v, 0) / values.length;
+    };
+
     return {
-      avgLoad: sameType.reduce((sum, a) => sum + (a.icu_training_load || 0), 0) / sameType.length,
-      avgIntensity: sameType.reduce((sum, a) => sum + (a.icu_intensity || 0), 0) / sameType.length,
-      avgHR:
-        sameType.reduce((sum, a) => sum + (a.average_heartrate || a.icu_average_hr || 0), 0) /
-        sameType.length,
+      avgLoad: meanOf((a) => a.icu_training_load),
+      avgIntensity: meanOf((a) => a.icu_intensity),
+      avgHR: meanOf((a) => a.average_heartrate ?? a.icu_average_hr),
     };
   }, [recentActivities, activity.type]);
 

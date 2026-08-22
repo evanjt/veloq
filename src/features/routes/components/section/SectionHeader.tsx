@@ -43,14 +43,14 @@ export interface SectionHeaderProps {
   highlightedLapPoints?: RoutePoint[];
   allActivityTraces?: Record<string, RoutePoint[]>;
   isScrubbing: boolean;
-  nearbyPolylines?: Array<{
+  nearbyPolylines?: {
     id: string;
     name?: string;
     sportType: string;
     distanceMeters: number;
     visitCount: number;
     encodedPolyline: ArrayBuffer;
-  }>;
+  }[];
   onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;
   onStartEditing: () => void;

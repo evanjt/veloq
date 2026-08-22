@@ -7,6 +7,12 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import {
+  updateSyncNotification,
+  dismissSyncNotification,
+  initializeNotifications,
+} from '@/features/settings/lib/notificationService';
+
 jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn().mockResolvedValue('sync-progress'),
   dismissNotificationAsync: jest.fn().mockResolvedValue(undefined),
@@ -25,12 +31,6 @@ jest.mock('expo-router', () => ({
 jest.mock('@/theme', () => ({
   brand: { tealLight: '#0D9488' },
 }));
-
-import {
-  updateSyncNotification,
-  dismissSyncNotification,
-  initializeNotifications,
-} from '@/features/settings/lib/notificationService';
 
 describe('updateSyncNotification', () => {
   beforeEach(() => jest.clearAllMocks());

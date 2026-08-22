@@ -7554,6 +7554,11 @@ export type FfiStalePrOpportunity = {
   bestTimeSecs: /*f64*/ number;
   traversalCount: /*u32*/ number;
   /**
+   * Days since the last traversal. The insight gates on this, so it has to
+   * travel with the opportunity rather than be recovered downstream.
+   */
+  daysSinceLast: /*u32*/ number;
+  /**
    * "power" for cycling (FTP), "pace" for running/swimming (critical speed)
    */
   fitnessMetric: string;
@@ -7593,6 +7598,7 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
         sectionName: FfiConverterString.read(from),
         bestTimeSecs: FfiConverterFloat64.read(from),
         traversalCount: FfiConverterUInt32.read(from),
+        daysSinceLast: FfiConverterUInt32.read(from),
         fitnessMetric: FfiConverterString.read(from),
         currentValue: FfiConverterFloat64.read(from),
         previousValue: FfiConverterFloat64.read(from),
@@ -7605,6 +7611,7 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
       FfiConverterString.write(value.sectionName, into);
       FfiConverterFloat64.write(value.bestTimeSecs, into);
       FfiConverterUInt32.write(value.traversalCount, into);
+      FfiConverterUInt32.write(value.daysSinceLast, into);
       FfiConverterString.write(value.fitnessMetric, into);
       FfiConverterFloat64.write(value.currentValue, into);
       FfiConverterFloat64.write(value.previousValue, into);
@@ -7617,6 +7624,7 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
         FfiConverterString.allocationSize(value.sectionName) +
         FfiConverterFloat64.allocationSize(value.bestTimeSecs) +
         FfiConverterUInt32.allocationSize(value.traversalCount) +
+        FfiConverterUInt32.allocationSize(value.daysSinceLast) +
         FfiConverterString.allocationSize(value.fitnessMetric) +
         FfiConverterFloat64.allocationSize(value.currentValue) +
         FfiConverterFloat64.allocationSize(value.previousValue) +

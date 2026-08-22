@@ -12,7 +12,7 @@ import { ComponentErrorBoundary } from '@/shared/ui';
 import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import type { ActivityBoundsItem } from '@/types';
+import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import {
   useEngineSections,
   useEngineSectionCount,
@@ -22,7 +22,6 @@ import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hook
 import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
   SectionPopup,

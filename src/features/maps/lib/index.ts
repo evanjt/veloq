@@ -2,8 +2,6 @@ export * from './buildSpiderGeoJSON';
 export * from './clusterZoom';
 export * from './computeAttribution';
 export * from './gradientLineColor';
-export * from './tileGeometry';
-export * from './tilePreloader';
 export * from './cameraAngle';
 export * from './terrainSnapshotEvents';
 export * from './htmlBuilders';

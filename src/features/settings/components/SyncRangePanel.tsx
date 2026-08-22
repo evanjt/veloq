@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  LayoutChangeEvent,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,6 +28,8 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
 const THUMB_SIZE = 22;
 
+// Not yet mounted: the advanced detection panel it belongs to is still to come.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function DetectionSlider({
   activeIndex,
   onSelect,

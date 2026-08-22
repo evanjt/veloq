@@ -17,7 +17,7 @@ export function buildRouteGroupBase(engineGroup: EngineRouteGroup | null | undef
 
 export function buildFinalRouteGroup(
   routeGroupBase: ReturnType<typeof buildRouteGroupBase>,
-  consensusPoints: Array<{ lat: number; lng: number }> | null | undefined,
+  consensusPoints: { lat: number; lng: number }[] | null | undefined,
   routeStatsDistance: number
 ) {
   if (!routeGroupBase) return null;

@@ -28,7 +28,7 @@ describe('detectStalePROpportunities', () => {
       sectionName: 'Hill Climb',
       bestTimeSecs: 300,
       traversalCount: 10,
-      lastTraversalTs: NOW_TS - 60 * DAYS,
+      daysSinceLast: 60,
       sportType: 'Ride' as const,
       ...overrides,
     });
@@ -39,10 +39,10 @@ describe('detectStalePROpportunities', () => {
       previousDate: NOW_TS - 90 * DAYS,
     };
 
-    const cases: Array<{ name: string; input: StalePRInput }> = [
+    const cases: { name: string; input: StalePRInput }[] = [
       {
         name: 'ftpTrend is null',
-        input: { sections: [rideSection()], ftpTrend: null, paceTrend: null, recentPRs: [] },
+        input: { sections: [rideSection()], ftpTrend: null, paceTrend: null },
       },
       {
         name: 'FTP has not changed',
@@ -50,7 +50,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 200 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -59,7 +58,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 180 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -68,29 +66,26 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: 204 },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
         name: 'there are no sections',
-        input: { sections: [], ftpTrend: ftpGain, paceTrend: null, recentPRs: [] },
+        input: { sections: [], ftpTrend: ftpGain, paceTrend: null },
       },
       {
         name: 'section had a recent PR (within 30 days)',
         input: {
-          sections: [rideSection({ lastTraversalTs: NOW_TS - 5 * DAYS })],
+          sections: [rideSection({ daysSinceLast: 5 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
         },
       },
       {
         name: 'section was visited recently (within 30 days)',
         input: {
-          sections: [rideSection({ lastTraversalTs: NOW_TS - 10 * DAYS })],
+          sections: [rideSection({ daysSinceLast: 10 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -107,7 +102,6 @@ describe('detectStalePROpportunities', () => {
           ],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -116,7 +110,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: undefined },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -125,7 +118,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, previousFtp: undefined },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -134,7 +126,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection()],
           ftpTrend: { ...ftpGain, latestFtp: NaN },
           paceTrend: null,
-          recentPRs: [],
         },
       },
       {
@@ -143,7 +134,6 @@ describe('detectStalePROpportunities', () => {
           sections: [rideSection({ traversalCount: 0 })],
           ftpTrend: ftpGain,
           paceTrend: null,
-          recentPRs: [],
         },
       },
     ];
@@ -166,7 +156,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill Climb',
             bestTimeSecs: 300,
             traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -177,7 +167,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -191,7 +180,7 @@ describe('detectStalePROpportunities', () => {
       expect(result[0].unit).toBe('W');
     });
 
-    it('section has no lastTraversalTs but is absent from recent PRs', () => {
+    it('section with no known age is not treated as stale', () => {
       const input: StalePRInput = {
         sections: [
           {
@@ -200,7 +189,7 @@ describe('detectStalePROpportunities', () => {
             bestTimeSecs: 600,
             traversalCount: 5,
             sportType: 'Ride',
-            // no lastTraversalTs
+            // no daysSinceLast
           },
         ],
         ftpTrend: {
@@ -210,45 +199,36 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
-      const result = detectStalePROpportunities(input);
-      expect(result).toHaveLength(1);
-      expect(result[0].sectionId).toBe('s1');
+      // Fails closed: an unknown age cannot establish staleness, and the
+      // engine reports an age for every section it returns.
+      expect(detectStalePROpportunities(input)).toHaveLength(0);
     });
 
-    it('filters out sections with recent PRs but keeps stale ones', () => {
+    it('excludes a recently PRd section on age alone', () => {
+      // A PR is set on a traversal, so a PR within the window implies a
+      // traversal within it. The age floor already covers the case, which is
+      // why the engine path not sharing the recent-PR set does not diverge.
       const input: StalePRInput = {
         sections: [
           {
             sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-          {
-            sectionId: 's2',
             sectionName: 'River Path',
             bestTimeSecs: 600,
-            traversalCount: 8,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            traversalCount: 5,
+            daysSinceLast: 20,
             sportType: 'Ride',
           },
         ],
         ftpTrend: {
-          latestFtp: 220,
+          latestFtp: 250,
           latestDate: NOW_TS,
-          previousFtp: 200,
+          previousFtp: 230,
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
       };
-      const result = detectStalePROpportunities(input);
-      expect(result).toHaveLength(1);
-      expect(result[0].sectionId).toBe('s2');
+      expect(detectStalePROpportunities(input)).toHaveLength(0);
     });
 
     it('limits results to 3 opportunities', () => {
@@ -257,7 +237,7 @@ describe('detectStalePROpportunities', () => {
         sectionName: `Section ${i}`,
         bestTimeSecs: 300 + i * 60,
         traversalCount: 10 - i,
-        lastTraversalTs: NOW_TS - (40 + i * 10) * DAYS,
+        daysSinceLast: 40 + i * 10,
         sportType: 'Ride' as const,
       }));
       const input: StalePRInput = {
@@ -269,7 +249,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(3);
@@ -283,7 +262,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Rarely visited',
             bestTimeSecs: 300,
             traversalCount: 2,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
           {
@@ -291,7 +270,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Often visited',
             bestTimeSecs: 600,
             traversalCount: 20,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            daysSinceLast: 45,
             sportType: 'Ride',
           },
         ],
@@ -302,7 +281,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(2);
@@ -318,7 +296,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill Climb',
             bestTimeSecs: 300,
             traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -329,7 +307,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: BigInt(NOW_TS - 90 * DAYS),
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -343,7 +320,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Hill',
             bestTimeSecs: 300,
             traversalCount: 5,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
+            daysSinceLast: 60,
             sportType: 'Ride',
           },
         ],
@@ -354,7 +331,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -376,7 +352,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Park Loop',
             bestTimeSecs: 420,
             traversalCount: 8,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Run',
           },
         ],
@@ -387,7 +363,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 3.0,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(1);
@@ -407,7 +382,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Park Loop',
             bestTimeSecs: 420,
             traversalCount: 8,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Run',
           },
         ],
@@ -418,7 +393,6 @@ describe('detectStalePROpportunities', () => {
           previousDate: NOW_TS - 90 * DAYS,
         },
         paceTrend: null,
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toEqual([]);
@@ -432,7 +406,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Mountain Pass',
             bestTimeSecs: 600,
             traversalCount: 12,
-            lastTraversalTs: NOW_TS - 45 * DAYS,
+            daysSinceLast: 45,
             sportType: 'Ride',
           },
           {
@@ -440,7 +414,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'River Trail',
             bestTimeSecs: 360,
             traversalCount: 15,
-            lastTraversalTs: NOW_TS - 40 * DAYS,
+            daysSinceLast: 40,
             sportType: 'Run',
           },
         ],
@@ -456,7 +430,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 2.95,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
       const result = detectStalePROpportunities(input);
       expect(result).toHaveLength(2);
@@ -485,7 +458,7 @@ describe('detectStalePROpportunities', () => {
             sectionName: 'Pool Set',
             bestTimeSecs: 95,
             traversalCount: 7,
-            lastTraversalTs: NOW_TS - 50 * DAYS,
+            daysSinceLast: 50,
             sportType: 'Swim',
           },
         ],
@@ -497,7 +470,6 @@ describe('detectStalePROpportunities', () => {
           previousPace: 1.0,
           previousDate: NOW_TS - 90 * DAYS,
         },
-        recentPRs: [],
       };
 
       const result = detectStalePROpportunities(input);
@@ -520,6 +492,8 @@ describe('detectStalePROpportunities', () => {
       sectionId: 's1',
       sectionName: 'Hill Climb',
       bestTimeSecs: 263,
+      daysSinceLast: 60,
+      traversalCount: 5,
       fitnessMetric: 'power',
       currentValue: 220,
       previousValue: 200,
@@ -581,11 +555,24 @@ describe('detectStalePROpportunities', () => {
       expect(insight.timestamp).toBeLessThanOrEqual(after);
     });
 
+    it('dates the card by the traversal, not by when it was built', () => {
+      const now = Date.UTC(2026, 7, 22, 9, 0, 0);
+      const insight = stalePROpportunityToInsight(opportunity, mockT, now);
+
+      // The recency gate reads sourceTimestamp. Stamping it with `now` would
+      // report every card as zero days old and fail the minimum-age check.
+      const ageDays = (now - insight.meta!.sourceTimestamp!) / 86_400_000;
+      expect(ageDays).toBeCloseTo(opportunity.daysSinceLast, 6);
+      expect(insight.meta!.repetitionCount).toBe(opportunity.traversalCount);
+    });
+
     it('formats pace-based opportunity correctly', () => {
       const paceOpportunity: StalePROpportunity = {
         sectionId: 'r1',
         sectionName: 'Park Loop',
         bestTimeSecs: 420,
+        daysSinceLast: 45,
+        traversalCount: 4,
         fitnessMetric: 'pace',
         currentValue: 3.3,
         previousValue: 3.0,

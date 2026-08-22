@@ -6,6 +6,15 @@
  * (version, status, stopTime).
  */
 
+import {
+  buildRecordingBackup,
+  saveRecordingBackup,
+  loadRecordingBackup,
+  clearRecordingBackup,
+  hasRecordingBackup,
+} from '@/features/recording/lib/storage/recordingBackup';
+import type { RecordingStreams } from '@/features/recording/types';
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: {
     log: () => {},
@@ -34,15 +43,6 @@ jest.mock('expo-file-system/legacy', () => ({
     mockFileStore.delete(path);
   }),
 }));
-
-import {
-  buildRecordingBackup,
-  saveRecordingBackup,
-  loadRecordingBackup,
-  clearRecordingBackup,
-  hasRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
-import type { RecordingStreams } from '@/features/recording/types';
 
 const BACKUP_PATH = '/mock/docs/recording_backup.json';
 

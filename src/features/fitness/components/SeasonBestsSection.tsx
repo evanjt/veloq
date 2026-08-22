@@ -6,14 +6,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivities } from '@/features/activity/hooks';
 import { useTheme } from '@/shared/app';
-import {
-  formatPaceCompact,
-  formatSwimPace,
-  formatDuration,
-  formatLocalDate,
-} from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/format/format';
+import { formatEffortValue, formatEffortTime } from '../lib/bestEfforts';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { type BestEffort } from '@/features/stats';
 
 interface SeasonBestsSectionProps {
@@ -21,26 +17,6 @@ interface SeasonBestsSectionProps {
   sport: PrimarySport;
   days: number;
   isLoading: boolean;
-}
-
-function formatEffortValue(effort: BestEffort, sport: PrimarySport): string {
-  if (effort.value === null || !Number.isFinite(effort.value)) return '-';
-
-  if (sport === 'Cycling') {
-    return `${Math.round(effort.value)}w`;
-  }
-  if (sport === 'Running') {
-    return `${formatPaceCompact(effort.value)}/km`;
-  }
-  if (sport === 'Swimming') {
-    return `${formatSwimPace(effort.value)}/100m`;
-  }
-  return '-';
-}
-
-function formatEffortTime(effort: BestEffort): string | null {
-  if (effort.time === null || !Number.isFinite(effort.time)) return null;
-  return formatDuration(effort.time);
 }
 
 export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBestsSectionProps) {
@@ -89,7 +65,7 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
     <View>
       {efforts.map((effort, index) => {
         const activityName = effort.activityId ? activityMap.get(effort.activityId) : undefined;
-        const timeStr = formatEffortTime(effort);
+        const timeStr = formatEffortTime(effort.time);
 
         return (
           <View
@@ -104,7 +80,7 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
             <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
             <View style={styles.valueColumn}>
               <Text style={[styles.value, { color: sportColor }]}>
-                {formatEffortValue(effort, sport)}
+                {formatEffortValue(effort.value, sport)}
               </Text>
               {timeStr && sport !== 'Cycling' && (
                 <Text style={[styles.time, isDark && styles.timeDark]}>{timeStr}</Text>

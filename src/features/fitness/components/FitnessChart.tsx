@@ -7,7 +7,7 @@ import { CartesianChart, Line, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles } from '@/theme';
 import { calculateTSB } from '@/features/fitness/lib/fitness';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
@@ -70,7 +70,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   }, []);
 
   // Process data for the chart
-  const { chartData, indexMap, maxLoad, maxFitness, minForm, maxForm } = useMemo(() => {
+  const { chartData, maxFitness } = useMemo(() => {
     if (!data || data.length === 0) {
       return {
         chartData: [],

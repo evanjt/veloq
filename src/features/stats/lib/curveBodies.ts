@@ -9,24 +9,24 @@
 import type { PaceCurve, PowerCurve } from '@/types';
 
 interface RawPowerCurve {
-  list?: Array<{ secs?: number[]; values?: number[]; activity_id?: string[] }>;
+  list?: { secs?: number[]; values?: number[]; activity_id?: string[] }[];
 }
 
 interface RawPaceCurve {
-  list?: Array<{
+  list?: {
     distance?: number[];
     values?: number[];
     activity_id?: string[];
     start_date_local?: string;
     end_date_local?: string;
     days?: number;
-    paceModels?: Array<{
+    paceModels?: {
       type: string;
       criticalSpeed?: number;
       dPrime?: number;
       r2?: number;
-    }>;
-  }>;
+    }[];
+  }[];
 }
 
 /** `values` is renamed to watts, matching what the power chart expects. */

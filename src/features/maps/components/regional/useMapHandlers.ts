@@ -6,17 +6,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
-// Cache for last known location (avoid slow GPS re-acquisition)
-const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
+import * as Location from 'expo-location'; // 30 seconds
 import { normalizeBounds } from '@/shared/geo/polyline';
 import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import type { ActivityBoundsItem } from '@/types';
-import type { FrequentSection } from '@/types';
+import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
 import type { MapCameraState, MapPressEvent, MapSurfaceRef } from '../MapSurface';
@@ -33,6 +30,8 @@ import {
   REGION_SETTLE_DEBOUNCE_MS,
   VIEWPORT_CULLING_THRESHOLD,
 } from '@/features/maps/lib/mapBudgets';
+// Cache for last known location (avoid slow GPS re-acquisition)
+const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
 /** How long to wait for a single on-demand GPS download before giving up. */
 const GPS_WAIT_TIMEOUT_MS = 15_000;
@@ -42,7 +41,7 @@ const GPS_WAIT_POLL_MS = 250;
  * Poll the engine for an activity's track after asking Rust to download it.
  * Rust cannot push into the JS listener map, so arrival is observed.
  */
-async function waitForGpsTrack(activityId: string): Promise<Array<[number, number]> | null> {
+async function waitForGpsTrack(activityId: string): Promise<[number, number][] | null> {
   const deadline = Date.now() + GPS_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const points = getRouteEngine()?.getGpsTrack(activityId);
@@ -114,14 +113,10 @@ export function useMapHandlers({
   selected,
   setSelected,
   setSelectedSection,
-  showActivities,
   setShowActivities,
-  showSections,
   setShowSections,
-  showRoutes,
   setShowRoutes,
   setSelectedRoute,
-  userLocation,
   setUserLocation,
   setLocationLoading,
   setVisibleActivityIds,

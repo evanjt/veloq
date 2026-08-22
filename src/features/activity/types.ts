@@ -105,7 +105,7 @@ export interface Activity {
   stream_types?: string[];
   // Zone time distributions
   // icu_zone_times is array of {id: 'Z1', secs: 123} objects (power zones)
-  icu_zone_times?: Array<{ id: string; secs: number }>;
+  icu_zone_times?: { id: string; secs: number }[];
   // icu_hr_zone_times is flat array of seconds per HR zone
   icu_hr_zone_times?: number[];
   // Zone thresholds

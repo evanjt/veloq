@@ -7,12 +7,14 @@ import {
   TAB_BAR_SAFE_PADDING,
   ChartSkeleton,
   StatsPillSkeleton,
+  NetworkErrorState,
+  ErrorStatePreset,
+  ScreenErrorBoundary,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/shared/ui';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
@@ -26,7 +28,7 @@ import {
   useFitnessComputations,
   useFitnessScreenData,
 } from '@/features/fitness/hooks';
-import { FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { timeRangeToDays, type TimeRange } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { useChartInteraction } from '@/shared/charts/useChartInteraction';

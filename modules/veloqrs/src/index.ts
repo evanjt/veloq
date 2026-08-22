@@ -8,6 +8,47 @@
 // Import the Turbo Module to install JSI bindings
 import NativeVeloqrs from './NativeVeloqrs';
 
+// Import generated functions for top-level aliases
+import {
+  getDownloadProgress as ffiGetDownloadProgress,
+  type DownloadProgressResult,
+  type FfiActivityMetrics,
+  type FfiGpsPoint,
+  type FfiRouteGroup,
+  type FfiFrequentSection,
+  type FfiSection,
+  type FfiSectionConfig,
+  type FfiSectionPerformanceResult,
+  type FfiSectionPerformanceRecord,
+  type FfiRoutePerformanceResult,
+  type FfiRoutePerformance,
+  type FfiRankedSection,
+  type FfiEfficiencyTrend,
+  type FfiEfficiencyPoint,
+  type FfiPeriodStats,
+  type FfiSummaryCardData,
+  type FfiFtpTrend,
+  type FfiPaceTrend,
+  type FfiInsightsData,
+  type FfiInsightsParams,
+  type FfiRecentPr,
+  type FfiStartupData,
+  type FfiWidgetSnapshotData,
+  type FfiMapScreenData,
+  type FfiPreviewTrack,
+  type FfiActivityDetailData,
+  type FfiSectionTrace,
+  type FfiSectionDetailData,
+  type FfiSectionPerformanceData,
+  type FfiRoutesScreenData,
+  type FfiGroupWithPolyline,
+  type FfiSectionWithPolyline,
+  type FfiPotentialSection,
+  type FfiStalePrOpportunity,
+} from './generated/veloqrs';
+
+import { RouteEngineClient } from './RouteEngineClient';
+
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
 if (!installed && __DEV__) {
@@ -15,6 +56,7 @@ if (!installed && __DEV__) {
 }
 
 // Re-export all generated types and functions
+// eslint-disable-next-line import/export -- getDownloadProgress is deliberately wrapped below
 export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
@@ -61,54 +103,7 @@ export type {
 export type { ActivityHighlightsBundle } from './delegates/activities';
 export type { RouteDetailData } from './delegates/routes';
 
-// Import generated functions for top-level aliases
-import {
-  getDownloadProgress as ffiGetDownloadProgress,
-  type DownloadProgressResult,
-  type FfiActivityMetrics,
-  type FfiBounds,
-  type FfiGpsPoint,
-  type FfiRouteGroup,
-  type FfiFrequentSection,
-  type FfiSection,
-  type FfiSectionConfig,
-  type FfiSectionPerformanceResult,
-  type FfiSectionPerformanceRecord,
-  type FfiRoutePerformanceResult,
-  type FfiRoutePerformance,
-  type FfiRankedSection,
-  type FfiEfficiencyTrend,
-  type FfiEfficiencyPoint,
-  type PersistentEngineStats,
-  type SectionSummary,
-  type GroupSummary,
-  type MapActivityComplete,
-  type FfiPeriodStats,
-  type FfiSummaryCardData,
-  type FfiFtpTrend,
-  type FfiPaceTrend,
-  type FfiInsightsData,
-  type FfiInsightsParams,
-  type FfiRecentPr,
-  type FfiStartupData,
-  type FfiWidgetSnapshotData,
-  type FfiMapScreenData,
-  type FfiPreviewTrack,
-  type FfiActivityDetailData,
-  type FfiSectionTrace,
-  type FfiSectionDetailData,
-  type FfiSectionPerformanceData,
-  type FfiRoutesScreenData,
-  type FfiGroupWithPolyline,
-  type FfiSectionWithPolyline,
-  type FfiPotentialSection,
-  type FfiStalePrOpportunity,
-} from './generated/veloqrs';
-
-import { RouteEngineClient } from './RouteEngineClient';
-
 // Re-export types with shorter names for convenience
-export type { FfiBounds };
 export type ActivityMetrics = FfiActivityMetrics;
 export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
@@ -122,14 +117,6 @@ export type RoutePerformance = FfiRoutePerformance;
 export type RankedSection = FfiRankedSection;
 export type EfficiencyTrend = FfiEfficiencyTrend;
 export type EfficiencyPoint = FfiEfficiencyPoint;
-// These are already exported without Ffi prefix:
-export type {
-  PersistentEngineStats,
-  SectionSummary,
-  GroupSummary,
-  DownloadProgressResult,
-  MapActivityComplete,
-};
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
 export type SummaryCardData = FfiSummaryCardData;
@@ -169,6 +156,8 @@ export type {
   FfiMuscleGroup as MuscleGroup,
 } from './generated/veloqrs';
 
+// Wraps the generated call; the explicit export deliberately wins over `export *`.
+// eslint-disable-next-line import/export
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }

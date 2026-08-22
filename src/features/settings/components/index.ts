@@ -15,4 +15,3 @@ export { StorageStatsPanel } from './StorageStatsPanel';
 export { SummaryCardSection } from './SummaryCardSection';
 export { SupportSection } from './SupportSection';
 export { SyncRangePanel } from './SyncRangePanel';
-export { TileCachePanel } from './TileCachePanel';

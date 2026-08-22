@@ -9,6 +9,11 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { queryClient } from '@/shared/query/QueryProvider';
+
 // Mock the route engine
 const mockEngine = {
   getSectionsByType: jest.fn().mockReturnValue([]),
@@ -134,11 +139,6 @@ jest.mock('expo-constants', () => ({
   __esModule: true,
   default: { expoConfig: { version: '0.3.0' } },
 }));
-
-import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
-import * as FileSystem from 'expo-file-system/legacy';
-import { queryClient } from '@/shared/query/QueryProvider';
 
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({

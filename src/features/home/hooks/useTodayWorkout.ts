@@ -19,7 +19,11 @@ export function useTodayWorkout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const today = formatLocalDate(new Date());
-  const tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
+  // Calendar arithmetic, not 24 hours. A spring-forward day is 23 hours long,
+  // so adding a fixed day skips a date in the hour before midnight.
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrow = formatLocalDate(tomorrowDate);
 
   const queryKey = queryKeys.calendar.events(today);
 

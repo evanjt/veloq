@@ -4,6 +4,20 @@
  */
 
 // In-memory file system for testing - prefixed with "mock" for jest.mock scope rules
+import {
+  clearAllGpsTracks,
+  deleteGpsTracks,
+  storeOldestDate,
+  loadOldestDate,
+  storeCheckpoint,
+  loadCheckpoint,
+  storeBoundsCache,
+  loadBoundsCache,
+  getRouteDisplayName,
+  saveCustomRouteName,
+  loadCustomRouteNames,
+} from '@/shared/storage/gpsStorage';
+
 const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();
 
@@ -47,20 +61,6 @@ jest.mock('expo-file-system/legacy', () => ({
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(() => null),
 }));
-
-import {
-  clearAllGpsTracks,
-  deleteGpsTracks,
-  storeOldestDate,
-  loadOldestDate,
-  storeCheckpoint,
-  loadCheckpoint,
-  storeBoundsCache,
-  loadBoundsCache,
-  getRouteDisplayName,
-  saveCustomRouteName,
-  loadCustomRouteNames,
-} from '@/shared/storage/gpsStorage';
 
 beforeEach(() => {
   mockFileStore.clear();

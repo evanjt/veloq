@@ -19,12 +19,11 @@ import {
   formatHeartRate,
   formatPower,
   formatCalories,
-  formatLocalDate,
   formatTSS,
 } from '@/shared/format/format';
 import { parseStreams } from '@/features/activity/lib/streams';
-import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
-import type { RawStreamItem, WellnessData } from '@/types';
+import { getFormZone } from '@/features/fitness/lib/fitness';
+import type { RawStreamItem } from '@/types';
 
 // Mock veloqrs native module - toActivityMetrics imports the type
 jest.mock('veloqrs', () => ({}));
@@ -220,9 +219,8 @@ describe('Data Pipeline', () => {
   it('toActivityMetrics → date is correct unix BigInt, zone times are JSON strings', () => {
     const metrics = toActivityMetrics(RIDE);
 
-    // Date: 2026-01-15T08:30:00 local → unix seconds
-    const expectedDate = BigInt(Math.floor(new Date('2026-01-15T08:30:00').getTime() / 1000));
-    expect(metrics.date).toBe(expectedDate);
+    // The zoneless wall clock is stamped as UTC, so this holds in any device zone.
+    expect(metrics.date).toBe(BigInt(Date.UTC(2026, 0, 15, 8, 30, 0) / 1000));
 
     // Zone times should be number arrays
     expect(metrics.powerZoneTimes).toEqual([600, 1800, 1500, 900, 600]);

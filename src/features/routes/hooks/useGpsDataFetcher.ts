@@ -19,15 +19,15 @@ import {
   type ActivitySportMapping,
 } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import type { Activity } from '@/types';
+import type { SyncProgress } from './useRouteSyncProgress';
 
 /** How long to let the Rust time-stream backfill drain before moving on. It
  *  resumes on the next sync, so a slow drain never blocks the banner. */
 const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
 const STREAM_BACKFILL_POLL_MS = 500;
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import type { Activity } from '@/types';
-import type { SyncProgress } from './useRouteSyncProgress';
 
 export interface GpsFetchResult {
   /** Activity IDs that were successfully synced */

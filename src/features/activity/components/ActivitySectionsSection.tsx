@@ -65,6 +65,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
+  // Swipe-to-delete is styled (deleteSwipeAction) but not yet rendered.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeSection,
   scanMatches,
   isScanning,

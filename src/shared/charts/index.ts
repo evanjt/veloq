@@ -7,14 +7,8 @@ export type {
   ChartGestureResult,
 } from './useChartGestures';
 
-export { ChartContainer } from './ChartContainer';
-export type { ChartContainerProps, ChartPadding } from './ChartContainer';
-
 export { ChartCrosshair } from './ChartCrosshair';
 export type { ChartCrosshairProps } from './ChartCrosshair';
-
-export { ChartTooltip } from './ChartTooltip';
-export type { ChartTooltipProps, TooltipValue } from './ChartTooltip';
 
 export { useChartColors, useChartColor, useZoneColors, useFitnessColors } from './useChartColors';
 export type { ChartColorScheme, ChartMetricType } from './useChartColors';

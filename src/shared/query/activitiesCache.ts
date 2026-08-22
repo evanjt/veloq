@@ -18,7 +18,7 @@ export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
     queryKeys.activities.infinite.byAthlete(athleteId, false)
   );
   if (!state?.data) return false;
-  const pageParams = (state.data as { pageParams?: Array<{ newest?: string }> }).pageParams;
+  const pageParams = (state.data as { pageParams?: { newest?: string }[] }).pageParams;
   const firstNewest = pageParams?.[0]?.newest;
   if (!firstNewest) return false;
   return firstNewest !== formatLocalDate(new Date());

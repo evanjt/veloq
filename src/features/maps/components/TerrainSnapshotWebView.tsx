@@ -36,12 +36,7 @@ import {
   onClearTileCache,
   onTileCacheStatsRequest,
   emitTileCacheStats,
-  onPrefetchTilesRequest,
-  onCancelWebViewPrefetch,
-  emitPrefetchTilesProgress,
-  type PrefetchTilesBatch,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { generatePreloadScript } from '@/features/maps/lib/tilePreloader';
 import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
 import {
   buildRenderSnapshotScript,
@@ -99,7 +94,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const queueTotalRef = useRef(0);
     const queueCompletedRef = useRef(0);
     const failedRequestsRef = useRef<SnapshotRequest[]>([]);
-    const pendingPrefetchRef = useRef<PrefetchTilesBatch[]>([]);
     const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const STALENESS_TIMEOUT_MS = 15000;
@@ -196,16 +190,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           updateProgress();
         }
         if (queueRef.current.length === 0) {
-          // No more snapshots - drain any queued prefetch batches on this idle worker
-          if (pendingPrefetchRef.current.length > 0 && worker.webViewRef.current) {
-            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
-            const batches = pendingPrefetchRef.current.splice(0);
-            for (const batch of batches) {
-              worker.webViewRef.current.injectJavaScript(
-                generatePreloadScript(batch.urls, batch.cacheName, batch.config)
-              );
-            }
-          }
           break;
         }
 
@@ -325,11 +309,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             satellite: (data.satellite as { tileCount: number; totalBytes: number }) ?? undefined,
             vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
           });
-        },
-        prefetchProgress: (data: WebViewBridgeMessage) => {
-          if (typeof data.workerId !== 'number') return;
-          if (!workers[data.workerId]) return;
-          emitPrefetchTilesProgress((data.completed as number) ?? 0, (data.total as number) ?? 0);
         },
         snapshotError: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
@@ -451,39 +430,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           })();
           true;
         `);
-      });
-    }, [workers]);
-
-    // Listen for prefetch tile requests
-    useEffect(() => {
-      return onPrefetchTilesRequest((batches: PrefetchTilesBatch[]) => {
-        // Find an idle worker to run the prefetch
-        const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-        if (!worker?.webViewRef.current) {
-          // All workers busy - queue for later execution when snapshots finish
-          pendingPrefetchRef.current.push(...batches);
-          return;
-        }
-
-        // Reset abort flag before starting new prefetch
-        worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
-
-        for (const batch of batches) {
-          const script = generatePreloadScript(batch.urls, batch.cacheName, batch.config);
-          worker.webViewRef.current.injectJavaScript(script);
-        }
-      });
-    }, [workers]);
-
-    // Listen for cancel events - set abort flag in all workers
-    useEffect(() => {
-      return onCancelWebViewPrefetch(() => {
-        for (const worker of workers) {
-          if (worker.webViewRef.current && worker.mapReadyRef.current) {
-            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = true; true;');
-          }
-        }
-        pendingPrefetchRef.current = [];
       });
     }, [workers]);
 
