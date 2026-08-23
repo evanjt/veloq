@@ -327,6 +327,13 @@ impl PersistentRouteEngine {
         // under the new detector.
         self.invalidate_evidence_cache();
         self.section_config = config;
+        // The debounce absorbs detector noise over k detects, and a detector
+        // generation change is not noise. Left armed, a section whose Unified
+        // extents disagree with its Corridor ones is a material re-cut and
+        // carries frozen, which keeps the Corridor averaged line and its NULL
+        // reference alive under a Unified label. Ids still carry; the first
+        // Unified batch is simply believed.
+        self.section_identity_reseed_decisive();
         info!("tracematch: [cutover] Committed switch to Unified, token in flight");
         Ok(())
     }

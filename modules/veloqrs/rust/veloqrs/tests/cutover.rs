@@ -475,3 +475,60 @@ fn a_corridor_section_records_the_range_it_was_sliced_from() {
     }
     assert!(checked > 0, "nothing was checked");
 }
+
+/// Scenario: the detector generation changes under a catalogue the old one cut.
+/// Expected behaviour: no section keeps the old detector's geometry.
+///
+/// The debounce exists to absorb detector noise over `k` detects. A cutover is
+/// not noise, so `commit_switch` arms the registry decisive: a section whose
+/// Unified extents disagree with its Corridor ones adopts the new line in one
+/// step instead of carrying frozen. A frozen carry keeps the averaged Corridor
+/// polyline and its NULL reference alive under a Unified label, which is the
+/// one thing the migration exists to prevent.
+///
+/// This asserts the invariant, not the fix: the synthetic seed's two cuts agree
+/// on extents, so it adopts either way and passes with the arm removed. The
+/// measurement that made the arm necessary is in `corpus_migration.rs`, where a
+/// real 1,201-activity library carried seven frozen. Only a corpus reproduces
+/// the disagreement, so only a corpus can guard it.
+#[test]
+fn no_section_keeps_its_corridor_geometry_across_the_cutover() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_corridor_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("cutover");
+
+    let db = rusqlite::Connection::open(&path).expect("open");
+    let stranded: Vec<String> = db
+        .prepare(
+            "SELECT id FROM sections
+             WHERE section_type = 'auto'
+               AND (geometry_source IS NULL OR geometry_source != 'exact'
+                    OR rep_start_index IS NULL OR rep_end_index IS NULL
+                    OR COALESCE(representative_activity_id, '') = '')",
+        )
+        .expect("prepare")
+        .query_map([], |r| r.get(0))
+        .expect("query")
+        .collect::<Result<_, _>>()
+        .expect("rows");
+
+    let total: u32 = db
+        .query_row(
+            "SELECT COUNT(*) FROM sections WHERE section_type = 'auto'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert!(
+        total > 0,
+        "the migrated catalogue is empty, so this is vacuous"
+    );
+    assert!(
+        stranded.is_empty(),
+        "{} of {total} migrated sections carry a line no activity can re-slice",
+        stranded.len()
+    );
+}
