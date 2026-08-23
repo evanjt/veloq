@@ -347,11 +347,25 @@ fn a_released_catalogue_migrates_onto_references() {
 
 /// Same corpus, same catalogue. If the migration is not a pure function of the
 /// library, nothing downstream of it can be trusted.
+///
+/// Runs on the LARGEST corpus, because the only dispatch that can differ
+/// between two runs is the batched one above [`BATCH_CAP`], and a small corpus
+/// never reaches it. This is the slow test of the pair for that reason.
+///
+/// Only the migrated catalogue is asserted. The released-era one is measured
+/// and printed but deliberately not asserted, because it is not reproducible:
+/// two cuts of this corpus have produced 7 sections / 488 members and 6 / 457.
+/// That is a property of the detector being retired, on a path this branch
+/// deletes, and the numbers below are the argument for retiring it rather than
+/// a defect to fix in it. What matters is that the migration converges: an
+/// unstable input catalogue still yields one stable output catalogue, because
+/// the cut is re-derived from the activity pool and the old rows supply only
+/// identity.
 #[test]
 fn the_migration_is_reproducible() {
     let corpora = corpora();
     let (dir, _) = corpora
-        .last()
+        .first()
         .expect("no corpus found; see the sibling test's message");
 
     let mut shapes = Vec::new();
@@ -359,13 +373,22 @@ fn the_migration_is_reproducible() {
         let tmp = TempDir::new().expect("tempdir");
         let db_path = tmp.path().join("corpus.db");
         released_era_catalogue(dir, &db_path);
-        veloqrs::persistence::cutover::run_cutover().expect("cutover");
         let db = Connection::open(&db_path).expect("open");
-        shapes.push(shape_of(&db));
+        // Both eras, because a migration that is a pure function of a catalogue
+        // that is not itself reproducible is only half an answer.
+        let before = shape_of(&db);
+        veloqrs::persistence::cutover::run_cutover().expect("cutover");
+        shapes.push((before, shape_of(&db)));
+    }
+
+    for (i, (before, after)) in shapes.iter().enumerate() {
+        println!("\nrun {}", i + 1);
+        report("released era", before);
+        report("after cutover", after);
     }
 
     assert_eq!(
-        shapes[0], shapes[1],
+        shapes[0].1, shapes[1].1,
         "two migrations of one corpus disagreed"
     );
 }
