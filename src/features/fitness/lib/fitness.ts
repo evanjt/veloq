@@ -41,11 +41,6 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   transition: colors.formTransition,
 };
 
-/** Line/marker colour for a TSB value (the solid FORM_ZONE_COLORS swatch). */
-export function getFormZoneColor(tsb: number): string {
-  return FORM_ZONE_COLORS[getFormZone(tsb)];
-}
-
 export const FORM_ZONE_LABELS: Record<FormZone, string> = {
   highRisk: 'High Risk',
   optimal: 'Optimal',

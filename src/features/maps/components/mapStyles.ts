@@ -249,17 +249,6 @@ export interface CombinedSatelliteMapStyle {
   )[];
 }
 
-// Legacy type alias for backwards compatibility
-export type SatelliteMapStyle = CombinedSatelliteMapStyle;
-
-/**
- * Build a combined MapLibre style with all satellite sources layered.
- * EOX serves as the global base layer, regional sources overlay on top.
- *
- * NOTE: True polygon clipping of raster layers is not supported in MapLibre.
- * We use tightened rectangular bounds to minimize visible edges.
- * The bounds are set to the actual country extents rather than expanded boxes.
- */
 export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
   return {
     version: 8,

@@ -127,14 +127,6 @@ export function getRouteBounds(coords: [number, number][]): [[number, number], [
   ];
 }
 
-export function getRouteById(routeId: string): DemoRoute | undefined {
-  return demoRoutes.find((r) => r.id === routeId);
-}
-
-/**
- * Get locality and country from a route's region
- * @returns { locality: string | null, country: string | null }
- */
 export function getRouteLocation(routeId: string): {
   locality: string | null;
   country: string | null;

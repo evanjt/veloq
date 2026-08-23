@@ -39,16 +39,6 @@ export function isOAuthConfigured(): boolean {
   return !!OAUTH.CLIENT_ID && !!OAUTH.PROXY_URL;
 }
 
-/**
- * Get the OAuth client ID (for display/debugging)
- */
-export function getOAuthClientId(): string {
-  return OAUTH.CLIENT_ID;
-}
-
-/**
- * Get the proxy redirect URI (for registration with intervals.icu)
- */
 export function getProxyRedirectUri(): string {
   return `${OAUTH.PROXY_URL}/oauth/callback`;
 }

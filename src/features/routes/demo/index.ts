@@ -3,6 +3,5 @@ export {
   getRouteCoordinates,
   getRouteCoordinatesWithVariation,
   getRouteBounds,
-  getRouteById,
   getRouteLocation,
 } from './routes';

@@ -12,7 +12,6 @@ export {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
-  getOAuthClientId,
   buildAuthorizationUrl,
   parseCallbackUrl,
   validateState,

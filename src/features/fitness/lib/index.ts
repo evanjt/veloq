@@ -1,7 +1,6 @@
 export {
   calculateTSB,
   getFormZone,
-  getFormZoneColor,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,

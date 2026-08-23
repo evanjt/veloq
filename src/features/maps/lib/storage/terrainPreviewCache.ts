@@ -229,22 +229,6 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
   }
 }
 
-/**
- * Get count of cached previews.
- */
-export function getTerrainPreviewCount(): number {
-  return cachedKeys.length;
-}
-
-// ============================================================================
-// Priority snapshot queue (consumed pending → in-memory for cards)
-// ============================================================================
-
-/**
- * Activity IDs that need priority snapshot generation.
- * Populated from consumePendingSnapshots() - cards check this set to bypass
- * the index-based throttle (index >= 10 skip) and request snapshots immediately.
- */
 const prioritySnapshotIds = new Set<string>();
 
 /**

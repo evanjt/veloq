@@ -242,10 +242,6 @@ export interface Athlete {
   wPrime?: number;
 }
 
-/** Default W' (anaerobic work capacity) when the athlete has not set one. */
-export const DEFAULT_W_PRIME_JOULES = 20_000;
-
-// Wellness/Fitness data for CTL/ATL/TSB chart
 export interface WellnessData {
   id: string; // ISO-8601 date (YYYY-MM-DD)
   ctl?: number; // Chronic Training Load (Fitness) - 42 day avg
