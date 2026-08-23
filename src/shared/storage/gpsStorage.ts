@@ -159,23 +159,6 @@ export async function loadCheckpoint<T>(
   }
 }
 
-/**
- * Clear sync checkpoint
- */
-export async function clearCheckpoint(): Promise<void> {
-  try {
-    const info = await FileSystem.getInfoAsync(CHECKPOINT_FILE);
-    if (info.exists) {
-      await FileSystem.deleteAsync(CHECKPOINT_FILE, { idempotent: true });
-    }
-  } catch {
-    // Best effort
-  }
-}
-
-/**
- * Clear the entire bounds cache (but not GPS tracks or oldest date)
- */
 export async function clearBoundsCache(): Promise<void> {
   try {
     const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
@@ -187,25 +170,6 @@ export async function clearBoundsCache(): Promise<void> {
     // Best effort
   }
 }
-
-/**
- * Estimate bounds cache size in bytes
- */
-export async function estimateBoundsCacheSize(): Promise<number> {
-  try {
-    const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
-    if (info.exists && 'size' in info) {
-      return info.size || 0;
-    }
-  } catch {
-    // Ignore
-  }
-  return 0;
-}
-
-// =============================================================================
-// Custom Route Names Storage
-// =============================================================================
 
 const ROUTE_NAMES_FILE = `${CACHE_DIR}route_names.json`;
 
@@ -405,14 +369,4 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
  */
 export async function clearDemoData(queryClient: { clear: () => void }): Promise<void> {
   await clearAccountData(queryClient);
-}
-
-/**
- * @deprecated Prefer `clearAccountData` (full wipe), `clearDemoData`
- * (demo exit), or `clearAuthOnly` (light sign-out) at call sites so the
- * intent is visible. Retained as an alias for back-compat with existing
- * call sites until they migrate.
- */
-export async function clearAllAppCaches(queryClient: { clear: () => void }): Promise<void> {
-  return clearAccountData(queryClient);
 }

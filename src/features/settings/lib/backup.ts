@@ -72,25 +72,6 @@ export async function reinitializeAllStores(): Promise<void> {
   ]);
 }
 
-// ============================================================================
-// SQLite database backup (.veloqdb)
-// ============================================================================
-
-const DatabaseBackupMetadataSchema = z.object({
-  schema_version: z.coerce.string(),
-  activity_count: z.number(),
-  section_count: z.number(),
-  gps_track_count: z.number(),
-  oldest_date: z.number().nullable(),
-  newest_date: z.number().nullable(),
-  athlete_id: z.string().nullable(),
-});
-
-export type DatabaseBackupMetadata = z.infer<typeof DatabaseBackupMetadataSchema>;
-
-// Shape returned by the native `validateBackupDatabase` pre-restore probe.
-// Narrower than DatabaseBackupMetadataSchema: the probe only reads the three
-// fields it needs to gate the restore, so validate against exactly those.
 const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
@@ -116,15 +97,6 @@ export async function exportDatabaseBackup(): Promise<void> {
     mimeType: 'application/octet-stream',
     UTI: 'public.database',
   });
-}
-
-/** Get metadata about the current database (for UI display). */
-export function getDatabaseBackupMetadata(): DatabaseBackupMetadata | null {
-  const engine = getRouteEngine();
-  if (!engine) return null;
-  const raw = engine.getBackupMetadata();
-  const result = DatabaseBackupMetadataSchema.safeParse(raw);
-  return result.success ? result.data : null;
 }
 
 export interface DatabaseRestoreResult {

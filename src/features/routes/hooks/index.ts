@@ -10,8 +10,8 @@ export {
   type SectionLap,
   type SectionPerformanceRecord,
 } from './useSectionPerformances';
-export { useCustomSections, useCustomSection } from './useCustomSections';
-export { useUnifiedSections, useUnifiedSection } from './useUnifiedSections';
+export { useCustomSections } from './useCustomSections';
+export { useUnifiedSections } from './useUnifiedSections';
 export { useRouteDataSync } from './useRouteDataSync';
 export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';

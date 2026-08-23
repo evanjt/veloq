@@ -35,14 +35,6 @@ export interface OAuthTokenResponse {
   state?: string;
 }
 
-export interface OAuthError {
-  error: string;
-  error_description?: string;
-}
-
-/**
- * Check if OAuth is configured (client ID and proxy URL are set)
- */
 export function isOAuthConfigured(): boolean {
   return !!OAUTH.CLIENT_ID && !!OAUTH.PROXY_URL;
 }

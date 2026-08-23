@@ -20,7 +20,6 @@ export {
   getProxyRedirectUri,
   INTERVALS_URLS,
   type OAuthTokenResponse,
-  type OAuthError,
 } from './lib/oauth';
 
 export {

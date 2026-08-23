@@ -297,31 +297,6 @@ export interface SportLoadInfo {
   dayCount?: number;
 }
 
-// Daily activity summary for the fitness chart
-export interface DailyActivitySummary {
-  date: string;
-  load?: number; // Training load for the day
-  activities: {
-    id: string;
-    type: ActivityType;
-    name: string;
-    duration: number;
-    distance?: number;
-    load?: number;
-    averageHr?: number;
-    averageWatts?: number;
-  }[];
-}
-
-// Power/Pace curve data point - best effort at a specific duration
-export interface CurvePoint {
-  secs: number; // Duration in seconds
-  value: number; // Power (watts) or pace (m/s)
-  activity_id?: string; // Activity where this best was achieved
-  start_index?: number; // Start index in activity stream
-}
-
-// Power curve response from API
 export interface PowerCurve {
   type: 'power';
   sport: string;
@@ -406,14 +381,6 @@ export interface ActivityBoundsItem {
   latlngs?: [number, number][];
 }
 
-// Cache structure for activity bounds
-export interface ActivityBoundsCache {
-  lastSync: string; // ISO date of most recent sync
-  oldestSynced: string; // ISO date of oldest synced activity
-  activities: Record<string, ActivityBoundsItem>;
-}
-
-// Map data response from API
 export interface ActivityMapData {
   bounds: [[number, number], [number, number]] | null;
   latlngs: ([number, number] | null)[] | null;

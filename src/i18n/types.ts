@@ -114,44 +114,6 @@ export const LOCALE_FALLBACKS: Record<string, SupportedLocale[]> = {
   'da-DK': ['da', 'en-GB'],
 };
 
-/**
- * Display names for each locale (in their own language)
- */
-export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
-  // English
-  'en-AU': 'English (Australia)',
-  'en-US': 'English (US)',
-  'en-GB': 'English (UK)',
-  // Spanish
-  es: 'Español',
-  'es-ES': 'Español (España)',
-  'es-419': 'Español (Latinoamérica)',
-  // French
-  fr: 'Français',
-  // German
-  'de-DE': 'Deutsch (Deutschland)',
-  'de-CH': 'Schwiizerdütsch',
-  // Dutch
-  nl: 'Nederlands',
-  // Italian
-  it: 'Italiano',
-  // Portuguese
-  pt: 'Português (Portugal)',
-  'pt-BR': 'Português (Brasil)',
-  // Japanese
-  ja: '日本語',
-  // Chinese
-  'zh-Hans': '中文 (简体)',
-  // Polish
-  pl: 'Polski',
-  // Danish
-  da: 'Dansk',
-};
-
-/**
- * Type for the translation resource structure
- * This ensures type-safety when accessing translations
- */
 export interface TranslationResource {
   common: {
     loading: string;

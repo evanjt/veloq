@@ -209,17 +209,6 @@ export function getAvailableLanguages(): LanguageGroup[] {
   ];
 }
 
-/**
- * Get flat list of language options (for backwards compatibility)
- */
-export function getAvailableLanguagesFlat(): LanguageOption[] {
-  const groups = getAvailableLanguages();
-  return groups.flatMap((group) => group.languages);
-}
-
-/**
- * Check if a language value is an English variant
- */
 export function isEnglishVariant(language: string | null): boolean {
   return language === 'en' || (language !== null && language.startsWith('en-'));
 }
