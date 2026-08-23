@@ -89,7 +89,6 @@ export interface InsightsConfig {
   };
 }
 
-// eslint-disable-next-line no-underscore-dangle
 const __dev__ = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export const INSIGHTS_CONFIG: InsightsConfig = {
@@ -99,9 +98,11 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     // A fresh PR is the strongest signal - tighter window than the default.
     section_pr: { max: 14 },
     // Inverted: we *want* staleness here. The PR has to be old enough to
-    // represent a real opportunity, but not so old the section has changed.
-    // 30 days is the long-standing default - tune via config if needed.
-    stale_pr: { min: 30, max: 180 },
+    // represent a real opportunity. There is deliberately no upper bound: a
+    // fixed ceiling competes with the seasons, so a climb ridden each summer
+    // is excluded every spring, which is when it is worth suggesting. Bounding
+    // it wants an interval measured against the section's own visit rhythm.
+    stale_pr: { min: 30, max: Number.POSITIVE_INFINITY },
     // "This week" loses meaning outside the week.
     period_comparison: { max: 7 },
     // Everything else defaults to activeWindowDays.

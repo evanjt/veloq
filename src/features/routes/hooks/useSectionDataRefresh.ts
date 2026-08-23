@@ -33,7 +33,6 @@ export function useSectionDataRefresh(
 
   // Force re-computation when refresh key changes by including it in the memo
   const section = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _forceRefresh = sectionIdWithRefresh;
     if (skipOwnFfiCall) return bundledSection;
     if (!rawEngineSection) return null;

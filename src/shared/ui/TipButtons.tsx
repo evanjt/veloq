@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, spacing, layout, typography } from '@/theme';
 
 const SIZE_LABELS: Record<string, string> = {
   tip_small: 'support.tipSmall',

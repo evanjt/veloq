@@ -24,7 +24,7 @@ export function useRouteChartData(
       }
 
       const activityIdSet = new Set(engineGroup.activityIds);
-      const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
+      const result: Record<string, { points: { lat: number; lng: number }[] }> = {};
 
       for (const sig of allSigs) {
         if (!activityIdSet.has(sig.activityId)) continue;

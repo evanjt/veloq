@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
+import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 
@@ -44,8 +44,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const chartColors = useChartColors();
-  const lineColour = color ?? chartColors.powerCurve;
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 
@@ -131,7 +129,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   const {
     gesture,
-    isActive,
     selectedPoint: tooltipData,
     crosshairStyle,
     syncBounds,

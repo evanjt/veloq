@@ -109,7 +109,6 @@ export default function DetectionSettingsScreen() {
   useEffect(() => {
     initialConfig.current = defaultParams();
     // Only reset when strictness changes, not on every param tweak.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStrictness]);
 
   const isDirty = useMemo(
@@ -120,7 +119,6 @@ export default function DetectionSettingsScreen() {
   const {
     forceRescan,
     isScanning,
-    progress: rescanProgress,
     result: rescanResult,
     failed: rescanFailed,
     clearResult,

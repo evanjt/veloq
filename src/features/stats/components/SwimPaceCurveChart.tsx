@@ -140,7 +140,6 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 
   const {
     gesture,
-    isActive,
     selectedPoint: tooltipData,
     crosshairStyle,
     syncBounds,

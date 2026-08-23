@@ -21,7 +21,7 @@ interface TrendShape {
  * in `persistence/wellness.rs` - keep in sync with that logic.
  */
 function computeHrvTrendFromWindow(
-  wellnessWindow: Array<{ date: string; hrv?: number }> | undefined
+  wellnessWindow: { date: string; hrv?: number }[] | undefined
 ): TrendShape | null {
   const window = wellnessWindow ?? [];
   const hrvValues = window
@@ -68,7 +68,7 @@ function computeHrvTrendFromWindow(
  * identical output by construction.
  */
 export function generateHrvTrendInsight(
-  wellnessWindow: Array<{ date: string; hrv?: number }> | undefined,
+  wellnessWindow: { date: string; hrv?: number }[] | undefined,
   now: number,
   t: TFunc
 ): Insight[] {

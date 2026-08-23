@@ -98,7 +98,8 @@ describe('FFI Binding Validation', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
       // detection, elevation backfill start, progress and remaining, and the
-      // five detector-cutover calls). Adjust if a new
+      // five detector-cutover calls: pending, running, start, progress and
+      // diff). Adjust if a new
       // standalone is added - but prefer putting engine-coupled logic on a
       // UniFFI Object.
       expect(STANDALONE_EXPORTS.length).toBe(14);
@@ -117,9 +118,14 @@ describe('FFI Binding Validation', () => {
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
-      expect(names.has('run_detector_cutover')).toBe(true);
-      expect(names.has('restore_from_cutover_archive')).toBe(true);
+      expect(names.has('start_detector_cutover')).toBe(true);
+      expect(names.has('get_cutover_progress')).toBe(true);
       expect(names.has('get_cutover_diff')).toBe(true);
+      // A whole-catalogue rollback is not offered: the detector keeps moving,
+      // so restoring is per section.
+      expect(names.has('restore_from_cutover_archive')).toBe(false);
+      // A cut is a cold detect, so it must never be callable inline.
+      expect(names.has('run_detector_cutover')).toBe(false);
     });
 
     it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {

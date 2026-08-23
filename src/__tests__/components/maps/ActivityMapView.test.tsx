@@ -6,6 +6,12 @@
  * and tolerates a missing or malformed polyline rather than throwing.
  */
 
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
+import type { LatLng } from '@/shared/geo/polyline';
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
@@ -25,12 +31,6 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
 }));
-
-import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
-import type { LatLng } from '@/shared/geo/polyline';
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -159,7 +159,7 @@ describe('ActivityMapView', () => {
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
 
-    const cases: Array<[string, Partial<React.ComponentProps<typeof ActivityMapView>>]> = [
+    const cases: [string, Partial<React.ComponentProps<typeof ActivityMapView>>][] = [
       ['a single coordinate', { coordinates: [COORDINATES[0]] }],
       [
         'non-finite coordinates',

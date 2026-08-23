@@ -19,15 +19,15 @@ import {
   type ActivitySportMapping,
 } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import type { Activity } from '@/types';
+import type { SyncProgress } from './useRouteSyncProgress';
 
 /** How long to let the Rust time-stream backfill drain before moving on. It
  *  resumes on the next sync, so a slow drain never blocks the banner. */
 const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
 const STREAM_BACKFILL_POLL_MS = 500;
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import type { Activity } from '@/types';
-import type { SyncProgress } from './useRouteSyncProgress';
 
 export interface GpsFetchResult {
   /** Activity IDs that were successfully synced */
@@ -643,14 +643,19 @@ export function useGpsDataFetcher() {
         if (__DEV__) {
           console.log('[fetchApiGps] ⏱ calling startSectionDetection...');
         }
+        // A cutover holds the detection slot and re-cuts everything at its
+        // end, so a start here would be refused. Skipping explicitly keeps
+        // that refusal out of the stale-handle drain below, which exists for
+        // a different failure and would retry into the same wall.
+        const cutoverOwnsSlot = routeEngine.isCutoverPending() || routeEngine.isCutoverRunning();
         const detStart = Date.now();
-        let started = nativeModule.routeEngine.startSectionDetection();
+        let started = cutoverOwnsSlot ? false : nativeModule.routeEngine.startSectionDetection();
         if (__DEV__) {
           console.log(
             `[fetchApiGps] ⏱ startSectionDetection returned ${started} in ${Date.now() - detStart}ms`
           );
         }
-        if (!started) {
+        if (!started && !cutoverOwnsSlot) {
           // Drain any stale detection result that's blocking the handle
           const drainStatus = nativeModule.routeEngine.pollSectionDetection();
           if (drainStatus === 'complete') {

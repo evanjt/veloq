@@ -223,6 +223,7 @@ function extractAllFfiExports(): FfiExport[] {
 }
 
 // Main execution
+// eslint-disable-next-line @typescript-eslint/no-redeclare -- module-scope name, not CommonJS exports
 const exports = extractAllFfiExports();
 const outputJson = process.argv.includes('--json');
 const checkMode = process.argv.includes('--check');

@@ -26,6 +26,7 @@
     "test:perf": "jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
+    "lint": "eslint . --no-warn-ignored --max-warnings 1164",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
@@ -56,9 +57,10 @@
     "check:expo": "node scripts/check-expo-sdk.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
+    "lint:reachability": "node scripts/reachability-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge"
+    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -130,7 +132,13 @@
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "babel-preset-expo": "~56.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~56.0.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jest": "^29.16.1",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "fast-check": "^4.8.0",
+    "globals": "^17.11.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
     "jest-circus": "^30.2.0",
@@ -140,6 +148,7 @@
     "react-dom": "19.2.3",
     "ts-jest": "^29.4.9",
     "typescript": "~6.0.3",
+    "typescript-eslint": "^8.67.0",
     "uniffi-bindgen-react-native": "^0.31.0-2"
   },
   "private": true,

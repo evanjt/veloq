@@ -424,6 +424,20 @@ impl PersistentRouteEngine {
              DELETE FROM sport_settings;",
         )?;
 
+        // Settings survive `clear()` on purpose, but three of them describe the
+        // catalogue that was just deleted. Left behind, the next athlete to
+        // sign in inherits the previous one's detector and a spent cutover
+        // token, with no surface to change either.
+        let mut stmt = self
+            .db
+            .prepare("DELETE FROM settings WHERE key IN (?, ?, ?)")?;
+        stmt.execute(rusqlite::params![
+            super::cutover::CUTOVER_KEY,
+            super::cutover::CUTOVER_DIFF_KEY,
+            super::settings_keys::SECTION_CONFIG_JSON,
+        ])?;
+        drop(stmt);
+
         self.activity_metadata.clear();
         self.activity_metrics.clear();
         self.spatial_index = RTree::new();
@@ -726,6 +740,12 @@ impl PersistentRouteEngine {
         self.activity_metadata.len()
     }
     /// Get all activity IDs.
+    /// Flag the catalogue as owing a detect. Used where a caller knows the
+    /// pool moved under a run that has already reported its own result.
+    pub fn mark_sections_dirty(&mut self) {
+        self.sections_dirty = true;
+    }
+
     pub fn get_activity_ids(&self) -> Vec<String> {
         self.activity_metadata.keys().cloned().collect()
     }

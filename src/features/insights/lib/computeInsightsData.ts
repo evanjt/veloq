@@ -12,7 +12,7 @@ import { buildInsightsParams } from './insightsParams';
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 function normalizeStrengthSummary(raw: {
-  muscleVolumes?: Array<{
+  muscleVolumes?: {
     slug: string;
     primarySets: number;
     secondarySets: number;
@@ -20,7 +20,7 @@ function normalizeStrengthSummary(raw: {
     totalReps: number;
     totalWeightKg: number;
     exerciseNames: string[];
-  }>;
+  }[];
   activityCount?: number;
   totalSets?: number;
 }): StrengthSummary {
@@ -87,7 +87,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   const kept: Insight[] = [];
-  const dropped: Array<{ id: string; category: string; reason: string }> = [];
+  const dropped: { id: string; category: string; reason: string }[] = [];
   const seenSectionIds = new Set<string>();
   let keptSectionStories = 0;
 
@@ -325,7 +325,6 @@ export function computeInsightsFromData(
     return consolidated;
   } catch (err) {
     if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
-      // eslint-disable-next-line no-console
       console.error('[computeInsightsFromData] swallowed error:', err);
     }
     return [];

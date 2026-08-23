@@ -17,6 +17,12 @@
 // Any state the factory references must either be declared inside the factory
 // (and exposed via globalThis) or named with a `mock` prefix.
 
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert, AppState, Text } from 'react-native';
+import { focusManager, QueryClient } from '@tanstack/react-query';
+
 jest.mock('@tanstack/query-async-storage-persister', () => {
   const state: { options: any } = { options: null };
   (globalThis as any).__persisterCapture = state;
@@ -77,19 +83,13 @@ jest.mock('@/i18n', () => ({
   i18n: { t: (key: string) => key },
 }));
 
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState, Text } from 'react-native';
-import { focusManager, QueryClient } from '@tanstack/react-query';
-
 // Silence Alert.alert at runtime (not via jest.mock to avoid TurboModule init).
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
 // Capture the AppState change listener so we can exercise onAppStateChange.
 // NB: the QueryProvider module registers its listener at import time (line 19),
 // so the spy MUST be installed BEFORE QueryProvider is first required.
-const capturedAppStateListeners: Array<(status: string) => void> = [];
+const capturedAppStateListeners: ((status: string) => void)[] = [];
 jest.spyOn(AppState, 'addEventListener').mockImplementation((event: any, listener: any) => {
   if (event === 'change') capturedAppStateListeners.push(listener);
   return { remove: jest.fn() } as any;
@@ -98,7 +98,7 @@ jest.spyOn(AppState, 'addEventListener').mockImplementation((event: any, listene
 // Deferred require: QueryProvider.tsx runs its top-level side effects here,
 // AFTER the AppState spy is in place. Using `require` avoids the ES-module
 // import-hoisting that would otherwise defeat the spy.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const QueryProviderModule =
   require('@/shared/query/QueryProvider') as typeof import('@/shared/query/QueryProvider');
 const { QueryProvider } = QueryProviderModule;
@@ -146,7 +146,7 @@ describe('QueryProvider', () => {
       const big = 'x'.repeat(10_000);
       const circular: any = { clientState: { queries: [], mutations: [] } };
       circular.circular = circular;
-      const emptyCaseFactories: Array<() => any> = [
+      const emptyCaseFactories: (() => any)[] = [
         // >200 queries
         () => ({
           clientState: {
@@ -231,7 +231,7 @@ describe('QueryProvider', () => {
     it('excludes pending/stream/activity/fixed-range; keeps everything else', () => {
       // pending → false regardless of key; streams, single activity, and
       // fixed-range activities excluded; wellness/athlete dehydrated.
-      const cases: Array<[unknown[], string, boolean]> = [
+      const cases: [unknown[], string, boolean][] = [
         [['anything'], 'pending', false],
         [['activity-streams-v3', 'a1'], 'success', false],
         [['activity', 'a1'], 'success', false],
@@ -335,7 +335,7 @@ describe('QueryProvider', () => {
   describe('AppState ↔ focusManager sync', () => {
     it('registers a change listener that maps active/background to focus state', () => {
       expect(capturedAppStateListeners.length).toBeGreaterThan(0);
-      const transitions: Array<[string, boolean]> = [
+      const transitions: [string, boolean][] = [
         ['active', true],
         ['background', false],
       ];

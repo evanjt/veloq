@@ -58,13 +58,9 @@ import {
   MAP_HEIGHT_EDIT,
 } from '@/features/routes/components/section/SectionHeader';
 import { styles } from '@/features/routes/components/section/SectionDetail.styles';
-import {
-  getActivityIcon,
-  getActivityColor,
-  type MaterialIconName,
-} from '@/features/activity/lib/activityUtils';
+import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { colors } from '@/theme';
-import type { ActivityType, RoutePoint } from '@/types';
+import type { RoutePoint } from '@/types';
 
 export default function SectionDetailScreen() {
   // Performance timing

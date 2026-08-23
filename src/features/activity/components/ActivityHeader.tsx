@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
-import { ActivityMapView, type SectionOverlay } from '@/features/maps/components/ActivityMapView';
-import type {
+import {
+  ActivityMapView,
+  type SectionOverlay,
   SectionCreationResult,
   SectionCreationError,
 } from '@/features/maps/components/ActivityMapView';
@@ -63,7 +64,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   coordinates,
   streams,
   isMetric,
-  isDark,
   debugEnabled,
   insetTop,
   mapHeight,

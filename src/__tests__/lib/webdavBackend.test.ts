@@ -5,6 +5,15 @@
  * permanent, so a 5xx or a dropped connection stays retryable.
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
+import { webdavBackend } from '@/features/settings/lib/autobackup/backends/webdavBackend';
+import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
+import type { BackupEntry } from '@/features/settings/lib/autobackup/backends/types';
+import {
+  setWebdavConfig,
+  clearWebdavConfig,
+} from '@/features/settings/lib/autobackup/webdavConfig';
+
 const mockWarn = jest.fn();
 
 // The factory runs before the const above is initialised, so warn delegates lazily
@@ -19,15 +28,6 @@ jest.mock('expo-file-system/legacy', () => ({
   downloadAsync: jest.fn(),
   FileSystemUploadType: { BINARY_CONTENT: 0 },
 }));
-
-import * as FileSystem from 'expo-file-system/legacy';
-import { webdavBackend } from '@/features/settings/lib/autobackup/backends/webdavBackend';
-import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
-import type { BackupEntry } from '@/features/settings/lib/autobackup/backends/types';
-import {
-  setWebdavConfig,
-  clearWebdavConfig,
-} from '@/features/settings/lib/autobackup/webdavConfig';
 
 const SERVER = 'https://cloud.example.com/remote.php/dav/files/evan/';
 const uploadAsync = FileSystem.uploadAsync as jest.Mock;

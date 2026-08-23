@@ -472,16 +472,21 @@ export async function exportBackup(): Promise<void> {
 }
 
 export async function restoreBackup(json: string): Promise<RestoreResult> {
-  let backup: BackupData;
+  let parsed: unknown;
   try {
-    backup = JSON.parse(json);
+    parsed = JSON.parse(json);
   } catch {
     throw new Error('Invalid backup file format');
   }
 
-  if (backup.version === undefined || backup.version === null) {
+  // The file is user-picked, so nothing about its shape is guaranteed. A bare
+  // `null` parses fine and then throws on any property access.
+  const envelope = z.object({ version: z.number() }).safeParse(parsed);
+  if (!envelope.success) {
     throw new Error('Corrupt backup: missing version field');
   }
+
+  const backup = parsed as BackupData;
 
   if (backup.version > LEGACY_BACKUP_VERSION) {
     throw new Error(
@@ -589,7 +594,11 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
 
   // Restore preferences
   if (backup.preferences) {
+    // Only keys the export writes. Without this a hand-edited file can put any
+    // key into SQLite, and reinitializeAllStores then loads it into a store.
+    const restorable = new Set<string>(LEGACY_PREFERENCE_KEYS);
     for (const [key, value] of Object.entries(backup.preferences)) {
+      if (!restorable.has(key)) continue;
       try {
         const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
         await setSetting(key, stringValue);

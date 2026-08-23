@@ -38,12 +38,9 @@ import {
 // SportPreferenceStore
 import {
   useSportPreference,
-  SPORT_API_TYPES,
-  SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
-import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -75,7 +72,6 @@ const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 const DASHBOARD_STORAGE_KEY = 'dashboard_preferences';
-const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 const HR_ZONES_KEY = 'veloq-hr-zones';
 const MAP_PREFS_KEY = 'veloq-map-preferences';
 
@@ -117,7 +113,7 @@ describe('ThemeProvider', () => {
     jest.doMock('react-native', () => ({
       Appearance: { setColorScheme: jest.fn() },
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
@@ -406,15 +402,6 @@ describe('SportPreferenceStore', () => {
     useSportPreference.setState({ primarySport: 'Cycling', isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('constants', () => {
-    it('SPORT_API_TYPES covers all sports with variants', () => {
-      expect(SPORT_API_TYPES.Cycling).toContain('Ride');
-      expect(SPORT_API_TYPES.Cycling).toContain('VirtualRide');
-      expect(SPORT_API_TYPES.Running).toContain('Run');
-      expect(SPORT_API_TYPES.Running).toContain('TrailRun');
-    });
   });
 
   describe('initialize()', () => {

@@ -7,7 +7,6 @@ import {
   FlatList,
   Alert,
   Linking,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -19,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';

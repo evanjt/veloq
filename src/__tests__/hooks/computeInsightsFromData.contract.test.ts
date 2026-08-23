@@ -13,19 +13,19 @@
  * semantics change and needs explicit baseline review, not a silent diff.
  */
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
-}));
-jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
-  isRouteMatchingEnabled: jest.fn(() => true),
-}));
-
 import {
   computeInsightsFromData,
   type WellnessInput,
 } from '@/features/insights/lib/computeInsightsData';
 import type { InsightsData, SummaryCardData } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: jest.fn(),
+}));
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
+  isRouteMatchingEnabled: jest.fn(() => true),
+}));
 
 const t = (key: string, params?: Record<string, string | number>) => {
   if (!params) return key;
@@ -96,6 +96,23 @@ function makeRankedSections(sportType: string) {
       medianRecentSecs: 320,
       daysSinceLast: 12,
       trend: 0.02,
+      latestIsPr: false,
+    },
+    {
+      // Past the staleness floor, so this is the only section a stale-PR
+      // suggestion may name. A at 4 days and B at 12 must never be.
+      sectionId: `sec-${sportType.toLowerCase()}-neglected-C`,
+      sectionName: `${sportType} Neglected C`,
+      relevanceScore: 0.2,
+      recencyScore: 0.05,
+      improvementScore: 0.2,
+      anomalyScore: 0.1,
+      engagementScore: 0.3,
+      traversalCount: 6,
+      bestTimeSecs: 410,
+      medianRecentSecs: 430,
+      daysSinceLast: 65,
+      trend: 0.0,
       latestIsPr: false,
     },
   ];

@@ -125,6 +125,7 @@ fn detection_save_writes_blob_as_authority() {
             sport_type: "Ride".to_string(),
             polyline: polyline.clone(),
             representative_activity_id: String::new(),
+            representative_range: None,
             activity_ids: vec![],
             activity_portions: vec![],
             route_ids: vec![],

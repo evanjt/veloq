@@ -3,15 +3,15 @@
  *
  * The cutover migrates an existing install from Corridor to Unified: archive
  * the current catalogue, switch the persisted config, re-cut once, then show
- * the user what changed with a revert. All calls are standalone UniFFI
+ * the user what changed. All calls are standalone UniFFI
  * exports rather than engine methods, so they read from the generated module.
  */
 
 import {
   isCutoverPending as ffiIsCutoverPending,
   isCutoverRunning as ffiIsCutoverRunning,
-  runDetectorCutover as ffiRunDetectorCutover,
-  restoreFromCutoverArchive as ffiRestoreFromCutoverArchive,
+  startDetectorCutover as ffiStartDetectorCutover,
+  getCutoverProgress as ffiGetCutoverProgress,
   getCutoverDiff as ffiGetCutoverDiff,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -72,35 +72,55 @@ export function isCutoverRunning(host: DelegateHost): boolean {
   }
 }
 
+/** How far a running cutover has got. */
+export type CutoverPhase =
+  | 'idle'
+  | 'draining'
+  | 'archiving'
+  | 'detecting'
+  | 'diffing'
+  | 'complete'
+  | 'failed';
+
+export interface CutoverProgress {
+  phase: CutoverPhase;
+  running: boolean;
+}
+
+const CUTOVER_PHASES: readonly string[] = [
+  'idle',
+  'draining',
+  'archiving',
+  'detecting',
+  'diffing',
+  'complete',
+  'failed',
+];
+
 /**
- * Run the whole cutover. Blocking: the caller owns putting it on a worker.
- * Returns the diff payload on success, null on any failure, leaving the user
- * on Corridor with an intact catalogue.
+ * Start the cutover on a Rust worker. Returns whether a run began: false means
+ * the engine is not ready, the migration is not owed, or one is already in
+ * flight. Safe to call at every launch.
  */
-export function runDetectorCutover(host: DelegateHost): CutoverDiff | null {
-  if (!host.ready) return null;
+export function startDetectorCutover(host: DelegateHost): boolean {
+  if (!host.ready) return false;
   try {
-    const json = host.timed('runDetectorCutover', () => ffiRunDetectorCutover());
-    return parseCutoverDiff(json);
+    return host.timed('startDetectorCutover', () => ffiStartDetectorCutover());
   } catch (e) {
-    console.error('[RouteEngine] runDetectorCutover threw:', e);
-    return null;
+    console.error('[RouteEngine] startDetectorCutover threw:', e);
+    return false;
   }
 }
 
-/**
- * Put the archived catalogue back as pinned sections and return the config to
- * Corridor. Returns how many sections were restored, which is legitimately
- * zero for a catalogue that was entirely pinned already, or null when the
- * restore failed. The caller must tell those apart: zero means the revert
- * happened and had nothing to move, null means the user is still on Unified.
- */
-export function restoreFromCutoverArchive(host: DelegateHost): number | null {
+/** Poll the running cutover. An unknown phase reads as idle. */
+export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
   if (!host.ready) return null;
   try {
-    return host.timed('restoreFromCutoverArchive', () => ffiRestoreFromCutoverArchive());
+    const p = host.timed('getCutoverProgress', () => ffiGetCutoverProgress());
+    const phase = CUTOVER_PHASES.includes(p.phase) ? (p.phase as CutoverPhase) : 'idle';
+    return { phase, running: p.running };
   } catch (e) {
-    console.error('[RouteEngine] restoreFromCutoverArchive threw:', e);
+    console.error('[RouteEngine] getCutoverProgress threw:', e);
     return null;
   }
 }

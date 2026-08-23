@@ -37,7 +37,7 @@ interface RecordingMapProps {
   trimStart?: number; // Index for trim start (used with fitBounds)
   trimEnd?: number; // Index for trim end (used with fitBounds)
   /** Saved route to follow, drawn under the live trace ([{lat, lng}] from the route engine) */
-  routeOverlay?: Array<{ lat: number; lng: number }> | null;
+  routeOverlay?: { lat: number; lng: number }[] | null;
   /** Opens the route picker; the layers button only renders when provided */
   onOpenRoutePicker?: () => void;
   style?: ViewStyle;

@@ -582,22 +582,32 @@ pub fn is_cutover_running() -> bool {
     crate::persistence::cutover::cutover_running()
 }
 
-/// Run the cutover in the calling thread. Returns the diff JSON on
-/// success. Shaped for a background worker.
-#[uniffi::export]
-pub fn run_detector_cutover() -> Result<String, crate::VeloqError> {
-    crate::persistence::cutover::run_cutover().map_err(|msg| crate::VeloqError::Database { msg })
+/// How far a detector cutover has got. The phase is the whole story: a cut has
+/// no unit of work to count, unlike the elevation queue.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct CutoverProgress {
+    /// idle, draining, archiving, detecting, diffing, complete or failed.
+    pub phase: String,
+    /// Whether a run holds the slot right now.
+    pub running: bool,
 }
 
-/// Restore the archived catalogue and switch back to Corridor. Returns the
-/// number of sections restored, which is legitimately zero for a user whose
-/// catalogue was entirely pinned. A real failure is an error, not a zero, so
-/// the caller can tell "nothing to put back" from "putting it back failed".
+/// Start the cutover on a background thread. Returns whether a run was
+/// started: false means no engine, not owed, or already running. A full cut is
+/// a cold detect over the whole library, so it must never be driven from the
+/// calling thread.
 #[uniffi::export]
-pub fn restore_from_cutover_archive() -> Result<u32, crate::VeloqError> {
-    crate::persistence::with_persistent_engine(|e| e.restore_from_archive())
-        .ok_or(crate::VeloqError::NotInitialized)?
-        .map_err(|e| crate::VeloqError::Database { msg: e.to_string() })
+pub fn start_detector_cutover() -> bool {
+    crate::persistence::cutover::start_cutover()
+}
+
+/// How far the running cutover has got.
+#[uniffi::export]
+pub fn get_cutover_progress() -> CutoverProgress {
+    CutoverProgress {
+        phase: crate::persistence::cutover::cutover_phase().to_string(),
+        running: crate::persistence::cutover::cutover_running(),
+    }
 }
 
 /// The stored cutover diff payload, if any.

@@ -42,7 +42,7 @@ interface PotentialSectionsState {
   clear: () => Promise<void>;
 }
 
-export const usePotentialSections = create<PotentialSectionsState>((set, get) => ({
+export const usePotentialSections = create<PotentialSectionsState>((set) => ({
   potentials: [],
   isLoaded: false,
   lastDetection: null,

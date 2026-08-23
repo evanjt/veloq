@@ -54,7 +54,7 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         label={t('settings.sectionMaxLength', { meters: params.maxSectionLength })}
         value={params.maxSectionLength}
         min={2000}
-        max={20000}
+        max={200000}
         step={1000}
         onChange={set('maxSectionLength')}
         isDark={isDark}

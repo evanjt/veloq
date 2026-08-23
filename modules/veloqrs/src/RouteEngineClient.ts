@@ -51,19 +51,6 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
-// Types for new FFI methods - will be auto-generated after Rust rebuild.
-// Declarations moved to ./delegates/shared-types.ts; re-exported here so
-// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
-export type {
-  FfiSectionMatch,
-  FfiMergeCandidate,
-  FfiNearbySectionSummary,
-  FfiActivitySectionHighlight,
-  FfiActivityRouteHighlight,
-  FfiActivityIndicator,
-  SectionEncounter,
-} from './delegates/shared-types';
-
 import type { RoutePoint, SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
@@ -71,7 +58,7 @@ import * as detectionDelegates from './delegates/detection';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
 import * as cutoverDelegates from './delegates/cutover';
-import type { CutoverDiff } from './delegates/cutover';
+import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
 import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
@@ -91,6 +78,19 @@ import type {
   FfiNearbySectionSummary,
   FfiSectionMatch,
   HeatmapDay,
+  SectionEncounter,
+} from './delegates/shared-types';
+
+// Types for new FFI methods - will be auto-generated after Rust rebuild.
+// Declarations moved to ./delegates/shared-types.ts; re-exported here so
+// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
+export type {
+  FfiSectionMatch,
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
+  FfiActivitySectionHighlight,
+  FfiActivityRouteHighlight,
+  FfiActivityIndicator,
   SectionEncounter,
 } from './delegates/shared-types';
 
@@ -306,10 +306,9 @@ class RouteEngineClient implements DelegateHost {
 
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
 
-  runDetectorCutover = (): CutoverDiff | null => cutoverDelegates.runDetectorCutover(this);
+  startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
 
-  restoreFromCutoverArchive = (): number | null =>
-    cutoverDelegates.restoreFromCutoverArchive(this);
+  getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
 
   getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 
@@ -432,21 +431,21 @@ class RouteEngineClient implements DelegateHost {
   ): FfiBounds | null =>
     mapsDelegates.getActivityBoundsForRange(this, startDate, endDate, sportTypesArray);
 
-  getAllMapSignatures = (): Array<{
+  getAllMapSignatures = (): {
     activityId: string;
     encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
-  }> => mapsDelegates.getAllMapSignatures(this);
+  }[] => mapsDelegates.getAllMapSignatures(this);
 
   getMapSignaturesForIds = (
     ids: string[]
-  ): Array<{
+  ): {
     activityId: string;
     encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
-  }> => mapsDelegates.getMapSignaturesForIds(this, ids);
+  }[] => mapsDelegates.getMapSignaturesForIds(this, ids);
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
@@ -505,7 +504,7 @@ class RouteEngineClient implements DelegateHost {
   getPerformancesBatch = (
     sectionIds: string[],
     sportType?: string
-  ): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> =>
+  ): { sectionId: string; result: FfiSectionPerformanceResult }[] =>
     sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
 
   getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
@@ -577,7 +576,7 @@ class RouteEngineClient implements DelegateHost {
     activityDelegates.setActivityMetricsReady(this, metrics);
   }
 
-  setTimeStreams = (streams: Array<{ activityId: string; times: number[] }>): void =>
+  setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
 
   getMissingTimeStreams = (activityIds: string[]): string[] =>
@@ -1038,12 +1037,12 @@ class RouteEngineClient implements DelegateHost {
 
   getStrengthInsightSeries = (
     monthly: { startTs: number; endTs: number },
-    weekly: Array<{ startTs: number; endTs: number }>
+    weekly: { startTs: number; endTs: number }[]
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
   getStrengthSummaryBatch = (
-    ranges: Array<{ startTs: number; endTs: number }>
+    ranges: { startTs: number; endTs: number }[]
   ): FfiStrengthSummary[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (

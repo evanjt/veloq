@@ -7,7 +7,7 @@ import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import {
   calculateTSB,

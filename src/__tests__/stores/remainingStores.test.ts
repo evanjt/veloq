@@ -9,6 +9,18 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// DebugStore
+import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
+
+// WhatsNewStore
+import {
+  useWhatsNewStore,
+  initializeWhatsNewStore,
+} from '@/features/settings/stores/WhatsNewStore';
+
+// TileCacheStore
+import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
 jest.mock('veloqrs', () => ({
   RouteEngineClient: {
@@ -26,18 +38,6 @@ const noop = () => {};
 jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => noop },
 }));
-
-// DebugStore
-import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
-
-// WhatsNewStore
-import {
-  useWhatsNewStore,
-  initializeWhatsNewStore,
-} from '@/features/settings/stores/WhatsNewStore';
-
-// TileCacheStore
-import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 
 // Storage keys (must match store implementations)
 const DEBUG_MODE_KEY = 'veloq-debug-mode';

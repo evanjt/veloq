@@ -125,6 +125,7 @@ impl PersistentRouteEngine {
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
+        Self::ensure_sections_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
@@ -329,6 +330,29 @@ impl PersistentRouteEngine {
                 "ALTER TABLE section_geometry ADD COLUMN source TEXT
                  CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned'))",
                 [],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Add the live row's provenance triple. `section_geometry` carries one per
+    /// stored version; these carry it for the geometry a section holds now, so a
+    /// read can re-slice the stored stream instead of decoding the cached blob.
+    fn ensure_sections_geometry_provenance(conn: &Connection) -> SqlResult<()> {
+        // Probes the last column added, inside one transaction, so a torn run
+        // leaves nothing and the next open retries.
+        if conn
+            .prepare("SELECT geometry_source FROM sections LIMIT 0")
+            .is_err()
+        {
+            conn.execute_batch(
+                "BEGIN;
+                 ALTER TABLE sections ADD COLUMN rep_start_index INTEGER;
+                 ALTER TABLE sections ADD COLUMN rep_end_index INTEGER;
+                 ALTER TABLE sections ADD COLUMN geometry_source TEXT
+                     CHECK(geometry_source IS NULL
+                           OR geometry_source IN ('exact', 'consensus', 'orphaned'));
+                 COMMIT;",
             )?;
         }
         Ok(())

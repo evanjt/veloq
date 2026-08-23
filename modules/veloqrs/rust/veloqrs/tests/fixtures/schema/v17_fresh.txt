@@ -270,6 +270,7 @@ table sections
   column distance_meters type=REAL notnull=1 default=<none> pk=0
   column elevation_gain_m type=REAL notnull=0 default=<none> pk=0
   column end_index type=INTEGER notnull=0 default=<none> pk=0
+  column geometry_source type=TEXT notnull=0 default=<none> pk=0
   column id type=TEXT notnull=0 default=<none> pk=1
   column is_user_defined type=INTEGER notnull=0 default=0 pk=0
   column name type=TEXT notnull=0 default=<none> pk=0
@@ -279,6 +280,8 @@ table sections
   column point_density_json type=TEXT notnull=0 default=<none> pk=0
   column polyline_blob type=BLOB notnull=0 default=<none> pk=0
   column polyline_json type=TEXT notnull=1 default=<none> pk=0
+  column rep_end_index type=INTEGER notnull=0 default=<none> pk=0
+  column rep_start_index type=INTEGER notnull=0 default=<none> pk=0
   column representative_activity_id type=TEXT notnull=0 default=<none> pk=0
   column scale type=TEXT notnull=0 default=<none> pk=0
   column section_type type=TEXT notnull=1 default=<none> pk=0

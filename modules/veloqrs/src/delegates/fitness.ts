@@ -372,25 +372,25 @@ export function getWeeklySummaries(
   host: DelegateHost,
   weekStarts: number[],
   weekLengthSecs: number
-): Array<{
+): {
   weekStart: number;
   count: number;
   movingTime: number;
   distance: number;
   trainingLoad: number;
-}> {
+}[] {
   if (!host.ready || weekStarts.length === 0) return [];
   const rows = host.timed('getWeeklySummaries', () =>
     host.engine
       .fitness()
       .getWeeklySummaries(weekStarts.map(BigInt), BigInt(weekLengthSecs))
-  ) as Array<{
+  ) as {
     weekStart: bigint;
     count: number;
     movingTime: bigint;
     distance: number;
     trainingLoad: number;
-  }>;
+  }[];
   return rows.map((r) => ({
     weekStart: Number(r.weekStart),
     count: r.count,

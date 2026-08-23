@@ -292,10 +292,10 @@ fn a_different_method_in_the_marker_is_a_generation_change() {
 fn the_event_milestones_the_shape_already_stored() {
     let (mut engine, _dir) = fresh();
     engine
-        .record_section_geometry(SID, &poly(0), false)
+        .record_section_geometry(SID, &poly(0), false, None)
         .unwrap();
     engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
 
     engine
@@ -361,10 +361,10 @@ fn a_section_with_no_versions_stores_the_line_it_is_given() {
 fn a_stale_newest_version_does_not_stand_in_for_the_current_line() {
     let (mut engine, _dir) = fresh();
     engine
-        .record_section_geometry(SID, &poly(0), false)
+        .record_section_geometry(SID, &poly(0), false, None)
         .unwrap();
     engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
     let current = poly(7);
 
@@ -394,10 +394,10 @@ fn a_stale_newest_version_does_not_stand_in_for_the_current_line() {
 fn a_current_line_already_stored_is_milestoned_in_place() {
     let (mut engine, _dir) = fresh();
     engine
-        .record_section_geometry(SID, &poly(0), false)
+        .record_section_geometry(SID, &poly(0), false, None)
         .unwrap();
     engine
-        .record_section_geometry(SID, &poly(1), false)
+        .record_section_geometry(SID, &poly(1), false, None)
         .unwrap();
 
     engine
@@ -416,7 +416,7 @@ fn the_milestoned_shape_survives_retention() {
     let (mut engine, _dir) = fresh();
     for seed in 0..4 {
         engine
-            .record_section_geometry(SID, &poly(seed), false)
+            .record_section_geometry(SID, &poly(seed), false, None)
             .unwrap();
     }
     let kept = poly(3);
@@ -425,7 +425,7 @@ fn the_milestoned_shape_survives_retention() {
         .unwrap();
     for seed in 10..16 {
         engine
-            .record_section_geometry(SID, &poly(seed), false)
+            .record_section_geometry(SID, &poly(seed), false, None)
             .unwrap();
     }
 

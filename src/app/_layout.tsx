@@ -1,35 +1,22 @@
 // Enable screen freezing BEFORE any other imports
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
-enableFreeze(true);
 
-import { LogBox } from 'react-native';
-if (!__DEV__) {
-  // Keep production logs quieter without hiding warnings while developing.
-  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
-}
+import { LogBox, Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
-installGlobalCrashHandler();
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Alert,
-  AppState,
-  View,
-  ActivityIndicator,
-  Platform,
-  InteractionManager,
-} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -40,7 +27,10 @@ import { initializeRecordingPreferences } from '@/features/recording/stores/Reco
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import {
+  initializeRouteSettings,
+  isHeatmapEnabled,
+} from '@/features/routes/stores/RouteSettingsStore';
 import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
@@ -54,7 +44,6 @@ import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvi
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
@@ -85,6 +74,12 @@ import {
 // Register background insight task at module scope (required by TaskManager)
 import '@/features/insights/backgroundInsightTask';
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
+enableFreeze(true);
+if (!__DEV__) {
+  // Keep production logs quieter without hiding warnings while developing.
+  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
+}
+installGlobalCrashHandler();
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -185,6 +180,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               // left to ask. Runs after the credential push so Rust has
               // something to authenticate with.
               startElevationBackfillAfterUpdate().catch(() => {});
+              // An install that saved Corridor keeps it until this runs; the
+              // trigger declines while the backfill still owes fetches, so a
+              // catalogue is never cut over a half-elevated library.
+              startDetectorCutoverAfterUpdate().catch(() => {});
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();

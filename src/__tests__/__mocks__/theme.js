@@ -95,7 +95,7 @@ module.exports = {
   glows: {},
   opacity: {},
   zoneColors: {},
-  colorWithOpacity: (color, opacity) => color,
+  colorWithOpacity: (color) => color,
   shadows: {},
   createShadow: () => ({}),
   cardShadow: {},

@@ -1,11 +1,17 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  Platform,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import { StyleSheet } from 'react-native';
 
 interface SectionsListHeaderProps {
   searchQuery: string;

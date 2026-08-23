@@ -281,7 +281,7 @@ fn pinned_run(
 
     if pin {
         let version = engine
-            .record_section_geometry(&id, &fp.polyline, true)
+            .record_section_geometry(&id, &fp.polyline, true, None)
             .expect("record geometry version");
         assert!(
             engine

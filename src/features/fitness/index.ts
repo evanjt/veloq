@@ -1,6 +1,5 @@
 export {
   FitnessChart,
-  FitnessFormChart,
   FormZoneChart,
   ActivityDotsChart,
   SeasonBestsSection,
@@ -48,7 +47,6 @@ export {
   useSportPreference,
   getPrimarySport,
   initializeSportPreference,
-  SPORT_API_TYPES,
   SPORT_COLORS,
   type PrimarySport,
 } from './stores';

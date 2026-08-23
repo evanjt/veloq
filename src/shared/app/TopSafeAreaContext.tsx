@@ -25,7 +25,7 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isOnline } = useNetwork();
-  const [syncBannerVisible, setSyncBannerVisibleState] = useState(false);
+  const [, setSyncBannerVisibleState] = useState(false);
 
   const setSyncBannerVisible = useCallback((visible: boolean) => {
     setSyncBannerVisibleState(visible);

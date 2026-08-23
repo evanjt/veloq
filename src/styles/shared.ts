@@ -16,7 +16,7 @@
  * </View>
  * ```
  */
-import { StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import { StyleSheet, TextStyle } from 'react-native';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 // Two-slot cache: light and dark styles (only 2 possible values of isDark)
@@ -38,8 +38,6 @@ export const createSharedStyles = (isDark: boolean) => {
 };
 
 const buildSharedStyles = (isDark: boolean) => {
-  const c = isDark ? darkColors : colors;
-
   return StyleSheet.create({
     // =========================================================================
     // LAYOUT CONTAINERS

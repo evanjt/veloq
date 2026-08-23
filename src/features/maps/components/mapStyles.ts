@@ -1,19 +1,7 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
-import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
-import {
-  isPointInSwitzerland,
-  isPointInFrance,
-  isPointInUSA,
-  isPointInSpain,
-  isPointInAustria,
-  isPointInNetherlands,
-  isPointInCzechia,
-  isPointInPoland,
-  isPointInLuxembourg,
-} from './countryBoundaries';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -63,7 +51,7 @@ const REGIONS = {
     maxLng: -66.9,
     minZoom: 10, // NAIP high-res kicks in at zoom 10+
   },
-  // Spain (mainland + Balearics; Canaries handled by isPointInSpain bbox check)
+  // Spain (mainland + Balearics; the Canaries sit outside these bounds)
   spain: {
     minLat: 36.0,
     maxLat: 43.8,
@@ -231,62 +219,6 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
 };
 
-/**
- * Determine the best satellite source for a given location and zoom level.
- * Returns the source ID and whether regional high-res imagery is available.
- */
-export function getSatelliteSourceId(lat: number, lng: number, zoom: number): SatelliteSourceId {
-  // Check smallest/highest-priority countries first, then larger regions
-
-  // Switzerland - highest priority (maxzoom 20, 10cm)
-  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
-    return 'swisstopo';
-  }
-
-  // Luxembourg - tiny, must check before France (maxzoom 21, 10cm, CC0)
-  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
-    return 'luxembourg';
-  }
-
-  // Austria - borders Switzerland (maxzoom 20, 20cm)
-  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
-    return 'austria';
-  }
-
-  // Netherlands (maxzoom 21, 8cm)
-  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
-    return 'netherlands';
-  }
-
-  // France - excludes Switzerland and Luxembourg (maxzoom 20, 20cm)
-  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
-    return 'ign';
-  }
-
-  // Czech Republic (maxzoom 18, 12.5cm)
-  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
-    return 'czechia';
-  }
-
-  // Spain (maxzoom 20, 25-50cm)
-  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
-    return 'spain';
-  }
-
-  // Poland (maxzoom 19, 25cm)
-  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
-    return 'poland';
-  }
-
-  // USA - NAIP (maxzoom 17, 60cm)
-  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
-    return 'naip';
-  }
-
-  // Global fallback
-  return 'eox';
-}
-
 // Type for combined satellite MapLibre style with multiple regional sources
 export interface CombinedSatelliteMapStyle {
   version: 8;
@@ -301,7 +233,7 @@ export interface CombinedSatelliteMapStyle {
       bounds?: [number, number, number, number];
     }
   >;
-  layers: Array<
+  layers: (
     | {
         id: string;
         type: 'raster';
@@ -314,7 +246,7 @@ export interface CombinedSatelliteMapStyle {
         type: 'background';
         paint: { 'background-color': string };
       }
-  >;
+  )[];
 }
 
 // Legacy type alias for backwards compatibility
@@ -535,37 +467,36 @@ export function getSatelliteAttribution(sourceId: SatelliteSourceId): string {
  * Get combined attribution for all satellite sources visible in the current viewport.
  * Uses precise polygon boundaries for accurate attribution.
  */
-export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
-  const attributions: string[] = [];
+// Each regional source and the zoom gate that governs it. Attribution is
+// derived from the same bounds MapLibre clips the raster to, so the credit
+// line always names the imagery actually drawn.
+const REGIONAL_ATTRIBUTION_SOURCES: [SatelliteSourceId, keyof typeof REGIONS][] = [
+  ['swisstopo', 'switzerland'],
+  ['luxembourg', 'luxembourg'],
+  ['austria', 'austria'],
+  ['netherlands', 'netherlands'],
+  ['ign', 'france'],
+  ['czechia', 'czechia'],
+  ['spain', 'spain'],
+  ['poland', 'poland'],
+  ['naip', 'usa'],
+];
 
-  // Check which regional sources are visible using precise polygon checks
-  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.swisstopo.attribution);
-  }
-  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.luxembourg.attribution);
-  }
-  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.austria.attribution);
-  }
-  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.netherlands.attribution);
-  }
-  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.ign.attribution);
-  }
-  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.czechia.attribution);
-  }
-  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.spain.attribution);
-  }
-  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.poland.attribution);
-  }
-  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
-    attributions.push(SATELLITE_SOURCES.naip.attribution);
-  }
+function boundsContain(
+  bounds: [number, number, number, number] | undefined,
+  lng: number,
+  lat: number
+): boolean {
+  if (!bounds) return false;
+  const [west, south, east, north] = bounds;
+  return lng >= west && lng <= east && lat >= south && lat <= north;
+}
+
+export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
+  const attributions = REGIONAL_ATTRIBUTION_SOURCES.filter(
+    ([id, region]) =>
+      zoom >= REGIONS[region].minZoom && boundsContain(SATELLITE_SOURCES[id].bounds, lng, lat)
+  ).map(([id]) => SATELLITE_SOURCES[id].attribution);
 
   // Always include EOX as the global base
   attributions.push(SATELLITE_SOURCES.eox.attribution);
@@ -589,7 +520,7 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
   if (rewritten.sources) {
-    for (const source of Object.values(rewritten.sources) as Array<Record<string, unknown>>) {
+    for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
       if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
         delete source.url;
         source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];

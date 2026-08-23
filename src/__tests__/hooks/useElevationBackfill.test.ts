@@ -6,12 +6,12 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
+
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 
 const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
 

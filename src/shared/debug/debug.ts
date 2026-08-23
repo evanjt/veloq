@@ -5,10 +5,6 @@
 
 type LogLevel = 'log' | 'warn' | 'error';
 
-interface LogOptions {
-  prefix?: string;
-}
-
 // No-op function for production
 const noop = (): void => {};
 

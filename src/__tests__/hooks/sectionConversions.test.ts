@@ -6,6 +6,8 @@
  * Encode coordinates in the same delta+zigzag-varint format as the Rust side,
  * so mock FFI data matches the real ArrayBuffer shape.
  */
+import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
+
 function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
   const SCALE = 1e7;
   const bytes: number[] = [];
@@ -111,8 +113,6 @@ jest.mock('@/shared/ffi/ffiConversions', () => ({
       direction: p.direction === 'reverse' ? 'reverse' : 'same',
     })),
 }));
-
-import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal NativeFrequentSection-like object

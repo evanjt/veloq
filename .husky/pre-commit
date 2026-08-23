@@ -2,4 +2,5 @@
 npx lint-staged
 npm run audit
 npx tsc --noEmit
+npm run lint
 npm test -- --maxWorkers=2

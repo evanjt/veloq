@@ -1,5 +1,4 @@
 // Demo data exports
-export { demoAthlete } from './athlete';
 export { demoWellness } from '@/features/fitness/demo/wellness';
 export { demoPowerCurve, demoPaceCurve, demoSportSettings } from '@/features/fitness/demo/curves';
 export {

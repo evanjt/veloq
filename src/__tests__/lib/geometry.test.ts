@@ -1,15 +1,15 @@
+import {
+  haversineDistance,
+  computePolylineOverlap,
+  simplifyPolyline,
+} from '@/shared/math/geometry';
+
 const mockEngineOverlap = jest.fn();
 let mockEngine: { computePolylineOverlap: jest.Mock } | null = null;
 
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => mockEngine,
 }));
-
-import {
-  haversineDistance,
-  computePolylineOverlap,
-  simplifyPolyline,
-} from '@/shared/math/geometry';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {

@@ -27,7 +27,8 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   return mod?.routeEngine ?? null;
 }
 
-export type DetectionMethod = 'corridor' | 'density' | 'flow' | 'unified';
+export const DETECTION_METHODS = ['corridor', 'density', 'flow', 'unified'] as const;
+export type DetectionMethod = (typeof DETECTION_METHODS)[number];
 export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
 /**

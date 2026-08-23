@@ -9,3 +9,5 @@ export {
   FORM_ZONE_GUIDANCE_KEYS,
   type FormZone,
 } from './fitness';
+
+export { formatEffortValue, formatEffortTime } from './bestEfforts';
