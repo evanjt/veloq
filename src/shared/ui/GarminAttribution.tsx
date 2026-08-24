@@ -5,17 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
 
-interface GarminAttributionProps {
-  /** The device name to check for Garmin branding */
-  deviceName?: string | null;
-  /** Optional: force show attribution regardless of device name */
-  forceShow?: boolean;
-  /** Display variant */
-  variant?: 'inline' | 'block';
-  /** Size variant */
-  size?: 'small' | 'medium';
-}
-
 /**
  * Helper to check if a device name indicates a Garmin device
  */
@@ -35,54 +24,6 @@ export function isGarminDevice(deviceName?: string | null): boolean {
   );
 }
 
-/**
- * Garmin Attribution component
- *
- * Per Garmin's brand guidelines, applications displaying information
- * derived from Garmin-sourced data must provide attribution to Garmin.
- *
- * This component displays "Garmin" text when the data source is a Garmin device.
- */
-export function GarminAttribution({
-  deviceName,
-  forceShow = false,
-  variant = 'inline',
-  size = 'small',
-}: GarminAttributionProps) {
-  const { isDark } = useTheme();
-
-  const showAttribution = forceShow || isGarminDevice(deviceName);
-
-  if (!showAttribution) {
-    return null;
-  }
-
-  const textStyle = [
-    styles.text,
-    size === 'medium' && styles.textMedium,
-    isDark && styles.textDark,
-  ];
-
-  if (variant === 'block') {
-    return (
-      <View style={[styles.blockContainer, isDark && styles.blockContainerDark]}>
-        <Text style={textStyle}>
-          <Text style={styles.garminText}>Garmin</Text>
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <Text style={textStyle}>
-      <Text style={styles.garminText}>Garmin</Text>
-    </Text>
-  );
-}
-
-/**
- * Full device attribution with Garmin branding when applicable
- */
 interface DeviceAttributionProps {
   deviceName?: string | null;
 }

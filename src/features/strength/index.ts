@@ -27,7 +27,7 @@ export {
   formatSetCount,
   formatBalanceRatio,
 } from './lib/formatting';
-export { findMuscleAtPoint, FRONT_POLYGONS, BACK_POLYGONS } from './lib/polygons';
+export { findMuscleAtPoint } from './lib/polygons';
 export type { MusclePolygons, Polygon } from './lib/polygons';
 
 export type {

@@ -646,11 +646,3 @@ export const insightCategoryColors: Record<string, string> = {
   hrv_trend: colors.formOptimal,
   stale_pr: colors.warning,
 };
-
-// =============================================================================
-// TYPE EXPORTS
-// =============================================================================
-
-export type ColorKey = keyof typeof colors;
-export type DarkColorKey = keyof typeof darkColors;
-export type BrandColorKey = keyof typeof brand;

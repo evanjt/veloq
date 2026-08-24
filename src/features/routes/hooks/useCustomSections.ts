@@ -287,20 +287,3 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refresh,
   };
 }
-
-/**
- * Hook to get a single custom section by ID
- */
-export function useCustomSection(sectionId: string | undefined): {
-  section: Section | null;
-  isLoading: boolean;
-} {
-  const { sections, isLoading } = useCustomSections();
-
-  const section = useMemo(() => {
-    if (!sectionId) return null;
-    return sections.find((s) => s.id === sectionId) || null;
-  }, [sections, sectionId]);
-
-  return { section, isLoading };
-}

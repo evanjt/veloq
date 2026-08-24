@@ -34,7 +34,6 @@ interface ActivityHeaderProps {
   /** Activity streams - required for gradient-based line coloring on the map */
   streams?: ActivityStreams | null;
   isMetric: boolean;
-  isDark: boolean;
   debugEnabled: boolean;
   insetTop: number;
   mapHeight: number;

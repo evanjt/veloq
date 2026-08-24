@@ -435,16 +435,6 @@ export function formatMonth(date: Date | string): string {
   return d.toLocaleDateString(locale, { month: 'short' });
 }
 
-/**
- * Format date range (e.g., "Jan 2 - Jan 9")
- */
-export function formatDateRange(start: Date | string, end: Date | string): string {
-  return `${formatShortDate(start)} - ${formatShortDate(end)}`;
-}
-
-/**
- * Format full date with year (e.g., "Jan 2, 2024")
- */
 export function formatFullDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();

@@ -93,9 +93,9 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       // Normalized 0-1 coordinates within the SVG viewBox
       const nx = (localX - padX) / bodyPixelW;
       const ny = y / bodyPixelH;
-      return findMuscleAtPoint(nx, ny, side, tappableSlugs);
+      return findMuscleAtPoint(nx, ny, side, tappableSlugs, gender);
     },
-    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH]
+    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH, gender]
   );
 
   const handleScrubUpdate = useCallback(

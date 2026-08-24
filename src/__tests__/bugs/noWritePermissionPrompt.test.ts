@@ -33,11 +33,6 @@ describe('US-PRM1: no write-permission prompt in shipping code', () => {
 
     for (const file of files) {
       if (file.endsWith(`${COMPONENT}.tsx`)) continue;
-      if (file.endsWith('settings/index.ts')) {
-        // Re-export from barrel is OK as long as nothing else imports it.
-        // We catch real mounts in the next scan below.
-        continue;
-      }
       const src = readFileSync(file, 'utf8');
       const usageRegex = new RegExp(`<${COMPONENT}\\b`);
       if (usageRegex.test(src)) {

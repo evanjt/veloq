@@ -38,7 +38,7 @@ const rel = (p) => relative(ROOT, p);
 const ALLOWLIST = new Map([
   // Deliberately unmounted while recording is feature-gated off. Kept for
   // re-enabling, and guarded by src/__tests__/bugs/noWritePermissionPrompt.test.ts,
-  // which asserts nothing outside the settings barrel imports it.
+  // which asserts no shipping file mounts it.
   [
     'src/features/settings/components/RecordingPermissionSection.tsx',
     'intentionally unwired, see US-PRM1 test',
@@ -46,10 +46,6 @@ const ALLOWLIST = new Map([
   [
     'src/features/home/components/InsightLine.tsx',
     'deliberately disabled, see the note at src/app/(tabs)/index.tsx:207',
-  ],
-  [
-    'src/features/settings/lib/exportIndex.ts',
-    'reached only through the settings barrel, which is itself unused; delete both or neither',
   ],
 ]);
 
