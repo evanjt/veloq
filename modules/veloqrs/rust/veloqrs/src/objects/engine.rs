@@ -6,10 +6,7 @@ use rusqlite::backup;
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
-pub struct VeloqEngine {
-    #[allow(dead_code)]
-    db_path: String,
-}
+pub struct VeloqEngine;
 
 #[uniffi::export]
 impl VeloqEngine {
@@ -24,10 +21,10 @@ impl VeloqEngine {
 
         if !already {
             info!("[VeloqEngine] Initializing at {}", db_path);
-            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path.clone());
+            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path);
         }
 
-        Arc::new(Self { db_path })
+        Arc::new(Self)
     }
 
     fn is_initialized(&self) -> bool {
