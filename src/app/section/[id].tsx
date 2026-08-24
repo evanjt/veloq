@@ -309,7 +309,6 @@ export default function SectionDetailScreen() {
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
-            isDark={isDark}
             insetTop={insets.top}
             mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
             activityColor={activityColor}

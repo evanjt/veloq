@@ -84,35 +84,6 @@ export function EmptyState({
   );
 }
 
-// Preset for no activities
-export function NoActivitiesState({ onRefresh }: { onRefresh?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="run"
-      title={t('emptyState.noActivities.title')}
-      description={t('emptyState.noActivities.description')}
-      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
-      onAction={onRefresh}
-    />
-  );
-}
-
-// Preset for no results (search/filter)
-export function NoResultsState({ onClear }: { onClear?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="magnify-close"
-      title={t('emptyState.noResults.title')}
-      description={t('emptyState.noResults.description')}
-      actionLabel={onClear ? t('emptyState.clearFilters') : undefined}
-      onAction={onClear}
-    />
-  );
-}
-
-// Preset for network error
 export function NetworkErrorState({ onRetry }: { onRetry?: () => void }) {
   const { t } = useTranslation();
   return (
@@ -136,42 +107,6 @@ export function ErrorStatePreset({ message, onRetry }: { message?: string; onRet
       description={message || t('emptyState.error.description')}
       actionLabel={onRetry ? t('errorState.tryAgain') : undefined}
       onAction={onRetry}
-    />
-  );
-}
-
-// Preset for no data in chart/stats
-export function NoDataState({
-  compact = true,
-  onRefresh,
-}: {
-  compact?: boolean;
-  onRefresh?: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="chart-line-variant"
-      title={t('emptyState.noData.title')}
-      description={t('emptyState.noData.description')}
-      actionLabel={onRefresh ? t('emptyState.refresh') : undefined}
-      onAction={onRefresh}
-      compact={compact}
-    />
-  );
-}
-
-// Preset for offline mode
-export function OfflineState({ onRetry }: { onRetry?: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <EmptyState
-      icon="cloud-off-outline"
-      title={t('emptyState.offline.title')}
-      description={t('emptyState.offline.description')}
-      actionLabel={onRetry ? t('common.retry') : undefined}
-      onAction={onRetry}
-      compact
     />
   );
 }

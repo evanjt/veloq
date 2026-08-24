@@ -241,31 +241,6 @@ export function useUnifiedSections(
   };
 }
 
-/**
- * Hook to get a single unified section by ID.
- */
-export function useUnifiedSection(sectionId: string | undefined): {
-  section: UnifiedSection | null;
-  isLoading: boolean;
-} {
-  const { sections, isLoading } = useUnifiedSections();
-
-  const section = useMemo(() => {
-    if (!sectionId) return null;
-    return sections.find((s) => s.id === sectionId) || null;
-  }, [sections, sectionId]);
-
-  return { section, isLoading };
-}
-
-/**
- * Get all section display names (custom or auto-generated).
- * Used for uniqueness validation when renaming sections.
- * Returns a map of sectionId -> displayName for all sections.
- *
- * Uses getSectionSummaries() instead of getSections() for better performance -
- * summaries contain all fields needed for name generation without loading full polylines.
- */
 export function getAllSectionDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
   if (!engine) return {};

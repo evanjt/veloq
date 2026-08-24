@@ -10,8 +10,8 @@ export type {
 export { ChartCrosshair } from './ChartCrosshair';
 export type { ChartCrosshairProps } from './ChartCrosshair';
 
-export { useChartColors, useChartColor, useZoneColors, useFitnessColors } from './useChartColors';
-export type { ChartColorScheme, ChartMetricType } from './useChartColors';
+export { useChartColors } from './useChartColors';
+export type { ChartColorScheme } from './useChartColors';
 
 export { useChartInteraction } from './useChartInteraction';
 
@@ -20,4 +20,7 @@ export { buildMonotoneSvg, buildMonotoneAreaSvg } from './sparklinePath';
 export { polylineSvgPath, bandSvgPath } from './svgPath';
 export type { XY } from './svgPath';
 
-export { CHART_CONFIG, GESTURE_VELOCITY, CHART_ANIMATION_DURATION } from './constants';
+export { CHART_CONFIG } from './constants';
+
+export { finiteExtent } from './extent';
+export type { Extent } from './extent';

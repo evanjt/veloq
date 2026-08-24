@@ -169,83 +169,6 @@ export interface RouteGroup {
 /** Direction of route match */
 export type MatchDirection = 'same' | 'reverse' | 'partial';
 
-/** Match result when comparing two activities */
-export interface RouteMatch {
-  /** Activity ID being matched */
-  activityId: string;
-  /** Route group ID it matches */
-  routeGroupId: string;
-  /** Match percentage (0-100) */
-  matchPercentage: number;
-  /** Direction: 'same' | 'reverse' | 'partial' */
-  direction: MatchDirection;
-  /** For partial matches: overlap start (% along route) */
-  overlapStart?: number;
-  /** For partial matches: overlap end (% along route) */
-  overlapEnd?: number;
-  /** For partial matches: overlapping distance in meters */
-  overlapDistance?: number;
-  /** Confidence score (0-1) based on GPS quality and point density */
-  confidence: number;
-}
-
-/** Performance data for a route completion */
-export interface RoutePerformance {
-  activityId: string;
-  date: string;
-  duration: number;
-  movingTime: number;
-  averageSpeed: number;
-  averagePower?: number;
-  averageHr?: number;
-  elevationGain: number;
-  matchQuality: number;
-  direction: MatchDirection;
-}
-
-/** Cached route matching data */
-export interface RouteMatchCache {
-  /** Cache version for invalidation */
-  version: number;
-  /** Last update timestamp */
-  lastUpdated: string;
-  /** Route signatures by activity ID */
-  signatures: Record<string, RouteSignature>;
-  /** Route groups */
-  groups: RouteGroup[];
-  /** Matches mapping activity ID to match info */
-  matches: Record<string, RouteMatch>;
-  /** Activity IDs that have been processed */
-  processedActivityIds: string[];
-  /** Reverse index: activity ID → route group ID (for O(1) lookup) */
-  activityToRouteId: Record<string, string>;
-  /** Frequently traveled sections (auto-detected) */
-  frequentSections?: FrequentSection[];
-}
-
-/** Status of an individual activity being processed */
-export interface ProcessedActivityStatus {
-  id: string;
-  name: string;
-  type: string;
-  status: 'pending' | 'checking' | 'matched' | 'no-match' | 'error';
-  matchedWith?: string; // Name of activity it matched with
-}
-
-/** A match discovered during processing (pair of activities) */
-export interface DiscoveredMatchInfo {
-  id: string;
-  activity1: { id: string; name: string };
-  activity2: { id: string; name: string };
-  type: string;
-  matchPercentage: number;
-  /** Simplified preview points (normalized 0-1) */
-  previewPoints?: { x: number; y: number }[];
-  distance?: number;
-  /** Whether this is the most recent match */
-  isNew?: boolean;
-}
-
 /** A route discovered during processing (group of matching activities) */
 export interface DiscoveredRouteInfo {
   id: string;
@@ -265,36 +188,6 @@ export interface DiscoveredRouteInfo {
   previewPoints?: { x: number; y: number }[];
   /** Route distance in meters */
   distance?: number;
-}
-
-/** Progress state for route processing */
-export interface RouteProcessingProgress {
-  status:
-    | 'idle'
-    | 'filtering'
-    | 'fetching'
-    | 'processing'
-    | 'matching'
-    | 'detecting-sections'
-    | 'complete'
-    | 'error';
-  current: number;
-  total: number;
-  message?: string;
-  /** For filtering phase: total activities being considered */
-  totalActivities?: number;
-  /** For filtering phase: number of candidates found */
-  candidatesFound?: number;
-  /** Individual activity statuses for live UI */
-  processedActivities?: ProcessedActivityStatus[];
-  /** Running count of matches found */
-  matchesFound?: number;
-  /** Routes discovered so far (grouped activities) */
-  discoveredRoutes?: DiscoveredRouteInfo[];
-  /** Currently processing activity name */
-  currentActivity?: string;
-  /** Number of cached signatures we're matching against */
-  cachedSignatureCount?: number;
 }
 
 // =============================================================================

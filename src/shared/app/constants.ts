@@ -43,23 +43,6 @@ export const CACHE = {
   MONTH: TIME.DAY * 30,
 } as const;
 
-/**
- * API rate limiting constants
- */
-export const RATE_LIMIT = {
-  /** Minimum ms between requests */
-  MIN_INTERVAL: 50,
-  /** Sliding window size in ms */
-  WINDOW_SIZE: 10000,
-  /** Max requests per window (API allows 132/10s, use 120 to be safe) */
-  MAX_PER_WINDOW: 120,
-  /** Default batch concurrency (API recommends 10/s for bulk, use 12) */
-  DEFAULT_CONCURRENCY: 12,
-} as const;
-
-/**
- * Chart configuration constants
- */
 export const CHART = {
   /** Default chart height */
   DEFAULT_HEIGHT: 200,
@@ -69,41 +52,11 @@ export const CHART = {
   DOWNSAMPLE_TARGET: 500,
 } as const;
 
-/**
- * Sync configuration constants
- */
-export const SYNC = {
-  /** Initial sync period in days (3 months - GPS traces fetched for route matching) */
-  INITIAL_DAYS: 90,
-  /** Background sync history in days */
-  BACKGROUND_DAYS: 365 * 2,
-  /** Max history to sync in years */
-  MAX_HISTORY_YEARS: 10,
-} as const;
-
-/**
- * UI layout constants
- */
 export const UI = {
   /** Max height for routes list container */
   ROUTES_LIST_MAX_HEIGHT: 400,
 } as const;
 
-/**
- * API default values
- */
-export const API_DEFAULTS = {
-  /** Default activity fetch period in days */
-  ACTIVITY_DAYS: 30,
-  /** Default wellness fetch period in days */
-  WELLNESS_DAYS: 90,
-  /** Fallback date for finding oldest activity */
-  OLDEST_DATE_FALLBACK: '2000-01-01',
-} as const;
-
-/**
- * External URLs for intervals.icu
- */
 export const INTERVALS_URLS = {
   signup: 'https://intervals.icu',
   privacyPolicy: 'https://intervals.icu/privacy-policy.html',

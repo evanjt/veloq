@@ -4,7 +4,6 @@
  */
 
 import {
-  paceToMinPerKm,
   paceToMinPer100m,
   getPaceAtDistance,
   getIndexAtDistance,
@@ -21,50 +20,6 @@ import {
 } from '@/features/stats/hooks/usePowerCurve';
 
 import type { PaceCurve, PowerCurve } from '@/types';
-
-// ---------------------------------------------------------------------------
-// paceToMinPerKm
-// ---------------------------------------------------------------------------
-
-describe('paceToMinPerKm', () => {
-  it('converts m/s to min/km across the running pace range', () => {
-    // pace = 1000 / speed seconds per km, split into minutes/seconds.
-    const cases: { secondsPerKm: number; minutes: number; seconds: number }[] = [
-      { secondsPerKm: 240, minutes: 4, seconds: 0 }, // 4:00
-      { secondsPerKm: 390, minutes: 6, seconds: 30 }, // 6:30
-      { secondsPerKm: 120, minutes: 2, seconds: 0 }, // very fast
-      { secondsPerKm: 900, minutes: 15, seconds: 0 }, // very slow
-    ];
-
-    for (const { secondsPerKm, minutes, seconds } of cases) {
-      const result = paceToMinPerKm(1000 / secondsPerKm);
-      expect(result.minutes).toBe(minutes);
-      expect(result.seconds).toBe(seconds);
-    }
-  });
-
-  it('returns {0, 0} for zero and negative speed', () => {
-    expect(paceToMinPerKm(0)).toEqual({ minutes: 0, seconds: 0 });
-    expect(paceToMinPerKm(-5)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
-  it('rolls over seconds=60 to next minute', () => {
-    // We need a speed where Math.round(secondsPerKm % 60) === 60
-    // secondsPerKm % 60 >= 59.5 means secondsPerKm = N*60 + 59.5
-    // e.g. secondsPerKm = 359.5 → minutes should be 6, seconds 0 (not 5:60)
-    const secondsPerKm = 359.5;
-    const metersPerSecond = 1000 / secondsPerKm;
-    const result = paceToMinPerKm(metersPerSecond);
-    expect(result.seconds).toBeLessThan(60);
-    // 359.5s → floor(359.5/60) = 5, round(359.5 % 60) = round(59.5) = 60 → rollover → 6:00
-    expect(result.minutes).toBe(6);
-    expect(result.seconds).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// paceToMinPer100m
-// ---------------------------------------------------------------------------
 
 describe('paceToMinPer100m', () => {
   it('converts a typical swim pace (1:40/100m = 1.0 m/s)', () => {

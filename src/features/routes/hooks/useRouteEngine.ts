@@ -19,7 +19,6 @@ import type { FrequentSection } from '@/types';
 // Engine Type Helper
 // ============================================================================
 
-type Engine = ReturnType<typeof getRouteEngine>;
 type EngineEvent = 'activities' | 'groups' | 'sections';
 
 // ============================================================================
@@ -96,28 +95,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
  * @param events - Engine events to subscribe to
  * @param fallback - Fallback value when engine is unavailable or error occurs
  */
-export function createEngineHook<T>(
-  queryFn: (engine: NonNullable<Engine>) => T,
-  events: EngineEvent[],
-  fallback: T
-): () => T {
-  return function useEngineHook(): T {
-    const trigger = useEngineSubscription(events);
-
-    return useMemo(() => {
-      try {
-        const engine = getRouteEngine();
-        if (!engine) return fallback;
-        return queryFn(engine);
-      } catch {
-        return fallback;
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [trigger]);
-  };
-}
-
-// ============================================================================
+export // ============================================================================
 // Data Hooks with Options
 // ============================================================================
 
@@ -334,45 +312,6 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
 // ============================================================================
 // Simple hooks without factory (unique patterns)
 // ============================================================================
-
-interface Bounds {
-  minLat: number;
-  maxLat: number;
-  minLng: number;
-  maxLng: number;
-}
-
-interface UseViewportActivitiesResult {
-  /** Activity IDs visible in the viewport */
-  activityIds: string[];
-  /** Number of activities in viewport */
-  count: number;
-}
-
-/**
- * Hook for querying activities within a map viewport.
- * Uses R-tree spatial index in Rust for fast queries.
- */
-export function useViewportActivities(bounds: Bounds | null): UseViewportActivitiesResult {
-  const [activityIds, setActivityIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (bounds) {
-      const engine = getRouteEngine();
-      const ids = engine
-        ? engine.queryViewport(bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng)
-        : [];
-      setActivityIds(ids);
-    } else {
-      setActivityIds([]);
-    }
-  }, [bounds?.minLat, bounds?.maxLat, bounds?.minLng, bounds?.maxLng]);
-
-  return {
-    activityIds,
-    count: activityIds.length,
-  };
-}
 
 interface UseConsensusRouteResult {
   /** Consensus route points [{ lat, lng }, ...] or null if not available */

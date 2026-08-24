@@ -6,8 +6,6 @@ export {
   getRouteCoordinates,
   getRouteCoordinatesWithVariation,
   getRouteBounds,
-  getRouteForActivity,
-  getRouteById,
   getRouteLocation,
 } from '@/features/routes/demo/routes';
 

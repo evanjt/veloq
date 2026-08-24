@@ -293,7 +293,7 @@ impl DetectionManager {
         sport_filter: Option<String>,
     ) -> Result<Vec<crate::FfiPotentialSection>, VeloqError> {
         with_engine(|e| {
-            let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
+            let mut activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
                 e.activity_metadata
                     .values()
                     .filter(|m| &m.sport_type == sport)
@@ -302,6 +302,9 @@ impl DetectionManager {
             } else {
                 e.activity_metadata.keys().cloned().collect()
             };
+            // The pool comes out of a map, and `tracks` below inherits its order,
+            // so the detector would see a different arrangement on every run.
+            activity_ids.sort();
 
             if activity_ids.is_empty() {
                 return vec![];

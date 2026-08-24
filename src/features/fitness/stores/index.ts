@@ -1,6 +1,5 @@
 export {
   useHRZones,
-  getHRZones,
   initializeHRZones,
   DEFAULT_HR_ZONES,
   type HRZone,

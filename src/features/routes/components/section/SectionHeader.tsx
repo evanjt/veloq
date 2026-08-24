@@ -23,7 +23,6 @@ export { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT };
 export interface SectionHeaderProps {
   section: FrequentSection;
   mapHeight?: number;
-  isDark: boolean;
   insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;

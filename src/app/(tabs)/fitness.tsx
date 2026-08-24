@@ -124,7 +124,6 @@ export default function FitnessScreen() {
   } = useFitnessScreenData({ timeRange, sportMode });
 
   const runLthr = runSettings?.lthr;
-  const runMaxHr = runSettings?.max_hr;
   const thresholdPace = runPaceCurve?.criticalSpeed;
   const swimThresholdPace = swimPaceCurve?.criticalSpeed;
 
@@ -287,7 +286,6 @@ export default function FitnessScreen() {
             onTrendsToggle={(v) => sections.setExpanded('trends', v)}
             thresholdPace={thresholdPace}
             runLthr={runLthr}
-            runMaxHr={runMaxHr}
             decouplingStreams={decouplingStreams}
             decouplingValue={decouplingValue}
             loadingStreams={loadingStreams}

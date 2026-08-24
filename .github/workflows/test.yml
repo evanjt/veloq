@@ -105,6 +105,13 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: cargo clippy --workspace
 
+      # Scoped to one lint on one crate so it gates now rather than after the
+      # veloqrs backlog. The detection path is clean; the retired detectors
+      # carry a module-level allow.
+      - name: Clippy (detection ordering)
+        working-directory: modules/veloqrs/rust
+        run: cargo clippy -p tracematch -- -D clippy::iter_over_hash_type
+
   guards:
     name: Guard Scripts
     runs-on: ubuntu-latest
@@ -124,8 +131,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # check:expo + ffi:check + crash:guard + lint:engine-bridge — the same guards
-      # the pre-commit hook runs, so a PR can't merge past them with --no-verify.
+      # The same guards the pre-commit hook runs, so a PR can't merge past them
+      # with --no-verify. See the `audit` script in package.json for the list.
       - name: Run guard scripts
         run: npm run audit
 
