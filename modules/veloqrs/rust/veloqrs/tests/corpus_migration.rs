@@ -24,12 +24,21 @@
 #![cfg(feature = "real-corpus")]
 
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::sections::DetectionMethod;
 use veloqrs::persistence::with_persistent_engine;
+
+// Both tests drive the one process-wide engine and each runs a cutover, so a
+// concurrent pair sees the other's switched config and reports no migration
+// owed.
+static SERIAL: Mutex<()> = Mutex::new(());
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 const ENV: &str = "TRACEMATCH_CORPUS";
 
@@ -274,6 +283,7 @@ fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
 /// point of running this.
 #[test]
 fn a_released_catalogue_migrates_onto_references() {
+    let _serial = serial();
     let corpora = corpora();
     assert!(
         !corpora.is_empty(),
@@ -352,17 +362,17 @@ fn a_released_catalogue_migrates_onto_references() {
 /// between two runs is the batched one above [`BATCH_CAP`], and a small corpus
 /// never reaches it. This is the slow test of the pair for that reason.
 ///
-/// Only the migrated catalogue is asserted. The released-era one is measured
-/// and printed but deliberately not asserted, because it is not reproducible:
-/// two cuts of this corpus have produced 7 sections / 488 members and 6 / 457.
-/// That is a property of the detector being retired, on a path this branch
-/// deletes, and the numbers below are the argument for retiring it rather than
-/// a defect to fix in it. What matters is that the migration converges: an
-/// unstable input catalogue still yields one stable output catalogue, because
-/// the cut is re-derived from the activity pool and the old rows supply only
-/// identity.
+/// Both eras are asserted. The released one used to wander, six or seven
+/// sections and anywhere from 444 to 630 members over the same files, so it was
+/// measured and printed but left unasserted. It holds now: the retired detector
+/// shares the ordering primitives that were canonicalised for the unified path,
+/// so the fix reached it without anyone repairing it on its own account.
+///
+/// The migrated catalogue is the one that matters, and it converges either way,
+/// because the cut is re-derived from the activity pool.
 #[test]
 fn the_migration_is_reproducible() {
+    let _serial = serial();
     let corpora = corpora();
     let (dir, _) = corpora
         .first()
@@ -386,6 +396,11 @@ fn the_migration_is_reproducible() {
         report("released era", before);
         report("after cutover", after);
     }
+
+    assert_eq!(
+        shapes[0].0, shapes[1].0,
+        "two released-era cuts of one corpus disagreed"
+    );
 
     assert_eq!(
         shapes[0].1, shapes[1].1,

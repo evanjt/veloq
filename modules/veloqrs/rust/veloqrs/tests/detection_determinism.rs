@@ -138,11 +138,17 @@ fn assert_every_process_agrees(arm: Arm, worker: &str) {
     );
 }
 
-/// Corridor, scheduled for replacement rather than repair. Run it with
-/// `--ignored` to measure the detector on its way out; it gates nothing until
-/// Corridor is deterministic across processes.
+/// Corridor, scheduled for replacement rather than repair.
+///
+/// This gated nothing while the arm split into three catalogues across four
+/// processes. It agrees now, not because Corridor was repaired on its own
+/// account but because it shares the ordering primitives that were fixed for
+/// the unified path, so the fix arrived here for free.
+///
+/// What it proves is bounded: one cut of one pool lands on one catalogue in
+/// every process. It says nothing about the fixed-set wander, which is
+/// feedback rather than ordering and belongs to its own contract.
 #[test]
-#[ignore = "Corridor is not deterministic across processes and is being replaced, not repaired"]
 fn the_control_arm_lands_on_the_same_catalogue_in_every_process() {
     assert_every_process_agrees(Arm::Control, WORKER_CONTROL);
 }
