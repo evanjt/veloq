@@ -550,8 +550,8 @@ impl SectionManager {
                 &polyline,
                 &track_map,
             );
-            match traces.get(&activity_id) {
-                Some(trace) => crate::coords::encode(trace),
+            match traces.into_iter().next() {
+                Some((_, trace)) => crate::coords::encode(&trace),
                 None => vec![],
             }
         })

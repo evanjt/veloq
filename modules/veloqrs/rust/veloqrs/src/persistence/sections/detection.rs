@@ -636,21 +636,15 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
             .map(|(k, v)| (k.as_str(), v.as_slice()))
             .collect();
 
-        let mut traces_map = tracematch::sections::extract_all_activity_traces(
+        let traces = tracematch::sections::extract_all_activity_traces(
             &activity_ids,
             polyline,
             &track_ref_map,
         );
-        if traces_map.is_empty() {
+        if traces.is_empty() {
             skipped += 1;
             continue;
         }
-        // The accumulator folds in the order it is given and HashMap iteration
-        // is randomised per run, so walk the section's own activity order.
-        let traces: Vec<(String, Vec<tracematch::GpsPoint>)> = activity_ids
-            .iter()
-            .filter_map(|id| traces_map.remove(id).map(|t| (id.clone(), t)))
-            .collect();
         let acc = tracematch::sections::build_accumulator_from_traces(
             polyline,
             &traces,
@@ -765,20 +759,14 @@ fn seed_consensus_state(
         if section.polyline.len() < 2 || section.activity_ids.is_empty() {
             continue;
         }
-        let mut traces_map = tracematch::sections::extract_all_activity_traces(
+        let traces = tracematch::sections::extract_all_activity_traces(
             &section.activity_ids,
             &section.polyline,
             &track_map,
         );
-        if traces_map.is_empty() {
+        if traces.is_empty() {
             continue;
         }
-        // Same reason as above: the fold order must not be the hash order.
-        let traces: Vec<(String, Vec<GpsPoint>)> = section
-            .activity_ids
-            .iter()
-            .filter_map(|id| traces_map.remove(id).map(|t| (id.clone(), t)))
-            .collect();
         let acc = tracematch::sections::build_accumulator_from_traces(
             &section.polyline,
             &traces,
