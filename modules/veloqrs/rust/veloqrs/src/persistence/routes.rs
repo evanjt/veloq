@@ -239,13 +239,17 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Migration: Generate names for groups that don't have names yet
-        let groups_without_names: Vec<(String, String)> = self
+        // Migration: Generate names for groups that don't have names yet.
+        // Sorted by id, because the counter below hands out numbers in this
+        // order and an unordered walk gives the same route a different number
+        // on the next run.
+        let mut groups_without_names: Vec<(String, String)> = self
             .groups
             .iter()
             .filter(|g| !names.contains_key(&g.group_id))
             .map(|g| (g.group_id.clone(), g.sport_type.clone()))
             .collect();
+        groups_without_names.sort();
 
         if !groups_without_names.is_empty() {
             log::info!(
@@ -335,6 +339,10 @@ impl PersistentRouteEngine {
                 }
             }
 
+            // The walk over `names` above is unordered, and every step below
+            // hands out numbers positionally, so canonicalise once here.
+            renames.sort();
+
             if !renames.is_empty() {
                 let mut used: std::collections::HashSet<u32> = std::collections::HashSet::new();
                 for name in names.values() {
@@ -351,8 +359,10 @@ impl PersistentRouteEngine {
                     .db
                     .prepare("UPDATE route_names SET custom_name = ? WHERE route_id = ?")?;
 
-                // Group by number to resolve conflicts
-                let mut by_num: HashMap<u32, Vec<String>> = HashMap::new();
+                // Group by number to resolve conflicts. Keyed order, because the
+                // loop below assigns final numbers as it walks.
+                let mut by_num: std::collections::BTreeMap<u32, Vec<String>> =
+                    std::collections::BTreeMap::new();
                 for (id, num) in &renames {
                     by_num.entry(*num).or_default().push(id.clone());
                 }
@@ -371,7 +381,7 @@ impl PersistentRouteEngine {
                             (id.as_str(), count)
                         })
                         .collect();
-                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1));
+                    sorted_ids.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
 
                     for (i, (id, _)) in sorted_ids.iter().enumerate() {
                         let final_num = if i == 0 && !used.contains(num) {
@@ -910,13 +920,15 @@ impl PersistentRouteEngine {
                 "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
             )?;
 
-            // Sort groups by sport type and activity count (most activities first)
-            // This ensures consistent, predictable numbering
+            // Sport, then most activities first. The id closes the ordering so
+            // two groups tied on both do not swap numbers between runs, matching
+            // the section-side comparator.
             let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
             sorted_groups.sort_by(|a, b| {
                 a.sport_type
                     .cmp(&b.sport_type)
                     .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+                    .then_with(|| a.group_id.cmp(&b.group_id))
             });
 
             // Track next available number for each sport type (for sequential assignment)
