@@ -21,3 +21,6 @@ export { polylineSvgPath, bandSvgPath } from './svgPath';
 export type { XY } from './svgPath';
 
 export { CHART_CONFIG } from './constants';
+
+export { finiteExtent } from './extent';
+export type { Extent } from './extent';
