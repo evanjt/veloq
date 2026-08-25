@@ -227,7 +227,10 @@ mod carry_tests {
 
     #[test]
     fn an_added_lap_does_not_steal_the_exclusion() {
-        assert_eq!(assign_carried_exclusions(&[500], &[0, 250, 500, 750]), vec![500]);
+        assert_eq!(
+            assign_carried_exclusions(&[500], &[0, 250, 500, 750]),
+            vec![500]
+        );
     }
 
     #[test]

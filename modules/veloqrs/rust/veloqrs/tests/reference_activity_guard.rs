@@ -99,7 +99,7 @@ fn the_prune_keeps_reference_activities() {
         deleted, 1,
         "retention must take the plain activity and leave the reference"
     );
-    let referencing =
-        with_persistent_engine(|engine| engine.sections_referencing_activity("rep")).expect("engine");
+    let referencing = with_persistent_engine(|engine| engine.sections_referencing_activity("rep"))
+        .expect("engine");
     assert_eq!(referencing, vec![section_id]);
 }
