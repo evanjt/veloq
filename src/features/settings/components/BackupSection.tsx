@@ -26,7 +26,7 @@ import {
   testWebdavConnection,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, layout } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
 const BACKEND_LABELS = {
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalOptionSelected: {
-    backgroundColor: 'rgba(252, 76, 2, 0.08)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.08),
   },
   modalOptionText: {
     flex: 1,
