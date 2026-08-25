@@ -25,6 +25,7 @@ pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
 pub use detection::run_accumulator_backfill;
 pub(super) use detection::spawn_accumulator_backfill;
 
+use crate::sections::assign_carried_exclusions;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
@@ -92,9 +93,9 @@ pub(super) fn compute_lap_time_from_stream(
 }
 
 /// Exclusion rows the auto-section wipe is about to cascade away:
-/// `None` fate for a fully excluded activity, `Some((ordinals, count))`
-/// for per-lap state, ordinals over the pair's rows in start_index order.
-type CarriedExclusions = Vec<(String, String, Option<(Vec<usize>, usize)>)>;
+/// `None` fate for a fully excluded activity, `Some(start_indices)` for
+/// per-lap state, keyed by the excluded rows' own `start_index` values.
+type CarriedExclusions = Vec<(String, String, Option<Vec<u32>>)>;
 
 fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclusions> {
     // The common save carries no exclusions at all; one early-exit probe
@@ -110,7 +111,7 @@ fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclu
         return Ok(CarriedExclusions::new());
     }
     let mut stmt = tx.prepare(
-        "SELECT sa.section_id, sa.activity_id, sa.excluded
+        "SELECT sa.section_id, sa.activity_id, sa.excluded, sa.start_index
          FROM section_activities sa
          JOIN sections s ON s.id = sa.section_id
          WHERE s.section_type = 'auto' AND s.original_polyline_json IS NULL
@@ -120,9 +121,14 @@ fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclu
                          AND e.activity_id = sa.activity_id AND e.excluded = 1)
          ORDER BY sa.section_id, sa.activity_id, sa.start_index",
     )?;
-    let rows: Vec<(String, String, bool)> = stmt
+    let rows: Vec<(String, String, bool, u32)> = stmt
         .query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get::<_, i64>(2)? != 0,
+                row.get(3)?,
+            ))
         })?
         .filter_map(|r| r.ok())
         .collect();
@@ -130,19 +136,19 @@ fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclu
     let mut i = 0;
     while i < rows.len() {
         let (sid, aid) = (rows[i].0.clone(), rows[i].1.clone());
-        let mut ordinals = Vec::new();
+        let mut starts = Vec::new();
         let mut count = 0usize;
         while i < rows.len() && rows[i].0 == sid && rows[i].1 == aid {
             if rows[i].2 {
-                ordinals.push(count);
+                starts.push(rows[i].3);
             }
             count += 1;
             i += 1;
         }
-        if ordinals.len() == count {
+        if starts.len() == count {
             carried.push((sid, aid, None));
         } else {
-            carried.push((sid, aid, Some((ordinals, count))));
+            carried.push((sid, aid, Some(starts)));
         }
     }
     Ok(carried)
@@ -150,7 +156,7 @@ fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclu
 
 /// Put carried exclusions back after the junction re-insert. Same rules
 /// as the CRUD-side reapply: full activities flag every new row; per-lap
-/// state carries by ordinal only when the pair's row count is unchanged.
+/// state carries onto the nearest rebuilt row by `start_index`.
 fn reapply_auto_exclusions(
     tx: &rusqlite::Transaction,
     carried: &CarriedExclusions,
@@ -164,8 +170,8 @@ fn reapply_auto_exclusions(
                     params![sid, aid],
                 )?;
             }
-            Some((ordinals, expected)) => {
-                let starts: Vec<u32> = {
+            Some(carried_starts) => {
+                let rebuilt: Vec<u32> = {
                     let mut stmt = tx.prepare(
                         "SELECT start_index FROM section_activities
                          WHERE section_id = ? AND activity_id = ? ORDER BY start_index",
@@ -174,14 +180,11 @@ fn reapply_auto_exclusions(
                         .filter_map(|r| r.ok())
                         .collect()
                 };
-                if starts.len() != *expected {
-                    continue;
-                }
-                for ordinal in ordinals {
+                for start in assign_carried_exclusions(carried_starts, &rebuilt) {
                     tx.execute(
                         "UPDATE section_activities SET excluded = 1
                          WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-                        params![sid, aid, starts[*ordinal]],
+                        params![sid, aid, start],
                     )?;
                 }
             }

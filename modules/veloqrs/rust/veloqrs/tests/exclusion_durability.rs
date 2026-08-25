@@ -229,6 +229,58 @@ fn a_per_lap_exclusion_survives_a_trim() {
     );
 }
 
+/// A re-attach that changes the member's lap count must still carry the
+/// exclusion. It lands on the rebuilt traversal nearest the one the user
+/// excluded, rather than being dropped because the row count moved.
+#[test]
+fn a_per_lap_exclusion_survives_a_recut_that_changes_the_lap_count() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
+    engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
+    assert_eq!(lapped_exclusions(&engine, &sid).len(), 1);
+    let laps = |dir: &TempDir| -> i64 {
+        rusqlite::Connection::open(dir.path().join("exclusion_laps.db"))
+            .and_then(|db| {
+                db.query_row(
+                    "SELECT COUNT(*) FROM section_activities WHERE activity_id = 'act_lapped'",
+                    [],
+                    |r| r.get(0),
+                )
+            })
+            .expect("lap count")
+    };
+    let before = laps(&dir);
+
+    let corpus = corpus();
+    let base = &corpus.bucket_c_single;
+    let mut four_passes = lapped_track(base);
+    let mut back = base.gps_points.clone();
+    back.reverse();
+    four_passes.extend(back);
+    engine
+        .add_activity(
+            "act_lapped".to_string(),
+            four_passes,
+            base.sport_type.clone(),
+        )
+        .unwrap();
+    engine.attach_new_activities(&["act_lapped".to_string()]);
+
+    assert!(
+        laps(&dir) != before,
+        "the fourth pass left the lap count unchanged, so this proves nothing"
+    );
+    assert_eq!(
+        lapped_exclusions(&engine, &sid).len(),
+        1,
+        "the excluded lap must ride across a rebuild that changes the lap count"
+    );
+    assert!(
+        !excluded(&engine, &sid).contains(&"act_lapped".to_string()),
+        "a per-lap exclusion must not widen to the whole activity"
+    );
+}
+
 /// Re-attaching an activity (sync re-index) rewrites its junction rows;
 /// the exclusion is a user decision and must ride across.
 #[test]
