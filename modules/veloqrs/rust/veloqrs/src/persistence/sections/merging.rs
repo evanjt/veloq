@@ -47,7 +47,8 @@ impl PersistentRouteEngine {
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
              FROM sections s
              WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
-               AND s.bounds_min_lat IS NOT NULL",
+               AND s.bounds_min_lat IS NOT NULL
+             ORDER BY s.id",
         ) {
             Ok(s) => s,
             Err(_) => return vec![],
@@ -124,6 +125,7 @@ impl PersistentRouteEngine {
             b.overlap_pct
                 .partial_cmp(&a.overlap_pct)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.section_id.cmp(&b.section_id))
         });
         candidates.truncate(10);
         candidates
