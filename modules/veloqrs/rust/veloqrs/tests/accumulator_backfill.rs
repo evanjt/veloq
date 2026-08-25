@@ -164,6 +164,79 @@ fn backfill_seeds_all_null_blobs_and_sets_flag() {
     assert!(flag_set(&path), "backfill completion flag must be set");
 }
 
+/// The stored accumulator gained a pass index in its absorbed list. An
+/// upgraded database still holds the old shape, which must fail to decode
+/// and fall through to a reseed rather than surfacing as an error.
+#[test]
+fn a_pre_pass_index_accumulator_blob_reseeds() {
+    #[derive(serde::Serialize)]
+    struct LegacyPointAccumulator {
+        weighted_lat_sum: f64,
+        weighted_lng_sum: f64,
+        total_weight: f64,
+        observation_count: u32,
+        spread_sum: f64,
+    }
+
+    #[derive(serde::Serialize)]
+    struct LegacyAccumulator {
+        reference: Vec<tracematch::GpsPoint>,
+        per_point: Vec<LegacyPointAccumulator>,
+        trace_count: u32,
+        absorbed_activity_ids: Vec<String>,
+    }
+
+    let tmp = TempDir::new().expect("tmp");
+    let path_buf = tmp.path().join("legacy_blob.db");
+    let path = path_buf.to_str().unwrap().to_string();
+    build_scenario_b(&path);
+
+    let legacy = LegacyAccumulator {
+        reference: vec![
+            tracematch::GpsPoint {
+                latitude: 46.0,
+                longitude: 7.0,
+                elevation: None,
+            },
+            tracematch::GpsPoint {
+                latitude: 46.001,
+                longitude: 7.0,
+                elevation: None,
+            },
+        ],
+        per_point: vec![],
+        trace_count: 3,
+        absorbed_activity_ids: vec!["a_1".to_string(), "a_2".to_string()],
+    };
+    let blob = rmp_serde::to_vec(&legacy).expect("legacy blob");
+
+    let db = Connection::open(&path).expect("open");
+    db.execute("UPDATE sections SET consensus_state_blob = ?", [&blob])
+        .expect("write legacy blobs");
+    db.execute(
+        "DELETE FROM schema_info WHERE key = 'accumulators_seeded_v1'",
+        [],
+    )
+    .expect("clear flag");
+    drop(db);
+
+    // Loading must not error, and the undecodable blobs must not be
+    // mistaken for seeded state.
+    let engine = PersistentRouteEngine::new(&path).expect("engine reopens over legacy blobs");
+    assert!(
+        engine
+            .get_sections()
+            .iter()
+            .all(|s| s.consensus_state.is_none()),
+        "an old-shape blob must decode to None, not a half-read accumulator"
+    );
+    drop(engine);
+
+    let (seeded, _skipped) = veloqrs::persistence::sections::run_accumulator_backfill(&path, true)
+        .expect("backfill ok over legacy blobs");
+    assert!(seeded > 0, "the reseed must replace the old-shape blobs");
+}
+
 #[test]
 fn backfill_is_idempotent_when_flag_already_set() {
     let tmp = TempDir::new().expect("tmp");

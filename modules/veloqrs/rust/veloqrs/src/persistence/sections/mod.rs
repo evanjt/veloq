@@ -507,7 +507,7 @@ impl PersistentRouteEngine {
             &section.polyline,
             &track_map,
         );
-        for (aid, trace) in traces {
+        for (aid, trace) in tracematch::sections::longest_pass_per_activity(traces) {
             section.activity_traces.insert(aid, trace);
         }
 

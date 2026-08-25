@@ -485,29 +485,38 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
     }
 
     // Collect sections that still need seeding.
-    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>)> = {
+    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>, Option<Vec<u8>>)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
-                 WHERE consensus_state_blob IS NULL
-                   AND disabled = 0",
+                // A blob written by an older accumulator shape does not
+                // decode, so it needs the same reseed a NULL one does.
+                "SELECT id, polyline_blob, polyline_json, consensus_state_blob FROM sections
+                 WHERE disabled = 0",
             )
             .map_err(|e| format!("prepare failed: {}", e))?;
         stmt.query_map([], |row| {
             let id: String = row.get(0)?;
             let blob: Option<Vec<u8>> = row.get(1)?;
             let json: Option<String> = row.get(2)?;
-            Ok((id, blob, json))
+            let state: Option<Vec<u8>> = row.get(3)?;
+            Ok((id, blob, json, state))
         })
         .ok()
         .map(|rows| {
             rows.filter_map(|r| r.ok())
-                .filter_map(|(id, blob, json)| {
+                .filter(|(_, _, _, state)| match state {
+                    None => true,
+                    Some(bytes) => codec::deserialize_gps_composite::<
+                        tracematch::sections::ConsensusAccumulator,
+                    >(bytes)
+                    .is_err(),
+                })
+                .filter_map(|(id, blob, json, state)| {
                     codec::decode_polyline_row(blob.as_deref(), json.as_deref())
                         .ok()
-                        .map(|p| (id, p))
+                        .map(|p| (id, p, state))
                 })
-                .filter(|(_, p)| p.len() >= 2)
+                .filter(|(_, p, _)| p.len() >= 2)
                 .collect()
         })
         .unwrap_or_default()
@@ -545,7 +554,7 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
     let mut unreadable_sections: u32 = 0;
     let mut seed_exclusions: Vec<(String, Vec<String>)> = Vec::new();
 
-    for (section_id, polyline) in &sections_to_seed {
+    for (section_id, polyline, stale_state) in &sections_to_seed {
         // Activity ids for this section (excluded=0 matches the rest of the codebase).
         let activity_ids: Vec<String> = match conn.prepare(
             "SELECT activity_id FROM section_activities
@@ -653,14 +662,17 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
 
         match codec::serialize_gps_composite(&acc) {
             Ok(blob) => {
-                // IS NULL guard: respect any writes the main engine made
-                // while we were computing (e.g., a sync that ran concurrently
-                // and populated this section via the normal incremental path).
+                // Unchanged-since-read guard: respect any writes the main
+                // engine made while we were computing (e.g., a sync that ran
+                // concurrently and populated this section via the normal
+                // incremental path). `IS` matches NULL, so a never-seeded
+                // section and one holding a blob of an older accumulator
+                // shape are both replaced.
                 let updated = conn
                     .execute(
                         "UPDATE sections SET consensus_state_blob = ?
-                         WHERE id = ? AND consensus_state_blob IS NULL",
-                        params![blob, section_id],
+                         WHERE id = ? AND consensus_state_blob IS ?",
+                        params![blob, section_id, stale_state],
                     )
                     .unwrap_or(0);
                 if updated > 0 {
