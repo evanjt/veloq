@@ -85,9 +85,6 @@ jest.mock('@/features/maps/stores/TileCacheStore', () => ({
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
-  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
 }));
