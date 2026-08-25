@@ -107,14 +107,18 @@ export function getActivityMetricsForIds(host: DelegateHost, ids: string[]): Ffi
   );
 }
 
-export function removeActivity(host: DelegateHost, activityId: string): boolean {
-  if (!host.ready) return false;
+/// A refusal carries the sections that hold the activity as their geometry
+/// reference, so the caller can name them.
+export type RemoveActivityResult = { ok: true } | { ok: false; reason: string };
+
+export function removeActivity(host: DelegateHost, activityId: string): RemoveActivityResult {
+  if (!host.ready) return { ok: false, reason: 'engine not ready' };
   try {
     host.timed('removeActivity', () => host.engine.activities().remove(activityId));
     host.notifyAll('activities', 'groups', 'sections');
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
   }
 }
 

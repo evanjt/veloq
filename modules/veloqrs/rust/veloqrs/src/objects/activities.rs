@@ -9,7 +9,7 @@ pub struct ActivityManager {
 #[uniffi::export]
 impl ActivityManager {
     #[uniffi::constructor]
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Self { _private: () })
     }
 
@@ -243,8 +243,14 @@ impl ActivityManager {
         })
     }
 
-    fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
+    pub fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
+            let referencing = e.sections_referencing_activity(&activity_id);
+            if !referencing.is_empty() {
+                return Err(VeloqError::ReferenceActivity {
+                    msg: referencing.join(","),
+                });
+            }
             e.remove_activity(&activity_id)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),

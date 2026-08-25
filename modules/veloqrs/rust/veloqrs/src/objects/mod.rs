@@ -1,4 +1,4 @@
-mod activities;
+pub mod activities;
 pub(crate) mod detection;
 mod engine;
 pub mod error;

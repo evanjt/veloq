@@ -975,7 +975,7 @@ class RouteEngineClient implements DelegateHost {
     return gen().getDownloadProgress();
   }
 
-  removeActivity = (activityId: string): boolean =>
+  removeActivity = (activityId: string): activityDelegates.RemoveActivityResult =>
     activityDelegates.removeActivity(this, activityId);
 
   debugCloneActivity = (sourceId: string, count: number): number =>

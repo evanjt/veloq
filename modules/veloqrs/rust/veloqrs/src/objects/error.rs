@@ -10,6 +10,8 @@ pub enum VeloqError {
     NotFound { msg: String },
     #[error("Parse error: {msg}")]
     ParseError { msg: String },
+    #[error("Reference activity: {msg}")]
+    ReferenceActivity { msg: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.
