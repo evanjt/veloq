@@ -31,12 +31,10 @@ import {
 } from '@/features/routes/hooks/useUnifiedSections';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
-import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
 import { SectionsListHeader } from './SectionsListHeader';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
-import { useSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { getRouteEngine } from '@/shared/native/routeEngine';
@@ -55,7 +53,6 @@ interface SectionsListProps {
     count: number;
     autoCount: number;
     customCount: number;
-    potentialCount: number;
     disabledCount: number;
     isLoading: boolean;
     error: Error | null;
@@ -297,11 +294,10 @@ export const SectionsList = memo(function SectionsList({
   }, [batchSections]);
 
   // Only call hook if data not pre-fetched from parent
-  // When batch sections are available, skip engine FFI calls but keep custom/potential loading
+  // When batch sections are available, skip engine FFI calls but keep custom loading
   const hookData = useUnifiedSections({
     sportType,
     includeCustom: true,
-    includePotentials: true,
     enabled: !prefetchedData,
     preloadedEngineSections,
   });
@@ -316,7 +312,7 @@ export const SectionsList = memo(function SectionsList({
     isLoading,
   } = data;
 
-  const { createSection, removeSection } = useCustomSections();
+  const { removeSection } = useCustomSections();
   const { rescan, isScanning } = useSectionRescan();
 
   const trueDisabledCount = disabledCount;
@@ -328,62 +324,57 @@ export const SectionsList = memo(function SectionsList({
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays();
 
-  // Separate regular sections from potential sections, apply filter, search, and sort
-  const { regularSections, potentialSections, unacceptedAutoCount, acceptedAutoCount } =
-    useMemo(() => {
-      const regular: UnifiedSection[] = [];
-      const potential: UnifiedSection[] = [];
-      let unaccepted = 0;
-      let accepted = 0;
-      const query = searchQuery.toLowerCase();
+  // Apply filter, search, and sort
+  const { regularSections, unacceptedAutoCount, acceptedAutoCount } = useMemo(() => {
+    const regular: UnifiedSection[] = [];
+    let unaccepted = 0;
+    let accepted = 0;
+    const query = searchQuery.toLowerCase();
 
-      for (const section of unifiedSections) {
-        if (section.sectionType === 'potential') {
-          potential.push(section);
-        } else {
-          const isVisibleAuto =
-            section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-          if (isVisibleAuto && !section.isUserDefined) unaccepted++;
-          if (isVisibleAuto && section.isUserDefined) accepted++;
+    for (const section of unifiedSections) {
+      {
+        const isVisibleAuto =
+          section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+        if (isVisibleAuto && !section.isUserDefined) unaccepted++;
+        if (isVisibleAuto && section.isUserDefined) accepted++;
 
-          // Apply hide filters
-          const isCustom = section.sectionType === 'custom';
-          const isDisabledAuto =
-            section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
-          const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
+        // Apply hide filters
+        const isCustom = section.sectionType === 'custom';
+        const isDisabledAuto =
+          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
+        const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
 
-          if (
-            (isCustom && hiddenFilters.custom) ||
-            (isVisibleAuto && hiddenFilters.auto) ||
-            (isDisabledAuto && hiddenFilters.disabled) ||
-            (isUnacceptedAuto && hiddenFilters.unaccepted)
-          ) {
-            continue;
-          }
-
-          if (query && !section.name?.toLowerCase().includes(query)) {
-            continue;
-          }
-
-          regular.push(section);
+        if (
+          (isCustom && hiddenFilters.custom) ||
+          (isVisibleAuto && hiddenFilters.auto) ||
+          (isDisabledAuto && hiddenFilters.disabled) ||
+          (isUnacceptedAuto && hiddenFilters.unaccepted)
+        ) {
+          continue;
         }
-      }
 
-      if (sortOption === 'visits') {
-        regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
-      } else if (sortOption === 'distance') {
-        regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
-      } else if (sortOption === 'name') {
-        regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-      }
+        if (query && !section.name?.toLowerCase().includes(query)) {
+          continue;
+        }
 
-      return {
-        regularSections: regular,
-        potentialSections: potential,
-        unacceptedAutoCount: unaccepted,
-        acceptedAutoCount: accepted,
-      };
-    }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+        regular.push(section);
+      }
+    }
+
+    if (sortOption === 'visits') {
+      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
+    } else if (sortOption === 'distance') {
+      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+    } else if (sortOption === 'name') {
+      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    }
+
+    return {
+      regularSections: regular,
+      unacceptedAutoCount: unaccepted,
+      acceptedAutoCount: accepted,
+    };
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -415,25 +406,6 @@ export const SectionsList = memo(function SectionsList({
     navigateTo(`/section/${id}`);
   }, []);
 
-  // Handle promoting a potential section to a custom section
-  const handlePromotePotential = useCallback(
-    async (section: UnifiedSection) => {
-      if (section.sectionType !== 'potential') return;
-      log.log('Promoting potential section:', section.id);
-      try {
-        await createSection({
-          startIndex: 0,
-          endIndex: section.polyline.length - 1,
-          sourceActivityId: section.activityIds[0] ?? 'unknown',
-          sportType: section.sportType,
-        });
-      } catch (error) {
-        log.error('Failed to promote section:', error);
-      }
-    },
-    [createSection]
-  );
-
   // Handle accepting all auto sections
   const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
   useEffect(() => {
@@ -457,16 +429,6 @@ export const SectionsList = memo(function SectionsList({
       ]
     );
   }, [t, unacceptedAutoCount]);
-
-  // Handle dismissing a potential section
-  const dismiss = useSectionDismissals((s) => s.dismiss);
-  const handleDismissPotential = useCallback(
-    async (section: UnifiedSection) => {
-      log.log('Dismissing potential section:', section.id);
-      await dismiss(section.id);
-    },
-    [dismiss]
-  );
 
   const renderEmpty = () => {
     if (!isReady) {
@@ -543,25 +505,6 @@ export const SectionsList = memo(function SectionsList({
   }, [isScanning, rescan]);
 
   const displaySectionCount = totalSectionCount ?? totalCount;
-
-  const renderHeader = () => {
-    if (potentialSections.length === 0) return null;
-    return (
-      <View style={styles.suggestionsContainer}>
-        <Text style={[styles.suggestionsTitle, isDark && styles.textLight]}>
-          {t('routes.suggestions' as never)}
-        </Text>
-        {potentialSections.slice(0, 3).map((section) => (
-          <PotentialSectionCard
-            key={section.id}
-            section={section}
-            onPromote={() => handlePromotePotential(section)}
-            onDismiss={() => handleDismissPotential(section)}
-          />
-        ))}
-      </View>
-    );
-  };
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((id: string) => {
@@ -692,7 +635,6 @@ export const SectionsList = memo(function SectionsList({
         data={regularSections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={potentialSections.length > 0 ? renderHeader : null}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={regularSections.length === 0 ? styles.emptyList : styles.list}

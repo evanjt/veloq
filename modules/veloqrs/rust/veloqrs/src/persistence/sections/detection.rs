@@ -485,29 +485,38 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
     }
 
     // Collect sections that still need seeding.
-    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>)> = {
+    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>, Option<Vec<u8>>)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
-                 WHERE consensus_state_blob IS NULL
-                   AND disabled = 0",
+                // A blob written by an older accumulator shape does not
+                // decode, so it needs the same reseed a NULL one does.
+                "SELECT id, polyline_blob, polyline_json, consensus_state_blob FROM sections
+                 WHERE disabled = 0",
             )
             .map_err(|e| format!("prepare failed: {}", e))?;
         stmt.query_map([], |row| {
             let id: String = row.get(0)?;
             let blob: Option<Vec<u8>> = row.get(1)?;
             let json: Option<String> = row.get(2)?;
-            Ok((id, blob, json))
+            let state: Option<Vec<u8>> = row.get(3)?;
+            Ok((id, blob, json, state))
         })
         .ok()
         .map(|rows| {
             rows.filter_map(|r| r.ok())
-                .filter_map(|(id, blob, json)| {
+                .filter(|(_, _, _, state)| match state {
+                    None => true,
+                    Some(bytes) => codec::deserialize_gps_composite::<
+                        tracematch::sections::ConsensusAccumulator,
+                    >(bytes)
+                    .is_err(),
+                })
+                .filter_map(|(id, blob, json, state)| {
                     codec::decode_polyline_row(blob.as_deref(), json.as_deref())
                         .ok()
-                        .map(|p| (id, p))
+                        .map(|p| (id, p, state))
                 })
-                .filter(|(_, p)| p.len() >= 2)
+                .filter(|(_, p, _)| p.len() >= 2)
                 .collect()
         })
         .unwrap_or_default()
@@ -545,7 +554,7 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
     let mut unreadable_sections: u32 = 0;
     let mut seed_exclusions: Vec<(String, Vec<String>)> = Vec::new();
 
-    for (section_id, polyline) in &sections_to_seed {
+    for (section_id, polyline, stale_state) in &sections_to_seed {
         // Activity ids for this section (excluded=0 matches the rest of the codebase).
         let activity_ids: Vec<String> = match conn.prepare(
             "SELECT activity_id FROM section_activities
@@ -653,14 +662,17 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
 
         match codec::serialize_gps_composite(&acc) {
             Ok(blob) => {
-                // IS NULL guard: respect any writes the main engine made
-                // while we were computing (e.g., a sync that ran concurrently
-                // and populated this section via the normal incremental path).
+                // Unchanged-since-read guard: respect any writes the main
+                // engine made while we were computing (e.g., a sync that ran
+                // concurrently and populated this section via the normal
+                // incremental path). `IS` matches NULL, so a never-seeded
+                // section and one holding a blob of an older accumulator
+                // shape are both replaced.
                 let updated = conn
                     .execute(
                         "UPDATE sections SET consensus_state_blob = ?
-                         WHERE id = ? AND consensus_state_blob IS NULL",
-                        params![blob, section_id],
+                         WHERE id = ? AND consensus_state_blob IS ?",
+                        params![blob, section_id, stale_state],
                     )
                     .unwrap_or(0);
                 if updated > 0 {
@@ -1536,6 +1548,7 @@ impl PersistentRouteEngine {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;
                     self.cache_folded_ids = u.folded_ids;
+                    self.persist_evidence_cache();
                 }
                 Ok(())
             }
@@ -1601,5 +1614,134 @@ impl PersistentRouteEngine {
         self.apply_sections_save(sections)?;
         self.apply_sections_finalize();
         Ok(())
+    }
+}
+
+/// Blob version for the persisted evidence cache. A shape change to
+/// `SectionEvidenceCache` or `LeafMemos` bumps this, and the old row is then
+/// read as a miss rather than decoded into something that no longer means
+/// what it says.
+const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
+
+impl PersistentRouteEngine {
+    /// Write the evidence cache and its folded-id shadow beside the config
+    /// digest they were folded under.
+    ///
+    /// Best effort. The cache is a re-derivable shortcut, so a write that
+    /// fails costs one cold rebatch on the next open and nothing else. It is
+    /// never allowed to fail an apply that already saved its catalogue.
+    ///
+    /// Cost scales with the pool: measured on the lifecycle corpus at roughly
+    /// 5 KB and 0.07 ms per activity, so a 1,000-activity library pays about
+    /// 5 MB and 75 ms per apply. The apply already runs off the main thread,
+    /// and the alternative it buys back is a whole cold rebatch.
+    pub(crate) fn persist_evidence_cache(&mut self) {
+        if self.cache_folded_ids.is_empty() {
+            self.clear_persisted_evidence_cache();
+            return;
+        }
+
+        let digest = super::section_config_digest(&self.section_config);
+        let folded: Vec<String> = {
+            let mut ids: Vec<String> = self.cache_folded_ids.iter().cloned().collect();
+            ids.sort();
+            ids
+        };
+
+        // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
+        // would shorten a positional encoding and misalign everything after it.
+        let cache_blob = match codec::serialize_named(&self.section_evidence_cache) {
+            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+            Err(e) => {
+                log::warn!("tracematch: evidence cache not encodable, staying cold: {e}");
+                return;
+            }
+        };
+        let folded_blob = match codec::serialize_gps_composite(&folded) {
+            Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
+            Err(e) => {
+                log::warn!("tracematch: folded ids not encodable, staying cold: {e}");
+                return;
+            }
+        };
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        if let Err(e) = self.db.execute(
+            "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
+             VALUES (1, ?1, ?2, ?3, ?4)
+             ON CONFLICT(id) DO UPDATE SET
+                 config_digest = excluded.config_digest,
+                 folded_ids = excluded.folded_ids,
+                 cache = excluded.cache,
+                 updated_at = excluded.updated_at",
+            params![digest, folded_blob, cache_blob, now],
+        ) {
+            log::warn!("tracematch: evidence cache not written, staying cold: {e}");
+        }
+    }
+
+    /// Drop the persisted evidence cache row. Paired with every in-memory
+    /// invalidation, so a restart can never adopt a cache the running engine
+    /// had already decided was stale.
+    pub(crate) fn clear_persisted_evidence_cache(&mut self) {
+        if let Err(e) = self.db.execute("DELETE FROM evidence_cache", []) {
+            log::warn!("tracematch: evidence cache row not cleared: {e}");
+        }
+    }
+
+    /// Adopt the persisted evidence cache if it was folded under the config
+    /// now in force. Returns whether it was adopted.
+    ///
+    /// A missing, stale, mistagged or undecodable row leaves the engine cold,
+    /// which is the state every engine started in before this row existed.
+    /// The row is deleted in that case so the next write is a clean insert.
+    pub(crate) fn restore_evidence_cache(&mut self) -> bool {
+        let digest = super::section_config_digest(&self.section_config);
+
+        let row: Option<(String, Vec<u8>, Vec<u8>)> = self
+            .db
+            .query_row(
+                "SELECT config_digest, folded_ids, cache FROM evidence_cache WHERE id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .ok();
+
+        let Some((stored_digest, folded_blob, cache_blob)) = row else {
+            return false;
+        };
+
+        if stored_digest != digest {
+            log::info!("tracematch: evidence cache was folded under another config, dropping it");
+            self.clear_persisted_evidence_cache();
+            return false;
+        }
+
+        let decoded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &cache_blob)
+            .ok_or_else(|| "cache blob tag".to_string())
+            .and_then(|b| codec::deserialize_gps_composite::<SectionEvidenceCache>(b))
+            .and_then(|cache| {
+                let folded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &folded_blob)
+                    .ok_or_else(|| "folded blob tag".to_string())
+                    .and_then(codec::deserialize_gps_composite::<Vec<String>>)?;
+                Ok((cache, folded))
+            });
+
+        match decoded {
+            Ok((cache, folded)) => {
+                self.section_evidence_cache = cache;
+                self.cache_folded_ids = folded.into_iter().collect();
+                true
+            }
+            Err(e) => {
+                log::warn!("tracematch: evidence cache unreadable, starting cold: {e}");
+                self.clear_persisted_evidence_cache();
+                false
+            }
+        }
     }
 }

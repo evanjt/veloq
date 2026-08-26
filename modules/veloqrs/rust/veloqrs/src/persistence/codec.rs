@@ -268,6 +268,17 @@ pub fn serialize_gps_composite<T: Serialize>(value: &T) -> Result<Vec<u8>, Strin
     rmp_serde::to_vec(value).map_err(|e| e.to_string())
 }
 
+/// Encode a value whose graph contains `skip_serializing_if` fields.
+///
+/// [`serialize_gps_composite`] writes structs as positional arrays, so a
+/// skipped field shortens the array and every field after it decodes as the
+/// wrong type. Naming the fields costs bytes and buys a decode that survives
+/// an absent `Option` anywhere in the graph. Read back with
+/// [`deserialize_gps_composite`], which accepts both shapes.
+pub fn serialize_named<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    rmp_serde::to_vec_named(value).map_err(|e| e.to_string())
+}
+
 pub fn deserialize_gps_composite<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
     rmp_serde::from_slice(bytes).map_err(|e| e.to_string())
 }
@@ -655,5 +666,78 @@ mod tests {
             "the quantised stream is not postcard and must not be framed"
         );
         assert_eq!(decode_polyline(&quantised).unwrap().len(), points.len());
+    }
+
+    fn sample_section() -> crate::FrequentSection {
+        let polyline = vec![
+            crate::GpsPoint::with_elevation(45.0, 8.0, 400.0),
+            crate::GpsPoint::with_elevation(45.001, 8.0, 405.0),
+        ];
+        crate::FrequentSection {
+            id: "sec_1".to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            distance_meters: 111.0,
+            point_density: vec![2; polyline.len()],
+            polyline,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: vec![],
+            activity_portions: vec![],
+            route_ids: vec![],
+            visit_count: 0,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.9,
+            observation_count: 3,
+            average_spread: 4.0,
+            scale: None,
+            is_user_defined: false,
+            stability: 1.0,
+            elevation_gain_m: Some(12.0),
+            avg_grade_percent: Some(1.5),
+            version: 7,
+            updated_at: None,
+            created_at: None,
+            consensus_state: None,
+        }
+    }
+
+    /// A `skip_serializing_if` field is safe in a positional encoding only
+    /// when nothing follows it. `FrequentSection` skips `elevation_gain_m`
+    /// and `avg_grade_percent` and then declares `version: u32`, so a section
+    /// with no elevation writes a short array and `version` reads whatever
+    /// came next. `GpsPoint` skips `elevation` last, which is why it survives.
+    #[test]
+    fn a_section_without_elevation_needs_the_named_encoding() {
+        let section = crate::FrequentSection {
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            ..sample_section()
+        };
+
+        let positional = serialize_gps_composite(&section).expect("encode");
+        assert!(
+            deserialize_gps_composite::<crate::FrequentSection>(&positional).is_err(),
+            "the positional encoding round-tripped, so this rule has changed \
+             and every caller that relies on it should be revisited"
+        );
+
+        let named = serialize_named(&section).expect("encode");
+        let back = deserialize_gps_composite::<crate::FrequentSection>(&named)
+            .expect("the named encoding survives the skipped fields");
+        assert_eq!(back.id, section.id);
+        assert_eq!(back.version, section.version);
+    }
+
+    #[test]
+    fn a_trailing_skipped_field_survives_either_encoding() {
+        let points = vec![crate::GpsPoint::new(45.0, 8.0); 3];
+        let positional = serialize_gps_composite(&points).expect("encode");
+        assert_eq!(
+            deserialize_gps_composite::<Vec<crate::GpsPoint>>(&positional)
+                .expect("elevation is the last field")
+                .len(),
+            3
+        );
     }
 }

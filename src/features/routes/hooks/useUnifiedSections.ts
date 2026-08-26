@@ -2,18 +2,13 @@
  * Unified sections hook that combines:
  * - Auto-detected sections from Rust engine
  * - User-created custom sections from FileSystem storage
- * - Potential sections for discovery (suggestions)
  */
 
 import { useMemo } from 'react';
-import { i18n } from '@/i18n';
 import { useCustomSections } from './useCustomSections';
-import { usePotentialSections } from './usePotentialSections';
 import { useEngineSubscription } from './useRouteEngine';
-import { useSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import { computePolylineOverlap } from '@/shared/math/geometry';
 import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
 
 // Re-export for backwards compatibility
@@ -24,8 +19,6 @@ export interface UseUnifiedSectionsOptions {
   sportType?: string;
   /** Include custom sections (default: true) */
   includeCustom?: boolean;
-  /** Include potential sections (default: true) */
-  includePotentials?: boolean;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
   /** Pre-loaded engine sections from batch FFI call. When provided, skips useSectionSummaries FFI calls. */
@@ -42,7 +35,6 @@ export interface UseUnifiedSectionsResult {
   /** Custom section count */
   customCount: number;
   /** Potential section count */
-  potentialCount: number;
   /** Disabled section count */
   disabledCount: number;
   /** Loading state */
@@ -57,13 +49,7 @@ export interface UseUnifiedSectionsResult {
 export function useUnifiedSections(
   options: UseUnifiedSectionsOptions = {}
 ): UseUnifiedSectionsResult {
-  const {
-    sportType,
-    includeCustom = true,
-    includePotentials = true,
-    enabled = true,
-    preloadedEngineSections,
-  } = options;
+  const { sportType, includeCustom = true, enabled = true, preloadedEngineSections } = options;
 
   // Load ALL engine sections including disabled/superseded (for sections list restore UI).
   // This uses getAllSectionsIncludingHidden() so disabled sections appear at the bottom.
@@ -102,21 +88,9 @@ export function useUnifiedSections(
     error: customError,
   } = useCustomSections({ sportType, enabled });
 
-  // Load potential sections from storage (pre-computed during GPS sync)
-  const { potentials: rawPotentials } = usePotentialSections({ sportType, enabled });
-
-  // Get dismissals
-  const isDismissed = useSectionDismissals((s) => s.isDismissed);
-
-  // Filter out dismissed potentials
-  const potentialSections = useMemo(() => {
-    return rawPotentials.filter((p) => !isDismissed(p.id));
-  }, [rawPotentials, isDismissed]);
-
   // Combine all sections
   // NOTE: Overlap calculation for auto vs custom sections is pre-computed and stored
   // in SupersededSectionsStore when custom sections are created.
-  // Overlap for potential sections is still computed here (less frequent, smaller dataset).
   const unified = useMemo(() => {
     const result: UnifiedSection[] = [];
     const seenIds = new Set<string>(); // Track IDs to prevent duplicates
@@ -159,47 +133,6 @@ export function useUnifiedSections(
       });
     }
 
-    // Add potential sections (suggestions)
-    // Overlap check for potentials is still computed here (smaller dataset, less frequent)
-    if (includePotentials) {
-      for (const potential of potentialSections) {
-        // Skip if we already have this ID
-        if (seenIds.has(potential.id)) continue;
-
-        // Check if there's already a similar section (by polyline overlap)
-        // This is computed on-demand but potentials are rare and the result set is small
-        const hasOverlap = result.some(
-          (s) => computePolylineOverlap(potential.polyline, s.polyline) > 0.8
-        );
-
-        if (!hasOverlap) {
-          seenIds.add(potential.id);
-          const distanceKm = potential.distanceMeters / 1000;
-          const distanceStr =
-            distanceKm >= 1
-              ? `${distanceKm.toFixed(1)}km`
-              : `${Math.round(potential.distanceMeters)}m`;
-
-          result.push({
-            id: potential.id,
-            sectionType: 'potential',
-            name: i18n.t('sections.suggestedName', {
-              sport: potential.sportType,
-              distance: distanceStr,
-            }),
-            polyline: potential.polyline,
-            sportType: potential.sportType,
-            distanceMeters: potential.distanceMeters,
-            activityIds: potential.activityIds || [],
-            visitCount: potential.visitCount,
-            createdAt: new Date().toISOString(),
-            confidence: potential.confidence,
-            scale: potential.scale,
-          });
-        }
-      }
-    }
-
     // Sort: disabled/superseded sections last, then by type. Stable within each
     // group so upstream ordering (e.g. Rust-side nearest-distance pre-sort from
     // batchSections) survives. Consumers like SectionsList apply their own
@@ -211,7 +144,7 @@ export function useUnifiedSections(
       if (aHidden && !bHidden) return 1;
       if (!aHidden && bHidden) return -1;
 
-      const typePriority: Record<string, number> = { custom: 0, auto: 1, potential: 2 };
+      const typePriority: Record<string, number> = { custom: 0, auto: 1 };
       const aPriority = typePriority[a.sectionType] ?? 1;
       const bPriority = typePriority[b.sectionType] ?? 1;
 
@@ -219,14 +152,13 @@ export function useUnifiedSections(
     });
 
     return result;
-  }, [engineSections, customSections, potentialSections, includeCustom, includePotentials]);
+  }, [engineSections, customSections, includeCustom]);
 
   // Compute counts (disabled/superseded are hidden from counts)
   const autoCount = unified.filter(
     (s) => s.sectionType === 'auto' && !s.disabled && !s.supersededBy
   ).length;
   const customCount = unified.filter((s) => s.sectionType === 'custom').length;
-  const potentialCount = unified.filter((s) => s.sectionType === 'potential').length;
   const disabledCount = unified.filter((s) => !!(s.disabled || s.supersededBy)).length;
 
   return {
@@ -234,32 +166,8 @@ export function useUnifiedSections(
     count: unified.length,
     autoCount,
     customCount,
-    potentialCount,
     disabledCount,
     isLoading: customLoading,
     error: customError || null,
   };
-}
-
-export function getAllSectionDisplayNames(): Record<string, string> {
-  const engine = getRouteEngine();
-  if (!engine) return {};
-
-  // Use summaries instead of full sections - faster since no polyline data
-  const { summaries } = engine.getSectionSummaries();
-  const customNames = engine.getAllSectionNames();
-  const result: Record<string, string> = {};
-
-  for (const summary of summaries) {
-    // Use custom name if set, otherwise use name from section or generate one
-    if (customNames[summary.id]) {
-      result[summary.id] = customNames[summary.id];
-    } else if (summary.name) {
-      result[summary.id] = summary.name;
-    } else {
-      result[summary.id] = generateSectionName(summary);
-    }
-  }
-
-  return result;
 }

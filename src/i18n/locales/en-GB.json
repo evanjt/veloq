@@ -1360,7 +1360,6 @@
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
     "suggestion": "Suggestion",
-    "suggestions": "Suggestions",
     "thisActivity": "This activity",
     "thisMayTakeMoment": "This may take a moment...",
     "thisPace": "This pace",
@@ -1495,7 +1494,6 @@
     "viewSection": "View",
     "merge": "Merge",
     "autoName": "{{sport}} Section ({{distance}})",
-    "suggestedName": "Suggested: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Choose a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
     "overlapLabel": "overlap"

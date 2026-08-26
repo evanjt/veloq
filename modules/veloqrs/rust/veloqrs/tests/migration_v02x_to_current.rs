@@ -480,8 +480,8 @@ fn a_v12_release_database_survives_the_upgrade_to_current() {
 
     assert_eq!(
         user_version(&conn),
-        17,
-        "a released 0.3.x database must land on 17"
+        migration_support::latest_version(),
+        "a released 0.3.x database must land on the current schema"
     );
     let stamped: String = conn
         .query_row(
@@ -490,7 +490,11 @@ fn a_v12_release_database_survives_the_upgrade_to_current() {
             |r| r.get(0),
         )
         .expect("schema_version stamped");
-    assert_eq!(stamped, "17", "app-level schema version must follow");
+    assert_eq!(
+        stamped,
+        migration_support::latest_version().to_string(),
+        "app-level schema version must follow"
+    );
 
     assert_eq!(
         row_count(&conn, "activities"),
@@ -850,8 +854,11 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| r.get(0),
         )
         .expect("schema_version present");
-    assert_eq!(schema_version, "17");
-    assert_eq!(user_version(&conn), 17);
+    assert_eq!(
+        schema_version,
+        migration_support::latest_version().to_string()
+    );
+    assert_eq!(user_version(&conn), migration_support::latest_version());
 
     let (section_type, source_activity_id, stored_start, stored_end, name, stored_poly): (
         String,
@@ -1355,7 +1362,7 @@ fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
     let conn = Connection::open(&path).expect("reopen");
     assert_eq!(
         user_version(&conn),
-        17,
+        migration_support::latest_version(),
         "the remaining migrations must still apply"
     );
 

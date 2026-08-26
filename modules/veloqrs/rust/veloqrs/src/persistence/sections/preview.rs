@@ -373,7 +373,8 @@ impl PersistentRouteEngine {
 
         if let Ok(mut stmt) = self.db.prepare(
             "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count
-             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL",
+             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
+             ORDER BY id",
         ) {
             let rows = stmt.query_map([], |row| {
                 Ok((

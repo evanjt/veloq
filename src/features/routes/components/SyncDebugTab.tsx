@@ -174,10 +174,14 @@ export function SyncDebugTab() {
             setIsRemoving(true);
             let removed = 0;
             const removedIds: string[] = [];
+            const refused: string[] = [];
             for (const id of toRemove) {
-              if (engine.removeActivity(id)) {
+              const result = engine.removeActivity(id);
+              if (result.ok) {
                 removed++;
                 removedIds.push(id);
+              } else {
+                refused.push(`${id}: ${result.reason}`);
               }
             }
             // Clean up orphaned GPS track files
@@ -186,19 +190,17 @@ export function SyncDebugTab() {
             }
             setIsRemoving(false);
             if (removed === 0 && toRemove.length > 0) {
-              Alert.alert(
-                'Remove Failed',
-                'No activities were removed. The FFI bindings may be stale.\n\nRun: ./scripts/generate-bindings.sh && npx expo run:android'
-              );
+              Alert.alert('Remove Failed', `No activities were removed.\n\n${refused.join('\n')}`);
             } else {
               // Trigger background section detection to recompute groups + sections
               engine.startSectionDetection();
               // Invalidate cache + fire syncReset to trigger re-sync of removed activities
               queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
               engine.triggerRefresh('syncReset');
+              const refusalNote = refused.length > 0 ? `\n\nKept:\n${refused.join('\n')}` : '';
               Alert.alert(
                 'Done',
-                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.`
+                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.${refusalNote}`
               );
             }
           },

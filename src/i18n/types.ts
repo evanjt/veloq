@@ -1160,7 +1160,6 @@ export interface TranslationResource {
     last: string;
     lastActivity: string;
     autoName: string;
-    suggestedName: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;

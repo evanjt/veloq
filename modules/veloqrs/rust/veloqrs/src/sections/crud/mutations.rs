@@ -9,6 +9,7 @@ use super::super::{
 };
 use super::{compute_section_portions, compute_section_portions_strict};
 use crate::persistence::PersistentRouteEngine;
+use crate::sections::assign_carried_exclusions;
 use rusqlite::params;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,12 +18,12 @@ use tracematch::{GpsPoint, SectionPortion};
 
 /// A section's exclusion state, read before a junction rebuild deletes the
 /// rows that carry it. `full` holds activities with every row excluded;
-/// `partial` holds per-lap state as ordinals over the activity's rows in
-/// start_index order, with the row count the ordinals were taken from.
+/// `partial` holds per-lap state keyed by the excluded rows' own
+/// `start_index` values.
 #[derive(Default)]
 pub(super) struct ExclusionSnapshot {
     pub(super) full: Vec<String>,
-    pub(super) partial: Vec<(String, Vec<usize>, usize)>,
+    pub(super) partial: Vec<(String, Vec<u32>)>,
 }
 
 impl PersistentRouteEngine {
@@ -648,13 +649,12 @@ impl PersistentRouteEngine {
     }
 
     /// Restore exclusions after a junction rebuild. Fully excluded
-    /// activities flag every new row. A partially excluded activity keeps
-    /// its per-lap state by ordinal (rows sorted by start_index), which
-    /// survives the small index shifts a geometry edit causes; if the
-    /// rebuild changed the activity's row count, the laps are no longer
-    /// the same objects and the per-lap state is dropped rather than
-    /// guessed. An excluded activity that no longer matches the new line
-    /// has no rows, and nothing to carry.
+    /// activities flag every new row. A partially excluded activity carries
+    /// its per-lap state onto the nearest rebuilt row by `start_index`, so
+    /// the small index shifts a geometry edit causes are absorbed; a lap
+    /// further than half the smallest gap between adjacent rebuilt rows is
+    /// dropped rather than guessed. An excluded activity that no longer
+    /// matches the new line has no rows, and nothing to carry.
     pub(super) fn reapply_exclusions(
         &self,
         section_id: &str,
@@ -668,8 +668,8 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to reapply exclusion: {}", e))?;
         }
-        for (aid, ordinals, expected) in &snapshot.partial {
-            let starts: Vec<u32> = {
+        for (aid, carried_starts) in &snapshot.partial {
+            let rebuilt: Vec<u32> = {
                 let mut stmt = self
                     .db
                     .prepare(
@@ -682,15 +682,12 @@ impl PersistentRouteEngine {
                     .filter_map(|r| r.ok())
                     .collect()
             };
-            if starts.len() != *expected {
-                continue;
-            }
-            for ordinal in ordinals {
+            for start in assign_carried_exclusions(carried_starts, &rebuilt) {
                 self.db
                     .execute(
                         "UPDATE section_activities SET excluded = 1
                          WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-                        params![section_id, aid, starts[*ordinal]],
+                        params![section_id, aid, start],
                     )
                     .map_err(|e| format!("Failed to reapply lap exclusion: {}", e))?;
             }
@@ -728,22 +725,22 @@ impl PersistentRouteEngine {
         let mut i = 0;
         while i < rows.len() {
             let aid = rows[i].0.clone();
-            let mut ordinals = Vec::new();
+            let mut starts = Vec::new();
             let mut count = 0usize;
             while i < rows.len() && rows[i].0 == aid {
                 if rows[i].2 {
-                    ordinals.push(count);
+                    starts.push(rows[i].1);
                 }
                 count += 1;
                 i += 1;
             }
-            if ordinals.is_empty() {
+            if starts.is_empty() {
                 continue;
             }
-            if ordinals.len() == count {
+            if starts.len() == count {
                 snapshot.full.push(aid);
             } else {
-                snapshot.partial.push((aid, ordinals, count));
+                snapshot.partial.push((aid, starts));
             }
         }
         snapshot

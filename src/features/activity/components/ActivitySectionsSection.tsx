@@ -22,7 +22,7 @@ import { DataRangeFooter, getSectionStyle } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows } from '@/theme';

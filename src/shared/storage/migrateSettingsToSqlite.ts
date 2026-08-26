@@ -25,7 +25,6 @@ export const PREFERENCE_KEYS = [
   'veloq-disabled-sections',
   'veloq-section-dismissals',
   'veloq-superseded-sections',
-  'veloq-potential-sections',
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',

@@ -516,16 +516,12 @@ impl PersistentRouteEngine {
                 new_sigs.len(),
                 existing_sigs.len()
             );
-            let groups = tracematch::group_incremental(
+            tracematch::group_incremental_with_matches(
                 &new_sigs,
                 &self.groups,
                 &existing_sigs,
                 &self.match_config,
-            );
-            tracematch::GroupingResult {
-                groups,
-                activity_matches: std::collections::HashMap::new(),
-            }
+            )
         } else {
             let signatures: Vec<RouteSignature> =
                 arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
@@ -551,17 +547,19 @@ impl PersistentRouteEngine {
         let prior_groups = std::mem::take(&mut self.groups);
         let (remapped, id_map) = self.route_identity_remap(prior_groups, result.groups);
         self.groups = remapped;
-        if !result.activity_matches.is_empty() {
-            // Re-key the grouping's match info (which carries each member's
-            // direction) by the stable ids the remap assigned, or the direction
-            // lookup in route highlights would miss the new id and default every
-            // traversal to forward.
-            self.activity_matches = result
-                .activity_matches
-                .into_iter()
-                .map(|(old_id, matches)| (id_map.get(&old_id).cloned().unwrap_or(old_id), matches))
-                .collect();
+        // Re-key the grouping's match info (which carries each member's
+        // direction) by the stable ids the remap assigned, or the direction
+        // lookup in route highlights would miss the new id and default every
+        // traversal to forward. The incremental path reports only the groups
+        // that took a new member, so merge over what is already held and then
+        // drop the ids the grouping no longer emits.
+        for (old_id, matches) in result.activity_matches {
+            let id = id_map.get(&old_id).cloned().unwrap_or(old_id);
+            self.activity_matches.insert(id, matches);
         }
+        let live: std::collections::HashSet<String> =
+            self.groups.iter().map(|g| g.group_id.clone()).collect();
+        self.activity_matches.retain(|id, _| live.contains(id));
 
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker

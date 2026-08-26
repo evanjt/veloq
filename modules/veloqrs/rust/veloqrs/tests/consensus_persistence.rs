@@ -147,7 +147,11 @@ fn consensus_accumulator_round_trips_through_sqlite() {
     engine_b.load().expect("load on reopen");
     let post: std::collections::HashMap<
         String,
-        Option<(u32, Vec<String>, Option<(f64, f64, u32)>)>,
+        Option<(
+            u32,
+            Vec<tracematch::sections::TraceKey>,
+            Option<(f64, f64, u32)>,
+        )>,
     > = engine_b
         .get_sections()
         .iter()

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { isRunningActivity } from '@/features/activity/lib/activityUtils';
 import type { ActivityType, FrequentSection } from '@/types';
 import type { NearbySectionSummary } from 'veloqrs';

@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
+  brand,
   colors,
   darkColors,
   spacing,
@@ -151,10 +152,10 @@ function normalizeSectionData(
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
-  'rgba(252, 76, 2, 0.15)', // Primary orange, very muted
-  'rgba(252, 76, 2, 0.20)',
-  'rgba(252, 76, 2, 0.25)',
-  'rgba(252, 76, 2, 0.30)',
+  colorWithOpacity(brand.tealLight, 0.15),
+  colorWithOpacity(brand.tealLight, 0.2),
+  colorWithOpacity(brand.tealLight, 0.25),
+  colorWithOpacity(brand.tealLight, 0.3),
 ];
 
 const PREVIEW_WIDTH = 48;

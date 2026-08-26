@@ -36,6 +36,45 @@ fn finite(v: Option<f64>) -> Option<f64> {
     v.filter(|x| x.is_finite())
 }
 
+/// Rebuild an intervals.icu wellness body from the typed columns, for rows
+/// stored before the `raw` column existed. Keys match the wire format the UI
+/// parses; absent values are omitted rather than sent as null, so optional
+/// fields stay `undefined` on the TypeScript side exactly as a real body.
+fn synthesize_body(row: &WellnessRow) -> String {
+    let mut obj = serde_json::Map::new();
+    obj.insert("id".to_string(), serde_json::Value::from(row.date.clone()));
+
+    let mut put_f64 = |key: &str, v: Option<f64>| {
+        if let Some(n) = finite(v).and_then(serde_json::Number::from_f64) {
+            obj.insert(key.to_string(), serde_json::Value::Number(n));
+        }
+    };
+    put_f64("ctl", row.ctl);
+    put_f64("atl", row.atl);
+    put_f64("rampRate", row.ramp_rate);
+    put_f64("hrv", row.hrv);
+    put_f64("restingHR", row.resting_hr);
+    put_f64("weight", row.weight);
+    put_f64("sleepScore", row.sleep_score);
+
+    if let Some(v) = row.sleep_secs {
+        obj.insert("sleepSecs".to_string(), serde_json::Value::from(v));
+    }
+    for (key, v) in [
+        ("soreness", row.soreness),
+        ("fatigue", row.fatigue),
+        ("stress", row.stress),
+        ("mood", row.mood),
+        ("motivation", row.motivation),
+    ] {
+        if let Some(n) = v {
+            obj.insert(key.to_string(), serde_json::Value::from(n));
+        }
+    }
+
+    serde_json::Value::Object(obj).to_string()
+}
+
 impl PersistentRouteEngine {
     /// Upsert a batch of wellness rows in one transaction. Idempotent on
     /// `date`: re-syncing overwrites prior values.
@@ -128,16 +167,42 @@ impl PersistentRouteEngine {
     }
 
     /// Untyped wellness bodies over an inclusive date window, oldest first.
-    /// Days synced before the body column existed are skipped rather than
-    /// returned as a lossy typed reconstruction.
+    ///
+    /// Rows synced before the body column existed have no `raw`, so they are
+    /// rebuilt from the typed columns. The reconstruction is lossy (it cannot
+    /// recover fields Rust never stored, like `vo2max` or `readiness`) but it
+    /// keeps the fitness charts populated on the first launch after upgrade,
+    /// including offline. Each day heals to a real body on its next sync.
     pub fn get_wellness_bodies(&self, oldest: &str, newest: &str) -> SqlResult<Vec<String>> {
         let mut stmt = self.db.prepare(
-            "SELECT raw FROM wellness
-             WHERE raw IS NOT NULL AND date >= ? AND date <= ?
+            "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
+                    sleep_secs, sleep_score, soreness, fatigue, stress,
+                    mood, motivation, raw
+             FROM wellness
+             WHERE date >= ? AND date <= ?
              ORDER BY date ASC",
         )?;
-        let rows = stmt.query_map(params![oldest, newest], |r| r.get::<_, String>(0))?;
-        rows.collect()
+        let rows = stmt.query_map(params![oldest, newest], |r| {
+            Ok(WellnessRow {
+                date: r.get(0)?,
+                ctl: r.get(1)?,
+                atl: r.get(2)?,
+                ramp_rate: r.get(3)?,
+                hrv: r.get(4)?,
+                resting_hr: r.get(5)?,
+                weight: r.get(6)?,
+                sleep_secs: r.get(7)?,
+                sleep_score: r.get(8)?,
+                soreness: r.get(9)?,
+                fatigue: r.get(10)?,
+                stress: r.get(11)?,
+                mood: r.get(12)?,
+                motivation: r.get(13)?,
+                raw: r.get(14)?,
+            })
+        })?;
+        rows.map(|r| r.map(|row| row.raw.clone().unwrap_or_else(|| synthesize_body(&row))))
+            .collect()
     }
 
     /// Sparkline arrays for the summary card: fitness/fatigue/form/hrv/rhr

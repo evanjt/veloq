@@ -316,6 +316,23 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Sections whose stored geometry is cut from this activity. An
+    /// activity naming any of them is the reference the triple points at,
+    /// so deleting it would leave that geometry unreadable.
+    pub fn sections_referencing_activity(&self, id: &str) -> Vec<String> {
+        self.db
+            .prepare(
+                "SELECT id FROM sections WHERE representative_activity_id = ?1
+                 UNION
+                 SELECT DISTINCT section_id FROM section_geometry WHERE rep_activity_id = ?1",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(params![id], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default()
+    }
+
     /// Add an activity from flat coordinate buffer.
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
@@ -522,8 +539,14 @@ impl PersistentRouteEngine {
         let cutoff_seconds = retention_days as i64 * 24 * 60 * 60;
 
         // Delete old activities (cascade will handle signatures, GPS tracks, matches)
+        // A reference activity is the geometry of the sections that point at
+        // it, so retention leaves it alone and the returned count says so.
         let deleted = self.db.execute(
-            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)",
+            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)
+               AND id NOT IN (SELECT representative_activity_id FROM sections
+                              WHERE representative_activity_id IS NOT NULL)
+               AND id NOT IN (SELECT rep_activity_id FROM section_geometry
+                              WHERE rep_activity_id IS NOT NULL)",
             params![cutoff_seconds],
         )?;
 

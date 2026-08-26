@@ -658,11 +658,11 @@ pub struct PersistentRouteEngine {
     /// In-memory per-(sport, cluster) evidence for the Unified incremental
     /// detector. Holds each cluster's last catalogue so a sync recomputes only
     /// the cluster(s) a new activity touches (O(touched-cluster), not O(pool)).
-    /// NOT persisted — B4 owns durability. A fresh engine starts empty, so the
-    /// first detect cold-rebatches the whole pool = the batch, and the catalogue
-    /// itself lives durably in SQLite. Only the Unified detection path reads or
-    /// writes it; the legacy detectors never touch it. Moves in lockstep with
-    /// `cache_folded_ids`.
+    /// Persisted in `evidence_cache` beside the config digest it was folded
+    /// under, so a restart resumes warm; an unreadable or stale row leaves the
+    /// engine cold, which is what every engine did before the row existed.
+    /// Only the Unified detection path reads or writes it; the legacy detectors
+    /// never touch it. Moves in lockstep with `cache_folded_ids`.
     section_evidence_cache: SectionEvidenceCache,
 
     /// The activity ids `section_evidence_cache` has folded — an engine-side
@@ -670,8 +670,7 @@ pub struct PersistentRouteEngine {
     /// it). Drives which ids a detect routes as "new": `pool − cache_folded_ids`.
     /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
     /// Cleared together with the cache at every invalidation point so the two can
-    /// never disagree. Not persisted, so a restart starts cold and rebuilds from
-    /// the DB catalogue.
+    /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
 
     /// Dirty tracking
@@ -707,9 +706,18 @@ impl PersistentRouteEngine {
     /// activity's cluster, so any such change clears the whole cache; the next
     /// detect rebuilds it from the real pool. Clearing the two fields together
     /// is what stops the cache from ever disagreeing with the applied catalogue.
+    /// How many activity ids the evidence cache has folded. Zero means the
+    /// next detect cold-rebatches every cluster. Exposed so a test can tell a
+    /// warm restart from a cold one without timing it.
+    #[doc(hidden)]
+    pub fn evidence_cache_folded_count(&self) -> usize {
+        self.cache_folded_ids.len()
+    }
+
     pub(crate) fn invalidate_evidence_cache(&mut self) {
         self.section_evidence_cache = SectionEvidenceCache::new();
         self.cache_folded_ids.clear();
+        self.clear_persisted_evidence_cache();
     }
 
     // ========================================================================
@@ -800,6 +808,14 @@ impl PersistentRouteEngine {
             if is_corruption_error(&e) {
                 return Err(e);
             }
+        }
+
+        // Adopt the evidence cache the last apply left behind, so a restart
+        // does not cold-rebatch the whole pool to reach the catalogue already
+        // in SQLite. Runs after `section_config` load: the row is keyed by the
+        // config digest and is a miss under any other config.
+        if loaded_whole {
+            self.restore_evidence_cache();
         }
 
         // Read the cutover token and set the pending flag. Nothing slow.

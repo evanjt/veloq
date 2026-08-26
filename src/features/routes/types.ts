@@ -195,7 +195,7 @@ export interface DiscoveredRouteInfo {
 // =============================================================================
 
 /** Section type discriminator */
-export type SectionType = 'auto' | 'custom' | 'potential';
+export type SectionType = 'auto' | 'custom';
 
 /**
  * A unified section (auto-detected or custom).

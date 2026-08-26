@@ -799,7 +799,7 @@ impl PersistentRouteEngine {
             .query_row(
                 "SELECT activity_id, lap_time FROM section_activities
                  WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL
-                 ORDER BY lap_time ASC LIMIT 1",
+                 ORDER BY lap_time ASC, activity_id ASC LIMIT 1",
                 rusqlite::params![real_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )

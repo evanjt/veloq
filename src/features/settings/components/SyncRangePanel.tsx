@@ -23,7 +23,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/shared/native/routeEngine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 
 const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
 const THUMB_SIZE = 22;
@@ -413,10 +413,10 @@ const styles = StyleSheet.create({
   progressRow: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(252, 76, 2, 0.06)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.06),
   },
   progressRowDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.1)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.1),
   },
   progressBarTrack: {
     height: 4,

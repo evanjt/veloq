@@ -20,7 +20,6 @@ import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore'
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { initializeSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
@@ -55,7 +54,6 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeUnitPreference(),
     initializeRouteSettings(),
     initializeSectionDismissals(),
-    initializePotentialSections(),
     initializeDashboardPreferences(),
     initializeDebugStore(),
     initializeTileCacheStore(),
@@ -332,7 +330,6 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-disabled-sections',
   'veloq-section-dismissals',
   'veloq-superseded-sections',
-  'veloq-potential-sections',
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
