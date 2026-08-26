@@ -96,6 +96,12 @@ table curve_bodies
   column sport type=TEXT notnull=1 default=<none> pk=2
   column updated_at type=INTEGER notnull=0 default=strftime('%s', 'now') pk=0
   index auto(kind,sport,days,gap) unique=1 origin=pk partial=0 cols=[kind,sport,days,gap]
+table evidence_cache
+  column cache type=BLOB notnull=1 default=<none> pk=0
+  column config_digest type=TEXT notnull=1 default=<none> pk=0
+  column folded_ids type=BLOB notnull=1 default=<none> pk=0
+  column id type=INTEGER notnull=0 default=<none> pk=1
+  column updated_at type=INTEGER notnull=1 default=<none> pk=0
 table exercise_sets
   column activity_id type=TEXT notnull=1 default=<none> pk=1
   column duration_secs type=REAL notnull=0 default=<none> pk=0
@@ -380,4 +386,4 @@ trigger section_activities_visit_count_ad :: CREATE TRIGGER section_activities_v
 trigger section_activities_visit_count_ai :: CREATE TRIGGER section_activities_visit_count_ai AFTER INSERT ON section_activities BEGIN UPDATE sections SET visit_count =(SELECT COUNT(*) FROM section_activities WHERE section_id = NEW.section_id AND excluded = 0) WHERE id = NEW.section_id; END
 trigger section_activities_visit_count_amove :: CREATE TRIGGER section_activities_visit_count_amove AFTER UPDATE OF section_id ON section_activities BEGIN UPDATE sections SET visit_count =(SELECT COUNT(*) FROM section_activities WHERE section_id = NEW.section_id AND excluded = 0) WHERE id = NEW.section_id; UPDATE sections SET visit_count =(SELECT COUNT(*) FROM section_activities WHERE section_id = OLD.section_id AND excluded = 0) WHERE id = OLD.section_id; END
 trigger section_activities_visit_count_au :: CREATE TRIGGER section_activities_visit_count_au AFTER UPDATE OF excluded ON section_activities BEGIN UPDATE sections SET visit_count =(SELECT COUNT(*) FROM section_activities WHERE section_id = NEW.section_id AND excluded = 0) WHERE id = NEW.section_id; END
-user_version 17
+user_version 18

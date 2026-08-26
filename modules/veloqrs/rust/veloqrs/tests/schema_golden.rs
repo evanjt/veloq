@@ -329,15 +329,16 @@ fn upgraded_from_schema(seed: u32) -> (TempDir, String) {
 // Tests
 // ---------------------------------------------------------------------------
 
+/// The golden is named for the version it describes, so adding a migration
+/// asks for a new artefact instead of quietly rewriting the old one.
+fn fresh_golden_name() -> String {
+    format!("v{:02}_fresh", latest_version())
+}
+
 #[test]
-fn fresh_install_matches_golden_v17() {
-    assert_eq!(
-        latest_version(),
-        17,
-        "golden artefacts are keyed by version"
-    );
+fn fresh_install_matches_its_golden() {
     let (_dir, dump) = fresh_engine_schema();
-    compare_to_golden("v17_fresh", &dump);
+    compare_to_golden(&fresh_golden_name(), &dump);
 }
 
 #[test]
@@ -355,11 +356,12 @@ fn seed_at_v12_matches_golden() {
 }
 
 /// The path every released 0.3.0 to 0.3.8 install takes. A user upgrading must
-/// end on exactly the schema a new install gets, not merely on version 17.
+/// end on exactly the schema a new install gets, not merely on the same
+/// version number.
 #[test]
 fn upgrade_from_v12_lands_on_the_fresh_schema() {
     let (_a, upgraded) = upgraded_from_schema(12);
-    compare_to_golden("v17_fresh", &upgraded);
+    compare_to_golden(&fresh_golden_name(), &upgraded);
 
     let (_b, fresh) = fresh_engine_schema();
     assert!(

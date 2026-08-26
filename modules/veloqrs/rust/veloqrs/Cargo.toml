@@ -286,3 +286,7 @@ path = "examples/detection_audit.rs"
 [[test]]
 name = "corpus_migration"
 required-features = ["real-corpus"]
+
+[[test]]
+name = "evidence_cache_durability"
+required-features = ["synthetic"]
