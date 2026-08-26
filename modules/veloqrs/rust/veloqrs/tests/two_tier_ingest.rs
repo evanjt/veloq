@@ -139,16 +139,6 @@ fn attach_ignores_unknown_and_tiny_activities() {
 // pass, and the attach path must agree with what a full detection over the
 // same set assigns it.
 
-/// Out, back, out again over `base`: three passes of the same corridor.
-fn lapped_track(base: &tracematch::scenarios::LifecycleActivity) -> Vec<tracematch::GpsPoint> {
-    let mut points = base.gps_points.clone();
-    let mut back = base.gps_points.clone();
-    back.reverse();
-    points.extend(back);
-    points.extend(base.gps_points.clone());
-    points
-}
-
 fn lapped_corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 30,
@@ -208,7 +198,7 @@ fn attach_inserts_a_junction_row_for_every_lap() {
     let section_count = engine.get_sections().len();
 
     let base = &corpus.bucket_c_single;
-    store(&mut engine, "act_lapped", lapped_track(base), base);
+    store(&mut engine, "act_lapped", base.lapped(3), base);
     let summary = engine.attach_new_activities(&["act_lapped".to_string()]);
 
     assert_eq!(summary.attached_activities, 1);
@@ -243,7 +233,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
 
     let incremental_dir = TempDir::new().unwrap();
     let mut incremental = engine_with_sections(&incremental_dir, &corpus);
-    store(&mut incremental, "act_lapped", lapped_track(base), base);
+    store(&mut incremental, "act_lapped", base.lapped(3), base);
     incremental.attach_new_activities(&["act_lapped".to_string()]);
 
     let batch_dir = TempDir::new().unwrap();
@@ -253,7 +243,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
         let id = activity.id.clone();
         store(&mut batch, &id, activity.gps_points.clone(), activity);
     }
-    store(&mut batch, "act_lapped", lapped_track(base), base);
+    store(&mut batch, "act_lapped", base.lapped(3), base);
     let handle = batch.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     batch.apply_sections(sections).unwrap();
@@ -280,7 +270,7 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
     let mut engine = engine_with_sections(&dir, &corpus);
 
     let base = &corpus.bucket_c_single;
-    store(&mut engine, "act_lapped", lapped_track(base), base);
+    store(&mut engine, "act_lapped", base.lapped(3), base);
     let first = engine.attach_new_activities(&["act_lapped".to_string()]);
     let again = engine.attach_new_activities(&["act_lapped".to_string()]);
 

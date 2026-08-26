@@ -79,17 +79,6 @@ fn excluded(engine: &PersistentRouteEngine, section_id: &str) -> Vec<String> {
     engine.get_excluded_activity_ids(section_id)
 }
 
-/// The corridor ridden out, back, and out again: three passes, three
-/// junction rows, so one lap can be excluded while the others stay.
-fn lapped_track(base: &tracematch::scenarios::LifecycleActivity) -> Vec<tracematch::GpsPoint> {
-    let mut points = base.gps_points.clone();
-    let mut back = base.gps_points.clone();
-    back.reverse();
-    points.extend(back);
-    points.extend(base.gps_points.clone());
-    points
-}
-
 /// An engine whose detected catalogue includes a member with several laps
 /// on one section, plus that section's id and the excluded lap's index.
 fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u32) {
@@ -108,7 +97,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u
     engine
         .add_activity(
             "act_lapped".to_string(),
-            lapped_track(base),
+            base.lapped(3),
             base.sport_type.clone(),
         )
         .unwrap();
@@ -253,7 +242,7 @@ fn a_per_lap_exclusion_survives_a_recut_that_changes_the_lap_count() {
 
     let corpus = corpus();
     let base = &corpus.bucket_c_single;
-    let mut four_passes = lapped_track(base);
+    let mut four_passes = base.lapped(3);
     let mut back = base.gps_points.clone();
     back.reverse();
     four_passes.extend(back);
