@@ -1495,7 +1495,7 @@
     "acceptAllSections": "Akceptuj wszystkie",
     "acceptAllConfirm": "Zaakceptować wszystkie {{count}} sekcji wykrytych automatycznie? Zostaną zachowane przy kolejnym wykrywaniu.",
     "acceptedCount": "Zaakceptowano {{count}} sekcji",
-    "pinned": "Przypięte",
+    "pinned": "Przypięty do wersji",
     "elevationGain": "Przewyższenie",
     "avgGrade": "Średnie nachylenie",
     "pinnedOnly": "Tylko przypięte",
@@ -1504,7 +1504,9 @@
     "splitNorth": "północ",
     "splitEast": "wschód",
     "splitSouth": "południe",
-    "splitWest": "zachód"
+    "splitWest": "zachód",
+    "accepted": "Zaakceptowany",
+    "acceptedOnly": "Tylko zaakceptowane"
   },
   "settings": {
     "account": "Konto",
@@ -1999,5 +2001,36 @@
       "reconnecting": "Ponowne łączenie…",
       "disconnected": "Nie połączono"
     }
+  },
+  "sectionHistory": {
+    "title": "Historia",
+    "empty": "Brak zapisanych zmian",
+    "around": "Wokół tej zmiany",
+    "forkAround": "Ruch na rozwidleniu",
+    "prEra": "Najlepszy wtedy: {{time}}",
+    "prMoved": "Rekord {{from}} na {{to}}",
+    "versions": "Zapisane wersje",
+    "version": "Wersja {{version}}",
+    "current": "Bieżąca",
+    "revert": "Przywróć",
+    "revertConfirm": "Przywrócić wersję {{version}} jako linię tego odcinka? Wykrywanie utrzyma ją, aż ją odepniesz.",
+    "unpin": "Odepnij",
+    "showOnMap": "Pokaż na mapie",
+    "hideOnMap": "Ukryj",
+    "retiredTitle": "Wycofane odcinki",
+    "retiredEmpty": "Brak wycofanych odcinków",
+    "retiredInto": "Do {{name}}",
+    "seeRetired": "Wycofane odcinki",
+    "kind_formed": "Utworzony",
+    "kind_restored": "Powrócił",
+    "kind_split": "Podzielony na {{count}} odcinki",
+    "kind_recut": "Zakres wycięty ponownie",
+    "kind_dissolved": "Rozwiązany",
+    "kind_merged": "Połączony z innym odcinkiem",
+    "kind_superseded": "Zastąpiony nowszym cięciem",
+    "kind_reverted": "Przywrócono wersję {{version}}",
+    "kind_pr_rebased": "Rekord przeliczony na bieżący zakres",
+    "kind_baseline": "Zapisany z wcześniejszej wersji aplikacji",
+    "kind_algorithm_changed": "Przeanalizowany ponownie przez nowszy detektor"
   }
 }

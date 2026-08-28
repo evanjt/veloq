@@ -75,7 +75,9 @@ export function PreviewSectionPopover({ section, onClose }: PreviewSectionPopove
         {section.pinned && (
           <View style={[styles.badge, { borderColor: textSecondary }]}>
             <MaterialCommunityIcons name="pin" size={11} color={textSecondary} />
-            <Text style={[styles.badgeText, { color: textSecondary }]}>{t('sections.pinned')}</Text>
+            <Text style={[styles.badgeText, { color: textSecondary }]}>
+              {t('sections.accepted')}
+            </Text>
           </View>
         )}
       </View>

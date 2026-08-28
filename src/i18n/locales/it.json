@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Accetta tutto",
     "acceptAllConfirm": "Accettare tutte le {{count}} sezioni rilevate automaticamente? Verranno conservate nelle rilevazioni future.",
     "acceptedCount": "{{count}} sezioni accettate",
-    "pinned": "Fissato",
+    "pinned": "Bloccato a una versione",
     "elevationGain": "Dislivello positivo",
     "avgGrade": "Pendenza media",
     "pinnedOnly": "Solo fissati",
@@ -1502,7 +1502,9 @@
     "splitNorth": "nord",
     "splitEast": "est",
     "splitSouth": "sud",
-    "splitWest": "ovest"
+    "splitWest": "ovest",
+    "accepted": "Accettato",
+    "acceptedOnly": "Solo accettati"
   },
   "settings": {
     "account": "Account",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Riconnessione…",
       "disconnected": "Non connesso"
     }
+  },
+  "sectionHistory": {
+    "title": "Cronologia",
+    "empty": "Nessuna modifica registrata",
+    "around": "Intorno a questa modifica",
+    "forkAround": "Traffico al bivio",
+    "prEra": "Migliore all'epoca: {{time}}",
+    "prMoved": "Record da {{from}} a {{to}}",
+    "versions": "Versioni salvate",
+    "version": "Versione {{version}}",
+    "current": "Attuale",
+    "revert": "Ripristina",
+    "revertConfirm": "Rimettere la versione {{version}} come linea di questo tratto? Il rilevamento la manterrà finché non la sblocchi.",
+    "unpin": "Sblocca",
+    "showOnMap": "Mostra sulla mappa",
+    "hideOnMap": "Nascondi",
+    "retiredTitle": "Tratti ritirati",
+    "retiredEmpty": "Nessun tratto ritirato",
+    "retiredInto": "In {{name}}",
+    "seeRetired": "Tratti ritirati",
+    "kind_formed": "Formato",
+    "kind_restored": "Tornato",
+    "kind_split": "Diviso in {{count}} tratti",
+    "kind_recut": "Estensione ritagliata",
+    "kind_dissolved": "Dissolto",
+    "kind_merged": "Unito a un altro tratto",
+    "kind_superseded": "Sostituito da un taglio più recente",
+    "kind_reverted": "Ripristinato alla versione {{version}}",
+    "kind_pr_rebased": "Record ricalcolato sull'estensione attuale",
+    "kind_baseline": "Registrato da una versione precedente dell'app",
+    "kind_algorithm_changed": "Rianalizzato da un rilevatore più recente"
   }
 }

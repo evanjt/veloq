@@ -610,6 +610,30 @@ pub fn get_cutover_progress() -> CutoverProgress {
     }
 }
 
+/// Which claims the change card may make on this build.
+#[uniffi::export]
+pub fn get_change_card_support() -> crate::FfiChangeCardSupport {
+    let s = crate::persistence::with_persistent_engine(|e| e.change_card_support());
+    let s = s.unwrap_or(crate::persistence::cutover::ChangeCardSupport {
+        deterministic: false,
+        same_result_drip_or_batch: false,
+        ledger: false,
+        revert: false,
+        retired: false,
+        pinned_survive: false,
+        same_on_every_device: false,
+    });
+    crate::FfiChangeCardSupport {
+        deterministic: s.deterministic,
+        same_result_drip_or_batch: s.same_result_drip_or_batch,
+        ledger: s.ledger,
+        revert: s.revert,
+        retired: s.retired,
+        pinned_survive: s.pinned_survive,
+        same_on_every_device: s.same_on_every_device,
+    }
+}
+
 /// The stored cutover diff payload, if any.
 #[uniffi::export]
 pub fn get_cutover_diff() -> Option<String> {

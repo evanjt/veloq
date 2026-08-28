@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Alle akzeptieren",
     "acceptAllConfirm": "Alle {{count}} automatisch erkannten Abschnitte akzeptieren? Sie bleiben bei zukünftigen Neuerkennungen erhalten.",
     "acceptedCount": "{{count}} Abschnitte akzeptiert",
-    "pinned": "Angeheftet",
+    "pinned": "An eine Version geheftet",
     "elevationGain": "Höhenmeter",
     "avgGrade": "Durchschn. Steigung",
     "pinnedOnly": "Nur angeheftete",
@@ -1502,7 +1502,9 @@
     "splitNorth": "Nord",
     "splitEast": "Ost",
     "splitSouth": "Süd",
-    "splitWest": "West"
+    "splitWest": "West",
+    "accepted": "Übernommen",
+    "acceptedOnly": "Nur übernommene"
   },
   "settings": {
     "account": "Konto",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
     }
+  },
+  "sectionHistory": {
+    "title": "Verlauf",
+    "empty": "Noch keine Änderungen aufgezeichnet",
+    "around": "Rund um diese Änderung",
+    "forkAround": "Verkehr an der Abzweigung",
+    "prEra": "Bestzeit damals: {{time}}",
+    "prMoved": "Rekord {{from}} zu {{to}}",
+    "versions": "Gespeicherte Versionen",
+    "version": "Version {{version}}",
+    "current": "Aktuell",
+    "revert": "Zurücksetzen",
+    "revertConfirm": "Version {{version}} als Linie dieses Abschnitts zurücksetzen? Die Erkennung hält sie, bis du sie löst.",
+    "unpin": "Lösen",
+    "showOnMap": "Auf Karte zeigen",
+    "hideOnMap": "Ausblenden",
+    "retiredTitle": "Ausgeschiedene Abschnitte",
+    "retiredEmpty": "Keine Abschnitte ausgeschieden",
+    "retiredInto": "In {{name}}",
+    "seeRetired": "Ausgeschiedene Abschnitte",
+    "kind_formed": "Gebildet",
+    "kind_restored": "Zurückgekehrt",
+    "kind_split": "In {{count}} Abschnitte geteilt",
+    "kind_recut": "Ausdehnung neu geschnitten",
+    "kind_dissolved": "Aufgelöst",
+    "kind_merged": "Mit einem anderen Abschnitt zusammengeführt",
+    "kind_superseded": "Durch einen neueren Schnitt ersetzt",
+    "kind_reverted": "Auf Version {{version}} zurückgesetzt",
+    "kind_pr_rebased": "Rekord auf die aktuelle Ausdehnung bezogen",
+    "kind_baseline": "Aus einer früheren App-Version übernommen",
+    "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert"
   }
 }

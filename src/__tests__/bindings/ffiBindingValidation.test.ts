@@ -98,11 +98,11 @@ describe('FFI Binding Validation', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
       // detection, elevation backfill start, progress and remaining, and the
-      // five detector-cutover calls: pending, running, start, progress and
-      // diff). Adjust if a new
+      // six detector-cutover calls: pending, running, start, progress, diff
+      // and change-card support). Adjust if a new
       // standalone is added - but prefer putting engine-coupled logic on a
       // UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(14);
+      expect(STANDALONE_EXPORTS.length).toBe(15);
     });
 
     it('should include the known standalone FFI functions', () => {

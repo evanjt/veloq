@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Accept All",
     "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
     "acceptedCount": "Accepted {{count}} sections",
-    "pinned": "Pinned",
+    "pinned": "Pinned to a version",
     "elevationGain": "Elevation gain",
     "avgGrade": "Avg grade",
     "pinnedOnly": "Pinned only",
@@ -1502,7 +1502,9 @@
     "splitNorth": "north",
     "splitEast": "east",
     "splitSouth": "south",
-    "splitWest": "west"
+    "splitWest": "west",
+    "accepted": "Accepted",
+    "acceptedOnly": "Accepted only"
   },
   "settings": {
     "account": "Your Account",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Reconnecting…",
       "disconnected": "Not connected"
     }
+  },
+  "sectionHistory": {
+    "title": "History",
+    "empty": "No changes recorded yet",
+    "around": "Around this change",
+    "forkAround": "Traffic at the junction",
+    "prEra": "Best at the time: {{time}}",
+    "prMoved": "Record {{from}} to {{to}}",
+    "versions": "Stored versions",
+    "version": "Version {{version}}",
+    "current": "Current",
+    "revert": "Revert",
+    "revertConfirm": "Put version {{version}} back as this section's line? Detection holds it there until you unpin.",
+    "unpin": "Unpin",
+    "showOnMap": "Show on map",
+    "hideOnMap": "Hide",
+    "retiredTitle": "Retired sections",
+    "retiredEmpty": "No sections have retired",
+    "retiredInto": "Into {{name}}",
+    "seeRetired": "Retired sections",
+    "kind_formed": "Formed",
+    "kind_restored": "Came back",
+    "kind_split": "Split into {{count}} sections",
+    "kind_recut": "Extent re-cut",
+    "kind_dissolved": "Dissolved",
+    "kind_merged": "Merged into another section",
+    "kind_superseded": "Replaced by a newer cut",
+    "kind_reverted": "Reverted to version {{version}}",
+    "kind_pr_rebased": "Record re-based against the current extent",
+    "kind_baseline": "Recorded from an earlier version of the app",
+    "kind_algorithm_changed": "Re-analysed by a newer detector"
   }
 }

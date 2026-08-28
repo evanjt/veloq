@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Aceitar todos",
     "acceptAllConfirm": "Aceitar todos os {{count}} troços detetados automaticamente? Serão preservados nas próximas redeteções.",
     "acceptedCount": "{{count}} troços aceites",
-    "pinned": "Fixado",
+    "pinned": "Fixado a uma versão",
     "elevationGain": "Desnível acumulado",
     "avgGrade": "Inclinação média",
     "pinnedOnly": "Apenas fixados",
@@ -1502,7 +1502,9 @@
     "splitNorth": "norte",
     "splitEast": "leste",
     "splitSouth": "sul",
-    "splitWest": "oeste"
+    "splitWest": "oeste",
+    "accepted": "Aceite",
+    "acceptedOnly": "Só aceites"
   },
   "settings": {
     "account": "Conta",
@@ -1997,5 +1999,36 @@
       "reconnecting": "A restabelecer ligação…",
       "disconnected": "Não ligado"
     }
+  },
+  "sectionHistory": {
+    "title": "Histórico",
+    "empty": "Ainda sem alterações registadas",
+    "around": "Em torno desta alteração",
+    "forkAround": "Tráfego na bifurcação",
+    "prEra": "Melhor na altura: {{time}}",
+    "prMoved": "Recorde {{from}} para {{to}}",
+    "versions": "Versões guardadas",
+    "version": "Versão {{version}}",
+    "current": "Atual",
+    "revert": "Repor",
+    "revertConfirm": "Repor a versão {{version}} como linha deste troço? A deteção mantém-na até a libertar.",
+    "unpin": "Libertar",
+    "showOnMap": "Mostrar no mapa",
+    "hideOnMap": "Ocultar",
+    "retiredTitle": "Troços retirados",
+    "retiredEmpty": "Nenhum troço foi retirado",
+    "retiredInto": "Em {{name}}",
+    "seeRetired": "Troços retirados",
+    "kind_formed": "Formado",
+    "kind_restored": "Regressou",
+    "kind_split": "Dividido em {{count}} troços",
+    "kind_recut": "Extensão recortada",
+    "kind_dissolved": "Dissolvido",
+    "kind_merged": "Fundido com outro troço",
+    "kind_superseded": "Substituído por um corte mais recente",
+    "kind_reverted": "Reposta a versão {{version}}",
+    "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
+    "kind_baseline": "Registado a partir de uma versão anterior da app",
+    "kind_algorithm_changed": "Reanalisado por um detetor mais recente"
   }
 }

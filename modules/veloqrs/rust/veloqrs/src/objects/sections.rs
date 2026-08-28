@@ -468,6 +468,90 @@ impl SectionManager {
         })?
     }
 
+    fn get_history(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError> {
+        with_engine(|e| {
+            e.section_history(&section_id)
+                .into_iter()
+                .map(|h| crate::FfiSectionHistoryEvent {
+                    id: h.id,
+                    at: h.at,
+                    kind: h.kind,
+                    details: h.details,
+                    geometry_version: h.geometry_version,
+                })
+                .collect()
+        })
+    }
+
+    fn get_geometry_versions(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiSectionGeometryVersion>, VeloqError> {
+        with_engine(|e| {
+            let pinned = e.pinned_section_version(&section_id);
+            e.section_geometry_versions(&section_id)
+                .into_iter()
+                .map(|v| crate::FfiSectionGeometryVersion {
+                    version: v.version,
+                    created_at: v.created_at,
+                    milestone: v.milestone,
+                    pinned: pinned == Some(v.version),
+                })
+                .collect()
+        })
+    }
+
+    /// A stored version's line, coordinate-encoded like a section polyline.
+    fn get_geometry_version_coords(
+        &self,
+        section_id: String,
+        version: i64,
+    ) -> Result<Vec<u8>, VeloqError> {
+        with_engine(|e| {
+            e.section_geometry_polyline(&section_id, version)
+                .map(|pts| crate::coords::encode(&pts))
+                .unwrap_or_default()
+        })
+    }
+
+    fn revert_to_version(&self, section_id: String, version: i64) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.revert_section_to_version(&section_id, version)
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
+    fn unpin(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.unpin_section_geometry(&section_id)
+                .map_err(|err| VeloqError::Database {
+                    msg: err.to_string(),
+                })
+        })?
+    }
+
+    fn get_pinned_version(&self, section_id: String) -> Result<Option<i64>, VeloqError> {
+        with_engine(|e| e.pinned_section_version(&section_id))
+    }
+
+    fn get_retired(&self) -> Result<Vec<crate::FfiRetiredSection>, VeloqError> {
+        with_engine(|e| {
+            e.retired_sections()
+                .into_iter()
+                .map(|r| crate::FfiRetiredSection {
+                    section_id: r.section_id,
+                    kind: r.kind,
+                    at: r.at,
+                    into: r.into,
+                    versions: r.versions,
+                })
+                .collect()
+        })
+    }
+
     fn get_lineages(&self) -> Result<Vec<crate::FfiSectionLineage>, VeloqError> {
         with_engine(|e| {
             e.section_lineages()

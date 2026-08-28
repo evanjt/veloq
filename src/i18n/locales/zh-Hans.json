@@ -1493,7 +1493,7 @@
     "acceptAllSections": "全部接受",
     "acceptAllConfirm": "接受所有 {{count}} 个自动检测到的路段?在未来的重新检测中将予以保留。",
     "acceptedCount": "已接受 {{count}} 个路段",
-    "pinned": "已固定",
+    "pinned": "固定到某个版本",
     "elevationGain": "爬升",
     "avgGrade": "平均坡度",
     "pinnedOnly": "仅已固定",
@@ -1502,7 +1502,9 @@
     "splitNorth": "北",
     "splitEast": "东",
     "splitSouth": "南",
-    "splitWest": "西"
+    "splitWest": "西",
+    "accepted": "已接受",
+    "acceptedOnly": "仅已接受"
   },
   "settings": {
     "account": "账户",
@@ -1997,5 +1999,36 @@
       "reconnecting": "正在重新连接…",
       "disconnected": "未连接"
     }
+  },
+  "sectionHistory": {
+    "title": "历史",
+    "empty": "尚未记录任何变化",
+    "around": "此次变化前后",
+    "forkAround": "岔口的通行",
+    "prEra": "当时最佳：{{time}}",
+    "prMoved": "纪录 {{from}} 变为 {{to}}",
+    "versions": "已保存的版本",
+    "version": "版本{{version}}",
+    "current": "当前",
+    "revert": "恢复",
+    "revertConfirm": "将版本{{version}}恢复为该路段的线路？在你取消固定前，检测会一直保持它。",
+    "unpin": "取消固定",
+    "showOnMap": "在地图上显示",
+    "hideOnMap": "隐藏",
+    "retiredTitle": "已退出的路段",
+    "retiredEmpty": "没有退出的路段",
+    "retiredInto": "并入{{name}}",
+    "seeRetired": "已退出的路段",
+    "kind_formed": "形成",
+    "kind_restored": "重新出现",
+    "kind_split": "拆分为{{count}}个路段",
+    "kind_recut": "范围重新切分",
+    "kind_dissolved": "消失",
+    "kind_merged": "并入另一路段",
+    "kind_superseded": "被更新的切分取代",
+    "kind_reverted": "已恢复到版本{{version}}",
+    "kind_pr_rebased": "纪录已按当前范围重算",
+    "kind_baseline": "来自旧版应用的记录",
+    "kind_algorithm_changed": "由新检测器重新分析"
   }
 }

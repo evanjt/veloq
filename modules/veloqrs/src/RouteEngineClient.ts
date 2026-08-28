@@ -306,6 +306,7 @@ class RouteEngineClient implements DelegateHost {
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
 
   startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
+  getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
 
   getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
 
@@ -540,6 +541,17 @@ class RouteEngineClient implements DelegateHost {
   getExcludedSectionLaps = (sectionId: string): { activityId: string; startIndex: number }[] =>
     sectionDelegates.getExcludedSectionLaps(this, sectionId);
   getSectionLineages = () => sectionDelegates.getSectionLineages(this);
+  getSectionHistory = (sectionId: string) => sectionDelegates.getSectionHistory(this, sectionId);
+  getSectionGeometryVersions = (sectionId: string) =>
+    sectionDelegates.getSectionGeometryVersions(this, sectionId);
+  getSectionGeometryVersionPolyline = (sectionId: string, version: number) =>
+    sectionDelegates.getSectionGeometryVersionPolyline(this, sectionId, version);
+  revertSectionToVersion = (sectionId: string, version: number) =>
+    sectionDelegates.revertSectionToVersion(this, sectionId, version);
+  unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
+  getPinnedSectionVersion = (sectionId: string) =>
+    sectionDelegates.getPinnedSectionVersion(this, sectionId);
+  getRetiredSections = () => sectionDelegates.getRetiredSections(this);
 
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);

@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Alles accepteren",
     "acceptAllConfirm": "Alle {{count}} automatisch gedetecteerde secties accepteren? Ze blijven behouden bij toekomstige herdetectie.",
     "acceptedCount": "{{count}} secties geaccepteerd",
-    "pinned": "Vastgezet",
+    "pinned": "Vastgezet op een versie",
     "elevationGain": "Hoogtewinst",
     "avgGrade": "Gem. helling",
     "pinnedOnly": "Alleen vastgezet",
@@ -1502,7 +1502,9 @@
     "splitNorth": "noord",
     "splitEast": "oost",
     "splitSouth": "zuid",
-    "splitWest": "west"
+    "splitWest": "west",
+    "accepted": "Geaccepteerd",
+    "acceptedOnly": "Alleen geaccepteerd"
   },
   "settings": {
     "account": "Account",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Opnieuw verbinden…",
       "disconnected": "Niet verbonden"
     }
+  },
+  "sectionHistory": {
+    "title": "Geschiedenis",
+    "empty": "Nog geen wijzigingen vastgelegd",
+    "around": "Rond deze wijziging",
+    "forkAround": "Verkeer bij de splitsing",
+    "prEra": "Beste toen: {{time}}",
+    "prMoved": "Record {{from}} naar {{to}}",
+    "versions": "Opgeslagen versies",
+    "version": "Versie {{version}}",
+    "current": "Huidig",
+    "revert": "Terugzetten",
+    "revertConfirm": "Versie {{version}} terugzetten als lijn van dit stuk? Detectie houdt hem vast tot je hem losmaakt.",
+    "unpin": "Losmaken",
+    "showOnMap": "Toon op kaart",
+    "hideOnMap": "Verberg",
+    "retiredTitle": "Vervallen stukken",
+    "retiredEmpty": "Geen vervallen stukken",
+    "retiredInto": "In {{name}}",
+    "seeRetired": "Vervallen stukken",
+    "kind_formed": "Gevormd",
+    "kind_restored": "Teruggekeerd",
+    "kind_split": "Gesplitst in {{count}} stukken",
+    "kind_recut": "Bereik opnieuw gesneden",
+    "kind_dissolved": "Opgelost",
+    "kind_merged": "Samengevoegd met een ander stuk",
+    "kind_superseded": "Vervangen door een nieuwere snede",
+    "kind_reverted": "Teruggezet naar versie {{version}}",
+    "kind_pr_rebased": "Record herberekend op het huidige bereik",
+    "kind_baseline": "Vastgelegd uit een eerdere versie van de app",
+    "kind_algorithm_changed": "Opnieuw geanalyseerd door een nieuwere detector"
   }
 }

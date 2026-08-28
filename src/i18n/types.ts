@@ -1109,6 +1109,37 @@ export interface TranslationResource {
     setAsReferenceConfirm: string;
   };
 
+  sectionHistory: {
+    title: string;
+    empty: string;
+    around: string;
+    forkAround: string;
+    prEra: string;
+    prMoved: string;
+    versions: string;
+    version: string;
+    current: string;
+    revert: string;
+    revertConfirm: string;
+    unpin: string;
+    showOnMap: string;
+    hideOnMap: string;
+    retiredTitle: string;
+    retiredEmpty: string;
+    retiredInto: string;
+    seeRetired: string;
+    kind_formed: string;
+    kind_restored: string;
+    kind_split: string;
+    kind_recut: string;
+    kind_dissolved: string;
+    kind_merged: string;
+    kind_superseded: string;
+    kind_reverted: string;
+    kind_pr_rebased: string;
+    kind_baseline: string;
+    kind_algorithm_changed: string;
+  };
   sections: {
     acceptSection: string;
     acceptAllSections: string;
@@ -1116,6 +1147,8 @@ export interface TranslationResource {
     acceptedCount: string;
     pinned: string;
     pinnedOnly: string;
+    accepted: string;
+    acceptedOnly: string;
     elevationGain: string;
     avgGrade: string;
     activitiesCount: string;

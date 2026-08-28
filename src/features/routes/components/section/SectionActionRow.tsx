@@ -129,7 +129,7 @@ export function SectionActionRow({
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
-              {t('sections.pinned')}
+              {t('sections.accepted')}
             </Text>
           </View>
         ) : (

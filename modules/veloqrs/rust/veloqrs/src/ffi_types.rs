@@ -734,6 +734,54 @@ pub struct FfiSectionLap {
     pub end_index: u32,
 }
 
+/// One ledger row of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionHistoryEvent {
+    pub id: i64,
+    pub at: String,
+    /// formed, restored, split, recut, dissolved, merged, superseded,
+    /// reverted, pr_rebased, baseline or algorithm_changed.
+    pub kind: String,
+    /// JSON: the era snapshot, lineage links and what was around the change.
+    pub details: Option<String>,
+    pub geometry_version: Option<i64>,
+}
+
+/// One stored geometry version of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionGeometryVersion {
+    pub version: i64,
+    pub created_at: String,
+    pub milestone: bool,
+    pub pinned: bool,
+}
+
+/// A section the ledger remembers and the catalogue no longer holds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredSection {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+    pub into: Option<String>,
+    pub versions: Vec<i64>,
+}
+
+/// The claims the change card may make on this build.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiChangeCardSupport {
+    pub deterministic: bool,
+    pub same_result_drip_or_batch: bool,
+    pub ledger: bool,
+    pub revert: bool,
+    pub retired: bool,
+    pub pinned_survive: bool,
+    pub same_on_every_device: bool,
+}
+
 /// A split sibling's parent and discriminator, for the read side to name it.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]

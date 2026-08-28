@@ -573,3 +573,43 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
     assert!(recuts > 0, "the small batch fires a re-cut");
     assert!(rebased > 0, "a re-cut that moves the record writes a row");
 }
+
+// ----------------------------------------------------------------- retired
+
+/// A section the catalogue dropped stays in the ledger as retired, with how
+/// it left and the versions that still draw it.
+#[test]
+fn a_dissolved_section_is_listed_as_retired() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let rides_a = corridor_rides("ca", 0.0, 9, 0);
+    let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
+    let mut pool = refs(&rides_a);
+    pool.extend(refs(&rides_b));
+    let snap = ingest_step(&mut engine, "cold", &pool).snapshot;
+    let (id_a, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: corridor A");
+    assert!(engine.retired_sections().is_empty(), "nothing has left yet");
+
+    for aid in rides_a.iter().map(|r| r.id.clone()).collect::<Vec<_>>() {
+        engine.remove_activity(&aid).expect("remove_activity");
+    }
+    for i in 0..3 {
+        let filler = filler_act("drain", 40 + i);
+        ingest_step(&mut engine, "drain", &[&filler]);
+    }
+
+    let retired = engine.retired_sections();
+    let entry = retired
+        .iter()
+        .find(|r| r.section_id == id_a)
+        .expect("the dissolved section is listed");
+    assert_eq!(entry.kind, "dissolved");
+    assert_eq!(entry.into, None);
+    assert!(
+        entry.versions.contains(&1),
+        "its birth geometry still draws it"
+    );
+    assert!(
+        engine.get_section_by_id(&id_a).is_none(),
+        "retired means gone from the catalogue"
+    );
+}

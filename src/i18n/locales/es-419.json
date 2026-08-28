@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Aceptar todo",
     "acceptAllConfirm": "¿Aceptar las {{count}} secciones detectadas automáticamente? Se conservarán en futuras redetecciones.",
     "acceptedCount": "{{count}} secciones aceptadas",
-    "pinned": "Fijada",
+    "pinned": "Fijado a una versión",
     "elevationGain": "Desnivel positivo",
     "avgGrade": "Pendiente promedio",
     "pinnedOnly": "Solo fijados",
@@ -1502,7 +1502,9 @@
     "splitNorth": "norte",
     "splitEast": "este",
     "splitSouth": "sur",
-    "splitWest": "oeste"
+    "splitWest": "oeste",
+    "accepted": "Aceptado",
+    "acceptedOnly": "Solo aceptados"
   },
   "settings": {
     "account": "Cuenta",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Reconectando…",
       "disconnected": "No conectado"
     }
+  },
+  "sectionHistory": {
+    "title": "Historial",
+    "empty": "Aún no hay cambios registrados",
+    "around": "En torno a este cambio",
+    "forkAround": "Tráfico en el cruce",
+    "prEra": "Mejor de entonces: {{time}}",
+    "prMoved": "Récord {{from}} a {{to}}",
+    "versions": "Versiones guardadas",
+    "version": "Versión {{version}}",
+    "current": "Actual",
+    "revert": "Restaurar",
+    "revertConfirm": "¿Volver a poner la versión {{version}} como línea de este tramo? La detección la mantendrá hasta que la sueltes.",
+    "unpin": "Soltar",
+    "showOnMap": "Ver en el mapa",
+    "hideOnMap": "Ocultar",
+    "retiredTitle": "Tramos retirados",
+    "retiredEmpty": "Ningún tramo se ha retirado",
+    "retiredInto": "En {{name}}",
+    "seeRetired": "Tramos retirados",
+    "kind_formed": "Formado",
+    "kind_restored": "Ha vuelto",
+    "kind_split": "Dividido en {{count}} tramos",
+    "kind_recut": "Extensión recortada",
+    "kind_dissolved": "Disuelto",
+    "kind_merged": "Fusionado con otro tramo",
+    "kind_superseded": "Sustituido por un corte más reciente",
+    "kind_reverted": "Restaurado a la versión {{version}}",
+    "kind_pr_rebased": "Récord recalculado sobre la extensión actual",
+    "kind_baseline": "Registrado desde una versión anterior de la app",
+    "kind_algorithm_changed": "Reanalizado por un detector más reciente"
   }
 }

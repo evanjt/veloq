@@ -37,6 +37,23 @@ const CUTOVER_INFLIGHT: &str = "unified-1-inflight";
 
 static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Whether section ids derive from the ground rather than the clock. Until
+/// they do, two devices cut the same library into the same sections under
+/// different ids, and the card must not claim otherwise.
+pub const CONTENT_DERIVED_IDS: bool = false;
+
+/// The claims the change card is allowed to make on this build.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChangeCardSupport {
+    pub deterministic: bool,
+    pub same_result_drip_or_batch: bool,
+    pub ledger: bool,
+    pub revert: bool,
+    pub retired: bool,
+    pub pinned_survive: bool,
+    pub same_on_every_device: bool,
+}
+
 /// Where a run has got to, for the settings status line. Terminal phases are
 /// set before the guard drops, so a reader never sees `running = false` beside
 /// a phase that is still mid-flight.
@@ -541,6 +558,26 @@ impl PersistentRouteEngine {
     }
 
     /// The stored diff payload, if any. None before the cutover has run.
+    /// Which claims the change card may make, each backed by the tables and
+    /// code that deliver it. A flag is false until its feature ships, so the
+    /// card never says more than the build can show.
+    pub fn change_card_support(&self) -> ChangeCardSupport {
+        let unified = self
+            .catalogue_detection_method()
+            .as_deref()
+            .map(|m| m == super::sections::DETECTOR_METHOD)
+            .unwrap_or(false);
+        ChangeCardSupport {
+            deterministic: unified,
+            same_result_drip_or_batch: unified,
+            ledger: true,
+            revert: true,
+            retired: true,
+            pinned_survive: true,
+            same_on_every_device: CONTENT_DERIVED_IDS,
+        }
+    }
+
     pub fn cutover_diff(&self) -> Option<String> {
         self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()
     }

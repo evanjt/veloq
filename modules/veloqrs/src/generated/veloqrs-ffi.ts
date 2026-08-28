@@ -861,6 +861,22 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    version: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
     ptr: bigint,
     activityId: Uint8Array,
@@ -897,6 +913,11 @@ interface NativeModuleInterface {
     sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -917,6 +938,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     ptr: bigint,
     sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
+    ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
@@ -1009,6 +1034,12 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    version: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_set_name(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1032,6 +1063,11 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     startIndex: number,
     endIndex: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_unpin(
+    ptr: bigint,
+    sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_settingsmanager(
@@ -1331,6 +1367,9 @@ interface NativeModuleInterface {
     configJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_cutover_diff(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1509,6 +1548,7 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone(): number;
+  ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
@@ -1661,6 +1701,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
@@ -1668,10 +1711,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections(): number;
@@ -1689,10 +1734,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_unpin(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_all_settings(): number;

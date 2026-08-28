@@ -73,6 +73,20 @@ pub struct SectionLineage {
     pub discriminator: String,
 }
 
+/// A section the ledger remembers and the catalogue no longer holds: its
+/// last event says how it left, and its stored versions still draw it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetiredSection {
+    pub section_id: String,
+    /// dissolved, merged or superseded.
+    pub kind: String,
+    pub at: String,
+    /// The survivor a merge or supersession handed the ground to.
+    pub into: Option<String>,
+    /// Surviving geometry versions, newest last.
+    pub versions: Vec<i64>,
+}
+
 /// One stored geometry version, without its polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionGeometryVersion {
@@ -650,6 +664,54 @@ impl PersistentRouteEngine {
             return None;
         }
         codec::decode_polyline(&blob)
+    }
+
+    /// Every section that left the catalogue through a fired retirement and
+    /// still has a ledger, newest departure first.
+    pub fn retired_sections(&self) -> Vec<RetiredSection> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.kind, h.at, h.details FROM section_history h
+             WHERE h.id IN (SELECT MAX(id) FROM section_history GROUP BY section_id)
+               AND h.kind IN ('dissolved', 'merged', 'superseded')
+               AND h.section_id NOT IN (SELECT id FROM sections)
+             ORDER BY h.id DESC",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .map(|(section_id, kind, at, details)| {
+                let d: serde_json::Value = details
+                    .as_deref()
+                    .and_then(|d| serde_json::from_str(d).ok())
+                    .unwrap_or(serde_json::Value::Null);
+                let into = d
+                    .get("into")
+                    .or_else(|| d.get("superseded_by"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string);
+                let versions = self
+                    .section_geometry_versions(&section_id)
+                    .into_iter()
+                    .map(|v| v.version)
+                    .collect();
+                RetiredSection {
+                    section_id,
+                    kind,
+                    at,
+                    into,
+                    versions,
+                }
+            })
+            .collect()
     }
 
     /// Every live section born as a split sibling, with its parent and

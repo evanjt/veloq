@@ -12,8 +12,8 @@ mod ranking;
 pub(crate) mod track_pool;
 
 pub use history::{
-    DetectorGeneration, KIND_REVERTED, SOURCE_CONSENSUS, SOURCE_EXACT, SectionGeometryVersion,
-    SectionHistoryEvent, SectionLineage,
+    DetectorGeneration, KIND_REVERTED, RetiredSection, SOURCE_CONSENSUS, SOURCE_EXACT,
+    SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
 };
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;

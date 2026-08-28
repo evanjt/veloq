@@ -1493,7 +1493,7 @@
     "acceptAllSections": "すべて承認",
     "acceptAllConfirm": "自動検出されたセクション{{count}}件をすべて承認しますか?今後の再検出でも保持されます。",
     "acceptedCount": "{{count}}件のセクションを承認しました",
-    "pinned": "ピン留め",
+    "pinned": "バージョンに固定",
     "elevationGain": "獲得標高",
     "avgGrade": "平均勾配",
     "pinnedOnly": "ピン留めのみ",
@@ -1502,7 +1502,9 @@
     "splitNorth": "北",
     "splitEast": "東",
     "splitSouth": "南",
-    "splitWest": "西"
+    "splitWest": "西",
+    "accepted": "承認済み",
+    "acceptedOnly": "承認済みのみ"
   },
   "settings": {
     "account": "アカウント",
@@ -1997,5 +1999,36 @@
       "reconnecting": "再接続中…",
       "disconnected": "未接続"
     }
+  },
+  "sectionHistory": {
+    "title": "履歴",
+    "empty": "まだ変更はありません",
+    "around": "この変更の前後",
+    "forkAround": "分岐点の通行",
+    "prEra": "当時のベスト: {{time}}",
+    "prMoved": "記録 {{from}} → {{to}}",
+    "versions": "保存されたバージョン",
+    "version": "バージョン{{version}}",
+    "current": "現在",
+    "revert": "戻す",
+    "revertConfirm": "バージョン{{version}}をこの区間のラインに戻しますか？固定を解除するまで検出はこのラインを保持します。",
+    "unpin": "固定を解除",
+    "showOnMap": "地図に表示",
+    "hideOnMap": "非表示",
+    "retiredTitle": "消えた区間",
+    "retiredEmpty": "消えた区間はありません",
+    "retiredInto": "{{name}}へ",
+    "seeRetired": "消えた区間",
+    "kind_formed": "形成",
+    "kind_restored": "復活",
+    "kind_split": "{{count}}区間に分割",
+    "kind_recut": "範囲を再設定",
+    "kind_dissolved": "解消",
+    "kind_merged": "別の区間に統合",
+    "kind_superseded": "新しい区切りに置き換え",
+    "kind_reverted": "バージョン{{version}}に戻しました",
+    "kind_pr_rebased": "現在の範囲で記録を再計算",
+    "kind_baseline": "以前のアプリ版から記録",
+    "kind_algorithm_changed": "新しい検出器で再解析"
   }
 }

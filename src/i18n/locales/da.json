@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Acceptér alle",
     "acceptAllConfirm": "Acceptér alle {{count}} automatisk detekterede sektioner? De vil blive bevaret ved fremtidig genregistrering.",
     "acceptedCount": "{{count}} sektioner accepteret",
-    "pinned": "Fastgjort",
+    "pinned": "Fastgjort til en version",
     "elevationGain": "Højdestigning",
     "avgGrade": "Gns. hældning",
     "pinnedOnly": "Kun fastgjorte",
@@ -1502,7 +1502,9 @@
     "splitNorth": "nord",
     "splitEast": "øst",
     "splitSouth": "syd",
-    "splitWest": "vest"
+    "splitWest": "vest",
+    "accepted": "Accepteret",
+    "acceptedOnly": "Kun accepterede"
   },
   "settings": {
     "account": "Konto",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Genopretter forbindelse…",
       "disconnected": "Ikke forbundet"
     }
+  },
+  "sectionHistory": {
+    "title": "Historik",
+    "empty": "Ingen ændringer registreret endnu",
+    "around": "Omkring denne ændring",
+    "forkAround": "Trafik ved krydset",
+    "prEra": "Bedste dengang: {{time}}",
+    "prMoved": "Rekord {{from}} til {{to}}",
+    "versions": "Gemte versioner",
+    "version": "Version {{version}}",
+    "current": "Nuværende",
+    "revert": "Gendan",
+    "revertConfirm": "Sæt version {{version}} tilbage som strækningens linje? Detektionen holder den der, indtil du frigør den.",
+    "unpin": "Frigør",
+    "showOnMap": "Vis på kort",
+    "hideOnMap": "Skjul",
+    "retiredTitle": "Udgåede strækninger",
+    "retiredEmpty": "Ingen strækninger er udgået",
+    "retiredInto": "Ind i {{name}}",
+    "seeRetired": "Udgåede strækninger",
+    "kind_formed": "Dannet",
+    "kind_restored": "Kom tilbage",
+    "kind_split": "Delt i {{count}} strækninger",
+    "kind_recut": "Udstrækning skåret om",
+    "kind_dissolved": "Opløst",
+    "kind_merged": "Slået sammen med en anden strækning",
+    "kind_superseded": "Erstattet af et nyere snit",
+    "kind_reverted": "Gendannet til version {{version}}",
+    "kind_pr_rebased": "Rekord genberegnet mod den nuværende udstrækning",
+    "kind_baseline": "Registreret fra en tidligere version af appen",
+    "kind_algorithm_changed": "Analyseret igen af en nyere detektor"
   }
 }

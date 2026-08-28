@@ -1493,7 +1493,7 @@
     "acceptAllSections": "Tout accepter",
     "acceptAllConfirm": "Accepter les {{count}} sections détectées automatiquement ? Elles seront conservées lors des prochaines redétections.",
     "acceptedCount": "{{count}} sections acceptées",
-    "pinned": "Épinglée",
+    "pinned": "Épinglé à une version",
     "elevationGain": "Dénivelé positif",
     "avgGrade": "Pente moyenne",
     "pinnedOnly": "Épinglés uniquement",
@@ -1502,7 +1502,9 @@
     "splitNorth": "nord",
     "splitEast": "est",
     "splitSouth": "sud",
-    "splitWest": "ouest"
+    "splitWest": "ouest",
+    "accepted": "Accepté",
+    "acceptedOnly": "Acceptés seulement"
   },
   "settings": {
     "account": "Compte",
@@ -1997,5 +1999,36 @@
       "reconnecting": "Reconnexion…",
       "disconnected": "Non connecté"
     }
+  },
+  "sectionHistory": {
+    "title": "Historique",
+    "empty": "Aucun changement enregistré",
+    "around": "Autour de ce changement",
+    "forkAround": "Trafic à l'embranchement",
+    "prEra": "Meilleur à l'époque : {{time}}",
+    "prMoved": "Record {{from}} à {{to}}",
+    "versions": "Versions enregistrées",
+    "version": "Version {{version}}",
+    "current": "Actuelle",
+    "revert": "Rétablir",
+    "revertConfirm": "Remettre la version {{version}} comme ligne de ce tronçon ? La détection la conservera jusqu'à ce que vous la libériez.",
+    "unpin": "Libérer",
+    "showOnMap": "Voir sur la carte",
+    "hideOnMap": "Masquer",
+    "retiredTitle": "Tronçons retirés",
+    "retiredEmpty": "Aucun tronçon retiré",
+    "retiredInto": "Dans {{name}}",
+    "seeRetired": "Tronçons retirés",
+    "kind_formed": "Formé",
+    "kind_restored": "Revenu",
+    "kind_split": "Divisé en {{count}} tronçons",
+    "kind_recut": "Étendue recoupée",
+    "kind_dissolved": "Dissous",
+    "kind_merged": "Fusionné avec un autre tronçon",
+    "kind_superseded": "Remplacé par une coupe plus récente",
+    "kind_reverted": "Rétabli à la version {{version}}",
+    "kind_pr_rebased": "Record recalculé sur l'étendue actuelle",
+    "kind_baseline": "Enregistré depuis une version antérieure de l'app",
+    "kind_algorithm_changed": "Réanalysé par un détecteur plus récent"
   }
 }

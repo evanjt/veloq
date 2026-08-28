@@ -109,6 +109,21 @@ export function detectSectionsStandalone(
   );
 }
 /**
+ * Which claims the change card may make on this build.
+ */
+export function getChangeCardSupport(): FfiChangeCardSupport {
+  return FfiConverterTypeFfiChangeCardSupport.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * The stored cutover diff payload, if any.
  */
 export function getCutoverDiff(): string | undefined {
@@ -2174,6 +2189,75 @@ const FfiConverterTypeFfiCallOutcome = (() => {
         FfiConverterOptionalUInt16.allocationSize(value.status) +
         FfiConverterOptionalString.allocationSize(value.detail) +
         FfiConverterString.allocationSize(value.message)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The claims the change card may make on this build.
+ */
+export type FfiChangeCardSupport = {
+  deterministic: boolean;
+  sameResultDripOrBatch: boolean;
+  ledger: boolean;
+  revert: boolean;
+  retired: boolean;
+  pinnedSurvive: boolean;
+  sameOnEveryDevice: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiChangeCardSupport} record objects.
+ */
+export const FfiChangeCardSupport = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiChangeCardSupport,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiChangeCardSupport>,
+  });
+})();
+
+const FfiConverterTypeFfiChangeCardSupport = (() => {
+  type TypeName = FfiChangeCardSupport;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        deterministic: FfiConverterBool.read(from),
+        sameResultDripOrBatch: FfiConverterBool.read(from),
+        ledger: FfiConverterBool.read(from),
+        revert: FfiConverterBool.read(from),
+        retired: FfiConverterBool.read(from),
+        pinnedSurvive: FfiConverterBool.read(from),
+        sameOnEveryDevice: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterBool.write(value.deterministic, into);
+      FfiConverterBool.write(value.sameResultDripOrBatch, into);
+      FfiConverterBool.write(value.ledger, into);
+      FfiConverterBool.write(value.revert, into);
+      FfiConverterBool.write(value.retired, into);
+      FfiConverterBool.write(value.pinnedSurvive, into);
+      FfiConverterBool.write(value.sameOnEveryDevice, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.deterministic) +
+        FfiConverterBool.allocationSize(value.sameResultDripOrBatch) +
+        FfiConverterBool.allocationSize(value.ledger) +
+        FfiConverterBool.allocationSize(value.revert) +
+        FfiConverterBool.allocationSize(value.retired) +
+        FfiConverterBool.allocationSize(value.pinnedSurvive) +
+        FfiConverterBool.allocationSize(value.sameOnEveryDevice)
       );
     }
   }
@@ -5095,6 +5179,66 @@ const FfiConverterTypeFfiRecentPR = (() => {
 })();
 
 /**
+ * A section the ledger remembers and the catalogue no longer holds.
+ */
+export type FfiRetiredSection = {
+  sectionId: string;
+  kind: string;
+  at: string;
+  into?: string;
+  versions: Array</*i64*/ bigint>;
+};
+
+/**
+ * Generated factory for {@link FfiRetiredSection} record objects.
+ */
+export const FfiRetiredSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRetiredSection, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRetiredSection>,
+  });
+})();
+
+const FfiConverterTypeFfiRetiredSection = (() => {
+  type TypeName = FfiRetiredSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        kind: FfiConverterString.read(from),
+        at: FfiConverterString.read(from),
+        into: FfiConverterOptionalString.read(from),
+        versions: FfiConverterArrayInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.kind, into);
+      FfiConverterString.write(value.at, into);
+      FfiConverterOptionalString.write(value.into, into);
+      FfiConverterArrayInt64.write(value.versions, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterString.allocationSize(value.at) +
+        FfiConverterOptionalString.allocationSize(value.into) +
+        FfiConverterArrayInt64.allocationSize(value.versions)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Everything the route detail screen paints with in one call.
  *
  * The performances are unfiltered: the screen derives its sport pills from
@@ -6454,6 +6598,133 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
         FfiConverterArrayBuffer.allocationSize(value.encodedTrack) +
         FfiConverterUInt32.allocationSize(value.sectionStartIdx) +
         FfiConverterUInt32.allocationSize(value.sectionEndIdx)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One stored geometry version of a section.
+ */
+export type FfiSectionGeometryVersion = {
+  version: /*i64*/ bigint;
+  createdAt: string;
+  milestone: boolean;
+  pinned: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiSectionGeometryVersion} record objects.
+ */
+export const FfiSectionGeometryVersion = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionGeometryVersion,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionGeometryVersion>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionGeometryVersion = (() => {
+  type TypeName = FfiSectionGeometryVersion;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        version: FfiConverterInt64.read(from),
+        createdAt: FfiConverterString.read(from),
+        milestone: FfiConverterBool.read(from),
+        pinned: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.version, into);
+      FfiConverterString.write(value.createdAt, into);
+      FfiConverterBool.write(value.milestone, into);
+      FfiConverterBool.write(value.pinned, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.version) +
+        FfiConverterString.allocationSize(value.createdAt) +
+        FfiConverterBool.allocationSize(value.milestone) +
+        FfiConverterBool.allocationSize(value.pinned)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One ledger row of a section.
+ */
+export type FfiSectionHistoryEvent = {
+  id: /*i64*/ bigint;
+  at: string;
+  /**
+   * formed, restored, split, recut, dissolved, merged, superseded,
+   * reverted, pr_rebased, baseline or algorithm_changed.
+   */
+  kind: string;
+  /**
+   * JSON: the era snapshot, lineage links and what was around the change.
+   */
+  details?: string;
+  geometryVersion?: /*i64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link FfiSectionHistoryEvent} record objects.
+ */
+export const FfiSectionHistoryEvent = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionHistoryEvent,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionHistoryEvent>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionHistoryEvent = (() => {
+  type TypeName = FfiSectionHistoryEvent;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterInt64.read(from),
+        at: FfiConverterString.read(from),
+        kind: FfiConverterString.read(from),
+        details: FfiConverterOptionalString.read(from),
+        geometryVersion: FfiConverterOptionalInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.id, into);
+      FfiConverterString.write(value.at, into);
+      FfiConverterString.write(value.kind, into);
+      FfiConverterOptionalString.write(value.details, into);
+      FfiConverterOptionalInt64.write(value.geometryVersion, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.at) +
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterOptionalString.allocationSize(value.details) +
+        FfiConverterOptionalInt64.allocationSize(value.geometryVersion)
       );
     }
   }
@@ -12125,6 +12396,17 @@ export interface SectionManagerLike {
   ) /*throws*/ : FfiSectionSummariesResult;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
   /**
+   * A stored version's line, coordinate-encoded like a section polyline.
+   */
+  getGeometryVersionCoords(
+    sectionId: string,
+    version: /*i64*/ bigint,
+  ) /*throws*/ : ArrayBuffer;
+  getGeometryVersions(
+    sectionId: string,
+  ) /*throws*/ : Array<FfiSectionGeometryVersion>;
+  getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
+  /**
    * Read pre-computed indicators for a single activity.
    */
   getIndicatorsForActivity(
@@ -12159,6 +12441,7 @@ export interface SectionManagerLike {
     sectionIds: Array<string>,
     sportType: string | undefined,
   ) /*throws*/ : Array<FfiSectionPerformanceBatchEntry>;
+  getPinnedVersion(sectionId: string) /*throws*/ : /*i64*/ bigint | undefined;
   getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
   getRanked(
     sportType: string,
@@ -12173,6 +12456,7 @@ export interface SectionManagerLike {
     limit: /*u32*/ number,
   ) /*throws*/ : Array<FfiRankedSectionsBySport>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
+  getRetired() /*throws*/ : Array<FfiRetiredSection>;
   getSummaries(
     sportType: string | undefined,
   ) /*throws*/ : Array<SectionSummary>;
@@ -12247,6 +12531,7 @@ export interface SectionManagerLike {
   removeNamedCorridor(intentId: string) /*throws*/ : void;
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
+  revertToVersion(sectionId: string, version: /*i64*/ bigint) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
   setReference(sectionId: string, activityId: string) /*throws*/ : void;
   setSuperseded(
@@ -12258,6 +12543,7 @@ export interface SectionManagerLike {
     startIndex: /*u32*/ number,
     endIndex: /*u32*/ number,
   ) /*throws*/ : void;
+  unpin(sectionId: string) /*throws*/ : void;
 }
 /**
  * @deprecated Use `SectionManagerLike` instead.
@@ -13006,6 +13292,69 @@ export class SectionManager
   }
 
   /**
+   * A stored version's line, coordinate-encoded like a section polyline.
+   */
+  getGeometryVersionCoords(
+    sectionId: string,
+    version: /*i64*/ bigint,
+  ): ArrayBuffer /*throws*/ {
+    return FfiConverterArrayBuffer.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            FfiConverterInt64.lower(version),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getGeometryVersions(
+    sectionId: string,
+  ): Array<FfiSectionGeometryVersion> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionGeometryVersion.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getHistory(sectionId: string): Array<FfiSectionHistoryEvent> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionHistoryEvent.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Read pre-computed indicators for a single activity.
    */
   getIndicatorsForActivity(
@@ -13160,6 +13509,24 @@ export class SectionManager
     );
   }
 
+  getPinnedVersion(sectionId: string): /*i64*/ bigint | undefined /*throws*/ {
+    return FfiConverterOptionalInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   getPolyline(sectionId: string): Array<FfiGpsPoint> /*throws*/ {
     return FfiConverterArrayTypeFfiGpsPoint.lift(
       uniffiCaller.rustCallWithError(
@@ -13236,6 +13603,23 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getRetired(): Array<FfiRetiredSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiRetiredSection.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -13600,6 +13984,23 @@ export class SectionManager
     );
   }
 
+  revertToVersion(sectionId: string, version: /*i64*/ bigint): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_revert_to_version(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          FfiConverterInt64.lower(version),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
   setName(sectionId: string, name: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -13669,6 +14070,22 @@ export class SectionManager
           FfiConverterString.lower(sectionId),
           FfiConverterUInt32.lower(startIndex),
           FfiConverterUInt32.lower(endIndex),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  unpin(sectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_unpin(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
           callStatus,
         );
       },
@@ -16436,6 +16853,11 @@ const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
   FfiConverterTypeFfiRecentPR,
 );
 
+// FfiConverter for Array<FfiRetiredSection>
+const FfiConverterArrayTypeFfiRetiredSection = new FfiConverterArray(
+  FfiConverterTypeFfiRetiredSection,
+);
+
 // FfiConverter for Array<FfiRouteGroup>
 const FfiConverterArrayTypeFfiRouteGroup = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroup,
@@ -16464,6 +16886,16 @@ const FfiConverterArrayTypeFfiSectionChartPoint = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionEncounter>
 const FfiConverterArrayTypeFfiSectionEncounter = new FfiConverterArray(
   FfiConverterTypeFfiSectionEncounter,
+);
+
+// FfiConverter for Array<FfiSectionGeometryVersion>
+const FfiConverterArrayTypeFfiSectionGeometryVersion = new FfiConverterArray(
+  FfiConverterTypeFfiSectionGeometryVersion,
+);
+
+// FfiConverter for Array<FfiSectionHistoryEvent>
+const FfiConverterArrayTypeFfiSectionHistoryEvent = new FfiConverterArray(
+  FfiConverterTypeFfiSectionHistoryEvent,
 );
 
 // FfiConverter for Array<FfiSectionLap>
@@ -16599,6 +17031,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_detect_sections_standalone",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
+    55123
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_change_card_support",
     );
   }
   if (
@@ -17818,6 +18258,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords() !==
+    32640
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions() !==
+    6310
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history() !==
+    21918
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_history",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity() !==
     55467
   ) {
@@ -17874,6 +18338,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version() !==
+    63552
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline() !==
     14756
   ) {
@@ -17903,6 +18375,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired() !==
+    36172
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_retired",
     );
   }
   if (
@@ -18042,6 +18522,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version() !==
+    35912
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_revert_to_version",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name() !==
     27856
   ) {
@@ -18071,6 +18559,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_trim",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_unpin() !==
+    38624
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_unpin",
     );
   }
   if (
@@ -18584,6 +19080,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCalendarSummary,
     FfiConverterTypeFfiCalendarYearSummary,
     FfiConverterTypeFfiCallOutcome,
+    FfiConverterTypeFfiChangeCardSupport,
     FfiConverterTypeFfiDetectionProgress,
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiEfficiencyPoint,
@@ -18623,6 +19120,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRetiredSection,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
@@ -18637,6 +19135,8 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionDetailData,
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
+    FfiConverterTypeFfiSectionGeometryVersion,
+    FfiConverterTypeFfiSectionHistoryEvent,
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionLineage,
     FfiConverterTypeFfiSectionMatch,
