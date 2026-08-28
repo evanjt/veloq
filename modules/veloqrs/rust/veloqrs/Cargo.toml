@@ -114,10 +114,6 @@ name = "schema_indexes"
 required-features = ["synthetic"]
 
 [[test]]
-name = "consensus_persistence"
-required-features = ["synthetic"]
-
-[[test]]
 name = "detection_pool_invariance"
 required-features = ["synthetic"]
 
