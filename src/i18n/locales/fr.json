@@ -1518,7 +1518,8 @@
     "excludeLap": "Exclure",
     "undoExclude": "Annuler",
     "lapExcluded": "Exclu",
-    "partlyExcluded": "Certains tours exclus"
+    "partlyExcluded": "Certains tours exclus",
+    "avgHr": "FC moy."
   },
   "settings": {
     "account": "Compte",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Conserver",
     "previewDiscard": "Abandonner",
     "previewKeepTitle": "Appliquer ces réglages ?",
-    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer."
+    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer.",
+    "advanced": "Avancé"
   },
   "stats": {
     "activities": "Activités",

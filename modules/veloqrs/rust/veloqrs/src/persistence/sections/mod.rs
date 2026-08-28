@@ -1021,56 +1021,14 @@ impl PersistentRouteEngine {
         // `section_activities` recompute triggers, so it needs no GROUP BY here.
         // One junction row is one pass, so it counts traversals; outings are a
         // separate DISTINCT.
-        let section_activity_counts: HashMap<String, u32> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT section_id, COUNT(DISTINCT activity_id) FROM section_activities
-                 WHERE excluded = 0
-                 GROUP BY section_id",
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
-        };
-
-        // Sport comes from `activities`, written on ingest. `activity_metrics`
-        // fills only once metrics load, so joining it hides a sport until then.
-        let section_sport_types: HashMap<String, Vec<String>> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                 JOIN activities a ON sa.activity_id = a.id
-                 WHERE sa.excluded = 0
-                 GROUP BY sa.section_id"
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| {
-                let id: String = row.get(0)?;
-                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                // GROUP_CONCAT order is undefined, so sort for a stable summary.
-                let mut types: Vec<String> = types_csv
-                    .split(',')
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string())
-                    .collect();
-                types.sort();
-                Ok((id, types))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        };
-
+        // `activity_count` and `sport_types` are denormalised onto the row and
+        // kept by the junction triggers, so the list needs no GROUP BY.
         let mut stmt = match self.db.prepare(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
                     is_user_defined, disabled, superseded_by, visit_count,
-                    elevation_gain_m, avg_grade_percent
+                    elevation_gain_m, avg_grade_percent, activity_count, sport_types
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -1107,8 +1065,16 @@ impl PersistentRouteEngine {
                 };
 
                 let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
-                let activity_count = section_activity_counts.get(&id).copied().unwrap_or(0);
-                let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
+                let activity_count: u32 = row.get::<_, Option<u32>>(19)?.unwrap_or(0);
+                // GROUP_CONCAT order is undefined, so sort for a stable summary.
+                let mut sport_types: Vec<String> = row
+                    .get::<_, Option<String>>(20)?
+                    .unwrap_or_default()
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+                sport_types.sort();
 
                 Ok(SectionSummary {
                     id,

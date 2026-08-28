@@ -732,6 +732,8 @@ pub struct FfiSectionLap {
     pub start_index: u32,
     /// End index in the activity's GPS track
     pub end_index: u32,
+    /// Mean heart rate over the lap, when the activity carried a stream.
+    pub avg_hr: Option<f64>,
 }
 
 /// One ledger row of a section.
@@ -821,6 +823,7 @@ impl From<crate::SectionLap> for FfiSectionLap {
             direction: l.direction,
             start_index: l.start_index,
             end_index: l.end_index,
+            avg_hr: l.avg_hr,
         }
     }
 }
@@ -1854,6 +1857,7 @@ mod tests {
             direction: "forward".to_string(),
             start_index: 17,
             end_index: 104,
+            avg_hr: Some(142.0),
         }
     }
 

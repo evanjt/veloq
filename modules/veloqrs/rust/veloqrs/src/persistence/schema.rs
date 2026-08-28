@@ -127,6 +127,7 @@ impl PersistentRouteEngine {
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
+        Self::ensure_section_summary_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_sections_geometry_provenance(conn)?;
@@ -336,7 +337,8 @@ impl PersistentRouteEngine {
              bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
              original_polyline_json, disabled, superseded_by, consensus_state_blob,
              polyline_blob, point_density_blob, visit_count, rep_start_index,
-             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent";
+             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent,
+             activity_count, sport_types";
         let tx = conn.unchecked_transaction()?;
         tx.execute_batch(
             "DROP TABLE IF EXISTS sections_rebuild;
@@ -378,7 +380,9 @@ impl PersistentRouteEngine {
                      CHECK(geometry_source IS NULL
                            OR geometry_source IN ('exact', 'consensus', 'orphaned')),
                  elevation_gain_m REAL,
-                 avg_grade_percent REAL
+                 avg_grade_percent REAL,
+                 activity_count INTEGER NOT NULL DEFAULT 0,
+                 sport_types TEXT
              );",
         )?;
         tx.execute(
@@ -393,6 +397,10 @@ impl PersistentRouteEngine {
              DROP TRIGGER IF EXISTS section_activities_visit_count_ad;
              DROP TRIGGER IF EXISTS section_activities_visit_count_au;
              DROP TRIGGER IF EXISTS section_activities_visit_count_amove;
+             DROP TRIGGER IF EXISTS section_activities_summary_ai;
+             DROP TRIGGER IF EXISTS section_activities_summary_ad;
+             DROP TRIGGER IF EXISTS section_activities_summary_au;
+             DROP TRIGGER IF EXISTS section_activities_summary_amove;
              DROP TABLE sections;
              ALTER TABLE sections_rebuild RENAME TO sections;
              CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
@@ -402,6 +410,7 @@ impl PersistentRouteEngine {
         )?;
         tx.commit()?;
         Self::ensure_visit_count_denormalisation(conn)?;
+        Self::ensure_section_summary_denormalisation(conn)?;
         let violations: i64 =
             conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
                 row.get(0)
@@ -612,6 +621,76 @@ impl PersistentRouteEngine {
                  ) WHERE id = OLD.section_id;
              END;",
         )?;
+        Ok(())
+    }
+
+    /// Denormalise the two summary aggregates the section list reads on
+    /// every render, `activity_count` (distinct included activities) and
+    /// `sport_types` (their sports, comma-joined), onto the row, kept by
+    /// triggers beside the visit_count ones so a junction change updates the
+    /// summary in the same statement.
+    fn ensure_section_summary_denormalisation(conn: &Connection) -> SqlResult<()> {
+        let has_columns = conn
+            .prepare("SELECT activity_count, sport_types FROM sections LIMIT 0")
+            .is_ok();
+        if !has_columns {
+            conn.execute_batch(
+                "ALTER TABLE sections ADD COLUMN activity_count INTEGER NOT NULL DEFAULT 0;
+                 ALTER TABLE sections ADD COLUMN sport_types TEXT;",
+            )?;
+        }
+        let has_trigger: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master
+                 WHERE type = 'trigger' AND name = 'section_activities_summary_ai'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if has_columns && has_trigger {
+            return Ok(());
+        }
+        conn.execute_batch(
+            "UPDATE sections SET
+                 activity_count = (
+                     SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
+                 sport_types = (
+                     SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                     JOIN activities a ON a.id = sa.activity_id
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0);",
+        )?;
+        // One body, four firings: the recount for whichever section the row
+        // touched, on insert, delete, exclusion flip and section move.
+        let recount = |key: &str| {
+            format!(
+                "UPDATE sections SET
+                     activity_count = (
+                         SELECT COUNT(DISTINCT activity_id) FROM section_activities
+                         WHERE section_id = {key} AND excluded = 0),
+                     sport_types = (
+                         SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                         JOIN activities a ON a.id = sa.activity_id
+                         WHERE sa.section_id = {key} AND sa.excluded = 0)
+                 WHERE id = {key};"
+            )
+        };
+        conn.execute_batch(&format!(
+            "DROP TRIGGER IF EXISTS section_activities_summary_ai;
+             DROP TRIGGER IF EXISTS section_activities_summary_ad;
+             DROP TRIGGER IF EXISTS section_activities_summary_au;
+             DROP TRIGGER IF EXISTS section_activities_summary_amove;
+             CREATE TRIGGER section_activities_summary_ai
+             AFTER INSERT ON section_activities BEGIN {new_} END;
+             CREATE TRIGGER section_activities_summary_ad
+             AFTER DELETE ON section_activities BEGIN {old} END;
+             CREATE TRIGGER section_activities_summary_au
+             AFTER UPDATE OF excluded ON section_activities BEGIN {new_} END;
+             CREATE TRIGGER section_activities_summary_amove
+             AFTER UPDATE OF section_id ON section_activities BEGIN {new_} {old} END;",
+            new_ = recount("NEW.section_id"),
+            old = recount("OLD.section_id"),
+        ))?;
         Ok(())
     }
 

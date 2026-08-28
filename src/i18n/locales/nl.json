@@ -1518,7 +1518,8 @@
     "excludeLap": "Uitsluiten",
     "undoExclude": "Ongedaan maken",
     "lapExcluded": "Uitgesloten",
-    "partlyExcluded": "Sommige ronden uitgesloten"
+    "partlyExcluded": "Sommige ronden uitgesloten",
+    "avgHr": "Gem. HR"
   },
   "settings": {
     "account": "Account",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Behouden",
     "previewDiscard": "Verwerpen",
     "previewKeepTitle": "Deze instellingen toepassen?",
-    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen."
+    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
+    "advanced": "Geavanceerd"
   },
   "stats": {
     "activities": "Activiteiten",

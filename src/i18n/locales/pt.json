@@ -1518,7 +1518,8 @@
     "excludeLap": "Excluir",
     "undoExclude": "Anular",
     "lapExcluded": "Excluída",
-    "partlyExcluded": "Algumas voltas excluídas"
+    "partlyExcluded": "Algumas voltas excluídas",
+    "avgHr": "FC média"
   },
   "settings": {
     "account": "Conta",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas definições?",
-    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar."
+    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar.",
+    "advanced": "Avançado"
   },
   "stats": {
     "activities": "Atividades",

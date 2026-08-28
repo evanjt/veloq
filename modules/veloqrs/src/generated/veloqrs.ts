@@ -6814,6 +6814,10 @@ export type FfiSectionLap = {
    * End index in the activity's GPS track
    */
   endIndex: /*u32*/ number;
+  /**
+   * Mean heart rate over the lap, when the activity carried a stream.
+   */
+  avgHr?: /*f64*/ number;
 };
 
 /**
@@ -6846,6 +6850,7 @@ const FfiConverterTypeFfiSectionLap = (() => {
         direction: FfiConverterString.read(from),
         startIndex: FfiConverterUInt32.read(from),
         endIndex: FfiConverterUInt32.read(from),
+        avgHr: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6857,6 +6862,7 @@ const FfiConverterTypeFfiSectionLap = (() => {
       FfiConverterString.write(value.direction, into);
       FfiConverterUInt32.write(value.startIndex, into);
       FfiConverterUInt32.write(value.endIndex, into);
+      FfiConverterOptionalFloat64.write(value.avgHr, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6867,7 +6873,8 @@ const FfiConverterTypeFfiSectionLap = (() => {
         FfiConverterFloat64.allocationSize(value.distance) +
         FfiConverterString.allocationSize(value.direction) +
         FfiConverterUInt32.allocationSize(value.startIndex) +
-        FfiConverterUInt32.allocationSize(value.endIndex)
+        FfiConverterUInt32.allocationSize(value.endIndex) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgHr)
       );
     }
   }

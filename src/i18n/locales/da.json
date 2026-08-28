@@ -1518,7 +1518,8 @@
     "excludeLap": "Udeluk",
     "undoExclude": "Fortryd",
     "lapExcluded": "Udelukket",
-    "partlyExcluded": "Nogle omgange udelukket"
+    "partlyExcluded": "Nogle omgange udelukket",
+    "avgHr": "Gns. puls"
   },
   "settings": {
     "account": "Konto",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Behold",
     "previewDiscard": "Kassér",
     "previewKeepTitle": "Anvend disse indstillinger?",
-    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig."
+    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
+    "advanced": "Avanceret"
   },
   "stats": {
     "activities": "Aktiviteter",

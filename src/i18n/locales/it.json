@@ -1518,7 +1518,8 @@
     "excludeLap": "Escludi",
     "undoExclude": "Annulla",
     "lapExcluded": "Escluso",
-    "partlyExcluded": "Alcuni giri esclusi"
+    "partlyExcluded": "Alcuni giri esclusi",
+    "avgHr": "FC media"
   },
   "settings": {
     "account": "Account",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Mantieni",
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
-    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare."
+    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
+    "advanced": "Avanzate"
   },
   "stats": {
     "activities": "Attività",

@@ -1518,7 +1518,8 @@
     "excludeLap": "排除",
     "undoExclude": "撤销",
     "lapExcluded": "已排除",
-    "partlyExcluded": "部分圈已排除"
+    "partlyExcluded": "部分圈已排除",
+    "avgHr": "平均心率"
   },
   "settings": {
     "account": "账户",
@@ -1711,7 +1712,8 @@
     "previewKeep": "保留",
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
-    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。"
+    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
+    "advanced": "高级"
   },
   "stats": {
     "activities": "活动",

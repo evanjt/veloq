@@ -1518,7 +1518,8 @@
     "excludeLap": "除外",
     "undoExclude": "元に戻す",
     "lapExcluded": "除外済み",
-    "partlyExcluded": "一部のラップを除外"
+    "partlyExcluded": "一部のラップを除外",
+    "avgHr": "平均心拍"
   },
   "settings": {
     "account": "アカウント",
@@ -1711,7 +1712,8 @@
     "previewKeep": "適用",
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
-    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。"
+    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
+    "advanced": "詳細設定"
   },
   "stats": {
     "activities": "アクティビティ",

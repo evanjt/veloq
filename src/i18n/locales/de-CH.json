@@ -1518,7 +1518,8 @@
     "excludeLap": "Ausschließen",
     "undoExclude": "Rückgängig",
     "lapExcluded": "Ausgeschlossen",
-    "partlyExcluded": "Einige Runden ausgeschlossen"
+    "partlyExcluded": "Einige Runden ausgeschlossen",
+    "avgHr": "Ø Puls"
   },
   "settings": {
     "account": "Konto",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Bhalte",
     "previewDiscard": "Verwerfe",
     "previewKeepTitle": "Die Iistellige aawände?",
-    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere."
+    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
+    "advanced": "Erweitert"
   },
   "stats": {
     "activities": "Aktivitäte",

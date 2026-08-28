@@ -26,6 +26,8 @@ export interface SectionLap {
   startIndex: number;
   /** End index into activity GPS track */
   endIndex: number;
+  /** Mean heart rate over the lap, when the activity carried a stream. */
+  avgHr: number | null;
 }
 
 /**
@@ -113,6 +115,7 @@ export function toPerformanceView(result: SectionPerformanceResult): SectionPerf
       direction: castDirection(l.direction),
       startIndex: l.startIndex,
       endIndex: l.endIndex,
+      avgHr: l.avgHr ?? null,
     })),
     lapCount: r.lapCount,
     bestTime: r.bestTime,

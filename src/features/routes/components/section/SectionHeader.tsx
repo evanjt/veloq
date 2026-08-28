@@ -27,6 +27,8 @@ export interface SectionHeaderProps {
   activityColor: string;
   iconName: MaterialIconName;
   activityCount: number;
+  /** Mean heart rate across the included laps, when any carried one. */
+  avgHr?: number | null;
   mapReady: boolean;
   isTrimming: boolean;
   isExpandMode: boolean;
@@ -64,6 +66,7 @@ export function SectionHeader({
   activityColor,
   iconName,
   activityCount,
+  avgHr = null,
   mapReady,
   mapHeight = MAP_HEIGHT_NORMAL,
   isTrimming,
@@ -117,6 +120,9 @@ export function SectionHeader({
             stats={[
               formatDistance(section.distanceMeters, isMetric),
               `${activityCount} ${t('sections.traversals')}`,
+              ...(avgHr != null && avgHr > 0
+                ? [`${t('sections.avgHr')} ${Math.round(avgHr)}`]
+                : []),
               ...(section.elevationGainM != null && section.elevationGainM >= 10
                 ? [formatElevation(section.elevationGainM, isMetric)]
                 : []),

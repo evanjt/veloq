@@ -252,6 +252,7 @@ export interface TranslationResource {
   };
 
   settings: {
+    advanced: string;
     title: string;
     display: string;
     displayAndMaps: string;
@@ -1170,6 +1171,7 @@ export interface TranslationResource {
     acceptedOnly: string;
     laps: string;
     lap: string;
+    avgHr: string;
     excludeLap: string;
     undoExclude: string;
     lapExcluded: string;

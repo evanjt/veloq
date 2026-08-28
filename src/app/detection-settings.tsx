@@ -78,11 +78,14 @@ export default function DetectionSettingsScreen() {
 
   const [params, setParams] = useState<DetectionParams>(defaultParams);
 
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
   const handlePresetSelect = useCallback((index: number) => {
     const preset = DETECTION_PRESETS[index];
     useRouteSettings.getState().setDetectionStrictness(preset.value);
+    // A preset is route-grouping strictness; the sliders are the detector's
+    // own parameters and keep what the user set.
     applyDetectionStrictness(preset.strictness);
-    setParams(defaultParams());
   }, []);
 
   const applyParam = useCallback((key: keyof DetectionParams, value: number) => {
@@ -219,53 +222,72 @@ export default function DetectionSettingsScreen() {
             })}
           </View>
 
-          <View style={[styles.paramsCard, { backgroundColor: surface, borderColor: border }]}>
-            <ParamRow
-              label={t('settings.sectionProximity', {
-                meters: params.proximityThreshold,
-              })}
-              value={params.proximityThreshold}
-              min={25}
-              max={300}
-              step={25}
-              onChange={(v) => setParam('proximityThreshold', v)}
-              isDark={isDark}
+          <Pressable
+            testID="detection-advanced-toggle"
+            style={[styles.advancedToggle, { borderColor: border }]}
+            onPress={() => setAdvancedOpen((open) => !open)}
+          >
+            <Text style={[styles.advancedLabel, { color: textSecondary }]}>
+              {t('settings.advanced')}
+            </Text>
+            <MaterialCommunityIcons
+              name={advancedOpen ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={textSecondary}
             />
-            <ParamRow
-              label={t('settings.sectionMinLength', {
-                meters: params.minSectionLength,
-              })}
-              value={params.minSectionLength}
-              min={50}
-              max={2000}
-              step={50}
-              onChange={(v) => setParam('minSectionLength', v)}
-              isDark={isDark}
-            />
-            <ParamRow
-              label={t('settings.sectionMinActivities', {
-                count: params.minActivities,
-              })}
-              value={params.minActivities}
-              min={2}
-              max={10}
-              step={1}
-              onChange={(v) => setParam('minActivities', v)}
-              isDark={isDark}
-            />
+          </Pressable>
+          {advancedOpen && (
+            <View
+              testID="detection-advanced-panel"
+              style={[styles.paramsCard, { backgroundColor: surface, borderColor: border }]}
+            >
+              <ParamRow
+                label={t('settings.sectionProximity', {
+                  meters: params.proximityThreshold,
+                })}
+                value={params.proximityThreshold}
+                min={25}
+                max={300}
+                step={25}
+                onChange={(v) => setParam('proximityThreshold', v)}
+                isDark={isDark}
+              />
+              <ParamRow
+                label={t('settings.sectionMinLength', {
+                  meters: params.minSectionLength,
+                })}
+                value={params.minSectionLength}
+                min={50}
+                max={2000}
+                step={50}
+                onChange={(v) => setParam('minSectionLength', v)}
+                isDark={isDark}
+              />
+              <ParamRow
+                label={t('settings.sectionMinActivities', {
+                  count: params.minActivities,
+                })}
+                value={params.minActivities}
+                min={2}
+                max={10}
+                step={1}
+                onChange={(v) => setParam('minActivities', v)}
+                isDark={isDark}
+              />
 
-            <ParamRow
-              label={t('settings.sectionDivergence', {
-                value: params.divergenceThreshold.toFixed(2),
-              })}
-              value={params.divergenceThreshold}
-              min={0.05}
-              max={0.5}
-              step={0.05}
-              onChange={(v) => setParam('divergenceThreshold', v)}
-              isDark={isDark}
-            />
-          </View>
+              <ParamRow
+                label={t('settings.sectionDivergence', {
+                  value: params.divergenceThreshold.toFixed(2),
+                })}
+                value={params.divergenceThreshold}
+                min={0.05}
+                max={0.5}
+                step={0.05}
+                onChange={(v) => setParam('divergenceThreshold', v)}
+                isDark={isDark}
+              />
+            </View>
+          )}
 
           <Pressable
             style={[
@@ -441,6 +463,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: { color: '#FFFFFF' },
+  advancedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.sm,
+  },
+  advancedLabel: {
+    ...typography.label,
+  },
   paramsCard: {
     marginTop: spacing.md,
     borderRadius: layout.borderRadius,

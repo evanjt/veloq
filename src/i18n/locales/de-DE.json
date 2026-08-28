@@ -1518,7 +1518,8 @@
     "excludeLap": "Ausschließen",
     "undoExclude": "Rückgängig",
     "lapExcluded": "Ausgeschlossen",
-    "partlyExcluded": "Einige Runden ausgeschlossen"
+    "partlyExcluded": "Einige Runden ausgeschlossen",
+    "avgHr": "Ø Puls"
   },
   "settings": {
     "account": "Konto",
@@ -1711,7 +1712,8 @@
     "previewKeep": "Behalten",
     "previewDiscard": "Verwerfen",
     "previewKeepTitle": "Diese Einstellungen anwenden?",
-    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern."
+    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
+    "advanced": "Erweitert"
   },
   "stats": {
     "activities": "Aktivitäten",

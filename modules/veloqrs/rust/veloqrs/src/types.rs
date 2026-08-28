@@ -116,6 +116,9 @@ pub struct SectionLap {
     /// End index in the activity's GPS track
     #[serde(alias = "end_index")]
     pub end_index: u32,
+    /// Mean heart rate over the lap, when the activity carried a stream.
+    #[serde(default, alias = "avg_hr")]
+    pub avg_hr: Option<f64>,
 }
 
 /// Section performance record for an activity.

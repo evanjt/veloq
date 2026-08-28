@@ -1520,7 +1520,8 @@
     "excludeLap": "Wyklucz",
     "undoExclude": "Cofnij",
     "lapExcluded": "Wykluczone",
-    "partlyExcluded": "Niektóre okrążenia wykluczone"
+    "partlyExcluded": "Niektóre okrążenia wykluczone",
+    "avgHr": "Śr. tętno"
   },
   "settings": {
     "account": "Konto",
@@ -1713,7 +1714,8 @@
     "previewKeep": "Zachowaj",
     "previewDiscard": "Odrzuć",
     "previewKeepTitle": "Zastosować te ustawienia?",
-    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić."
+    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
+    "advanced": "Zaawansowane"
   },
   "stats": {
     "activities": "Aktywności",

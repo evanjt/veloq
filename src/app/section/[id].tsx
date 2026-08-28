@@ -310,6 +310,15 @@ export default function SectionDetailScreen() {
 
   const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
+  // Heart rate over the laps that carried a stream, excluded laps left out.
+  const avgHr = useMemo(() => {
+    const values = performanceRecords.flatMap((r) =>
+      r.laps.filter((l) => l.avgHr != null && l.avgHr > 0).map((l) => l.avgHr as number)
+    );
+    if (values.length === 0) return null;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  }, [performanceRecords]);
+
   // Per-lap exclusion, keyed the way the junction rows are.
   const laps = useSectionLaps(id, sectionRefreshKey);
   const partlyExcluded = useMemo(
@@ -374,6 +383,7 @@ export default function SectionDetailScreen() {
             activityColor={activityColor}
             iconName={iconName}
             activityCount={traversalCount}
+            avgHr={avgHr}
             mapReady={mapReady}
             isTrimming={isTrimming}
             isExpandMode={isExpandMode}

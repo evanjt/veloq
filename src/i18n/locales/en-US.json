@@ -1557,7 +1557,8 @@
     "excludeLap": "Exclude",
     "undoExclude": "Undo",
     "lapExcluded": "Excluded",
-    "partlyExcluded": "Some laps excluded"
+    "partlyExcluded": "Some laps excluded",
+    "avgHr": "Avg HR"
   },
   "settings": {
     "account": "Account",
@@ -1750,7 +1751,8 @@
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
-    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too."
+    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too.",
+    "advanced": "Advanced"
   },
   "stats": {
     "activities": "Activities",
