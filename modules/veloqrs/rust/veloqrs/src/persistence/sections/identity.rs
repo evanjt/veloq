@@ -48,7 +48,7 @@ use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
-    shares_ground,
+    SectionConfig, shares_ground,
 };
 
 /// `identity_state.key` for the section registry blob (B4 migration 013).
@@ -417,7 +417,7 @@ impl PersistentRouteEngine {
         identity: &mut SectionIdentity,
         raw: Vec<FrequentSection>,
     ) -> (Vec<FrequentSection>, Vec<SectionLifecycleEvent>) {
-        let proximity = self.section_config.proximity_threshold;
+        let config = self.section_config.clone();
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
         // ground must not be re-emitted (that is the UNIQUE-id collision the R2
@@ -556,7 +556,7 @@ impl PersistentRouteEngine {
             let mut payload = Some(section);
             let carried = match resolutions[j].fate {
                 CandidateFate::CarriedFrozen => old_rows.get(&pid).cloned().map(|mut row| {
-                    fold_new_activities(&mut row.section, &new_tracks, proximity);
+                    fold_new_activities(&mut row.section, &new_tracks, &config);
                     row
                 }),
                 CandidateFate::CarriedAdopted => old_rows.get(&pid).cloned().map(|mut row| {
@@ -579,14 +579,14 @@ impl PersistentRouteEngine {
                     // derived from the cut, so the carry is what freezes it
                     // against a later batch deriving a different one.
                     row.section.sport_type = prior.sport_type.clone();
-                    graft_prior_members(self, &mut row.section, &prior, proximity);
+                    graft_prior_members(self, &mut row.section, &prior, &config);
                     // An adopted carry keeps learning new traffic exactly as a
                     // frozen one does: the batch candidate only carries its own
                     // sport's members, but a new activity of another sport on
                     // the same ground must still join the row this step, or the
                     // cross-sport merge's majority pick hands the corridor to a
                     // freshly minted id and identity breaks on a sport addition.
-                    fold_new_activities(&mut row.section, &new_tracks, proximity);
+                    fold_new_activities(&mut row.section, &new_tracks, &config);
                     row
                 }),
                 CandidateFate::Restored => old_graves
@@ -637,7 +637,7 @@ impl PersistentRouteEngine {
                 continue;
             }
             if let Some(mut row) = old_rows.get(&pid).cloned() {
-                fold_new_activities(&mut row.section, &new_tracks, proximity);
+                fold_new_activities(&mut row.section, &new_tracks, &config);
                 new_rows.insert(pid, row);
             }
         }
@@ -1044,13 +1044,13 @@ fn ground_owned_by_intent(polyline: &[GpsPoint], intent_grounds: &[Vec<GpsPoint>
 fn fold_new_activities(
     section: &mut FrequentSection,
     new_tracks: &BTreeMap<String, Vec<GpsPoint>>,
-    proximity: f64,
+    config: &SectionConfig,
 ) {
     for (aid, track) in new_tracks {
         if section.activity_ids.iter().any(|x| x == aid) {
             continue;
         }
-        let portions = compute_section_portions(aid, track, &section.polyline, proximity);
+        let portions = compute_section_portions(aid, track, &section.polyline, config);
         if portions.is_empty() {
             continue;
         }
@@ -1071,7 +1071,7 @@ fn graft_prior_members(
     engine: &PersistentRouteEngine,
     section: &mut FrequentSection,
     prior: &FrequentSection,
-    proximity: f64,
+    config: &SectionConfig,
 ) {
     let have: BTreeSet<&str> = section.activity_ids.iter().map(String::as_str).collect();
     let missing: Vec<String> = prior
@@ -1084,7 +1084,7 @@ fn graft_prior_members(
         let Some(track) = engine.get_gps_track(&aid) else {
             continue;
         };
-        let portions = compute_section_portions(&aid, &track, &section.polyline, proximity);
+        let portions = compute_section_portions(&aid, &track, &section.polyline, config);
         if portions.is_empty() {
             continue;
         }

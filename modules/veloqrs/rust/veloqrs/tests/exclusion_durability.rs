@@ -347,20 +347,31 @@ fn a_per_lap_exclusion_survives_a_redetect() {
 }
 
 /// The two editing paths without exclusion coverage: expand and reference
-/// change both rebuild junction rows and must carry the flag.
+/// change both rebuild junction rows and must carry the flag. The expand
+/// stays within the ground the members run: a line stretched past what a
+/// member covers drops that member on the detector's own rule, and a row
+/// that no longer exists carries nothing.
 #[test]
 fn an_exclusion_survives_an_expand() {
     let dir = TempDir::new().unwrap();
     let (mut engine, sid, member) = engine_with_excludable(&dir);
     engine.exclude_activity_from_section(&sid, &member).unwrap();
 
-    let anchor = engine
-        .get_section_by_id(&sid)
-        .unwrap()
-        .representative_activity_id;
+    let section = engine.get_section_by_id(&sid).unwrap();
+    let anchor = section.representative_activity_id.clone();
     let track = engine.get_gps_track(&anchor).expect("anchor track");
+    let config = engine.get_section_config();
+    let on_anchor = tracematch::track_portions(&anchor, &track, &section.polyline, &config);
+    let (start, end) = on_anchor
+        .iter()
+        .map(|p| (p.start_index, p.end_index))
+        .next()
+        .expect("the anchor runs its own line");
+    let grow = (end - start) / 10;
+    let start = start.saturating_sub(grow);
+    let end = (end + grow).min(track.len() as u32 - 1);
     engine
-        .expand_section_bounds(&sid, &anchor, 0, track.len() as u32 - 1)
+        .expand_section_bounds(&sid, &anchor, start, end)
         .unwrap();
 
     assert_eq!(

@@ -136,8 +136,9 @@ fn attach_ignores_unknown_and_tiny_activities() {
 // --- Lapped activities attach every pass ---
 //
 // A track crossing sectioned ground several times owes one junction row per
-// pass, and the attach path must agree with what a full detection over the
-// same set assigns it.
+// pass. The attach path counts passes with the detector's own matcher, so
+// the rows it writes are the rows a full detection over the same set would
+// write, revolution for revolution.
 
 fn lapped_corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -149,24 +150,41 @@ fn lapped_corpus() -> LifecycleCorpus {
     })
 }
 
-/// Passes `activity_id` owns in each section it appears in.
-fn passes_per_section(engine: &mut PersistentRouteEngine, activity_id: &str) -> Vec<usize> {
+/// A line whose ends sit apart: one lap of the corpus ride crosses it once.
+/// The synthetic corridor coils in places, and a section drawn on one
+/// revolution of a coil is crossed once per revolution, so those lines
+/// count more passes per lap than the lap count.
+fn is_open_line(polyline: &[tracematch::GpsPoint]) -> bool {
+    match (polyline.first(), polyline.last()) {
+        (Some(a), Some(b)) => tracematch::geo_utils::haversine_distance(a, b) > 100.0,
+        _ => false,
+    }
+}
+
+/// Per section `activity_id` appears in: (stored rows, the detector's own
+/// pass count over the stored line, whether the line is open).
+fn passes_per_section(
+    engine: &mut PersistentRouteEngine,
+    activity_id: &str,
+) -> Vec<(usize, usize, bool)> {
+    let config = engine.get_section_config();
+    let track = engine.get_gps_track(activity_id).expect("stored track");
     let ids: Vec<String> = engine
         .get_sections_for_activity(activity_id)
         .iter()
         .map(|s| s.id.clone())
         .collect();
     ids.iter()
-        .map(|id| {
-            engine
-                .get_section_by_id(id)
-                .map(|s| {
-                    s.activity_portions
-                        .iter()
-                        .filter(|p| p.activity_id == activity_id)
-                        .count()
-                })
-                .unwrap_or(0)
+        .filter_map(|id| engine.get_section_by_id(id))
+        .map(|s| {
+            let rows = s
+                .activity_portions
+                .iter()
+                .filter(|p| p.activity_id == activity_id)
+                .count();
+            let detector =
+                tracematch::track_portions(activity_id, &track, &s.polyline, &config).len();
+            (rows, detector, is_open_line(&s.polyline))
         })
         .collect()
 }
@@ -185,6 +203,26 @@ fn store(
         .unwrap();
 }
 
+fn assert_rows_are_the_detectors(per_section: &[(usize, usize, bool)], laps: usize) {
+    assert!(!per_section.is_empty(), "the corridor must be sectioned");
+    assert!(
+        per_section.iter().any(|(_, _, open)| *open),
+        "the corridor must hold at least one open line"
+    );
+    for (rows, detector, open) in per_section {
+        assert_eq!(
+            rows, detector,
+            "a section's rows must be the detector's passes, got {per_section:?}"
+        );
+        if *open {
+            assert_eq!(
+                *rows, laps,
+                "an open line is crossed once per lap, got {per_section:?}"
+            );
+        }
+    }
+}
+
 #[test]
 fn attach_inserts_a_junction_row_for_every_lap() {
     let dir = TempDir::new().unwrap();
@@ -198,20 +236,11 @@ fn attach_inserts_a_junction_row_for_every_lap() {
 
     assert_eq!(summary.attached_activities, 1);
 
-    // The corridor may be cut into several sections. Whichever ground a
-    // section covers, all three crossings of it are owed a row.
     let per_section = passes_per_section(&mut engine, "act_lapped");
-    assert!(!per_section.is_empty(), "the corridor must be sectioned");
-    for passes in &per_section {
-        assert_eq!(
-            *passes, 3,
-            "every section the track crosses owes one row per crossing, got {:?}",
-            per_section
-        );
-    }
+    assert_rows_are_the_detectors(&per_section, 3);
     assert_eq!(
         summary.inserted_portions as usize,
-        per_section.iter().sum::<usize>(),
+        per_section.iter().map(|(rows, _, _)| rows).sum::<usize>(),
         "attach must report exactly the rows it stored"
     );
     assert_eq!(
@@ -244,18 +273,10 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
     batch.apply_sections(sections).unwrap();
 
     // How many sections the corridor is cut into is a detection decision and
-    // varies between the two engines. What must not vary is how completely a
-    // section records the crossings it covers.
-    let from_attach = passes_per_section(&mut incremental, "act_lapped");
-    let from_detection = passes_per_section(&mut batch, "act_lapped");
-    assert!(!from_attach.is_empty() && !from_detection.is_empty());
-    for passes in from_attach.iter().chain(from_detection.iter()) {
-        assert_eq!(
-            *passes, 3,
-            "laps must count the same whether the activity arrived during ingest \
-             ({from_attach:?}) or was present when detection ran ({from_detection:?})"
-        );
-    }
+    // varies between the two engines. What must not vary is that every
+    // section's rows are the detector's passes over its line.
+    assert_rows_are_the_detectors(&passes_per_section(&mut incremental, "act_lapped"), 3);
+    assert_rows_are_the_detectors(&passes_per_section(&mut batch, "act_lapped"), 3);
 }
 
 #[test]
@@ -267,82 +288,119 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
     let base = &corpus.bucket_c_single;
     store(&mut engine, "act_lapped", base.lapped(3), base);
     let first = engine.attach_new_activities(&["act_lapped".to_string()]);
+    let once = passes_per_section(&mut engine, "act_lapped");
     let again = engine.attach_new_activities(&["act_lapped".to_string()]);
 
     assert_eq!(
         again.inserted_portions, first.inserted_portions,
         "re-attach replaces the lap rows, never stacks them"
     );
-    for passes in passes_per_section(&mut engine, "act_lapped") {
-        assert_eq!(passes, 3, "three laps stay three after a repeated attach");
-    }
-}
-
-/// The attach matcher derives its tolerance from the proximity setting.
-/// At the default (200 m) the derived tolerance is the long-standing 50 m,
-/// so shipped behaviour is unchanged; a relaxed setting must widen the
-/// match with it, or the slider silently stops at the detection layer.
-#[test]
-fn the_attach_tolerance_follows_the_proximity_setting() {
-    let dir = TempDir::new().unwrap();
-    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
-        bucket_a_count: 30,
-        bucket_b_delta_count: 0,
-        bucket_e_delta_count: 0,
-        parallel_street_count: 0,
-        ..LifecycleConfig::default()
-    });
-    let mut engine = engine_with_sections(&dir, &corpus);
-
-    let mut cfg = tracematch::SectionConfig::default();
-    cfg.proximity_threshold = 400.0;
-    engine.set_section_config(cfg);
-
-    // 75 m north of a known corridor ride: outside the default-derived
-    // 50 m tolerance, inside the relaxed 100 m one.
-    let base = &corpus.bucket_c_single;
-    let mut shifted = base.gps_points.clone();
-    for p in &mut shifted {
-        p.latitude += 75.0 / 111_320.0;
-    }
-    engine
-        .add_activity("shifted".into(), shifted, base.sport_type.clone())
-        .unwrap();
-
-    let summary = engine.attach_new_activities(&["shifted".to_string()]);
-    assert!(
-        summary.inserted_portions > 0,
-        "a 75 m-offset track failed to attach under a 400 m proximity setting"
+    assert_eq!(
+        passes_per_section(&mut engine, "act_lapped"),
+        once,
+        "the rows after a repeated attach are the rows after the first"
     );
 }
 
-/// The tightening direction of the same derivation: at the default setting
-/// the derived 50 m bar must REFUSE a 75 m-offset track, or a regression
-/// hard-coding a wider constant would pass the loosening test above.
+/// A copy of `line` shifted `metres` sideways, perpendicular to its
+/// end-to-end bearing. A shift of the whole ride would leave every stretch
+/// running along the shift direction exactly where it was.
+fn beside(line: &[tracematch::GpsPoint], metres: f64) -> Vec<tracematch::GpsPoint> {
+    let (a, b) = (line[0], line[line.len() - 1]);
+    let lat_m = 111_132.0;
+    let lng_m = 111_320.0 * a.latitude.to_radians().cos();
+    let (dx, dy) = (
+        (b.longitude - a.longitude) * lng_m,
+        (b.latitude - a.latitude) * lat_m,
+    );
+    let len = (dx * dx + dy * dy).sqrt();
+    let (nx, ny) = (-dy / len, dx / len);
+    line.iter()
+        .map(|p| tracematch::GpsPoint {
+            latitude: p.latitude + ny * metres / lat_m,
+            longitude: p.longitude + nx * metres / lng_m,
+            ..*p
+        })
+        .collect()
+}
+
+/// A straight open line from the catalogue: ends further apart than four
+/// fifths of its length, so a sideways copy stays sideways along its whole
+/// extent.
+fn straight_section(engine: &mut PersistentRouteEngine) -> (String, Vec<tracematch::GpsPoint>) {
+    let ids: Vec<String> = engine.get_sections().iter().map(|s| s.id.clone()).collect();
+    ids.iter()
+        .filter_map(|id| engine.get_section_by_id(id))
+        .filter(|s| {
+            let ends = tracematch::geo_utils::haversine_distance(
+                &s.polyline[0],
+                &s.polyline[s.polyline.len() - 1],
+            );
+            ends > 0.8 * s.distance_meters
+        })
+        .max_by(|a, b| a.distance_meters.total_cmp(&b.distance_meters))
+        .map(|s| (s.id, s.polyline))
+        .expect("a straight open section")
+}
+
+/// The attach bar is the detector's: a track counts on a line when its
+/// points share the line's cells, and the cell scales with the proximity
+/// setting. The engine hands its live config to that matcher, so a track
+/// three cells beside a line never attaches to it and one a fifth of a
+/// cell beside it always does, at whatever setting the user chose.
 #[test]
-fn the_attach_tolerance_refuses_offsets_beyond_the_derived_bar() {
-    let dir = TempDir::new().unwrap();
-    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
-        bucket_a_count: 30,
-        bucket_b_delta_count: 0,
-        bucket_e_delta_count: 0,
-        parallel_street_count: 0,
-        ..LifecycleConfig::default()
-    });
-    let mut engine = engine_with_sections(&dir, &corpus);
+fn the_attach_bar_is_the_detectors_cell() {
+    for proximity in [200.0, 400.0] {
+        let dir = TempDir::new().unwrap();
+        let corpus = lapped_corpus();
+        let mut engine = engine_with_sections(&dir, &corpus);
+        let mut cfg = tracematch::SectionConfig::default();
+        cfg.proximity_threshold = proximity;
+        engine.set_section_config(cfg.clone());
+        let cell = tracematch::line_match_cell_m(&cfg);
+        let (sid, line) = straight_section(&mut engine);
+        let sport = engine.get_section_by_id(&sid).unwrap().sport_type;
 
-    let base = &corpus.bucket_c_single;
-    let mut shifted = base.gps_points.clone();
-    for p in &mut shifted {
-        p.latitude += 75.0 / 111_320.0;
+        engine
+            .add_activity("far".into(), beside(&line, 3.0 * cell), sport.clone())
+            .unwrap();
+        engine.attach_new_activities(&["far".to_string()]);
+        assert!(
+            !engine
+                .get_sections_for_activity("far")
+                .iter()
+                .any(|s| s.id == sid),
+            "a track three cells beside the line attached to it at {proximity} m"
+        );
+
+        engine
+            .add_activity("near".into(), beside(&line, 0.2 * cell), sport)
+            .unwrap();
+        engine.attach_new_activities(&["near".to_string()]);
+        assert!(
+            engine
+                .get_sections_for_activity("near")
+                .iter()
+                .any(|s| s.id == sid),
+            "a track a fifth of a cell beside the line did not attach at {proximity} m"
+        );
+        let per_section = passes_per_section(&mut engine, "near");
+        for (rows, detector, _) in &per_section {
+            assert_eq!(
+                rows, detector,
+                "attach must count with the live setting, got {per_section:?}"
+            );
+        }
     }
-    engine
-        .add_activity("shifted".into(), shifted, base.sport_type.clone())
-        .unwrap();
+}
 
-    let summary = engine.attach_new_activities(&["shifted".to_string()]);
-    assert_eq!(
-        summary.inserted_portions, 0,
-        "a 75 m-offset track must not attach under the default 200 m setting"
+#[test]
+fn the_attach_cell_follows_the_proximity_setting() {
+    let mut relaxed = tracematch::SectionConfig::default();
+    relaxed.proximity_threshold = 400.0;
+    assert!(
+        tracematch::line_match_cell_m(&relaxed)
+            > tracematch::line_match_cell_m(&tracematch::SectionConfig::default()),
+        "a relaxed proximity setting must widen the attach cell"
     );
 }
