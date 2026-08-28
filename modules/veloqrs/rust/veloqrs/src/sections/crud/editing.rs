@@ -46,7 +46,7 @@ impl PersistentRouteEngine {
                     section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
                     name TEXT,
                     sport_type TEXT NOT NULL,
-                    polyline_json TEXT NOT NULL,
+                    polyline_json TEXT,
                     distance_meters REAL NOT NULL,
                     representative_activity_id TEXT,
 

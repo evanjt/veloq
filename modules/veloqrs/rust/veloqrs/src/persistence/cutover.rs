@@ -475,7 +475,6 @@ impl PersistentRouteEngine {
 
         let mut restored = 0u32;
         for s in &archived {
-            let json = serde_json::to_string(&s.polyline).unwrap_or_else(|_| "[]".into());
             let blob = codec::serialize_points(&s.polyline)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
             let bounds = bounds_of(&s.polyline);
@@ -483,7 +482,7 @@ impl PersistentRouteEngine {
                 s.id,
                 s.name,
                 s.sport_type,
-                json,
+                codec::NO_POLYLINE_JSON,
                 blob,
                 s.distance_meters,
                 s.visit_count,

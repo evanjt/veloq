@@ -114,7 +114,7 @@ struct IntentRow {
 struct VisibleRow {
     id: String,
     polyline_blob: Option<Vec<u8>>,
-    polyline_json: String,
+    polyline_json: Option<String>,
     created_at: String,
     bbox: (f64, f64, f64, f64),
 }
@@ -208,7 +208,7 @@ impl PersistentRouteEngine {
                 let polyline = parsed.entry(vi).or_insert_with(|| {
                     crate::persistence::codec::decode_polyline_row(
                         row.polyline_blob.as_deref(),
-                        Some(&row.polyline_json),
+                        row.polyline_json.as_deref(),
                     )
                     .ok()
                     .filter(|p| !p.is_empty())
@@ -259,7 +259,7 @@ impl PersistentRouteEngine {
                     let polyline = parsed_hidden.entry(hi).or_insert_with(|| {
                         crate::persistence::codec::decode_polyline_row(
                             row.polyline_blob.as_deref(),
-                            Some(&row.polyline_json),
+                            row.polyline_json.as_deref(),
                         )
                         .ok()
                         .filter(|p| !p.is_empty())
@@ -397,7 +397,7 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<f64>>(3)?,
                 row.get::<_, Option<f64>>(4)?,
@@ -415,7 +415,7 @@ impl PersistentRouteEngine {
                         _ => {
                             let polyline = crate::persistence::codec::decode_polyline_row(
                                 polyline_blob.as_deref(),
-                                Some(&polyline_json),
+                                polyline_json.as_deref(),
                             )
                             .ok()?;
                             if polyline.is_empty() {
@@ -455,7 +455,7 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<f64>>(3)?,
                 row.get::<_, Option<f64>>(4)?,
@@ -473,7 +473,7 @@ impl PersistentRouteEngine {
                         _ => {
                             let polyline = crate::persistence::codec::decode_polyline_row(
                                 polyline_blob.as_deref(),
-                                Some(&polyline_json),
+                                polyline_json.as_deref(),
                             )
                             .ok()?;
                             if polyline.is_empty() {

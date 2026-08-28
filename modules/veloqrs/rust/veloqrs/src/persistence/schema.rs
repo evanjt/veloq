@@ -21,6 +21,9 @@ impl PersistentRouteEngine {
     /// M15: untyped curve, interval and calendar bodies.
     /// M16: bounded activity stream body cache.
     /// M17: section history, geometry versions and pins (B4 core).
+    /// M18: persisted evidence cache.
+    /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
+    /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
         Migrations::new(Self::migration_scripts().into_iter().map(M::up).collect())
     }
@@ -130,6 +133,7 @@ impl PersistentRouteEngine {
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
+        Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
         Self::ensure_catalogue_archive(conn);
 
@@ -293,6 +297,120 @@ impl PersistentRouteEngine {
         {
             conn.execute("ALTER TABLE sections ADD COLUMN elevation_gain_m REAL", [])?;
             conn.execute("ALTER TABLE sections ADD COLUMN avg_grade_percent REAL", [])?;
+        }
+        Ok(())
+    }
+
+    /// Rebuild `sections` so `polyline_json` is nullable. The blob has been
+    /// the geometry since 0.3.0 and the column has carried a placeholder
+    /// since; a NOT NULL column that every write must fill with nothing is a
+    /// trap for the next writer. SQLite cannot drop a constraint in place, so
+    /// this is a copy-swap. Foreign keys go off around it, outside the
+    /// transaction where the pragma is a no-op: with them on, dropping a
+    /// referenced table cascades a delete into every junction row.
+    fn ensure_sections_polyline_nullable(conn: &Connection) -> SqlResult<()> {
+        let not_null = conn
+            .prepare("PRAGMA table_info(sections)")?
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(1)?, row.get::<_, i64>(3)?))
+            })?
+            .filter_map(|r| r.ok())
+            .any(|(name, notnull)| name == "polyline_json" && notnull != 0);
+        if !not_null {
+            return Ok(());
+        }
+        conn.pragma_update(None, "foreign_keys", "OFF")?;
+        let rebuilt = Self::rebuild_sections_nullable(conn);
+        let restored = conn.pragma_update(None, "foreign_keys", "ON");
+        rebuilt?;
+        restored
+    }
+
+    /// One transaction: a leftover from a torn run is dropped first, the old
+    /// table survives any failure, and the swap is atomic.
+    fn rebuild_sections_nullable(conn: &Connection) -> SqlResult<()> {
+        const COLUMNS: &str = "id, section_type, name, sport_type, polyline_json, distance_meters,
+             representative_activity_id, confidence, observation_count, average_spread,
+             point_density_json, scale, version, is_user_defined, stability,
+             source_activity_id, start_index, end_index, created_at, updated_at,
+             bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+             original_polyline_json, disabled, superseded_by, consensus_state_blob,
+             polyline_blob, point_density_blob, visit_count, rep_start_index,
+             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent";
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(
+            "DROP TABLE IF EXISTS sections_rebuild;
+             CREATE TABLE sections_rebuild (
+                 id TEXT PRIMARY KEY,
+                 section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
+                 name TEXT,
+                 sport_type TEXT NOT NULL,
+                 polyline_json TEXT,
+                 distance_meters REAL NOT NULL,
+                 representative_activity_id TEXT,
+                 confidence REAL,
+                 observation_count INTEGER,
+                 average_spread REAL,
+                 point_density_json TEXT,
+                 scale TEXT,
+                 version INTEGER DEFAULT 1,
+                 is_user_defined INTEGER DEFAULT 0,
+                 stability REAL,
+                 source_activity_id TEXT,
+                 start_index INTEGER,
+                 end_index INTEGER,
+                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                 updated_at TEXT,
+                 bounds_min_lat REAL,
+                 bounds_max_lat REAL,
+                 bounds_min_lng REAL,
+                 bounds_max_lng REAL,
+                 original_polyline_json TEXT,
+                 disabled INTEGER NOT NULL DEFAULT 0,
+                 superseded_by TEXT DEFAULT NULL,
+                 consensus_state_blob BLOB,
+                 polyline_blob BLOB,
+                 point_density_blob BLOB,
+                 visit_count INTEGER NOT NULL DEFAULT 0,
+                 rep_start_index INTEGER,
+                 rep_end_index INTEGER,
+                 geometry_source TEXT
+                     CHECK(geometry_source IS NULL
+                           OR geometry_source IN ('exact', 'consensus', 'orphaned')),
+                 elevation_gain_m REAL,
+                 avg_grade_percent REAL
+             );",
+        )?;
+        tx.execute(
+            &format!("INSERT INTO sections_rebuild ({COLUMNS}) SELECT {COLUMNS} FROM sections"),
+            [],
+        )?;
+        // The visit_count triggers name `sections` in their bodies, and a
+        // RENAME re-parses every trigger; with the table gone that fails.
+        // They come back through `ensure_visit_count_denormalisation` below.
+        tx.execute_batch(
+            "DROP TRIGGER IF EXISTS section_activities_visit_count_ai;
+             DROP TRIGGER IF EXISTS section_activities_visit_count_ad;
+             DROP TRIGGER IF EXISTS section_activities_visit_count_au;
+             DROP TRIGGER IF EXISTS section_activities_visit_count_amove;
+             DROP TABLE sections;
+             ALTER TABLE sections_rebuild RENAME TO sections;
+             CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
+             CREATE INDEX IF NOT EXISTS idx_sections_sport ON sections(sport_type);
+             CREATE INDEX IF NOT EXISTS idx_sections_disabled ON sections(disabled);
+             CREATE INDEX IF NOT EXISTS idx_sections_superseded ON sections(superseded_by);",
+        )?;
+        tx.commit()?;
+        Self::ensure_visit_count_denormalisation(conn)?;
+        let violations: i64 =
+            conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })?;
+        if violations > 0 {
+            log::warn!(
+                "tracematch: [Schema] {} foreign key rows dangling after the sections rebuild",
+                violations
+            );
         }
         Ok(())
     }
@@ -588,7 +706,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, polyline_json, sport_type, polyline_blob FROM sections
              WHERE section_type = 'auto' AND is_user_defined = 0 AND name IS NOT NULL",
         )?;
-        let rows: Vec<(String, String, String, String, Option<Vec<u8>>)> = stmt
+        let rows: Vec<(String, String, Option<String>, String, Option<Vec<u8>>)> = stmt
             .query_map([], |row| {
                 Ok((
                     row.get(0)?,
@@ -607,9 +725,10 @@ impl PersistentRouteEngine {
             }
             // The intent keeps its own JSON footprint, so decode the row's
             // authoritative geometry rather than copying the column.
-            let Ok(polyline) =
-                super::codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json))
-            else {
+            let Ok(polyline) = super::codec::decode_polyline_row(
+                polyline_blob.as_deref(),
+                polyline_json.as_deref(),
+            ) else {
                 continue;
             };
             let Ok(polyline_json) = serde_json::to_string(&polyline) else {
@@ -977,7 +1096,10 @@ impl PersistentRouteEngine {
     /// Populate section bounds columns from polyline JSON during migration to v5.
     fn populate_section_bounds(conn: &Connection) -> SqlResult<()> {
         let sections: Vec<(String, String)> = conn
-            .prepare("SELECT id, polyline_json FROM sections WHERE bounds_min_lat IS NULL")?
+            .prepare(
+                "SELECT id, polyline_json FROM sections
+                 WHERE bounds_min_lat IS NULL AND polyline_json IS NOT NULL",
+            )?
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<Vec<_>, _>>()?;
 

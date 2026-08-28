@@ -47,7 +47,7 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
             let section_type_str: String = row.get(1)?;
-            let polyline_json: String = row.get(4)?;
+            let polyline_json: Option<String> = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
             let polyline_blob: Option<Vec<u8>> = row.get(22)?;
             let point_density_blob: Option<Vec<u8>> = row.get(23)?;
@@ -62,7 +62,7 @@ impl PersistentRouteEngine {
                 sport_type: row.get(3)?,
                 polyline: codec::decode_polyline_row(
                     polyline_blob.as_deref(),
-                    Some(&polyline_json),
+                    polyline_json.as_deref(),
                 )
                 .unwrap_or_default(),
                 distance_meters: row.get(5)?,
@@ -402,7 +402,7 @@ impl PersistentRouteEngine {
         stmt.query_row(params![section_id], |row| {
             let id: String = row.get(0)?;
             let section_type_str: String = row.get(1)?;
-            let polyline_json: String = row.get(4)?;
+            let polyline_json: Option<String> = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
             let polyline_blob: Option<Vec<u8>> = row.get(22)?;
             let point_density_blob: Option<Vec<u8>> = row.get(23)?;
@@ -417,7 +417,7 @@ impl PersistentRouteEngine {
                 sport_type: row.get(3)?,
                 polyline: codec::decode_polyline_row(
                     polyline_blob.as_deref(),
-                    Some(&polyline_json),
+                    polyline_json.as_deref(),
                 )
                 .unwrap_or_default(),
                 distance_meters: row.get(5)?,

@@ -85,7 +85,7 @@ fn db_sha256(path: &std::path::Path) -> [u8; 32] {
 }
 
 /// The catalogue tables as a second connection reads them.
-fn catalogue_snapshot(path: &std::path::Path) -> Vec<(String, String, String, i64)> {
+fn catalogue_snapshot(path: &std::path::Path) -> Vec<(String, String, Option<String>, i64)> {
     let conn = Connection::open(path).expect("second connection");
     let mut stmt = conn
         .prepare(
