@@ -101,7 +101,7 @@ impl PersistentRouteEngine {
                     super::super::compute_polyline_overlap(
                         query_polyline.clone(),
                         candidate_polyline,
-                        50.0, // 50m threshold
+                        tracematch::sections::GROUND_TOL_M,
                     )
                 } else {
                     0.0
