@@ -288,7 +288,7 @@ pub struct CacheUpdate {
     /// The per-(sport, cluster) evidence after routing this fold's new
     /// activities. Becomes the engine's `section_evidence_cache` on success.
     pub cache: SectionEvidenceCache,
-    /// The activity ids the cache now folds — an engine-side shadow of the
+    /// The activity ids the cache now folds, an engine-side shadow of the
     /// cache's per-cluster membership (tracematch does not expose it). Becomes
     /// `cache_folded_ids` on success and drives the next detect's new-id set.
     pub folded_ids: HashSet<String>,
@@ -350,7 +350,7 @@ impl SectionDetectionHandle {
     /// Take the Unified detector's evidence-cache update, if any. Only the
     /// Unified path sends one; the legacy detectors and the short-circuit do
     /// not, so this returns None and the caller leaves the engine cache as-is.
-    /// Call only after the main result is `Ready`/recv'd — the worker sends the
+    /// Call only after the main result is `Ready`/recv'd, the worker sends the
     /// cache first, so by then it is present.
     pub fn take_cache(&self) -> Option<CacheUpdate> {
         self.cache_receiver.try_recv().ok()
@@ -580,7 +580,7 @@ pub struct PersistentRouteEngine {
 
     /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
     /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
-    /// batch — `sections::SectionIdentity` remaps ids and debounces churn between
+    /// batch, `sections::SectionIdentity` remaps ids and debounces churn between
     /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
 
@@ -592,7 +592,7 @@ pub struct PersistentRouteEngine {
 
     /// Named-corridor resolution: display name per visible section plus the
     /// full corridor listing. A pure function of DB state, refreshed lazily
-    /// behind `named_overlay_stamp` — the connection's `total_changes()`
+    /// behind `named_overlay_stamp`, the connection's `total_changes()`
     /// counter at last compute, so any write through this connection
     /// invalidates it and no mutation site needs remembering. Sync-honest
     /// under the engine's `unsafe impl Sync`: the refresh queries `self.db`
@@ -632,7 +632,7 @@ pub struct PersistentRouteEngine {
     /// duration of one apply so the event emitter can read them.
     fork_records: Vec<tracematch::BoundaryRecord>,
 
-    /// The activity ids `section_evidence_cache` has folded — an engine-side
+    /// The activity ids `section_evidence_cache` has folded, an engine-side
     /// shadow of the cache's per-cluster membership (tracematch does not expose
     /// it). Drives which ids a detect routes as "new": `pool − cache_folded_ids`.
     /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
@@ -808,7 +808,7 @@ impl PersistentRouteEngine {
             }
         }
 
-        // B2 step 3 + B4: same for routes — restore the persisted registry
+        // B2 step 3 + B4: same for routes, restore the persisted registry
         // (mint counter + seniority), else adopt the loaded group_ids as stable
         // seeds. Must run after `groups` load.
         if !self.route_identity_restore() {

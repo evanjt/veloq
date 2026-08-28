@@ -160,3 +160,30 @@ fn visit_count_column_tracks_the_junction() {
         "remove_activity must decrement the affected section's visit_count"
     );
 }
+
+/// `get_sections` decodes one polyline blob per row. On the same fixture it
+/// stays inside a budget a list screen can afford, and the number is the
+/// one the module documentation cites.
+#[test]
+fn get_sections_reads_the_fixture_inside_its_budget() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("sections_bench.db");
+    let path_str = path.to_str().unwrap().to_string();
+    {
+        let _engine = PersistentRouteEngine::new(&path_str).expect("create schema");
+    }
+    seed_synthetic(&path_str);
+    let mut engine = PersistentRouteEngine::new(&path_str).expect("open");
+    engine.load().expect("load");
+    let mut samples = Vec::new();
+    for _ in 0..5 {
+        let start = Instant::now();
+        let sections = engine.get_sections();
+        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+        assert_eq!(sections.len(), SECTIONS);
+        samples.push(elapsed);
+    }
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let median = samples[samples.len() / 2];
+    assert!(median <= 300.0, "get_sections median {median:.1} ms over 300 ms");
+}

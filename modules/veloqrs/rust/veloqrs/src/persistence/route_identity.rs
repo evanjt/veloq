@@ -1,7 +1,7 @@
 //! Assign-once route identity: the route half of B2 (design 2.3 / Part 4 step 3).
 //!
 //! A route group's `group_id` was the Union-Find ROOT of its member set, which
-//! the full and incremental grouping paths pick differently — so the first
+//! the full and incremental grouping paths pick differently, so the first
 //! incremental resync re-keys a group to its MIN member, orphaning anything keyed
 //! to the old id (the representative via `existing_reps`, the name via
 //! `route_names`). That is R2 reaching routes. This layer mirrors the section
@@ -11,7 +11,7 @@
 //! Two deliberate differences from the section registry:
 //!
 //! - MATCH METRIC. A route IS its member set, so identity is carried by Jaccard of
-//!   `activity_ids` (local set math here — no geometry, no tracematch round-trip),
+//!   `activity_ids` (local set math here, no geometry, no tracematch round-trip),
 //!   not ground coverage. Mutual-best pairing with total tie-breaks, so the plan
 //!   is a deterministic function of the two member-set families (no HashMap-order
 //!   leak into the persisted id).
@@ -19,12 +19,12 @@
 //!   `s_<ts>__<rand>`. The route snapshot's signature is id-INCLUDED (a cold
 //!   group's representative is already the deterministic sorted-min member), so a
 //!   deterministic id makes the whole route catalogue byte-stable across two runs
-//!   — the double-run determinism routes are held to. A ts+rand id could not.
+//!  , the double-run determinism routes are held to. A ts+rand id could not.
 //!   Minted in sorted-member order so the assignment does not depend on the
 //!   grouping HashMap's iteration order. Per-device ids need no global uniqueness;
 //!   reseed adopts existing ids and continues the counter past them.
 //!
-//! Scope is identity + keying only (no hysteresis debounce — a route has no
+//! Scope is identity + keying only (no hysteresis debounce, a route has no
 //! non-monotone reform to damp). The custom-name re-hydration on recompute stays
 //! B4; this layer only stops the `route_names` row being orphaned by keying it to
 //! the surviving stable id.
@@ -54,7 +54,7 @@ pub(crate) const ROUTE_IDENTITY_BLOB_VERSION: u8 = 1;
 pub(crate) struct RouteIdentity {
     /// Stable route id -> seniority ordinal (lower = more senior, wins a merge).
     /// Holds exactly the currently-live ids; a dropped route's id is pruned (no
-    /// tombstone — routes carry no re-emergence machinery).
+    /// tombstone, routes carry no re-emergence machinery).
     first_seen: BTreeMap<String, u64>,
     /// Monotonic: the source of both a fresh `r_<n>` id and a fresh `first_seen`.
     /// Only grows within a session; reseed lifts it past any adopted `r_<n>`.
@@ -78,8 +78,8 @@ impl PersistentRouteEngine {
             .ok()
     }
 
-    /// Restore the route registry from its persisted blob. Returns false — so the
-    /// caller reseeds from the DB groups — when there is no blob, the version byte
+    /// Restore the route registry from its persisted blob. Returns false, so the
+    /// caller reseeds from the DB groups, when there is no blob, the version byte
     /// mismatches, or it fails to decode. An unreadable blob heals to a reseed,
     /// never a failed load. On a clean restore the mint counter and seniority
     /// survive, so a group minted after the restart cannot re-use a live ordinal.
@@ -108,7 +108,7 @@ impl PersistentRouteEngine {
                 // sits BELOW an `r_<n>` already persisted as a group PK. Restore
                 // then succeeds, so reseed's counter-lift never runs, and the next
                 // mint would collide with that live id. Lift the counter past the
-                // max adopted id here — the same scan reseed does — so a stale blob
+                // max adopted id here, the same scan reseed does, so a stale blob
                 // heals to a safe counter rather than a duplicate-PK save.
                 let floor = self.max_adopted_route_ordinal();
                 if self.route_identity.ordinal < floor {
@@ -137,7 +137,7 @@ impl PersistentRouteEngine {
 
     /// Seed the registry from the groups already loaded from the DB, adopting each
     /// existing `group_id` as its stable id so an install keeps its route ids and
-    /// simply stops re-deriving them — no migration. Seniority is assigned in
+    /// simply stops re-deriving them, no migration. Seniority is assigned in
     /// sorted-id order (a deterministic proxy for age at adoption time); the mint
     /// counter is lifted past any adopted `r_<n>` so a later mint cannot collide.
     pub(crate) fn route_identity_reseed(&mut self) {
@@ -161,7 +161,7 @@ impl PersistentRouteEngine {
     /// previous `self.groups`, the source of the ids and reps being carried.
     ///
     /// Returns the remapped groups and the `old_group_id -> stable_id` map, so the
-    /// caller can re-key anything the grouping keyed by the old UF-root id — chiefly
+    /// caller can re-key anything the grouping keyed by the old UF-root id, chiefly
     /// `activity_matches`, whose per-member DIRECTION would otherwise be orphaned
     /// (leaving route highlights to read a wrong forward/back split).
     pub(crate) fn route_identity_remap(
@@ -438,7 +438,7 @@ mod tests {
         assert_eq!(remapped[0].group_id, "r_6");
     }
 
-    /// A restored blob AHEAD of the loaded groups keeps its counter — the
+    /// A restored blob AHEAD of the loaded groups keeps its counter, the
     /// reconcile only lifts, never rewinds, so live seniority is preserved.
     #[test]
     fn restore_keeps_counter_when_blob_leads_groups() {

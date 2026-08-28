@@ -905,7 +905,7 @@ impl PersistentRouteEngine {
         let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
         // The identity layer owns only the auto catalogue. Carry the durable
         // user-defined sections (custom + accepted) already held in memory across
-        // the apply so get_sections() keeps mirroring the full visible catalogue —
+        // the apply so get_sections() keeps mirroring the full visible catalogue -
         // the in-memory matcher must keep seeing custom sections after a detect.
         // save_sections skips them (durable rows), so this touches only the view.
         for s in &self.sections {
@@ -947,7 +947,7 @@ impl PersistentRouteEngine {
     /// Cache-aware hot save: `apply_sections_save`, then advance the Unified
     /// evidence cache iff the save succeeded. `update` is the worker's
     /// `CacheUpdate` for the Unified path, or None for the legacy detectors and
-    /// the no-new-activities short-circuit (nothing to advance — the cache is
+    /// the no-new-activities short-circuit (nothing to advance, the cache is
     /// left as-is).
     ///
     /// The consistency contract: the cache must never get ahead of the applied

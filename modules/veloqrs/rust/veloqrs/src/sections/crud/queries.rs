@@ -390,7 +390,7 @@ impl PersistentRouteEngine {
         Some(section)
     }
 
-    /// The raw DB row without the overlay — what caches must store, so a
+    /// The raw DB row without the overlay, what caches must store, so a
     /// later overlay change never serves a baked stale name.
     pub(crate) fn get_section_raw(&self, section_id: &str) -> Option<Section> {
         let query = format!(

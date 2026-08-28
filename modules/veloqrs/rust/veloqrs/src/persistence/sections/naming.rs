@@ -13,7 +13,7 @@ impl PersistentRouteEngine {
     /// Migration: Generate names for sections that don't have names.
     pub(super) fn migrate_section_names(&mut self) -> SqlResult<()> {
         // Only auto sections are auto-named. Custom and accepted sections carry
-        // user-managed names — a custom section legitimately keeps a NULL name and
+        // user-managed names, a custom section legitimately keeps a NULL name and
         // must never be handed a generated "Section N" (they now share the
         // in-memory catalogue with auto sections, so this filter is what keeps the
         // migration from renaming them).
@@ -221,7 +221,7 @@ impl PersistentRouteEngine {
     ///
     /// User-owned rows (custom, accepted) keep their name on the row: they are
     /// durable already. Naming an AUTO section records a durable named intent
-    /// instead — auto rows are wiped and re-cut by detection, so a row name
+    /// instead, auto rows are wiped and re-cut by detection, so a row name
     /// would die with the next apply. The routing decision reads the DB row,
     /// not the in-memory copy, which can lag it transiently.
     pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {

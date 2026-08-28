@@ -891,7 +891,7 @@ impl PersistentRouteEngine {
     }
 
     /// Pin `section_id` at a stored geometry version. Returns false without
-    /// writing when that version does not exist (absent or already pruned) —
+    /// writing when that version does not exist (absent or already pruned) -
     /// a pin must always be restorable.
     pub fn pin_section_geometry(
         &mut self,

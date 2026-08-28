@@ -583,7 +583,7 @@ impl PersistentRouteEngine {
     /// screen's "should have matched" affordance. Relaxed bars (2.5x
     /// proximity, 40% quality) because the user has already asserted the
     /// match. Idempotent: a pair that already holds junction rows is left
-    /// alone — detection's per-lap rows must not gain a stacked duplicate
+    /// alone, detection's per-lap rows must not gain a stacked duplicate
     /// at a different start index.
     pub fn rematch_activity_to_section(
         &mut self,

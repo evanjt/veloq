@@ -69,7 +69,7 @@ pub fn tag_blob(version: u8, mut body: Vec<u8>) -> Vec<u8> {
 }
 
 /// The body of a version-tagged blob, or None if the tag byte is absent or does
-/// not match `version` — the caller treats None like a missing blob and reseeds.
+/// not match `version`, the caller treats None like a missing blob and reseeds.
 pub fn untag_blob(version: u8, bytes: &[u8]) -> Option<&[u8]> {
     match bytes.split_first() {
         Some((&v, rest)) if v == version => Some(rest),
