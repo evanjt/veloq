@@ -16,6 +16,7 @@ use std::path::Path;
 use std::sync::Mutex;
 use tempfile::TempDir;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::sections::CreateSectionParams;
 use veloqrs::{GpsPoint, PersistentRouteEngine};
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -27,6 +28,46 @@ fn quarantine_files(dir: &Path) -> Vec<String> {
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .filter(|n| n.contains(".corrupt-"))
         .collect()
+}
+
+/// Page-level corruption the rest of the file survives: the activities table's
+/// root page and every index on it are overwritten, so reading the catalogue
+/// reports a malformed image while the schema and the section pages stay
+/// readable.
+fn corrupt_activities_pages(db_path: &Path, db_str: &str) {
+    let conn = rusqlite::Connection::open(db_path).unwrap();
+    let page_size: u64 = conn
+        .query_row("PRAGMA page_size", [], |r| r.get(0))
+        .unwrap();
+    let roots: Vec<u64> = conn
+        .prepare(
+            "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'activities' AND rootpage > 0",
+        )
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .flatten()
+        .collect();
+    drop(conn);
+    assert!(!roots.is_empty());
+    let mut bytes = fs::read(db_path).unwrap();
+    for root in roots {
+        let start = ((root - 1) * page_size) as usize;
+        for b in &mut bytes[start..start + page_size as usize] {
+            *b = 0xFF;
+        }
+    }
+    fs::write(db_path, bytes).unwrap();
+    let _ = fs::remove_file(format!("{}-wal", db_str));
+    let _ = fs::remove_file(format!("{}-shm", db_str));
+
+    let conn = rusqlite::Connection::open(db_path).unwrap();
+    let read: Result<i64, _> =
+        conn.query_row("SELECT COUNT(sport_type) FROM activities", [], |r| r.get(0));
+    assert!(
+        read.is_err(),
+        "test premise: the catalogue page must read as corrupt"
+    );
 }
 
 fn activity_count(db_path: &Path) -> i64 {
@@ -202,46 +243,9 @@ fn quarantine_salvages_readable_history_rows() {
         assert!(engine.pin_section_geometry("sec_ledger", v1).unwrap());
     }
 
-    // Page-level corruption the ledger survives: the activities table's root
-    // page is overwritten, so reading the catalogue reports a malformed
-    // image while the schema and the ledger pages stay readable.
+    corrupt_activities_pages(&db_path, &db_str);
     {
         let conn = rusqlite::Connection::open(&db_path).unwrap();
-        let page_size: u64 = conn
-            .query_row("PRAGMA page_size", [], |r| r.get(0))
-            .unwrap();
-        // The table and every index on it, so no read can route around the
-        // damage through a smaller b-tree.
-        let roots: Vec<u64> = conn
-            .prepare(
-                "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'activities' AND rootpage > 0",
-            )
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .flatten()
-            .collect();
-        drop(conn);
-        assert!(!roots.is_empty());
-        let mut bytes = fs::read(&db_path).unwrap();
-        for root in roots {
-            let start = ((root - 1) * page_size) as usize;
-            for b in &mut bytes[start..start + page_size as usize] {
-                *b = 0xFF;
-            }
-        }
-        fs::write(&db_path, bytes).unwrap();
-        let _ = fs::remove_file(format!("{}-wal", db_str));
-        let _ = fs::remove_file(format!("{}-shm", db_str));
-    }
-    {
-        let conn = rusqlite::Connection::open(&db_path).unwrap();
-        let read: Result<i64, _> =
-            conn.query_row("SELECT COUNT(sport_type) FROM activities", [], |r| r.get(0));
-        assert!(
-            read.is_err(),
-            "test premise: the catalogue page must read as corrupt"
-        );
         let ledger: i64 = conn
             .query_row("SELECT COUNT(*) FROM section_history", [], |r| r.get(0))
             .unwrap();
@@ -277,5 +281,86 @@ fn quarantine_salvages_readable_history_rows() {
         activity_count(&db_path),
         0,
         "the catalogue itself starts over"
+    );
+}
+
+/// Detector output is a re-derivable cache; the user's own rows are not. A
+/// quarantine brings the custom, accepted and renamed sections across, and the
+/// suppression intents with them, so a removed corridor stays removed.
+#[test]
+fn quarantine_salvages_user_sections_and_intents() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("intent.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let line: Vec<GpsPoint> = (0..30)
+        .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0005, 7.0))
+        .collect();
+    let kept_id;
+    let removed_id;
+    {
+        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        engine
+            .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
+            .unwrap();
+        kept_id = engine
+            .create_section(CreateSectionParams {
+                sport_type: "Ride".to_string(),
+                polyline: line.clone(),
+                distance_meters: 1200.0,
+                name: Some("Col du Test".to_string()),
+                source_activity_id: Some("act_1".to_string()),
+                start_index: Some(0),
+                end_index: Some(29),
+            })
+            .unwrap();
+        removed_id = engine
+            .create_section(CreateSectionParams {
+                sport_type: "Ride".to_string(),
+                polyline: line.iter().rev().cloned().collect(),
+                distance_meters: 1200.0,
+                name: Some("Wrong way".to_string()),
+                source_activity_id: Some("act_1".to_string()),
+                start_index: Some(0),
+                end_index: Some(29),
+            })
+            .unwrap();
+        engine.delete_section(&removed_id).unwrap();
+    }
+
+    corrupt_activities_pages(&db_path, &db_str);
+
+    let recovered = (0..20).any(|attempt| {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        persistent_engine_init(db_str.clone())
+    });
+    assert!(recovered, "init must quarantine and start fresh");
+
+    let fresh = PersistentRouteEngine::new(&db_str).unwrap();
+    let kept = fresh
+        .get_section(&kept_id)
+        .expect("the custom section came across");
+    assert_eq!(kept.name.as_deref(), Some("Col du Test"));
+    assert_eq!(kept.polyline.len(), line.len());
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let intents: Vec<String> = conn
+        .prepare("SELECT id FROM section_intents WHERE kind = 'deleted'")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert_eq!(
+        intents,
+        vec![removed_id],
+        "the delete intent must survive, or the corridor re-emerges"
+    );
+    assert_eq!(
+        activity_count(&db_path),
+        0,
+        "the detector's own cache still starts over"
     );
 }
