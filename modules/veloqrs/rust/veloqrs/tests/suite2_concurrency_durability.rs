@@ -64,6 +64,8 @@ fn in_memory_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
                         distance_meters: s.distance_meters,
                         polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
+                        rank_score: None,
+                        klass: None,
                         is_user_defined: s.is_user_defined,
                     },
                 )
@@ -89,6 +91,8 @@ fn frequent_signature(sections: &[FrequentSection]) -> String {
                         distance_meters: s.distance_meters,
                         polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
+                        rank_score: None,
+                        klass: None,
                         is_user_defined: s.is_user_defined,
                     },
                 )

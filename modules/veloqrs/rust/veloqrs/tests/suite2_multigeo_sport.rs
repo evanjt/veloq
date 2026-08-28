@@ -45,6 +45,8 @@ fn ground_fp(polyline: Vec<GpsPoint>) -> SectionFingerprint {
         distance_meters: 0.0,
         polyline,
         sport_type: String::new(),
+        rank_score: None,
+        klass: None,
         is_user_defined: false,
     }
 }
