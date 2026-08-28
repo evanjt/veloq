@@ -1512,7 +1512,13 @@
     "splitSouth": "sud",
     "splitWest": "ovest",
     "accepted": "Accettato",
-    "acceptedOnly": "Solo accettati"
+    "acceptedOnly": "Solo accettati",
+    "laps": "Giri",
+    "lap": "Giro {{n}}",
+    "excludeLap": "Escludi",
+    "undoExclude": "Annulla",
+    "lapExcluded": "Escluso",
+    "partlyExcluded": "Alcuni giri esclusi"
   },
   "settings": {
     "account": "Account",

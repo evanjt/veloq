@@ -20,6 +20,8 @@ export interface SectionActionRowProps {
   handleAcceptSection: () => void;
   /** The stored version the section is pinned to, if any. */
   pinnedVersion?: number | null;
+  /** Some laps of some activity are excluded, not the whole activity. */
+  partlyExcluded?: boolean;
 }
 
 export function SectionActionRow({
@@ -34,6 +36,7 @@ export function SectionActionRow({
   handleRematchActivities,
   handleAcceptSection,
   pinnedVersion = null,
+  partlyExcluded = false,
 }: SectionActionRowProps) {
   const { t } = useTranslation();
 
@@ -150,6 +153,29 @@ export function SectionActionRow({
             <MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />
             <Text style={[styles.actionPillText, { color: colors.primary }]}>
               {t('sections.acceptSection')}
+              {partlyExcluded && (
+                <View
+                  testID="section-partly-excluded"
+                  style={[
+                    styles.actionPill,
+                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="eye-off-outline"
+                    size={14}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.actionPillText,
+                      { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+                    ]}
+                  >
+                    {t('sections.partlyExcluded')}
+                  </Text>
+                </View>
+              )}
               {pinnedVersion != null && (
                 <View
                   testID="section-pinned-version"

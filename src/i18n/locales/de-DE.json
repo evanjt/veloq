@@ -1512,7 +1512,13 @@
     "splitSouth": "Süd",
     "splitWest": "West",
     "accepted": "Übernommen",
-    "acceptedOnly": "Nur übernommene"
+    "acceptedOnly": "Nur übernommene",
+    "laps": "Runden",
+    "lap": "Runde {{n}}",
+    "excludeLap": "Ausschließen",
+    "undoExclude": "Rückgängig",
+    "lapExcluded": "Ausgeschlossen",
+    "partlyExcluded": "Einige Runden ausgeschlossen"
   },
   "settings": {
     "account": "Konto",

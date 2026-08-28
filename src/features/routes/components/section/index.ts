@@ -20,3 +20,5 @@ export type { SectionDebugPanelProps } from './SectionDebugPanel';
 export { styles as sectionDetailStyles } from './SectionDetail.styles';
 export { SectionHistoryPanel } from './SectionHistoryPanel';
 export type { SectionHistoryPanelProps } from './SectionHistoryPanel';
+export { SectionLapList } from './SectionLapList';
+export type { SectionLapListProps } from './SectionLapList';

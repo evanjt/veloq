@@ -1512,7 +1512,13 @@
     "splitSouth": "sur",
     "splitWest": "oeste",
     "accepted": "Aceptado",
-    "acceptedOnly": "Solo aceptados"
+    "acceptedOnly": "Solo aceptados",
+    "laps": "Vueltas",
+    "lap": "Vuelta {{n}}",
+    "excludeLap": "Excluir",
+    "undoExclude": "Deshacer",
+    "lapExcluded": "Excluida",
+    "partlyExcluded": "Algunas vueltas excluidas"
   },
   "settings": {
     "account": "Cuenta",

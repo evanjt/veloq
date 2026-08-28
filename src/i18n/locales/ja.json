@@ -1512,7 +1512,13 @@
     "splitSouth": "南",
     "splitWest": "西",
     "accepted": "承認済み",
-    "acceptedOnly": "承認済みのみ"
+    "acceptedOnly": "承認済みのみ",
+    "laps": "ラップ",
+    "lap": "ラップ{{n}}",
+    "excludeLap": "除外",
+    "undoExclude": "元に戻す",
+    "lapExcluded": "除外済み",
+    "partlyExcluded": "一部のラップを除外"
   },
   "settings": {
     "account": "アカウント",

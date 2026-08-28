@@ -1512,7 +1512,13 @@
     "splitSouth": "zuid",
     "splitWest": "west",
     "accepted": "Geaccepteerd",
-    "acceptedOnly": "Alleen geaccepteerd"
+    "acceptedOnly": "Alleen geaccepteerd",
+    "laps": "Ronden",
+    "lap": "Ronde {{n}}",
+    "excludeLap": "Uitsluiten",
+    "undoExclude": "Ongedaan maken",
+    "lapExcluded": "Uitgesloten",
+    "partlyExcluded": "Sommige ronden uitgesloten"
   },
   "settings": {
     "account": "Account",

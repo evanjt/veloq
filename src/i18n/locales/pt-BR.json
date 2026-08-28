@@ -1512,7 +1512,13 @@
     "splitSouth": "sul",
     "splitWest": "oeste",
     "accepted": "Aceito",
-    "acceptedOnly": "Só aceitos"
+    "acceptedOnly": "Só aceitos",
+    "laps": "Voltas",
+    "lap": "Volta {{n}}",
+    "excludeLap": "Excluir",
+    "undoExclude": "Desfazer",
+    "lapExcluded": "Excluída",
+    "partlyExcluded": "Algumas voltas excluídas"
   },
   "settings": {
     "account": "Conta",

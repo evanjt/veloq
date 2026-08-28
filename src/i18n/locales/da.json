@@ -1512,7 +1512,13 @@
     "splitSouth": "syd",
     "splitWest": "vest",
     "accepted": "Accepteret",
-    "acceptedOnly": "Kun accepterede"
+    "acceptedOnly": "Kun accepterede",
+    "laps": "Omgange",
+    "lap": "Omgang {{n}}",
+    "excludeLap": "Udeluk",
+    "undoExclude": "Fortryd",
+    "lapExcluded": "Udelukket",
+    "partlyExcluded": "Nogle omgange udelukket"
   },
   "settings": {
     "account": "Konto",

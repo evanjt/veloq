@@ -1157,6 +1157,12 @@ export interface TranslationResource {
     pinnedOnly: string;
     accepted: string;
     acceptedOnly: string;
+    laps: string;
+    lap: string;
+    excludeLap: string;
+    undoExclude: string;
+    lapExcluded: string;
+    partlyExcluded: string;
     elevationGain: string;
     avgGrade: string;
     activitiesCount: string;

@@ -1512,7 +1512,13 @@
     "splitSouth": "南",
     "splitWest": "西",
     "accepted": "已接受",
-    "acceptedOnly": "仅已接受"
+    "acceptedOnly": "仅已接受",
+    "laps": "圈数",
+    "lap": "第{{n}}圈",
+    "excludeLap": "排除",
+    "undoExclude": "撤销",
+    "lapExcluded": "已排除",
+    "partlyExcluded": "部分圈已排除"
   },
   "settings": {
     "account": "账户",

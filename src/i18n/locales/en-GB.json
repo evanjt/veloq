@@ -1512,7 +1512,13 @@
     "splitSouth": "south",
     "splitWest": "west",
     "accepted": "Accepted",
-    "acceptedOnly": "Accepted only"
+    "acceptedOnly": "Accepted only",
+    "laps": "Laps",
+    "lap": "Lap {{n}}",
+    "excludeLap": "Exclude",
+    "undoExclude": "Undo",
+    "lapExcluded": "Excluded",
+    "partlyExcluded": "Some laps excluded"
   },
   "settings": {
     "account": "Account",

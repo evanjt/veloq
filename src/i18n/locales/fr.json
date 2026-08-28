@@ -1512,7 +1512,13 @@
     "splitSouth": "sud",
     "splitWest": "ouest",
     "accepted": "Accepté",
-    "acceptedOnly": "Acceptés seulement"
+    "acceptedOnly": "Acceptés seulement",
+    "laps": "Tours",
+    "lap": "Tour {{n}}",
+    "excludeLap": "Exclure",
+    "undoExclude": "Annuler",
+    "lapExcluded": "Exclu",
+    "partlyExcluded": "Certains tours exclus"
   },
   "settings": {
     "account": "Compte",

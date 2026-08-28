@@ -43,6 +43,7 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
 import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
+import { useSectionLaps, hasPartialExclusion } from '@/features/routes/hooks/useSectionLaps';
 import {
   DataRangeFooter,
   DetailFallback,
@@ -58,6 +59,7 @@ import {
   SectionActionRow,
   SectionContentArea,
   SectionHistoryPanel,
+  SectionLapList,
   SectionDebugPanel,
   MergeConfirmDialog,
   MergeCandidatesModal,
@@ -308,6 +310,27 @@ export default function SectionDetailScreen() {
 
   const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
+  // Per-lap exclusion, keyed the way the junction rows are.
+  const laps = useSectionLaps(id, sectionRefreshKey);
+  const partlyExcluded = useMemo(
+    () => hasPartialExclusion(performanceRecords, laps.excludedLaps),
+    [performanceRecords, laps.excludedLaps]
+  );
+  const handleExcludeLap = useCallback(
+    (activityId: string, startIndex: number) => {
+      laps.excludeLap(activityId, startIndex);
+      handleSectionRefresh();
+    },
+    [laps, handleSectionRefresh]
+  );
+  const handleIncludeLap = useCallback(
+    (activityId: string, startIndex: number) => {
+      laps.includeLap(activityId, startIndex);
+      handleSectionRefresh();
+    },
+    [laps, handleSectionRefresh]
+  );
+
   const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);
 
   const computedForwardStats = forwardStats;
@@ -391,6 +414,7 @@ export default function SectionDetailScreen() {
               handleRematchActivities={handleRematchActivities}
               handleAcceptSection={handleAcceptSection}
               pinnedVersion={ledger.pinnedVersion}
+              partlyExcluded={partlyExcluded}
             />
           )}
 
@@ -467,6 +491,16 @@ export default function SectionDetailScreen() {
                   setShowMergePicker(true);
                 }
               }}
+            />
+          )}
+
+          {!isTrimming && (
+            <SectionLapList
+              isDark={isDark}
+              records={performanceRecords}
+              excludedLaps={laps.excludedLaps}
+              onExcludeLap={handleExcludeLap}
+              onIncludeLap={handleIncludeLap}
             />
           )}
 

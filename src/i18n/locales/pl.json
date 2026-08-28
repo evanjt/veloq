@@ -1514,7 +1514,13 @@
     "splitSouth": "południe",
     "splitWest": "zachód",
     "accepted": "Zaakceptowany",
-    "acceptedOnly": "Tylko zaakceptowane"
+    "acceptedOnly": "Tylko zaakceptowane",
+    "laps": "Okrążenia",
+    "lap": "Okrążenie {{n}}",
+    "excludeLap": "Wyklucz",
+    "undoExclude": "Cofnij",
+    "lapExcluded": "Wykluczone",
+    "partlyExcluded": "Niektóre okrążenia wykluczone"
   },
   "settings": {
     "account": "Konto",
