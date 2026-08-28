@@ -1,9 +1,9 @@
 //! Blob-authoritative section geometry.
 //!
 //! Sections persist the compact blob encoding (`polyline_blob`) as the
-//! authoritative geometry. The NOT NULL `polyline_json` column keeps an
-//! empty placeholder on new rows, while legacy JSON-only rows must still
-//! decode through the read fallback with no row migration.
+//! authoritative geometry. `polyline_json` is NULL on new rows, while legacy
+//! JSON-only rows must still decode through the read fallback with no row
+//! migration.
 //!
 //! Run: `cargo test --test section_blob_authority -p veloqrs`
 
@@ -44,7 +44,7 @@ fn sample_polyline() -> Vec<GpsPoint> {
         .collect()
 }
 
-fn row_shape(db: &Connection, id: &str) -> (String, bool) {
+fn row_shape(db: &Connection, id: &str) -> (Option<String>, bool) {
     db.query_row(
         "SELECT polyline_json, polyline_blob IS NOT NULL FROM sections WHERE id = ?",
         params![id],
@@ -95,9 +95,8 @@ fn create_section_writes_blob_as_authority() {
     let (json, has_blob) = row_shape(&s.raw, &id);
     assert!(has_blob, "new section must store the polyline blob");
     assert!(
-        json.is_empty(),
-        "new section must not duplicate geometry as JSON, got {} chars",
-        json.len()
+        json.is_none(),
+        "new section must not duplicate geometry as JSON, got {json:?}"
     );
 
     let section = s.engine.get_section(&id).expect("get_section");
@@ -154,7 +153,7 @@ fn detection_save_writes_blob_as_authority() {
     // The identity registry assigns the durable id, so read the row back
     // rather than assuming the detection-side id survived.
     let raw = Connection::open(&path).unwrap();
-    let (id, json, has_blob): (String, String, bool) = raw
+    let (id, json, has_blob): (String, Option<String>, bool) = raw
         .query_row(
             "SELECT id, polyline_json, polyline_blob IS NOT NULL FROM sections",
             [],
@@ -163,7 +162,7 @@ fn detection_save_writes_blob_as_authority() {
         .expect("exactly one saved section");
     assert!(has_blob, "save_sections must store the polyline blob");
     assert!(
-        json.is_empty(),
+        json.is_none(),
         "save_sections must not duplicate geometry as JSON"
     );
     let density_shape: (Option<String>, bool) = raw
@@ -195,7 +194,7 @@ fn legacy_json_only_row_still_decodes() {
 
     let (json, has_blob) = row_shape(&s.raw, "legacy_1");
     assert!(!has_blob, "test premise: legacy row has no blob");
-    assert!(!json.is_empty(), "test premise: legacy row keeps real JSON");
+    assert!(json.is_some(), "test premise: legacy row keeps real JSON");
 
     let section = s.engine.get_section("legacy_1").expect("get_section");
     assert_close(&section.polyline, &polyline);
@@ -262,7 +261,7 @@ fn trim_of_legacy_row_backs_up_geometry_and_reset_restores_it() {
 
     let (json, has_blob) = row_shape(&s.raw, "legacy_2");
     assert!(has_blob, "trim must write the polyline blob");
-    assert!(json.is_empty(), "trim must not duplicate geometry as JSON");
+    assert!(json.is_none(), "trim must not duplicate geometry as JSON");
 
     let backup: Option<String> = s
         .raw
@@ -284,7 +283,7 @@ fn trim_of_legacy_row_backs_up_geometry_and_reset_restores_it() {
     assert_close(&restored.polyline, &polyline);
     let (json, has_blob) = row_shape(&s.raw, "legacy_2");
     assert!(has_blob, "reset must write the polyline blob");
-    assert!(json.is_empty(), "reset must not duplicate geometry as JSON");
+    assert!(json.is_none(), "reset must not duplicate geometry as JSON");
 }
 
 /// Disabling a blob-only section must capture a real footprint in the

@@ -2250,62 +2250,6 @@ const FfiConverterTypeFfiDetectionProgress = (() => {
 })();
 
 /**
- * Detection stats for FFI
- */
-export type FfiDetectionStats = {
-  activitiesProcessed: /*u32*/ number;
-  overlapsFound: /*u32*/ number;
-  sectionsByScale: Map<string, /*u32*/ number>;
-  potentialsByScale: Map<string, /*u32*/ number>;
-};
-
-/**
- * Generated factory for {@link FfiDetectionStats} record objects.
- */
-export const FfiDetectionStats = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiDetectionStats, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiDetectionStats>,
-  });
-})();
-
-const FfiConverterTypeFfiDetectionStats = (() => {
-  type TypeName = FfiDetectionStats;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        activitiesProcessed: FfiConverterUInt32.read(from),
-        overlapsFound: FfiConverterUInt32.read(from),
-        sectionsByScale: FfiConverterMapStringUInt32.read(from),
-        potentialsByScale: FfiConverterMapStringUInt32.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterUInt32.write(value.activitiesProcessed, into);
-      FfiConverterUInt32.write(value.overlapsFound, into);
-      FfiConverterMapStringUInt32.write(value.sectionsByScale, into);
-      FfiConverterMapStringUInt32.write(value.potentialsByScale, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterUInt32.allocationSize(value.activitiesProcessed) +
-        FfiConverterUInt32.allocationSize(value.overlapsFound) +
-        FfiConverterMapStringUInt32.allocationSize(value.sectionsByScale) +
-        FfiConverterMapStringUInt32.allocationSize(value.potentialsByScale)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Direction stats for FFI.
  * Summary statistics for traversals in a single direction.
  */
@@ -4169,62 +4113,6 @@ const FfiConverterTypeFfiMergeCandidate = (() => {
 })();
 
 /**
- * Multi-scale section result for FFI
- */
-export type FfiMultiScaleSectionResult = {
-  sections: Array<FfiFrequentSection>;
-  potentials: Array<FfiPotentialSection>;
-  stats: FfiDetectionStats;
-};
-
-/**
- * Generated factory for {@link FfiMultiScaleSectionResult} record objects.
- */
-export const FfiMultiScaleSectionResult = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiMultiScaleSectionResult,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiMultiScaleSectionResult>,
-  });
-})();
-
-const FfiConverterTypeFfiMultiScaleSectionResult = (() => {
-  type TypeName = FfiMultiScaleSectionResult;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        sections: FfiConverterArrayTypeFfiFrequentSection.read(from),
-        potentials: FfiConverterArrayTypeFfiPotentialSection.read(from),
-        stats: FfiConverterTypeFfiDetectionStats.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterArrayTypeFfiFrequentSection.write(value.sections, into);
-      FfiConverterArrayTypeFfiPotentialSection.write(value.potentials, into);
-      FfiConverterTypeFfiDetectionStats.write(value.stats, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterArrayTypeFfiFrequentSection.allocationSize(value.sections) +
-        FfiConverterArrayTypeFfiPotentialSection.allocationSize(
-          value.potentials,
-        ) +
-        FfiConverterTypeFfiDetectionStats.allocationSize(value.stats)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Exercise summaries grouped by frequency for a muscle group.
  */
 export type FfiMuscleExerciseSummary = {
@@ -4867,78 +4755,6 @@ const FfiConverterTypeFfiPeriodStats = (() => {
         FfiConverterInt64.allocationSize(value.totalDuration) +
         FfiConverterFloat64.allocationSize(value.totalDistance) +
         FfiConverterFloat64.allocationSize(value.totalTss)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Potential section for FFI
- */
-export type FfiPotentialSection = {
-  id: string;
-  sportType: string;
-  encodedPolyline: ArrayBuffer;
-  activityIds: Array<string>;
-  visitCount: /*u32*/ number;
-  distanceMeters: /*f64*/ number;
-  confidence: /*f64*/ number;
-  scale: string;
-};
-
-/**
- * Generated factory for {@link FfiPotentialSection} record objects.
- */
-export const FfiPotentialSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPotentialSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPotentialSection>,
-  });
-})();
-
-const FfiConverterTypeFfiPotentialSection = (() => {
-  type TypeName = FfiPotentialSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        id: FfiConverterString.read(from),
-        sportType: FfiConverterString.read(from),
-        encodedPolyline: FfiConverterArrayBuffer.read(from),
-        activityIds: FfiConverterArrayString.read(from),
-        visitCount: FfiConverterUInt32.read(from),
-        distanceMeters: FfiConverterFloat64.read(from),
-        confidence: FfiConverterFloat64.read(from),
-        scale: FfiConverterString.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.id, into);
-      FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
-      FfiConverterArrayString.write(value.activityIds, into);
-      FfiConverterUInt32.write(value.visitCount, into);
-      FfiConverterFloat64.write(value.distanceMeters, into);
-      FfiConverterFloat64.write(value.confidence, into);
-      FfiConverterString.write(value.scale, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.id) +
-        FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
-        FfiConverterArrayString.allocationSize(value.activityIds) +
-        FfiConverterUInt32.allocationSize(value.visitCount) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterFloat64.allocationSize(value.confidence) +
-        FfiConverterString.allocationSize(value.scale)
       );
     }
   }
@@ -6274,7 +6090,6 @@ export type FfiSectionConfig = {
   minRoutes: /*u32*/ number;
   enableDensitySplits: boolean;
   mergeDistanceMultiplier: /*f64*/ number;
-  detectionMethod: string;
   minCellVisits: /*u32*/ number;
   divergenceThreshold: /*f64*/ number;
   minCorridorTracks: /*u32*/ number;
@@ -6316,7 +6131,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         minRoutes: FfiConverterUInt32.read(from),
         enableDensitySplits: FfiConverterBool.read(from),
         mergeDistanceMultiplier: FfiConverterFloat64.read(from),
-        detectionMethod: FfiConverterString.read(from),
         minCellVisits: FfiConverterUInt32.read(from),
         divergenceThreshold: FfiConverterFloat64.read(from),
         minCorridorTracks: FfiConverterUInt32.read(from),
@@ -6337,7 +6151,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
       FfiConverterUInt32.write(value.minRoutes, into);
       FfiConverterBool.write(value.enableDensitySplits, into);
       FfiConverterFloat64.write(value.mergeDistanceMultiplier, into);
-      FfiConverterString.write(value.detectionMethod, into);
       FfiConverterUInt32.write(value.minCellVisits, into);
       FfiConverterFloat64.write(value.divergenceThreshold, into);
       FfiConverterUInt32.write(value.minCorridorTracks, into);
@@ -6358,7 +6171,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         FfiConverterUInt32.allocationSize(value.minRoutes) +
         FfiConverterBool.allocationSize(value.enableDensitySplits) +
         FfiConverterFloat64.allocationSize(value.mergeDistanceMultiplier) +
-        FfiConverterString.allocationSize(value.detectionMethod) +
         FfiConverterUInt32.allocationSize(value.minCellVisits) +
         FfiConverterFloat64.allocationSize(value.divergenceThreshold) +
         FfiConverterUInt32.allocationSize(value.minCorridorTracks)
@@ -8922,6 +8734,7 @@ export enum VeloqError_Tags {
   Database = "Database",
   NotFound = "NotFound",
   ParseError = "ParseError",
+  ReferenceActivity = "ReferenceActivity",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -9088,6 +8901,44 @@ export const VeloqError = (() => {
     }
   }
 
+  type ReferenceActivity__interface = {
+    tag: VeloqError_Tags.ReferenceActivity;
+    inner: Readonly<{ msg: string }>;
+  };
+
+  class ReferenceActivity_
+    extends UniffiError
+    implements ReferenceActivity__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.ReferenceActivity;
+    readonly inner: Readonly<{ msg: string }>;
+    constructor(inner: { msg: string }) {
+      super("VeloqError", "ReferenceActivity");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { msg: string }): ReferenceActivity_ {
+      return new ReferenceActivity_(inner);
+    }
+
+    static instanceOf(obj: any): obj is ReferenceActivity_ {
+      return obj.tag === VeloqError_Tags.ReferenceActivity;
+    }
+
+    static hasInner(obj: any): obj is ReferenceActivity_ {
+      return ReferenceActivity_.instanceOf(obj);
+    }
+
+    static getInner(obj: ReferenceActivity_): Readonly<{ msg: string }> {
+      return obj.inner;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -9099,6 +8950,7 @@ export const VeloqError = (() => {
     Database: Database_,
     NotFound: NotFound_,
     ParseError: ParseError_,
+    ReferenceActivity: ReferenceActivity_,
   });
 })();
 
@@ -9129,6 +8981,10 @@ const FfiConverterTypeVeloqError = (() => {
           return new VeloqError.ParseError({
             msg: FfiConverterString.read(from),
           });
+        case 6:
+          return new VeloqError.ReferenceActivity({
+            msg: FfiConverterString.read(from),
+          });
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -9157,6 +9013,12 @@ const FfiConverterTypeVeloqError = (() => {
         }
         case VeloqError_Tags.ParseError: {
           ordinalConverter.write(5, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.msg, into);
+          return;
+        }
+        case VeloqError_Tags.ReferenceActivity: {
+          ordinalConverter.write(6, into);
           const inner = value.inner;
           FfiConverterString.write(inner.msg, into);
           return;
@@ -9192,6 +9054,12 @@ const FfiConverterTypeVeloqError = (() => {
           size += FfiConverterString.allocationSize(inner.msg);
           return size;
         }
+        case VeloqError_Tags.ReferenceActivity: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(6);
+          size += FfiConverterString.allocationSize(inner.msg);
+          return size;
+        }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -9204,12 +9072,6 @@ const FfiConverterTypeVeloqError = (() => {
 const FfiConverterMapStringString = new FfiConverterMap(
   FfiConverterString,
   FfiConverterString,
-);
-
-// FfiConverter for Map<string, /*u32*/number>
-const FfiConverterMapStringUInt32 = new FfiConverterMap(
-  FfiConverterString,
-  FfiConverterUInt32,
 );
 
 export interface ActivityManagerLike {
@@ -9844,9 +9706,6 @@ const FfiConverterTypeActivityManager = new FfiConverterObject(
 );
 
 export interface DetectionManagerLike {
-  detectPotentials(
-    sportFilter: string | undefined,
-  ) /*throws*/ : Array<FfiPotentialSection>;
   /**
    * Force full re-detection by clearing processed activity IDs first.
    * This ensures all activities are re-evaluated against sections.
@@ -9889,26 +9748,6 @@ export class DetectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeDetectionManagerObjectFactory.bless(pointer);
-  }
-
-  detectPotentials(
-    sportFilter: string | undefined,
-  ): Array<FfiPotentialSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiPotentialSection.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
-            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportFilter),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
   }
 
   /**
@@ -12323,7 +12162,6 @@ export interface SectionManagerLike {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
-  pruneOverlapping() /*throws*/ : /*u32*/ number;
   /**
    * Tier 5.5: re-derive a section's consensus polyline from its
    * current activity traces. Useful for a "refine this section" UI
@@ -13558,23 +13396,6 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  pruneOverlapping(): /*u32*/ number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -16517,11 +16338,6 @@ const FfiConverterArrayTypeFfiPatternSection = new FfiConverterArray(
   FfiConverterTypeFfiPatternSection,
 );
 
-// FfiConverter for Array<FfiPotentialSection>
-const FfiConverterArrayTypeFfiPotentialSection = new FfiConverterArray(
-  FfiConverterTypeFfiPotentialSection,
-);
-
 // FfiConverter for Array<FfiPreviewCentre>
 const FfiConverterArrayTypeFfiPreviewCentre = new FfiConverterArray(
   FfiConverterTypeFfiPreviewCentre,
@@ -16961,14 +16777,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials() !==
-    23608
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials",
     );
   }
   if (
@@ -18100,14 +17908,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping() !==
-    2720
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline() !==
     38621
   ) {
@@ -18699,7 +18499,6 @@ export default Object.freeze({
     FfiConverterTypeFfiCalendarYearSummary,
     FfiConverterTypeFfiCallOutcome,
     FfiConverterTypeFfiDetectionProgress,
-    FfiConverterTypeFfiDetectionStats,
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiEfficiencyPoint,
     FfiConverterTypeFfiEfficiencyTrend,
@@ -18724,7 +18523,6 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
-    FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleExerciseSummary,
     FfiConverterTypeFfiMuscleGroup,
     FfiConverterTypeFfiMuscleGroupDetail,
@@ -18734,7 +18532,6 @@ export default Object.freeze({
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,
     FfiConverterTypeFfiPeriodStats,
-    FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
     FfiConverterTypeFfiRankedSection,

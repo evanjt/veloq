@@ -414,7 +414,7 @@ fn config_change_settles_in_one_apply(arm: Arm) {
 /// identity rather than from the batch that revived it.
 #[test]
 fn a_restored_section_comes_back_under_its_own_sport() {
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let rides = trunk_outings(12);
     let cold = ingest_step(&mut engine, "rides", &refs(&rides)).snapshot;
     let (id, fp) = busiest_section(&cold).expect("trunk section detected");
@@ -462,7 +462,7 @@ fn a_config_change_settles_in_one_apply() {
 
 #[test]
 fn a_config_change_settles_in_one_apply_on_corridor() {
-    config_change_settles_in_one_apply(Arm::Control);
+    config_change_settles_in_one_apply(Arm::Battery);
 }
 
 #[test]
@@ -472,5 +472,5 @@ fn a_config_change_that_disqualifies_ground_still_retires_it() {
 
 #[test]
 fn a_config_change_that_disqualifies_ground_still_retires_it_on_corridor() {
-    disqualified_ground_retires(Arm::Control);
+    disqualified_ground_retires(Arm::Battery);
 }

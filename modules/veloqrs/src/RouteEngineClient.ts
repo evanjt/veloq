@@ -45,7 +45,6 @@ import type {
   FfiStartupData,
   FfiWidgetSnapshotData,
   FfiRoutesScreenData,
-  FfiPotentialSection,
   FfiSectionConfig,
   FfiIndexActivitySummary,
   DownloadProgressResult,
@@ -921,8 +920,6 @@ class RouteEngineClient implements DelegateHost {
   getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
     sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
-  detectPotentials = (sportFilter?: string): FfiPotentialSection[] =>
-    detectionDelegates.detectPotentials(this, sportFilter);
 
   extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
     sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
@@ -1094,7 +1091,6 @@ class RouteEngineClient implements DelegateHost {
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
 
-  pruneOverlappingSections = (): number => sectionDelegates.pruneOverlappingSections(this);
 
   getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
     sectionDelegates.getActivitySectionHighlights(this, activityIds);

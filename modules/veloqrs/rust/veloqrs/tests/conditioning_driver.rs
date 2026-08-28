@@ -24,7 +24,6 @@ fn backfill_cadence_conditions_without_any_ts_poll() {
 
     with_persistent_engine(|engine| {
         engine.set_section_config(tracematch::sections::SectionConfig {
-            detection_method: tracematch::DetectionMethod::Unified,
             ..Default::default()
         });
     })

@@ -15,7 +15,6 @@ use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::DetectionMethod;
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
@@ -42,7 +41,6 @@ fn line_track(jitter: f64) -> Vec<GpsPoint> {
 fn seed_engine() {
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
-        cfg.detection_method = DetectionMethod::Unified;
         cfg.min_activities = 3;
         engine.set_section_config(cfg);
         for i in 0..4 {
@@ -87,7 +85,7 @@ fn db_sha256(path: &std::path::Path) -> [u8; 32] {
 }
 
 /// The catalogue tables as a second connection reads them.
-fn catalogue_snapshot(path: &std::path::Path) -> Vec<(String, String, String, i64)> {
+fn catalogue_snapshot(path: &std::path::Path) -> Vec<(String, String, Option<String>, i64)> {
     let conn = Connection::open(path).expect("second connection");
     let mut stmt = conn
         .prepare(

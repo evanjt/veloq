@@ -158,7 +158,7 @@ function densify(pts: [number, number][]): { latitude: number; longitude: number
  *  is unavailable. */
 const FALLBACK = ['15,100 60,92 120,85 200,80 280,85 340,92 385,100'];
 
-export function DetectionMethodIllustration({
+export function DetectionIllustration({
   proximity,
   minSectionLength,
   minActivities,
@@ -227,7 +227,6 @@ export function DetectionMethodIllustration({
           preserveHierarchy: true,
           enableDensitySplits: false,
           divergenceThreshold,
-          detectionMethod: 'unified',
         });
 
         const resultJson: string = await mod.detectSectionsStandalone(

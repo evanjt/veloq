@@ -269,3 +269,307 @@ fn era_snapshot_counts_only_included_traversals() {
          counting the excluded row too would read 2.0"
     );
 }
+
+// ---------------------------------------------------------------- lineage
+
+/// A ride that follows the trunk to its midpoint and peels east.
+fn fork_ride(jitter_m: f64) -> Vec<GpsPoint> {
+    let mut pts = Vec::new();
+    let mut d = 0.0;
+    while d <= TRUNK_LEN_M / 2.0 {
+        pts.push(pt(d, jitter_m));
+        d += STEP_M;
+    }
+    // North-east at 45 degrees for the second half.
+    let leg = TRUNK_LEN_M / 2.0;
+    let mut t = STEP_M;
+    while t <= leg {
+        let along = t / 2f64.sqrt();
+        pts.push(pt(TRUNK_LEN_M / 2.0 + along, along + jitter_m));
+        t += STEP_M;
+    }
+    pts
+}
+
+fn fork_rides(prefix: &str, count: usize, day0: i64) -> Vec<LifecycleActivity> {
+    (0..count)
+        .map(|i| {
+            let jitter = (i as f64 - (count as f64 - 1.0) / 2.0) * 1.5;
+            act(
+                format!("{prefix}_{i:02}"),
+                day0 + i as i64,
+                fork_ride(jitter),
+            )
+        })
+        .collect()
+}
+
+fn details_of(event: &veloqrs::persistence::sections::SectionHistoryEvent) -> serde_json::Value {
+    event
+        .details
+        .as_deref()
+        .and_then(|d| serde_json::from_str(d).ok())
+        .unwrap_or(serde_json::Value::Null)
+}
+
+/// A trunk that becomes a fork later in the library's life splits: the
+/// piece that keeps the id records the split and names its siblings, and a
+/// sibling's birth names the parent it was carved from, with a
+/// discriminator a read side can render in-locale.
+#[test]
+fn a_late_fork_splits_the_trunk_and_records_lineage() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let straight = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&straight)).snapshot;
+    let (trunk, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no trunk");
+
+    let forked = fork_rides("cf", 9, 20);
+    ingest_step(&mut engine, "fork", &refs(&forked));
+
+    let births: Vec<(String, serde_json::Value)> = engine
+        .get_sections()
+        .iter()
+        .filter(|s| s.id != trunk)
+        .flat_map(|s| {
+            engine
+                .section_history(&s.id)
+                .into_iter()
+                .filter(|e| e.kind == "formed")
+                .map(|e| (s.id.clone(), details_of(&e)))
+                .collect::<Vec<_>>()
+        })
+        .filter(|(_, d)| d.get("split_from").and_then(|v| v.as_str()) == Some(trunk.as_str()))
+        .collect();
+    assert!(
+        !births.is_empty(),
+        "a sibling carved from the trunk must record it as its parent"
+    );
+    for (_, d) in &births {
+        let disc = d
+            .get("discriminator")
+            .and_then(|v| v.as_str())
+            .expect("a sibling carries a discriminator");
+        assert!(
+            ["north", "east", "south", "west"].contains(&disc) || disc.parse::<u32>().is_ok(),
+            "a discriminator is a cardinal or an ordinal, got {disc}"
+        );
+    }
+    let split = engine
+        .section_history(&trunk)
+        .into_iter()
+        .find(|e| e.kind == "split")
+        .expect("the trunk records the split");
+    let siblings: Vec<String> = details_of(&split)
+        .get("siblings")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    for (sibling, _) in &births {
+        assert!(
+            siblings.contains(sibling),
+            "the split names every sibling carved from it: {siblings:?}"
+        );
+    }
+}
+
+/// A sustained merge retires the junior into the senior and says which.
+#[test]
+fn a_merge_names_the_survivor() {
+    use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 60,
+        bucket_b_delta_count: 90,
+        bucket_d_delta_count: 3,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 4,
+        ..LifecycleConfig::default()
+    });
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "a", &corpus.through_a());
+    ingest_step(&mut engine, "b", &refs(&corpus.bucket_b_delta));
+    let before = snapshot(&mut engine);
+    ingest_step(&mut engine, "c", &[&corpus.bucket_c_single]);
+    ingest_step(&mut engine, "d", &refs(&corpus.bucket_d_delta));
+
+    let live: Vec<String> = engine.get_sections().iter().map(|s| s.id.clone()).collect();
+    let merges: Vec<(String, String)> = before
+        .sections
+        .keys()
+        .flat_map(|id| {
+            engine
+                .section_history(id)
+                .into_iter()
+                .filter(|e| e.kind == "merged")
+                .map(|e| {
+                    (
+                        id.clone(),
+                        details_of(&e)
+                            .get("into")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(
+        !merges.is_empty(),
+        "the small batch fires at least one merge"
+    );
+    for (junior, senior) in &merges {
+        assert!(!senior.is_empty(), "a merge names the survivor");
+        assert!(
+            live.contains(senior),
+            "{junior} merged into {senior}, which must be live"
+        );
+        assert!(!live.contains(junior), "the junior leaves the catalogue");
+    }
+}
+
+// ------------------------------------------------------------------ revert
+
+/// Reverting to a stored version puts that line and its reference back on
+/// the row, re-matches the junction, pins the section there, and records
+/// it, so the next re-cut holds the line the user chose.
+#[test]
+fn revert_swaps_the_stored_version_into_the_section_row() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+    let birth = engine
+        .section_geometry_polyline(&id, 1)
+        .expect("birth geometry");
+
+    // A second version the section did not keep: the same corridor cut short.
+    let short: Vec<GpsPoint> = birth.iter().take(birth.len() / 2).cloned().collect();
+    let v2 = engine
+        .record_section_geometry(&id, &short, false, None)
+        .expect("store a version");
+    assert_eq!(v2, 2);
+    engine
+        .revert_section_to_version(&id, 2)
+        .expect("revert to v2");
+    let row = engine.get_section_by_id(&id).expect("row");
+    assert!(
+        shares_ground(&row.polyline, &short) && row.polyline.len() < birth.len(),
+        "the row carries the reverted line"
+    );
+    assert_eq!(engine.pinned_section_version(&id), Some(2));
+    let last = engine.section_history(&id).pop().expect("history");
+    assert_eq!(last.kind, "reverted");
+    assert_eq!(last.geometry_version, Some(2));
+    assert!(
+        !row.activity_ids.is_empty(),
+        "the junction is re-matched against the reverted line"
+    );
+
+    // Back to birth: the exact reference rides along.
+    engine
+        .revert_section_to_version(&id, 1)
+        .expect("revert to v1");
+    let row = engine.get_section_by_id(&id).expect("row");
+    assert!(shares_ground(&row.polyline, &birth));
+    assert_eq!(engine.pinned_section_version(&id), Some(1));
+
+    // A later detect holds the pinned line.
+    let more = corridor_rides("cb", 0.0, 6, 40);
+    let after = ingest_step(&mut engine, "held", &refs(&more)).snapshot;
+    let (id_now, fp) = section_on(&after, &corridor_ground(0.0)).expect("section survives");
+    assert_eq!(id_now, id);
+    assert!(
+        shares_ground(&fp.polyline, &birth),
+        "a pinned section keeps its line"
+    );
+}
+
+#[test]
+fn a_revert_to_a_missing_version_is_refused() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (id, fp) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+    assert!(engine.revert_section_to_version(&id, 7).is_err());
+    let row = engine.get_section_by_id(&id).expect("row");
+    assert_eq!(
+        row.polyline.len(),
+        fp.polyline.len(),
+        "a refused revert changes nothing"
+    );
+    assert_eq!(engine.pinned_section_version(&id), None);
+}
+
+// ------------------------------------------------------------ PR re-basing
+
+/// A re-cut re-bases the record on the new extent; when that moves the
+/// record, the ledger says so beside the re-cut, against the current extent.
+#[test]
+fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
+    use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
+    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 60,
+        bucket_b_delta_count: 90,
+        bucket_d_delta_count: 3,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 4,
+        ..LifecycleConfig::default()
+    });
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    // One second per point on every stream, so junction rows carry lap times.
+    let timed = |engine: &mut veloqrs::PersistentRouteEngine, acts: &[&LifecycleActivity]| {
+        let mut ids = Vec::new();
+        let mut times: Vec<u32> = Vec::new();
+        let mut offsets = Vec::new();
+        for a in acts {
+            engine
+                .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
+                .unwrap();
+            engine
+                .update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
+                .unwrap();
+            offsets.push(times.len() as u32);
+            times.extend(0..a.gps_points.len() as u32);
+            ids.push(a.id.clone());
+        }
+        offsets.push(times.len() as u32);
+        engine.set_time_streams_flat(&ids, &times, &offsets);
+        let handle = engine.detect_sections_background();
+        let (sections, processed) = handle.recv().unwrap_or_default();
+        engine.apply_sections(sections).unwrap();
+        engine.save_processed_activity_ids(&processed).unwrap();
+    };
+    timed(&mut engine, &corpus.through_a());
+    timed(&mut engine, &refs(&corpus.bucket_b_delta));
+    timed(&mut engine, &[&corpus.bucket_c_single]);
+    let before = snapshot(&mut engine);
+    timed(&mut engine, &refs(&corpus.bucket_d_delta));
+
+    let mut recuts = 0;
+    let mut rebased = 0;
+    for id in before.sections.keys() {
+        let history = engine.section_history(id);
+        for (i, e) in history.iter().enumerate() {
+            if e.kind != "recut" {
+                continue;
+            }
+            recuts += 1;
+            let Some(next) = history.get(i + 1) else {
+                continue;
+            };
+            if next.kind != "pr_rebased" {
+                continue;
+            }
+            rebased += 1;
+            let d = details_of(next);
+            assert_eq!(
+                d.get("basis").and_then(|v| v.as_str()),
+                Some("current_extent")
+            );
+            let from = d.get("from_time").and_then(|v| v.as_f64());
+            let to = d.get("to_time").and_then(|v| v.as_f64());
+            assert!(from != to || d.get("from_activity_id") != d.get("to_activity_id"));
+        }
+    }
+    assert!(recuts > 0, "the small batch fires a re-cut");
+    assert!(rebased > 0, "a re-cut that moves the record writes a row");
+}

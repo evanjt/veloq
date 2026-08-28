@@ -114,10 +114,6 @@ name = "schema_indexes"
 required-features = ["synthetic"]
 
 [[test]]
-name = "consensus_persistence"
-required-features = ["synthetic"]
-
-[[test]]
 name = "detection_pool_invariance"
 required-features = ["synthetic"]
 
@@ -147,10 +143,6 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "playback_vs_batch"
-required-features = ["synthetic"]
-
-[[test]]
-name = "accumulator_backfill"
 required-features = ["synthetic"]
 
 [[test]]
@@ -289,4 +281,8 @@ required-features = ["real-corpus"]
 
 [[test]]
 name = "evidence_cache_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_attribution"
 required-features = ["synthetic"]

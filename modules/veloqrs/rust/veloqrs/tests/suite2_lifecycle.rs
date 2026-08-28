@@ -25,7 +25,7 @@ fn corpus() -> LifecycleCorpus {
 #[test]
 fn config_change_reanalyses() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
 
     let mut strict = SectionConfig::default();
@@ -49,7 +49,7 @@ fn config_change_reanalyses() {
 #[test]
 fn remove_activity_purges_evidence() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let victim = cold

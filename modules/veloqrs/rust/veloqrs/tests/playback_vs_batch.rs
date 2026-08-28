@@ -30,7 +30,7 @@ fn playback_vs_batch_cold_set() {
     let all = corpus.through_a();
     println!("\n=== playback vs batch over {} activities ===", all.len());
 
-    for arm in [Arm::Control, Arm::Battery] {
+    for arm in [Arm::Battery] {
         // Batch: the whole set at once.
         let (mut eb, _db) = fresh_engine_for(arm);
         let batch = ingest_step(&mut eb, "batch", &all);
@@ -134,7 +134,7 @@ fn playback_converges_to_batch() {
 #[ignore = "benchmark — run explicitly with --release"]
 fn add_cost_by_library_size() {
     let corpus = corpus();
-    for arm in [Arm::Control, Arm::Battery] {
+    for arm in [Arm::Battery] {
         // add-1 onto a 60-activity library.
         let (mut e60, _d60) = fresh_engine_for(arm);
         ingest_step(&mut e60, "cold60", &corpus.through_a());

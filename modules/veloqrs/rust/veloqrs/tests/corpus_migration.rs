@@ -29,7 +29,6 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::DetectionMethod;
 use veloqrs::persistence::with_persistent_engine;
 
 // Both tests drive the one process-wide engine and each runs a cutover, so a
@@ -238,7 +237,6 @@ fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
         let mut cfg = engine.get_section_config();
         // What a released install persisted. Above BATCH_CAP the dispatch
         // ignores it, which is the point.
-        cfg.detection_method = DetectionMethod::Corridor;
         engine.set_section_config(cfg);
 
         for (i, path) in paths.iter().enumerate() {

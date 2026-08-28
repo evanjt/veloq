@@ -1,16 +1,14 @@
 //! Synthetic section detection audit.
 //!
 //! Builds 5 GPS tracks sharing a ~1.5 km overlapping segment (with per-track
-//! jitter) and verifies that corridor detection finds the overlap, then feeds
-//! three further tracks through incremental detection. Everything here runs
+//! jitter) and verifies that detection finds the overlap. Everything here runs
 //! off generated fixtures, so it executes in CI on every push.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use tracematch::{
     GpsPoint,
     geo_utils::haversine_distance,
-    sections::{NoopProgress, SectionConfig, detect_sections_corridor},
+    sections::{SectionConfig, detect_sections_unified},
 };
 
 // ---------------------------------------------------------------------------
@@ -86,13 +84,6 @@ const FIXTURE_VARIANTS: [(f64, f64, f64, f64); 5] = [
     (47.3628, 8.5600, 47.3912, 8.5200), // ESE → WNW
 ];
 
-/// Three later activities over the same corridor, for the incremental pass.
-const LATER_VARIANTS: [(f64, f64, f64, f64); 3] = [
-    (47.3615, 8.5300, 47.3925, 8.5500), // SSW → NNE
-    (47.3622, 8.5500, 47.3918, 8.5300), // SSE → NNW
-    (47.3618, 8.5200, 47.3922, 8.5600), // WSW → ENE
-];
-
 /// Build one track per variant, ids and jitter seeds numbered from `id_offset`.
 fn tracks_from_variants(
     variants: &[(f64, f64, f64, f64)],
@@ -138,7 +129,7 @@ fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
 fn synthetic_overlap_produces_sections() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     assert!(
         !sections.is_empty(),
@@ -157,7 +148,7 @@ fn synthetic_overlap_produces_sections() {
 fn section_distance_is_reasonable() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -175,7 +166,7 @@ fn section_distance_is_reasonable() {
 fn most_activities_appear_in_section() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -198,7 +189,7 @@ fn corridor_populates_activity_portions() {
     // "no data" sections in the UI.
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -236,88 +227,10 @@ fn corridor_populates_activity_portions() {
 }
 
 #[test]
-fn accepted_section_geometry_survives_incremental_detection() {
-    // A section the user has accepted (`is_user_defined`) is frozen: later
-    // activities may raise its visit count but must not move its consensus
-    // polyline or restate its confidence.
-    let (tracks, sport_types) = build_fixture();
-    let config = SectionConfig::default();
-
-    let mut sections = detect_sections_corridor(&tracks, &sport_types, &config);
-    let accepted_idx = sections
-        .iter()
-        .enumerate()
-        .max_by_key(|(_, s)| s.visit_count)
-        .map(|(i, _)| i)
-        .expect("corridor detection should find at least one section");
-
-    sections[accepted_idx].is_user_defined = true;
-    let accepted_id = sections[accepted_idx].id.clone();
-    let frozen_polyline = sections[accepted_idx].polyline.clone();
-    let frozen_confidence = sections[accepted_idx].confidence;
-    let visits_before = sections[accepted_idx].visit_count;
-    assert!(
-        !frozen_polyline.is_empty(),
-        "accepted section must start with a polyline"
-    );
-
-    let new_tracks = tracks_from_variants(&LATER_VARIANTS, FIXTURE_VARIANTS.len());
-    let all_tracks: Vec<_> = tracks.iter().chain(new_tracks.iter()).cloned().collect();
-    let all_sport_types = sport_map(&all_tracks);
-
-    let incremental = tracematch::detect_sections_incremental(
-        &new_tracks,
-        &sections,
-        &all_tracks,
-        &all_sport_types,
-        &[],
-        &config,
-        Arc::new(NoopProgress),
-    );
-
-    let accepted = incremental
-        .updated_sections
-        .iter()
-        .find(|s| s.id == accepted_id)
-        .expect("accepted section should survive incremental detection");
-
-    assert!(accepted.is_user_defined, "accepted flag was cleared");
-    assert_eq!(
-        accepted.polyline.len(),
-        frozen_polyline.len(),
-        "accepted section polyline length changed"
-    );
-    for (i, (a, b)) in accepted
-        .polyline
-        .iter()
-        .zip(frozen_polyline.iter())
-        .enumerate()
-    {
-        assert!(
-            (a.latitude - b.latitude).abs() < 1e-10 && (a.longitude - b.longitude).abs() < 1e-10,
-            "polyline point {} moved: ({},{}) -> ({},{})",
-            i,
-            b.latitude,
-            b.longitude,
-            a.latitude,
-            a.longitude,
-        );
-    }
-    assert_eq!(accepted.confidence, frozen_confidence, "confidence changed");
-
-    assert!(
-        accepted.visit_count > visits_before,
-        "the 3 later activities should raise the visit count above {} (got {})",
-        visits_before,
-        accepted.visit_count,
-    );
-}
-
-#[test]
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()

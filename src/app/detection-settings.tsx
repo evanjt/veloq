@@ -18,10 +18,7 @@ import { useTheme } from '@/shared/app';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import {
-  DetectionMethodIllustration,
-  ElevationBackfillStatus,
-} from '@/features/settings/components';
+import { DetectionIllustration, ElevationBackfillStatus } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
@@ -183,7 +180,7 @@ export default function DetectionSettingsScreen() {
           style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
         >
-          <DetectionMethodIllustration
+          <DetectionIllustration
             proximity={params.proximityThreshold}
             minSectionLength={params.minSectionLength}
             minActivities={params.minActivities}

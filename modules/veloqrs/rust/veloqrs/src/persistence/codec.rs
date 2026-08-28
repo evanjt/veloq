@@ -283,10 +283,10 @@ pub fn deserialize_gps_composite<T: DeserializeOwned>(bytes: &[u8]) -> Result<T,
     rmp_serde::from_slice(bytes).map_err(|e| e.to_string())
 }
 
-/// Placeholder written to the NOT NULL `sections.polyline_json` column. The
-/// blob is the authoritative geometry; only rows written before blob authority
-/// carry real JSON, which readers use as a fallback.
-pub const NO_POLYLINE_JSON: &str = "";
+/// What every write puts in `sections.polyline_json`. The blob is the
+/// authoritative geometry; only rows written before blob authority carry
+/// real JSON, which readers use as a fallback.
+pub const NO_POLYLINE_JSON: Option<&str> = None;
 
 /// Decode a section polyline row: blob first (authoritative), JSON fallback for
 /// legacy rows. A decodable blob always wins; the JSON path only runs when the

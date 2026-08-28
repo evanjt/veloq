@@ -178,7 +178,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               // left to ask. Runs after the credential push so Rust has
               // something to authenticate with.
               startElevationBackfillAfterUpdate().catch(() => {});
-              // An install that saved Corridor keeps it until this runs; the
+              // A catalogue an older build cut stays until this runs; the
               // trigger declines while the backfill still owes fetches, so a
               // catalogue is never cut over a half-elevated library.
               startDetectorCutoverAfterUpdate().catch(() => {});

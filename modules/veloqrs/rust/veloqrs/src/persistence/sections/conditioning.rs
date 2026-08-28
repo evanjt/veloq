@@ -163,19 +163,7 @@ fn try_start_conditioning() -> bool {
         }
     }
 
-    // Unified-only: gate before spawning the worker. Same lock the spawn
-    // takes, so this costs one extra acquisition per fired batch only.
-    let handle = with_persistent_engine(|engine| {
-        if matches!(
-            engine.section_config.detection_method,
-            tracematch::DetectionMethod::Unified
-        ) {
-            Some(engine.detect_sections_background())
-        } else {
-            None
-        }
-    })
-    .flatten();
+    let handle = with_persistent_engine(|engine| engine.detect_sections_background());
 
     let Some(handle) = handle else {
         return false;

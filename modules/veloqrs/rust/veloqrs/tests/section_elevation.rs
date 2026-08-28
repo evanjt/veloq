@@ -12,7 +12,6 @@
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::DetectionMethod;
 use veloqrs::PersistentRouteEngine;
 
 /// A ~2.2 km climbing line: 200 points ~11 m apart, rising 1 m per point,
@@ -30,7 +29,6 @@ fn climbing_track(jitter: f64) -> Vec<GpsPoint> {
 fn unified_engine(path: &std::path::Path) -> PersistentRouteEngine {
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
     let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
     cfg.min_activities = 3;
     engine.set_section_config(cfg);
     engine

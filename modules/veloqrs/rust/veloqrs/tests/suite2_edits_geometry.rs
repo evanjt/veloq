@@ -122,7 +122,7 @@ fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&L
 #[test]
 fn rename_stays_metadata_only_and_resync_survives() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -151,7 +151,7 @@ fn rename_stays_metadata_only_and_resync_survives() {
 #[test]
 fn reset_bounds_restores_the_original_geometry() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -189,7 +189,7 @@ fn reset_bounds_restores_the_original_geometry() {
 #[test]
 fn recalculate_polyline_stays_on_real_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let one_act = engine
@@ -240,7 +240,7 @@ fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str
 #[test]
 fn set_reference_polyline_stays_within_one_source_activity() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
@@ -272,7 +272,7 @@ fn set_reference_polyline_stays_within_one_source_activity() {
 #[test]
 fn reset_bounds_disarms_the_resync_crash() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -298,7 +298,7 @@ fn reset_bounds_disarms_the_resync_crash() {
 #[test]
 fn gate_edited_section_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let (start, end) = middle_trim(before.polyline_point_count);
@@ -329,7 +329,7 @@ fn gate_edited_section_survives_resync() {
 #[ignore = "reset_section_reference is a half-reset — it clears is_user_defined and the backup but leaves the replaced geometry, so 'reset to automatic' does not restore the original shape"]
 fn gate_reset_reference_fully_resets_like_reset_bounds() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
@@ -363,7 +363,7 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
 #[ignore = "recalculate_section_polyline is non-idempotent (and non-deterministic) — a second recalc changes the shape instead of converging"]
 fn gate_recalculate_polyline_is_idempotent() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -388,7 +388,7 @@ fn gate_recalculate_polyline_is_idempotent() {
 #[ignore = "geometry edits do not invalidate perf_cache — get_section_performances returns pre-edit laps/PRs until an unrelated event clears it"]
 fn gate_geometry_edit_invalidates_perf_cache() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     seed_metrics_and_streams(&mut engine, &corpus.through_a());

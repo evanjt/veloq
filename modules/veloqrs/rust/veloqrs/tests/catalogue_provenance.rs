@@ -3,7 +3,7 @@
 //! the same settings agree" cannot be checked on a device.
 
 use tempfile::TempDir;
-use tracematch::sections::{DetectionMethod, SectionConfig};
+use tracematch::sections::SectionConfig;
 use veloqrs::PersistentRouteEngine;
 use veloqrs::persistence::sections::section_config_digest;
 
@@ -30,7 +30,6 @@ fn open(config: SectionConfig) -> (TempDir, PersistentRouteEngine) {
 #[test]
 fn save_records_method_and_digest() {
     let config = SectionConfig {
-        detection_method: DetectionMethod::Unified,
         ..Default::default()
     };
     let expected = section_config_digest(&config);

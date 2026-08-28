@@ -100,7 +100,7 @@ fn sport_map(corpus: &LifecycleCorpus) -> HashMap<String, String> {
 #[test]
 fn merge_leaves_no_orphaned_junction_rows() {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let (primary_id, primary) = busiest_section(&cold).expect("a primary section");
@@ -132,7 +132,7 @@ fn merge_leaves_no_orphaned_junction_rows() {
 #[test]
 fn merge_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let (primary_id, primary) = busiest_section(&cold).expect("a primary section");
@@ -186,7 +186,7 @@ fn near_duplicate_corridors_stay_disjoint() {
     let ride_main = ground_fp(corpus.corridors[0].polyline.clone());
     let parallel = ground_fp(parallel_ground(&corpus.corridors[0].polyline, 60.0));
 
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
     let bridging: Vec<String> = cold
@@ -278,7 +278,7 @@ fn track(snap: &SectionSnapshot, corridor: &SectionFingerprint) -> Option<(Strin
 #[test]
 fn unpinned_corridor_never_loses_visits_as_it_grows() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
 
     let s_a = ingest_step(&mut engine, "a/cold", &corpus.through_a()).snapshot;
     let (busy_id, busy) = busiest_section(&s_a).expect("a busy corridor to follow");
@@ -309,7 +309,7 @@ fn unpinned_corridor_never_loses_visits_as_it_grows() {
 #[test]
 fn unpinned_evolution_keeps_identity() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
 
     let s_a = ingest_step(&mut engine, "a/cold", &corpus.through_a()).snapshot;
     let s_b = ingest_step(&mut engine, "b/expand", &refs(&corpus.bucket_b_delta)).snapshot;
@@ -336,7 +336,7 @@ fn unpinned_evolution_keeps_identity() {
 #[test]
 fn deleted_corridor_stays_deleted() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
     let (id, deleted_ground) = busiest_section(&cold).expect("a busy corridor to delete");
 

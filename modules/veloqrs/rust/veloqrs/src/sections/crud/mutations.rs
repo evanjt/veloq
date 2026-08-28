@@ -7,7 +7,7 @@
 use super::super::{
     BatchAttachSummary, CreateSectionParams, IndexActivitySummary, Section, SectionType,
 };
-use super::{compute_section_portions, compute_section_portions_strict};
+use super::compute_section_portions;
 use crate::persistence::PersistentRouteEngine;
 use crate::sections::assign_carried_exclusions;
 use rusqlite::params;
@@ -383,13 +383,11 @@ impl PersistentRouteEngine {
 
             let current_distance = calculate_route_distance(&current_polyline);
 
-            // Use strict matching (30m threshold, gap tolerance 1) to avoid
-            // including parallel roads or large non-matching spans
-            let portions = compute_section_portions_strict(
+            let portions = compute_section_portions(
                 activity_id,
                 &track,
                 &current_polyline,
-                self.section_config.proximity_threshold,
+                &self.section_config,
             );
             if portions.is_empty() {
                 return Err(format!(
@@ -513,12 +511,8 @@ impl PersistentRouteEngine {
             let polyline: Vec<GpsPoint> =
                 self.stored_section_polyline(section_id).unwrap_or_default();
 
-            let portions = compute_section_portions(
-                activity_id,
-                &track,
-                &polyline,
-                self.section_config.proximity_threshold,
-            );
+            let portions =
+                compute_section_portions(activity_id, &track, &polyline, &self.section_config);
             if portions.is_empty() {
                 // Fallback for custom sections - the source activity should always match
                 self.add_section_activity(section_id, activity_id)?;
@@ -570,12 +564,9 @@ impl PersistentRouteEngine {
         // Re-add only activities that still match, with full portion details (all laps)
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
-                for portion in compute_section_portions(
-                    aid,
-                    &track,
-                    new_polyline,
-                    self.section_config.proximity_threshold,
-                ) {
+                for portion in
+                    compute_section_portions(aid, &track, new_polyline, &self.section_config)
+                {
                     self.add_section_activity_with_portion(section_id, &portion)?;
                 }
             }
@@ -804,52 +795,35 @@ impl PersistentRouteEngine {
         let sport_type = self.sport_of_activity(activity_id);
         let pooled = self.section_config.pool_sports;
 
-        // Collect matched section polylines up front: get_sections() borrows the
-        // in-memory Vec, and the insert loop below needs &mut self.
-        let matched: Vec<(String, Vec<GpsPoint>)> = {
-            let sections = self.get_sections();
-            if sections.is_empty() {
-                vec![]
-            } else {
-                // The user's config, not the factory default: the candidate
-                // window scales off proximity_threshold, and an attach that
-                // ignores the slider matches ground detection would not.
-                let config = self.section_config.clone();
-                let matches = tracematch::sections::optimized::find_sections_in_route(
-                    &track, sections, &config,
-                );
-                let mut seen = std::collections::HashSet::new();
-                matches
-                    .into_iter()
-                    .filter(|m| seen.insert(m.section_id.clone()))
-                    .filter_map(|m| {
-                        let section = sections.iter().find(|s| s.id == m.section_id)?;
-                        // Mirror detection's partition, or attach builds a
-                        // catalogue a re-detect disagrees with.
-                        if !pooled
-                            && let Some(sport) = &sport_type
-                            && &section.sport_type != sport
-                        {
-                            return None;
-                        }
-                        Some((section.id.clone(), section.polyline.clone()))
-                    })
-                    .collect()
-            }
-        };
+        // Every section's passes up front: get_sections() borrows the
+        // in-memory Vec, and the insert loop below needs &mut self. The
+        // matcher is detection's own, so the rows attach writes are the
+        // rows a re-detect over the same pool would write.
+        let matched: Vec<(String, Vec<SectionPortion>)> = self
+            .get_sections()
+            .iter()
+            .filter(|section| {
+                // Mirror detection's partition, or attach builds a
+                // catalogue a re-detect disagrees with.
+                pooled || sport_type.as_ref().is_none_or(|s| &section.sport_type == s)
+            })
+            .map(|section| {
+                (
+                    section.id.clone(),
+                    compute_section_portions(
+                        activity_id,
+                        &track,
+                        &section.polyline,
+                        &self.section_config,
+                    ),
+                )
+            })
+            .filter(|(_, portions)| !portions.is_empty())
+            .collect();
 
         let mut matched_sections = 0;
         let mut inserted_portions = 0;
-        for (section_id, polyline) in &matched {
-            let portions = compute_section_portions(
-                activity_id,
-                &track,
-                polyline,
-                self.section_config.proximity_threshold,
-            );
-            if portions.is_empty() {
-                continue;
-            }
+        for (section_id, portions) in &matched {
             matched_sections += 1;
 
             // Replace any rows a previous run (or a later full detection) left
@@ -864,7 +838,7 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
 
-            for portion in &portions {
+            for portion in portions {
                 self.insert_section_activity(
                     section_id,
                     activity_id,
@@ -987,12 +961,7 @@ impl PersistentRouteEngine {
         // Compute full portion details for each matching activity (all laps)
         for aid in &activity_ids {
             if let Some(track) = track_map.get(aid) {
-                let portions = compute_section_portions(
-                    aid,
-                    track,
-                    polyline,
-                    self.section_config.proximity_threshold,
-                );
+                let portions = compute_section_portions(aid, track, polyline, &self.section_config);
                 if !portions.is_empty() {
                     for portion in &portions {
                         self.add_section_activity_with_portion(section_id, portion)?;

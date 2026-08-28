@@ -17,7 +17,6 @@ use rusqlite::Connection;
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::DetectionMethod;
 use veloqrs::PersistentRouteEngine;
 use veloqrs::persistence::sections::DetectorGeneration;
 
@@ -101,9 +100,7 @@ fn kinds_of(engine: &PersistentRouteEngine, sid: &str) -> Vec<String> {
 #[test]
 fn an_unsaved_catalogue_reports_no_generation_change() {
     let (mut engine, dir) = fresh();
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
-    engine.set_section_config(cfg);
+    engine.set_section_config(engine.get_section_config());
 
     let conn = Connection::open(dir.path().join("routes.db")).expect("open second connection");
     let marked: i64 = conn
@@ -130,9 +127,7 @@ fn a_migrated_catalogue_explains_its_first_detect() {
     insert_auto_section(&path, "s_legacy");
 
     let mut engine = engine_at(&path);
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
-    engine.set_section_config(cfg);
+    engine.set_section_config(engine.get_section_config());
     engine.apply_sections_save(Vec::new()).expect("flip save");
 
     let changed = engine
@@ -148,26 +143,6 @@ fn a_migrated_catalogue_explains_its_first_detect() {
         changed.geometry_version.is_some(),
         "the shape the flip replaced has to be readable afterwards"
     );
-}
-
-/// Scenario: a migrating user whose persisted config keeps the detector they
-/// already had.
-/// Expected behaviour: the seeded generation carries no parameters, so nothing
-/// changed and no event is written.
-#[test]
-fn a_migrated_catalogue_staying_on_its_detector_explains_nothing() {
-    let dir = TempDir::new().expect("tempdir");
-    let path = dir.path().join("routes.db");
-    drop(seed_at_version(&path, 12));
-    insert_auto_section(&path, "s_legacy");
-
-    let mut engine = engine_at(&path);
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Corridor;
-    engine.set_section_config(cfg);
-    engine.apply_sections_save(Vec::new()).expect("save");
-
-    assert_eq!(kinds_of(&engine, "s_legacy"), vec!["baseline"]);
 }
 
 /// A line long enough that the section below is an interior portion of it.
@@ -232,9 +207,7 @@ fn a_save_between_the_change_and_the_detect_keeps_the_capture() {
 
     let mut engine = engine_at(&path);
     engine.load().expect("load catalogue");
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
-    engine.set_section_config(cfg);
+    engine.set_section_config(engine.get_section_config());
     assert!(
         engine.recalculate_section_polyline("s_legacy").is_some(),
         "the mutation must actually reach a save, or this test proves nothing"
@@ -261,7 +234,7 @@ fn a_matching_marker_reports_no_generation_change() {
     let live = engine.get_section_config();
     stamp_generation(
         &dir,
-        live.detection_method.as_str(),
+        veloqrs::persistence::sections::DETECTOR_METHOD,
         &veloqrs::persistence::sections::section_config_digest(&live),
     );
     assert!(engine.detector_generation_change().is_none());
@@ -270,8 +243,7 @@ fn a_matching_marker_reports_no_generation_change() {
 #[test]
 fn a_different_method_in_the_marker_is_a_generation_change() {
     let (mut engine, dir) = fresh();
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
+    let cfg = engine.get_section_config();
     engine.set_section_config(cfg.clone());
     stamp_generation(&dir, "corridor", "0000000000000000");
 
@@ -279,7 +251,7 @@ fn a_different_method_in_the_marker_is_a_generation_change() {
         .detector_generation_change()
         .expect("corridor marker against a unified config is a change");
     assert_eq!(from.method, "corridor");
-    assert_eq!(to.method, DetectionMethod::Unified.as_str());
+    assert_eq!(to.method, veloqrs::persistence::sections::DETECTOR_METHOD);
     assert_eq!(
         to.digest,
         veloqrs::persistence::sections::section_config_digest(&cfg)
@@ -441,17 +413,12 @@ fn a_detect_under_a_new_generation_explains_the_catalogue_it_replaces() {
     let path = dir.path().join("routes.db");
     {
         let mut engine = engine_at(&path);
-        let mut cfg = engine.get_section_config();
-        cfg.detection_method = DetectionMethod::Corridor;
-        engine.set_section_config(cfg);
         engine.apply_sections_save(Vec::new()).expect("first save");
     }
     insert_auto_section(&path, "s_ghost");
+    stamp_generation(&dir, "corridor", "0000000000000000");
 
     let mut engine = engine_at(&path);
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = DetectionMethod::Unified;
-    engine.set_section_config(cfg);
     engine.apply_sections_save(Vec::new()).expect("flip save");
 
     assert_eq!(kinds_of(&engine, "s_ghost"), vec!["algorithm_changed"]);

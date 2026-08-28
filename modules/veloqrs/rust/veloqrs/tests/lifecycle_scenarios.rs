@@ -479,10 +479,11 @@ fn scenario_d_small_batch_baseline() {
     assert_sport_types_stable(&step_c.snapshot, &step_d.snapshot);
 }
 
-// A 3-activity batch is one detect: streak 1 < k=3, so nothing dissolves, and
-// the append-only fold adds only the three new activities to the corridors they
-// traverse. B2's hysteresis keeps the visible catalogue from losing any activity
-// across the batch (`assert_no_activity_removed`). Green as a B2 headline gate.
+// A 3-activity batch is one detect. The hysteresis layer lets a section
+// change only through a debounced, fired event (a sustained re-cut,
+// dissolve or merge), so the only way a section may lose members across
+// the batch is through an event the ledger recorded for it this step. A
+// member dropped from a section whose line did not move is a silent loss.
 #[test]
 fn scenario_d_small_batch_stable() {
     let cfg = LifecycleConfig {
@@ -502,12 +503,52 @@ fn scenario_d_small_batch_stable() {
         &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
     );
     let step_c = ingest_step(&mut engine, "D_strict_C", &[&corpus.bucket_c_single]);
+    let events_before: BTreeMap<String, usize> = step_c
+        .snapshot
+        .sections
+        .keys()
+        .map(|id| (id.clone(), engine.section_history(id).len()))
+        .collect();
     let step_d = ingest_step(
         &mut engine,
         "D_strict_add3",
         &corpus.bucket_d_delta.iter().collect::<Vec<_>>(),
     );
-    assert_no_activity_removed(&step_c.snapshot, &step_d.snapshot);
+    assert_losses_are_fired_events(&engine, &step_c.snapshot, &step_d.snapshot, &events_before);
+}
+
+/// Every member a section lost across a step is explained by a lifecycle
+/// event the ledger fired for that section during the step.
+fn assert_losses_are_fired_events(
+    engine: &PersistentRouteEngine,
+    before: &SectionSnapshot,
+    after: &SectionSnapshot,
+    events_before: &BTreeMap<String, usize>,
+) {
+    for (id, prev) in &before.sections {
+        let fired: Vec<String> = engine
+            .section_history(id)
+            .into_iter()
+            .skip(events_before.get(id).copied().unwrap_or(0))
+            .map(|e| e.kind)
+            .collect();
+        match after.sections.get(id) {
+            None => assert!(
+                fired.iter().any(|k| k == "dissolved" || k == "merged"),
+                "section {id} left the catalogue without a fired retirement: {fired:?}"
+            ),
+            Some(now) => {
+                let removed: BTreeSet<&String> =
+                    prev.activity_ids.difference(&now.activity_ids).collect();
+                if !removed.is_empty() {
+                    assert!(
+                        fired.iter().any(|k| k == "recut"),
+                        "section {id} lost activities {removed:?} with no fired re-cut: {fired:?}"
+                    );
+                }
+            }
+        }
+    }
 }
 
 // ============================================================================

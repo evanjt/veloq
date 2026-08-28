@@ -1,10 +1,7 @@
 use super::error::{VeloqError, with_engine};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use log::info;
-use std::collections::HashMap;
 use std::sync::Arc;
-use tracematch::GpsPoint;
-use tracematch::sections::SectionConfig;
 
 #[derive(uniffi::Object)]
 pub struct DetectionManager {
@@ -285,77 +282,6 @@ impl DetectionManager {
         with_engine(|e| crate::FfiMatchStrictness {
             min_match_pct: e.match_config.min_match_percentage,
             endpoint_threshold: e.match_config.endpoint_threshold,
-        })
-    }
-
-    fn detect_potentials(
-        &self,
-        sport_filter: Option<String>,
-    ) -> Result<Vec<crate::FfiPotentialSection>, VeloqError> {
-        with_engine(|e| {
-            let mut activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
-                e.activity_metadata
-                    .values()
-                    .filter(|m| &m.sport_type == sport)
-                    .map(|m| m.id.clone())
-                    .collect()
-            } else {
-                e.activity_metadata.keys().cloned().collect()
-            };
-            // The pool comes out of a map, and `tracks` below inherits its order,
-            // so the detector would see a different arrangement on every run.
-            activity_ids.sort();
-
-            if activity_ids.is_empty() {
-                return vec![];
-            }
-
-            let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::new();
-            for id in &activity_ids {
-                if let Some(track) = e.get_gps_track(id) {
-                    if track.len() >= 4 {
-                        tracks.push((id.to_string(), track));
-                    }
-                }
-            }
-
-            if tracks.is_empty() {
-                return vec![];
-            }
-
-            let sport_map: HashMap<String, String> = e
-                .activity_metadata
-                .values()
-                .map(|m| (m.id.clone(), m.sport_type.clone()))
-                .collect();
-
-            let config = SectionConfig {
-                include_potentials: true,
-                min_activities: 1,
-                ..e.section_config.clone()
-            };
-
-            let groups = e.get_groups();
-
-            info!(
-                "tracematch: [DetectionManager] Detecting potentials from {} tracks",
-                tracks.len()
-            );
-
-            let result = tracematch::sections::detect_sections_multiscale(
-                &tracks, &sport_map, &groups, &config,
-            );
-
-            info!(
-                "tracematch: [DetectionManager] Found {} potential sections",
-                result.potentials.len()
-            );
-
-            result
-                .potentials
-                .into_iter()
-                .map(crate::FfiPotentialSection::from)
-                .collect()
         })
     }
 }

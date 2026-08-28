@@ -23,20 +23,17 @@ use std::collections::BTreeSet;
 use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use tracematch::sections::{DetectionMethod, SectionConfig};
+use tracematch::sections::SectionConfig;
 use veloqrs::PersistentRouteEngine;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
 }
 
-/// The Battery arm's active config: `SectionConfig::default()` with Unified,
-/// mirroring `fresh_engine_for(Arm::Battery)` exactly, so re-sending it compares
-/// equal and exercises the no-op path.
+/// The engine's active config, so re-sending it compares equal and exercises
+/// the no-op path.
 fn unified_config() -> SectionConfig {
-    let mut cfg = SectionConfig::default();
-    cfg.detection_method = DetectionMethod::Unified;
-    cfg
+    SectionConfig::default()
 }
 
 fn ids(snap: &SectionSnapshot) -> BTreeSet<String> {

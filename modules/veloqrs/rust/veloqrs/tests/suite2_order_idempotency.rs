@@ -156,7 +156,7 @@ fn drip_order_is_set_invariant() {
 fn reingest_same_id_is_idempotent() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
     let victim = activity_by_id(
         &pool,
@@ -193,7 +193,7 @@ fn reingest_same_id_is_idempotent() {
 fn reingest_different_track_updates_catalogue() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &pool);
     // Freshness is a DETECTION property, so compare the RAW catalogue: an
     // append-only damped fold never drops the moved contributor from the section
@@ -298,12 +298,12 @@ fn duplicate_in_batch_collapses_storage() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
 
-    let (mut e_single, _d1) = fresh_engine_for(Arm::Control);
+    let (mut e_single, _d1) = fresh_engine_for(Arm::Battery);
     let single = ingest_step(&mut e_single, "single", &pool);
 
     let mut doubled: Vec<&LifecycleActivity> = pool.clone();
     doubled.insert(0, pool[0]);
-    let (mut e_dup, _d2) = fresh_engine_for(Arm::Control);
+    let (mut e_dup, _d2) = fresh_engine_for(Arm::Battery);
     let dup = try_ingest_step(&mut e_dup, "dup", &doubled).expect("dup batch must not crash");
 
     assert_eq!(

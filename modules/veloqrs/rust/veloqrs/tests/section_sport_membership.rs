@@ -15,8 +15,8 @@ use std::collections::BTreeSet;
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
+use tracematch::SectionConfig;
 use tracematch::scenarios::LifecycleActivity;
-use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 const RIDE: &str = "Ride";
@@ -86,7 +86,6 @@ fn pooled_engine() -> (PersistentRouteEngine, TempDir) {
     let path = dir.path().join("sport.db");
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(SectionConfig {
-        detection_method: DetectionMethod::Unified,
         pool_sports: true,
         ..SectionConfig::default()
     });

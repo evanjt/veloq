@@ -286,47 +286,6 @@ fn a_clean_pool_clears_the_record() {
     );
 }
 
-/// Scenario: the pre-Tier-2 accumulator backfill meets a section one of whose
-/// traversals will not decode.
-/// Expected behaviour: the section is seeded over the traversals that do
-/// decode and the exclusion is recorded. An accumulator names the activities
-/// it absorbed, so a repaired track folds in later without double-counting,
-/// and leaving the section unseeded instead would either strand it or make the
-/// corpus-wide scan repeat at every start.
-#[test]
-fn a_section_with_an_unreadable_member_is_seeded_from_the_readable_traversals() {
-    let mut s = setup(12);
-    let (sections, _) = s
-        .engine
-        .detect_sections_background()
-        .recv()
-        .expect("detect completes");
-    assert!(!sections.is_empty(), "the fixture must produce a section");
-    s.engine.apply_sections_save(sections).expect("save");
-
-    s.raw
-        .execute("UPDATE sections SET consensus_state_blob = NULL", [])
-        .expect("clear accumulators");
-    s.forget("accumulators_seeded_v1");
-    s.corrupt("a3");
-
-    let db_path = s.dir.path().join("test.db");
-    let (seeded, _) = veloqrs::persistence::sections::run_accumulator_backfill(
-        db_path.to_str().expect("db path"),
-        false,
-    )
-    .expect("backfill");
-    assert!(
-        seeded > 0,
-        "a section must still be seeded from the traversals that decode"
-    );
-
-    let record = s
-        .record("accumulator_seed_exclusions")
-        .expect("the exclusion must be recorded");
-    assert_eq!(record["excluded"][0]["activity_ids"][0], "a3");
-}
-
 // ------------------------------------------------------------ heatmap
 
 /// Scenario: an activity's track will not decode while tiles are generated.

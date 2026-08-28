@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::{DetectionMethod, Tunables, shares_ground};
+use tracematch::sections::{Tunables, shares_ground};
 use veloqrs::FfiSectionConfig;
 use veloqrs::objects::SectionPreview;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
@@ -83,7 +83,6 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
     let pool = corpus();
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
-        cfg.detection_method = DetectionMethod::Unified;
         cfg.min_activities = 3;
         engine.set_section_config(cfg);
         for (id, track, epoch) in &pool {

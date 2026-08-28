@@ -1,9 +1,8 @@
 /**
  * Detector cutover delegates.
  *
- * The cutover migrates an existing install from Corridor to Unified: archive
- * the current catalogue, switch the persisted config, re-cut once, then show
- * the user what changed. All calls are standalone UniFFI
+ * The cutover re-cuts a catalogue an older build produced: archive the
+ * current catalogue, re-cut once, then show the user what changed. All calls are standalone UniFFI
  * exports rather than engine methods, so they read from the generated module.
  */
 

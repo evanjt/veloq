@@ -11,19 +11,15 @@ pub(crate) mod preview;
 mod ranking;
 pub(crate) mod track_pool;
 
-pub use history::{DetectorGeneration, SectionGeometryVersion, SectionHistoryEvent};
+pub use history::{
+    DetectorGeneration, KIND_REVERTED, SOURCE_CONSENSUS, SOURCE_EXACT, SectionGeometryVersion,
+    SectionHistoryEvent,
+};
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
-// Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
-// can trigger it without reaching through private module paths. The sync
-// variant (`run_accumulator_backfill`) is re-exported pub so integration
-// tests in `tests/` can drive it deterministically - it's a test-only
-// entry point, not a FFI surface.
 pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
-pub use detection::run_accumulator_backfill;
-pub(super) use detection::spawn_accumulator_backfill;
 
 use crate::sections::assign_carried_exclusions;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
@@ -35,6 +31,10 @@ use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
+
+/// The one detector this build ships. Stored beside every catalogue so a
+/// database cut by an older build reads as owed a cutover.
+pub const DETECTOR_METHOD: &str = "unified";
 
 /// `schema_info` key holding [`section_config_digest`] of the config the stored
 /// catalogue ran under.
@@ -320,7 +320,7 @@ impl PersistentRouteEngine {
             self.sections = stmt
                 .query_map([], |row| {
                     let id: String = row.get(0)?;
-                    let polyline_json: String = row.get(4)?;
+                    let polyline_json: Option<String> = row.get(4)?;
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
                     let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
@@ -341,7 +341,7 @@ impl PersistentRouteEngine {
 
                     let polyline: Vec<GpsPoint> = codec::decode_polyline_row(
                         polyline_blob.as_deref(),
-                        Some(&polyline_json),
+                        polyline_json.as_deref(),
                     )
                     .unwrap_or_else(|e| {
                         log::error!(
@@ -766,7 +766,7 @@ impl PersistentRouteEngine {
             String,
             String,
             Option<String>,
-            String,
+            Option<String>,
             f64,
             Option<String>,
             Option<f64>,
@@ -804,7 +804,7 @@ impl PersistentRouteEngine {
                     row.get::<_, String>(0)?,           // section_type
                     row.get::<_, String>(1)?,           // sport_type
                     row.get::<_, Option<String>>(2)?,   // name
-                    row.get::<_, String>(3)?,           // polyline_json
+                    row.get::<_, Option<String>>(3)?,   // polyline_json
                     row.get::<_, f64>(4)?,              // distance_meters
                     row.get::<_, Option<String>>(5)?,   // representative_activity_id
                     row.get::<_, Option<f64>>(6)?,      // confidence
@@ -879,7 +879,7 @@ impl PersistentRouteEngine {
         // Decode polyline (blob authoritative, JSON fallback for legacy rows)
         let polyline: Vec<GpsPoint> = match codec::decode_polyline_row(
             polyline_blob.as_deref(),
-            Some(&polyline_json),
+            polyline_json.as_deref(),
         ) {
             Ok(p) => p,
             Err(e) => {
@@ -1310,8 +1310,8 @@ impl PersistentRouteEngine {
                 params![section_id],
                 |row| {
                     let blob: Option<Vec<u8>> = row.get(0)?;
-                    let json: String = row.get(1)?;
-                    match codec::decode_polyline_row(blob.as_deref(), Some(&json)) {
+                    let json: Option<String> = row.get(1)?;
+                    match codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
                         Ok(points) => Ok(Some(
                             points
                                 .iter()
@@ -1371,9 +1371,9 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let section_id: String = row.get(0)?;
                 let polyline_blob: Option<Vec<u8>> = row.get(1)?;
-                let polyline_json: String = row.get(2)?;
+                let polyline_json: Option<String> = row.get(2)?;
                 let points =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json))
+                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
                         .unwrap_or_default();
                 Ok((section_id, crate::coords::encode(&points)))
             })
@@ -1754,8 +1754,7 @@ impl PersistentRouteEngine {
         };
 
         for section in sorted_sections {
-            // Blob is the authoritative geometry. The NOT NULL polyline_json
-            // column gets an empty placeholder; only legacy rows carry real
+            // Blob is the authoritative geometry; only legacy rows carry real
             // JSON, which readers use as a fallback.
             let polyline_blob = codec::serialize_points(&section.polyline)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
@@ -1989,6 +1988,12 @@ impl PersistentRouteEngine {
                 version,
                 None,
             )?;
+            // A re-cut re-bases the PR on the new extent. When that moves
+            // the record, the ledger says so beside the re-cut, labelled
+            // against the current extent: the old time was over other ground.
+            if event.kind == "recut" {
+                history::record_pr_rebase_on(&tx, &event.real_id, event.details.as_deref())?;
+            }
         }
 
         // Provenance of the catalogue this transaction stores: which detector
@@ -1998,10 +2003,7 @@ impl PersistentRouteEngine {
         // without anything having been re-cut.
         if from_detect {
             for (key, value) in [
-                (
-                    CATALOGUE_METHOD_KEY,
-                    self.section_config.detection_method.as_str().to_string(),
-                ),
+                (CATALOGUE_METHOD_KEY, DETECTOR_METHOD.to_string()),
                 (
                     CATALOGUE_CONFIG_DIGEST_KEY,
                     section_config_digest(&self.section_config),

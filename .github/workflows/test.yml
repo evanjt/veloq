@@ -71,6 +71,19 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: cargo test -p veloqrs --features synthetic
 
+      - name: Cache the GeoLife archive
+        uses: actions/cache@v4
+        with:
+          path: modules/veloqrs/rust/tracematch/geolife/geolife.zip
+          key: geolife-trajectories-1.3
+
+      - name: Fetch and unpack GeoLife
+        run: modules/veloqrs/rust/tracematch/scripts/fetch_geolife.sh
+
+      - name: Run the public corpus
+        working-directory: modules/veloqrs/rust
+        run: cargo test -p tracematch --release --features public-corpus --test geolife_public_corpus --test geolife_bitwise
+
   rust-lint:
     name: Rust Lint
     runs-on: ubuntu-latest
@@ -135,6 +148,16 @@ jobs:
       # with --no-verify. See the `audit` script in package.json for the list.
       - name: Run guard scripts
         run: npm run audit
+
+      # A personal routes.db was purged from history. Fail if the blob is
+      # reachable again from any ref the checkout can see.
+      - name: Purged data tripwire
+        run: |
+          git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+          if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0c8dc'; then
+            echo "The purged routes.db blob is reachable from a fetched ref."
+            exit 1
+          fi
 
   verify-bindings:
     name: Verify Bindings
