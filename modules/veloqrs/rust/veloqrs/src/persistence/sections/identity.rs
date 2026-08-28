@@ -229,9 +229,17 @@ impl Default for SectionIdentity {
 
 impl PersistentRouteEngine {
     /// Every section id the database holds, whatever its state.
+    /// Every id the database holds or has held: the live rows, the rows the
+    /// view hides, and every id the ledger or the geometry versions name. A
+    /// content id retired by a merge or a delete never comes back for the
+    /// same ground, or its history would read as one section.
     fn stored_section_ids(&self) -> BTreeSet<String> {
         self.db
-            .prepare("SELECT id FROM sections")
+            .prepare(
+                "SELECT id FROM sections
+                 UNION SELECT section_id FROM section_history
+                 UNION SELECT section_id FROM section_geometry",
+            )
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| row.get::<_, String>(0))
                     .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -690,9 +698,9 @@ impl PersistentRouteEngine {
 
             let row = carried.unwrap_or_else(|| {
                 let mut section = payload.take().expect("payload consumed once");
-                // Every id the database holds, the rows the view hides
-                // (disabled, superseded, accepted) included: a mint must
-                // never land on one of them.
+                // Every id the database holds or has held, the rows the
+                // view hides (disabled, superseded, accepted) and the
+                // retired included: a mint must never land on one of them.
                 let mut taken: BTreeSet<String> = self.stored_section_ids();
                 taken.extend(self.sections.iter().map(|s| s.id.clone()));
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
