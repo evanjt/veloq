@@ -233,6 +233,10 @@ name = "conditioning_driver"
 required-features = ["synthetic"]
 
 [[test]]
+name = "ffi_add_conditions"
+required-features = ["synthetic"]
+
+[[test]]
 name = "refresh_portions"
 required-features = ["synthetic"]
 
