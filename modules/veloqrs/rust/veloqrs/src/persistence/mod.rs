@@ -391,10 +391,20 @@ impl SectionDetectionHandle {
     }
 
     /// Block for the section result AND collect the evidence-cache update in one
-    /// call (the harness/test path; production polls via `poll_state` +
-    /// `take_cache`). `recv()` blocks until the worker has sent the main result,
-    /// which it does AFTER the cache, so the non-blocking cache `try_recv` here
-    /// is guaranteed to observe a cache when the Unified path produced one.
+    /// call (the cutover and harness path; the background poller uses
+    /// `poll_state` + `take_cache`). `recv()` blocks until the worker has sent
+    /// the main result, which it does AFTER the cache, so by then every update
+    /// the run produced is already queued.
+    ///
+    /// The worker sends the authoritative update LAST, behind any number of
+    /// throttled mid-fold checkpoints, so a single `try_recv` would hand back
+    /// the FIRST checkpoint: clusters still dirty, `leaves` stripped, and
+    /// `folded_ids` already claiming the whole pool. Adopting that as final
+    /// makes the next detect compute `pool - folded = {}` and reload the whole
+    /// pool anyway, and loses every fork attribution, since a checkpoint
+    /// carries no `boundaries`. So drain to the first non-checkpoint update,
+    /// and fall back to the newest checkpoint only when the run ended without
+    /// one.
     pub fn recv_with_cache(
         self,
     ) -> (
@@ -402,7 +412,21 @@ impl SectionDetectionHandle {
         Option<CacheUpdate>,
     ) {
         let main = self.receiver.recv().ok();
-        let cache = self.cache_receiver.try_recv().ok();
+        let stashed = self
+            .final_update
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        let cache = stashed.or_else(|| {
+            let mut newest_checkpoint = None;
+            loop {
+                match self.cache_receiver.try_recv() {
+                    Ok(u) if u.checkpoint => newest_checkpoint = Some(u),
+                    Ok(u) => return Some(u),
+                    Err(_) => return newest_checkpoint,
+                }
+            }
+        });
         (main, cache)
     }
 }

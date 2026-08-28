@@ -292,6 +292,10 @@ name = "evidence_cache_durability"
 required-features = ["synthetic"]
 
 [[test]]
+name = "detection_final_cache"
+required-features = ["synthetic"]
+
+[[test]]
 name = "section_attribution"
 required-features = ["synthetic"]
 
