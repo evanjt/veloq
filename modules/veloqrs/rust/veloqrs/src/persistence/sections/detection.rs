@@ -827,7 +827,7 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let sections_to_send = tracematch::detect_sections_unified_incremental_dated(
+                let fold = tracematch::detect_sections_unified_incremental_dated(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -840,8 +840,8 @@ impl PersistentRouteEngine {
                         pinned_ids,
                         freeze_all_geometry: false,
                     },
-                )
-                .catalogue;
+                );
+                let sections_to_send = fold.catalogue;
 
                 // The cache now folds everything it did before plus the new pool
                 // ids just routed (each present in the pool, so actually folded).
@@ -862,6 +862,7 @@ impl PersistentRouteEngine {
                     .send(CacheUpdate {
                         cache,
                         folded_ids: folded_after,
+                        boundaries: fold.boundaries,
                     })
                     .ok();
 
@@ -961,7 +962,13 @@ impl PersistentRouteEngine {
         sections: Vec<FrequentSection>,
         update: Option<CacheUpdate>,
     ) -> SqlResult<()> {
-        match self.apply_sections_save(sections) {
+        self.fork_records = update
+            .as_ref()
+            .map(|u| u.boundaries.clone())
+            .unwrap_or_default();
+        let saved = self.apply_sections_save(sections);
+        self.fork_records.clear();
+        match saved {
             Ok(()) => {
                 if let Some(u) = update {
                     self.section_evidence_cache = u.cache;

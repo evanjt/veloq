@@ -54,6 +54,54 @@ use tracematch::{
 /// `identity_state.key` for the section registry blob (B4 migration 013).
 pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
+/// Write what was around a change into an event's details: `around` is the
+/// activities that arrived while the change was pending, `fork_around` the
+/// activities a fork at the line's end collected. Empty lists are omitted,
+/// so a reader never renders an empty claim. Neither is a cause.
+fn attribute(
+    details: &mut serde_json::Map<String, serde_json::Value>,
+    around: &[String],
+    fork_around: &[String],
+) {
+    if !around.is_empty() {
+        details.insert("around".into(), serde_json::json!(around));
+    }
+    if !fork_around.is_empty() {
+        details.insert("fork_around".into(), serde_json::json!(fork_around));
+    }
+}
+
+/// The activities every fork record within one evidence cell of either end
+/// of `line` collected, sorted and unique. A fork explains the cut at the
+/// end it sits on, so a line whose end moved to a junction can name the
+/// traffic that made it one.
+fn fork_around(
+    records: &[tracematch::BoundaryRecord],
+    line: &[GpsPoint],
+    cell_m: f64,
+) -> Vec<String> {
+    let (Some(first), Some(last)) = (line.first(), line.last()) else {
+        return Vec::new();
+    };
+    let mut ids = BTreeSet::new();
+    for r in records {
+        let tracematch::BoundaryReason::Fork {
+            branch_activity_ids,
+            ..
+        } = &r.reason
+        else {
+            continue;
+        };
+        let at = GpsPoint::new(r.latitude, r.longitude);
+        let near = tracematch::geo_utils::haversine_distance(&at, first) <= cell_m
+            || tracematch::geo_utils::haversine_distance(&at, last) <= cell_m;
+        if near {
+            ids.extend(branch_activity_ids.iter().cloned());
+        }
+    }
+    ids.into_iter().collect()
+}
+
 /// A section's geometry provenance, when its line is a real slice.
 fn reference_of(section: &FrequentSection) -> Option<(String, u32, u32)> {
     let (start, end) = section.representative_range?;
@@ -152,6 +200,11 @@ pub(crate) struct SectionIdentity {
     /// Monotonic salt guaranteeing a fresh real id is unique even for many mints
     /// inside one millisecond. Only grows within a session.
     mint_seq: u64,
+    /// Activities that arrived while a change was pending, per pure id. A
+    /// fired change reports them as what was around it; a decisive
+    /// continuation drops them with the debounce. Trails the struct so an
+    /// older blob restores with it empty.
+    around: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl Default for SectionIdentity {
@@ -169,6 +222,7 @@ impl Default for SectionIdentity {
             graves: BTreeMap::new(),
             seen: BTreeSet::new(),
             mint_seq: 0,
+            around: BTreeMap::new(),
         }
     }
 }
@@ -498,6 +552,17 @@ impl PersistentRouteEngine {
             .difference(&identity.seen)
             .filter_map(|id| self.get_gps_track(id).map(|t| (id.clone(), t)))
             .collect();
+        // What arrived this step. A change that fires now was around these
+        // and around whatever arrived while it was pending.
+        let arrivals: BTreeSet<String> = now_seen.difference(&identity.seen).cloned().collect();
+        let around_of = |pid: &str| -> Vec<String> {
+            let mut ids: BTreeSet<String> = identity.around.get(pid).cloned().unwrap_or_default();
+            ids.extend(arrivals.iter().cloned());
+            ids.into_iter().collect()
+        };
+        let arrivals_list: Vec<String> = arrivals.iter().cloned().collect();
+        let cell = tracematch::line_match_cell_m(&config);
+        let fork_around_of = |line: &[GpsPoint]| fork_around(&self.fork_records, line, cell);
 
         // Reconcile the payload map to the pure layer's post-step visible set.
         let old_rows = std::mem::take(&mut identity.rows);
@@ -696,13 +761,15 @@ impl PersistentRouteEngine {
                             })
                             .map(str::to_string)
                             .unwrap_or_else(|| (siblings.len() + 1).to_string());
-                        Some(
-                            serde_json::json!({
-                                "split_from": parent_real,
-                                "discriminator": discriminator,
-                            })
-                            .to_string(),
-                        )
+                        let mut details = serde_json::Map::new();
+                        details.insert("split_from".into(), serde_json::json!(parent_real));
+                        details.insert("discriminator".into(), serde_json::json!(discriminator));
+                        attribute(
+                            &mut details,
+                            &arrivals_list,
+                            &fork_around_of(&row.section.polyline),
+                        );
+                        Some(serde_json::Value::Object(details).to_string())
                     });
                     events.push(SectionLifecycleEvent {
                         real_id: row.real_id.clone(),
@@ -729,6 +796,12 @@ impl PersistentRouteEngine {
         for (parent_real, siblings) in split_children {
             let mut details = self.section_era_snapshot(&parent_real);
             details.insert("siblings".into(), serde_json::json!(siblings));
+            let fork = new_rows
+                .values()
+                .find(|r| r.real_id == parent_real)
+                .map(|r| fork_around_of(&r.section.polyline))
+                .unwrap_or_default();
+            attribute(&mut details, &arrivals_list, &fork);
             events.push(SectionLifecycleEvent {
                 real_id: parent_real,
                 kind: "split",
@@ -741,12 +814,16 @@ impl PersistentRouteEngine {
             let (Some(real_id), Some(row)) = (old_real.get(pid), new_rows.get(pid)) else {
                 continue;
             };
+            let mut details = self.section_era_snapshot(real_id);
+            attribute(
+                &mut details,
+                &around_of(pid),
+                &fork_around_of(&row.section.polyline),
+            );
             events.push(SectionLifecycleEvent {
                 real_id: real_id.clone(),
                 kind: "recut",
-                details: Some(
-                    serde_json::Value::Object(self.section_era_snapshot(real_id)).to_string(),
-                ),
+                details: Some(serde_json::Value::Object(details).to_string()),
                 geometry: Some(row.section.polyline.clone()),
                 reference: reference_of(&row.section),
             });
@@ -759,6 +836,7 @@ impl PersistentRouteEngine {
                 continue;
             };
             let mut details = self.section_era_snapshot(real_id);
+            attribute(&mut details, &around_of(&retirement.id), &[]);
             let kind = match &retirement.reason {
                 tracematch::RetireReason::Dissolved => "dissolved",
                 tracematch::RetireReason::MergedInto { id } => {
@@ -775,6 +853,18 @@ impl PersistentRouteEngine {
                 geometry: None,
                 reference: None,
             });
+        }
+
+        // The ledger follows the debounce: every id still pending gains this
+        // step's arrivals, every other id's accumulation is over.
+        let pending = identity.hysteresis.pending_ids();
+        identity.around.retain(|pid, _| pending.contains(pid));
+        for pid in pending {
+            identity
+                .around
+                .entry(pid)
+                .or_default()
+                .extend(arrivals.iter().cloned());
         }
 
         identity.rows = new_rows;

@@ -282,3 +282,7 @@ required-features = ["real-corpus"]
 [[test]]
 name = "evidence_cache_durability"
 required-features = ["synthetic"]
+
+[[test]]
+name = "section_attribution"
+required-features = ["synthetic"]

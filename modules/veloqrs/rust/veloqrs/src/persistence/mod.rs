@@ -292,6 +292,10 @@ pub struct CacheUpdate {
     /// cache's per-cluster membership (tracematch does not expose it). Becomes
     /// `cache_folded_ids` on success and drives the next detect's new-id set.
     pub folded_ids: HashSet<String>,
+    /// Boundary records of the clusters this detect recomputed. A fork
+    /// record names the activities its branch collected, which the ledger
+    /// attaches to a change at that join as what was around it.
+    pub boundaries: Vec<tracematch::BoundaryRecord>,
 }
 
 /// Handle for background section detection.
@@ -624,6 +628,9 @@ pub struct PersistentRouteEngine {
     /// Only the Unified detection path reads or writes it; the legacy detectors
     /// never touch it. Moves in lockstep with `cache_folded_ids`.
     section_evidence_cache: SectionEvidenceCache,
+    /// The boundary records of the detect being applied, held only for the
+    /// duration of one apply so the event emitter can read them.
+    fork_records: Vec<tracematch::BoundaryRecord>,
 
     /// The activity ids `section_evidence_cache` has folded — an engine-side
     /// shadow of the cache's per-cluster membership (tracematch does not expose
@@ -716,6 +723,7 @@ impl PersistentRouteEngine {
             raw_sections: None,
             processed_activity_ids: HashSet::new(),
             section_evidence_cache: SectionEvidenceCache::new(),
+            fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
