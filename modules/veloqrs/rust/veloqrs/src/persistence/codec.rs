@@ -698,6 +698,8 @@ mod tests {
             version: 7,
             updated_at: None,
             created_at: None,
+            enrichment: Default::default(),
+            rank: None,
             consensus_state: None,
         }
     }

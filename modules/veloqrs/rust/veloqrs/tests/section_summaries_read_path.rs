@@ -185,5 +185,8 @@ fn get_sections_reads_the_fixture_inside_its_budget() {
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let median = samples[samples.len() / 2];
-    assert!(median <= 300.0, "get_sections median {median:.1} ms over 300 ms");
+    assert!(
+        median <= 300.0,
+        "get_sections median {median:.1} ms over 300 ms"
+    );
 }

@@ -559,6 +559,15 @@ pub struct FfiFrequentSection {
     pub version: u32,
     pub updated_at: Option<String>,
     pub created_at: Option<String>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub straightness: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 impl From<tracematch::FrequentSection> for FfiFrequentSection {
@@ -628,6 +637,15 @@ impl From<&tracematch::FrequentSection> for FfiFrequentSection {
             version: s.version,
             updated_at: s.updated_at.clone(),
             created_at: s.created_at.clone(),
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
+            elevation_loss_m: s.enrichment.elevation_loss_m,
+            max_grade_percent: s.enrichment.max_grade_percent,
+            straightness: s.enrichment.straightness,
+            klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
+            is_lift: s.enrichment.is_lift,
+            rank_score: s.rank.as_ref().map(|r| r.score),
+            sport_rank_score: s.rank.as_ref().map(|r| r.sport_score),
         }
     }
 }
@@ -672,6 +690,13 @@ pub struct FfiSection {
     // Visibility state
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_loss_m: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub straightness: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -695,6 +720,13 @@ impl From<crate::sections::Section> for FfiSection {
             stability: s.stability,
             elevation_gain_m: s.elevation_gain_m,
             avg_grade_percent: s.avg_grade_percent,
+            elevation_loss_m: s.elevation_loss_m,
+            max_grade_percent: s.max_grade_percent,
+            straightness: s.straightness,
+            klass: s.klass,
+            is_lift: s.is_lift,
+            rank_score: s.rank_score,
+            sport_rank_score: s.sport_rank_score,
             version: s.version,
             updated_at: s.updated_at,
             created_at: s.created_at,
@@ -1114,6 +1146,13 @@ pub struct FfiSectionWithPolyline {
     pub is_user_defined: bool,
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -2125,6 +2164,13 @@ mod tests {
             stability: Some(0.85),
             elevation_gain_m: Some(120.5),
             avg_grade_percent: Some(4.2),
+            elevation_loss_m: Some(8.0),
+            max_grade_percent: Some(7.5),
+            straightness: Some(0.91),
+            klass: Some("climb".to_string()),
+            is_lift: false,
+            rank_score: Some(0.7),
+            sport_rank_score: Some(0.8),
             version: Some(3),
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),

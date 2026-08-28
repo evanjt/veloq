@@ -440,6 +440,8 @@ impl PersistentRouteEngine {
                 avg_grade_percent: None,
                 version: 1,
                 updated_at: None,
+                enrichment: Default::default(),
+                rank: None,
                 consensus_state: None,
             })
         })?;

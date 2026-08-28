@@ -4,6 +4,7 @@ pub mod conditioning;
 mod detection;
 pub(super) mod history;
 mod identity;
+mod interest;
 mod merging;
 mod named;
 mod naming;
@@ -313,7 +314,8 @@ impl PersistentRouteEngine {
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index
+                        rep_start_index, rep_end_index,
+                        elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
                  FROM sections
                  WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
                  ORDER BY id",
@@ -408,6 +410,8 @@ impl PersistentRouteEngine {
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
+                        enrichment: interest::enrichment_from_row(row, 20, 24)?,
+                        rank: interest::rank_from_row(row, 29)?,
                         consensus_state,
                     })
                 })?
@@ -936,7 +940,7 @@ impl PersistentRouteEngine {
             )
             .unwrap_or(activity_ids.len() as u32);
 
-        // Build the FrequentSection
+        let (enrichment, rank) = self.read_enrichment(section_id);
         let updated_section = FrequentSection {
             id: section_id.to_string(),
             name,
@@ -977,6 +981,8 @@ impl PersistentRouteEngine {
             version: version.unwrap_or(1),
             updated_at,
             created_at,
+            enrichment,
+            rank,
             consensus_state: None,
         };
 
@@ -1030,7 +1036,8 @@ impl PersistentRouteEngine {
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
                     is_user_defined, disabled, superseded_by, visit_count,
-                    elevation_gain_m, avg_grade_percent, activity_count, sport_types
+                    elevation_gain_m, avg_grade_percent, activity_count, sport_types,
+                    elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -1094,6 +1101,13 @@ impl PersistentRouteEngine {
                     bounds,
                     elevation_gain_m: row.get(17)?,
                     avg_grade_percent: row.get(18)?,
+                    elevation_loss_m: row.get(21)?,
+                    max_grade_percent: row.get(22)?,
+                    straightness: row.get(23)?,
+                    klass: row.get(24)?,
+                    is_lift: row.get::<_, Option<i32>>(25)?.unwrap_or(0) != 0,
+                    rank_score: row.get(26)?,
+                    sport_rank_score: row.get(27)?,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
                     is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
@@ -1223,6 +1237,23 @@ impl PersistentRouteEngine {
             version: section.version.unwrap_or(1),
             updated_at: section.updated_at,
             created_at: Some(section.created_at),
+            enrichment: tracematch::Enrichment {
+                elevation_gain_m: section.elevation_gain_m,
+                avg_grade_percent: section.avg_grade_percent,
+                elevation_loss_m: section.elevation_loss_m,
+                max_grade_percent: section.max_grade_percent,
+                straightness: section.straightness,
+                klass: section
+                    .klass
+                    .as_deref()
+                    .and_then(tracematch::SectionClass::parse),
+                is_lift: section.is_lift,
+            },
+            rank: section.rank_score.map(|score| tracematch::RankFeatures {
+                score,
+                sport_score: section.sport_rank_score.unwrap_or(score),
+                ..Default::default()
+            }),
             consensus_state: None,
         };
 
@@ -1672,8 +1703,9 @@ impl PersistentRouteEngine {
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                 consensus_state_blob, polyline_blob, point_density_blob,
                 elevation_gain_m, avg_grade_percent,
-                rep_start_index, rep_end_index, geometry_source
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                rep_start_index, rep_end_index, geometry_source,
+                elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -1880,6 +1912,16 @@ impl PersistentRouteEngine {
                 section.representative_range.map(|(start, _)| start),
                 section.representative_range.map(|(_, end)| end),
                 geometry_source,
+                section.enrichment.elevation_loss_m,
+                section.enrichment.max_grade_percent,
+                section.enrichment.straightness,
+                section
+                    .enrichment
+                    .klass
+                    .map(tracematch::SectionClass::as_str),
+                i32::from(section.enrichment.is_lift),
+                section.rank.as_ref().map(|r| r.score),
+                section.rank.as_ref().map(|r| r.sport_score),
             ])?;
 
             // Diagnostic: a section that claims attached activities but has

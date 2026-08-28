@@ -143,6 +143,8 @@ fn detection_save_writes_blob_as_authority() {
             version: 1,
             updated_at: None,
             created_at: None,
+            enrichment: Default::default(),
+            rank: None,
             consensus_state: None,
         };
         engine

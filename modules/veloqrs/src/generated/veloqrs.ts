@@ -3005,6 +3005,15 @@ export type FfiFrequentSection = {
   version: /*u32*/ number;
   updatedAt?: string;
   createdAt?: string;
+  elevationGainM?: /*f64*/ number;
+  avgGradePercent?: /*f64*/ number;
+  elevationLossM?: /*f64*/ number;
+  maxGradePercent?: /*f64*/ number;
+  straightness?: /*f64*/ number;
+  klass?: string;
+  isLift: boolean;
+  rankScore?: /*f64*/ number;
+  sportRankScore?: /*f64*/ number;
 };
 
 /**
@@ -3049,6 +3058,15 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         version: FfiConverterUInt32.read(from),
         updatedAt: FfiConverterOptionalString.read(from),
         createdAt: FfiConverterOptionalString.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
+        elevationLossM: FfiConverterOptionalFloat64.read(from),
+        maxGradePercent: FfiConverterOptionalFloat64.read(from),
+        straightness: FfiConverterOptionalFloat64.read(from),
+        klass: FfiConverterOptionalString.read(from),
+        isLift: FfiConverterBool.read(from),
+        rankScore: FfiConverterOptionalFloat64.read(from),
+        sportRankScore: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3075,6 +3093,15 @@ const FfiConverterTypeFfiFrequentSection = (() => {
       FfiConverterUInt32.write(value.version, into);
       FfiConverterOptionalString.write(value.updatedAt, into);
       FfiConverterOptionalString.write(value.createdAt, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.elevationLossM, into);
+      FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.straightness, into);
+      FfiConverterOptionalString.write(value.klass, into);
+      FfiConverterBool.write(value.isLift, into);
+      FfiConverterOptionalFloat64.write(value.rankScore, into);
+      FfiConverterOptionalFloat64.write(value.sportRankScore, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3099,7 +3126,16 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         FfiConverterFloat64.allocationSize(value.stability) +
         FfiConverterUInt32.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.updatedAt) +
-        FfiConverterOptionalString.allocationSize(value.createdAt)
+        FfiConverterOptionalString.allocationSize(value.createdAt) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
+        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
+        FfiConverterOptionalString.allocationSize(value.klass) +
+        FfiConverterBool.allocationSize(value.isLift) +
+        FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
+        FfiConverterOptionalFloat64.allocationSize(value.sportRankScore)
       );
     }
   }
@@ -5914,6 +5950,13 @@ export type FfiSection = {
   endIndex?: /*u32*/ number;
   disabled: boolean;
   supersededBy?: string;
+  elevationLossM?: /*f64*/ number;
+  maxGradePercent?: /*f64*/ number;
+  straightness?: /*f64*/ number;
+  klass?: string;
+  isLift: boolean;
+  rankScore?: /*f64*/ number;
+  sportRankScore?: /*f64*/ number;
 };
 
 /**
@@ -5965,6 +6008,13 @@ const FfiConverterTypeFfiSection = (() => {
         endIndex: FfiConverterOptionalUInt32.read(from),
         disabled: FfiConverterBool.read(from),
         supersededBy: FfiConverterOptionalString.read(from),
+        elevationLossM: FfiConverterOptionalFloat64.read(from),
+        maxGradePercent: FfiConverterOptionalFloat64.read(from),
+        straightness: FfiConverterOptionalFloat64.read(from),
+        klass: FfiConverterOptionalString.read(from),
+        isLift: FfiConverterBool.read(from),
+        rankScore: FfiConverterOptionalFloat64.read(from),
+        sportRankScore: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5995,6 +6045,13 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterOptionalUInt32.write(value.endIndex, into);
       FfiConverterBool.write(value.disabled, into);
       FfiConverterOptionalString.write(value.supersededBy, into);
+      FfiConverterOptionalFloat64.write(value.elevationLossM, into);
+      FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.straightness, into);
+      FfiConverterOptionalString.write(value.klass, into);
+      FfiConverterBool.write(value.isLift, into);
+      FfiConverterOptionalFloat64.write(value.rankScore, into);
+      FfiConverterOptionalFloat64.write(value.sportRankScore, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6026,7 +6083,14 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.startIndex) +
         FfiConverterOptionalUInt32.allocationSize(value.endIndex) +
         FfiConverterBool.allocationSize(value.disabled) +
-        FfiConverterOptionalString.allocationSize(value.supersededBy)
+        FfiConverterOptionalString.allocationSize(value.supersededBy) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
+        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
+        FfiConverterOptionalString.allocationSize(value.klass) +
+        FfiConverterBool.allocationSize(value.isLift) +
+        FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
+        FfiConverterOptionalFloat64.allocationSize(value.sportRankScore)
       );
     }
   }
@@ -7659,6 +7723,13 @@ export type FfiSectionWithPolyline = {
   isUserDefined: boolean;
   disabled: boolean;
   supersededBy?: string;
+  elevationGainM?: /*f64*/ number;
+  avgGradePercent?: /*f64*/ number;
+  maxGradePercent?: /*f64*/ number;
+  klass?: string;
+  isLift: boolean;
+  rankScore?: /*f64*/ number;
+  sportRankScore?: /*f64*/ number;
 };
 
 /**
@@ -7699,6 +7770,13 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         isUserDefined: FfiConverterBool.read(from),
         disabled: FfiConverterBool.read(from),
         supersededBy: FfiConverterOptionalString.read(from),
+        elevationGainM: FfiConverterOptionalFloat64.read(from),
+        avgGradePercent: FfiConverterOptionalFloat64.read(from),
+        maxGradePercent: FfiConverterOptionalFloat64.read(from),
+        klass: FfiConverterOptionalString.read(from),
+        isLift: FfiConverterBool.read(from),
+        rankScore: FfiConverterOptionalFloat64.read(from),
+        sportRankScore: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -7716,6 +7794,13 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterBool.write(value.disabled, into);
       FfiConverterOptionalString.write(value.supersededBy, into);
+      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
+      FfiConverterOptionalString.write(value.klass, into);
+      FfiConverterBool.write(value.isLift, into);
+      FfiConverterOptionalFloat64.write(value.rankScore, into);
+      FfiConverterOptionalFloat64.write(value.sportRankScore, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -7732,7 +7817,14 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterArrayString.allocationSize(value.sportTypes) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterBool.allocationSize(value.disabled) +
-        FfiConverterOptionalString.allocationSize(value.supersededBy)
+        FfiConverterOptionalString.allocationSize(value.supersededBy) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
+        FfiConverterOptionalString.allocationSize(value.klass) +
+        FfiConverterBool.allocationSize(value.isLift) +
+        FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
+        FfiConverterOptionalFloat64.allocationSize(value.sportRankScore)
       );
     }
   }
@@ -8973,6 +9065,28 @@ export type SectionSummary = {
    * Net grade (%) over the representative slice; None when unknown
    */
   avgGradePercent?: /*f64*/ number;
+  elevationLossM?: /*f64*/ number;
+  /**
+   * Steepest grade (%) held over 300 m of the slice.
+   */
+  maxGradePercent?: /*f64*/ number;
+  /**
+   * Chord over arc, 0..1.
+   */
+  straightness?: /*f64*/ number;
+  /**
+   * climb, descent, rolling, flat or loop; None when nothing says.
+   */
+  klass?: string;
+  isLift: boolean;
+  /**
+   * Interestingness percentile across the catalogue, 0..1.
+   */
+  rankScore?: /*f64*/ number;
+  /**
+   * Interestingness percentile within the section's sport, 0..1.
+   */
+  sportRankScore?: /*f64*/ number;
   /**
    * ISO timestamp when section was created
    */
@@ -9030,6 +9144,13 @@ const FfiConverterTypeSectionSummary = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         elevationGainM: FfiConverterOptionalFloat64.read(from),
         avgGradePercent: FfiConverterOptionalFloat64.read(from),
+        elevationLossM: FfiConverterOptionalFloat64.read(from),
+        maxGradePercent: FfiConverterOptionalFloat64.read(from),
+        straightness: FfiConverterOptionalFloat64.read(from),
+        klass: FfiConverterOptionalString.read(from),
+        isLift: FfiConverterBool.read(from),
+        rankScore: FfiConverterOptionalFloat64.read(from),
+        sportRankScore: FfiConverterOptionalFloat64.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
         isUserDefined: FfiConverterBool.read(from),
@@ -9051,6 +9172,13 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterOptionalFloat64.write(value.elevationGainM, into);
       FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.elevationLossM, into);
+      FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
+      FfiConverterOptionalFloat64.write(value.straightness, into);
+      FfiConverterOptionalString.write(value.klass, into);
+      FfiConverterBool.write(value.isLift, into);
+      FfiConverterOptionalFloat64.write(value.rankScore, into);
+      FfiConverterOptionalFloat64.write(value.sportRankScore, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
       FfiConverterBool.write(value.isUserDefined, into);
@@ -9074,6 +9202,13 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
         FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
+        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
+        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
+        FfiConverterOptionalString.allocationSize(value.klass) +
+        FfiConverterBool.allocationSize(value.isLift) +
+        FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
+        FfiConverterOptionalFloat64.allocationSize(value.sportRankScore) +
         FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
         FfiConverterBool.allocationSize(value.isUserDefined) +

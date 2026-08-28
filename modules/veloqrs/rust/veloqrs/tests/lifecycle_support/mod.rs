@@ -55,6 +55,9 @@ pub struct SectionFingerprint {
     /// will use.
     pub polyline: Vec<GpsPoint>,
     pub sport_type: String,
+    /// Interestingness percentile and class, None before a rank has run.
+    pub rank_score: Option<f64>,
+    pub klass: Option<String>,
     pub is_user_defined: bool,
 }
 
@@ -90,13 +93,17 @@ impl SectionSnapshot {
             .iter()
             .map(|(id, f)| {
                 format!(
-                    "{}|{}|v{}|{}m|p{}|g{:016x}",
+                    "{}|{}|v{}|{}m|p{}|g{:016x}|r{}|k{}",
                     id,
                     f.sport_type,
                     f.visit_count,
                     f.distance_meters.round() as i64,
                     f.polyline_point_count,
                     coordinate_digest(&f.polyline),
+                    f.rank_score
+                        .map(|r| ((r * 1e6).round() as i64).to_string())
+                        .unwrap_or_default(),
+                    f.klass.as_deref().unwrap_or(""),
                 )
             })
             .collect();
@@ -162,6 +169,8 @@ fn signature_separates_translated_ground() {
                     GpsPoint::new(lat + 0.02, 7.37),
                 ],
                 sport_type: "Ride".to_string(),
+                rank_score: None,
+                klass: None,
                 is_user_defined: false,
             },
         )]
@@ -251,6 +260,8 @@ pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
                         distance_meters: s.distance_meters,
                         polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
+                        rank_score: s.rank_score,
+                        klass: s.klass.clone(),
                         is_user_defined: s.is_user_defined,
                     },
                 )
@@ -283,6 +294,8 @@ pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
                         distance_meters: s.distance_meters,
                         polyline: s.polyline.clone(),
                         sport_type: s.sport_type.clone(),
+                        rank_score: s.rank.as_ref().map(|r| r.score),
+                        klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
                         is_user_defined: s.is_user_defined,
                     },
                 )
@@ -516,6 +529,8 @@ fn survival_metrics_never_pass_on_an_empty_catalogue() {
                 distance_meters: 500.0,
                 polyline: vec![GpsPoint::new(46.23, 7.35), GpsPoint::new(46.24, 7.36)],
                 sport_type: "Ride".to_string(),
+                rank_score: None,
+                klass: None,
                 is_user_defined: false,
             },
         )]

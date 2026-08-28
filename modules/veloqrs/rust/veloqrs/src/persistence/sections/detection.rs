@@ -932,6 +932,9 @@ impl PersistentRouteEngine {
                 }
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
+                if let Err(e) = self.rank_catalogue() {
+                    log::warn!("tracematch: [detection] ranking skipped: {}", e);
+                }
                 Ok(())
             }
             Err(e) => {

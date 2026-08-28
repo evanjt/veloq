@@ -1307,6 +1307,13 @@ impl PersistentRouteEngine {
                     is_user_defined: s.is_user_defined,
                     disabled: s.disabled,
                     superseded_by: s.superseded_by,
+                    elevation_gain_m: s.elevation_gain_m,
+                    avg_grade_percent: s.avg_grade_percent,
+                    max_grade_percent: s.max_grade_percent,
+                    klass: s.klass,
+                    is_lift: s.is_lift,
+                    rank_score: s.rank_score,
+                    sport_rank_score: s.sport_rank_score,
                 }
             })
             .collect();
@@ -1910,6 +1917,8 @@ mod tests {
             version: 1,
             updated_at: None,
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            enrichment: Default::default(),
+            rank: None,
             consensus_state: None,
         }
     }

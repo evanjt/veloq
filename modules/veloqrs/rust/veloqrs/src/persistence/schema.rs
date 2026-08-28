@@ -11,7 +11,7 @@ impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 18;
+    pub(super) const SCHEMA_VERSION: i32 = 19;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -53,6 +53,7 @@ impl PersistentRouteEngine {
             include_str!("../migrations/016_stream_bodies.sql"),
             include_str!("../migrations/017_b4_core.sql"),
             include_str!("../migrations/018_evidence_cache.sql"),
+            include_str!("../migrations/019_enrichment.sql"),
         ]
     }
 
@@ -339,7 +340,8 @@ impl PersistentRouteEngine {
              original_polyline_json, disabled, superseded_by, consensus_state_blob,
              polyline_blob, point_density_blob, visit_count, rep_start_index,
              rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent,
-             activity_count, sport_types";
+             activity_count, sport_types, elevation_loss_m, max_grade_percent, straightness,
+             klass, is_lift, rank_score, sport_rank_score";
         let tx = conn.unchecked_transaction()?;
         tx.execute_batch(
             "DROP TABLE IF EXISTS sections_rebuild;
@@ -383,7 +385,14 @@ impl PersistentRouteEngine {
                  elevation_gain_m REAL,
                  avg_grade_percent REAL,
                  activity_count INTEGER NOT NULL DEFAULT 0,
-                 sport_types TEXT
+                 sport_types TEXT,
+                 elevation_loss_m REAL,
+                 max_grade_percent REAL,
+                 straightness REAL,
+                 klass TEXT,
+                 is_lift INTEGER NOT NULL DEFAULT 0,
+                 rank_score REAL,
+                 sport_rank_score REAL
              );",
         )?;
         tx.execute(
