@@ -30,7 +30,6 @@ const LIVE_CONFIG: FfiSectionConfig = {
   minRoutes: 2,
   enableDensitySplits: false,
   mergeDistanceMultiplier: 1.5,
-  detectionMethod: 'unified',
   minCellVisits: 30,
   divergenceThreshold: 0.2,
   minCorridorTracks: 3,

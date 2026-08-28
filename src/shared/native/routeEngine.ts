@@ -27,8 +27,6 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   return mod?.routeEngine ?? null;
 }
 
-export const DETECTION_METHODS = ['corridor', 'density', 'flow', 'unified'] as const;
-export type DetectionMethod = (typeof DETECTION_METHODS)[number];
 export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
 /**
@@ -65,7 +63,7 @@ export function getStrictnessFromValue(value: number): DetectionStrictness {
 }
 
 /**
- * Route-grouping params (MatchConfig). Independent of detection method.
+ * Route-grouping params (MatchConfig).
  */
 const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: number }> = {
   relaxed: { matchPct: 50, endpoint: 300 },
@@ -73,8 +71,8 @@ const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: n
   strict: { matchPct: 65, endpoint: 180 },
 };
 
-// The configuration the unified detector is validated at. Written in full so
-// it cannot inherit a value another method left behind.
+// The configuration the detector is validated at. Written in full so it
+// cannot inherit a value an older config left behind.
 export const UNIFIED_CONFIG = {
   proximityThreshold: 200,
   minSectionLength: 150,
@@ -101,7 +99,6 @@ export function applyDetectionStrictness(strictness: DetectionStrictness): void 
   // Written in full, never merged over whatever the config already held.
   engine.setSectionConfig({
     ...current,
-    detectionMethod: 'unified',
     preserveHierarchy: false,
     ...UNIFIED_CONFIG,
   });

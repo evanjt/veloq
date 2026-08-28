@@ -1,7 +1,7 @@
 export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
-export { DetectionMethodIllustration } from './DetectionMethodIllustration';
+export { DetectionIllustration } from './DetectionIllustration';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
 export { ElevationBackfillStatus } from './ElevationBackfillStatus';

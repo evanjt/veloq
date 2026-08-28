@@ -82,7 +82,6 @@ const DEFAULT_ROUTE_SETTINGS = {
   geocodingEnabled: false,
   heatmapEnabled: true,
   detectionStrictness: 60,
-  detectionMethod: 'corridor' as const,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -321,7 +320,6 @@ describe('RouteSettingsStore', () => {
           geocodingEnabled: true,
           heatmapEnabled: true,
           detectionStrictness: 60,
-          detectionMethod: 'corridor',
         },
         isLoaded: true,
       });
@@ -374,7 +372,6 @@ describe('RouteSettingsStore', () => {
           geocodingEnabled: true,
           heatmapEnabled: true,
           detectionStrictness: 60,
-          detectionMethod: 'corridor',
         },
         isLoaded: true,
       });
