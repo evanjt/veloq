@@ -782,6 +782,15 @@ pub struct FfiChangeCardSupport {
     pub same_on_every_device: bool,
 }
 
+/// A recent change on a live section, for the insights feed.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionChange {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+}
+
 /// A split sibling's parent and discriminator, for the read side to name it.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]

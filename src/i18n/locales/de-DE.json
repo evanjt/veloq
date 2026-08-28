@@ -849,6 +849,14 @@
       "formula": "Anzahl der Krafteinheiten, gewichteten Sätze und erfassten Muskelgruppen",
       "algorithm": "Fasst die Kraftworkouts der letzten 4 Wochen zusammen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5 pro Muskelgruppe.",
       "methodologyDescription": "Fasst das Kraftvolumen der letzten 4 Wochen zusammen: Anzahl der Workouts, gewichtete Sätze gesamt und erfasste Muskelgruppen."
+    },
+    "sectionChanged": {
+      "title": "{{name}} geändert",
+      "recut": "Die Ausdehnung wurde neu geschnitten",
+      "split": "Er wurde in mehrere Abschnitte geteilt",
+      "restored": "Er ist zurückgekehrt",
+      "reverted": "Er wurde auf eine frühere Version zurückgesetzt",
+      "body": "Der Verlauf des Abschnitts zeigt, was sich bewegt hat und welche Aktivitäten dabei waren."
     }
   },
   "licenses": {

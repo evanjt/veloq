@@ -849,6 +849,14 @@
       "formula": "Antal styrkesessioner, vægtede sæt og fulgte muskelgrupper",
       "algorithm": "Samler styrketræninger fra de seneste 4 uger. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5 pr. muskelgruppe.",
       "methodologyDescription": "Opsummerer styrkevolumen for de seneste 4 uger: antal træninger, samlede vægtede sæt og antal fulgte muskelgrupper."
+    },
+    "sectionChanged": {
+      "title": "{{name}} ændret",
+      "recut": "Udstrækningen blev skåret om",
+      "split": "Den blev delt i flere strækninger",
+      "restored": "Den kom tilbage",
+      "reverted": "Den blev sat tilbage til en tidligere version",
+      "body": "Strækningens historik viser, hvad der flyttede sig, og hvilke aktiviteter der var omkring."
     }
   },
   "licenses": {

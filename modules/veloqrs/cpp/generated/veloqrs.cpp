@@ -560,6 +560,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
     /*handle*/ uint64_t ptr, RustBuffer sport_types, uint32_t limit,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
+    /*handle*/ uint64_t ptr, uint32_t days, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
@@ -1120,6 +1122,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_polyline();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_ranked();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_retired();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_summaries();
@@ -4643,6 +4646,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "sectionmanager_get_recent_changes"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info"] =
@@ -8395,6 +8410,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_"
+        "changes"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_get_recent_changes"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_"
         "info"] = jsi::Function::createFromHostFunction(
       rt,
@@ -12661,6 +12688,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -16127,6 +16170,15 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

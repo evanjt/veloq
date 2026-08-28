@@ -851,6 +851,14 @@
       "formula": "Liczba sesji siłowych, ważonych serii i śledzonych grup mięśniowych",
       "algorithm": "Agreguje treningi siłowe z ostatnich 4 tygodni. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5 dla każdej grupy mięśniowej.",
       "methodologyDescription": "Podsumowuje objętość siłową z ostatnich 4 tygodni: liczbę treningów, łączną liczbę ważonych serii i liczbę śledzonych grup mięśniowych."
+    },
+    "sectionChanged": {
+      "title": "{{name}} się zmienił",
+      "recut": "Zakres został wycięty ponownie",
+      "split": "Podzielił się na kilka odcinków",
+      "restored": "Powrócił",
+      "reverted": "Przywrócono wcześniejszą wersję",
+      "body": "Historia odcinka pokazuje, co się przesunęło i jakie aktywności były w pobliżu."
     }
   },
   "licenses": {

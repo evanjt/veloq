@@ -18,3 +18,5 @@ export type { SectionContentAreaProps } from './SectionContentArea';
 export { SectionDebugPanel } from './SectionDebugPanel';
 export type { SectionDebugPanelProps } from './SectionDebugPanel';
 export { styles as sectionDetailStyles } from './SectionDetail.styles';
+export { SectionHistoryPanel } from './SectionHistoryPanel';
+export type { SectionHistoryPanelProps } from './SectionHistoryPanel';

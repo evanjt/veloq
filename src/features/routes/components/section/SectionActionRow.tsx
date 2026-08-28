@@ -18,6 +18,8 @@ export interface SectionActionRowProps {
   handleToggleDisable: () => void;
   handleRematchActivities?: () => void;
   handleAcceptSection: () => void;
+  /** The stored version the section is pinned to, if any. */
+  pinnedVersion?: number | null;
 }
 
 export function SectionActionRow({
@@ -31,6 +33,7 @@ export function SectionActionRow({
   handleToggleDisable,
   handleRematchActivities,
   handleAcceptSection,
+  pinnedVersion = null,
 }: SectionActionRowProps) {
   const { t } = useTranslation();
 
@@ -147,6 +150,20 @@ export function SectionActionRow({
             <MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />
             <Text style={[styles.actionPillText, { color: colors.primary }]}>
               {t('sections.acceptSection')}
+              {pinnedVersion != null && (
+                <View
+                  testID="section-pinned-version"
+                  style={[
+                    styles.actionPill,
+                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="pin" size={14} color={colors.primary} />
+                  <Text style={[styles.actionPillText, { color: colors.primary }]}>
+                    {t('sections.pinned')}
+                  </Text>
+                </View>
+              )}
             </Text>
           </TouchableOpacity>
         ))}

@@ -849,6 +849,14 @@
       "formula": "Décompte des séances de force, séries pondérées et groupes musculaires suivis",
       "algorithm": "Agrège les entraînements de force des 4 dernières semaines. Le travail principal compte pour 1.0 et le travail secondaire pour 0.5 par groupe musculaire.",
       "methodologyDescription": "Résume le volume de force des 4 dernières semaines : nombre de séances, total des séries pondérées et groupes musculaires suivis."
+    },
+    "sectionChanged": {
+      "title": "{{name}} a changé",
+      "recut": "Son étendue a été recoupée",
+      "split": "Il a été divisé en plusieurs tronçons",
+      "restored": "Il est revenu",
+      "reverted": "Il a été rétabli à une version antérieure",
+      "body": "L'historique du tronçon montre ce qui a bougé et quelles activités étaient autour."
     }
   },
   "licenses": {

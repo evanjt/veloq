@@ -11,6 +11,7 @@ import {
   View,
   StyleSheet,
   FlatList,
+  TouchableOpacity,
   Platform,
   Alert,
   Animated,
@@ -23,6 +24,7 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import {
@@ -597,6 +599,17 @@ export const SectionsList = memo(function SectionsList({
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
+        <TouchableOpacity
+          testID="sections-retired-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/section-retired' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('sectionHistory.seeRetired')}
+          </Text>
+        </TouchableOpacity>
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </View>
     );
@@ -667,6 +680,17 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 0,
+  },
+  retiredLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  retiredLinkText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,

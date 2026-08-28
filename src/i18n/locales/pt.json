@@ -849,6 +849,14 @@
       "formula": "Contagem de sessões de força, séries ponderadas e grupos musculares acompanhados",
       "algorithm": "Agrega os treinos de força das últimas 4 semanas. O trabalho primário conta como 1.0 e o secundário como 0.5 para cada grupo muscular.",
       "methodologyDescription": "Resume o volume de força das últimas 4 semanas: número de treinos, total de séries ponderadas e grupos musculares acompanhados."
+    },
+    "sectionChanged": {
+      "title": "{{name}} mudou",
+      "recut": "A extensão foi recortada",
+      "split": "Dividiu-se em vários troços",
+      "restored": "Regressou",
+      "reverted": "Foi reposto numa versão anterior",
+      "body": "O histórico do troço mostra o que mudou e que atividades estiveram por perto."
     }
   },
   "licenses": {

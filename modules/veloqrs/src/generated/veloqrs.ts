@@ -6034,6 +6034,58 @@ const FfiConverterTypeFfiSection = (() => {
 })();
 
 /**
+ * A recent change on a live section, for the insights feed.
+ */
+export type FfiSectionChange = {
+  sectionId: string;
+  kind: string;
+  at: string;
+};
+
+/**
+ * Generated factory for {@link FfiSectionChange} record objects.
+ */
+export const FfiSectionChange = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionChange, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionChange>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionChange = (() => {
+  type TypeName = FfiSectionChange;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        kind: FfiConverterString.read(from),
+        at: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.kind, into);
+      FfiConverterString.write(value.at, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterString.allocationSize(value.at)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Bundled chart payload for the section-detail screen. Rust composes
  * per-lap points, ranks, and summary stats from the performance records
  * it already owns so the TS hook stops iterating + sorting multiple times.
@@ -12455,6 +12507,7 @@ export interface SectionManagerLike {
     sportTypes: Array<string>,
     limit: /*u32*/ number,
   ) /*throws*/ : Array<FfiRankedSectionsBySport>;
+  getRecentChanges(days: /*u32*/ number) /*throws*/ : Array<FfiSectionChange>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
   getSummaries(
@@ -13585,6 +13638,24 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(sportTypes),
             FfiConverterUInt32.lower(limit),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getRecentChanges(days: /*u32*/ number): Array<FfiSectionChange> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionChange.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(days),
             callStatus,
           );
         },
@@ -16878,6 +16949,11 @@ const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
   FfiConverterTypeFfiSection,
 );
 
+// FfiConverter for Array<FfiSectionChange>
+const FfiConverterArrayTypeFfiSectionChange = new FfiConverterArray(
+  FfiConverterTypeFfiSectionChange,
+);
+
 // FfiConverter for Array<FfiSectionChartPoint>
 const FfiConverterArrayTypeFfiSectionChartPoint = new FfiConverterArray(
   FfiConverterTypeFfiSectionChartPoint,
@@ -18370,6 +18446,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes() !==
+    17006
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info() !==
     43158
   ) {
@@ -19129,6 +19213,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiScalePreset,
     FfiConverterTypeFfiSection,
+    FfiConverterTypeFfiSectionChange,
     FfiConverterTypeFfiSectionChartData,
     FfiConverterTypeFfiSectionChartPoint,
     FfiConverterTypeFfiSectionConfig,

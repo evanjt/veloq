@@ -552,6 +552,8 @@ class RouteEngineClient implements DelegateHost {
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
   getRetiredSections = () => sectionDelegates.getRetiredSections(this);
+  getRecentSectionChanges = (days: number) =>
+    sectionDelegates.getRecentSectionChanges(this, days);
 
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);

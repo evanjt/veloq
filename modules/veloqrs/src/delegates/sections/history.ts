@@ -11,6 +11,7 @@ import { decodeCoords } from '../../coords';
 import type { RoutePoint } from '../../conversions';
 import type {
   FfiRetiredSection,
+  FfiSectionChange,
   FfiSectionGeometryVersion,
   FfiSectionHistoryEvent,
 } from '../../generated/veloqrs';
@@ -19,6 +20,7 @@ import type { DelegateHost } from '../host';
 export type SectionHistoryEvent = FfiSectionHistoryEvent;
 export type SectionGeometryVersion = FfiSectionGeometryVersion;
 export type RetiredSection = FfiRetiredSection;
+export type SectionChange = FfiSectionChange;
 
 export function getSectionHistory(host: DelegateHost, sectionId: string): SectionHistoryEvent[] {
   if (!host.ready) return [];
@@ -103,6 +105,17 @@ export function getRetiredSections(host: DelegateHost): RetiredSection[] {
     return host.engine.sections().getRetired();
   } catch (e) {
     console.error('[RouteEngine] getRetiredSections failed:', e);
+    return [];
+  }
+}
+
+/** Visible changes on live sections in the last `days`, newest first. */
+export function getRecentSectionChanges(host: DelegateHost, days: number): SectionChange[] {
+  if (!host.ready) return [];
+  try {
+    return host.engine.sections().getRecentChanges(days);
+  } catch (e) {
+    console.error('[RouteEngine] getRecentSectionChanges failed:', e);
     return [];
   }
 }

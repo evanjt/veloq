@@ -837,6 +837,14 @@
       "formula": "Counts of strength sessions, weighted sets, and tracked muscle groups",
       "algorithm": "Aggregates strength workouts in the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5 toward each muscle group.",
       "methodologyDescription": "Summarizes strength volume across the most recent 4 weeks: workout count, total weighted sets, and number of tracked muscle groups."
+    },
+    "sectionChanged": {
+      "title": "{{name}} changed",
+      "recut": "Its extent was re-cut",
+      "split": "It split into more than one section",
+      "restored": "It came back",
+      "reverted": "It was put back to an earlier version",
+      "body": "The section's history shows what moved and which activities were around it."
     }
   },
   "strength": {

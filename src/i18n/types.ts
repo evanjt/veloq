@@ -690,6 +690,14 @@ export interface TranslationResource {
   };
 
   insights: {
+    sectionChanged: {
+      title: string;
+      recut: string;
+      split: string;
+      restored: string;
+      reverted: string;
+      body: string;
+    };
     title: string;
     noInsights: string;
     noInsightsHint: string;

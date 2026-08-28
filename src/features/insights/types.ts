@@ -7,7 +7,8 @@ export type InsightCategory =
   | 'strength_progression'
   | 'strength_balance'
   | 'hrv_trend'
-  | 'efficiency_trend';
+  | 'efficiency_trend'
+  | 'section_changed';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 

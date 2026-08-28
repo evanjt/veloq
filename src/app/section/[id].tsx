@@ -4,7 +4,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, ScrollView, StatusBar, TouchableOpacity, InteractionManager } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  InteractionManager,
+  Alert,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -35,6 +42,7 @@ import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
+import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
 import {
   DataRangeFooter,
   DetailFallback,
@@ -49,6 +57,7 @@ import {
   SectionHeader,
   SectionActionRow,
   SectionContentArea,
+  SectionHistoryPanel,
   SectionDebugPanel,
   MergeConfirmDialog,
   MergeCandidatesModal,
@@ -141,6 +150,34 @@ export default function SectionDetailScreen() {
 
   // Disabled state from section data
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
+
+  // The ledger: stored versions, the pin, and every change with its context.
+  const ledger = useSectionLedger(id, sectionRefreshKey);
+  const [shownVersion, setShownVersion] = useState<number | null>(null);
+  const shadowTrack = useMemo<[number, number][] | undefined>(() => {
+    if (shownVersion == null) return undefined;
+    return ledger.versionPolyline(shownVersion).map((p) => [p.lat, p.lng]);
+  }, [shownVersion, ledger]);
+  const handleRevert = useCallback(
+    (version: number) => {
+      Alert.alert(t('sectionHistory.revert'), t('sectionHistory.revertConfirm', { version }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('sectionHistory.revert'),
+          onPress: () => {
+            if (ledger.revert(version)) {
+              setShownVersion(null);
+              handleSectionRefresh();
+            }
+          },
+        },
+      ]);
+    },
+    [ledger, handleSectionRefresh, t]
+  );
+  const handleUnpin = useCallback(() => {
+    if (ledger.unpin()) handleSectionRefresh();
+  }, [ledger, handleSectionRefresh]);
 
   const {
     isTrimming,
@@ -324,7 +361,7 @@ export default function SectionDetailScreen() {
             editName={editName}
             customName={customName}
             nameInputRef={nameInputRef}
-            shadowTrack={undefined}
+            shadowTrack={shadowTrack}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
@@ -353,6 +390,7 @@ export default function SectionDetailScreen() {
               handleToggleDisable={handleToggleDisable}
               handleRematchActivities={handleRematchActivities}
               handleAcceptSection={handleAcceptSection}
+              pinnedVersion={ledger.pinnedVersion}
             />
           )}
 
@@ -429,6 +467,19 @@ export default function SectionDetailScreen() {
                   setShowMergePicker(true);
                 }
               }}
+            />
+          )}
+
+          {!isTrimming && (
+            <SectionHistoryPanel
+              isDark={isDark}
+              history={ledger.history}
+              versions={ledger.versions}
+              pinnedVersion={ledger.pinnedVersion}
+              shownVersion={shownVersion}
+              onShowVersion={setShownVersion}
+              onRevert={handleRevert}
+              onUnpin={handleUnpin}
             />
           )}
 

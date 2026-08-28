@@ -849,6 +849,14 @@
       "formula": "Aantallen krachtsessies, gewogen sets en gevolgde spiergroepen",
       "algorithm": "Bundelt de krachttrainingen van de laatste 4 weken. Primair werk telt als 1.0 en secundair werk als 0.5 per spiergroep.",
       "methodologyDescription": "Vat het krachtvolume van de laatste 4 weken samen: aantal workouts, totaal gewogen sets en aantal gevolgde spiergroepen."
+    },
+    "sectionChanged": {
+      "title": "{{name}} is veranderd",
+      "recut": "Het bereik is opnieuw gesneden",
+      "split": "Het is gesplitst in meerdere stukken",
+      "restored": "Het is teruggekeerd",
+      "reverted": "Het is teruggezet naar een eerdere versie",
+      "body": "De geschiedenis van het stuk laat zien wat er verschoof en welke activiteiten erbij waren."
     }
   },
   "licenses": {

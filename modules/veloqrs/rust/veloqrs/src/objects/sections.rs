@@ -552,6 +552,19 @@ impl SectionManager {
         })
     }
 
+    fn get_recent_changes(&self, days: u32) -> Result<Vec<crate::FfiSectionChange>, VeloqError> {
+        with_engine(|e| {
+            e.recent_section_changes(days)
+                .into_iter()
+                .map(|c| crate::FfiSectionChange {
+                    section_id: c.section_id,
+                    kind: c.kind,
+                    at: c.at,
+                })
+                .collect()
+        })
+    }
+
     fn get_lineages(&self) -> Result<Vec<crate::FfiSectionLineage>, VeloqError> {
         with_engine(|e| {
             e.section_lineages()

@@ -935,6 +935,11 @@ interface NativeModuleInterface {
     limit: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_recent_changes(
+    ptr: bigint,
+    days: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1715,6 +1720,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;

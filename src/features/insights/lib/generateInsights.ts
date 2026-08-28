@@ -10,6 +10,10 @@ import {
 } from '../generators/periodComparison';
 import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
 import { generateSectionTrendInsights } from '../generators/sectionTrend';
+import {
+  generateSectionChangedInsights,
+  type SectionChangeInput,
+} from '../generators/sectionChanged';
 import type {
   Insight,
   PeriodStats,
@@ -52,6 +56,7 @@ export interface InsightInputData {
   swimPaceTrend?: PaceTrend | null;
   recentPRs: SectionPR[];
   sectionTrends: SectionTrendData[];
+  sectionChanges?: SectionChangeInput[];
   formTsb: number | null;
   formCtl: number | null;
   formAtl: number | null;
@@ -209,6 +214,12 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   candidates.push(
     ...safeRun('sectionTrend', () =>
       generateSectionTrendInsights(data.sectionTrends, existingIds, now, t)
+    )
+  );
+
+  candidates.push(
+    ...safeRun('sectionChanged', () =>
+      generateSectionChangedInsights(data.sectionChanges ?? [], now, t)
     )
   );
 

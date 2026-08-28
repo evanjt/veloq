@@ -849,6 +849,14 @@
       "formula": "Conteggio di sessioni di forza, serie ponderate e gruppi muscolari monitorati",
       "algorithm": "Aggrega gli allenamenti di forza delle ultime 4 settimane. Il lavoro primario vale 1.0 e quello secondario 0.5 per ogni gruppo muscolare.",
       "methodologyDescription": "Riepiloga il volume di forza delle ultime 4 settimane: numero di allenamenti, totale delle serie ponderate e gruppi muscolari monitorati."
+    },
+    "sectionChanged": {
+      "title": "{{name}} è cambiato",
+      "recut": "La sua estensione è stata ritagliata",
+      "split": "È stato diviso in più tratti",
+      "restored": "È tornato",
+      "reverted": "È stato riportato a una versione precedente",
+      "body": "La cronologia del tratto mostra cosa si è mosso e quali attività c'erano intorno."
     }
   },
   "licenses": {

@@ -87,6 +87,14 @@ pub struct RetiredSection {
     pub versions: Vec<i64>,
 }
 
+/// A change the ledger recorded on a live section, for the insights feed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SectionChange {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+}
+
 /// One stored geometry version, without its polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionGeometryVersion {
@@ -712,6 +720,31 @@ impl PersistentRouteEngine {
                 }
             })
             .collect()
+    }
+
+    /// Visible changes on live sections in the last `days`, newest first:
+    /// the re-cuts, splits, restores and reverts a feed can point at. A
+    /// section's birth and its record re-basing are not changes to it.
+    pub fn recent_section_changes(&self, days: u32) -> Vec<SectionChange> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.kind, h.at FROM section_history h
+             JOIN sections s ON s.id = h.section_id
+             WHERE h.kind IN ('recut', 'split', 'restored', 'reverted')
+               AND h.at >= datetime('now', ?)
+             ORDER BY h.id DESC",
+        ) else {
+            return Vec::new();
+        };
+        let window = format!("-{days} days");
+        let rows = stmt.query_map(params![window], |row| {
+            Ok(SectionChange {
+                section_id: row.get(0)?,
+                kind: row.get(1)?,
+                at: row.get(2)?,
+            })
+        });
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
     }
 
     /// Every live section born as a split sibling, with its parent and
