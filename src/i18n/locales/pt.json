@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Ajuste os limites dos troços com um seletor de dupla pega. Recorte para estreitar o intervalo ou mude para o modo de expansão para ir além dos limites detetados automaticamente quando a deteção falhou parte do percurso. As alterações refletem-se no mapa em tempo real.",
       "backupTitle": "Cópia de segurança e restauro",
       "backupBody": "Exporte todos os seus dados como cópia de segurança completa e partilhe através da folha de partilha do dispositivo. Restaure a partir de qualquer cópia para retomar exatamente onde ficou."
+    },
+    "v040": {
+      "sectionsTitle": "Troços que se explicam",
+      "sectionsBody": "Os troços passam a ser cortados por um único detetor determinístico. Cada um guarda um histórico que pode ler, repor e fixar.",
+      "rowDeterministic": "Um só emparelhador determinístico: as mesmas saídas dão os mesmos troços",
+      "rowSameResult": "Adicionar saídas uma a uma ou todas de uma vez dá o mesmo resultado",
+      "rowLedger": "Um histórico mostra como cada troço mudou e o que esteve por perto",
+      "rowRevert": "Repor uma versão anterior de um troço e fixá-la",
+      "rowRetired": "Os troços que saíram do catálogo continuam listados",
+      "rowPinned": "Os troços aceites sobrevivem a cada nova análise",
+      "rowEveryDevice": "Troços idênticos em todos os dispositivos"
     }
   },
   "strength": {

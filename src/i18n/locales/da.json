@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Finjustér sektionsgrænser med en dobbelt-håndtag-skyder. Trim for at indsnævre området, eller skift til udvidelsestilstand for at strække ud over de automatisk registrerede grænser, når detektionen manglede en del af ruten. Ændringer afspejles på kortet i realtid.",
       "backupTitle": "Sikkerhedskopiering og gendannelse",
       "backupBody": "Eksportér alle dine data som en fuld sikkerhedskopi og del den via din enheds delingsark. Gendan fra enhver sikkerhedskopi for at fortsætte, hvor du slap."
+    },
+    "v040": {
+      "sectionsTitle": "Strækninger, der forklarer sig selv",
+      "sectionsBody": "Strækninger skæres nu af én deterministisk detektor. Hver har en historik, du kan læse, gendanne og fastgøre.",
+      "rowDeterministic": "Én deterministisk matcher: samme ture giver samme strækninger",
+      "rowSameResult": "Én tur ad gangen eller alle på én gang giver samme resultat",
+      "rowLedger": "En historik viser, hvordan hver strækning ændrede sig, og hvad der var omkring",
+      "rowRevert": "Sæt en tidligere version af en strækning tilbage og fastgør den",
+      "rowRetired": "Strækninger, der forlod kataloget, bliver stående på listen",
+      "rowPinned": "Accepterede strækninger overlever enhver ny analyse",
+      "rowEveryDevice": "Identiske strækninger på alle enheder"
     }
   },
   "strength": {

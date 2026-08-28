@@ -1916,6 +1916,17 @@
       "sectionTrimBody": "Precyzyjnie dostosuj granice odcinka za pomocą podwójnego suwaka. Przytnij, aby zawęzić zakres, lub przełącz na tryb rozszerzania, aby wyjść poza automatycznie wykryte granice, gdy wykrywanie pominęło część trasy. Zmiany są odzwierciedlane na mapie w czasie rzeczywistym.",
       "backupTitle": "Kopia zapasowa i przywracanie",
       "backupBody": "Eksportuj wszystkie dane jako pełną kopię zapasową i udostępnij ją przez arkusz udostępniania urządzenia. Przywróć z dowolnej kopii, aby wrócić dokładnie tam, gdzie skończyłeś."
+    },
+    "v040": {
+      "sectionsTitle": "Odcinki, które się tłumaczą",
+      "sectionsBody": "Odcinki wycina teraz jeden deterministyczny detektor. Każdy ma historię, którą można przeczytać, przywrócić i przypiąć.",
+      "rowDeterministic": "Jeden deterministyczny dopasowywacz: te same przejazdy dają te same odcinki",
+      "rowSameResult": "Dodawanie przejazdów pojedynczo lub naraz daje ten sam wynik",
+      "rowLedger": "Historia pokazuje, jak zmieniał się każdy odcinek i co było w pobliżu",
+      "rowRevert": "Przywróć wcześniejszą wersję odcinka i przypnij ją",
+      "rowRetired": "Odcinki, które opuściły katalog, pozostają na liście",
+      "rowPinned": "Zaakceptowane odcinki przetrwają każdą ponowną analizę",
+      "rowEveryDevice": "Identyczne odcinki na każdym urządzeniu"
     }
   },
   "strength": {

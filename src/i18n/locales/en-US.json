@@ -1953,6 +1953,17 @@
       "sectionTrimBody": "Fine-tune section boundaries with a dual-handle slider. Trim to narrow the range, or switch to expand mode to extend beyond the auto-detected limits when detection missed part of the route. Changes are reflected on the map in real time.",
       "backupTitle": "Backup & Restore",
       "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
+    },
+    "v040": {
+      "sectionsTitle": "Sections that explain themselves",
+      "sectionsBody": "Sections are now cut by one deterministic detector. Each one keeps a history you can read, revert and pin.",
+      "rowDeterministic": "One deterministic matcher: the same rides give the same sections",
+      "rowSameResult": "Adding rides one at a time or all at once gives the same result",
+      "rowLedger": "A ledger shows how each section changed and what was around it",
+      "rowRevert": "Put an earlier version of a section back and pin it",
+      "rowRetired": "Sections that left the catalogue stay listed",
+      "rowPinned": "Accepted sections survive every re-analysis",
+      "rowEveryDevice": "Identical sections on every device"
     }
   },
   "bestEffortsScreen": {

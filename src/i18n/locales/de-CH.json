@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Abschnittsgrenze fiinjustiere mit eme Dubbel-Schieber. Trimme zum de Bereich z verchliinere, oder wächsle zum Erwitere wenn d Erchennig en Teil vo dr Route verpasst hät. Änderige werded uf dr Charte in Echtziit zeigt.",
       "backupTitle": "Backup & Wiederherstellig",
       "backupBody": "Exportier alli dini Date als Backup und teil si über dis Grät. Stell us jedem Backup wider her und mach gnau da witer wo du ufghört hesch."
+    },
+    "v040": {
+      "sectionsTitle": "Abschnitte, die sich erklären",
+      "sectionsBody": "Abschnitte werden jetzt von einem deterministischen Detektor geschnitten. Jeder hat einen Verlauf, den du lesen, zurücksetzen und anheften kannst.",
+      "rowDeterministic": "Ein deterministischer Matcher: gleiche Fahrten ergeben gleiche Abschnitte",
+      "rowSameResult": "Fahrten einzeln oder auf einmal ergeben dasselbe Ergebnis",
+      "rowLedger": "Ein Verlauf zeigt, wie sich jeder Abschnitt änderte und was dabei war",
+      "rowRevert": "Eine frühere Version eines Abschnitts zurücksetzen und anheften",
+      "rowRetired": "Ausgeschiedene Abschnitte bleiben gelistet",
+      "rowPinned": "Übernommene Abschnitte überstehen jede Neuanalyse",
+      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät"
     }
   },
   "strength": {

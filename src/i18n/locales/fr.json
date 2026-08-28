@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Ajustez les limites de section avec un curseur à deux poignées. Rognez pour réduire la plage, ou passez en mode extension pour dépasser les limites auto-détectées quand la détection a manqué une partie du parcours. Les changements se reflètent sur la carte en temps réel.",
       "backupTitle": "Sauvegarde et restauration",
       "backupBody": "Exportez toutes vos données en sauvegarde complète et partagez-la via la feuille de partage de votre appareil. Restaurez depuis n'importe quelle sauvegarde pour reprendre là où vous vous êtes arrêté."
+    },
+    "v040": {
+      "sectionsTitle": "Des tronçons qui s'expliquent",
+      "sectionsBody": "Les tronçons sont désormais coupés par un seul détecteur déterministe. Chacun garde un historique à lire, rétablir et épingler.",
+      "rowDeterministic": "Un seul apparieur déterministe : les mêmes sorties donnent les mêmes tronçons",
+      "rowSameResult": "Ajouter les sorties une à une ou d'un coup donne le même résultat",
+      "rowLedger": "Un historique montre comment chaque tronçon a changé et ce qu'il y avait autour",
+      "rowRevert": "Rétablir une version antérieure d'un tronçon et l'épingler",
+      "rowRetired": "Les tronçons sortis du catalogue restent listés",
+      "rowPinned": "Les tronçons acceptés survivent à chaque réanalyse",
+      "rowEveryDevice": "Des tronçons identiques sur chaque appareil"
     }
   },
   "strength": {

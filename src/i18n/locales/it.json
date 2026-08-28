@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Regola i limiti delle sezioni con uno slider a doppia maniglia. Ritaglia per restringere l'intervallo, oppure passa alla modalità espansione per estendere oltre i limiti rilevati automaticamente quando il rilevamento ha mancato parte del percorso. Le modifiche si riflettono sulla mappa in tempo reale.",
       "backupTitle": "Backup e ripristino",
       "backupBody": "Esporta tutti i tuoi dati come backup completo e condividili tramite il foglio di condivisione del dispositivo. Ripristina da qualsiasi backup per riprendere da dove avevi lasciato."
+    },
+    "v040": {
+      "sectionsTitle": "Tratti che si spiegano",
+      "sectionsBody": "I tratti sono ora tagliati da un unico rilevatore deterministico. Ognuno conserva una cronologia da leggere, ripristinare e bloccare.",
+      "rowDeterministic": "Un solo abbinatore deterministico: le stesse uscite danno gli stessi tratti",
+      "rowSameResult": "Aggiungere le uscite una alla volta o tutte insieme dà lo stesso risultato",
+      "rowLedger": "Una cronologia mostra come è cambiato ogni tratto e cosa c'era intorno",
+      "rowRevert": "Ripristina una versione precedente di un tratto e bloccala",
+      "rowRetired": "I tratti usciti dal catalogo restano elencati",
+      "rowPinned": "I tratti accettati sopravvivono a ogni nuova analisi",
+      "rowEveryDevice": "Tratti identici su ogni dispositivo"
     }
   },
   "strength": {

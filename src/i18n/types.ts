@@ -894,6 +894,17 @@ export interface TranslationResource {
       fitnessTitle: string;
       fitnessBody: string;
     };
+    v040: {
+      sectionsTitle: string;
+      sectionsBody: string;
+      rowDeterministic: string;
+      rowSameResult: string;
+      rowLedger: string;
+      rowRevert: string;
+      rowRetired: string;
+      rowPinned: string;
+      rowEveryDevice: string;
+    };
     v030: {
       insightsTitle: string;
       insightsBody: string;

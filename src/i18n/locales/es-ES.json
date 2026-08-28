@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Ajustad los límites de sección con un control deslizante doble. Recortad para reducir el rango, o cambiad al modo expandir para extender más allá de los límites autodetectados cuando la detección omitió parte de la ruta. Los cambios se reflejan en el mapa en tiempo real.",
       "backupTitle": "Copia de seguridad y restauración",
       "backupBody": "Exportad todos vuestros datos como copia de seguridad completa y compartidla a través de la hoja para compartir del dispositivo. Restaurad desde cualquier copia para retomar donde lo dejasteis."
+    },
+    "v040": {
+      "sectionsTitle": "Tramos que se explican",
+      "sectionsBody": "Los tramos ahora los corta un único detector determinista. Cada uno guarda un historial que puedes leer, restaurar y fijar.",
+      "rowDeterministic": "Un solo emparejador determinista: las mismas salidas dan los mismos tramos",
+      "rowSameResult": "Añadir salidas una a una o todas a la vez da el mismo resultado",
+      "rowLedger": "Un historial muestra cómo cambió cada tramo y qué había alrededor",
+      "rowRevert": "Restaura una versión anterior de un tramo y fíjala",
+      "rowRetired": "Los tramos que salieron del catálogo siguen listados",
+      "rowPinned": "Los tramos aceptados sobreviven a cada reanálisis",
+      "rowEveryDevice": "Tramos idénticos en todos los dispositivos"
     }
   },
   "strength": {

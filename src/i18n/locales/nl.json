@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Verfijn sectiegrenzen met een dubbele schuifregelaar. Trim om het bereik te verkleinen, of schakel naar uitbreidmodus om verder te gaan dan de automatisch gedetecteerde grenzen wanneer detectie een deel van de route miste. Wijzigingen worden in realtime op de kaart weergegeven.",
       "backupTitle": "Back-up & herstel",
       "backupBody": "Exporteer al je gegevens als volledige back-up en deel deze via het deelvenster van je apparaat. Herstel vanuit elke back-up om verder te gaan waar je was gebleven."
+    },
+    "v040": {
+      "sectionsTitle": "Stukken die zichzelf uitleggen",
+      "sectionsBody": "Stukken worden nu gesneden door één deterministische detector. Elk heeft een geschiedenis die je kunt lezen, terugzetten en vastzetten.",
+      "rowDeterministic": "Eén deterministische matcher: dezelfde ritten geven dezelfde stukken",
+      "rowSameResult": "Ritten één voor één of allemaal tegelijk toevoegen geeft hetzelfde resultaat",
+      "rowLedger": "Een geschiedenis toont hoe elk stuk veranderde en wat erbij was",
+      "rowRevert": "Zet een eerdere versie van een stuk terug en zet hem vast",
+      "rowRetired": "Stukken die uit de catalogus verdwenen blijven vermeld",
+      "rowPinned": "Geaccepteerde stukken overleven elke heranalyse",
+      "rowEveryDevice": "Identieke stukken op elk apparaat"
     }
   },
   "strength": {

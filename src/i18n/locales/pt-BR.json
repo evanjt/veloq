@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Ajuste os limites dos trechos com um seletor de dupla alça. Recorte para estreitar a faixa ou mude para o modo de expansão para ir além dos limites detectados automaticamente quando a detecção perdeu parte da rota. As alterações se refletem no mapa em tempo real.",
       "backupTitle": "Backup e restauração",
       "backupBody": "Exporte todos os seus dados como backup completo e compartilhe pela tela de compartilhamento do dispositivo. Restaure a partir de qualquer backup para continuar de onde parou."
+    },
+    "v040": {
+      "sectionsTitle": "Trechos que se explicam",
+      "sectionsBody": "Os trechos agora são cortados por um único detector determinístico. Cada um guarda um histórico que você pode ler, restaurar e fixar.",
+      "rowDeterministic": "Um só pareador determinístico: as mesmas pedaladas dão os mesmos trechos",
+      "rowSameResult": "Adicionar atividades uma por uma ou todas de uma vez dá o mesmo resultado",
+      "rowLedger": "Um histórico mostra como cada trecho mudou e o que estava por perto",
+      "rowRevert": "Restaure uma versão anterior de um trecho e fixe-a",
+      "rowRetired": "Trechos que saíram do catálogo continuam listados",
+      "rowPinned": "Trechos aceitos sobrevivem a cada reanálise",
+      "rowEveryDevice": "Trechos idênticos em todos os dispositivos"
     }
   },
   "strength": {

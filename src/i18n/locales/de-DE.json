@@ -1914,6 +1914,17 @@
       "sectionTrimBody": "Passe Abschnittsgrenzen mit einem Doppelgriff-Schieberegler an. Kürze den Bereich oder wechsle in den Erweiterungsmodus, um über die automatisch erkannten Grenzen hinaus zu erweitern, wenn die Erkennung einen Teil der Route verpasst hat. Änderungen werden in Echtzeit auf der Karte angezeigt.",
       "backupTitle": "Backup & Wiederherstellung",
       "backupBody": "Exportiere alle deine Daten als vollständiges Backup und teile es über das Teilen-Menü deines Geräts. Stelle aus jedem Backup wieder her, um genau dort weiterzumachen, wo du aufgehört hast."
+    },
+    "v040": {
+      "sectionsTitle": "Abschnitte, die sich erklären",
+      "sectionsBody": "Abschnitte werden jetzt von einem deterministischen Detektor geschnitten. Jeder hat einen Verlauf, den du lesen, zurücksetzen und anheften kannst.",
+      "rowDeterministic": "Ein deterministischer Matcher: gleiche Fahrten ergeben gleiche Abschnitte",
+      "rowSameResult": "Fahrten einzeln oder auf einmal ergeben dasselbe Ergebnis",
+      "rowLedger": "Ein Verlauf zeigt, wie sich jeder Abschnitt änderte und was dabei war",
+      "rowRevert": "Eine frühere Version eines Abschnitts zurücksetzen und anheften",
+      "rowRetired": "Ausgeschiedene Abschnitte bleiben gelistet",
+      "rowPinned": "Übernommene Abschnitte überstehen jede Neuanalyse",
+      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät"
     }
   },
   "strength": {
