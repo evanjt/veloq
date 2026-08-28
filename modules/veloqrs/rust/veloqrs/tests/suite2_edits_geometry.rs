@@ -326,7 +326,6 @@ fn gate_edited_section_survives_resync() {
 /// so the section is deletable again (the resync is disarmed) but still renders
 /// the user-replaced polyline. Green when the two reset paths are unified.
 #[test]
-#[ignore = "reset_section_reference is a half-reset — it clears is_user_defined and the backup but leaves the replaced geometry, so 'reset to automatic' does not restore the original shape"]
 fn gate_reset_reference_fully_resets_like_reset_bounds() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
@@ -360,7 +359,6 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
 /// is non-deterministic across runs. Green when consensus regeneration converges
 /// to a fixed point.
 #[test]
-#[ignore = "recalculate_section_polyline is non-idempotent (and non-deterministic) — a second recalc changes the shape instead of converging"]
 fn gate_recalculate_polyline_is_idempotent() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
@@ -385,7 +383,6 @@ fn gate_recalculate_polyline_is_idempotent() {
 /// get_section_performances serves the pre-edit laps. Proven by comparing the
 /// straight-after-trim read against a forced-fresh read.
 #[test]
-#[ignore = "geometry edits do not invalidate perf_cache — get_section_performances returns pre-edit laps/PRs until an unrelated event clears it"]
 fn gate_geometry_edit_invalidates_perf_cache() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);

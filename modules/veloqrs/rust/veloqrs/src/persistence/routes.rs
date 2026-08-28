@@ -547,6 +547,12 @@ impl PersistentRouteEngine {
         let prior_groups = std::mem::take(&mut self.groups);
         let (remapped, id_map) = self.route_identity_remap(prior_groups, result.groups);
         self.groups = remapped;
+        // A regroup rebuilds the in-memory groups from geometry; the names
+        // live in `route_names` and ride back onto the ids that survived.
+        let names = self.get_all_route_names();
+        for group in &mut self.groups {
+            group.custom_name = names.get(&group.group_id).cloned();
+        }
         // Re-key the grouping's match info (which carries each member's
         // direction) by the stable ids the remap assigned, or the direction
         // lookup in route highlights would miss the new id and default every

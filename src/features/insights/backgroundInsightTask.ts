@@ -476,17 +476,8 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       log.log('No notification content to show');
     }
 
-    // 9b. Kick a full section detection for anything cheap indexing can't do
-    // (genuinely new sections). Fire-and-forget: no polling, the foreground
-    // drain picks up the completed run on next app open.
-    if (isActivityEvent && activityInfo?.ingested) {
-      try {
-        const { routeEngine } = require('veloqrs');
-        routeEngine.startSectionDetection();
-      } catch {
-        // Best-effort.
-      }
-    }
+    // 9b. The engine starts a detection run itself when the stored batch
+    // lands; the foreground drain picks up the completed run on next open.
 
     // 9. Update stored fingerprint
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';

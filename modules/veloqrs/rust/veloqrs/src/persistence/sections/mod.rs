@@ -4,6 +4,7 @@ pub mod conditioning;
 mod detection;
 pub(super) mod history;
 mod identity;
+mod interest;
 mod merging;
 mod named;
 mod naming;
@@ -12,10 +13,12 @@ mod ranking;
 pub(crate) mod track_pool;
 
 pub use history::{
-    DetectorGeneration, KIND_REVERTED, SOURCE_CONSENSUS, SOURCE_EXACT, SectionGeometryVersion,
-    SectionHistoryEvent,
+    DetectorGeneration, KIND_REVERTED, RetiredSection, SOURCE_CONSENSUS, SOURCE_EXACT,
+    SectionChange, SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
 };
+pub(crate) use identity::SECTION_IDENTITY_KEY;
 pub(crate) use identity::SectionIdentity;
+pub use identity::content_id_for;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
@@ -311,7 +314,8 @@ impl PersistentRouteEngine {
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index
+                        rep_start_index, rep_end_index,
+                        elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
                  FROM sections
                  WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
                  ORDER BY id",
@@ -406,6 +410,8 @@ impl PersistentRouteEngine {
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
+                        enrichment: interest::enrichment_from_row(row, 20, 24)?,
+                        rank: interest::rank_from_row(row, 29)?,
                         consensus_state,
                     })
                 })?
@@ -488,6 +494,34 @@ impl PersistentRouteEngine {
         let mut section = self.sections[idx].clone();
         if section.is_user_defined || section.activity_ids.is_empty() {
             return None;
+        }
+
+        // A line sliced from one activity recalculates by re-slicing that
+        // range: the same input gives the same line, so a second call is a
+        // no-op. Only an averaged legacy line goes back through consensus.
+        if let Some((start, end)) = section.representative_range
+            && let Some(track) = self.load_gps_track_from_db(&section.representative_activity_id)
+            && (start as usize) < (end as usize)
+            && (end as usize) <= track.len()
+        {
+            let polyline = track[start as usize..end as usize].to_vec();
+            let distance = tracematch::matching::calculate_route_distance(&polyline);
+            let result = crate::FfiSectionRecalcResult {
+                section_id: section.id.clone(),
+                polyline_point_count: polyline.len() as u32,
+                distance_meters: distance,
+            };
+            let unchanged = section.polyline == polyline;
+            section.polyline = polyline;
+            section.distance_meters = distance;
+            self.sections[idx] = section;
+            if !unchanged && let Err(err) = self.save_sections() {
+                log::warn!(
+                    "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                    err
+                );
+            }
+            return Some(result);
         }
 
         let activity_ids: Vec<String> = section.activity_ids.clone();
@@ -906,7 +940,7 @@ impl PersistentRouteEngine {
             )
             .unwrap_or(activity_ids.len() as u32);
 
-        // Build the FrequentSection
+        let (enrichment, rank) = self.read_enrichment(section_id);
         let updated_section = FrequentSection {
             id: section_id.to_string(),
             name,
@@ -947,6 +981,8 @@ impl PersistentRouteEngine {
             version: version.unwrap_or(1),
             updated_at,
             created_at,
+            enrichment,
+            rank,
             consensus_state: None,
         };
 
@@ -993,56 +1029,15 @@ impl PersistentRouteEngine {
         // `section_activities` recompute triggers, so it needs no GROUP BY here.
         // One junction row is one pass, so it counts traversals; outings are a
         // separate DISTINCT.
-        let section_activity_counts: HashMap<String, u32> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT section_id, COUNT(DISTINCT activity_id) FROM section_activities
-                 WHERE excluded = 0
-                 GROUP BY section_id",
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default()
-        };
-
-        // Sport comes from `activities`, written on ingest. `activity_metrics`
-        // fills only once metrics load, so joining it hides a sport until then.
-        let section_sport_types: HashMap<String, Vec<String>> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                 JOIN activities a ON sa.activity_id = a.id
-                 WHERE sa.excluded = 0
-                 GROUP BY sa.section_id"
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| {
-                let id: String = row.get(0)?;
-                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                // GROUP_CONCAT order is undefined, so sort for a stable summary.
-                let mut types: Vec<String> = types_csv
-                    .split(',')
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string())
-                    .collect();
-                types.sort();
-                Ok((id, types))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        };
-
+        // `activity_count` and `sport_types` are denormalised onto the row and
+        // kept by the junction triggers, so the list needs no GROUP BY.
         let mut stmt = match self.db.prepare(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
                     is_user_defined, disabled, superseded_by, visit_count,
-                    elevation_gain_m, avg_grade_percent
+                    elevation_gain_m, avg_grade_percent, activity_count, sport_types,
+                    elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -1079,8 +1074,16 @@ impl PersistentRouteEngine {
                 };
 
                 let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
-                let activity_count = section_activity_counts.get(&id).copied().unwrap_or(0);
-                let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
+                let activity_count: u32 = row.get::<_, Option<u32>>(19)?.unwrap_or(0);
+                // GROUP_CONCAT order is undefined, so sort for a stable summary.
+                let mut sport_types: Vec<String> = row
+                    .get::<_, Option<String>>(20)?
+                    .unwrap_or_default()
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+                sport_types.sort();
 
                 Ok(SectionSummary {
                     id,
@@ -1098,6 +1101,13 @@ impl PersistentRouteEngine {
                     bounds,
                     elevation_gain_m: row.get(17)?,
                     avg_grade_percent: row.get(18)?,
+                    elevation_loss_m: row.get(21)?,
+                    max_grade_percent: row.get(22)?,
+                    straightness: row.get(23)?,
+                    klass: row.get(24)?,
+                    is_lift: row.get::<_, Option<i32>>(25)?.unwrap_or(0) != 0,
+                    rank_score: row.get(26)?,
+                    sport_rank_score: row.get(27)?,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
                     is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
@@ -1227,6 +1237,23 @@ impl PersistentRouteEngine {
             version: section.version.unwrap_or(1),
             updated_at: section.updated_at,
             created_at: Some(section.created_at),
+            enrichment: tracematch::Enrichment {
+                elevation_gain_m: section.elevation_gain_m,
+                avg_grade_percent: section.avg_grade_percent,
+                elevation_loss_m: section.elevation_loss_m,
+                max_grade_percent: section.max_grade_percent,
+                straightness: section.straightness,
+                klass: section
+                    .klass
+                    .as_deref()
+                    .and_then(tracematch::SectionClass::parse),
+                is_lift: section.is_lift,
+            },
+            rank: section.rank_score.map(|score| tracematch::RankFeatures {
+                score,
+                sport_score: section.sport_rank_score.unwrap_or(score),
+                ..Default::default()
+            }),
             consensus_state: None,
         };
 
@@ -1610,7 +1637,7 @@ impl PersistentRouteEngine {
         let carried_exclusions = capture_auto_exclusions(&tx)?;
 
         // Clear existing auto sections (keep custom, trimmed, and accepted
-        // sections — and disabled ones, whose row is retained so enable can
+        // sections, and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
         // suppressed via section_intents, so sparing the row cannot resurrect it).
         // Deleting the section cascades its section_activities rows (FK ON DELETE
@@ -1676,8 +1703,9 @@ impl PersistentRouteEngine {
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                 consensus_state_blob, polyline_blob, point_density_blob,
                 elevation_gain_m, avg_grade_percent,
-                rep_start_index, rep_end_index, geometry_source
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                rep_start_index, rep_end_index, geometry_source,
+                elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -1688,7 +1716,7 @@ impl PersistentRouteEngine {
         // sections are durable rows the wipe above spares and are managed by their
         // own CRUD paths; since they now also live in the in-memory `self.sections`
         // (so the matcher and get_sections() see them), they must be filtered out
-        // here or they would be re-inserted under 'auto' — a UNIQUE-id collision.
+        // here or they would be re-inserted under 'auto', a UNIQUE-id collision.
         let mut sorted_sections: Vec<&FrequentSection> = self
             .sections
             .iter()
@@ -1884,6 +1912,16 @@ impl PersistentRouteEngine {
                 section.representative_range.map(|(start, _)| start),
                 section.representative_range.map(|(_, end)| end),
                 geometry_source,
+                section.enrichment.elevation_loss_m,
+                section.enrichment.max_grade_percent,
+                section.enrichment.straightness,
+                section
+                    .enrichment
+                    .klass
+                    .map(tracematch::SectionClass::as_str),
+                i32::from(section.enrichment.is_lift),
+                section.rank.as_ref().map(|r| r.score),
+                section.rank.as_ref().map(|r| r.sport_score),
             ])?;
 
             // Diagnostic: a section that claims attached activities but has

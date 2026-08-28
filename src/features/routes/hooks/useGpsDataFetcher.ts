@@ -278,19 +278,9 @@ export function useGpsDataFetcher() {
           routeEngine.setTimeStreams(demoTimeStreams);
         }
 
-        // Demo: detection 25-75%, tiles 75-100%
-        let started = nativeModule.routeEngine.startSectionDetection();
-        if (!started) {
-          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
-          if (drainStatus === 'complete') {
-            if (__DEV__) {
-              console.log('[fetchDemoGps] Drained stale detection result, retrying start');
-            }
-            routeEngine.triggerRefresh('sections');
-            routeEngine.triggerRefresh('groups');
-            started = nativeModule.routeEngine.startSectionDetection();
-          }
-        }
+        // Demo: detection 25-75%, tiles 75-100%. The engine starts the
+        // run itself when the batch lands; this only follows it.
+        const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
 
         if (started) {
           const pollInterval = 500;
@@ -640,33 +630,10 @@ export function useGpsDataFetcher() {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        if (__DEV__) {
-          console.log('[fetchApiGps] ⏱ calling startSectionDetection...');
-        }
-        // A cutover holds the detection slot and re-cuts everything at its
-        // end, so a start here would be refused. Skipping explicitly keeps
-        // that refusal out of the stale-handle drain below, which exists for
-        // a different failure and would retry into the same wall.
-        const cutoverOwnsSlot = routeEngine.isCutoverPending() || routeEngine.isCutoverRunning();
-        const detStart = Date.now();
-        let started = cutoverOwnsSlot ? false : nativeModule.routeEngine.startSectionDetection();
-        if (__DEV__) {
-          console.log(
-            `[fetchApiGps] ⏱ startSectionDetection returned ${started} in ${Date.now() - detStart}ms`
-          );
-        }
-        if (!started && !cutoverOwnsSlot) {
-          // Drain any stale detection result that's blocking the handle
-          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
-          if (drainStatus === 'complete') {
-            if (__DEV__) {
-              console.log('[fetchApiGps] Drained stale detection result, retrying start');
-            }
-            routeEngine.triggerRefresh('sections');
-            routeEngine.triggerRefresh('groups');
-            started = nativeModule.routeEngine.startSectionDetection();
-          }
-        }
+        // The engine starts detection itself at the end of a stored batch
+        // (and a cutover re-cuts everything at its own end), so this only
+        // follows a run that is under way.
+        const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
 
         if (started) {
           const pollInterval = 500;

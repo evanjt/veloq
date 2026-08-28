@@ -849,6 +849,14 @@
       "formula": "Antal styrkesessioner, vægtede sæt og fulgte muskelgrupper",
       "algorithm": "Samler styrketræninger fra de seneste 4 uger. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5 pr. muskelgruppe.",
       "methodologyDescription": "Opsummerer styrkevolumen for de seneste 4 uger: antal træninger, samlede vægtede sæt og antal fulgte muskelgrupper."
+    },
+    "sectionChanged": {
+      "title": "{{name}} ændret",
+      "recut": "Udstrækningen blev skåret om",
+      "split": "Den blev delt i flere strækninger",
+      "restored": "Den kom tilbage",
+      "reverted": "Den blev sat tilbage til en tidligere version",
+      "body": "Strækningens historik viser, hvad der flyttede sig, og hvilke aktiviteter der var omkring."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Mest besøgte",
     "sortNameAZ": "Navn A-Z",
     "sortNearby": "I nærheden",
+    "sortSignature": "Signatur",
     "suggestion": "Forslag",
     "thisActivity": "Denne aktivitet",
     "thisMayTakeMoment": "Dette kan tage et øjeblik...",
@@ -1486,6 +1495,9 @@
     "viewSection": "Vis",
     "merge": "Flet",
     "autoName": "{{sport}}-sektion ({{distance}})",
+    "autoNameClimb": "Stigning {{distance}} {{grade}}",
+    "autoNameDescent": "Nedkørsel {{distance}} {{grade}}",
+    "autoNameLoop": "Rundtur {{distance}}",
     "mergeCandidatesTitle": "Vælg en sektion at flette",
     "mergeCandidatesSubtitle": "{{count}} lignende sektioner i nærheden",
     "overlapLabel": "overlapning",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "Acceptér alle",
     "acceptAllConfirm": "Acceptér alle {{count}} automatisk detekterede sektioner? De vil blive bevaret ved fremtidig genregistrering.",
     "acceptedCount": "{{count}} sektioner accepteret",
-    "pinned": "Fastgjort",
+    "pinned": "Fastgjort til en version",
     "elevationGain": "Højdestigning",
     "avgGrade": "Gns. hældning",
-    "pinnedOnly": "Kun fastgjorte"
+    "pinnedOnly": "Kun fastgjorte",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "øst",
+    "splitSouth": "syd",
+    "splitWest": "vest",
+    "accepted": "Accepteret",
+    "acceptedOnly": "Kun accepterede",
+    "laps": "Omgange",
+    "lap": "Omgang {{n}}",
+    "excludeLap": "Udeluk",
+    "undoExclude": "Fortryd",
+    "lapExcluded": "Udelukket",
+    "partlyExcluded": "Nogle omgange udelukket",
+    "avgHr": "Gns. puls",
+    "maxGrade": "Stejlest"
   },
   "settings": {
     "account": "Konto",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Behold",
     "previewDiscard": "Kassér",
     "previewKeepTitle": "Anvend disse indstillinger?",
-    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig."
+    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
+    "advanced": "Avanceret"
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Finjustér sektionsgrænser med en dobbelt-håndtag-skyder. Trim for at indsnævre området, eller skift til udvidelsestilstand for at strække ud over de automatisk registrerede grænser, når detektionen manglede en del af ruten. Ændringer afspejles på kortet i realtid.",
       "backupTitle": "Sikkerhedskopiering og gendannelse",
       "backupBody": "Eksportér alle dine data som en fuld sikkerhedskopi og del den via din enheds delingsark. Gendan fra enhver sikkerhedskopi for at fortsætte, hvor du slap."
+    },
+    "v040": {
+      "sectionsTitle": "Strækninger, der forklarer sig selv",
+      "sectionsBody": "Strækninger skæres nu af én deterministisk detektor. Hver har en historik, du kan læse, gendanne og fastgøre.",
+      "rowDeterministic": "Én deterministisk matcher: samme ture giver samme strækninger",
+      "rowSameResult": "Én tur ad gangen eller alle på én gang giver samme resultat",
+      "rowLedger": "En historik viser, hvordan hver strækning ændrede sig, og hvad der var omkring",
+      "rowRevert": "Sæt en tidligere version af en strækning tilbage og fastgør den",
+      "rowRetired": "Strækninger, der forlod kataloget, bliver stående på listen",
+      "rowPinned": "Accepterede strækninger overlever enhver ny analyse",
+      "rowEveryDevice": "Identiske strækninger på alle enheder"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Genopretter forbindelse…",
       "disconnected": "Ikke forbundet"
     }
+  },
+  "sectionHistory": {
+    "title": "Historik",
+    "empty": "Ingen ændringer registreret endnu",
+    "around": "Omkring denne ændring",
+    "forkAround": "Trafik ved krydset",
+    "prEra": "Bedste dengang: {{time}}",
+    "prMoved": "Rekord {{from}} til {{to}}",
+    "versions": "Gemte versioner",
+    "version": "Version {{version}}",
+    "current": "Nuværende",
+    "revert": "Gendan",
+    "revertConfirm": "Sæt version {{version}} tilbage som strækningens linje? Detektionen holder den der, indtil du frigør den.",
+    "unpin": "Frigør",
+    "showOnMap": "Vis på kort",
+    "hideOnMap": "Skjul",
+    "retiredTitle": "Udgåede strækninger",
+    "retiredEmpty": "Ingen strækninger er udgået",
+    "retiredInto": "Ind i {{name}}",
+    "seeRetired": "Udgåede strækninger",
+    "kind_formed": "Dannet",
+    "kind_restored": "Kom tilbage",
+    "kind_split": "Delt i {{count}} strækninger",
+    "kind_recut": "Udstrækning skåret om",
+    "kind_dissolved": "Opløst",
+    "kind_merged": "Slået sammen med en anden strækning",
+    "kind_superseded": "Erstattet af et nyere snit",
+    "kind_reverted": "Gendannet til version {{version}}",
+    "kind_pr_rebased": "Rekord genberegnet mod den nuværende udstrækning",
+    "kind_baseline": "Registreret fra en tidligere version af appen",
+    "kind_algorithm_changed": "Analyseret igen af en nyere detektor"
   }
 }

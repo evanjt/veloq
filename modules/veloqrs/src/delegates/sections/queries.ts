@@ -19,6 +19,7 @@ import type {
   FfiRankedSection,
   FfiSection,
   FfiSectionDetailData,
+  FfiSectionLineage,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   SectionSummary,
@@ -509,4 +510,18 @@ export function getSectionDetailPerformance(
   return host.timed('getSectionDetailPerformance', () =>
     host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
   );
+}
+
+/**
+ * Every live split sibling with the parent it was carved from and its
+ * discriminator, for composing names at read time.
+ */
+export function getSectionLineages(host: DelegateHost): FfiSectionLineage[] {
+  if (!host.ready) return [];
+  try {
+    return host.engine.sections().getLineages();
+  } catch (e) {
+    console.error('[RouteEngine] getSectionLineages failed:', e);
+    return [];
+  }
 }

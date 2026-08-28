@@ -559,6 +559,15 @@ pub struct FfiFrequentSection {
     pub version: u32,
     pub updated_at: Option<String>,
     pub created_at: Option<String>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub straightness: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 impl From<tracematch::FrequentSection> for FfiFrequentSection {
@@ -628,6 +637,15 @@ impl From<&tracematch::FrequentSection> for FfiFrequentSection {
             version: s.version,
             updated_at: s.updated_at.clone(),
             created_at: s.created_at.clone(),
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
+            elevation_loss_m: s.enrichment.elevation_loss_m,
+            max_grade_percent: s.enrichment.max_grade_percent,
+            straightness: s.enrichment.straightness,
+            klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
+            is_lift: s.enrichment.is_lift,
+            rank_score: s.rank.as_ref().map(|r| r.score),
+            sport_rank_score: s.rank.as_ref().map(|r| r.sport_score),
         }
     }
 }
@@ -672,6 +690,13 @@ pub struct FfiSection {
     // Visibility state
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_loss_m: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub straightness: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 impl From<crate::sections::Section> for FfiSection {
@@ -695,6 +720,13 @@ impl From<crate::sections::Section> for FfiSection {
             stability: s.stability,
             elevation_gain_m: s.elevation_gain_m,
             avg_grade_percent: s.avg_grade_percent,
+            elevation_loss_m: s.elevation_loss_m,
+            max_grade_percent: s.max_grade_percent,
+            straightness: s.straightness,
+            klass: s.klass,
+            is_lift: s.is_lift,
+            rank_score: s.rank_score,
+            sport_rank_score: s.sport_rank_score,
             version: s.version,
             updated_at: s.updated_at,
             created_at: s.created_at,
@@ -732,6 +764,75 @@ pub struct FfiSectionLap {
     pub start_index: u32,
     /// End index in the activity's GPS track
     pub end_index: u32,
+    /// Mean heart rate over the lap, when the activity carried a stream.
+    pub avg_hr: Option<f64>,
+}
+
+/// One ledger row of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionHistoryEvent {
+    pub id: i64,
+    pub at: String,
+    /// formed, restored, split, recut, dissolved, merged, superseded,
+    /// reverted, pr_rebased, baseline or algorithm_changed.
+    pub kind: String,
+    /// JSON: the era snapshot, lineage links and what was around the change.
+    pub details: Option<String>,
+    pub geometry_version: Option<i64>,
+}
+
+/// One stored geometry version of a section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionGeometryVersion {
+    pub version: i64,
+    pub created_at: String,
+    pub milestone: bool,
+    pub pinned: bool,
+}
+
+/// A section the ledger remembers and the catalogue no longer holds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRetiredSection {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+    pub into: Option<String>,
+    pub versions: Vec<i64>,
+}
+
+/// The claims the change card may make on this build.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiChangeCardSupport {
+    pub deterministic: bool,
+    pub same_result_drip_or_batch: bool,
+    pub ledger: bool,
+    pub revert: bool,
+    pub retired: bool,
+    pub pinned_survive: bool,
+    pub same_on_every_device: bool,
+}
+
+/// A recent change on a live section, for the insights feed.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionChange {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+}
+
+/// A split sibling's parent and discriminator, for the read side to name it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionLineage {
+    pub section_id: String,
+    pub parent_id: String,
+    /// A cardinal ("north", "east", "south", "west") or an ordinal ("2").
+    pub discriminator: String,
 }
 
 /// One excluded traversal, addressed the way the junction stores it.
@@ -754,6 +855,7 @@ impl From<crate::SectionLap> for FfiSectionLap {
             direction: l.direction,
             start_index: l.start_index,
             end_index: l.end_index,
+            avg_hr: l.avg_hr,
         }
     }
 }
@@ -1044,6 +1146,13 @@ pub struct FfiSectionWithPolyline {
     pub is_user_defined: bool,
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    pub elevation_gain_m: Option<f64>,
+    pub avg_grade_percent: Option<f64>,
+    pub max_grade_percent: Option<f64>,
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    pub rank_score: Option<f64>,
+    pub sport_rank_score: Option<f64>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -1787,6 +1896,7 @@ mod tests {
             direction: "forward".to_string(),
             start_index: 17,
             end_index: 104,
+            avg_hr: Some(142.0),
         }
     }
 
@@ -2054,6 +2164,13 @@ mod tests {
             stability: Some(0.85),
             elevation_gain_m: Some(120.5),
             avg_grade_percent: Some(4.2),
+            elevation_loss_m: Some(8.0),
+            max_grade_percent: Some(7.5),
+            straightness: Some(0.91),
+            klass: Some("climb".to_string()),
+            is_lift: false,
+            rank_score: Some(0.7),
+            sport_rank_score: Some(0.8),
             version: Some(3),
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),

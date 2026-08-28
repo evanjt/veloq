@@ -134,6 +134,24 @@ pub fn note_stored(n: u32) {
 /// (detection already running) is dropped, not carried: its activities are
 /// still unprocessed, so they simply count toward the next batch or the
 /// sync-end detect.
+/// End of a stored batch: whatever is pending below the threshold gets its
+/// run now, so a small sync still lands a catalogue without the app asking.
+pub fn condition_pending() -> bool {
+    if detection_suspended() {
+        return false;
+    }
+    let due = {
+        let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+        let due = c.adds_pending > 0;
+        c.adds_pending = 0;
+        due
+    };
+    if !due {
+        return false;
+    }
+    try_start_conditioning()
+}
+
 pub fn maybe_condition_backfill() -> bool {
     if detection_suspended() {
         // Leave the counter standing: the adds are still unprocessed, so the
@@ -321,6 +339,25 @@ mod tests {
                 .take_batch(),
             "the refused batch is still pending after release"
         );
+    }
+
+    #[test]
+    fn a_batch_end_flushes_whatever_is_pending_and_nothing_else() {
+        let _serial = serial();
+        {
+            let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+            c.adds_pending = 0;
+        }
+        assert!(!condition_pending(), "nothing pending, nothing to flush");
+        note_stored(3);
+        // No engine in a unit test, so the start is refused; the pending
+        // count still resets, a flush never carries adds into the next batch.
+        condition_pending();
+        let pending = CONDITIONER
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .adds_pending;
+        assert_eq!(pending, 0);
     }
 
     #[test]

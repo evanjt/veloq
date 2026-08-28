@@ -69,7 +69,7 @@ pub struct NamedOverlay {
 /// "<word> N" or the legacy "<sport> <word> N", language-agnostic by token
 /// shape. Such names are never user data: the naming path keeps them
 /// row-local and the migration backfill skips them. A real user name of
-/// that shape ("Route 66") is misclassified and stays row-local — no worse
+/// that shape ("Route 66") is misclassified and stays row-local, no worse
 /// than before named corridors existed.
 pub(crate) fn looks_generated(name: &str) -> bool {
     let tokens: Vec<&str> = name.split_whitespace().collect();
@@ -188,7 +188,7 @@ impl PersistentRouteEngine {
         let visible = self.visible_rows_for_resolution();
 
         // Polylines parse lazily, only for rows that pass an intent's bbox
-        // gate — the recompute runs after any write on the connection, so it
+        // gate, the recompute runs after any write on the connection, so it
         // must not deserialise the whole catalogue each time.
         let mut parsed: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
             std::collections::HashMap::new();
@@ -236,7 +236,7 @@ impl PersistentRouteEngine {
         // Fallback pass: an intent with no visible cover resolves against
         // the hidden catalogue so the restore list shows the user's name on
         // a disabled or superseded row. The corridor entry itself stays
-        // dormant — no visible section carries the name.
+        // dormant, no visible section carries the name.
         let mut hidden_pairs: Vec<(String, String)> = Vec::new();
         if resolved.iter().any(|(vi, _)| vi.is_none()) {
             let hidden = self.hidden_rows_for_resolution();
@@ -438,7 +438,7 @@ impl PersistentRouteEngine {
 
     /// Hidden counterparts of `visible_rows_for_resolution`: disabled or
     /// superseded auto rows. The restore list is made of exactly these, so
-    /// an intent with no visible cover falls back to them — a named then
+    /// an intent with no visible cover falls back to them, a named then
     /// disabled corridor must not read "Section N" on the one list whose
     /// job is showing it.
     fn hidden_rows_for_resolution(&self) -> Vec<VisibleRow> {
@@ -660,7 +660,7 @@ impl PersistentRouteEngine {
 
     /// Promotion handoff: when a named auto section becomes user-owned
     /// (accept, set-reference, merge), the resolved corridor name moves onto
-    /// the row — the permanent home for user-owned rows — and the intent
+    /// the row, the permanent home for user-owned rows, and the intent
     /// retires so it cannot re-resolve onto neighbouring auto ground.
     pub(crate) fn adopt_corridor_name(&mut self, section_id: &str) {
         self.ensure_named_overlay();

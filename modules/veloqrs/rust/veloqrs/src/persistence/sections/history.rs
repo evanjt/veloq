@@ -63,6 +63,38 @@ pub struct DetectorGeneration {
     pub digest: String,
 }
 
+/// Where a split sibling came from: the parent it was carved out of and the
+/// discriminator its birth recorded (a cardinal, or an ordinal among the
+/// siblings). A read side composes the sibling's name from these in-locale.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SectionLineage {
+    pub section_id: String,
+    pub parent_id: String,
+    pub discriminator: String,
+}
+
+/// A section the ledger remembers and the catalogue no longer holds: its
+/// last event says how it left, and its stored versions still draw it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetiredSection {
+    pub section_id: String,
+    /// dissolved, merged or superseded.
+    pub kind: String,
+    pub at: String,
+    /// The survivor a merge or supersession handed the ground to.
+    pub into: Option<String>,
+    /// Surviving geometry versions, newest last.
+    pub versions: Vec<i64>,
+}
+
+/// A change the ledger recorded on a live section, for the insights feed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SectionChange {
+    pub section_id: String,
+    pub kind: String,
+    pub at: String,
+}
+
 /// One stored geometry version, without its polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionGeometryVersion {
@@ -131,6 +163,37 @@ pub(super) fn record_geometry_on(
         params![section_id, GEOMETRY_KEEP_RECENT as i64],
     )?;
     Ok(version)
+}
+
+/// Copy the rows `select` yields from `src` into `dst` with `insert`, one
+/// at a time, skipping any row that fails to read or write. Returns the
+/// rows written.
+fn salvage_rows(
+    src: &rusqlite::Connection,
+    dst: &rusqlite::Connection,
+    select: &str,
+    insert: &str,
+    columns: usize,
+) -> usize {
+    let Ok(mut stmt) = src.prepare(select) else {
+        return 0;
+    };
+    let rows = stmt.query_map([], |row| {
+        (0..columns)
+            .map(|i| row.get::<_, rusqlite::types::Value>(i))
+            .collect::<Result<Vec<_>, _>>()
+    });
+    let Ok(rows) = rows else { return 0 };
+    let mut written = 0;
+    for values in rows.flatten() {
+        if dst
+            .execute(insert, rusqlite::params_from_iter(values.iter()))
+            .is_ok()
+        {
+            written += 1;
+        }
+    }
+    written
 }
 
 /// The section's record as the junction rows stand now: the fastest included
@@ -642,6 +705,119 @@ impl PersistentRouteEngine {
         codec::decode_polyline(&blob)
     }
 
+    /// Every section that left the catalogue through a fired retirement and
+    /// still has a ledger, newest departure first.
+    pub fn retired_sections(&self) -> Vec<RetiredSection> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.kind, h.at, h.details FROM section_history h
+             WHERE h.id IN (SELECT MAX(id) FROM section_history GROUP BY section_id)
+               AND h.kind IN ('dissolved', 'merged', 'superseded')
+               AND h.section_id NOT IN (SELECT id FROM sections)
+             ORDER BY h.id DESC",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .map(|(section_id, kind, at, details)| {
+                let d: serde_json::Value = details
+                    .as_deref()
+                    .and_then(|d| serde_json::from_str(d).ok())
+                    .unwrap_or(serde_json::Value::Null);
+                let into = d
+                    .get("into")
+                    .or_else(|| d.get("superseded_by"))
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string);
+                let versions = self
+                    .section_geometry_versions(&section_id)
+                    .into_iter()
+                    .map(|v| v.version)
+                    .collect();
+                RetiredSection {
+                    section_id,
+                    kind,
+                    at,
+                    into,
+                    versions,
+                }
+            })
+            .collect()
+    }
+
+    /// Visible changes on live sections in the last `days`, newest first:
+    /// the re-cuts, splits, restores and reverts a feed can point at. A
+    /// section's birth and its record re-basing are not changes to it.
+    pub fn recent_section_changes(&self, days: u32) -> Vec<SectionChange> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.kind, h.at FROM section_history h
+             JOIN sections s ON s.id = h.section_id
+             WHERE h.kind IN ('recut', 'split', 'restored', 'reverted')
+               AND h.at >= datetime('now', ?)
+             ORDER BY h.id DESC",
+        ) else {
+            return Vec::new();
+        };
+        let window = format!("-{days} days");
+        let rows = stmt.query_map(params![window], |row| {
+            Ok(SectionChange {
+                section_id: row.get(0)?,
+                kind: row.get(1)?,
+                at: row.get(2)?,
+            })
+        });
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    /// Every live section born as a split sibling, with its parent and
+    /// discriminator. The newest birth row wins when a section was carved
+    /// more than once.
+    pub fn section_lineages(&self) -> Vec<SectionLineage> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.details FROM section_history h
+             JOIN sections s ON s.id = h.section_id
+             WHERE h.kind = 'formed' AND h.details LIKE '%split_from%'
+             ORDER BY h.id",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        let mut by_id: std::collections::BTreeMap<String, SectionLineage> =
+            std::collections::BTreeMap::new();
+        for (section_id, details) in iter.flatten() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&details) else {
+                continue;
+            };
+            let (Some(parent), Some(disc)) = (
+                v.get("split_from").and_then(|x| x.as_str()),
+                v.get("discriminator").and_then(|x| x.as_str()),
+            ) else {
+                continue;
+            };
+            by_id.insert(
+                section_id.clone(),
+                SectionLineage {
+                    section_id,
+                    parent_id: parent.to_string(),
+                    discriminator: disc.to_string(),
+                },
+            );
+        }
+        by_id.into_values().collect()
+    }
+
     /// The surviving versions of one section, oldest first, polylines
     /// excluded.
     pub fn section_geometry_versions(&self, section_id: &str) -> Vec<SectionGeometryVersion> {
@@ -715,7 +891,7 @@ impl PersistentRouteEngine {
     }
 
     /// Pin `section_id` at a stored geometry version. Returns false without
-    /// writing when that version does not exist (absent or already pruned) —
+    /// writing when that version does not exist (absent or already pruned) -
     /// a pin must always be restorable.
     pub fn pin_section_geometry(
         &mut self,
@@ -747,6 +923,58 @@ impl PersistentRouteEngine {
             params![section_id],
         )?;
         Ok(())
+    }
+
+    /// Drop a section's pin. Every promotion mutation calls this: a user who
+    /// accepts, renames, trims, re-references or re-matches a section has
+    /// taken it over, and a pin that then holds an older line would fight
+    /// the edit they just made.
+    pub(crate) fn drop_section_pin(&self, section_id: &str) {
+        let _ = self.db.execute(
+            "DELETE FROM section_pins WHERE section_id = ?",
+            params![section_id],
+        );
+    }
+
+    /// Copy every readable ledger row out of a quarantined database into
+    /// this one: `section_history`, `section_geometry` and `section_pins`.
+    /// Best effort, row by row, so one torn page costs its rows and nothing
+    /// else. Returns how many rows of each table landed.
+    pub fn salvage_ledger_from(&self, corrupt_path: &str) -> (usize, usize, usize) {
+        let Ok(src) = rusqlite::Connection::open_with_flags(
+            corrupt_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        ) else {
+            return (0, 0, 0);
+        };
+        let history = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, at, kind, details, geometry_version FROM section_history ORDER BY id",
+            "INSERT OR IGNORE INTO section_history (section_id, at, kind, details, geometry_version)
+             VALUES (?, ?, ?, ?, ?)",
+            5,
+        );
+        let geometry = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, version, created_at, encoding, blob, milestone,
+                    rep_activity_id, rep_start_index, rep_end_index, source
+             FROM section_geometry ORDER BY section_id, version",
+            "INSERT OR IGNORE INTO section_geometry
+                 (section_id, version, created_at, encoding, blob, milestone,
+                  rep_activity_id, rep_start_index, rep_end_index, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            10,
+        );
+        let pins = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, version, created_at FROM section_pins",
+            "INSERT OR IGNORE INTO section_pins (section_id, version, created_at) VALUES (?, ?, ?)",
+            3,
+        );
+        (history, geometry, pins)
     }
 
     /// The pinned version of one section, if any.

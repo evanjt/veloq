@@ -11,6 +11,7 @@ import {
   View,
   StyleSheet,
   FlatList,
+  TouchableOpacity,
   Platform,
   Alert,
   Animated,
@@ -23,12 +24,14 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import {
   useUnifiedSections,
   generateSectionName,
 } from '@/features/routes/hooks/useUnifiedSections';
+import { signatureScore } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -80,7 +83,7 @@ type HiddenFilters = {
   unaccepted: boolean;
 };
 
-export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
+export type SectionsSortOption = 'signature' | 'visits' | 'distance' | 'name' | 'nearby';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -113,6 +116,12 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
+    elevationGainM: s.elevationGainM ?? undefined,
+    avgGradePercent: s.avgGradePercent ?? undefined,
+    maxGradePercent: s.maxGradePercent ?? undefined,
+    klass: s.klass ?? undefined,
+    rankScore: s.rankScore ?? undefined,
+    sportRankScore: s.sportRankScore ?? undefined,
     center,
     isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
     disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
@@ -361,7 +370,9 @@ export const SectionsList = memo(function SectionsList({
       }
     }
 
-    if (sortOption === 'visits') {
+    if (sortOption === 'signature') {
+      regular.sort((a, b) => signatureScore(b, !!sportType) - signatureScore(a, !!sportType));
+    } else if (sortOption === 'visits') {
       regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
     } else if (sortOption === 'distance') {
       regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
@@ -374,7 +385,7 @@ export const SectionsList = memo(function SectionsList({
       unacceptedAutoCount: unaccepted,
       acceptedAutoCount: accepted,
     };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, sportType]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -479,6 +490,11 @@ export const SectionsList = memo(function SectionsList({
   const sortChips: { key: SectionsSortOption; label: string; icon: string }[] = useMemo(
     () => [
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'signature',
+        label: t('routes.sortSignature' as never) as string,
+        icon: 'star-four-points-outline',
+      },
       {
         key: 'visits',
         label: t('routes.sortMostVisited' as never) as string,
@@ -597,6 +613,17 @@ export const SectionsList = memo(function SectionsList({
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
+        <TouchableOpacity
+          testID="sections-retired-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/section-retired' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('sectionHistory.seeRetired')}
+          </Text>
+        </TouchableOpacity>
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </View>
     );
@@ -667,6 +694,17 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 0,
+  },
+  retiredLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  retiredLinkText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,

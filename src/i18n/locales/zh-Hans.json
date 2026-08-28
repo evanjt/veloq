@@ -849,6 +849,14 @@
       "formula": "力量训练次数、加权组数与跟踪肌群数量的统计",
       "algorithm": "汇总过去4周的力量训练。主要训练计为1.0，辅助训练按0.5计入每个肌群。",
       "methodologyDescription": "汇总最近4周的力量训练量: 训练次数、加权组总数和跟踪的肌群数量。"
+    },
+    "sectionChanged": {
+      "title": "{{name}}发生了变化",
+      "recut": "范围被重新切分",
+      "split": "被拆分为多个路段",
+      "restored": "重新出现",
+      "reverted": "已恢复到早期版本",
+      "body": "路段的历史显示了变化的内容以及前后的活动。"
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "最常访问",
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
+    "sortSignature": "标志路段",
     "suggestion": "建议",
     "thisActivity": "此活动",
     "thisMayTakeMoment": "这可能需要一点时间...",
@@ -1486,6 +1495,9 @@
     "viewSection": "查看",
     "merge": "合并",
     "autoName": "{{sport}}路段 ({{distance}})",
+    "autoNameClimb": "爬坡 {{distance}} {{grade}}",
+    "autoNameDescent": "下坡 {{distance}} {{grade}}",
+    "autoNameLoop": "环线 {{distance}}",
     "mergeCandidatesTitle": "选择要合并的路段",
     "mergeCandidatesSubtitle": "附近有 {{count}} 个相似路段",
     "overlapLabel": "重叠",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "全部接受",
     "acceptAllConfirm": "接受所有 {{count}} 个自动检测到的路段?在未来的重新检测中将予以保留。",
     "acceptedCount": "已接受 {{count}} 个路段",
-    "pinned": "已固定",
+    "pinned": "固定到某个版本",
     "elevationGain": "爬升",
     "avgGrade": "平均坡度",
-    "pinnedOnly": "仅已固定"
+    "pinnedOnly": "仅已固定",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "北",
+    "splitEast": "东",
+    "splitSouth": "南",
+    "splitWest": "西",
+    "accepted": "已接受",
+    "acceptedOnly": "仅已接受",
+    "laps": "圈数",
+    "lap": "第{{n}}圈",
+    "excludeLap": "排除",
+    "undoExclude": "撤销",
+    "lapExcluded": "已排除",
+    "partlyExcluded": "部分圈已排除",
+    "avgHr": "平均心率",
+    "maxGrade": "最大坡度"
   },
   "settings": {
     "account": "账户",
@@ -1689,7 +1717,8 @@
     "previewKeep": "保留",
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
-    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。"
+    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
+    "advanced": "高级"
   },
   "stats": {
     "activities": "活动",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "使用双滑块微调路段边界。裁剪以缩小范围，或切换到扩展模式以超越自动检测的限制。更改会在地图上实时反映。",
       "backupTitle": "备份与恢复",
       "backupBody": "将所有数据导出为完整备份，并通过设备的分享功能共享。从任何备份恢复，无缝衔接。"
+    },
+    "v040": {
+      "sectionsTitle": "能自我说明的路段",
+      "sectionsBody": "路段现在由单一的确定性检测器切分。每个路段都保留可查看、可恢复、可固定的历史。",
+      "rowDeterministic": "单一确定性匹配器：相同的骑行得到相同的路段",
+      "rowSameResult": "逐条添加或一次添加所有活动，结果相同",
+      "rowLedger": "历史显示每个路段如何变化以及前后的活动",
+      "rowRevert": "恢复路段的早期版本并固定",
+      "rowRetired": "退出目录的路段仍会列出",
+      "rowPinned": "已接受的路段在每次重新分析后都保留",
+      "rowEveryDevice": "每台设备上的路段完全一致"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "正在重新连接…",
       "disconnected": "未连接"
     }
+  },
+  "sectionHistory": {
+    "title": "历史",
+    "empty": "尚未记录任何变化",
+    "around": "此次变化前后",
+    "forkAround": "岔口的通行",
+    "prEra": "当时最佳：{{time}}",
+    "prMoved": "纪录 {{from}} 变为 {{to}}",
+    "versions": "已保存的版本",
+    "version": "版本{{version}}",
+    "current": "当前",
+    "revert": "恢复",
+    "revertConfirm": "将版本{{version}}恢复为该路段的线路？在你取消固定前，检测会一直保持它。",
+    "unpin": "取消固定",
+    "showOnMap": "在地图上显示",
+    "hideOnMap": "隐藏",
+    "retiredTitle": "已退出的路段",
+    "retiredEmpty": "没有退出的路段",
+    "retiredInto": "并入{{name}}",
+    "seeRetired": "已退出的路段",
+    "kind_formed": "形成",
+    "kind_restored": "重新出现",
+    "kind_split": "拆分为{{count}}个路段",
+    "kind_recut": "范围重新切分",
+    "kind_dissolved": "消失",
+    "kind_merged": "并入另一路段",
+    "kind_superseded": "被更新的切分取代",
+    "kind_reverted": "已恢复到版本{{version}}",
+    "kind_pr_rebased": "纪录已按当前范围重算",
+    "kind_baseline": "来自旧版应用的记录",
+    "kind_algorithm_changed": "由新检测器重新分析"
   }
 }

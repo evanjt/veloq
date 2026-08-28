@@ -82,26 +82,16 @@ export const UNIFIED_CONFIG = {
 };
 
 /**
- * Apply the route-grouping strictness, and the detector config it rides with,
- * to the Rust engine. The engine persists section_config to the settings table,
- * so the next load picks it up without help.
+ * Apply the route-grouping strictness to the Rust engine. The detector's own
+ * parameters are the user's sliders and are not touched: a preset answers
+ * how tightly rides group into routes, not how sections are cut. The engine
+ * persists match strictness, so the next load picks it up without help.
  */
 export function applyDetectionStrictness(strictness: DetectionStrictness): void {
   const engine = getRouteEngine();
   if (!engine) return;
-
   const matchPreset = MATCH_PRESETS[strictness];
   engine.setMatchStrictness(matchPreset.matchPct, matchPreset.endpoint);
-
-  const current = engine.getSectionConfig();
-  if (!current) return;
-
-  // Written in full, never merged over whatever the config already held.
-  engine.setSectionConfig({
-    ...current,
-    preserveHierarchy: false,
-    ...UNIFIED_CONFIG,
-  });
 }
 
 /**

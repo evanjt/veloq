@@ -849,6 +849,14 @@
       "formula": "Contagem de sessões de força, séries ponderadas e grupos musculares acompanhados",
       "algorithm": "Agrega os treinos de força das últimas 4 semanas. O trabalho primário conta como 1.0 e o secundário como 0.5 para cada grupo muscular.",
       "methodologyDescription": "Resume o volume de força das últimas 4 semanas: número de treinos, total de séries ponderadas e grupos musculares acompanhados."
+    },
+    "sectionChanged": {
+      "title": "{{name}} mudou",
+      "recut": "A extensão foi recortada",
+      "split": "Foi dividido em vários trechos",
+      "restored": "Voltou",
+      "reverted": "Foi restaurado para uma versão anterior",
+      "body": "O histórico do trecho mostra o que mudou e quais atividades estavam por perto."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Mais visitadas",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Próximos",
+    "sortSignature": "Assinatura",
     "suggestion": "Sugestão",
     "thisActivity": "Esta atividade",
     "thisMayTakeMoment": "Isso pode levar um momento...",
@@ -1486,6 +1495,9 @@
     "viewSection": "Ver",
     "merge": "Mesclar",
     "autoName": "Trecho {{sport}} ({{distance}})",
+    "autoNameClimb": "Subida {{distance}} {{grade}}",
+    "autoNameDescent": "Descida {{distance}} {{grade}}",
+    "autoNameLoop": "Circuito {{distance}}",
     "mergeCandidatesTitle": "Escolha um trecho para mesclar",
     "mergeCandidatesSubtitle": "{{count}} trechos semelhantes por perto",
     "overlapLabel": "sobreposição",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "Aceitar todos",
     "acceptAllConfirm": "Aceitar todos os {{count}} trechos detectados automaticamente? Serão preservados nas próximas redetecções.",
     "acceptedCount": "{{count}} trechos aceitos",
-    "pinned": "Fixado",
+    "pinned": "Fixado a uma versão",
     "elevationGain": "Ganho de elevação",
     "avgGrade": "Inclinação média",
-    "pinnedOnly": "Apenas fixados"
+    "pinnedOnly": "Apenas fixados",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "norte",
+    "splitEast": "leste",
+    "splitSouth": "sul",
+    "splitWest": "oeste",
+    "accepted": "Aceito",
+    "acceptedOnly": "Só aceitos",
+    "laps": "Voltas",
+    "lap": "Volta {{n}}",
+    "excludeLap": "Excluir",
+    "undoExclude": "Desfazer",
+    "lapExcluded": "Excluída",
+    "partlyExcluded": "Algumas voltas excluídas",
+    "avgHr": "FC média",
+    "maxGrade": "Inclinação máx."
   },
   "settings": {
     "account": "Conta",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas configurações?",
-    "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar."
+    "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar.",
+    "advanced": "Avançado"
   },
   "stats": {
     "activities": "Atividades",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Ajuste os limites dos trechos com um seletor de dupla alça. Recorte para estreitar a faixa ou mude para o modo de expansão para ir além dos limites detectados automaticamente quando a detecção perdeu parte da rota. As alterações se refletem no mapa em tempo real.",
       "backupTitle": "Backup e restauração",
       "backupBody": "Exporte todos os seus dados como backup completo e compartilhe pela tela de compartilhamento do dispositivo. Restaure a partir de qualquer backup para continuar de onde parou."
+    },
+    "v040": {
+      "sectionsTitle": "Trechos que se explicam",
+      "sectionsBody": "Os trechos agora são cortados por um único detector determinístico. Cada um guarda um histórico que você pode ler, restaurar e fixar.",
+      "rowDeterministic": "Um só pareador determinístico: as mesmas pedaladas dão os mesmos trechos",
+      "rowSameResult": "Adicionar atividades uma por uma ou todas de uma vez dá o mesmo resultado",
+      "rowLedger": "Um histórico mostra como cada trecho mudou e o que estava por perto",
+      "rowRevert": "Restaure uma versão anterior de um trecho e fixe-a",
+      "rowRetired": "Trechos que saíram do catálogo continuam listados",
+      "rowPinned": "Trechos aceitos sobrevivem a cada reanálise",
+      "rowEveryDevice": "Trechos idênticos em todos os dispositivos"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Reconectando…",
       "disconnected": "Não conectado"
     }
+  },
+  "sectionHistory": {
+    "title": "Histórico",
+    "empty": "Nenhuma alteração registrada ainda",
+    "around": "Em torno desta alteração",
+    "forkAround": "Tráfego na bifurcação",
+    "prEra": "Melhor na época: {{time}}",
+    "prMoved": "Recorde {{from}} para {{to}}",
+    "versions": "Versões salvas",
+    "version": "Versão {{version}}",
+    "current": "Atual",
+    "revert": "Restaurar",
+    "revertConfirm": "Restaurar a versão {{version}} como linha deste trecho? A detecção a mantém até você desafixar.",
+    "unpin": "Desafixar",
+    "showOnMap": "Mostrar no mapa",
+    "hideOnMap": "Ocultar",
+    "retiredTitle": "Trechos retirados",
+    "retiredEmpty": "Nenhum trecho foi retirado",
+    "retiredInto": "Em {{name}}",
+    "seeRetired": "Trechos retirados",
+    "kind_formed": "Formado",
+    "kind_restored": "Voltou",
+    "kind_split": "Dividido em {{count}} trechos",
+    "kind_recut": "Extensão recortada",
+    "kind_dissolved": "Dissolvido",
+    "kind_merged": "Mesclado com outro trecho",
+    "kind_superseded": "Substituído por um corte mais recente",
+    "kind_reverted": "Restaurado para a versão {{version}}",
+    "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
+    "kind_baseline": "Registrado de uma versão anterior do app",
+    "kind_algorithm_changed": "Reanalisado por um detector mais recente"
   }
 }

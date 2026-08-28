@@ -213,7 +213,7 @@ impl PersistentRouteEngine {
             match sport_type_filter {
                 Some(st) => (
                     "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr
                  FROM section_activities sa
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE sa.section_id = ? AND am.sport_type = ? AND sa.excluded = 0
@@ -226,7 +226,7 @@ impl PersistentRouteEngine {
                 ),
                 None => (
                     "SELECT sa.activity_id, sa.direction, sa.start_index, sa.end_index,
-                        sa.distance_meters, sa.lap_time, sa.lap_pace
+                        sa.distance_meters, sa.lap_time, sa.lap_pace, sa.avg_hr
                  FROM section_activities sa
                  WHERE sa.section_id = ? AND sa.excluded = 0
                  ORDER BY sa.activity_id, sa.start_index"
@@ -257,6 +257,7 @@ impl PersistentRouteEngine {
             distance_meters: f64,
             lap_time: Option<f64>,
             lap_pace: Option<f64>,
+            avg_hr: Option<f64>,
         }
 
         let params_refs: Vec<&dyn rusqlite::types::ToSql> =
@@ -270,6 +271,7 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(4)?,
                 lap_time: row.get(5)?,
                 lap_pace: row.get(6)?,
+                avg_hr: row.get(7)?,
             })
         }) {
             Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
@@ -409,6 +411,7 @@ impl PersistentRouteEngine {
                             direction: portion.direction.clone(),
                             start_index: portion.start_index,
                             end_index: portion.end_index,
+                            avg_hr: portion.avg_hr,
                         })
                     })
                     .collect();
@@ -672,6 +675,7 @@ impl PersistentRouteEngine {
             distance_meters: f64,
             lap_time: Option<f64>,
             lap_pace: Option<f64>,
+            avg_hr: Option<f64>,
         }
 
         let portions: Vec<Portion> = match stmt.query_map(params![section_id], |row| {
@@ -683,6 +687,7 @@ impl PersistentRouteEngine {
                 distance_meters: row.get(4)?,
                 lap_time: row.get(5)?,
                 lap_pace: row.get(6)?,
+                avg_hr: row.get(7)?,
             })
         }) {
             Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
@@ -765,6 +770,7 @@ impl PersistentRouteEngine {
                             direction: p.direction.clone(),
                             start_index: p.start_index,
                             end_index: p.end_index,
+                            avg_hr: p.avg_hr,
                         })
                     })
                     .collect();

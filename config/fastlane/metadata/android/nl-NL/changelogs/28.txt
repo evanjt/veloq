@@ -1,1 +1,0 @@
-Widgets op het startscherm met je fitnessgegevens op iOS en Android. Meldingen tonen nu welke route je reed en route- of sectie-PR's, in je taal. De engine herstelt automatisch van een beschadigde database in plaats van routes en secties te verliezen. Opgelost: routematching en sectiedetectie stopten stilletjes. Pushmeldingen verlopen niet meer na 30 dagen inactiviteit.

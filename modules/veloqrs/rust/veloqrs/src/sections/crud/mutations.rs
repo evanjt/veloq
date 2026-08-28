@@ -256,6 +256,7 @@ impl PersistentRouteEngine {
         // The section is now a durable intent row; the registry relinquishes it
         // so auto detection stops re-emitting (and colliding on) its ground.
         self.section_identity_relinquish(section_id);
+        self.drop_section_pin(section_id);
         Ok(())
     }
 
@@ -531,6 +532,8 @@ impl PersistentRouteEngine {
 
         // Setting a reference promotes an auto section to user-defined; relinquish
         // it from the registry so detection stops re-emitting its (edited) ground.
+        self.drop_section_pin(section_id);
+        self.invalidate_perf_cache();
         self.section_identity_relinquish(section_id);
 
         Ok(())
@@ -580,7 +583,7 @@ impl PersistentRouteEngine {
     /// screen's "should have matched" affordance. Relaxed bars (2.5x
     /// proximity, 40% quality) because the user has already asserted the
     /// match. Idempotent: a pair that already holds junction rows is left
-    /// alone — detection's per-lap rows must not gain a stacked duplicate
+    /// alone, detection's per-lap rows must not gain a stacked duplicate
     /// at a different start index.
     pub fn rematch_activity_to_section(
         &mut self,
@@ -635,6 +638,7 @@ impl PersistentRouteEngine {
         )?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        self.drop_section_pin(section_id);
         self.invalidate_perf_cache();
         Ok(true)
     }
@@ -983,6 +987,12 @@ impl PersistentRouteEngine {
     /// Reset a section's reference to automatic (algorithm-selected).
     /// Sets is_user_defined to false.
     pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        // A reference change backs the original line up; resetting puts it
+        // back the same way a bounds reset does, so "reset to automatic"
+        // restores the shape and not only the flag.
+        if self.has_original_bounds(section_id) {
+            self.reset_section_bounds(section_id)?;
+        }
         // Drop the polyline backup with the demotion: the catalogue save
         // wipes only backup-free auto rows before re-inserting from
         // memory, so a demoted row still carrying its backup collides.
@@ -992,9 +1002,11 @@ impl PersistentRouteEngine {
                 params![section_id],
             )
             .map_err(|e| format!("Failed to reset section reference: {}", e))?;
+        self.drop_section_pin(section_id);
 
         // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
 
         // Refresh in-memory section (for auto sections)
         self.refresh_section_in_memory(section_id);
@@ -1025,6 +1037,7 @@ impl PersistentRouteEngine {
         // Remove from in-memory cache and relinquish from the identity registry so
         // a later detect neither carries nor re-mints the removed section.
         self.remove_section_from_memory(section_id);
+        self.drop_section_pin(section_id);
         self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the

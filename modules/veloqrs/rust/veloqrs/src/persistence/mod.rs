@@ -288,10 +288,14 @@ pub struct CacheUpdate {
     /// The per-(sport, cluster) evidence after routing this fold's new
     /// activities. Becomes the engine's `section_evidence_cache` on success.
     pub cache: SectionEvidenceCache,
-    /// The activity ids the cache now folds — an engine-side shadow of the
+    /// The activity ids the cache now folds, an engine-side shadow of the
     /// cache's per-cluster membership (tracematch does not expose it). Becomes
     /// `cache_folded_ids` on success and drives the next detect's new-id set.
     pub folded_ids: HashSet<String>,
+    /// A mid-fold snapshot (memos and grids stripped, dirty clusters
+    /// marked), persisted while the run is polled so a killed run resumes
+    /// from it. Never applied as a result.
+    pub checkpoint: bool,
     /// Boundary records of the clusters this detect recomputed. A fork
     /// record names the activities its branch collected, which the ledger
     /// attaches to a change at that join as what was around it.
@@ -302,6 +306,8 @@ pub struct CacheUpdate {
 
 pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
+    /// The final cache update, when a checkpoint drain met it first.
+    final_update: std::sync::Mutex<Option<CacheUpdate>>,
     /// Out-of-band channel for the Unified detector's evidence-cache update.
     /// The worker sends this BEFORE the section result on `receiver`, so a
     /// `Ready`/`recv` on the main channel guarantees the cache is already
@@ -350,10 +356,38 @@ impl SectionDetectionHandle {
     /// Take the Unified detector's evidence-cache update, if any. Only the
     /// Unified path sends one; the legacy detectors and the short-circuit do
     /// not, so this returns None and the caller leaves the engine cache as-is.
-    /// Call only after the main result is `Ready`/recv'd — the worker sends the
+    /// Call only after the main result is `Ready`/recv'd, the worker sends the
     /// cache first, so by then it is present.
     pub fn take_cache(&self) -> Option<CacheUpdate> {
-        self.cache_receiver.try_recv().ok()
+        if let Some(u) = self
+            .final_update
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+        {
+            return Some(u);
+        }
+        while let Ok(u) = self.cache_receiver.try_recv() {
+            if !u.checkpoint {
+                return Some(u);
+            }
+        }
+        None
+    }
+
+    /// The newest checkpoint the worker has sent since the last drain, or
+    /// None. A final update met on the way is kept for [`take_cache`].
+    pub fn take_checkpoint(&self) -> Option<CacheUpdate> {
+        let mut latest = None;
+        while let Ok(u) = self.cache_receiver.try_recv() {
+            if u.checkpoint {
+                latest = Some(u);
+            } else {
+                *self.final_update.lock().unwrap_or_else(|e| e.into_inner()) = Some(u);
+                break;
+            }
+        }
+        latest
     }
 
     /// Block for the section result AND collect the evidence-cache update in one
@@ -421,6 +455,7 @@ mod worker_poll_tests {
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
@@ -436,6 +471,7 @@ mod worker_poll_tests {
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
@@ -580,7 +616,7 @@ pub struct PersistentRouteEngine {
 
     /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
     /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
-    /// batch — `sections::SectionIdentity` remaps ids and debounces churn between
+    /// batch, `sections::SectionIdentity` remaps ids and debounces churn between
     /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
 
@@ -592,7 +628,7 @@ pub struct PersistentRouteEngine {
 
     /// Named-corridor resolution: display name per visible section plus the
     /// full corridor listing. A pure function of DB state, refreshed lazily
-    /// behind `named_overlay_stamp` — the connection's `total_changes()`
+    /// behind `named_overlay_stamp`, the connection's `total_changes()`
     /// counter at last compute, so any write through this connection
     /// invalidates it and no mutation site needs remembering. Sync-honest
     /// under the engine's `unsafe impl Sync`: the refresh queries `self.db`
@@ -632,7 +668,7 @@ pub struct PersistentRouteEngine {
     /// duration of one apply so the event emitter can read them.
     fork_records: Vec<tracematch::BoundaryRecord>,
 
-    /// The activity ids `section_evidence_cache` has folded — an engine-side
+    /// The activity ids `section_evidence_cache` has folded, an engine-side
     /// shadow of the cache's per-cluster membership (tracematch does not expose
     /// it). Drives which ids a detect routes as "new": `pool − cache_folded_ids`.
     /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
@@ -808,7 +844,7 @@ impl PersistentRouteEngine {
             }
         }
 
-        // B2 step 3 + B4: same for routes — restore the persisted registry
+        // B2 step 3 + B4: same for routes, restore the persisted registry
         // (mint counter + seniority), else adopt the loaded group_ids as stable
         // seeds. Must run after `groups` load.
         if !self.route_identity_restore() {
@@ -1307,6 +1343,13 @@ impl PersistentRouteEngine {
                     is_user_defined: s.is_user_defined,
                     disabled: s.disabled,
                     superseded_by: s.superseded_by,
+                    elevation_gain_m: s.elevation_gain_m,
+                    avg_grade_percent: s.avg_grade_percent,
+                    max_grade_percent: s.max_grade_percent,
+                    klass: s.klass,
+                    is_lift: s.is_lift,
+                    rank_score: s.rank_score,
+                    sport_rank_score: s.sport_rank_score,
                 }
             })
             .collect();
@@ -1641,7 +1684,19 @@ pub mod persistent_engine_ffi {
         );
 
         match PersistentRouteEngine::new(db_path) {
-            Ok(engine) => Some(engine),
+            Ok(engine) => {
+                // The catalogue is a re-derivable cache; the ledger is not.
+                // Whatever the quarantined file still yields comes across.
+                let (history, geometry, pins) =
+                    engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
+                log::warn!(
+                    "tracematch: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins from the quarantined database",
+                    history,
+                    geometry,
+                    pins
+                );
+                Some(engine)
+            }
             Err(e) => {
                 log::error!(
                     "tracematch: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
@@ -1898,6 +1953,8 @@ mod tests {
             version: 1,
             updated_at: None,
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            enrichment: Default::default(),
+            rank: None,
             consensus_state: None,
         }
     }

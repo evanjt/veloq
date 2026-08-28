@@ -29,7 +29,7 @@ pub mod settings_keys {
     /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
     /// (which spreads the current config and re-sets preset-only fields like
     /// `preserve_hierarchy` / `min_corridor_tracks`) then reads as a genuine
-    /// change every boot — clearing the processed set and, since B2, renumbering
+    /// change every boot, clearing the processed set and, since B2, renumbering
     /// every section. Preferred by the loader; the individual keys remain as a
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";

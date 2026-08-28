@@ -849,6 +849,14 @@
       "formula": "Décompte des séances de force, séries pondérées et groupes musculaires suivis",
       "algorithm": "Agrège les entraînements de force des 4 dernières semaines. Le travail principal compte pour 1.0 et le travail secondaire pour 0.5 par groupe musculaire.",
       "methodologyDescription": "Résume le volume de force des 4 dernières semaines : nombre de séances, total des séries pondérées et groupes musculaires suivis."
+    },
+    "sectionChanged": {
+      "title": "{{name}} a changé",
+      "recut": "Son étendue a été recoupée",
+      "split": "Il a été divisé en plusieurs tronçons",
+      "restored": "Il est revenu",
+      "reverted": "Il a été rétabli à une version antérieure",
+      "body": "L'historique du tronçon montre ce qui a bougé et quelles activités étaient autour."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Plus visitées",
     "sortNameAZ": "Nom A-Z",
     "sortNearby": "À proximité",
+    "sortSignature": "Signature",
     "suggestion": "Suggestion",
     "thisActivity": "Cette activité",
     "thisMayTakeMoment": "Cela peut prendre un moment...",
@@ -1486,6 +1495,9 @@
     "viewSection": "Voir",
     "merge": "Fusionner",
     "autoName": "Section {{sport}} ({{distance}})",
+    "autoNameClimb": "Montée {{distance}} {{grade}}",
+    "autoNameDescent": "Descente {{distance}} {{grade}}",
+    "autoNameLoop": "Boucle {{distance}}",
     "mergeCandidatesTitle": "Choisir une section à fusionner",
     "mergeCandidatesSubtitle": "{{count}} sections similaires à proximité",
     "overlapLabel": "chevauchement",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "Tout accepter",
     "acceptAllConfirm": "Accepter les {{count}} sections détectées automatiquement ? Elles seront conservées lors des prochaines redétections.",
     "acceptedCount": "{{count}} sections acceptées",
-    "pinned": "Épinglée",
+    "pinned": "Épinglé à une version",
     "elevationGain": "Dénivelé positif",
     "avgGrade": "Pente moyenne",
-    "pinnedOnly": "Épinglés uniquement"
+    "pinnedOnly": "Épinglés uniquement",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "est",
+    "splitSouth": "sud",
+    "splitWest": "ouest",
+    "accepted": "Accepté",
+    "acceptedOnly": "Acceptés seulement",
+    "laps": "Tours",
+    "lap": "Tour {{n}}",
+    "excludeLap": "Exclure",
+    "undoExclude": "Annuler",
+    "lapExcluded": "Exclu",
+    "partlyExcluded": "Certains tours exclus",
+    "avgHr": "FC moy.",
+    "maxGrade": "Pente max"
   },
   "settings": {
     "account": "Compte",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Conserver",
     "previewDiscard": "Abandonner",
     "previewKeepTitle": "Appliquer ces réglages ?",
-    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer."
+    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer.",
+    "advanced": "Avancé"
   },
   "stats": {
     "activities": "Activités",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Ajustez les limites de section avec un curseur à deux poignées. Rognez pour réduire la plage, ou passez en mode extension pour dépasser les limites auto-détectées quand la détection a manqué une partie du parcours. Les changements se reflètent sur la carte en temps réel.",
       "backupTitle": "Sauvegarde et restauration",
       "backupBody": "Exportez toutes vos données en sauvegarde complète et partagez-la via la feuille de partage de votre appareil. Restaurez depuis n'importe quelle sauvegarde pour reprendre là où vous vous êtes arrêté."
+    },
+    "v040": {
+      "sectionsTitle": "Des tronçons qui s'expliquent",
+      "sectionsBody": "Les tronçons sont désormais coupés par un seul détecteur déterministe. Chacun garde un historique à lire, rétablir et épingler.",
+      "rowDeterministic": "Un seul apparieur déterministe : les mêmes sorties donnent les mêmes tronçons",
+      "rowSameResult": "Ajouter les sorties une à une ou d'un coup donne le même résultat",
+      "rowLedger": "Un historique montre comment chaque tronçon a changé et ce qu'il y avait autour",
+      "rowRevert": "Rétablir une version antérieure d'un tronçon et l'épingler",
+      "rowRetired": "Les tronçons sortis du catalogue restent listés",
+      "rowPinned": "Les tronçons acceptés survivent à chaque réanalyse",
+      "rowEveryDevice": "Des tronçons identiques sur chaque appareil"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Reconnexion…",
       "disconnected": "Non connecté"
     }
+  },
+  "sectionHistory": {
+    "title": "Historique",
+    "empty": "Aucun changement enregistré",
+    "around": "Autour de ce changement",
+    "forkAround": "Trafic à l'embranchement",
+    "prEra": "Meilleur à l'époque : {{time}}",
+    "prMoved": "Record {{from}} à {{to}}",
+    "versions": "Versions enregistrées",
+    "version": "Version {{version}}",
+    "current": "Actuelle",
+    "revert": "Rétablir",
+    "revertConfirm": "Remettre la version {{version}} comme ligne de ce tronçon ? La détection la conservera jusqu'à ce que vous la libériez.",
+    "unpin": "Libérer",
+    "showOnMap": "Voir sur la carte",
+    "hideOnMap": "Masquer",
+    "retiredTitle": "Tronçons retirés",
+    "retiredEmpty": "Aucun tronçon retiré",
+    "retiredInto": "Dans {{name}}",
+    "seeRetired": "Tronçons retirés",
+    "kind_formed": "Formé",
+    "kind_restored": "Revenu",
+    "kind_split": "Divisé en {{count}} tronçons",
+    "kind_recut": "Étendue recoupée",
+    "kind_dissolved": "Dissous",
+    "kind_merged": "Fusionné avec un autre tronçon",
+    "kind_superseded": "Remplacé par une coupe plus récente",
+    "kind_reverted": "Rétabli à la version {{version}}",
+    "kind_pr_rebased": "Record recalculé sur l'étendue actuelle",
+    "kind_baseline": "Enregistré depuis une version antérieure de l'app",
+    "kind_algorithm_changed": "Réanalysé par un détecteur plus récent"
   }
 }

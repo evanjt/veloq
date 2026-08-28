@@ -1,4 +1,7 @@
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import type { SectionChangeInput } from '../generators/sectionChanged';
+import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import type { StrengthSummary } from '@/features/strength/types';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
@@ -44,6 +47,26 @@ function normalizeStrengthSummary(raw: {
  * This is the subset of intervals.icu wellness that generateInsights uses.
  * Can come from TanStack Query (React) or direct API fetch (background task).
  */
+/**
+ * Visible changes the ledger recorded in the last fortnight, named. An
+ * input that cannot be read is an empty list, never a broken feed.
+ */
+function recentSectionChanges(): SectionChangeInput[] {
+  try {
+    const engine = getRouteEngine();
+    if (!engine) return [];
+    const names = getAllSectionDisplayNames();
+    return engine.getRecentSectionChanges(14).map((c) => ({
+      sectionId: c.sectionId,
+      sectionName: names[c.sectionId] ?? c.sectionId,
+      kind: c.kind,
+      at: ledgerDate(c.at).getTime(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export interface WellnessInput {
   id: string; // date string YYYY-MM-DD
   ctl?: number | null;
@@ -255,6 +278,9 @@ export function computeInsightsFromData(
 
     const sectionTrends = Array.from(sectionTrendMap.values());
 
+    // Visible changes the ledger recorded in the last fortnight, named.
+    const sectionChanges = sectionsReady ? recentSectionChanges() : [];
+
     // Aerobic efficiency trends arrive already filtered and capped by Rust.
     const efficiencyTrends = sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
 
@@ -296,6 +322,7 @@ export function computeInsightsFromData(
         chronicPeriod,
         allSectionTrends: sectionTrends,
         efficiencyTrends,
+        sectionChanges,
       },
       t
     );

@@ -849,6 +849,14 @@
       "formula": "Conteggio di sessioni di forza, serie ponderate e gruppi muscolari monitorati",
       "algorithm": "Aggrega gli allenamenti di forza delle ultime 4 settimane. Il lavoro primario vale 1.0 e quello secondario 0.5 per ogni gruppo muscolare.",
       "methodologyDescription": "Riepiloga il volume di forza delle ultime 4 settimane: numero di allenamenti, totale delle serie ponderate e gruppi muscolari monitorati."
+    },
+    "sectionChanged": {
+      "title": "{{name}} è cambiato",
+      "recut": "La sua estensione è stata ritagliata",
+      "split": "È stato diviso in più tratti",
+      "restored": "È tornato",
+      "reverted": "È stato riportato a una versione precedente",
+      "body": "La cronologia del tratto mostra cosa si è mosso e quali attività c'erano intorno."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Più visitate",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Nelle vicinanze",
+    "sortSignature": "Firma",
     "suggestion": "Suggerimento",
     "thisActivity": "Questa attività",
     "thisMayTakeMoment": "Potrebbe richiedere un momento...",
@@ -1486,6 +1495,9 @@
     "viewSection": "Vedi",
     "merge": "Unisci",
     "autoName": "Sezione {{sport}} ({{distance}})",
+    "autoNameClimb": "Salita {{distance}} {{grade}}",
+    "autoNameDescent": "Discesa {{distance}} {{grade}}",
+    "autoNameLoop": "Anello {{distance}}",
     "mergeCandidatesTitle": "Scegli una sezione da unire",
     "mergeCandidatesSubtitle": "{{count}} sezioni simili nelle vicinanze",
     "overlapLabel": "sovrapposizione",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "Accetta tutto",
     "acceptAllConfirm": "Accettare tutte le {{count}} sezioni rilevate automaticamente? Verranno conservate nelle rilevazioni future.",
     "acceptedCount": "{{count}} sezioni accettate",
-    "pinned": "Fissato",
+    "pinned": "Bloccato a una versione",
     "elevationGain": "Dislivello positivo",
     "avgGrade": "Pendenza media",
-    "pinnedOnly": "Solo fissati"
+    "pinnedOnly": "Solo fissati",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "est",
+    "splitSouth": "sud",
+    "splitWest": "ovest",
+    "accepted": "Accettato",
+    "acceptedOnly": "Solo accettati",
+    "laps": "Giri",
+    "lap": "Giro {{n}}",
+    "excludeLap": "Escludi",
+    "undoExclude": "Annulla",
+    "lapExcluded": "Escluso",
+    "partlyExcluded": "Alcuni giri esclusi",
+    "avgHr": "FC media",
+    "maxGrade": "Pendenza max"
   },
   "settings": {
     "account": "Account",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Mantieni",
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
-    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare."
+    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
+    "advanced": "Avanzate"
   },
   "stats": {
     "activities": "Attività",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Regola i limiti delle sezioni con uno slider a doppia maniglia. Ritaglia per restringere l'intervallo, oppure passa alla modalità espansione per estendere oltre i limiti rilevati automaticamente quando il rilevamento ha mancato parte del percorso. Le modifiche si riflettono sulla mappa in tempo reale.",
       "backupTitle": "Backup e ripristino",
       "backupBody": "Esporta tutti i tuoi dati come backup completo e condividili tramite il foglio di condivisione del dispositivo. Ripristina da qualsiasi backup per riprendere da dove avevi lasciato."
+    },
+    "v040": {
+      "sectionsTitle": "Tratti che si spiegano",
+      "sectionsBody": "I tratti sono ora tagliati da un unico rilevatore deterministico. Ognuno conserva una cronologia da leggere, ripristinare e bloccare.",
+      "rowDeterministic": "Un solo abbinatore deterministico: le stesse uscite danno gli stessi tratti",
+      "rowSameResult": "Aggiungere le uscite una alla volta o tutte insieme dà lo stesso risultato",
+      "rowLedger": "Una cronologia mostra come è cambiato ogni tratto e cosa c'era intorno",
+      "rowRevert": "Ripristina una versione precedente di un tratto e bloccala",
+      "rowRetired": "I tratti usciti dal catalogo restano elencati",
+      "rowPinned": "I tratti accettati sopravvivono a ogni nuova analisi",
+      "rowEveryDevice": "Tratti identici su ogni dispositivo"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Riconnessione…",
       "disconnected": "Non connesso"
     }
+  },
+  "sectionHistory": {
+    "title": "Cronologia",
+    "empty": "Nessuna modifica registrata",
+    "around": "Intorno a questa modifica",
+    "forkAround": "Traffico al bivio",
+    "prEra": "Migliore all'epoca: {{time}}",
+    "prMoved": "Record da {{from}} a {{to}}",
+    "versions": "Versioni salvate",
+    "version": "Versione {{version}}",
+    "current": "Attuale",
+    "revert": "Ripristina",
+    "revertConfirm": "Rimettere la versione {{version}} come linea di questo tratto? Il rilevamento la manterrà finché non la sblocchi.",
+    "unpin": "Sblocca",
+    "showOnMap": "Mostra sulla mappa",
+    "hideOnMap": "Nascondi",
+    "retiredTitle": "Tratti ritirati",
+    "retiredEmpty": "Nessun tratto ritirato",
+    "retiredInto": "In {{name}}",
+    "seeRetired": "Tratti ritirati",
+    "kind_formed": "Formato",
+    "kind_restored": "Tornato",
+    "kind_split": "Diviso in {{count}} tratti",
+    "kind_recut": "Estensione ritagliata",
+    "kind_dissolved": "Dissolto",
+    "kind_merged": "Unito a un altro tratto",
+    "kind_superseded": "Sostituito da un taglio più recente",
+    "kind_reverted": "Ripristinato alla versione {{version}}",
+    "kind_pr_rebased": "Record ricalcolato sull'estensione attuale",
+    "kind_baseline": "Registrato da una versione precedente dell'app",
+    "kind_algorithm_changed": "Rianalizzato da un rilevatore più recente"
   }
 }

@@ -127,18 +127,33 @@ fn section_on(snap: &SectionSnapshot, ground: &[GpsPoint]) -> Option<(String, Se
         .map(|(id, f)| (id.clone(), f.clone()))
 }
 
-/// Full-table dump with every column rendered to text (blobs as raw byte
-/// debug), so equality means byte-unchanged rows.
+/// Columns the engine re-derives on every rank: caches, not content, so a
+/// durable row keeping its content while these fill is unchanged.
+const DERIVED_COLUMNS: [&str; 7] = [
+    "elevation_loss_m",
+    "max_grade_percent",
+    "straightness",
+    "klass",
+    "is_lift",
+    "rank_score",
+    "sport_rank_score",
+];
+
+/// Full-table dump with every content column rendered to text (blobs as raw
+/// byte debug), so equality means byte-unchanged rows.
 fn dump_table(db_path: &std::path::Path, table: &str, order_by: &str) -> Vec<String> {
     let conn = rusqlite::Connection::open(db_path).expect("open db for dump");
     let mut stmt = conn
         .prepare(&format!("SELECT * FROM {table} ORDER BY {order_by}"))
         .expect("prepare dump");
     let ncols = stmt.column_count();
+    let content: Vec<usize> = (0..ncols)
+        .filter(|&i| !DERIVED_COLUMNS.contains(&stmt.column_name(i).expect("column name")))
+        .collect();
     let rows = stmt
         .query_map([], |row| {
-            let mut cells = Vec::with_capacity(ncols);
-            for i in 0..ncols {
+            let mut cells = Vec::with_capacity(content.len());
+            for &i in &content {
                 cells.push(match row.get_ref(i)? {
                     ValueRef::Null => "NULL".to_string(),
                     ValueRef::Integer(v) => v.to_string(),

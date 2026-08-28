@@ -68,6 +68,18 @@ pub struct Section {
     pub elevation_gain_m: Option<f64>,
     /// Net grade (%) over the representative slice; None when unknown
     pub avg_grade_percent: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
+    /// Steepest grade (%) held over 300 m of the slice.
+    pub max_grade_percent: Option<f64>,
+    /// Chord over arc, 0..1.
+    pub straightness: Option<f64>,
+    /// climb, descent, rolling, flat or loop; None when nothing says.
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    /// Interestingness percentile across the catalogue, 0..1.
+    pub rank_score: Option<f64>,
+    /// Interestingness percentile within the section's sport, 0..1.
+    pub sport_rank_score: Option<f64>,
     /// Number of times this section has been recalibrated
     pub version: Option<u32>,
     /// ISO timestamp of last recalibration
@@ -153,6 +165,18 @@ pub struct SectionSummary {
     pub elevation_gain_m: Option<f64>,
     /// Net grade (%) over the representative slice; None when unknown
     pub avg_grade_percent: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
+    /// Steepest grade (%) held over 300 m of the slice.
+    pub max_grade_percent: Option<f64>,
+    /// Chord over arc, 0..1.
+    pub straightness: Option<f64>,
+    /// climb, descent, rolling, flat or loop; None when nothing says.
+    pub klass: Option<String>,
+    pub is_lift: bool,
+    /// Interestingness percentile across the catalogue, 0..1.
+    pub rank_score: Option<f64>,
+    /// Interestingness percentile within the section's sport, 0..1.
+    pub sport_rank_score: Option<f64>,
     /// ISO timestamp when section was created
     pub created_at: String,
     /// All sport types present in this section's activities

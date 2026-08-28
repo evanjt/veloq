@@ -849,6 +849,14 @@
       "formula": "筋力セッション数・加重セット数・追跡中の筋群数の集計",
       "algorithm": "過去4週間の筋力ワークアウトを集計します。主働は1.0、補助は0.5として各筋群に数えます。",
       "methodologyDescription": "直近4週間の筋力ボリュームを要約します: ワークアウト数、加重セット合計、追跡中の筋群数。"
+    },
+    "sectionChanged": {
+      "title": "{{name}}が変わりました",
+      "recut": "範囲が再設定されました",
+      "split": "複数の区間に分割されました",
+      "restored": "復活しました",
+      "reverted": "以前のバージョンに戻されました",
+      "body": "区間の履歴に、何が変わり、その前後にどの活動があったかが表示されます。"
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "最多訪問",
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
+    "sortSignature": "シグネチャ",
     "suggestion": "提案",
     "thisActivity": "このアクティビティ",
     "thisMayTakeMoment": "少々お待ちください...",
@@ -1486,6 +1495,9 @@
     "viewSection": "表示",
     "merge": "結合",
     "autoName": "{{sport}}セクション ({{distance}})",
+    "autoNameClimb": "登り {{distance}} {{grade}}",
+    "autoNameDescent": "下り {{distance}} {{grade}}",
+    "autoNameLoop": "周回 {{distance}}",
     "mergeCandidatesTitle": "結合するセクションを選択",
     "mergeCandidatesSubtitle": "近くに類似セクションが{{count}}件あります",
     "overlapLabel": "重なり",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "すべて承認",
     "acceptAllConfirm": "自動検出されたセクション{{count}}件をすべて承認しますか?今後の再検出でも保持されます。",
     "acceptedCount": "{{count}}件のセクションを承認しました",
-    "pinned": "ピン留め",
+    "pinned": "バージョンに固定",
     "elevationGain": "獲得標高",
     "avgGrade": "平均勾配",
-    "pinnedOnly": "ピン留めのみ"
+    "pinnedOnly": "ピン留めのみ",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "北",
+    "splitEast": "東",
+    "splitSouth": "南",
+    "splitWest": "西",
+    "accepted": "承認済み",
+    "acceptedOnly": "承認済みのみ",
+    "laps": "ラップ",
+    "lap": "ラップ{{n}}",
+    "excludeLap": "除外",
+    "undoExclude": "元に戻す",
+    "lapExcluded": "除外済み",
+    "partlyExcluded": "一部のラップを除外",
+    "avgHr": "平均心拍",
+    "maxGrade": "最大勾配"
   },
   "settings": {
     "account": "アカウント",
@@ -1689,7 +1717,8 @@
     "previewKeep": "適用",
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
-    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。"
+    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
+    "advanced": "詳細設定"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "デュアルハンドルスライダーでセクションの範囲を微調整。トリミングで範囲を狭めたり、拡張モードに切り替えて自動検出の限界を超えて延長できます。変更はマップにリアルタイムで反映されます。",
       "backupTitle": "バックアップと復元",
       "backupBody": "すべてのデータを完全なバックアップとしてエクスポートし、共有シートで共有できます。任意のバックアップから復元して、中断した場所から再開できます。"
+    },
+    "v040": {
+      "sectionsTitle": "自らを説明する区間",
+      "sectionsBody": "区間は単一の決定論的な検出器で切り出されるようになりました。各区間には読める・戻せる・固定できる履歴があります。",
+      "rowDeterministic": "決定論的なマッチャー：同じ活動なら同じ区間になります",
+      "rowSameResult": "活動を1件ずつ追加しても一括でも結果は同じです",
+      "rowLedger": "履歴で各区間の変化とその前後の活動がわかります",
+      "rowRevert": "区間を以前のバージョンに戻して固定できます",
+      "rowRetired": "カタログから消えた区間も一覧に残ります",
+      "rowPinned": "承認済みの区間はどの再解析でも残ります",
+      "rowEveryDevice": "どの端末でも同じ区間"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "再接続中…",
       "disconnected": "未接続"
     }
+  },
+  "sectionHistory": {
+    "title": "履歴",
+    "empty": "まだ変更はありません",
+    "around": "この変更の前後",
+    "forkAround": "分岐点の通行",
+    "prEra": "当時のベスト: {{time}}",
+    "prMoved": "記録 {{from}} → {{to}}",
+    "versions": "保存されたバージョン",
+    "version": "バージョン{{version}}",
+    "current": "現在",
+    "revert": "戻す",
+    "revertConfirm": "バージョン{{version}}をこの区間のラインに戻しますか？固定を解除するまで検出はこのラインを保持します。",
+    "unpin": "固定を解除",
+    "showOnMap": "地図に表示",
+    "hideOnMap": "非表示",
+    "retiredTitle": "消えた区間",
+    "retiredEmpty": "消えた区間はありません",
+    "retiredInto": "{{name}}へ",
+    "seeRetired": "消えた区間",
+    "kind_formed": "形成",
+    "kind_restored": "復活",
+    "kind_split": "{{count}}区間に分割",
+    "kind_recut": "範囲を再設定",
+    "kind_dissolved": "解消",
+    "kind_merged": "別の区間に統合",
+    "kind_superseded": "新しい区切りに置き換え",
+    "kind_reverted": "バージョン{{version}}に戻しました",
+    "kind_pr_rebased": "現在の範囲で記録を再計算",
+    "kind_baseline": "以前のアプリ版から記録",
+    "kind_algorithm_changed": "新しい検出器で再解析"
   }
 }

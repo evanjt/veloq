@@ -49,26 +49,6 @@ fn cold_snapshot(arm: Arm, set: &[&LifecycleActivity]) -> SectionSnapshot {
 // Probe 1: COLD-REBUILD DETERMINISM (detector, isolated)
 // ============================================================================
 
-/// Gate: the Control cold-rebuild must be byte-stable in GROUND (two
-/// independent builds of the same set produce the identical order-free
-/// signature). This is the precondition for freezing the Suite #1 golden.
-#[test]
-#[ignore = "Corridor is not byte-stable on identical input: a section's sport_type flips run-to-run (nondeterministic cross-sport-merge primary selection on a tie), and the expand shows broader ground variance, so the Suite #1 golden cannot be byte-frozen, only order-free-tolerant"]
-fn control_cold_rebuild_is_byte_stable() {
-    let corpus = small_corpus();
-    let set = corpus.through_a();
-    let a = cold_snapshot(Arm::Battery, &set);
-    let b = cold_snapshot(Arm::Battery, &set);
-    assert_eq!(
-        a.catalogue_signature(),
-        b.catalogue_signature(),
-        "Control cold-rebuild produced different catalogues from identical input \
-         ({} vs {} sections). The detector itself is nondeterministic",
-        a.count(),
-        b.count(),
-    );
-}
-
 /// Gate: the Battery cold-rebuild must be byte-stable in GROUND. A4 removed the
 /// order-dependence inside `unified.rs`, so this should hold through the whole
 /// stack and give the redesign a byte-frozen anchor. Live, not ignored. If it

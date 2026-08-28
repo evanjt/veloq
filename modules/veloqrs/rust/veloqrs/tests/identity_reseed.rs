@@ -409,11 +409,11 @@ fn config_change_settles_in_one_apply(arm: Arm) {
 
 /// Scenario: every ride that formed a corridor is deleted, the corridor
 /// tombstones, and the same ground later fills with traffic of another sport.
-/// Expected behaviour: it comes back as itself. The old id returns, and so does
-/// the sport the section was derived under, which a restore takes from the
-/// identity rather than from the batch that revived it.
+/// Expected behaviour: it comes back as itself, under the old id, and its
+/// heading follows the members it now has: every one is a run, so it reads
+/// as a run, not as the sport the grave remembers.
 #[test]
-fn a_restored_section_comes_back_under_its_own_sport() {
+fn a_restored_section_comes_back_under_its_old_id_and_its_members_sport() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let rides = trunk_outings(12);
     let cold = ingest_step(&mut engine, "rides", &refs(&rides)).snapshot;
@@ -450,8 +450,8 @@ fn a_restored_section_comes_back_under_its_own_sport() {
         .get(&id)
         .expect("the re-formed ground did not come back under its old id");
     assert_eq!(
-        fp.sport_type, "Ride",
-        "a restored section took the reviving batch's sport instead of its own"
+        fp.sport_type, "Run",
+        "a restored section kept the grave's sport instead of its members'"
     );
 }
 

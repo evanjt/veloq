@@ -91,6 +91,17 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       },
     },
   ],
+  '0.4.0': [
+    {
+      titleKey: 'whatsNew.v040.sectionsTitle',
+      bodyKey: 'whatsNew.v040.sectionsBody',
+      icon: 'history',
+      showMeRoute: '/routes',
+      get Component() {
+        return require('./SectionChangeCardSlide').SectionChangeCardSlide;
+      },
+    },
+  ],
 };
 
 /** Compare two semver strings (e.g. '0.2.1' < '0.2.2'). */

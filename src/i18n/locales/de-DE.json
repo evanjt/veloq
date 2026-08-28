@@ -849,6 +849,14 @@
       "formula": "Anzahl der Krafteinheiten, gewichteten Sätze und erfassten Muskelgruppen",
       "algorithm": "Fasst die Kraftworkouts der letzten 4 Wochen zusammen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5 pro Muskelgruppe.",
       "methodologyDescription": "Fasst das Kraftvolumen der letzten 4 Wochen zusammen: Anzahl der Workouts, gewichtete Sätze gesamt und erfasste Muskelgruppen."
+    },
+    "sectionChanged": {
+      "title": "{{name}} geändert",
+      "recut": "Die Ausdehnung wurde neu geschnitten",
+      "split": "Er wurde in mehrere Abschnitte geteilt",
+      "restored": "Er ist zurückgekehrt",
+      "reverted": "Er wurde auf eine frühere Version zurückgesetzt",
+      "body": "Der Verlauf des Abschnitts zeigt, was sich bewegt hat und welche Aktivitäten dabei waren."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Am häufigsten besucht",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "In der Nähe",
+    "sortSignature": "Signatur",
     "suggestion": "Vorschlag",
     "thisActivity": "Diese Aktivität",
     "thisMayTakeMoment": "Dies kann einen Moment dauern...",
@@ -1486,6 +1495,9 @@
     "viewSection": "Anzeigen",
     "merge": "Zusammenführen",
     "autoName": "{{sport}}-Abschnitt ({{distance}})",
+    "autoNameClimb": "Anstieg {{distance}} {{grade}}",
+    "autoNameDescent": "Abfahrt {{distance}} {{grade}}",
+    "autoNameLoop": "Runde {{distance}}",
     "mergeCandidatesTitle": "Abschnitt zum Zusammenführen auswählen",
     "mergeCandidatesSubtitle": "{{count}} ähnliche Abschnitte in der Nähe",
     "overlapLabel": "Überlappung",
@@ -1493,10 +1505,26 @@
     "acceptAllSections": "Alle akzeptieren",
     "acceptAllConfirm": "Alle {{count}} automatisch erkannten Abschnitte akzeptieren? Sie bleiben bei zukünftigen Neuerkennungen erhalten.",
     "acceptedCount": "{{count}} Abschnitte akzeptiert",
-    "pinned": "Angeheftet",
+    "pinned": "An eine Version geheftet",
     "elevationGain": "Höhenmeter",
     "avgGrade": "Durchschn. Steigung",
-    "pinnedOnly": "Nur angeheftete"
+    "pinnedOnly": "Nur angeheftete",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "Nord",
+    "splitEast": "Ost",
+    "splitSouth": "Süd",
+    "splitWest": "West",
+    "accepted": "Übernommen",
+    "acceptedOnly": "Nur übernommene",
+    "laps": "Runden",
+    "lap": "Runde {{n}}",
+    "excludeLap": "Ausschließen",
+    "undoExclude": "Rückgängig",
+    "lapExcluded": "Ausgeschlossen",
+    "partlyExcluded": "Einige Runden ausgeschlossen",
+    "avgHr": "Ø Puls",
+    "maxGrade": "Steilste Stelle"
   },
   "settings": {
     "account": "Konto",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Behalten",
     "previewDiscard": "Verwerfen",
     "previewKeepTitle": "Diese Einstellungen anwenden?",
-    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern."
+    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
+    "advanced": "Erweitert"
   },
   "stats": {
     "activities": "Aktivitäten",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Passe Abschnittsgrenzen mit einem Doppelgriff-Schieberegler an. Kürze den Bereich oder wechsle in den Erweiterungsmodus, um über die automatisch erkannten Grenzen hinaus zu erweitern, wenn die Erkennung einen Teil der Route verpasst hat. Änderungen werden in Echtzeit auf der Karte angezeigt.",
       "backupTitle": "Backup & Wiederherstellung",
       "backupBody": "Exportiere alle deine Daten als vollständiges Backup und teile es über das Teilen-Menü deines Geräts. Stelle aus jedem Backup wieder her, um genau dort weiterzumachen, wo du aufgehört hast."
+    },
+    "v040": {
+      "sectionsTitle": "Abschnitte, die sich erklären",
+      "sectionsBody": "Abschnitte werden jetzt von einem deterministischen Detektor geschnitten. Jeder hat einen Verlauf, den du lesen, zurücksetzen und anheften kannst.",
+      "rowDeterministic": "Ein deterministischer Matcher: gleiche Fahrten ergeben gleiche Abschnitte",
+      "rowSameResult": "Fahrten einzeln oder auf einmal ergeben dasselbe Ergebnis",
+      "rowLedger": "Ein Verlauf zeigt, wie sich jeder Abschnitt änderte und was dabei war",
+      "rowRevert": "Eine frühere Version eines Abschnitts zurücksetzen und anheften",
+      "rowRetired": "Ausgeschiedene Abschnitte bleiben gelistet",
+      "rowPinned": "Übernommene Abschnitte überstehen jede Neuanalyse",
+      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
     }
+  },
+  "sectionHistory": {
+    "title": "Verlauf",
+    "empty": "Noch keine Änderungen aufgezeichnet",
+    "around": "Rund um diese Änderung",
+    "forkAround": "Verkehr an der Abzweigung",
+    "prEra": "Bestzeit damals: {{time}}",
+    "prMoved": "Rekord {{from}} zu {{to}}",
+    "versions": "Gespeicherte Versionen",
+    "version": "Version {{version}}",
+    "current": "Aktuell",
+    "revert": "Zurücksetzen",
+    "revertConfirm": "Version {{version}} als Linie dieses Abschnitts zurücksetzen? Die Erkennung hält sie, bis du sie löst.",
+    "unpin": "Lösen",
+    "showOnMap": "Auf Karte zeigen",
+    "hideOnMap": "Ausblenden",
+    "retiredTitle": "Ausgeschiedene Abschnitte",
+    "retiredEmpty": "Keine Abschnitte ausgeschieden",
+    "retiredInto": "In {{name}}",
+    "seeRetired": "Ausgeschiedene Abschnitte",
+    "kind_formed": "Gebildet",
+    "kind_restored": "Zurückgekehrt",
+    "kind_split": "In {{count}} Abschnitte geteilt",
+    "kind_recut": "Ausdehnung neu geschnitten",
+    "kind_dissolved": "Aufgelöst",
+    "kind_merged": "Mit einem anderen Abschnitt zusammengeführt",
+    "kind_superseded": "Durch einen neueren Schnitt ersetzt",
+    "kind_reverted": "Auf Version {{version}} zurückgesetzt",
+    "kind_pr_rebased": "Rekord auf die aktuelle Ausdehnung bezogen",
+    "kind_baseline": "Aus einer früheren App-Version übernommen",
+    "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert"
   }
 }

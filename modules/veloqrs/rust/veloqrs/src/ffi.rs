@@ -406,6 +406,10 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
             crate::persistence::with_persistent_engine(|engine| {
                 engine.attach_finalize(total_attached_portions)
             });
+            // Sync-end cadence: a batch too small for the backfill threshold
+            // still gets its detection run, started here rather than by the
+            // app after the fact.
+            conditioning::condition_pending();
         }
 
         let storage_time = elapsed_ms(storage_start);
@@ -607,6 +611,30 @@ pub fn get_cutover_progress() -> CutoverProgress {
     CutoverProgress {
         phase: crate::persistence::cutover::cutover_phase().to_string(),
         running: crate::persistence::cutover::cutover_running(),
+    }
+}
+
+/// Which claims the change card may make on this build.
+#[uniffi::export]
+pub fn get_change_card_support() -> crate::FfiChangeCardSupport {
+    let s = crate::persistence::with_persistent_engine(|e| e.change_card_support());
+    let s = s.unwrap_or(crate::persistence::cutover::ChangeCardSupport {
+        deterministic: false,
+        same_result_drip_or_batch: false,
+        ledger: false,
+        revert: false,
+        retired: false,
+        pinned_survive: false,
+        same_on_every_device: false,
+    });
+    crate::FfiChangeCardSupport {
+        deterministic: s.deterministic,
+        same_result_drip_or_batch: s.same_result_drip_or_batch,
+        ledger: s.ledger,
+        revert: s.revert,
+        retired: s.retired,
+        pinned_survive: s.pinned_survive,
+        same_on_every_device: s.same_on_every_device,
     }
 }
 

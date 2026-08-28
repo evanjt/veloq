@@ -252,6 +252,7 @@ export interface TranslationResource {
   };
 
   settings: {
+    advanced: string;
     title: string;
     display: string;
     displayAndMaps: string;
@@ -690,6 +691,14 @@ export interface TranslationResource {
   };
 
   insights: {
+    sectionChanged: {
+      title: string;
+      recut: string;
+      split: string;
+      restored: string;
+      reverted: string;
+      body: string;
+    };
     title: string;
     noInsights: string;
     noInsightsHint: string;
@@ -886,6 +895,17 @@ export interface TranslationResource {
       fitnessTitle: string;
       fitnessBody: string;
     };
+    v040: {
+      sectionsTitle: string;
+      sectionsBody: string;
+      rowDeterministic: string;
+      rowSameResult: string;
+      rowLedger: string;
+      rowRevert: string;
+      rowRetired: string;
+      rowPinned: string;
+      rowEveryDevice: string;
+    };
     v030: {
       insightsTitle: string;
       insightsBody: string;
@@ -1031,6 +1051,7 @@ export interface TranslationResource {
     sortMostVisited: string;
     sortNameAZ: string;
     sortNearby: string;
+    sortSignature: string;
     reverse: string;
     partial: string;
     overlap: string;
@@ -1109,6 +1130,37 @@ export interface TranslationResource {
     setAsReferenceConfirm: string;
   };
 
+  sectionHistory: {
+    title: string;
+    empty: string;
+    around: string;
+    forkAround: string;
+    prEra: string;
+    prMoved: string;
+    versions: string;
+    version: string;
+    current: string;
+    revert: string;
+    revertConfirm: string;
+    unpin: string;
+    showOnMap: string;
+    hideOnMap: string;
+    retiredTitle: string;
+    retiredEmpty: string;
+    retiredInto: string;
+    seeRetired: string;
+    kind_formed: string;
+    kind_restored: string;
+    kind_split: string;
+    kind_recut: string;
+    kind_dissolved: string;
+    kind_merged: string;
+    kind_superseded: string;
+    kind_reverted: string;
+    kind_pr_rebased: string;
+    kind_baseline: string;
+    kind_algorithm_changed: string;
+  };
   sections: {
     acceptSection: string;
     acceptAllSections: string;
@@ -1116,6 +1168,16 @@ export interface TranslationResource {
     acceptedCount: string;
     pinned: string;
     pinnedOnly: string;
+    accepted: string;
+    acceptedOnly: string;
+    laps: string;
+    lap: string;
+    avgHr: string;
+    maxGrade: string;
+    excludeLap: string;
+    undoExclude: string;
+    lapExcluded: string;
+    partlyExcluded: string;
     elevationGain: string;
     avgGrade: string;
     activitiesCount: string;
@@ -1147,6 +1209,15 @@ export interface TranslationResource {
     last: string;
     lastActivity: string;
     autoName: string;
+    autoNameClimb: string;
+    autoNameDescent: string;
+    autoNameLoop: string;
+    splitName: string;
+    splitOrdinal: string;
+    splitNorth: string;
+    splitEast: string;
+    splitSouth: string;
+    splitWest: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;

@@ -11,7 +11,7 @@ impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 18;
+    pub(super) const SCHEMA_VERSION: i32 = 19;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -53,6 +53,7 @@ impl PersistentRouteEngine {
             include_str!("../migrations/016_stream_bodies.sql"),
             include_str!("../migrations/017_b4_core.sql"),
             include_str!("../migrations/018_evidence_cache.sql"),
+            include_str!("../migrations/019_enrichment.sql"),
         ]
     }
 
@@ -127,6 +128,7 @@ impl PersistentRouteEngine {
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
+        Self::ensure_section_summary_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_sections_geometry_provenance(conn)?;
@@ -136,6 +138,7 @@ impl PersistentRouteEngine {
         Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
         Self::ensure_catalogue_archive(conn);
+        Self::ensure_content_ids(conn)?;
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -336,7 +339,9 @@ impl PersistentRouteEngine {
              bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
              original_polyline_json, disabled, superseded_by, consensus_state_blob,
              polyline_blob, point_density_blob, visit_count, rep_start_index,
-             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent";
+             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent,
+             activity_count, sport_types, elevation_loss_m, max_grade_percent, straightness,
+             klass, is_lift, rank_score, sport_rank_score";
         let tx = conn.unchecked_transaction()?;
         tx.execute_batch(
             "DROP TABLE IF EXISTS sections_rebuild;
@@ -378,7 +383,16 @@ impl PersistentRouteEngine {
                      CHECK(geometry_source IS NULL
                            OR geometry_source IN ('exact', 'consensus', 'orphaned')),
                  elevation_gain_m REAL,
-                 avg_grade_percent REAL
+                 avg_grade_percent REAL,
+                 activity_count INTEGER NOT NULL DEFAULT 0,
+                 sport_types TEXT,
+                 elevation_loss_m REAL,
+                 max_grade_percent REAL,
+                 straightness REAL,
+                 klass TEXT,
+                 is_lift INTEGER NOT NULL DEFAULT 0,
+                 rank_score REAL,
+                 sport_rank_score REAL
              );",
         )?;
         tx.execute(
@@ -393,6 +407,10 @@ impl PersistentRouteEngine {
              DROP TRIGGER IF EXISTS section_activities_visit_count_ad;
              DROP TRIGGER IF EXISTS section_activities_visit_count_au;
              DROP TRIGGER IF EXISTS section_activities_visit_count_amove;
+             DROP TRIGGER IF EXISTS section_activities_summary_ai;
+             DROP TRIGGER IF EXISTS section_activities_summary_ad;
+             DROP TRIGGER IF EXISTS section_activities_summary_au;
+             DROP TRIGGER IF EXISTS section_activities_summary_amove;
              DROP TABLE sections;
              ALTER TABLE sections_rebuild RENAME TO sections;
              CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
@@ -402,6 +420,7 @@ impl PersistentRouteEngine {
         )?;
         tx.commit()?;
         Self::ensure_visit_count_denormalisation(conn)?;
+        Self::ensure_section_summary_denormalisation(conn)?;
         let violations: i64 =
             conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
                 row.get(0)
@@ -612,6 +631,172 @@ impl PersistentRouteEngine {
                  ) WHERE id = OLD.section_id;
              END;",
         )?;
+        Ok(())
+    }
+
+    /// Denormalise the two summary aggregates the section list reads on
+    /// every render, `activity_count` (distinct included activities) and
+    /// `sport_types` (their sports, comma-joined), onto the row, kept by
+    /// triggers beside the visit_count ones so a junction change updates the
+    /// summary in the same statement.
+    fn ensure_section_summary_denormalisation(conn: &Connection) -> SqlResult<()> {
+        let has_columns = conn
+            .prepare("SELECT activity_count, sport_types FROM sections LIMIT 0")
+            .is_ok();
+        if !has_columns {
+            conn.execute_batch(
+                "ALTER TABLE sections ADD COLUMN activity_count INTEGER NOT NULL DEFAULT 0;
+                 ALTER TABLE sections ADD COLUMN sport_types TEXT;",
+            )?;
+        }
+        let has_trigger: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master
+                 WHERE type = 'trigger' AND name = 'section_activities_summary_ai'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if has_columns && has_trigger {
+            return Ok(());
+        }
+        conn.execute_batch(
+            "UPDATE sections SET
+                 activity_count = (
+                     SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
+                 sport_types = (
+                     SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                     JOIN activities a ON a.id = sa.activity_id
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0);",
+        )?;
+        // One body, four firings: the recount for whichever section the row
+        // touched, on insert, delete, exclusion flip and section move.
+        let recount = |key: &str| {
+            format!(
+                "UPDATE sections SET
+                     activity_count = (
+                         SELECT COUNT(DISTINCT activity_id) FROM section_activities
+                         WHERE section_id = {key} AND excluded = 0),
+                     sport_types = (
+                         SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                         JOIN activities a ON a.id = sa.activity_id
+                         WHERE sa.section_id = {key} AND sa.excluded = 0)
+                 WHERE id = {key};"
+            )
+        };
+        conn.execute_batch(&format!(
+            "DROP TRIGGER IF EXISTS section_activities_summary_ai;
+             DROP TRIGGER IF EXISTS section_activities_summary_ad;
+             DROP TRIGGER IF EXISTS section_activities_summary_au;
+             DROP TRIGGER IF EXISTS section_activities_summary_amove;
+             CREATE TRIGGER section_activities_summary_ai
+             AFTER INSERT ON section_activities BEGIN {new_} END;
+             CREATE TRIGGER section_activities_summary_ad
+             AFTER DELETE ON section_activities BEGIN {old} END;
+             CREATE TRIGGER section_activities_summary_au
+             AFTER UPDATE OF excluded ON section_activities BEGIN {new_} END;
+             CREATE TRIGGER section_activities_summary_amove
+             AFTER UPDATE OF section_id ON section_activities BEGIN {new_} {old} END;",
+            new_ = recount("NEW.section_id"),
+            old = recount("OLD.section_id"),
+        ))?;
+        Ok(())
+    }
+
+    /// Re-mint every clock-minted section id as a content id and re-key
+    /// every table that holds it, once, in one transaction. Ids used to be
+    /// `s_<millis>__<seq>`: unique, but two devices cutting the same ground
+    /// could never agree. A content id is the sport and the global cell of
+    /// the section's heart, so they can. Foreign keys are deferred to the
+    /// commit, so parents and children move in any order.
+    fn ensure_content_ids(conn: &Connection) -> SqlResult<()> {
+        const MARKER: &str = "content_ids_v1";
+        let done: Option<String> = conn
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = ?",
+                params![MARKER],
+                |row| row.get(0),
+            )
+            .ok();
+        if done.is_some() {
+            return Ok(());
+        }
+        let has_columns = conn
+            .prepare("SELECT polyline_blob, polyline_json FROM sections LIMIT 0")
+            .is_ok();
+        if !has_columns {
+            return Ok(());
+        }
+
+        // Every clock-minted auto id with the line to anchor it, oldest
+        // first so a shared cell resolves in first-seen order.
+        let mut stmt = conn.prepare(
+            "SELECT id, sport_type, polyline_blob, polyline_json FROM sections
+             WHERE id GLOB 's_[0-9]*__[0-9]*'
+             ORDER BY created_at, id",
+        )?;
+        let rows: Vec<(String, String, Option<Vec<u8>>, Option<String>)> = stmt
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        drop(stmt);
+
+        let mut taken: std::collections::BTreeSet<String> = conn
+            .prepare("SELECT id FROM sections")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        let mut renames: Vec<(String, String)> = Vec::new();
+        for (old, sport, blob, json) in rows {
+            let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+                continue;
+            };
+            let Some(new) = sections::content_id_for(&polyline, &sport, &taken) else {
+                continue;
+            };
+            taken.remove(&old);
+            taken.insert(new.clone());
+            renames.push((old, new));
+        }
+
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("PRAGMA defer_foreign_keys = ON", [])?;
+        for (old, new) in &renames {
+            for sql in [
+                "UPDATE sections SET id = ?2 WHERE id = ?1",
+                "UPDATE sections SET superseded_by = ?2 WHERE superseded_by = ?1",
+                "UPDATE section_activities SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_history SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_geometry SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_pins SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_intents SET id = ?2 WHERE id = ?1",
+                "UPDATE section_catalogue_archive SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_catalogue_archive_members SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE activity_indicators SET target_id = ?2
+                 WHERE target_id = ?1 AND indicator_type IN ('section_pr', 'section_trend')",
+            ] {
+                tx.execute(sql, params![old, new])?;
+            }
+        }
+        // The registry blob names the old ids; it reseeds from the rows.
+        tx.execute(
+            "DELETE FROM identity_state WHERE key = ?",
+            params![sections::SECTION_IDENTITY_KEY],
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
+            params![MARKER],
+        )?;
+        tx.commit()?;
+        if !renames.is_empty() {
+            log::info!(
+                "tracematch: [Schema] Re-keyed {} sections to content ids",
+                renames.len()
+            );
+        }
         Ok(())
     }
 

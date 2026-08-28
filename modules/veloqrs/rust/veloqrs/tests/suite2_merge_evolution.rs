@@ -39,8 +39,39 @@ fn ground_fp(polyline: Vec<GpsPoint>) -> SectionFingerprint {
         distance_meters: 0.0,
         polyline,
         sport_type: String::new(),
+        rank_score: None,
+        klass: None,
         is_user_defined: false,
     }
+}
+
+/// Whether a line sits between two truths where they are apart: of the
+/// line's points whose nearest main point is more than `GROUND_TOL_M` from
+/// the parallel truth, at least 60% lie within tolerance of both. A line on
+/// either truth fails on the separated stretch; only a midline blob passes.
+fn straddles(line: &[GpsPoint], main: &[GpsPoint], parallel: &[GpsPoint]) -> bool {
+    let nearest = |p: &GpsPoint, truth: &[GpsPoint]| -> (f64, GpsPoint) {
+        truth
+            .iter()
+            .map(|q| (tracematch::geo_utils::haversine_distance(p, q), *q))
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .unwrap()
+    };
+    let mut apart = 0usize;
+    let mut between = 0usize;
+    for p in line {
+        let (dm, nearest_main) = nearest(p, main);
+        let (sep, _) = nearest(&nearest_main, parallel);
+        if sep <= GROUND_TOL_M {
+            continue;
+        }
+        apart += 1;
+        let (dp, _) = nearest(p, parallel);
+        if dm <= GROUND_TOL_M && dp <= GROUND_TOL_M {
+            between += 1;
+        }
+    }
+    apart > 0 && between as f64 >= 0.6 * apart as f64
 }
 
 /// The parallel-street ground: the ride corridor shifted north by `offset_m`,
@@ -180,7 +211,6 @@ fn merge_survives_resync() {
 /// v1 failure the redesign targets; flip to a live guard if Control already
 /// holds.
 #[test]
-#[ignore = "invariant 8 (near-duplicate merge): consensus method can weld a corridor to its parallel neighbour; Unified corridor-disjointness is the fix"]
 fn near_duplicate_corridors_stay_disjoint() {
     let corpus = corpus();
     let ride_main = ground_fp(corpus.corridors[0].polyline.clone());
@@ -189,10 +219,16 @@ fn near_duplicate_corridors_stay_disjoint() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
+    // The parallel street is a latitude shift of a winding corridor, so on
+    // the corridor's north-south legs the two lines coincide and a section
+    // there matches both truths on ground alone. Bridging is judged where
+    // the truths are apart: a section sits between them only if most of
+    // its points are within tolerance of both where they are separated.
     let bridging: Vec<String> = cold
         .sections
         .iter()
         .filter(|(_, f)| ground_matches(f, &ride_main) && ground_matches(f, &parallel))
+        .filter(|(_, f)| straddles(&f.polyline, &ride_main.polyline, &parallel.polyline))
         .map(|(id, _)| id.clone())
         .collect();
     assert!(

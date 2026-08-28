@@ -12,7 +12,9 @@ import {
   startDetectorCutover as ffiStartDetectorCutover,
   getCutoverProgress as ffiGetCutoverProgress,
   getCutoverDiff as ffiGetCutoverDiff,
+  getChangeCardSupport as ffiGetChangeCardSupport,
 } from '../generated/veloqrs';
+import type { FfiChangeCardSupport } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /** One section's fate across the cutover. */
@@ -182,5 +184,31 @@ export function parseCutoverDiff(json: string): CutoverDiff | null {
     return { token: raw.token, counts, sections };
   } catch {
     return null;
+  }
+}
+
+export type ChangeCardSupport = FfiChangeCardSupport;
+
+const NO_SUPPORT: ChangeCardSupport = {
+  deterministic: false,
+  sameResultDripOrBatch: false,
+  ledger: false,
+  revert: false,
+  retired: false,
+  pinnedSurvive: false,
+  sameOnEveryDevice: false,
+};
+
+/**
+ * Which claims the change card may make on this build. Every flag is false
+ * off a half-open engine, so the card shows nothing rather than a guess.
+ */
+export function getChangeCardSupport(host: DelegateHost): ChangeCardSupport {
+  if (!host.ready) return NO_SUPPORT;
+  try {
+    return ffiGetChangeCardSupport();
+  } catch (e) {
+    console.error('[RouteEngine] getChangeCardSupport threw:', e);
+    return NO_SUPPORT;
   }
 }

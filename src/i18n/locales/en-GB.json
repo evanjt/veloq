@@ -849,6 +849,14 @@
       "formula": "Counts of strength sessions, weighted sets, and tracked muscle groups",
       "algorithm": "Aggregates strength workouts in the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5 toward each muscle group.",
       "methodologyDescription": "Summarises strength volume across the most recent 4 weeks: workout count, total weighted sets, and number of tracked muscle groups."
+    },
+    "sectionChanged": {
+      "title": "{{name}} changed",
+      "recut": "Its extent was re-cut",
+      "split": "It split into more than one section",
+      "restored": "It came back",
+      "reverted": "It was put back to an earlier version",
+      "body": "The section's history shows what moved and which activities were around it."
     }
   },
   "licenses": {
@@ -1359,6 +1367,7 @@
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
+    "sortSignature": "Signature",
     "suggestion": "Suggestion",
     "thisActivity": "This activity",
     "thisMayTakeMoment": "This may take a moment...",
@@ -1384,7 +1393,7 @@
     "acceptAllSections": "Accept All",
     "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
     "acceptedCount": "Accepted {{count}} sections",
-    "pinned": "Pinned",
+    "pinned": "Pinned to a version",
     "elevationGain": "Elevation gain",
     "avgGrade": "Avg grade",
     "pinnedOnly": "Pinned only",
@@ -1494,9 +1503,28 @@
     "viewSection": "View",
     "merge": "Merge",
     "autoName": "{{sport}} Section ({{distance}})",
+    "autoNameClimb": "Climb {{distance}} {{grade}}",
+    "autoNameDescent": "Descent {{distance}} {{grade}}",
+    "autoNameLoop": "Loop {{distance}}",
     "mergeCandidatesTitle": "Choose a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "north",
+    "splitEast": "east",
+    "splitSouth": "south",
+    "splitWest": "west",
+    "accepted": "Accepted",
+    "acceptedOnly": "Accepted only",
+    "laps": "Laps",
+    "lap": "Lap {{n}}",
+    "excludeLap": "Exclude",
+    "undoExclude": "Undo",
+    "lapExcluded": "Excluded",
+    "partlyExcluded": "Some laps excluded",
+    "avgHr": "Avg HR",
+    "maxGrade": "Steepest"
   },
   "settings": {
     "account": "Account",
@@ -1689,7 +1717,8 @@
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
-    "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too."
+    "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too.",
+    "advanced": "Advanced"
   },
   "stats": {
     "activities": "Activities",
@@ -1892,6 +1921,17 @@
       "sectionTrimBody": "Fine-tune section boundaries with a dual-handle slider. Trim to narrow the range, or switch to expand mode to extend beyond the auto-detected limits when detection missed part of the route. Changes are reflected on the map in real time.",
       "backupTitle": "Backup & Restore",
       "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
+    },
+    "v040": {
+      "sectionsTitle": "Sections that explain themselves",
+      "sectionsBody": "Sections are now cut by one deterministic detector. Each one keeps a history you can read, revert and pin.",
+      "rowDeterministic": "One deterministic matcher: the same rides give the same sections",
+      "rowSameResult": "Adding rides one at a time or all at once gives the same result",
+      "rowLedger": "A ledger shows how each section changed and what was around it",
+      "rowRevert": "Put an earlier version of a section back and pin it",
+      "rowRetired": "Sections that left the catalogue stay listed",
+      "rowPinned": "Accepted sections survive every re-analysis",
+      "rowEveryDevice": "Identical sections on every device"
     }
   },
   "strength": {
@@ -1991,5 +2031,36 @@
       "reconnecting": "Reconnecting…",
       "disconnected": "Not connected"
     }
+  },
+  "sectionHistory": {
+    "title": "History",
+    "empty": "No changes recorded yet",
+    "around": "Around this change",
+    "forkAround": "Traffic at the junction",
+    "prEra": "Best at the time: {{time}}",
+    "prMoved": "Record {{from}} to {{to}}",
+    "versions": "Stored versions",
+    "version": "Version {{version}}",
+    "current": "Current",
+    "revert": "Revert",
+    "revertConfirm": "Put version {{version}} back as this section's line? Detection holds it there until you unpin.",
+    "unpin": "Unpin",
+    "showOnMap": "Show on map",
+    "hideOnMap": "Hide",
+    "retiredTitle": "Retired sections",
+    "retiredEmpty": "No sections have retired",
+    "retiredInto": "Into {{name}}",
+    "seeRetired": "Retired sections",
+    "kind_formed": "Formed",
+    "kind_restored": "Came back",
+    "kind_split": "Split into {{count}} sections",
+    "kind_recut": "Extent re-cut",
+    "kind_dissolved": "Dissolved",
+    "kind_merged": "Merged into another section",
+    "kind_superseded": "Replaced by a newer cut",
+    "kind_reverted": "Reverted to version {{version}}",
+    "kind_pr_rebased": "Record re-based against the current extent",
+    "kind_baseline": "Recorded from an earlier version of the app",
+    "kind_algorithm_changed": "Re-analysed by a newer detector"
   }
 }

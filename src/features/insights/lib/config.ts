@@ -105,6 +105,8 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     stale_pr: { min: 30, max: Number.POSITIVE_INFINITY },
     // "This week" loses meaning outside the week.
     period_comparison: { max: 7 },
+    // A re-cut is news for a fortnight, then it is just the section.
+    section_changed: { max: 14 },
     // Everything else defaults to activeWindowDays.
   },
 
@@ -144,6 +146,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
       strength_balance: 6,
       period_comparison: 5,
       strength_progression: 4,
+      section_changed: 6,
     },
   },
 
