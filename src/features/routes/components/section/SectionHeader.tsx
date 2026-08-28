@@ -132,6 +132,10 @@ export function SectionHeader({
               Math.abs(section.avgGradePercent) >= 1.0
                 ? [`${section.avgGradePercent.toFixed(1)}%`]
                 : []),
+              ...(section.maxGradePercent != null &&
+              (section.klass === 'climb' || section.klass === 'descent')
+                ? [`${t('sections.maxGrade')} ${section.maxGradePercent.toFixed(1)}%`]
+                : []),
             ]}
           />
         </>

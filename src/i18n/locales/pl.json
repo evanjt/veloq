@@ -1369,6 +1369,7 @@
     "sortMostVisited": "Najczęściej odwiedzane",
     "sortNameAZ": "Nazwa A-Z",
     "sortNearby": "W pobliżu",
+    "sortSignature": "Charakterystyczne",
     "suggestion": "Sugestia",
     "thisActivity": "Ta aktywność",
     "thisMayTakeMoment": "To może chwilę potrwać...",
@@ -1496,6 +1497,9 @@
     "viewSection": "Zobacz",
     "merge": "Połącz",
     "autoName": "Odcinek {{sport}} ({{distance}})",
+    "autoNameClimb": "Podjazd {{distance}} {{grade}}",
+    "autoNameDescent": "Zjazd {{distance}} {{grade}}",
+    "autoNameLoop": "Pętla {{distance}}",
     "mergeCandidatesTitle": "Wybierz odcinek do połączenia",
     "mergeCandidatesSubtitle": "{{count}} podobnych odcinków w pobliżu",
     "overlapLabel": "pokrycie",
@@ -1521,7 +1525,8 @@
     "undoExclude": "Cofnij",
     "lapExcluded": "Wykluczone",
     "partlyExcluded": "Niektóre okrążenia wykluczone",
-    "avgHr": "Śr. tętno"
+    "avgHr": "Śr. tętno",
+    "maxGrade": "Najstromiej"
   },
   "settings": {
     "account": "Konto",

@@ -16,22 +16,37 @@ interface SectionNameData {
   name?: string;
   sportType: string;
   distanceMeters: number;
+  /** climb, descent, rolling, flat or loop, from the engine */
+  klass?: string;
+  /** Steepest grade percent held over 300 m, from the engine */
+  maxGradePercent?: number;
 }
 
 /**
- * Generate a display name for a section.
- * Uses section.name if present (already contains custom name from Rust),
- * otherwise generates a name from sport type and distance.
+ * Generate a display name for a section. A custom name wins. Otherwise the
+ * terrain leads when the engine classed the line (a climb or descent with
+ * its steepest grade, a loop), and sport plus distance is the fallback.
  */
 export function generateSectionName(section: SectionNameData): string {
-  // Use section.name if present (includes custom names from Rust engine)
   if (section.name) return section.name;
 
-  // Auto-generate from sport type and distance
   const isMetric = resolveIsMetric();
-  const distanceStr = formatDistance(section.distanceMeters, isMetric);
+  const distance = formatDistance(section.distanceMeters, isMetric);
+  const grade =
+    section.maxGradePercent != null && section.maxGradePercent >= 1
+      ? `${section.maxGradePercent.toFixed(1)}%`
+      : undefined;
 
-  return i18n.t('sections.autoName', { sport: section.sportType, distance: distanceStr });
+  if (section.klass === 'climb' && grade) {
+    return i18n.t('sections.autoNameClimb', { distance, grade });
+  }
+  if (section.klass === 'descent' && grade) {
+    return i18n.t('sections.autoNameDescent', { distance, grade });
+  }
+  if (section.klass === 'loop') {
+    return i18n.t('sections.autoNameLoop', { distance });
+  }
+  return i18n.t('sections.autoName', { sport: section.sportType, distance });
 }
 
 /**

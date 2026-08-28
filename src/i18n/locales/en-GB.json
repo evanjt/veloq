@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
+    "sortSignature": "Signature",
     "suggestion": "Suggestion",
     "thisActivity": "This activity",
     "thisMayTakeMoment": "This may take a moment...",
@@ -1502,6 +1503,9 @@
     "viewSection": "View",
     "merge": "Merge",
     "autoName": "{{sport}} Section ({{distance}})",
+    "autoNameClimb": "Climb {{distance}} {{grade}}",
+    "autoNameDescent": "Descent {{distance}} {{grade}}",
+    "autoNameLoop": "Loop {{distance}}",
     "mergeCandidatesTitle": "Choose a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
     "overlapLabel": "overlap",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Undo",
     "lapExcluded": "Excluded",
     "partlyExcluded": "Some laps excluded",
-    "avgHr": "Avg HR"
+    "avgHr": "Avg HR",
+    "maxGrade": "Steepest"
   },
   "settings": {
     "account": "Account",

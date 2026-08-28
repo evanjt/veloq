@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Mais visitadas",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Próximos",
+    "sortSignature": "Assinatura",
     "suggestion": "Sugestão",
     "thisActivity": "Esta atividade",
     "thisMayTakeMoment": "Isto pode demorar um momento...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Ver",
     "merge": "Fundir",
     "autoName": "Troço {{sport}} ({{distance}})",
+    "autoNameClimb": "Subida {{distance}} {{grade}}",
+    "autoNameDescent": "Descida {{distance}} {{grade}}",
+    "autoNameLoop": "Circuito {{distance}}",
     "mergeCandidatesTitle": "Escolhe um troço para fundir",
     "mergeCandidatesSubtitle": "{{count}} troços semelhantes por perto",
     "overlapLabel": "sobreposição",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Anular",
     "lapExcluded": "Excluída",
     "partlyExcluded": "Algumas voltas excluídas",
-    "avgHr": "FC média"
+    "avgHr": "FC média",
+    "maxGrade": "Inclinação máx."
   },
   "settings": {
     "account": "Conta",

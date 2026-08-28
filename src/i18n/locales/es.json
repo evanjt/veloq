@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Más visitadas",
     "sortNameAZ": "Nombre A-Z",
     "sortNearby": "Cercanos",
+    "sortSignature": "Firma",
     "suggestion": "Sugerencia",
     "thisActivity": "Esta actividad",
     "thisMayTakeMoment": "Esto puede tardar un momento...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Ver",
     "merge": "Fusionar",
     "autoName": "Sección {{sport}} ({{distance}})",
+    "autoNameClimb": "Subida {{distance}} {{grade}}",
+    "autoNameDescent": "Bajada {{distance}} {{grade}}",
+    "autoNameLoop": "Bucle {{distance}}",
     "mergeCandidatesTitle": "Elige una sección para fusionar",
     "mergeCandidatesSubtitle": "{{count}} secciones similares cerca",
     "overlapLabel": "solapamiento",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Deshacer",
     "lapExcluded": "Excluida",
     "partlyExcluded": "Algunas vueltas excluidas",
-    "avgHr": "FC media"
+    "avgHr": "FC media",
+    "maxGrade": "Pendiente máx."
   },
   "settings": {
     "account": "Cuenta",

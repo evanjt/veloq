@@ -1367,6 +1367,7 @@
     "sortMostVisited": "最多訪問",
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
+    "sortSignature": "シグネチャ",
     "suggestion": "提案",
     "thisActivity": "このアクティビティ",
     "thisMayTakeMoment": "少々お待ちください...",
@@ -1494,6 +1495,9 @@
     "viewSection": "表示",
     "merge": "結合",
     "autoName": "{{sport}}セクション ({{distance}})",
+    "autoNameClimb": "登り {{distance}} {{grade}}",
+    "autoNameDescent": "下り {{distance}} {{grade}}",
+    "autoNameLoop": "周回 {{distance}}",
     "mergeCandidatesTitle": "結合するセクションを選択",
     "mergeCandidatesSubtitle": "近くに類似セクションが{{count}}件あります",
     "overlapLabel": "重なり",
@@ -1519,7 +1523,8 @@
     "undoExclude": "元に戻す",
     "lapExcluded": "除外済み",
     "partlyExcluded": "一部のラップを除外",
-    "avgHr": "平均心拍"
+    "avgHr": "平均心拍",
+    "maxGrade": "最大勾配"
   },
   "settings": {
     "account": "アカウント",

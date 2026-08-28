@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Meest bezocht",
     "sortNameAZ": "Naam A-Z",
     "sortNearby": "In de buurt",
+    "sortSignature": "Kenmerkend",
     "suggestion": "Suggestie",
     "thisActivity": "Deze activiteit",
     "thisMayTakeMoment": "Dit kan even duren...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Bekijken",
     "merge": "Samenvoegen",
     "autoName": "{{sport}}-sectie ({{distance}})",
+    "autoNameClimb": "Klim {{distance}} {{grade}}",
+    "autoNameDescent": "Afdaling {{distance}} {{grade}}",
+    "autoNameLoop": "Lus {{distance}}",
     "mergeCandidatesTitle": "Kies een sectie om samen te voegen",
     "mergeCandidatesSubtitle": "{{count}} vergelijkbare secties in de buurt",
     "overlapLabel": "overlap",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Ongedaan maken",
     "lapExcluded": "Uitgesloten",
     "partlyExcluded": "Sommige ronden uitgesloten",
-    "avgHr": "Gem. HR"
+    "avgHr": "Gem. HR",
+    "maxGrade": "Steilste"
   },
   "settings": {
     "account": "Account",

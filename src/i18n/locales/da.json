@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Mest besøgte",
     "sortNameAZ": "Navn A-Z",
     "sortNearby": "I nærheden",
+    "sortSignature": "Signatur",
     "suggestion": "Forslag",
     "thisActivity": "Denne aktivitet",
     "thisMayTakeMoment": "Dette kan tage et øjeblik...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Vis",
     "merge": "Flet",
     "autoName": "{{sport}}-sektion ({{distance}})",
+    "autoNameClimb": "Stigning {{distance}} {{grade}}",
+    "autoNameDescent": "Nedkørsel {{distance}} {{grade}}",
+    "autoNameLoop": "Rundtur {{distance}}",
     "mergeCandidatesTitle": "Vælg en sektion at flette",
     "mergeCandidatesSubtitle": "{{count}} lignende sektioner i nærheden",
     "overlapLabel": "overlapning",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Fortryd",
     "lapExcluded": "Udelukket",
     "partlyExcluded": "Nogle omgange udelukket",
-    "avgHr": "Gns. puls"
+    "avgHr": "Gns. puls",
+    "maxGrade": "Stejlest"
   },
   "settings": {
     "account": "Konto",

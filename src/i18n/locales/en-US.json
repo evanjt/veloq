@@ -1406,6 +1406,7 @@
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
+    "sortSignature": "Signature",
     "suggestion": "Suggested",
     "thisActivity": "This activity",
     "thisMayTakeMoment": "This may take a moment...",
@@ -1451,6 +1452,9 @@
     "current": "Current",
     "date": "Date",
     "autoName": "{{sport}} Section ({{distance}})",
+    "autoNameClimb": "Climb {{distance}} {{grade}}",
+    "autoNameDescent": "Descent {{distance}} {{grade}}",
+    "autoNameLoop": "Loop {{distance}}",
     "defaultName": "Section {{number}}",
     "deleteSection": "Delete Section",
     "deleteSectionConfirm": "Are you sure you want to delete this section? This action cannot be undone.",
@@ -1558,7 +1562,8 @@
     "undoExclude": "Undo",
     "lapExcluded": "Excluded",
     "partlyExcluded": "Some laps excluded",
-    "avgHr": "Avg HR"
+    "avgHr": "Avg HR",
+    "maxGrade": "Steepest"
   },
   "settings": {
     "account": "Account",

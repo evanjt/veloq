@@ -16,6 +16,11 @@ jest.mock('@/i18n', () => ({
       if (key === 'sections.autoName' && opts) {
         return `${opts.sport} Section (${opts.distance})`;
       }
+      if (key === 'sections.autoNameClimb' && opts) return `Climb ${opts.distance} ${opts.grade}`;
+      if (key === 'sections.autoNameDescent' && opts) {
+        return `Descent ${opts.distance} ${opts.grade}`;
+      }
+      if (key === 'sections.autoNameLoop' && opts) return `Loop ${opts.distance}`;
       if (key === 'sections.splitName' && opts) return `${opts.parent} (${opts.part})`;
       if (key === 'sections.splitOrdinal' && opts) return `${opts.parent} ${opts.n}`;
       const cardinals: Record<string, string> = {
@@ -30,6 +35,37 @@ jest.mock('@/i18n', () => ({
 }));
 
 describe('generateSectionName', () => {
+  it('leads with the terrain when the engine classed the line', () => {
+    expect(
+      generateSectionName({
+        id: 's',
+        sportType: 'Ride',
+        distanceMeters: 2300,
+        klass: 'climb',
+        maxGradePercent: 5.44,
+      })
+    ).toBe('Climb 2.3 km 5.4%');
+    expect(
+      generateSectionName({
+        id: 's',
+        sportType: 'Ride',
+        distanceMeters: 4100,
+        klass: 'descent',
+        maxGradePercent: 8,
+      })
+    ).toBe('Descent 4.1 km 8.0%');
+    expect(
+      generateSectionName({ id: 's', sportType: 'Run', distanceMeters: 4100, klass: 'loop' })
+    ).toBe('Loop 4.1 km');
+    // A climb without a usable grade, or flat ground, falls back to sport and distance.
+    expect(
+      generateSectionName({ id: 's', sportType: 'Run', distanceMeters: 4100, klass: 'climb' })
+    ).toBe('Run Section (4.1 km)');
+    expect(
+      generateSectionName({ id: 's', sportType: 'Run', distanceMeters: 4100, klass: 'flat' })
+    ).toBe('Run Section (4.1 km)');
+  });
+
   it('prefers a present name, else auto-generates by sport and distance', () => {
     const cases: [Parameters<typeof generateSectionName>[0], string][] = [
       [

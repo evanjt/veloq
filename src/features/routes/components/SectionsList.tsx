@@ -31,6 +31,7 @@ import {
   useUnifiedSections,
   generateSectionName,
 } from '@/features/routes/hooks/useUnifiedSections';
+import { signatureScore } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -82,7 +83,7 @@ type HiddenFilters = {
   unaccepted: boolean;
 };
 
-export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
+export type SectionsSortOption = 'signature' | 'visits' | 'distance' | 'name' | 'nearby';
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -115,6 +116,12 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
+    elevationGainM: s.elevationGainM ?? undefined,
+    avgGradePercent: s.avgGradePercent ?? undefined,
+    maxGradePercent: s.maxGradePercent ?? undefined,
+    klass: s.klass ?? undefined,
+    rankScore: s.rankScore ?? undefined,
+    sportRankScore: s.sportRankScore ?? undefined,
     center,
     isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
     disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
@@ -363,7 +370,9 @@ export const SectionsList = memo(function SectionsList({
       }
     }
 
-    if (sortOption === 'visits') {
+    if (sortOption === 'signature') {
+      regular.sort((a, b) => signatureScore(b, !!sportType) - signatureScore(a, !!sportType));
+    } else if (sortOption === 'visits') {
       regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
     } else if (sortOption === 'distance') {
       regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
@@ -376,7 +385,7 @@ export const SectionsList = memo(function SectionsList({
       unacceptedAutoCount: unaccepted,
       acceptedAutoCount: accepted,
     };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+  }, [unifiedSections, hiddenFilters, searchQuery, sortOption, sportType]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -481,6 +490,11 @@ export const SectionsList = memo(function SectionsList({
   const sortChips: { key: SectionsSortOption; label: string; icon: string }[] = useMemo(
     () => [
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
+      {
+        key: 'signature',
+        label: t('routes.sortSignature' as never) as string,
+        icon: 'star-four-points-outline',
+      },
       {
         key: 'visits',
         label: t('routes.sortMostVisited' as never) as string,

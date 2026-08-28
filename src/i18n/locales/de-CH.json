@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Am meischte bsuecht",
     "sortNameAZ": "Name A bis Z",
     "sortNearby": "In dr Nöchi",
+    "sortSignature": "Signatur",
     "suggestion": "Vorschlag",
     "thisActivity": "Die Aktivität",
     "thisMayTakeMoment": "Cha es bitzeli gaa...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Luege",
     "merge": "Zämefüege",
     "autoName": "{{sport}}-Abschnitt ({{distance}})",
+    "autoNameClimb": "Anstieg {{distance}} {{grade}}",
+    "autoNameDescent": "Abfahrt {{distance}} {{grade}}",
+    "autoNameLoop": "Runde {{distance}}",
     "mergeCandidatesTitle": "Abschnitt zum Zämefüege uswähle",
     "mergeCandidatesSubtitle": "{{count}} ähnlichi Abschnitt i de Nöchi",
     "overlapLabel": "Überlappung",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Rückgängig",
     "lapExcluded": "Ausgeschlossen",
     "partlyExcluded": "Einige Runden ausgeschlossen",
-    "avgHr": "Ø Puls"
+    "avgHr": "Ø Puls",
+    "maxGrade": "Steilste Stelle"
   },
   "settings": {
     "account": "Konto",

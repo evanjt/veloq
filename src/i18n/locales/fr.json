@@ -1367,6 +1367,7 @@
     "sortMostVisited": "Plus visitées",
     "sortNameAZ": "Nom A-Z",
     "sortNearby": "À proximité",
+    "sortSignature": "Signature",
     "suggestion": "Suggestion",
     "thisActivity": "Cette activité",
     "thisMayTakeMoment": "Cela peut prendre un moment...",
@@ -1494,6 +1495,9 @@
     "viewSection": "Voir",
     "merge": "Fusionner",
     "autoName": "Section {{sport}} ({{distance}})",
+    "autoNameClimb": "Montée {{distance}} {{grade}}",
+    "autoNameDescent": "Descente {{distance}} {{grade}}",
+    "autoNameLoop": "Boucle {{distance}}",
     "mergeCandidatesTitle": "Choisir une section à fusionner",
     "mergeCandidatesSubtitle": "{{count}} sections similaires à proximité",
     "overlapLabel": "chevauchement",
@@ -1519,7 +1523,8 @@
     "undoExclude": "Annuler",
     "lapExcluded": "Exclu",
     "partlyExcluded": "Certains tours exclus",
-    "avgHr": "FC moy."
+    "avgHr": "FC moy.",
+    "maxGrade": "Pente max"
   },
   "settings": {
     "account": "Compte",

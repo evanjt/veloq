@@ -1051,6 +1051,7 @@ export interface TranslationResource {
     sortMostVisited: string;
     sortNameAZ: string;
     sortNearby: string;
+    sortSignature: string;
     reverse: string;
     partial: string;
     overlap: string;
@@ -1172,6 +1173,7 @@ export interface TranslationResource {
     laps: string;
     lap: string;
     avgHr: string;
+    maxGrade: string;
     excludeLap: string;
     undoExclude: string;
     lapExcluded: string;
@@ -1207,6 +1209,9 @@ export interface TranslationResource {
     last: string;
     lastActivity: string;
     autoName: string;
+    autoNameClimb: string;
+    autoNameDescent: string;
+    autoNameLoop: string;
     splitName: string;
     splitOrdinal: string;
     splitNorth: string;

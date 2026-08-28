@@ -242,6 +242,14 @@ export interface Section {
   elevationGainM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
+  /** Steepest grade percent held over 300 m of the slice, absent when unknown */
+  maxGradePercent?: number;
+  /** climb, descent, rolling, flat or loop, absent when nothing says */
+  klass?: string;
+  /** Interestingness percentile across the catalogue, 0 to 1 */
+  rankScore?: number;
+  /** Interestingness percentile within the section's sport, 0 to 1 */
+  sportRankScore?: number;
   /** Number of times this section has been recalibrated */
   version?: number;
   /** ISO timestamp of last recalibration */
@@ -313,6 +321,14 @@ export interface SectionSummary {
   elevationGainM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
+  /** Steepest grade percent held over 300 m of the slice, absent when unknown */
+  maxGradePercent?: number;
+  /** climb, descent, rolling, flat or loop, absent when nothing says */
+  klass?: string;
+  /** Interestingness percentile across the catalogue, 0 to 1 */
+  rankScore?: number;
+  /** Interestingness percentile within the section's sport, 0 to 1 */
+  sportRankScore?: number;
 }
 
 /**

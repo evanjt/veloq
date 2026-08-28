@@ -1367,6 +1367,7 @@
     "sortMostVisited": "最常访问",
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
+    "sortSignature": "标志路段",
     "suggestion": "建议",
     "thisActivity": "此活动",
     "thisMayTakeMoment": "这可能需要一点时间...",
@@ -1494,6 +1495,9 @@
     "viewSection": "查看",
     "merge": "合并",
     "autoName": "{{sport}}路段 ({{distance}})",
+    "autoNameClimb": "爬坡 {{distance}} {{grade}}",
+    "autoNameDescent": "下坡 {{distance}} {{grade}}",
+    "autoNameLoop": "环线 {{distance}}",
     "mergeCandidatesTitle": "选择要合并的路段",
     "mergeCandidatesSubtitle": "附近有 {{count}} 个相似路段",
     "overlapLabel": "重叠",
@@ -1519,7 +1523,8 @@
     "undoExclude": "撤销",
     "lapExcluded": "已排除",
     "partlyExcluded": "部分圈已排除",
-    "avgHr": "平均心率"
+    "avgHr": "平均心率",
+    "maxGrade": "最大坡度"
   },
   "settings": {
     "account": "账户",

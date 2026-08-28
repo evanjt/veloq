@@ -61,6 +61,19 @@ export function convertNativeSectionToApp(
       ('avgGradePercent' in native
         ? (native as { avgGradePercent?: number | null }).avgGradePercent
         : undefined) ?? undefined,
+    maxGradePercent:
+      ('maxGradePercent' in native
+        ? (native as { maxGradePercent?: number | null }).maxGradePercent
+        : undefined) ?? undefined,
+    klass:
+      ('klass' in native ? (native as { klass?: string | null }).klass : undefined) ?? undefined,
+    rankScore:
+      ('rankScore' in native ? (native as { rankScore?: number | null }).rankScore : undefined) ??
+      undefined,
+    sportRankScore:
+      ('sportRankScore' in native
+        ? (native as { sportRankScore?: number | null }).sportRankScore
+        : undefined) ?? undefined,
     version: ('version' in native ? native.version : undefined) ?? undefined,
     updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
     createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
