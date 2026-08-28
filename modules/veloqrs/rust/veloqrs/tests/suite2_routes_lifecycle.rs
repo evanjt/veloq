@@ -309,7 +309,6 @@ fn route_name_row_survives_resync_under_the_stable_id() {
 /// re-hydrates from `route_names`, so `get_route_name` returns None even though
 /// the DB row is intact (asserted above). Green when the re-hydrate lands.
 #[test]
-#[ignore = "B4: recompute_groups does not re-hydrate custom_name into the in-memory group, so get_route_name is None after a resync even though the route_names row survives"]
 fn route_name_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);

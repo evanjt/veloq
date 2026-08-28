@@ -305,6 +305,34 @@ fn distant_geography_must_not_reshuffle_ids() {
 /// The minority sport goes in first, so a heading held from first assignment
 /// disagrees between the two arms instead of agreeing on whichever sport the
 /// caller happened to ingest first.
+/// Ingest `ride_n` rides and `run_n` runs of corridor 2 in a chosen order,
+/// so two arms with the same counts differ only in which sport arrived
+/// first.
+fn cross_order_snapshot(
+    ride_n: usize,
+    run_n: usize,
+    prefix: &str,
+    runs_first: bool,
+) -> (SectionSnapshot, Vec<GpsPoint>) {
+    let (src, ground) = corridor_source(2, ride_n + run_n);
+    let rides = labelled(&src, 0..ride_n, &format!("{prefix}ride_"), "Ride");
+    let runs = labelled(
+        &src,
+        ride_n..ride_n + run_n,
+        &format!("{prefix}run_"),
+        "Run",
+    );
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let (first, second) = if runs_first {
+        (("cross/run", &runs), ("cross/ride", &rides))
+    } else {
+        (("cross/ride", &rides), ("cross/run", &runs))
+    };
+    ingest_step(&mut engine, first.0, &refs(first.1));
+    let snap = ingest_step(&mut engine, second.0, &refs(second.1)).snapshot;
+    (snap, ground)
+}
+
 fn cross_flip_snapshot(
     ride_n: usize,
     run_n: usize,
@@ -331,39 +359,41 @@ fn cross_flip_snapshot(
 }
 
 /// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
-/// by both sports must yield ONE section on that ground, and its derived sport
-/// must be invariant to which sport travels it more. Pooling delivers the single
-/// section. The heading is still red: the identity carry freezes sport at first
-/// assignment, so it reports the sport that arrived first, not the ground's.
-/// Green when the comparison layer owns sport and the heading re-derives.
+/// by both sports yields ONE section on that ground, headed by the sport most
+/// of its members do, whichever sport arrived first. Every apply re-derives
+/// the heading from the members, so a carried row never keeps the label of
+/// its first assignment.
 #[test]
-#[ignore = "invariant 2: the identity carry freezes sport at first assignment, so the heading follows ingest order rather than the ground (item 63)."]
 fn shared_corridor_yields_one_section_with_stable_sport() {
-    let (ride_major, ground) = cross_flip_snapshot(8, 4, "c2a_");
-    let (run_major, _) = cross_flip_snapshot(4, 8, "c2b_");
+    let (rides_first, ground) = cross_order_snapshot(8, 4, "c2a_", false);
+    let (runs_first, _) = cross_order_snapshot(8, 4, "c2b_", true);
     let g = ground_fp(ground);
 
-    let on_ride_major = sections_on_ground(&ride_major, &g);
-    let on_run_major = sections_on_ground(&run_major, &g);
+    let on_rides_first = sections_on_ground(&rides_first, &g);
+    let on_runs_first = sections_on_ground(&runs_first, &g);
     assert_eq!(
-        on_ride_major.len(),
+        on_rides_first.len(),
         1,
-        "Ride-majority: shared multi-sport ground carries {} sections (want 1; >1 is per-sport duplication)",
-        on_ride_major.len()
+        "rides first: shared multi-sport ground carries {} sections (want 1; >1 is per-sport duplication)",
+        on_rides_first.len()
     );
     assert_eq!(
-        on_run_major.len(),
+        on_runs_first.len(),
         1,
-        "Run-majority: shared multi-sport ground carries {} sections (want 1)",
-        on_run_major.len()
+        "runs first: shared multi-sport ground carries {} sections (want 1)",
+        on_runs_first.len()
     );
 
-    let sport_ride_major = &on_ride_major[0].1.sport_type;
-    let sport_run_major = &on_run_major[0].1.sport_type;
+    let heading_rides_first = &on_rides_first[0].1.sport_type;
+    let heading_runs_first = &on_runs_first[0].1.sport_type;
     assert_eq!(
-        sport_ride_major, sport_run_major,
-        "the heading disagrees across two arms with the same ground: {sport_ride_major} vs {sport_run_major} \
-         (invariant 2: sport is derived from the ground, not from ingest order or visit counts)"
+        heading_rides_first, "Ride",
+        "the heading is the sport most of the members do"
+    );
+    assert_eq!(
+        heading_rides_first, heading_runs_first,
+        "the heading disagrees across two arms with the same members: {heading_rides_first} vs {heading_runs_first} \
+         (invariant 2: sport is derived from the members, not from which sport arrived first)"
     );
 }
 

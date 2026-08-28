@@ -38,7 +38,7 @@
 //! Design: `~/.claude/plans/b2-identity-hysteresis-design.md` (Part 4 step 2,
 //! and Part 5 for the four as-built deviations from the pure layer).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -636,14 +636,11 @@ impl PersistentRouteEngine {
                     row.section.created_at = prior.created_at.clone();
                     row.section.version = prior.version;
                     row.section.updated_at = prior.updated_at.clone();
-                    // Sport stays with the identity, not the winning candidate:
-                    // per-sport detection can hand a prior to another sport's
-                    // cut of the same ground, and a single add must never flip
-                    // a visible section's sport. Pooled detection does not
-                    // retire the carry, it re-justifies it: the label is
-                    // derived from the cut, so the carry is what freezes it
-                    // against a later batch deriving a different one.
-                    row.section.sport_type = prior.sport_type.clone();
+                    // The sport is derived from the ground: pooled detection
+                    // labels a cut by the traffic that runs it, so an adopted
+                    // carry takes the cut's label and two libraries with the
+                    // same ground agree whichever sport arrived first. A
+                    // frozen carry keeps the prior payload, label included.
                     graft_prior_members(self, &mut row.section, &prior, &config);
                     // An adopted carry keeps learning new traffic exactly as a
                     // frozen one does: the batch candidate only carries its own
@@ -865,6 +862,28 @@ impl PersistentRouteEngine {
                 .entry(pid)
                 .or_default()
                 .extend(arrivals.iter().cloned());
+        }
+
+        // Pooled detection labels a cut by the sport its members do. The
+        // same rule runs over every carried row here, so the heading is a
+        // function of the members and not of which sport arrived first.
+        if config.pool_sports {
+            let sports: HashMap<String, String> = self
+                .activity_metadata
+                .iter()
+                .map(|(id, m)| (id.clone(), m.sport_type.clone()))
+                .collect();
+            for row in new_rows.values_mut() {
+                if row
+                    .section
+                    .activity_ids
+                    .iter()
+                    .any(|id| sports.contains_key(id))
+                {
+                    row.section.sport_type =
+                        tracematch::dominant_sport(&row.section.activity_ids, &sports);
+                }
+            }
         }
 
         identity.rows = new_rows;

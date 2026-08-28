@@ -533,6 +533,7 @@ impl PersistentRouteEngine {
         // Setting a reference promotes an auto section to user-defined; relinquish
         // it from the registry so detection stops re-emitting its (edited) ground.
         self.drop_section_pin(section_id);
+        self.invalidate_perf_cache();
         self.section_identity_relinquish(section_id);
 
         Ok(())
@@ -986,6 +987,12 @@ impl PersistentRouteEngine {
     /// Reset a section's reference to automatic (algorithm-selected).
     /// Sets is_user_defined to false.
     pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        // A reference change backs the original line up; resetting puts it
+        // back the same way a bounds reset does, so "reset to automatic"
+        // restores the shape and not only the flag.
+        if self.has_original_bounds(section_id) {
+            self.reset_section_bounds(section_id)?;
+        }
         // Drop the polyline backup with the demotion: the catalogue save
         // wipes only backup-free auto rows before re-inserting from
         // memory, so a demoted row still carrying its backup collides.
@@ -995,9 +1002,11 @@ impl PersistentRouteEngine {
                 params![section_id],
             )
             .map_err(|e| format!("Failed to reset section reference: {}", e))?;
+        self.drop_section_pin(section_id);
 
         // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
 
         // Refresh in-memory section (for auto sections)
         self.refresh_section_in_memory(section_id);

@@ -261,8 +261,10 @@ impl PersistentRouteEngine {
             self.rematch_section_activities(section_id, &trimmed)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
 
         // Trim promotes to user-defined (durable, backed-up); relinquish from the
@@ -365,8 +367,10 @@ impl PersistentRouteEngine {
             self.rematch_section_activities(section_id, &original)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
 
         Ok(())
@@ -622,8 +626,10 @@ impl PersistentRouteEngine {
             self.rematch_section_activities(section_id, &new_polyline)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
 
         Ok(())

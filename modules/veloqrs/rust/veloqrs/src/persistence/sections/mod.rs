@@ -490,6 +490,34 @@ impl PersistentRouteEngine {
             return None;
         }
 
+        // A line sliced from one activity recalculates by re-slicing that
+        // range: the same input gives the same line, so a second call is a
+        // no-op. Only an averaged legacy line goes back through consensus.
+        if let Some((start, end)) = section.representative_range
+            && let Some(track) = self.load_gps_track_from_db(&section.representative_activity_id)
+            && (start as usize) < (end as usize)
+            && (end as usize) <= track.len()
+        {
+            let polyline = track[start as usize..end as usize].to_vec();
+            let distance = tracematch::matching::calculate_route_distance(&polyline);
+            let result = crate::FfiSectionRecalcResult {
+                section_id: section.id.clone(),
+                polyline_point_count: polyline.len() as u32,
+                distance_meters: distance,
+            };
+            let unchanged = section.polyline == polyline;
+            section.polyline = polyline;
+            section.distance_meters = distance;
+            self.sections[idx] = section;
+            if !unchanged && let Err(err) = self.save_sections() {
+                log::warn!(
+                    "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                    err
+                );
+            }
+            return Some(result);
+        }
+
         let activity_ids: Vec<String> = section.activity_ids.clone();
         let track_pairs: Vec<(String, Vec<tracematch::GpsPoint>)> = activity_ids
             .iter()
