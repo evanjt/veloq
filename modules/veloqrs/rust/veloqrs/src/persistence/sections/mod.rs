@@ -14,7 +14,7 @@ pub(crate) mod track_pool;
 
 pub use history::{
     DetectorGeneration, KIND_REVERTED, RetiredSection, SOURCE_CONSENSUS, SOURCE_EXACT,
-    SectionChange, SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
+    SalvageCounts, SectionChange, SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
 };
 pub(crate) use identity::SECTION_IDENTITY_KEY;
 pub(crate) use identity::SectionIdentity;
