@@ -335,31 +335,6 @@ fn cross_order_snapshot(
     (snap, ground)
 }
 
-fn cross_flip_snapshot(
-    ride_n: usize,
-    run_n: usize,
-    prefix: &str,
-) -> (SectionSnapshot, Vec<GpsPoint>) {
-    let (src, ground) = corridor_source(2, ride_n + run_n);
-    let rides = labelled(&src, 0..ride_n, &format!("{prefix}ride_"), "Ride");
-    let runs = labelled(
-        &src,
-        ride_n..ride_n + run_n,
-        &format!("{prefix}run_"),
-        "Run",
-    );
-
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let (first, second) = if ride_n <= run_n {
-        (("cross/ride", &rides), ("cross/run", &runs))
-    } else {
-        (("cross/run", &runs), ("cross/ride", &rides))
-    };
-    ingest_step(&mut engine, first.0, &refs(first.1));
-    let snap = ingest_step(&mut engine, second.0, &refs(second.1)).snapshot;
-    (snap, ground)
-}
-
 /// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
 /// by both sports yields ONE section on that ground, headed by the sport most
 /// of its members do, whichever sport arrived first. Every apply re-derives

@@ -299,7 +299,8 @@ export function useRouteDataSync(
               message: 'Analyzing routes...',
             });
 
-            const started = nativeModule.routeEngine.startSectionDetection();
+            // The engine starts detection when the batch lands; follow it.
+            const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
             if (started) {
               const pollInterval = 500;
               const maxPollTime = 60000;

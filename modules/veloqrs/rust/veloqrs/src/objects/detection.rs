@@ -108,7 +108,16 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             info!("tracematch: [DetectionManager] Section detection complete");
             Ok(DetectionPoll::Applied)
         }
-        crate::persistence::WorkerPoll::Running => Ok(DetectionPoll::Running),
+        crate::persistence::WorkerPoll::Running => {
+            if let Some(checkpoint) = handle_guard.as_ref().and_then(|h| h.take_checkpoint()) {
+                drop(handle_guard);
+                with_engine(|e| {
+                    e.persist_evidence_checkpoint(&checkpoint);
+                    Ok(())
+                })??;
+            }
+            Ok(DetectionPoll::Running)
+        }
     }
 }
 

@@ -406,6 +406,10 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
             crate::persistence::with_persistent_engine(|engine| {
                 engine.attach_finalize(total_attached_portions)
             });
+            // Sync-end cadence: a batch too small for the backfill threshold
+            // still gets its detection run, started here rather than by the
+            // app after the fact.
+            conditioning::condition_pending();
         }
 
         let storage_time = elapsed_ms(storage_start);

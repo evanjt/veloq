@@ -292,6 +292,10 @@ pub struct CacheUpdate {
     /// cache's per-cluster membership (tracematch does not expose it). Becomes
     /// `cache_folded_ids` on success and drives the next detect's new-id set.
     pub folded_ids: HashSet<String>,
+    /// A mid-fold snapshot (memos and grids stripped, dirty clusters
+    /// marked), persisted while the run is polled so a killed run resumes
+    /// from it. Never applied as a result.
+    pub checkpoint: bool,
     /// Boundary records of the clusters this detect recomputed. A fork
     /// record names the activities its branch collected, which the ledger
     /// attaches to a change at that join as what was around it.
@@ -302,6 +306,8 @@ pub struct CacheUpdate {
 
 pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
+    /// The final cache update, when a checkpoint drain met it first.
+    final_update: std::sync::Mutex<Option<CacheUpdate>>,
     /// Out-of-band channel for the Unified detector's evidence-cache update.
     /// The worker sends this BEFORE the section result on `receiver`, so a
     /// `Ready`/`recv` on the main channel guarantees the cache is already
@@ -353,7 +359,35 @@ impl SectionDetectionHandle {
     /// Call only after the main result is `Ready`/recv'd, the worker sends the
     /// cache first, so by then it is present.
     pub fn take_cache(&self) -> Option<CacheUpdate> {
-        self.cache_receiver.try_recv().ok()
+        if let Some(u) = self
+            .final_update
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+        {
+            return Some(u);
+        }
+        while let Ok(u) = self.cache_receiver.try_recv() {
+            if !u.checkpoint {
+                return Some(u);
+            }
+        }
+        None
+    }
+
+    /// The newest checkpoint the worker has sent since the last drain, or
+    /// None. A final update met on the way is kept for [`take_cache`].
+    pub fn take_checkpoint(&self) -> Option<CacheUpdate> {
+        let mut latest = None;
+        while let Ok(u) = self.cache_receiver.try_recv() {
+            if u.checkpoint {
+                latest = Some(u);
+            } else {
+                *self.final_update.lock().unwrap_or_else(|e| e.into_inner()) = Some(u);
+                break;
+            }
+        }
+        latest
     }
 
     /// Block for the section result AND collect the evidence-cache update in one
@@ -421,6 +455,7 @@ mod worker_poll_tests {
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
@@ -436,6 +471,7 @@ mod worker_poll_tests {
         let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };

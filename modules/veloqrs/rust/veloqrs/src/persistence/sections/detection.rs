@@ -3,6 +3,10 @@
 use crate::persistence::codec;
 use crate::persistence::codec::TrackRead;
 use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
+
+/// How often a running fold checkpoints its progress at most; the last
+/// cluster always does.
+const CHECKPOINT_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
@@ -404,6 +408,7 @@ impl PersistentRouteEngine {
         progress.set_phase(DETECTION_PHASE_SUSPENDED, 0);
         SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress,
         }
@@ -552,7 +557,10 @@ impl PersistentRouteEngine {
         // resurrect sections the pool no longer supports. The raw batch lives
         // in memory only; in a fresh process the visible catalogue is the best
         // available echo.
-        if new_activity_ids.is_empty() && !existing_sections.is_empty() {
+        if new_activity_ids.is_empty()
+            && !existing_sections.is_empty()
+            && self.section_evidence_cache.dirty_clusters() == 0
+        {
             log::info!(
                 "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
@@ -568,6 +576,7 @@ impl PersistentRouteEngine {
             // engine cache as-is.
             return SectionDetectionHandle {
                 receiver: rx,
+                final_update: std::sync::Mutex::new(None),
                 cache_receiver: cache_rx,
                 progress,
             };
@@ -827,7 +836,31 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let fold = tracematch::detect_sections_unified_incremental_dated(
+                // The cache will fold everything it did before plus the new pool
+                // ids just routed (each present in the pool, so actually folded).
+                // Keeping this shadow set in step with the returned cache is what
+                // lets the next detect compute `pool − folded` correctly.
+                let mut folded_after = folded_at_spawn;
+                folded_after.extend(new_ids_for_cache.iter().cloned());
+                // A checkpoint after each cut cluster, throttled: the poller
+                // persists the newest one, so a killed run resumes from
+                // there instead of from the last completed detect.
+                let mut last_checkpoint = std::time::Instant::now();
+                let mut observe = |done: usize, total: usize, cache: &SectionEvidenceCache| {
+                    if done < total && last_checkpoint.elapsed() < CHECKPOINT_EVERY {
+                        return;
+                    }
+                    last_checkpoint = std::time::Instant::now();
+                    cache_tx
+                        .send(CacheUpdate {
+                            cache: cache.checkpoint(),
+                            folded_ids: folded_after.clone(),
+                            checkpoint: true,
+                            boundaries: Vec::new(),
+                        })
+                        .ok();
+                };
+                let fold = tracematch::detect_sections_unified_incremental_observed(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -840,15 +873,9 @@ impl PersistentRouteEngine {
                         pinned_ids,
                         freeze_all_geometry: false,
                     },
+                    &mut observe,
                 );
                 let sections_to_send = fold.catalogue;
-
-                // The cache now folds everything it did before plus the new pool
-                // ids just routed (each present in the pool, so actually folded).
-                // Keeping this shadow set in step with the returned cache is what
-                // lets the next detect compute `pool − folded` correctly.
-                let mut folded_after = folded_at_spawn;
-                folded_after.extend(new_ids_for_cache);
 
                 log::info!(
                     "tracematch: [SectionDetection] Unified cached incremental complete: {} sections",
@@ -862,6 +889,7 @@ impl PersistentRouteEngine {
                     .send(CacheUpdate {
                         cache,
                         folded_ids: folded_after,
+                        checkpoint: false,
                         boundaries: fold.boundaries,
                     })
                     .ok();
@@ -879,6 +907,7 @@ impl PersistentRouteEngine {
 
         SectionDetectionHandle {
             receiver: rx,
+            final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress,
         }
@@ -1068,17 +1097,47 @@ impl PersistentRouteEngine {
             self.clear_persisted_evidence_cache();
             return;
         }
+        let cache = std::mem::replace(
+            &mut self.section_evidence_cache,
+            SectionEvidenceCache::new(),
+        );
+        let folded = std::mem::take(&mut self.cache_folded_ids);
+        self.persist_evidence_blob(&cache, &folded);
+        self.section_evidence_cache = cache;
+        self.cache_folded_ids = folded;
+    }
 
+    /// Persist a mid-fold checkpoint in place of the last completed cache.
+    /// The in-memory cache is untouched: the run that sent it still owns
+    /// the catalogue until it applies. If the process dies first, the next
+    /// launch restores this and the next detect cuts only what is left.
+    pub fn persist_evidence_checkpoint(&mut self, update: &CacheUpdate) {
+        if update.folded_ids.is_empty() {
+            return;
+        }
+        self.persist_evidence_blob(&update.cache, &update.folded_ids);
+    }
+
+    /// Clusters the cache still owes a cut, a restored checkpoint's debt.
+    pub fn evidence_cache_dirty_clusters(&self) -> usize {
+        self.section_evidence_cache.dirty_clusters()
+    }
+
+    fn persist_evidence_blob(
+        &mut self,
+        cache: &SectionEvidenceCache,
+        folded_ids: &HashSet<String>,
+    ) {
         let digest = super::section_config_digest(&self.section_config);
         let folded: Vec<String> = {
-            let mut ids: Vec<String> = self.cache_folded_ids.iter().cloned().collect();
+            let mut ids: Vec<String> = folded_ids.iter().cloned().collect();
             ids.sort();
             ids
         };
 
         // Named fields: the cache carries `GpsPoint`s, whose skipped elevation
         // would shorten a positional encoding and misalign everything after it.
-        let cache_blob = match codec::serialize_named(&self.section_evidence_cache) {
+        let cache_blob = match codec::serialize_named(cache) {
             Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
             Err(e) => {
                 log::warn!("tracematch: evidence cache not encodable, staying cold: {e}");
