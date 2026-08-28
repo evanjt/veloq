@@ -1,0 +1,23 @@
+# Sync progress
+# Tests: the progress banner appears while demo data loads and the engine's
+# own detection run reports through it.
+#
+# Written without an emulator run on 2026-08-28: validate on Pixel_5_API_35
+# before promoting to tier1. The banner is transient, so the wait is the
+# assertion; a demo load faster than the first poll would fail it.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "sync-progress-banner"
+    timeout: 20000
+
+- assertVisible:
+    id: "sync-progress-message"
