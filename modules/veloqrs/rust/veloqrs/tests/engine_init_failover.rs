@@ -172,3 +172,110 @@ fn init_survives_corrupt_database() {
         "second event must produce a new generation"
     );
 }
+
+/// The catalogue is a re-derivable cache; the ledger is not. A quarantine
+/// brings every readable history row, geometry version and pin across into
+/// the fresh database before the catalogue is rebuilt from scratch.
+#[test]
+fn quarantine_salvages_readable_history_rows() {
+    let _serial = SERIAL.lock().unwrap();
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("ledger.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let line: Vec<GpsPoint> = (0..20)
+        .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0005, 7.0))
+        .collect();
+    {
+        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        engine
+            .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
+            .unwrap();
+        let v1 = engine
+            .record_section_geometry("sec_ledger", &line, true, Some(("act_1", 3, 22)))
+            .unwrap();
+        engine
+            .append_section_history("sec_ledger", "formed", Some("{\"note\":1}"), Some(v1))
+            .unwrap();
+        engine
+            .append_section_history("sec_ledger", "recut", None, None)
+            .unwrap();
+        assert!(engine.pin_section_geometry("sec_ledger", v1).unwrap());
+    }
+
+    // Page-level corruption the ledger survives: the activities table's root
+    // page is overwritten, so reading the catalogue reports a malformed
+    // image while the schema and the ledger pages stay readable.
+    {
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        let page_size: u64 = conn
+            .query_row("PRAGMA page_size", [], |r| r.get(0))
+            .unwrap();
+        // The table and every index on it, so no read can route around the
+        // damage through a smaller b-tree.
+        let roots: Vec<u64> = conn
+            .prepare(
+                "SELECT rootpage FROM sqlite_master WHERE tbl_name = 'activities' AND rootpage > 0",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .flatten()
+            .collect();
+        drop(conn);
+        assert!(!roots.is_empty());
+        let mut bytes = fs::read(&db_path).unwrap();
+        for root in roots {
+            let start = ((root - 1) * page_size) as usize;
+            for b in &mut bytes[start..start + page_size as usize] {
+                *b = 0xFF;
+            }
+        }
+        fs::write(&db_path, bytes).unwrap();
+        let _ = fs::remove_file(format!("{}-wal", db_str));
+        let _ = fs::remove_file(format!("{}-shm", db_str));
+    }
+    {
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        let read: Result<i64, _> =
+            conn.query_row("SELECT COUNT(sport_type) FROM activities", [], |r| r.get(0));
+        assert!(
+            read.is_err(),
+            "test premise: the catalogue page must read as corrupt"
+        );
+        let ledger: i64 = conn
+            .query_row("SELECT COUNT(*) FROM section_history", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ledger, 2, "test premise: the ledger pages still read");
+    }
+    let recovered = (0..20).any(|attempt| {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        persistent_engine_init(db_str.clone())
+    });
+    assert!(recovered, "init must quarantine and start fresh");
+    assert!(!quarantine_files(tmp.path()).is_empty());
+
+    let fresh = PersistentRouteEngine::new(&db_str).unwrap();
+    let kinds: Vec<String> = fresh
+        .section_history("sec_ledger")
+        .into_iter()
+        .map(|e| e.kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        vec!["formed", "recut"],
+        "history rows came across in order"
+    );
+    let (polyline, reference) = fresh
+        .section_geometry_version("sec_ledger", 1)
+        .expect("the geometry version came across");
+    assert_eq!(polyline.len(), line.len());
+    assert_eq!(reference, Some(("act_1".to_string(), 3, 22)));
+    assert_eq!(fresh.pinned_section_version("sec_ledger"), Some(1));
+    assert_eq!(
+        activity_count(&db_path),
+        0,
+        "the catalogue itself starts over"
+    );
+}

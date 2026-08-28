@@ -236,6 +236,9 @@ impl PersistentRouteEngine {
         let Some((section_type, is_user_defined)) = row else {
             return Ok(());
         };
+        // A name is the user taking the section over; a pin holding an
+        // older line would fight that.
+        self.drop_section_pin(section_id);
 
         if is_user_defined || section_type == "custom" {
             self.db.execute(

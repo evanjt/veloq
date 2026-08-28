@@ -165,6 +165,37 @@ pub(super) fn record_geometry_on(
     Ok(version)
 }
 
+/// Copy the rows `select` yields from `src` into `dst` with `insert`, one
+/// at a time, skipping any row that fails to read or write. Returns the
+/// rows written.
+fn salvage_rows(
+    src: &rusqlite::Connection,
+    dst: &rusqlite::Connection,
+    select: &str,
+    insert: &str,
+    columns: usize,
+) -> usize {
+    let Ok(mut stmt) = src.prepare(select) else {
+        return 0;
+    };
+    let rows = stmt.query_map([], |row| {
+        (0..columns)
+            .map(|i| row.get::<_, rusqlite::types::Value>(i))
+            .collect::<Result<Vec<_>, _>>()
+    });
+    let Ok(rows) = rows else { return 0 };
+    let mut written = 0;
+    for values in rows.flatten() {
+        if dst
+            .execute(insert, rusqlite::params_from_iter(values.iter()))
+            .is_ok()
+        {
+            written += 1;
+        }
+    }
+    written
+}
+
 /// The section's record as the junction rows stand now: the fastest included
 /// traversal and its activity.
 fn current_pr_on(conn: &rusqlite::Connection, section_id: &str) -> Option<(String, f64)> {
@@ -892,6 +923,58 @@ impl PersistentRouteEngine {
             params![section_id],
         )?;
         Ok(())
+    }
+
+    /// Drop a section's pin. Every promotion mutation calls this: a user who
+    /// accepts, renames, trims, re-references or re-matches a section has
+    /// taken it over, and a pin that then holds an older line would fight
+    /// the edit they just made.
+    pub(crate) fn drop_section_pin(&self, section_id: &str) {
+        let _ = self.db.execute(
+            "DELETE FROM section_pins WHERE section_id = ?",
+            params![section_id],
+        );
+    }
+
+    /// Copy every readable ledger row out of a quarantined database into
+    /// this one: `section_history`, `section_geometry` and `section_pins`.
+    /// Best effort, row by row, so one torn page costs its rows and nothing
+    /// else. Returns how many rows of each table landed.
+    pub fn salvage_ledger_from(&self, corrupt_path: &str) -> (usize, usize, usize) {
+        let Ok(src) = rusqlite::Connection::open_with_flags(
+            corrupt_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        ) else {
+            return (0, 0, 0);
+        };
+        let history = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, at, kind, details, geometry_version FROM section_history ORDER BY id",
+            "INSERT OR IGNORE INTO section_history (section_id, at, kind, details, geometry_version)
+             VALUES (?, ?, ?, ?, ?)",
+            5,
+        );
+        let geometry = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, version, created_at, encoding, blob, milestone,
+                    rep_activity_id, rep_start_index, rep_end_index, source
+             FROM section_geometry ORDER BY section_id, version",
+            "INSERT OR IGNORE INTO section_geometry
+                 (section_id, version, created_at, encoding, blob, milestone,
+                  rep_activity_id, rep_start_index, rep_end_index, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            10,
+        );
+        let pins = salvage_rows(
+            &src,
+            &self.db,
+            "SELECT section_id, version, created_at FROM section_pins",
+            "INSERT OR IGNORE INTO section_pins (section_id, version, created_at) VALUES (?, ?, ?)",
+            3,
+        );
+        (history, geometry, pins)
     }
 
     /// The pinned version of one section, if any.

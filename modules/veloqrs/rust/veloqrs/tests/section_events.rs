@@ -613,3 +613,65 @@ fn a_dissolved_section_is_listed_as_retired() {
         "retired means gone from the catalogue"
     );
 }
+
+/// A pin holds a stored line against the detector. A user who accepts,
+/// renames, trims, re-references or re-matches the section has taken it
+/// over, and the pin goes with the edit rather than fighting it.
+#[test]
+fn a_promotion_mutation_drops_the_pin() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+
+    let pin = |engine: &mut veloqrs::PersistentRouteEngine| {
+        engine
+            .revert_section_to_version(&id, 1)
+            .expect("revert pins");
+        assert_eq!(engine.pinned_section_version(&id), Some(1));
+    };
+
+    pin(&mut engine);
+    engine
+        .set_section_name(&id, Some("Morning Berg"))
+        .expect("rename");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "a rename drops the pin"
+    );
+
+    pin(&mut engine);
+    let len = engine.get_section_by_id(&id).unwrap().polyline.len() as u32;
+    engine.trim_section(&id, 1, len - 2).expect("trim");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "a trim drops the pin"
+    );
+
+    pin(&mut engine);
+    let other = engine
+        .get_section_by_id(&id)
+        .unwrap()
+        .activity_ids
+        .into_iter()
+        .find(|a| a != &rides[0].id)
+        .expect("a second member");
+    engine
+        .set_section_reference(&id, &other)
+        .expect("set reference");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "a reference change drops the pin"
+    );
+
+    pin(&mut engine);
+    engine.accept_section(&id).expect("accept");
+    assert_eq!(
+        engine.pinned_section_version(&id),
+        None,
+        "an accept drops the pin"
+    );
+}

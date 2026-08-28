@@ -1641,7 +1641,19 @@ pub mod persistent_engine_ffi {
         );
 
         match PersistentRouteEngine::new(db_path) {
-            Ok(engine) => Some(engine),
+            Ok(engine) => {
+                // The catalogue is a re-derivable cache; the ledger is not.
+                // Whatever the quarantined file still yields comes across.
+                let (history, geometry, pins) =
+                    engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
+                log::warn!(
+                    "tracematch: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins from the quarantined database",
+                    history,
+                    geometry,
+                    pins
+                );
+                Some(engine)
+            }
             Err(e) => {
                 log::error!(
                     "tracematch: [PersistentEngine] Fresh database after quarantine also failed: {:?}",

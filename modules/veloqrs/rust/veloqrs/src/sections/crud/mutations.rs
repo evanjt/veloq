@@ -256,6 +256,7 @@ impl PersistentRouteEngine {
         // The section is now a durable intent row; the registry relinquishes it
         // so auto detection stops re-emitting (and colliding on) its ground.
         self.section_identity_relinquish(section_id);
+        self.drop_section_pin(section_id);
         Ok(())
     }
 
@@ -531,6 +532,7 @@ impl PersistentRouteEngine {
 
         // Setting a reference promotes an auto section to user-defined; relinquish
         // it from the registry so detection stops re-emitting its (edited) ground.
+        self.drop_section_pin(section_id);
         self.section_identity_relinquish(section_id);
 
         Ok(())
@@ -635,6 +637,7 @@ impl PersistentRouteEngine {
         )?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        self.drop_section_pin(section_id);
         self.invalidate_perf_cache();
         Ok(true)
     }
@@ -1025,6 +1028,7 @@ impl PersistentRouteEngine {
         // Remove from in-memory cache and relinquish from the identity registry so
         // a later detect neither carries nor re-mints the removed section.
         self.remove_section_from_memory(section_id);
+        self.drop_section_pin(section_id);
         self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the

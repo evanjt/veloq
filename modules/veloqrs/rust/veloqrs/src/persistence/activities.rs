@@ -64,7 +64,7 @@ impl PersistentRouteEngine {
             .db
             .prepare("SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities")?;
 
-        let entries: Vec<ActivityBoundsEntry> = stmt
+        let rows: Vec<SqlResult<ActivityBoundsEntry>> = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
                 let sport_type: String = row.get(1)?;
@@ -89,14 +89,20 @@ impl PersistentRouteEngine {
                     bounds,
                 })
             })?
-            .filter_map(|r| match r {
-                Ok(v) => Some(v),
+            .collect::<Vec<_>>();
+        // A malformed row is skipped; a corrupt page is the caller's to
+        // quarantine, and swallowing it here would hide the one signal the
+        // failover keys on.
+        let mut entries = Vec::with_capacity(rows.len());
+        for r in rows {
+            match r {
+                Ok(v) => entries.push(v),
+                Err(e) if super::is_corruption_error(&e) => return Err(e),
                 Err(e) => {
                     log::warn!("Skipping malformed row during metadata loading: {:?}", e);
-                    None
                 }
-            })
-            .collect();
+            }
+        }
 
         self.spatial_index = RTree::bulk_load(entries);
         Ok(())
