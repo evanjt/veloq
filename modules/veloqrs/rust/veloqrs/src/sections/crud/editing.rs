@@ -371,6 +371,121 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Put a stored geometry version back as the section's live line and pin
+    /// the section there, so the next re-cut holds it. The row takes the
+    /// version's polyline and reference triple, the junction rows are
+    /// re-matched against it with exclusions carried, and the ledger gets a
+    /// `reverted` event linking the version. Fails when the version is
+    /// absent or pruned: a revert must land on a line the user was shown.
+    pub fn revert_section_to_version(
+        &mut self,
+        section_id: &str,
+        version: i64,
+    ) -> Result<(), String> {
+        let (polyline, reference) = self
+            .section_geometry_version(section_id, version)
+            .ok_or_else(|| format!("Section {section_id} has no stored version {version}"))?;
+        if polyline.len() < 2 {
+            return Err("Stored version is too short to revert to".to_string());
+        }
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let distance = calculate_route_distance(&polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(&polyline);
+        let blob = crate::persistence::codec::serialize_points(&polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let source = if reference.is_some() {
+            crate::persistence::sections::SOURCE_EXACT
+        } else {
+            crate::persistence::sections::SOURCE_CONSENSUS
+        };
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    polyline_blob = ?,
+                    distance_meters = ?,
+                    updated_at = ?,
+                    representative_activity_id = COALESCE(?, representative_activity_id),
+                    rep_start_index = ?,
+                    rep_end_index = ?,
+                    geometry_source = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    crate::persistence::codec::NO_POLYLINE_JSON,
+                    blob,
+                    distance,
+                    updated_at,
+                    reference.as_ref().map(|(id, _, _)| id.as_str()),
+                    reference.as_ref().map(|(_, s, _)| *s),
+                    reference.as_ref().map(|(_, _, e)| *e),
+                    source,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to revert section: {}", e))?;
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+            let exclusions = self.capture_exclusions(section_id);
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &polyline, &sport_type)?;
+            self.reapply_exclusions(section_id, &exclusions)?;
+        } else {
+            self.rematch_section_activities(section_id, &polyline)?;
+        }
+
+        let pinned = self
+            .pin_section_geometry(section_id, version)
+            .map_err(|e| format!("Failed to pin section: {}", e))?;
+        if !pinned {
+            return Err(format!(
+                "Section {section_id} lost version {version} during the revert"
+            ));
+        }
+        let details = serde_json::json!({ "version": version }).to_string();
+        self.append_section_history(
+            section_id,
+            crate::persistence::sections::KIND_REVERTED,
+            Some(&details),
+            Some(version),
+        )
+        .map_err(|e| format!("Failed to record the revert: {}", e))?;
+
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
     /// Expand section bounds to the given range of an activity's GPS track.
     /// Backs up the original polyline on first edit (preserves true original across multiple edits).
     /// Re-matches all activities against the new polyline.

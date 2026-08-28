@@ -11,7 +11,10 @@ pub(crate) mod preview;
 mod ranking;
 pub(crate) mod track_pool;
 
-pub use history::{DetectorGeneration, SectionGeometryVersion, SectionHistoryEvent};
+pub use history::{
+    DetectorGeneration, KIND_REVERTED, SOURCE_CONSENSUS, SOURCE_EXACT, SectionGeometryVersion,
+    SectionHistoryEvent,
+};
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
@@ -1985,6 +1988,12 @@ impl PersistentRouteEngine {
                 version,
                 None,
             )?;
+            // A re-cut re-bases the PR on the new extent. When that moves
+            // the record, the ledger says so beside the re-cut, labelled
+            // against the current extent: the old time was over other ground.
+            if event.kind == "recut" {
+                history::record_pr_rebase_on(&tx, &event.real_id, event.details.as_deref())?;
+            }
         }
 
         // Provenance of the catalogue this transaction stores: which detector

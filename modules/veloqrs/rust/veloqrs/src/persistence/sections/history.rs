@@ -46,6 +46,16 @@ pub const KIND_ALGORITHM_CHANGED: &str = "algorithm_changed";
 /// `superseded_by` on the old and `supersedes` on the new.
 pub const KIND_SUPERSEDED: &str = "superseded";
 
+/// A re-cut moved the section's record: the old best time was set over a
+/// different extent, so the PR is re-based on the current one.
+pub const KIND_PR_REBASED: &str = "pr_rebased";
+
+/// The user put a stored geometry version back and pinned it there.
+pub const KIND_REVERTED: &str = "reverted";
+
+/// The `basis` every re-based PR row carries.
+pub const PR_BASIS_CURRENT_EXTENT: &str = "current_extent";
+
 /// The detector and parameters a catalogue was cut under.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetectorGeneration {
@@ -121,6 +131,69 @@ pub(super) fn record_geometry_on(
         params![section_id, GEOMETRY_KEEP_RECENT as i64],
     )?;
     Ok(version)
+}
+
+/// The section's record as the junction rows stand now: the fastest included
+/// traversal and its activity.
+fn current_pr_on(conn: &rusqlite::Connection, section_id: &str) -> Option<(String, f64)> {
+    conn.query_row(
+        "SELECT activity_id, lap_time FROM section_activities
+         WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL
+         ORDER BY lap_time ASC, activity_id ASC LIMIT 1",
+        params![section_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .optional()
+    .ok()
+    .flatten()
+}
+
+/// After a re-cut's junction rows are written, compare the record they hold
+/// with the era snapshot the re-cut event carried and write one
+/// [`KIND_PR_REBASED`] row when they differ. A record that merely gained
+/// precision is not a move: times compare to the millisecond.
+pub(super) fn record_pr_rebase_on(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    recut_details: Option<&str>,
+) -> rusqlite::Result<()> {
+    let era: serde_json::Value = recut_details
+        .and_then(|d| serde_json::from_str(d).ok())
+        .unwrap_or(serde_json::Value::Null);
+    let from_activity = era
+        .get("pr_activity_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let from_time = era.get("pr_time").and_then(|v| v.as_f64());
+    let now = current_pr_on(conn, section_id);
+    let (to_activity, to_time) = match &now {
+        Some((a, t)) => (Some(a.clone()), Some(*t)),
+        None => (None, None),
+    };
+    let same_time = match (from_time, to_time) {
+        (Some(a), Some(b)) => (a - b).abs() < 0.001,
+        (None, None) => true,
+        _ => false,
+    };
+    if from_activity == to_activity && same_time {
+        return Ok(());
+    }
+    let details = serde_json::json!({
+        "from_activity_id": from_activity,
+        "from_time": from_time,
+        "to_activity_id": to_activity,
+        "to_time": to_time,
+        "basis": PR_BASIS_CURRENT_EXTENT,
+    });
+    append_history_on(
+        conn,
+        section_id,
+        KIND_PR_REBASED,
+        Some(&details.to_string()),
+        None,
+        None,
+    )?;
+    Ok(())
 }
 
 /// Append one lifecycle event row at `at`, or at the current time when `at` is
@@ -504,6 +577,45 @@ impl PersistentRouteEngine {
         reference: Option<(&str, u32, u32)>,
     ) -> rusqlite::Result<i64> {
         record_geometry_on(&self.db, section_id, polyline, milestone, reference)
+    }
+
+    /// One stored geometry version with the reference it was sliced from:
+    /// `(polyline, Some((activity, start, end)))` for an exact version, `None`
+    /// reference for an averaged one. None when the version is absent, pruned,
+    /// or carries an unknown encoding.
+    pub fn section_geometry_version(
+        &self,
+        section_id: &str,
+        version: i64,
+    ) -> Option<(Vec<GpsPoint>, Option<(String, u32, u32)>)> {
+        let row: (i64, Vec<u8>, Option<String>, Option<u32>, Option<u32>) = self
+            .db
+            .query_row(
+                "SELECT encoding, blob, rep_activity_id, rep_start_index, rep_end_index
+                 FROM section_geometry WHERE section_id = ? AND version = ?",
+                params![section_id, version],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .optional()
+            .ok()
+            .flatten()?;
+        if row.0 != ENCODING_QUANTISED {
+            return None;
+        }
+        let polyline = codec::decode_polyline(&row.1)?;
+        let reference = match (row.2, row.3, row.4) {
+            (Some(id), Some(start), Some(end)) => Some((id, start, end)),
+            _ => None,
+        };
+        Some((polyline, reference))
     }
 
     /// Decode one stored geometry version. None when the version is absent,
