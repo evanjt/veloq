@@ -15,7 +15,9 @@ pub use history::{
     DetectorGeneration, KIND_REVERTED, RetiredSection, SOURCE_CONSENSUS, SOURCE_EXACT,
     SectionChange, SectionGeometryVersion, SectionHistoryEvent, SectionLineage,
 };
+pub(crate) use identity::SECTION_IDENTITY_KEY;
 pub(crate) use identity::SectionIdentity;
+pub use identity::content_id_for;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
@@ -1604,7 +1606,7 @@ impl PersistentRouteEngine {
         let carried_exclusions = capture_auto_exclusions(&tx)?;
 
         // Clear existing auto sections (keep custom, trimmed, and accepted
-        // sections — and disabled ones, whose row is retained so enable can
+        // sections, and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
         // suppressed via section_intents, so sparing the row cannot resurrect it).
         // Deleting the section cascades its section_activities rows (FK ON DELETE
@@ -1682,7 +1684,7 @@ impl PersistentRouteEngine {
         // sections are durable rows the wipe above spares and are managed by their
         // own CRUD paths; since they now also live in the in-memory `self.sections`
         // (so the matcher and get_sections() see them), they must be filtered out
-        // here or they would be re-inserted under 'auto' — a UNIQUE-id collision.
+        // here or they would be re-inserted under 'auto', a UNIQUE-id collision.
         let mut sorted_sections: Vec<&FrequentSection> = self
             .sections
             .iter()

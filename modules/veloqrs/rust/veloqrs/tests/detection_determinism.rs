@@ -52,7 +52,7 @@ fn cold_catalogue_signature(arm: Arm) -> String {
     let corpus = LifecycleCorpus::generate(&LifecycleConfig::default());
     let (mut engine, _dir) = fresh_engine_for(arm);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    cold.snapshot.catalogue_signature()
+    cold.snapshot.catalogue_signature_with_ids()
 }
 
 /// Doubles as the worker the parent re-executes and as a gate in its own right:

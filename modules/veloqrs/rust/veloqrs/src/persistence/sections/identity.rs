@@ -1,12 +1,12 @@
 //! Assign-once section identity: the stateful half of B2.
 //!
 //! tracematch emits GROUND (sections with throwaway positional ids that
-//! renumber on every detect — root R2). This layer owns the id over time: an
+//! renumber on every detect, root R2). This layer owns the id over time: an
 //! opaque `s_<ts>__<rand>` id assigned once and carried forward with its ground,
 //! plus the hysteresis debounce that stops a single add flipping the visible
 //! catalogue while it still converges to the batch. It generalises the one thing
-//! that already survives resync today — a custom section's non-positional id
-//! excluded from the detection wipe — to every auto section.
+//! that already survives resync today, a custom section's non-positional id
+//! excluded from the detection wipe, to every auto section.
 //!
 //! The pure decision + debounce machinery lives in
 //! `tracematch::sections::identity` ([`HysteresisState`]); this is the engine
@@ -21,8 +21,8 @@
 //!   [`CandidateFate`] on each carry: a FROZEN carry (mid re-cut debounce) keeps
 //!   the prior payload and folds in only the genuinely-new activities that
 //!   traverse it; an ADOPTED carry (extents agreed, or a sustained re-cut fired)
-//!   takes the batch payload wholesale — polyline, portions, and consensus
-//!   family are one coherent unit — under the carried identity (real id, name,
+//!   takes the batch payload wholesale, polyline, portions, and consensus
+//!   family are one coherent unit, under the carried identity (real id, name,
 //!   created_at, version), grafting back any prior member the non-monotone
 //!   batch re-clustering dropped whose track still matches the new geometry.
 //!   A mint/restore takes the fresh batch payload under the same identity rule.
@@ -30,7 +30,7 @@
 //! INTENT SUPPRESSION generalises the custom-section rule that already dodges the
 //! R2 crash: before the plan runs, any candidate whose ground is owned by a
 //! durable-intent DB row (accepted / trimmed / renamed / set-ref / merged /
-//! custom — the rows the detection wipe spares) is dropped, and any registry row
+//! custom, the rows the detection wipe spares) is dropped, and any registry row
 //! whose id has passed to such a durable row is relinquished. So auto detection
 //! never re-emits, and never collides on `UNIQUE sections.id` with, a section the
 //! user has frozen. That is what flips accept/trim/merge survival by construction.
@@ -52,7 +52,7 @@ use tracematch::{
 };
 
 /// `identity_state.key` for the section registry blob (B4 migration 013).
-pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
+pub(crate) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Write what was around a change into an event's details: `around` is the
 /// activities that arrived while the change was pending, `fork_around` the
@@ -133,28 +133,28 @@ pub(crate) struct SectionLifecycleEvent {
 /// payload carries [`FrequentSection`]s whose trailing skip-if-None fields
 /// (`GpsPoint.elevation`, `consensus_state`) desync postcard's positional
 /// stream, so a v1 postcard blob never decoded and always fell back to a
-/// reseed — dropping graves, tombstones, and debounce streaks on every
+/// reseed, dropping graves, tombstones, and debounce streaks on every
 /// restart. rmp's length-prefixed arrays recover a skipped trailing field
 /// through its serde default. Version 3 reshaped the hysteresis debounce
 /// record (the D5 streak ledger holds both directions' streaks in place of
 /// one kind + one streak), which rmp encodes positionally, so a v2 blob
 /// reseeds rather than misreading a kind byte as a streak.
-pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 3;
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
 /// nomination on same-corridor coverage alone, seniority deciding.
 ///
 /// A non-zero floor was trialled to tame the synthetic marginal-capture
-/// pathology — a short senior prior with marginal one-sided overlap capturing or
+/// pathology, a short senior prior with marginal one-sided overlap capturing or
 /// blocking a dominant candidate (`tracematch/tests/b2_inheritance_stress.rs`),
 /// which at defaults can mint a duplicate every detect on an unchanged catalogue.
 /// But 0.4 failed to generalise: on GeoLife dense-urban data (204 trajectories)
 /// it broke ~7 legitimate low-overlap carries into mints/merges and worsened
 /// churn, WITHOUT reducing the real duplication. Constants discipline: a value
-/// that fails generalisation does not ship. The duplication family — visible-
+/// that fails generalisation does not ship. The duplication family, visible-
 /// catalogue inflation from the re-cut debounce holding stale covered geometry
-/// (see the seam note in `section_identity_apply_into`) — is a FOLD-level fix in
+/// (see the seam note in `section_identity_apply_into`), is a FOLD-level fix in
 /// the pure layer (task pending), not a merge floor. Kept as an explicit knob so
 /// GATE-2 can revisit with a TARGETED trigger, not a blanket floor.
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
@@ -175,7 +175,7 @@ pub(crate) struct IdentityRow {
 /// veloqrs payloads it carries. In-memory pre-B4 (reseeded from the DB on open);
 /// B4 persists the whole blob so a debounce survives an app kill. Serde-derived
 /// now so that migration is a straight `serde` of this type. `Default` is hand
-/// written (below) so the hysteresis tunables — the merge floor especially — are
+/// written (below) so the hysteresis tunables, the merge floor especially, are
 /// an explicit knob at the one construction site, not a buried derive.
 ///
 /// `#[serde(default)]` so a field added in a later version deserialises from an
@@ -228,14 +228,25 @@ impl Default for SectionIdentity {
 }
 
 impl PersistentRouteEngine {
+    /// Every section id the database holds, whatever its state.
+    fn stored_section_ids(&self) -> BTreeSet<String> {
+        self.db
+            .prepare("SELECT id FROM sections")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default()
+    }
+
     /// Read accessor for tests/measurement: the number of visible registry rows.
     pub fn section_identity_visible_len(&self) -> usize {
         self.identity.rows.len()
     }
 
     /// The last RAW detection catalogue applied, before the identity/hysteresis
-    /// remap. This is the B1 convergence truth — order-free and tracking the
-    /// batch every step — as opposed to the DAMPED `get_sections()` view, which
+    /// remap. This is the B1 convergence truth, order-free and tracking the
+    /// batch every step, as opposed to the DAMPED `get_sections()` view, which
     /// can lag it by up to `k` steps while a dissolve debounces. The B1 parity
     /// gates compare this so a legitimate hysteresis lag is not read as a
     /// detection desync.
@@ -313,7 +324,7 @@ impl PersistentRouteEngine {
     /// The whole section registry as a version-tagged serde blob, or None if
     /// serialisation fails. Written INSIDE the `save_sections` transaction (via
     /// `write_identity_state`) so the registry and the catalogue it describes
-    /// commit atomically — a crash cannot leave the blob ahead of the DB. The
+    /// commit atomically, a crash cannot leave the blob ahead of the DB. The
     /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
     /// reseeds rather than misparsing. rmp-encoded, not postcard: the payload
     /// carries GpsPoint composites (see the version-constant note).
@@ -323,8 +334,8 @@ impl PersistentRouteEngine {
             .ok()
     }
 
-    /// Restore the section registry from its persisted blob. Returns false — so
-    /// the caller reseeds from the DB rows — when there is no blob (fresh or
+    /// Restore the section registry from its persisted blob. Returns false, so
+    /// the caller reseeds from the DB rows, when there is no blob (fresh or
     /// pre-B4 install), the version byte does not match, or it fails to decode.
     /// Treating an UNREADABLE blob exactly like a missing one is crash-consistency
     /// healing, not just the migration path: a torn or stale blob self-heals to a
@@ -355,7 +366,7 @@ impl PersistentRouteEngine {
                 // same one-generation stale-blob window cannot mint a duplicate PK.
                 // The window can leave a catalogue id unknown to the restored
                 // registry (a section saved after the stale blob), but that section
-                // is simply re-matched by ground on the next apply's step_assign —
+                // is simply re-matched by ground on the next apply's step_assign -
                 // it self-heals through remap, not a failed load.
                 true
             }
@@ -409,7 +420,7 @@ impl PersistentRouteEngine {
     /// Seed the registry from the sections already loaded from the DB, adopting
     /// each existing id as a stable seed. Called once after `load_sections` so an
     /// existing install keeps its ids (positional, custom, or previously minted)
-    /// and simply stops re-deriving them from that point — no migration, no id
+    /// and simply stops re-deriving them from that point, no migration, no id
     /// rewrite, user data intact.
     ///
     /// Only the wipe-managed auto sections (not user-defined) enter the registry;
@@ -501,7 +512,7 @@ impl PersistentRouteEngine {
         // by ground: any tombstone whose retained ground a durable-intent row
         // now owns is forgotten, grave included. Without this the grave pins
         // the dead id forever, and a later re-emergence would restore a
-        // ground the DB row already represents — the same double-ownership
+        // ground the DB row already represents, the same double-ownership
         // the live-row relinquish prevents.
         let claimed: Vec<String> = identity
             .hysteresis
@@ -533,13 +544,13 @@ impl PersistentRouteEngine {
         //
         // COMPETITION NOTE. A prior mid re-cut debounce competes in
         // `plan_identity` on the batch geometry it is re-cutting TO (its
-        // pending target), not its frozen footprint — the FOLD-level fix an
+        // pending target), not its frozen footprint, the FOLD-level fix an
         // older note here still called pending. Residual exposure, verified
         // and deliberately open: the FIRST divergent step competes on the held
         // footprint (the pending target only exists from the following step),
         // a dissolve-pending prior competes on its stale ground and a foreign
         // capture resets its dissolve streak, and a marginal one-sided senior
-        // capture needs no debounce at all — the merge floor is that clause's
+        // capture needs no debounce at all, the merge floor is that clause's
         // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
@@ -678,8 +689,17 @@ impl PersistentRouteEngine {
             };
 
             let row = carried.unwrap_or_else(|| {
-                let real_id = mint_real_id(&mut identity.mint_seq);
                 let mut section = payload.take().expect("payload consumed once");
+                // Every id the database holds, the rows the view hides
+                // (disabled, superseded, accepted) included: a mint must
+                // never land on one of them.
+                let mut taken: BTreeSet<String> = self.stored_section_ids();
+                taken.extend(self.sections.iter().map(|s| s.id.clone()));
+                taken.extend(new_rows.values().map(|r| r.real_id.clone()));
+                taken.extend(old_rows.values().map(|r| r.real_id.clone()));
+                taken.extend(old_graves.values().map(|r| r.real_id.clone()));
+                taken.extend(identity.graves.values().map(|r| r.real_id.clone()));
+                let real_id = mint_content_id(&section, &taken, &mut identity.mint_seq);
                 section.id = real_id.clone();
                 // Birth is stamped on the payload at mint so it rides the
                 // registry blob and the graves: created_at then survives
@@ -984,7 +1004,7 @@ impl PersistentRouteEngine {
     /// rows and tombstoned graves) and from the in-memory catalogue, and forget it
     /// as seen so a later re-add folds it back in. The append-only fold otherwise
     /// keeps a removed contributor as a phantom member, which the activity_id
-    /// foreign key now (correctly) refuses to persist — aborting the whole
+    /// foreign key now (correctly) refuses to persist, aborting the whole
     /// detection apply. Called by remove_activity. Ground is untouched: only the
     /// gone activity leaves; the section's geometry and other members stay.
     pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
@@ -1022,7 +1042,7 @@ impl PersistentRouteEngine {
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
     /// section's current ground so the emitter never re-detects it (invariant 6).
     /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
-    /// failure logs rather than propagates — the worst case is the pre-B4
+    /// failure logs rather than propagates, the worst case is the pre-B4
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
     /// call this BEFORE the row is gone.
     pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
@@ -1073,10 +1093,10 @@ impl PersistentRouteEngine {
     /// not re-emit. Two sources, both read raw from the DB because they are the
     /// authority the registry defers to:
     ///
-    /// - The wipe-spared section rows — custom, backed-up (trimmed/set-ref), or
-    ///   user-defined (accepted/renamed/merged) — whose ground a fresh auto
+    /// - The wipe-spared section rows, custom, backed-up (trimmed/set-ref), or
+    ///   user-defined (accepted/renamed/merged), whose ground a fresh auto
     ///   section would collide with on `UNIQUE sections.id`.
-    /// - The `section_intents` suppression records — user-disabled and
+    /// - The `section_intents` suppression records, user-disabled and
     ///   user-deleted corridors that must stay hidden across restart (invariant 6).
     ///   The disabled section's own row is is_user_defined=0 and the deleted row
     ///   is gone, so neither is caught by the first query; the retained intent
@@ -1113,7 +1133,7 @@ impl PersistentRouteEngine {
             }
         }
         // INVARIANT: suppression reads disabled/deleted rows ONLY. kind='named'
-        // rows share this table but are the opposite of suppression — a named
+        // rows share this table but are the opposite of suppression, a named
         // corridor must keep detecting and evolving. Widening this query back to
         // all kinds would make naming a corridor silently hide it
         // (`naming_never_suppresses_corridor` is the regression gate).
@@ -1147,7 +1167,7 @@ fn ground_owned_by_intent(polyline: &[GpsPoint], intent_grounds: &[Vec<GpsPoint>
 
 /// Append-only fold: add each new activity that traverses `section`'s held
 /// polyline, and only those. Never removes a member and never adopts the batch's
-/// re-clustered set, so a carried section is monotone across an add — the
+/// re-clustered set, so a carried section is monotone across an add, the
 /// property the strict single-add gates assert. New laps bump `visit_count` in
 /// step with the junction rows `save_sections` will write.
 fn fold_new_activities(
@@ -1207,7 +1227,41 @@ fn graft_prior_members(
 /// (`custom_<ts>__<rand>`) with a distinct `s_` prefix so registry and custom
 /// ids never alias. The monotonic `seq` keeps ids unique even when a single
 /// apply mints many sections in one millisecond.
-fn mint_real_id(seq: &mut u64) -> String {
+/// The id a section carries from birth: its sport and the global cell its
+/// heart sits in, so the same ground cut on another device mints the same
+/// id. A cell already taken (a neighbour on the same block, or a grave)
+/// gets the next free ordinal; a section with no line falls back to the
+/// clock, which never collides.
+pub fn content_id_for(
+    polyline: &[GpsPoint],
+    sport_type: &str,
+    taken: &BTreeSet<String>,
+) -> Option<String> {
+    let heart = tracematch::section_heart(polyline)?;
+    let (lat, lng) = tracematch::earth_cell(&heart);
+    let sport = sport_type
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    let sport = if sport.is_empty() {
+        "all".to_string()
+    } else {
+        sport
+    };
+    let base = format!("s_{sport}_{lat}_{lng}");
+    if !taken.contains(&base) {
+        return Some(base);
+    }
+    (2u32..)
+        .map(|n| format!("{base}_{n}"))
+        .find(|id| !taken.contains(id))
+}
+
+fn mint_content_id(section: &FrequentSection, taken: &BTreeSet<String>, seq: &mut u64) -> String {
+    if let Some(id) = content_id_for(&section.polyline, &section.sport_type, taken) {
+        return id;
+    }
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

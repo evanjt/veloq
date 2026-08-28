@@ -137,6 +137,7 @@ impl PersistentRouteEngine {
         Self::ensure_sections_polyline_nullable(conn)?;
         Self::ensure_section_geometry_baseline(conn, current_version);
         Self::ensure_catalogue_archive(conn);
+        Self::ensure_content_ids(conn)?;
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -691,6 +692,102 @@ impl PersistentRouteEngine {
             new_ = recount("NEW.section_id"),
             old = recount("OLD.section_id"),
         ))?;
+        Ok(())
+    }
+
+    /// Re-mint every clock-minted section id as a content id and re-key
+    /// every table that holds it, once, in one transaction. Ids used to be
+    /// `s_<millis>__<seq>`: unique, but two devices cutting the same ground
+    /// could never agree. A content id is the sport and the global cell of
+    /// the section's heart, so they can. Foreign keys are deferred to the
+    /// commit, so parents and children move in any order.
+    fn ensure_content_ids(conn: &Connection) -> SqlResult<()> {
+        const MARKER: &str = "content_ids_v1";
+        let done: Option<String> = conn
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = ?",
+                params![MARKER],
+                |row| row.get(0),
+            )
+            .ok();
+        if done.is_some() {
+            return Ok(());
+        }
+        let has_columns = conn
+            .prepare("SELECT polyline_blob, polyline_json FROM sections LIMIT 0")
+            .is_ok();
+        if !has_columns {
+            return Ok(());
+        }
+
+        // Every clock-minted auto id with the line to anchor it, oldest
+        // first so a shared cell resolves in first-seen order.
+        let mut stmt = conn.prepare(
+            "SELECT id, sport_type, polyline_blob, polyline_json FROM sections
+             WHERE id GLOB 's_[0-9]*__[0-9]*'
+             ORDER BY created_at, id",
+        )?;
+        let rows: Vec<(String, String, Option<Vec<u8>>, Option<String>)> = stmt
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        drop(stmt);
+
+        let mut taken: std::collections::BTreeSet<String> = conn
+            .prepare("SELECT id FROM sections")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        let mut renames: Vec<(String, String)> = Vec::new();
+        for (old, sport, blob, json) in rows {
+            let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+                continue;
+            };
+            let Some(new) = sections::content_id_for(&polyline, &sport, &taken) else {
+                continue;
+            };
+            taken.remove(&old);
+            taken.insert(new.clone());
+            renames.push((old, new));
+        }
+
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("PRAGMA defer_foreign_keys = ON", [])?;
+        for (old, new) in &renames {
+            for sql in [
+                "UPDATE sections SET id = ?2 WHERE id = ?1",
+                "UPDATE sections SET superseded_by = ?2 WHERE superseded_by = ?1",
+                "UPDATE section_activities SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_history SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_geometry SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_pins SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_intents SET id = ?2 WHERE id = ?1",
+                "UPDATE section_catalogue_archive SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE section_catalogue_archive_members SET section_id = ?2 WHERE section_id = ?1",
+                "UPDATE activity_indicators SET target_id = ?2
+                 WHERE target_id = ?1 AND indicator_type IN ('section_pr', 'section_trend')",
+            ] {
+                tx.execute(sql, params![old, new])?;
+            }
+        }
+        // The registry blob names the old ids; it reseeds from the rows.
+        tx.execute(
+            "DELETE FROM identity_state WHERE key = ?",
+            params![sections::SECTION_IDENTITY_KEY],
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
+            params![MARKER],
+        )?;
+        tx.commit()?;
+        if !renames.is_empty() {
+            log::info!(
+                "tracematch: [Schema] Re-keyed {} sections to content ids",
+                renames.len()
+            );
+        }
         Ok(())
     }
 

@@ -286,3 +286,7 @@ required-features = ["synthetic"]
 [[test]]
 name = "section_attribution"
 required-features = ["synthetic"]
+
+[[test]]
+name = "content_ids"
+required-features = ["synthetic"]

@@ -81,6 +81,29 @@ impl SectionSnapshot {
     /// The `g` field is the geometry digest. Without it a section could
     /// translate wholesale onto different ground and keep an identical
     /// signature, because distance and point count survive a translation.
+    /// [`catalogue_signature`](Self::catalogue_signature) with each row's id
+    /// in front: the cross-process gate reads this, because two processes
+    /// cutting one library must mint the same ids, not only the same ground.
+    pub fn catalogue_signature_with_ids(&self) -> String {
+        let mut rows: Vec<String> = self
+            .sections
+            .iter()
+            .map(|(id, f)| {
+                format!(
+                    "{}|{}|v{}|{}m|p{}|g{:016x}",
+                    id,
+                    f.sport_type,
+                    f.visit_count,
+                    f.distance_meters.round() as i64,
+                    f.polyline_point_count,
+                    coordinate_digest(&f.polyline),
+                )
+            })
+            .collect();
+        rows.sort();
+        rows.join("\n")
+    }
+
     pub fn catalogue_signature(&self) -> String {
         let mut rows: Vec<String> = self
             .sections

@@ -40,7 +40,7 @@ static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
 /// Whether section ids derive from the ground rather than the clock. Until
 /// they do, two devices cut the same library into the same sections under
 /// different ids, and the card must not claim otherwise.
-pub const CONTENT_DERIVED_IDS: bool = false;
+pub const CONTENT_DERIVED_IDS: bool = true;
 
 /// The claims the change card is allowed to make on this build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
