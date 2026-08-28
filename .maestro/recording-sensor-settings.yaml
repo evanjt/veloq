@@ -43,13 +43,22 @@ onFlowComplete:
     timeout: 10000
 
 # Open sensor settings
-- scrollUntilVisible:
-    element:
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- extendedWaitUntil:
+    visible:
       id: "settings-sensors-link"
-    direction: DOWN
     timeout: 5000
-    speed: 40
-    centerElement: true
 
 - tapOn:
     id: "settings-sensors-link"

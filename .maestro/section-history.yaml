@@ -19,7 +19,16 @@ tags:
     timeout: 10000
 
 - tapOn:
-    id: "section-row-0"
+    text: "Sections"
+
+# The engine cuts the demo catalogue after the seed lands.
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 90000
+
+- tapOn:
+    id: "section-row-.*"
 
 - extendedWaitUntil:
     visible:

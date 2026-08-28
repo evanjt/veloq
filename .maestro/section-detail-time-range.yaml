@@ -49,7 +49,7 @@ tags:
         id: "sections-list"
     commands:
       - tapOn:
-          id: "section-row-0"
+          id: "section-row-.*"
 
 # Remaining assertions only run if we navigated to the section detail
 - extendedWaitUntil:

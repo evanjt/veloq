@@ -93,16 +93,12 @@ tags:
     timeout: 30000
     speed: 40
 
+# Five taps inside the unlock window; one command so a slow device
+# cannot space them past it.
 - tapOn:
     id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
+    repeat: 5
+    delay: 150
 
 - extendedWaitUntil:
     visible:
@@ -110,6 +106,11 @@ tags:
     timeout: 10000
 
 # Toggle Debug Mode on (idempotent — if it's already on the switch is a no-op)
+# The footer sits under the tab bar until scrolled clear of it.
+- swipe:
+    start: 50%, 75%
+    end: 50%, 45%
+    duration: 800
 - runFlow:
     when:
       notVisible:

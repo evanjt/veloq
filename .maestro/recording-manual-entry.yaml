@@ -56,13 +56,14 @@ onFlowComplete:
     id: "record-category-gym"
 
 # Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
-- scrollUntilVisible:
-    element:
+- swipe:
+    start: 50%, 70%
+    end: 50%, 50%
+    duration: 300
+- extendedWaitUntil:
+    visible:
       id: "record-type-WeightTraining"
-    direction: DOWN
     timeout: 5000
-    speed: 40
-    centerElement: true
 
 # Wait for WeightTraining to be ready then tap
 - tapOn:
