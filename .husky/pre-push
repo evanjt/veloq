@@ -1,5 +1,13 @@
 #!/bin/sh
 
+# A personal routes.db was once committed and its history rewritten. Refuse
+# to push while the blob is still reachable from any local ref.
+if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0c8dc'; then
+  echo "Refusing to push: the purged routes.db blob is still reachable locally."
+  echo "Run: git rev-list --all --objects | grep routes.db"
+  exit 1
+fi
+
 # Check if we're pushing a tag (version release)
 # Tags look like: refs/tags/v0.0.5
 while read local_ref local_sha remote_ref remote_sha
