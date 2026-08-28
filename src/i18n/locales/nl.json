@@ -1496,7 +1496,13 @@
     "pinned": "Vastgezet",
     "elevationGain": "Hoogtewinst",
     "avgGrade": "Gem. helling",
-    "pinnedOnly": "Alleen vastgezet"
+    "pinnedOnly": "Alleen vastgezet",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "noord",
+    "splitEast": "oost",
+    "splitSouth": "zuid",
+    "splitWest": "west"
   },
   "settings": {
     "account": "Account",

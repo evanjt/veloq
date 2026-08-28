@@ -1,4 +1,8 @@
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
+import {
+  generateSectionName,
+  resolveSectionNames,
+  splitSectionName,
+} from '@/features/routes/lib/sectionNaming';
 
 // Mock resolveIsMetric to return true (metric)
 jest.mock('@/shared/app/UnitPreferenceStore', () => ({
@@ -12,7 +16,15 @@ jest.mock('@/i18n', () => ({
       if (key === 'sections.autoName' && opts) {
         return `${opts.sport} Section (${opts.distance})`;
       }
-      return key;
+      if (key === 'sections.splitName' && opts) return `${opts.parent} (${opts.part})`;
+      if (key === 'sections.splitOrdinal' && opts) return `${opts.parent} ${opts.n}`;
+      const cardinals: Record<string, string> = {
+        'sections.splitNorth': 'north',
+        'sections.splitEast': 'east',
+        'sections.splitSouth': 'south',
+        'sections.splitWest': 'west',
+      };
+      return cardinals[key] ?? key;
     }),
   },
 }));
@@ -36,5 +48,43 @@ describe('generateSectionName', () => {
     for (const [input, expected] of cases) {
       expect(generateSectionName(input)).toBe(expected);
     }
+  });
+});
+
+describe('splitSectionName', () => {
+  it('reads a cardinal in-locale and an ordinal as a number', () => {
+    expect(splitSectionName('Col de la Croix', 'north')).toBe('Col de la Croix (north)');
+    expect(splitSectionName('Col de la Croix', '2')).toBe('Col de la Croix 2');
+  });
+});
+
+describe('resolveSectionNames', () => {
+  const own = { trunk: 'Morning Berg', a: 'Ride Section (1.0 km)', b: 'Ride Section (800 m)' };
+
+  it('composes a sibling from its parent and leaves the rest alone', () => {
+    const names = resolveSectionNames(own, [
+      { sectionId: 'a', parentId: 'trunk', discriminator: 'east' },
+    ]);
+    expect(names).toEqual({ ...own, a: 'Morning Berg (east)' });
+  });
+
+  it('resolves a sibling of a sibling through the chain', () => {
+    const names = resolveSectionNames(own, [
+      { sectionId: 'a', parentId: 'trunk', discriminator: 'east' },
+      { sectionId: 'b', parentId: 'a', discriminator: '2' },
+    ]);
+    expect(names.b).toBe('Morning Berg (east) 2');
+  });
+
+  it('falls back to the own name when the parent is unknown or the chain loops', () => {
+    expect(
+      resolveSectionNames(own, [{ sectionId: 'a', parentId: 'gone', discriminator: 'north' }]).a
+    ).toBe(own.a);
+    const looped = resolveSectionNames(own, [
+      { sectionId: 'a', parentId: 'b', discriminator: 'north' },
+      { sectionId: 'b', parentId: 'a', discriminator: 'south' },
+    ]);
+    expect(looped.a).toBe(own.a);
+    expect(looped.b).toBe(own.b);
   });
 });

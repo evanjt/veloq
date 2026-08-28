@@ -1496,7 +1496,13 @@
     "pinned": "Pinned",
     "elevationGain": "Elevation gain",
     "avgGrade": "Avg grade",
-    "pinnedOnly": "Pinned only"
+    "pinnedOnly": "Pinned only",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "north",
+    "splitEast": "east",
+    "splitSouth": "south",
+    "splitWest": "west"
   },
   "settings": {
     "account": "Your Account",

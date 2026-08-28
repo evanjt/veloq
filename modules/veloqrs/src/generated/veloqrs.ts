@@ -6552,6 +6552,61 @@ const FfiConverterTypeFfiSectionLap = (() => {
 })();
 
 /**
+ * A split sibling's parent and discriminator, for the read side to name it.
+ */
+export type FfiSectionLineage = {
+  sectionId: string;
+  parentId: string;
+  /**
+   * A cardinal ("north", "east", "south", "west") or an ordinal ("2").
+   */
+  discriminator: string;
+};
+
+/**
+ * Generated factory for {@link FfiSectionLineage} record objects.
+ */
+export const FfiSectionLineage = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionLineage, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionLineage>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionLineage = (() => {
+  type TypeName = FfiSectionLineage;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        parentId: FfiConverterString.read(from),
+        discriminator: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.parentId, into);
+      FfiConverterString.write(value.discriminator, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.parentId) +
+        FfiConverterString.allocationSize(value.discriminator)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of matching an activity's GPS track against existing sections.
  */
 export type FfiSectionMatch = {
@@ -12075,6 +12130,7 @@ export interface SectionManagerLike {
   getIndicatorsForActivity(
     activityId: string,
   ) /*throws*/ : Array<FfiActivityIndicator>;
+  getLineages() /*throws*/ : Array<FfiSectionLineage>;
   /**
    * Find sections that are candidates for merging with the given section.
    * Candidates have >30% polyline overlap or centers within 300m with similar distances.
@@ -12964,6 +13020,23 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getLineages(): Array<FfiSectionLineage> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionLineage.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_lineages(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -16398,6 +16471,11 @@ const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
   FfiConverterTypeFfiSectionLap,
 );
 
+// FfiConverter for Array<FfiSectionLineage>
+const FfiConverterArrayTypeFfiSectionLineage = new FfiConverterArray(
+  FfiConverterTypeFfiSectionLineage,
+);
+
 // FfiConverter for Array<FfiSectionMatch>
 const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
   FfiConverterTypeFfiSectionMatch,
@@ -17748,6 +17826,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages() !==
+    34740
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_lineages",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates() !==
     4907
   ) {
@@ -18552,6 +18638,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionLap,
+    FfiConverterTypeFfiSectionLineage,
     FfiConverterTypeFfiSectionMatch,
     FfiConverterTypeFfiSectionPerformanceBatchEntry,
     FfiConverterTypeFfiSectionPerformanceData,

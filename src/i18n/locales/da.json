@@ -1496,7 +1496,13 @@
     "pinned": "Fastgjort",
     "elevationGain": "Højdestigning",
     "avgGrade": "Gns. hældning",
-    "pinnedOnly": "Kun fastgjorte"
+    "pinnedOnly": "Kun fastgjorte",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "øst",
+    "splitSouth": "syd",
+    "splitWest": "vest"
   },
   "settings": {
     "account": "Konto",

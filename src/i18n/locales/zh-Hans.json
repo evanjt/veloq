@@ -1496,7 +1496,13 @@
     "pinned": "已固定",
     "elevationGain": "爬升",
     "avgGrade": "平均坡度",
-    "pinnedOnly": "仅已固定"
+    "pinnedOnly": "仅已固定",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "北",
+    "splitEast": "东",
+    "splitSouth": "南",
+    "splitWest": "西"
   },
   "settings": {
     "account": "账户",

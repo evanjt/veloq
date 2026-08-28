@@ -1496,7 +1496,13 @@
     "pinned": "Épinglée",
     "elevationGain": "Dénivelé positif",
     "avgGrade": "Pente moyenne",
-    "pinnedOnly": "Épinglés uniquement"
+    "pinnedOnly": "Épinglés uniquement",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "est",
+    "splitSouth": "sud",
+    "splitWest": "ouest"
   },
   "settings": {
     "account": "Compte",

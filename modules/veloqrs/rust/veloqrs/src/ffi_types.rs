@@ -734,6 +734,16 @@ pub struct FfiSectionLap {
     pub end_index: u32,
 }
 
+/// A split sibling's parent and discriminator, for the read side to name it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionLineage {
+    pub section_id: String,
+    pub parent_id: String,
+    /// A cardinal ("north", "east", "south", "west") or an ordinal ("2").
+    pub discriminator: String,
+}
+
 /// One excluded traversal, addressed the way the junction stores it.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]

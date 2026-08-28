@@ -1535,7 +1535,13 @@
     "merge": "Merge",
     "mergeCandidatesTitle": "Choose a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "north",
+    "splitEast": "east",
+    "splitSouth": "south",
+    "splitWest": "west"
   },
   "settings": {
     "account": "Account",

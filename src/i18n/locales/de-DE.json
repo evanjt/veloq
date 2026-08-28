@@ -1496,7 +1496,13 @@
     "pinned": "Angeheftet",
     "elevationGain": "Höhenmeter",
     "avgGrade": "Durchschn. Steigung",
-    "pinnedOnly": "Nur angeheftete"
+    "pinnedOnly": "Nur angeheftete",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "Nord",
+    "splitEast": "Ost",
+    "splitSouth": "Süd",
+    "splitWest": "West"
   },
   "settings": {
     "account": "Konto",

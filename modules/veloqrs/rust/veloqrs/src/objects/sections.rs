@@ -468,6 +468,19 @@ impl SectionManager {
         })?
     }
 
+    fn get_lineages(&self) -> Result<Vec<crate::FfiSectionLineage>, VeloqError> {
+        with_engine(|e| {
+            e.section_lineages()
+                .into_iter()
+                .map(|l| crate::FfiSectionLineage {
+                    section_id: l.section_id,
+                    parent_id: l.parent_id,
+                    discriminator: l.discriminator,
+                })
+                .collect()
+        })
+    }
+
     fn get_excluded_laps(
         &self,
         section_id: String,

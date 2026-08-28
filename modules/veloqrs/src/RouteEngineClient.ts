@@ -539,6 +539,7 @@ class RouteEngineClient implements DelegateHost {
 
   getExcludedSectionLaps = (sectionId: string): { activityId: string; startIndex: number }[] =>
     sectionDelegates.getExcludedSectionLaps(this, sectionId);
+  getSectionLineages = () => sectionDelegates.getSectionLineages(this);
 
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);

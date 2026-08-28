@@ -1496,7 +1496,13 @@
     "pinned": "ピン留め",
     "elevationGain": "獲得標高",
     "avgGrade": "平均勾配",
-    "pinnedOnly": "ピン留めのみ"
+    "pinnedOnly": "ピン留めのみ",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "北",
+    "splitEast": "東",
+    "splitSouth": "南",
+    "splitWest": "西"
   },
   "settings": {
     "account": "アカウント",

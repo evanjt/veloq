@@ -1,5 +1,5 @@
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { generateSectionName } from '@/features/routes/lib/sectionNaming';
+import { generateSectionName, resolveSectionNames } from '@/features/routes/lib/sectionNaming';
 
 export function getAllSectionDisplayNames(): Record<string, string> {
   const engine = getRouteEngine();
@@ -21,5 +21,7 @@ export function getAllSectionDisplayNames(): Record<string, string> {
     }
   }
 
-  return result;
+  // A split sibling without a name of its own reads as a part of its parent.
+  const lineages = engine.getSectionLineages().filter((l) => !customNames[l.sectionId]);
+  return resolveSectionNames(result, lineages);
 }

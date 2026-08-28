@@ -63,6 +63,16 @@ pub struct DetectorGeneration {
     pub digest: String,
 }
 
+/// Where a split sibling came from: the parent it was carved out of and the
+/// discriminator its birth recorded (a cardinal, or an ordinal among the
+/// siblings). A read side composes the sibling's name from these in-locale.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SectionLineage {
+    pub section_id: String,
+    pub parent_id: String,
+    pub discriminator: String,
+}
+
 /// One stored geometry version, without its polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionGeometryVersion {
@@ -640,6 +650,46 @@ impl PersistentRouteEngine {
             return None;
         }
         codec::decode_polyline(&blob)
+    }
+
+    /// Every live section born as a split sibling, with its parent and
+    /// discriminator. The newest birth row wins when a section was carved
+    /// more than once.
+    pub fn section_lineages(&self) -> Vec<SectionLineage> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT h.section_id, h.details FROM section_history h
+             JOIN sections s ON s.id = h.section_id
+             WHERE h.kind = 'formed' AND h.details LIKE '%split_from%'
+             ORDER BY h.id",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        let mut by_id: std::collections::BTreeMap<String, SectionLineage> =
+            std::collections::BTreeMap::new();
+        for (section_id, details) in iter.flatten() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&details) else {
+                continue;
+            };
+            let (Some(parent), Some(disc)) = (
+                v.get("split_from").and_then(|x| x.as_str()),
+                v.get("discriminator").and_then(|x| x.as_str()),
+            ) else {
+                continue;
+            };
+            by_id.insert(
+                section_id.clone(),
+                SectionLineage {
+                    section_id,
+                    parent_id: parent.to_string(),
+                    discriminator: disc.to_string(),
+                },
+            );
+        }
+        by_id.into_values().collect()
     }
 
     /// The surviving versions of one section, oldest first, polylines

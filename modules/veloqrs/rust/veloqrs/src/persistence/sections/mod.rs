@@ -13,7 +13,7 @@ pub(crate) mod track_pool;
 
 pub use history::{
     DetectorGeneration, KIND_REVERTED, SOURCE_CONSENSUS, SOURCE_EXACT, SectionGeometryVersion,
-    SectionHistoryEvent,
+    SectionHistoryEvent, SectionLineage,
 };
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;

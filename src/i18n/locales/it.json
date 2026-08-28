@@ -1496,7 +1496,13 @@
     "pinned": "Fissato",
     "elevationGain": "Dislivello positivo",
     "avgGrade": "Pendenza media",
-    "pinnedOnly": "Solo fissati"
+    "pinnedOnly": "Solo fissati",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "nord",
+    "splitEast": "est",
+    "splitSouth": "sud",
+    "splitWest": "ovest"
   },
   "settings": {
     "account": "Account",

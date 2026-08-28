@@ -1496,7 +1496,13 @@
     "pinned": "Fixado",
     "elevationGain": "Desnível acumulado",
     "avgGrade": "Inclinação média",
-    "pinnedOnly": "Apenas fixados"
+    "pinnedOnly": "Apenas fixados",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "norte",
+    "splitEast": "leste",
+    "splitSouth": "sul",
+    "splitWest": "oeste"
   },
   "settings": {
     "account": "Conta",

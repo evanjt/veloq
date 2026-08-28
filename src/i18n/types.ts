@@ -1147,6 +1147,12 @@ export interface TranslationResource {
     last: string;
     lastActivity: string;
     autoName: string;
+    splitName: string;
+    splitOrdinal: string;
+    splitNorth: string;
+    splitEast: string;
+    splitSouth: string;
+    splitWest: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;

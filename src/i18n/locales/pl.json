@@ -1498,7 +1498,13 @@
     "pinned": "Przypięte",
     "elevationGain": "Przewyższenie",
     "avgGrade": "Średnie nachylenie",
-    "pinnedOnly": "Tylko przypięte"
+    "pinnedOnly": "Tylko przypięte",
+    "splitName": "{{parent}} ({{part}})",
+    "splitOrdinal": "{{parent}} {{n}}",
+    "splitNorth": "północ",
+    "splitEast": "wschód",
+    "splitSouth": "południe",
+    "splitWest": "zachód"
   },
   "settings": {
     "account": "Konto",
