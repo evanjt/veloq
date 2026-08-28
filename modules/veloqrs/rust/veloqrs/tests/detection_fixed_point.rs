@@ -30,8 +30,8 @@ use std::collections::BTreeSet;
 use lifecycle_support::*;
 use rusqlite::Connection;
 use tempfile::TempDir;
+use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 /// Rounds of detect over the unchanged pool.
@@ -69,7 +69,6 @@ fn corpus() -> LifecycleCorpus {
 fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> PersistentRouteEngine {
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
     engine.set_section_config(SectionConfig {
-        detection_method: DetectionMethod::Unified,
         ..SectionConfig::default()
     });
     for a in corpus.through_a() {

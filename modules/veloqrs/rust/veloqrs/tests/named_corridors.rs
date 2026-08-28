@@ -391,7 +391,7 @@ fn naming_never_suppresses_corridor() {
 #[test]
 fn disable_still_suppresses_a_named_corridor() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 

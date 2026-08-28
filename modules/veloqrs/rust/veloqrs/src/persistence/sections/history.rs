@@ -461,7 +461,7 @@ impl PersistentRouteEngine {
     pub fn detector_generation_change(&self) -> Option<(DetectorGeneration, DetectorGeneration)> {
         let stored = stored_generation_on(&self.db)?;
         let live = DetectorGeneration {
-            method: self.section_config.detection_method.as_str().to_string(),
+            method: super::DETECTOR_METHOD.to_string(),
             digest: super::section_config_digest(&self.section_config),
         };
         let changed = if stored.digest == PRE_LEDGER_DIGEST {

@@ -4,7 +4,7 @@
 //! full-stack path (SQLite ingest -> `detect_sections_background` ->
 //! `apply_sections` -> snapshot):
 //!
-//! - `Arm::Control` drives `DetectionMethod::Corridor` by name, the frozen
+//! - `Arm::Battery` drives `DetectionMethod::Corridor` by name, the frozen
 //!   baseline (Suite #1).
 //! - `Arm::Battery` drives `DetectionMethod::Unified`, the new base
 //!   (Suite #2).
@@ -23,32 +23,17 @@ use std::time::Instant;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
-use tracematch::sections::DetectionMethod;
 use veloqrs::PersistentRouteEngine;
 
-/// Which detection engine an arm drives.
+/// The one engine the suites drive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arm {
-    /// `DetectionMethod::Corridor`, the frozen baseline. Suite #1 golden control.
-    Control,
-    /// `DetectionMethod::Unified` — the new base. Suite #2.
     Battery,
 }
 
 impl Arm {
     pub fn label(self) -> &'static str {
-        match self {
-            Arm::Control => "control",
-            Arm::Battery => "battery",
-        }
-    }
-
-    /// The detector this arm drives, named explicitly rather than defaulted.
-    pub fn method(self) -> DetectionMethod {
-        match self {
-            Arm::Control => DetectionMethod::Corridor,
-            Arm::Battery => DetectionMethod::Unified,
-        }
+        "battery"
     }
 }
 
@@ -287,49 +272,18 @@ pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
 // Engine construction per arm
 // ============================================================================
 
-/// A fresh temp-DB engine on the Control arm (Corridor).
+/// A fresh temp-DB engine.
 pub fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
-    fresh_engine_for(Arm::Control)
-}
-
-/// A fresh temp-DB engine on the given arm, differing only in
-/// `detection_method`.
-pub fn fresh_engine_for(arm: Arm) -> (PersistentRouteEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
-    let mut cfg = engine.get_section_config();
-    cfg.detection_method = arm.method();
-    engine.set_section_config(cfg);
-    assert_eq!(
-        engine.get_section_config().detection_method,
-        arm.method(),
-        "{} arm did not land on {}",
-        arm.label(),
-        arm.method(),
-    );
+    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
 }
 
-/// Control resolves to Corridor and Battery to Unified, on the arm and on the
-/// engine it builds.
-#[test]
-fn the_arms_drive_two_different_named_detectors() {
-    assert_eq!(Arm::Control.method(), DetectionMethod::Corridor);
-    assert_eq!(Arm::Battery.method(), DetectionMethod::Unified);
-    assert_ne!(Arm::Control.method(), Arm::Battery.method());
-
-    let (control, _c) = fresh_engine_for(Arm::Control);
-    let (battery, _b) = fresh_engine_for(Arm::Battery);
-    assert_eq!(
-        control.get_section_config().detection_method,
-        DetectionMethod::Corridor
-    );
-    assert_ne!(
-        control.get_section_config().detection_method,
-        battery.get_section_config().detection_method
-    );
+/// A fresh temp-DB engine on the given arm.
+pub fn fresh_engine_for(_arm: Arm) -> (PersistentRouteEngine, TempDir) {
+    fresh_engine()
 }
 
 // ============================================================================

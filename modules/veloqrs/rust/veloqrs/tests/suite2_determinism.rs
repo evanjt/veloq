@@ -57,8 +57,8 @@ fn cold_snapshot(arm: Arm, set: &[&LifecycleActivity]) -> SectionSnapshot {
 fn control_cold_rebuild_is_byte_stable() {
     let corpus = small_corpus();
     let set = corpus.through_a();
-    let a = cold_snapshot(Arm::Control, &set);
-    let b = cold_snapshot(Arm::Control, &set);
+    let a = cold_snapshot(Arm::Battery, &set);
+    let b = cold_snapshot(Arm::Battery, &set);
     assert_eq!(
         a.catalogue_signature(),
         b.catalogue_signature(),

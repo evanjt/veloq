@@ -279,46 +279,6 @@ impl Default for SectionDetectionProgress {
     }
 }
 
-/// Wrapper that injects a "clustering" phase between FindingOverlaps and Postprocessing.
-///
-/// tracematch reports three phases: BuildingRtrees, FindingOverlaps, Postprocessing.
-/// Between FindingOverlaps and Postprocessing, significant work happens (clustering,
-/// medoid selection, consensus computation) with no progress reporting. This wrapper
-/// intercepts the Postprocessing phase transition and briefly reports "clustering"
-/// before forwarding Postprocessing, giving the TypeScript side a finer-grained view.
-pub struct ClusteringAwareProgress {
-    inner: SectionDetectionProgress,
-}
-
-impl ClusteringAwareProgress {
-    pub fn new(inner: SectionDetectionProgress) -> Self {
-        Self { inner }
-    }
-}
-
-impl tracematch::DetectionProgressCallback for ClusteringAwareProgress {
-    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
-        match phase {
-            tracematch::DetectionPhase::Postprocessing => {
-                // Before entering postprocessing, signal that clustering just finished.
-                // Set clustering phase as "complete" (1/1) so TypeScript sees it at 100%
-                // of the clustering range before transitioning to postprocessing.
-                self.inner.set_phase("clustering", 1);
-                self.inner.increment(); // 1/1 = complete
-                // Now forward the real postprocessing phase
-                self.inner.set_phase(phase.as_str(), total);
-            }
-            _ => {
-                self.inner.set_phase(phase.as_str(), total);
-            }
-        }
-    }
-
-    fn on_progress(&self) {
-        self.inner.increment();
-    }
-}
-
 /// The Unified detector's evidence cache after a fold, plus the id set it now
 /// reflects. Carried out-of-band from the section result so the legacy
 /// detectors need no channel change. The cache-aware apply stores it on the
@@ -980,15 +940,6 @@ impl PersistentRouteEngine {
                 e
             );
         }
-        if let Err(e) = self.set_setting(
-            settings_keys::SECTION_DETECTION_METHOD,
-            config.detection_method.as_str(),
-        ) {
-            log::warn!(
-                "tracematch: [set_section_config] failed to persist detection_method: {}",
-                e
-            );
-        }
         // Persist the WHOLE config so a restart restores every field, not just the
         // four slider keys above. This is what makes the TS launch re-apply a true
         // no-op (see the SECTION_CONFIG_JSON key doc); the loader prefers it.
@@ -1610,15 +1561,6 @@ pub mod persistent_engine_ffi {
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
         info!("tracematch: [PersistentEngine] Initialized successfully");
-
-        // Tier 2 upgrade path: spawn a background thread that seeds
-        // consensus_state for any section carrying a NULL blob (users
-        // upgrading from 0.2.2 or earlier). Guarded by a schema_info
-        // flag so it only does the corpus-wide scan once per install.
-        // Drop the write lock before spawning so the backfill thread
-        // can try_write later without racing our own release.
-        drop(guard);
-        super::sections::spawn_accumulator_backfill(db_path.clone());
 
         true
     }

@@ -1,13 +1,12 @@
-//! Detector cutover: one-time migration from Corridor to Unified.
+//! Detector cutover: one-time re-cut of a catalogue an older build produced.
 //!
-//! The compiled default is meaningless for existing users: `load()` restores
-//! the whole `__section_config_json` blob including `detection_method`, so a
-//! change to `#[default]` never reaches a device that has saved its config.
-//! This module bridges that gap with a resumable, reversible cutover driven
-//! by a persisted token.
+//! A database carries the method that cut its catalogue in `schema_info`. One
+//! cut by a build before this detector is archived, re-cut cold, and diffed,
+//! resumably, driven by a persisted token.
 //!
-//! Sequence: archive → commit switch + token → cold detect → diff.
-//! Revert: restore archive as pinned sections, config back to Corridor.
+//! Sequence: archive, commit token, cold detect, diff.
+//! Revert: restore the archive as pinned sections. There is no other detector
+//! to go back to, so the config stays as it is.
 
 use crate::persistence::{
     PersistentRouteEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
@@ -16,7 +15,6 @@ use log::info;
 use rusqlite::params;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tracematch::sections::DetectionMethod;
 
 /// The id of the current cutover. Absent in settings means never cut over.
 /// Equal means done. Anything else means a future or reverted cutover.
@@ -155,13 +153,15 @@ impl PersistentRouteEngine {
     ///
     /// An in-flight token is always owed: its config already reads Unified, so
     /// the method check below would wave it through as finished when in fact
-    /// it died mid-run. A never-seen token is owed only while the live config
-    /// is still Corridor, so a user who chose Unified by hand is left alone.
+    /// it died mid-run. A never-seen token is owed only while the stored
+    /// catalogue was cut by another detector, so a catalogue this build cut
+    /// is left alone.
     pub fn cutover_is_owed(&self) -> bool {
         match self.cutover_state_from_db() {
             CutoverState::InFlight => true,
             CutoverState::Never => {
-                self.section_config.detection_method != DetectionMethod::Unified
+                self.catalogue_detection_method().as_deref()
+                    != Some(super::sections::DETECTOR_METHOD)
                     && self.has_archivable_catalogue()
             }
             CutoverState::Done | CutoverState::Reverted => false,
@@ -284,13 +284,11 @@ impl PersistentRouteEngine {
         Ok(count as u32)
     }
 
-    /// Step 2: switch the persisted config to Unified and write the token,
-    /// atomically with the archive.
+    /// Step 2: persist the canonical config and write the token, atomically
+    /// with the archive.
     fn commit_switch(&mut self) -> rusqlite::Result<()> {
         let mut config = self.section_config.clone();
-        config.detection_method = DetectionMethod::Unified;
-        // Adopt the canonical Unified field values. These must match
-        // UNIFIED_CONFIG on the TS side.
+        // These must match UNIFIED_CONFIG on the TS side.
         config.pool_sports = true;
 
         let json = serde_json::to_string(&config).map_err(|e| {
@@ -301,13 +299,6 @@ impl PersistentRouteEngine {
         tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![settings_keys::SECTION_CONFIG_JSON, json],
-        )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            params![
-                settings_keys::SECTION_DETECTION_METHOD,
-                config.detection_method.as_str()
-            ],
         )?;
         // In-flight, not done: the detect and the diff have not happened yet.
         // Promoted by `finish_cutover` once the diff is durable.
@@ -321,12 +312,12 @@ impl PersistentRouteEngine {
         tx.execute("DELETE FROM processed_activities", [])?;
         tx.commit()?;
 
+        self.section_config = config;
         self.processed_activity_ids.clear();
         // The processed set and the evidence cache are two shadows of the same
         // state, so they clear in lockstep and the detect below cold-rebatches
         // under the new detector.
         self.invalidate_evidence_cache();
-        self.section_config = config;
         // The debounce absorbs detector noise over k detects, and a detector
         // generation change is not noise. Left armed, a section whose Unified
         // extents disagree with its Corridor ones is a material re-cut and
@@ -527,21 +518,6 @@ impl PersistentRouteEngine {
         // catalogue instead of cutting a Corridor one.
         tx.execute("DELETE FROM processed_activities", [])?;
 
-        // Switch config back to Corridor.
-        let mut config = self.section_config.clone();
-        config.detection_method = DetectionMethod::Corridor;
-        let config_json = serde_json::to_string(&config).unwrap_or_default();
-        tx.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            params![settings_keys::SECTION_CONFIG_JSON, config_json],
-        )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            params![
-                settings_keys::SECTION_DETECTION_METHOD,
-                config.detection_method.as_str()
-            ],
-        )?;
         // Mark as reverted so the cutover does not re-fire.
         tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
@@ -549,8 +525,6 @@ impl PersistentRouteEngine {
         )?;
 
         tx.commit()?;
-
-        self.section_config = config;
 
         // Reload so in-memory state sees the restored, pinned sections.
         if let Err(e) = self.load_sections() {

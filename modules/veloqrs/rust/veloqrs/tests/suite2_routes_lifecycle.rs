@@ -166,10 +166,10 @@ fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
 #[test]
 fn route_snapshot_is_byte_stable_across_engines() {
     let corpus = route_corpus(COLD_N);
-    let (mut e1, _d1) = fresh_engine_for(Arm::Control);
+    let (mut e1, _d1) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut e1, "cold", &corpus.through_a());
     let a = route_snapshot(&mut e1);
-    let (mut e2, _d2) = fresh_engine_for(Arm::Control);
+    let (mut e2, _d2) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut e2, "cold", &corpus.through_a());
     let b = route_snapshot(&mut e2);
 
@@ -202,7 +202,7 @@ fn corpus_activity<'a>(corpus: &'a LifecycleCorpus, id: &str) -> &'a LifecycleAc
 #[test]
 fn route_identity_survives_resync() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let before = route_snapshot(&mut engine);
     let (_busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
@@ -239,7 +239,7 @@ fn route_identity_survives_resync() {
 #[test]
 fn route_representative_survives_resync() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let before = route_snapshot(&mut engine);
     let (busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
@@ -277,7 +277,7 @@ fn route_representative_survives_resync() {
 #[test]
 fn route_name_row_survives_resync_under_the_stable_id() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let before = route_snapshot(&mut engine);
     let (busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
@@ -312,7 +312,7 @@ fn route_name_row_survives_resync_under_the_stable_id() {
 #[ignore = "B4: recompute_groups does not re-hydrate custom_name into the in-memory group, so get_route_name is None after a resync even though the route_names row survives"]
 fn route_name_survives_resync() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let before = route_snapshot(&mut engine);
     let (busiest_id, _busiest) = busiest_route(&before).expect("a multi-member route");
@@ -341,7 +341,7 @@ fn route_name_survives_resync() {
 #[test]
 fn route_membership_not_frozen() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let before = route_snapshot(&mut engine);
     let (_busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
@@ -382,7 +382,7 @@ fn route_membership_not_frozen() {
 #[test]
 fn route_highlights_trend_is_running_average_safe() {
     let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let routes = route_snapshot(&mut engine);
     let (_id, busiest) = busiest_route(&routes).expect("a multi-member route");

@@ -7,7 +7,7 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import type { FfiPotentialSection, FfiSectionConfig } from '../generated/veloqrs';
+import type { FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 export function startSectionDetection(host: DelegateHost): boolean {
@@ -40,12 +40,6 @@ export function getSectionDetectionProgress(host: DelegateHost): SectionDetectio
   );
 }
 
-export function detectPotentials(host: DelegateHost, sportFilter?: string): FfiPotentialSection[] {
-  if (!host.ready) return [];
-  return host.timed('detectPotentials', () =>
-    host.engine.detection().detectPotentials(sportFilter)
-  );
-}
 
 export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
   if (!host.ready) return;

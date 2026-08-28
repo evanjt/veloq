@@ -5,14 +5,13 @@ use crate::persistence::codec::TrackRead;
 use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::{
-    CacheUpdate, ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
-    SectionDetectionProgress, load_groups_from_db,
+    CacheUpdate, PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress,
+    load_groups_from_db,
 };
 
 /// A stored track that did not decode, named so it can be excluded from a
@@ -47,10 +46,6 @@ const POOL_INTEGRITY_KEY: &str = "detection_pool_integrity";
 
 /// `schema_info` key holding the pool an abandoned run gave up on.
 const ABANDONED_POOL_KEY: &str = "detection_abandoned_pool";
-
-/// `schema_info` key holding the sections whose accumulator was seeded over
-/// only part of their traversals.
-const SEED_EXCLUSIONS_KEY: &str = "accumulator_seed_exclusions";
 
 /// Number of ids named individually in a log line or a durable record.
 const CORRUPT_ID_LOG_CAP: usize = 20;
@@ -132,41 +127,6 @@ fn clear_abandoned_pool(conn: &Connection) {
         "DELETE FROM schema_info WHERE key = ?",
         params![ABANDONED_POOL_KEY],
     );
-}
-
-/// Name the sections whose accumulator was seeded over only part of their
-/// traversals, so a consensus short some traversals is a durable fact rather
-/// than a log line. A backfill with nothing excluded clears the record.
-fn record_seed_exclusions(conn: &Connection, exclusions: &[(String, Vec<String>)]) {
-    if exclusions.is_empty() {
-        let _ = conn.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![SEED_EXCLUSIONS_KEY],
-        );
-        return;
-    }
-    let value = serde_json::json!({
-        "recorded_at": chrono::Utc::now().timestamp(),
-        "sections": exclusions.len(),
-        "excluded": exclusions
-            .iter()
-            .take(CORRUPT_ID_LOG_CAP)
-            .map(|(section_id, activity_ids)| serde_json::json!({
-                "section_id": section_id,
-                "activity_ids": activity_ids,
-            }))
-            .collect::<Vec<_>>(),
-    })
-    .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![SEED_EXCLUSIONS_KEY, value],
-    ) {
-        log::error!(
-            "tracematch: [accum backfill] exclusion record failed: {}",
-            e
-        );
-    }
 }
 
 /// Name every excluded track and its reason, capped so a corpus-wide read
@@ -424,370 +384,6 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
     Ok(())
 }
 
-/// Tier 2 upgrade-path backfill: seed `consensus_state_blob` on every
-/// pre-existing section whose blob is still NULL, using its own SQLite
-/// connection so it doesn't block the main engine. Runs once per install
-/// (guarded by the `accumulators_seeded_v1` key in `schema_info`).
-///
-/// Why: users upgrading from 0.2.2 (or any pre-Tier-2 version) have
-/// sections on disk whose `consensus_state_blob` is NULL because the
-/// detection run that created them didn't seed accumulators. Without this
-/// backfill, the first post-upgrade sync still pays the historical-trace
-/// extraction cost (scenario C's ~1.5 s). With it, the next sync reads
-/// fresh accumulators and lands in the O(K) fast path immediately.
-///
-/// Race-safety:
-/// - UPDATE is gated on `WHERE consensus_state_blob IS NULL`, so if the
-///   main engine's `apply_sections_save` persisted a newer blob in the
-///   meantime we don't clobber it.
-/// - If the user syncs during backfill, the engine's in-memory copy still
-///   has None accumulators and will hit today's backfill branch in
-///   incremental detection - correct but slow. Subsequent syncs pick up
-///   the persisted blobs on next engine reload.
-/// - `try_write` at the end is best-effort: if the engine lock is taken
-///   by an active operation we skip the in-memory reload; the fresh blobs
-///   land on next app start via `load_sections`.
-pub fn spawn_accumulator_backfill(db_path: String) {
-    std::thread::spawn(move || {
-        let result = run_accumulator_backfill(&db_path, /* refresh_engine = */ true);
-        if let Err(e) = result {
-            log::warn!("tracematch: [accum backfill] {}", e);
-        }
-    });
-}
-
-/// Synchronous body of [`spawn_accumulator_backfill`]. Separated so
-/// integration tests can drive the backfill deterministically (no thread).
-///
-/// When `refresh_engine` is true and any section got seeded, best-effort
-/// acquires the global engine write lock and reloads sections. Tests pass
-/// `false` - they hold their own engine and don't need the singleton.
-pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(u32, u32), String> {
-    let start = std::time::Instant::now();
-    let conn = match Connection::open(db_path) {
-        Ok(c) => {
-            let _ = c.busy_timeout(std::time::Duration::from_millis(500));
-            c
-        }
-        Err(e) => return Err(format!("open failed: {}", e)),
-    };
-
-    // Already-seeded flag: once set, skip entirely.
-    let flag_set: bool = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = 'accumulators_seeded_v1'",
-            [],
-            |row| row.get::<_, String>(0),
-        )
-        .is_ok();
-    if flag_set {
-        return Ok((0, 0));
-    }
-
-    // Collect sections that still need seeding.
-    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>, Option<Vec<u8>>)> = {
-        let mut stmt = conn
-            .prepare(
-                // A blob written by an older accumulator shape does not
-                // decode, so it needs the same reseed a NULL one does.
-                "SELECT id, polyline_blob, polyline_json, consensus_state_blob FROM sections
-                 WHERE disabled = 0",
-            )
-            .map_err(|e| format!("prepare failed: {}", e))?;
-        stmt.query_map([], |row| {
-            let id: String = row.get(0)?;
-            let blob: Option<Vec<u8>> = row.get(1)?;
-            let json: Option<String> = row.get(2)?;
-            let state: Option<Vec<u8>> = row.get(3)?;
-            Ok((id, blob, json, state))
-        })
-        .ok()
-        .map(|rows| {
-            rows.filter_map(|r| r.ok())
-                .filter(|(_, _, _, state)| match state {
-                    None => true,
-                    Some(bytes) => codec::deserialize_gps_composite::<
-                        tracematch::sections::ConsensusAccumulator,
-                    >(bytes)
-                    .is_err(),
-                })
-                .filter_map(|(id, blob, json, state)| {
-                    codec::decode_polyline_row(blob.as_deref(), json.as_deref())
-                        .ok()
-                        .map(|p| (id, p, state))
-                })
-                .filter(|(_, p, _)| p.len() >= 2)
-                .collect()
-        })
-        .unwrap_or_default()
-    };
-
-    if sections_to_seed.is_empty() {
-        // Nothing to do. Set flag so next start skips straight past.
-        let _ = conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value)
-             VALUES ('accumulators_seeded_v1', '1')",
-            [],
-        );
-        return Ok((0, 0));
-    }
-
-    log::info!(
-        "tracematch: [accum backfill] Seeding {} sections from pre-Tier-2 data",
-        sections_to_seed.len()
-    );
-
-    // The user's stored config, read off this connection: a non-default
-    // slider must seed accumulators the same way detection would. Falls
-    // back to defaults on a fresh install with no stored blob.
-    let section_config = conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = ?",
-            [crate::persistence::settings_keys::SECTION_CONFIG_JSON],
-            |row| row.get::<_, String>(0),
-        )
-        .ok()
-        .and_then(|json| serde_json::from_str::<tracematch::SectionConfig>(&json).ok())
-        .unwrap_or_default();
-    let mut seeded: u32 = 0;
-    let mut skipped: u32 = 0;
-    let mut unreadable_sections: u32 = 0;
-    let mut seed_exclusions: Vec<(String, Vec<String>)> = Vec::new();
-
-    for (section_id, polyline, stale_state) in &sections_to_seed {
-        // Activity ids for this section (excluded=0 matches the rest of the codebase).
-        let activity_ids: Vec<String> = match conn.prepare(
-            "SELECT activity_id FROM section_activities
-             WHERE section_id = ? AND excluded = 0",
-        ) {
-            Ok(mut stmt) => stmt
-                .query_map([section_id], |row| row.get::<_, String>(0))
-                .ok()
-                .map(|r| r.filter_map(|x| x.ok()).collect())
-                .unwrap_or_default(),
-            Err(_) => Vec::new(),
-        };
-        if activity_ids.is_empty() {
-            skipped += 1;
-            continue;
-        }
-
-        // Load full GPS tracks for the section's activities in a single IN(...)
-        // query - cheaper than N separate query_row round-trips, especially on
-        // sections with many traversals.
-        let mut track_map_owned: HashMap<String, Vec<tracematch::GpsPoint>> = HashMap::new();
-        let mut section_corrupt: Vec<CorruptTrack> = Vec::new();
-        {
-            let placeholders: String = std::iter::repeat("?")
-                .take(activity_ids.len())
-                .collect::<Vec<_>>()
-                .join(",");
-            let sql = format!(
-                "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
-                placeholders
-            );
-            if let Ok(mut stmt) = conn.prepare(&sql) {
-                let params_slice: Vec<&dyn rusqlite::ToSql> = activity_ids
-                    .iter()
-                    .map(|id| id as &dyn rusqlite::ToSql)
-                    .collect();
-                if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
-                }) {
-                    for (id, bytes) in rows.flatten() {
-                        match TrackRead::from_blob(&bytes) {
-                            TrackRead::Present(track) => {
-                                if !track.is_empty() {
-                                    track_map_owned.insert(id, track);
-                                }
-                            }
-                            TrackRead::Missing => {}
-                            TrackRead::Corrupt(reason) => section_corrupt.push(CorruptTrack {
-                                activity_id: id,
-                                reason,
-                            }),
-                        }
-                    }
-                }
-            }
-        }
-        // An accumulator is a consensus over the traversals folded into it and
-        // it names them in `absorbed_activity_ids`, so one built over the
-        // readable members is a section as it stood before the unreadable
-        // traversals, not a wrong one. It is seeded, the exclusion is recorded,
-        // and a repaired track folds in later without double-counting.
-        if !section_corrupt.is_empty() {
-            for track in section_corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
-                log::error!(
-                    "tracematch: [accum backfill] section {} seeded without activity {}, track unreadable: {}",
-                    section_id,
-                    track.activity_id,
-                    track.reason
-                );
-            }
-            unreadable_sections += 1;
-            seed_exclusions.push((
-                section_id.clone(),
-                section_corrupt
-                    .iter()
-                    .take(CORRUPT_ID_LOG_CAP)
-                    .map(|c| c.activity_id.clone())
-                    .collect(),
-            ));
-        }
-        if track_map_owned.is_empty() {
-            skipped += 1;
-            continue;
-        }
-
-        let track_ref_map: HashMap<&str, &[tracematch::GpsPoint]> = track_map_owned
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_slice()))
-            .collect();
-
-        let traces = tracematch::sections::extract_all_activity_traces(
-            &activity_ids,
-            polyline,
-            &track_ref_map,
-        );
-        if traces.is_empty() {
-            skipped += 1;
-            continue;
-        }
-        let acc = tracematch::sections::build_accumulator_from_traces(
-            polyline,
-            &traces,
-            section_config.proximity_threshold,
-        );
-
-        match codec::serialize_gps_composite(&acc) {
-            Ok(blob) => {
-                // Unchanged-since-read guard: respect any writes the main
-                // engine made while we were computing (e.g., a sync that ran
-                // concurrently and populated this section via the normal
-                // incremental path). `IS` matches NULL, so a never-seeded
-                // section and one holding a blob of an older accumulator
-                // shape are both replaced.
-                let updated = conn
-                    .execute(
-                        "UPDATE sections SET consensus_state_blob = ?
-                         WHERE id = ? AND consensus_state_blob IS ?",
-                        params![blob, section_id, stale_state],
-                    )
-                    .unwrap_or(0);
-                if updated > 0 {
-                    seeded += 1;
-                } else {
-                    skipped += 1;
-                }
-            }
-            Err(_) => skipped += 1,
-        }
-    }
-
-    // Mark the flag even if some were skipped - we only want to pay the
-    // corpus-wide scan once. Sections we skipped here (e.g., no GPS data on
-    // disk) will get their accumulators built by the ordinary incremental
-    // backfill path if/when they're ever touched.
-    let _ = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value)
-         VALUES ('accumulators_seeded_v1', '1')",
-        [],
-    );
-
-    log::info!(
-        "tracematch: [accum backfill] Done: {} seeded, {} skipped, took {:?}",
-        seeded,
-        skipped,
-        start.elapsed()
-    );
-    record_seed_exclusions(&conn, &seed_exclusions);
-    if unreadable_sections > 0 {
-        log::error!(
-            "tracematch: [accum backfill] {} sections seeded over part of their traversals because a member track is unreadable",
-            unreadable_sections
-        );
-    }
-
-    // Best-effort: refresh the engine's in-memory copy so the new blobs
-    // become usable without requiring an app restart. If the write lock is
-    // held by a concurrent operation, skip - the engine will pick them up
-    // on next `load_sections` call / next app start.
-    if refresh_engine && seeded > 0 {
-        if let Ok(mut guard) = super::super::PERSISTENT_ENGINE.try_write() {
-            if let Some(ref mut engine) = *guard {
-                if let Err(e) = engine.load_sections() {
-                    log::warn!(
-                        "tracematch: [accum backfill] in-memory reload failed: {}",
-                        e
-                    );
-                } else {
-                    log::info!("tracematch: [accum backfill] in-memory sections refreshed");
-                }
-            }
-        } else {
-            log::info!("tracematch: [accum backfill] engine busy, deferring reload to next start");
-        }
-    }
-
-    Ok((seeded, skipped))
-}
-
-/// Tier 2: seed `consensus_state` on any section that came out of detection
-/// with None. Uses the GPS tracks already loaded for detection, so no DB
-/// round-trip. Runs before the results cross the mpsc channel so the
-/// accumulator lands in the FrequentSection that `apply_sections_save` later
-/// persists via `consensus_state_blob`.
-///
-/// Why it matters: without a seeded accumulator, the first incremental add
-/// that touches each section falls into the backfill branch in
-/// `tracematch/src/sections/incremental.rs` (extract_all_activity_traces for
-/// every historical activity of that section). On a 150-activity corpus
-/// that's the bulk of scenario C's 1.6 s lag per the baselines. Seeding
-/// eagerly shifts that cost into the detection phase itself (where we
-/// already have all the traces resident) and lets the next incremental
-/// touch take the O(K) fast path.
-///
-/// Idempotent: sections that already have `consensus_state` (from the
-/// incremental path that produced them) are skipped, so we never
-/// double-seed.
-fn seed_consensus_state(
-    sections: &mut [FrequentSection],
-    tracks: &[(String, Vec<GpsPoint>)],
-    proximity_threshold: f64,
-) {
-    if sections.is_empty() || tracks.is_empty() {
-        return;
-    }
-    let track_map: HashMap<&str, &[GpsPoint]> = tracks
-        .iter()
-        .map(|(id, pts)| (id.as_str(), pts.as_slice()))
-        .collect();
-
-    for section in sections.iter_mut() {
-        if section.consensus_state.is_some() {
-            continue;
-        }
-        if section.polyline.len() < 2 || section.activity_ids.is_empty() {
-            continue;
-        }
-        let traces = tracematch::sections::extract_all_activity_traces(
-            &section.activity_ids,
-            &section.polyline,
-            &track_map,
-        );
-        if traces.is_empty() {
-            continue;
-        }
-        let acc = tracematch::sections::build_accumulator_from_traces(
-            &section.polyline,
-            &traces,
-            proximity_threshold,
-        );
-        section.consensus_state = Some(acc);
-    }
-}
-
 /// Phase reported by a handle that was refused because detection is
 /// suspended. It is not one of the weighted run phases, so `get_percent`
 /// reports the unknown-phase 50 rather than pretending to progress.
@@ -861,32 +457,20 @@ impl PersistentRouteEngine {
     /// suspension exists to protect.
     pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
-        // Out-of-band channel for the Unified detector's evidence-cache update.
-        // Left unsent by the legacy detectors and the short-circuit, so the
-        // caller's `take_cache` returns None and the engine cache is untouched.
+        // Out-of-band channel for the evidence-cache update. Left unsent by
+        // the short-circuit, so the caller's `take_cache` returns None and the
+        // engine cache is untouched.
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let db_path = self.db_path.clone();
         let section_config = self.section_config.clone();
 
-        // The Unified incremental folds new activities into a per-cluster
-        // evidence cache. Clone the current cache + its folded-id shadow into the
-        // worker only when Unified is the active method — the legacy detectors
-        // never touch it, so they pay nothing to clone. The worker mutates its
-        // clone and ships it back via `cache_tx`; the cache-aware apply stores it
-        // only if the save succeeds, so `self`'s cache can never advance past the
-        // applied catalogue.
-        let unified = matches!(
-            section_config.detection_method,
-            tracematch::DetectionMethod::Unified
-        );
-        let (cache_at_spawn, folded_at_spawn) = if unified {
-            (
-                self.section_evidence_cache.clone(),
-                self.cache_folded_ids.clone(),
-            )
-        } else {
-            (SectionEvidenceCache::new(), HashSet::new())
-        };
+        // The incremental folds new activities into a per-cluster evidence
+        // cache. Clone the current cache + its folded-id shadow into the worker.
+        // The worker mutates its clone and ships it back via `cache_tx`; the
+        // cache-aware apply stores it only if the save succeeds, so `self`'s
+        // cache can never advance past the applied catalogue.
+        let cache_at_spawn = self.section_evidence_cache.clone();
+        let folded_at_spawn = self.cache_folded_ids.clone();
 
         // Create shared progress tracker
         let progress = SectionDetectionProgress::new();
@@ -1049,13 +633,10 @@ impl PersistentRouteEngine {
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
             // #21: chunk the track load to bound the transient SQL/parse
-            // spike. The detection algorithm consumes full-resolution tracks
-            // (the multiscale/incremental entry points borrow each track's
-            // points directly into their `track_map` - see
-            // tracematch::sections::detect_sections_multiscale_with_progress),
-            // and `seed_consensus_state` below also needs them, so all tracks
-            // must still be resident simultaneously when detection runs. We
-            // can NOT downsample on load without changing detection output.
+            // spike. The detector consumes full-resolution tracks and borrows
+            // each one directly, so all tracks must still be resident
+            // simultaneously when detection runs. We can NOT downsample on
+            // load without changing detection output.
             // What chunking DOES fix: instead of binding every id into one
             // giant IN(...) statement and materialising the whole result set
             // at once, we load in CHUNK_SIZE batches and move each row into
@@ -1205,18 +786,14 @@ impl PersistentRouteEngine {
             );
 
             // #25: emit an intermediate phase so the JS progress bar moves
-            // past "loading" before the heavy tracematch detect call. The
-            // first phase tracematch reports is "building_rtrees", but the
-            // R-tree build + density-grid clustering can run for tens of
-            // seconds before any per-item tick lands. Without this marker the
-            // bar sits frozen at the end of "loading" and a long large-corpus
-            // detection reads as a crash. We use the existing progress handle
-            // only - no tracematch change. The ClusteringAwareProgress passed
-            // into detect overwrites the phase on its first on_phase callback.
+            // past "loading" before the heavy tracematch detect call, which
+            // can run for tens of seconds before any per-item tick lands.
+            // Without this marker the bar sits frozen at the end of "loading"
+            // and a long large-corpus detection reads as a crash.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
 
-            if unified {
-                // Unified: the order-free CACHED incremental. It folds only the
+            {
+                // The order-free CACHED incremental. It folds only the
                 // activities not yet in the evidence cache and recomputes just the
                 // cluster(s) they touch, reusing every untouched cluster verbatim,
                 // so a multi-cluster sync is O(touched-cluster) not O(pool). The
@@ -1296,165 +873,6 @@ impl PersistentRouteEngine {
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
                 tx.send((sections_to_send, all_activity_ids)).ok();
-            } else {
-                // Full detection mode with batching for large datasets.
-                // Cap full pairwise detection at BATCH_CAP activities per batch.
-                // Subsequent batches use incremental detection against results from prior batches.
-                const BATCH_CAP: usize = 500;
-
-                if tracks.len() <= BATCH_CAP {
-                    let mut sections_to_send = match section_config.detection_method {
-                        tracematch::DetectionMethod::Corridor => {
-                            log::info!(
-                                "tracematch: [SectionDetection] Corridor detection on {} tracks",
-                                tracks.len()
-                            );
-                            tracematch::detect_sections_corridor(
-                                &tracks,
-                                &sport_map,
-                                &section_config,
-                            )
-                        }
-                        tracematch::DetectionMethod::FlowGraph => {
-                            log::info!(
-                                "tracematch: [SectionDetection] Flow graph detection on {} tracks",
-                                tracks.len()
-                            );
-                            tracematch::detect_sections_flow_graph(
-                                &tracks,
-                                &sport_map,
-                                &section_config,
-                            )
-                        }
-                        tracematch::DetectionMethod::DensityGrid => {
-                            log::info!(
-                                "tracematch: [SectionDetection] Density grid detection on {} tracks",
-                                tracks.len()
-                            );
-                            let result = tracematch::detect_sections_multiscale_with_progress(
-                                &tracks,
-                                &sport_map,
-                                &groups,
-                                &section_config,
-                                Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
-                            );
-                            log::info!(
-                                "tracematch: [SectionDetection] {} sections, {} potentials",
-                                result.sections.len(),
-                                result.potentials.len()
-                            );
-                            result.sections
-                        }
-                        tracematch::DetectionMethod::Unified => unreachable!(
-                            "Unified runs the order-free incremental in the branch above"
-                        ),
-                    };
-
-                    log::info!(
-                        "tracematch: [SectionDetection] Detection complete: {} sections",
-                        sections_to_send.len()
-                    );
-                    seed_consensus_state(
-                        &mut sections_to_send,
-                        &tracks,
-                        section_config.proximity_threshold,
-                    );
-
-                    // Signal saving phase before sending results for DB persistence
-                    progress_clone.set_phase("saving", 1);
-                    tx.send((sections_to_send, all_activity_ids)).ok();
-                } else {
-                    // Large dataset: process in batches
-                    let num_batches = (tracks.len() + BATCH_CAP - 1) / BATCH_CAP;
-                    log::info!(
-                        "tracematch: [SectionDetection] Batched mode: {} activities in {} batches of up to {}",
-                        tracks.len(),
-                        num_batches,
-                        BATCH_CAP
-                    );
-
-                    // Batch 1: full detection on first BATCH_CAP activities
-                    let batch1_tracks = &tracks[..BATCH_CAP.min(tracks.len())];
-                    let result = tracematch::detect_sections_multiscale_with_progress(
-                        batch1_tracks,
-                        &sport_map,
-                        &groups,
-                        &section_config,
-                        Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
-                    );
-
-                    let mut accumulated_sections = result.sections;
-                    log::info!(
-                        "tracematch: [SectionDetection] Batch 1/{}: {} sections from {} activities",
-                        num_batches,
-                        accumulated_sections.len(),
-                        batch1_tracks.len()
-                    );
-
-                    // Subsequent batches: incremental detection against accumulated sections
-                    let mut batch_start = BATCH_CAP;
-                    let mut batch_num = 2;
-                    while batch_start < tracks.len() {
-                        let batch_end = (batch_start + BATCH_CAP).min(tracks.len());
-                        let batch_tracks = &tracks[batch_start..batch_end];
-
-                        log::info!(
-                            "tracematch: [SectionDetection] Batch {}/{}: {} new activities against {} sections",
-                            batch_num,
-                            num_batches,
-                            batch_tracks.len(),
-                            accumulated_sections.len()
-                        );
-
-                        let incr_result =
-                            tracematch::sections::incremental::detect_sections_incremental(
-                                batch_tracks,
-                                &accumulated_sections,
-                                &tracks, // all tracks for consensus
-                                &sport_map,
-                                &groups,
-                                &section_config,
-                                Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
-                            );
-
-                        // Replace accumulated with updated + new
-                        accumulated_sections = incr_result.updated_sections;
-                        accumulated_sections.extend(incr_result.new_sections);
-
-                        log::info!(
-                            "tracematch: [SectionDetection] Batch {}/{}: now {} total sections ({} matched, {} unmatched)",
-                            batch_num,
-                            num_batches,
-                            accumulated_sections.len(),
-                            incr_result.matched_activity_ids.len(),
-                            incr_result.unmatched_activity_ids.len(),
-                        );
-
-                        batch_start = batch_end;
-                        batch_num += 1;
-                    }
-
-                    log::info!(
-                        "tracematch: [SectionDetection] Batched detection complete: {} sections",
-                        accumulated_sections.len()
-                    );
-
-                    // Tier 2: seed consensus_state. Sections from the first
-                    // batch's full detection arrive with None; subsequent
-                    // batches' updated-sections already carry accumulators,
-                    // so seed is a no-op for those and only pays for the
-                    // first-batch sections and any new sections from later
-                    // batches' unmatched-pool detections.
-                    seed_consensus_state(
-                        &mut accumulated_sections,
-                        &tracks,
-                        section_config.proximity_threshold,
-                    );
-
-                    // Signal saving phase before sending results for DB persistence
-                    progress_clone.set_phase("saving", 1);
-                    tx.send((accumulated_sections, all_activity_ids)).ok();
-                }
             }
         });
 

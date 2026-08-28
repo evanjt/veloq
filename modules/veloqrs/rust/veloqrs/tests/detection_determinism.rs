@@ -75,7 +75,7 @@ fn run_worker(arm: Arm) {
 
 #[test]
 fn a_cold_detect_fills_the_catalogue_on_the_control_arm() {
-    run_worker(Arm::Control);
+    run_worker(Arm::Battery);
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn assert_every_process_agrees(arm: Arm, worker: &str) {
 /// feedback rather than ordering and belongs to its own contract.
 #[test]
 fn the_control_arm_lands_on_the_same_catalogue_in_every_process() {
-    assert_every_process_agrees(Arm::Control, WORKER_CONTROL);
+    assert_every_process_agrees(Arm::Battery, WORKER_CONTROL);
 }
 
 /// The arm that has to be deterministic before it can become the default.

@@ -122,7 +122,7 @@ fn db_path(dir: &tempfile::TempDir) -> String {
 /// prove `load` rehydrates the cache rather than coming up empty.
 fn restart_state() -> (String, String, usize, usize) {
     let corpus = corpus();
-    let (mut e1, dir) = fresh_engine_for(Arm::Control);
+    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut e1, "cold", &corpus.through_a());
     let sig_db_before = cold.snapshot.catalogue_signature();
     let e1_inmem = in_memory_snapshot(&e1).count();
@@ -219,7 +219,7 @@ fn identity_registries_survive_restart() {
 fn apply_path_keeps_cache_coherent() {
     let _serial = serialise();
     let corpus = corpus();
-    let (mut e, _dir) = fresh_engine_for(Arm::Control);
+    let (mut e, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
     assert_eq!(
         in_memory_snapshot(&e).count(),
@@ -242,7 +242,7 @@ fn apply_path_keeps_cache_coherent() {
 fn cache_reflects_db_only_edits() {
     let _serial = serialise();
     let corpus = corpus();
-    let (mut e, _dir) = fresh_engine_for(Arm::Control);
+    let (mut e, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&cold.snapshot).expect("a section to disable");
 
@@ -273,7 +273,7 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
     let corpus = corpus();
 
     // Reader engine holds the cold catalogue. Its DB has N0 sections committed.
-    let (mut reader, dir) = fresh_engine_for(Arm::Control);
+    let (mut reader, dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut reader, "cold", &corpus.through_a());
     let n0 = reader.get_sections_by_type(None).len();
 
@@ -363,7 +363,7 @@ fn concurrent_reads_are_consistent() {
 ///  final DB count, apply #2 error if any).
 fn racing_detect() -> (bool, bool, String, String, usize, Option<String>) {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
 
     // Ingest WITHOUT saving processed ids, so both detections run a full
     // detect over the same state (a saved-processed cold state would make both
@@ -428,7 +428,7 @@ fn racing_detect_does_not_corrupt() {
 ///  sections after a recover detect).
 fn crash_before_apply() -> (usize, usize, usize) {
     let corpus = corpus();
-    let (mut e1, dir) = fresh_engine_for(Arm::Control);
+    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
 
     // Ingest persists GPS + metadata to the DB immediately (add_activity
     // commits its own transaction). Detection is never run, the sync is

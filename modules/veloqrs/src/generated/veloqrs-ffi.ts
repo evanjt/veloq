@@ -160,11 +160,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_detectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
-  ubrn_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
-    ptr: bigint,
-    sportFilter: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -980,10 +975,6 @@ interface NativeModuleInterface {
     secondaryId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
-    ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1546,7 +1537,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_stream_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies(): number;
-  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
@@ -1688,7 +1678,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;

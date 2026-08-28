@@ -15,8 +15,8 @@ mod lifecycle_support;
 
 use lifecycle_support::*;
 use tempfile::TempDir;
+use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 /// Enough overlapping traffic to form several corridors, small enough to
@@ -38,7 +38,6 @@ fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRouteEn
     let path = dir.path().join("settles.db");
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
     let cfg = SectionConfig {
-        detection_method: DetectionMethod::Unified,
         ..SectionConfig::default()
     };
     engine.set_section_config(cfg);

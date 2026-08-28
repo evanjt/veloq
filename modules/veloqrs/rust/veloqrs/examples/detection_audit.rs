@@ -469,27 +469,22 @@ fn redetect_and_compare(conn: &Connection) {
     println!("\n--- Section Detection (current defaults) ---");
     let section_config = SectionConfig::default();
     println!(
-        "Mode: {:?}, preserve_hierarchy: {}, scales: {}",
-        section_config.detection_mode,
-        section_config.preserve_hierarchy,
-        section_config.scale_presets.len()
+        "proximity: {} m, min length: {} m, min activities: {}",
+        section_config.proximity_threshold,
+        section_config.min_section_length,
+        section_config.min_activities
     );
 
     let start = std::time::Instant::now();
-    let result = tracematch::sections::detect_sections_multiscale(
-        &tracks,
-        &sport_map,
-        &all_groups,
-        &section_config,
-    );
+    let sections =
+        tracematch::sections::detect_sections_unified(&tracks, &[], &sport_map, &section_config);
     let elapsed = start.elapsed();
 
     println!("Detection time: {:.1}s", elapsed.as_secs_f64());
-    println!("Sections detected: {}", result.sections.len());
-    println!("Potentials: {}", result.potentials.len());
+    println!("Sections detected: {}", sections.len());
 
     let mut by_sport_sections: HashMap<&str, usize> = HashMap::new();
-    for s in &result.sections {
+    for s in &sections {
         *by_sport_sections.entry(s.sport_type.as_str()).or_default() += 1;
     }
     println!("\nSections by sport:");
@@ -509,8 +504,7 @@ fn redetect_and_compare(conn: &Connection) {
     ];
     println!("\nLength distribution:");
     for (lo, hi, label) in &buckets {
-        let count = result
-            .sections
+        let count = sections
             .iter()
             .filter(|s| s.distance_meters >= *lo && s.distance_meters < *hi)
             .count();
@@ -521,8 +515,7 @@ fn redetect_and_compare(conn: &Connection) {
     let vlabels = ["1-2", "3-5", "6-10", "11-30", "30+"];
     println!("\nVisit distribution:");
     for ((lo, hi), label) in vbuckets.iter().zip(vlabels.iter()) {
-        let count = result
-            .sections
+        let count = sections
             .iter()
             .filter(|s| s.visit_count >= *lo && s.visit_count <= *hi)
             .count();
@@ -530,7 +523,7 @@ fn redetect_and_compare(conn: &Connection) {
     }
 
     let mut per_activity: HashMap<&str, usize> = HashMap::new();
-    for s in &result.sections {
+    for s in &sections {
         for aid in &s.activity_ids {
             *per_activity.entry(aid.as_str()).or_default() += 1;
         }
@@ -563,7 +556,7 @@ fn redetect_and_compare(conn: &Connection) {
     let mut high_overlap_pairs = Vec::new();
 
     let mut sections_by_sport: HashMap<&str, Vec<usize>> = HashMap::new();
-    for (i, s) in result.sections.iter().enumerate() {
+    for (i, s) in sections.iter().enumerate() {
         sections_by_sport
             .entry(s.sport_type.as_str())
             .or_default()
@@ -572,10 +565,10 @@ fn redetect_and_compare(conn: &Connection) {
 
     for indices in sections_by_sport.values() {
         for (a_idx, &i) in indices.iter().enumerate() {
-            let si = &result.sections[i];
+            let si = &sections[i];
 
             for &j in indices.iter().skip(a_idx + 1) {
-                let sj = &result.sections[j];
+                let sj = &sections[j];
 
                 let j_in_i = compute_containment(
                     &sj.polyline,

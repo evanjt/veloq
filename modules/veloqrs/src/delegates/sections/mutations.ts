@@ -221,20 +221,6 @@ export function acceptAllSections(host: DelegateHost): number {
   }
 }
 
-export function pruneOverlappingSections(host: DelegateHost): number {
-  if (!host.ready) return 0;
-  try {
-    const count = host.timed('pruneOverlappingSections', () =>
-      host.engine.sections().pruneOverlapping()
-    );
-    host.notify('sections');
-    host.notify('groups');
-    return count;
-  } catch (e) {
-    console.error('[RouteEngine] pruneOverlappingSections failed:', e);
-    return 0;
-  }
-}
 
 /** Recompute all activity indicators (PRs and trends). */
 export function recomputeIndicators(host: DelegateHost): void {

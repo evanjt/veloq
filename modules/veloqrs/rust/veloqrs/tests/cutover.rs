@@ -1,13 +1,13 @@
-//! Cutover: archive, switch, cold detect, diff, restore.
+//! Cutover: archive, commit, cold detect, diff, restore.
 //!
 //! Synthetic coordinates only. Run: `cargo test --test cutover -p veloqrs`
 
 use std::sync::{Mutex, MutexGuard};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use tracematch::sections::DetectionMethod;
 use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::persistence::sections::DETECTOR_METHOD;
 use veloqrs::persistence::with_persistent_engine;
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -25,11 +25,12 @@ fn line_track(jitter: f64) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn seed_corridor_engine(path: &std::path::Path) {
+/// A library whose catalogue was cut by a build that did not record its
+/// detector, the shape every install upgrading from 0.3.x arrives in.
+fn seed_older_build_engine(path: &std::path::Path) {
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
     with_persistent_engine(|engine| {
         let mut cfg = engine.get_section_config();
-        cfg.detection_method = DetectionMethod::Corridor;
         cfg.min_activities = 3;
         engine.set_section_config(cfg);
         for i in 0..4 {
@@ -50,7 +51,8 @@ fn seed_corridor_engine(path: &std::path::Path) {
     })
     .unwrap();
 
-    // Run one Corridor detect so we have a catalogue to archive.
+    // Run one detect so we have a catalogue to archive, then strip the
+    // detector marker the way an older build would have left it.
     with_persistent_engine(|engine| {
         let handle = engine.detect_sections_background();
         let (main, cache_update) = handle.recv_with_cache();
@@ -63,6 +65,12 @@ fn seed_corridor_engine(path: &std::path::Path) {
             .expect("save");
     })
     .unwrap();
+    let db = rusqlite::Connection::open(path).expect("open");
+    db.execute(
+        "DELETE FROM schema_info WHERE key = 'catalogue_detection_method'",
+        [],
+    )
+    .expect("strip the detector marker");
 }
 
 #[test]
@@ -70,15 +78,15 @@ fn cutover_archives_switches_and_detects() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     let pre_count = with_persistent_engine(|e| e.get_sections().len()).unwrap();
-    assert!(pre_count > 0, "the corridor detect produced no sections");
+    assert!(pre_count > 0, "the seed detect produced no sections");
 
-    let pre_method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
-    assert_eq!(pre_method, DetectionMethod::Corridor);
+    let pre_method = with_persistent_engine(|e| e.catalogue_detection_method()).unwrap();
+    assert_eq!(pre_method, None);
 
-    // The cutover should be owed: we are on Corridor and no token exists.
+    // The cutover should be owed: the catalogue names no detector and no token exists.
     assert!(veloqrs::ffi::is_cutover_pending());
 
     let result = veloqrs::persistence::cutover::run_cutover();
@@ -89,9 +97,9 @@ fn cutover_archives_switches_and_detects() {
     };
     assert!(!diff_json.is_empty(), "diff payload is empty");
 
-    // Config should now be Unified.
-    let post_method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
-    assert_eq!(post_method, DetectionMethod::Unified);
+    // The re-cut catalogue names this build's detector.
+    let post_method = with_persistent_engine(|e| e.catalogue_detection_method()).unwrap();
+    assert_eq!(post_method.as_deref(), Some(DETECTOR_METHOD));
 
     // Should no longer be pending.
     assert!(!veloqrs::ffi::is_cutover_pending());
@@ -106,7 +114,7 @@ fn cutover_is_idempotent_on_rerun() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     let r1 = veloqrs::persistence::cutover::run_cutover();
     assert!(r1.is_ok());
@@ -120,7 +128,7 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     let pre_ids: Vec<String> =
         with_persistent_engine(|e| e.get_sections().iter().map(|s| s.id.clone()).collect())
@@ -142,9 +150,6 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
         .unwrap()
         .expect("restore");
     assert!(restored > 0, "nothing was restored");
-
-    let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
-    assert_eq!(method, DetectionMethod::Corridor);
 
     assert!(!veloqrs::ffi::is_cutover_pending());
 
@@ -193,19 +198,13 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
 }
 
 /// A user whose catalogue is entirely pinned archives nothing. Revert must
-/// still take them back to Corridor rather than silently doing nothing.
+/// still give them their archive back rather than silently doing nothing.
 #[test]
-fn revert_rolls_back_the_config_even_with_an_empty_archive() {
+fn a_revert_over_an_empty_archive_restores_nothing() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
-    with_persistent_engine(|engine| {
-        let mut cfg = engine.get_section_config();
-        cfg.detection_method = DetectionMethod::Corridor;
-        engine.set_section_config(cfg);
-    })
-    .unwrap();
 
     veloqrs::persistence::cutover::run_cutover().expect("cutover over an empty library");
 
@@ -213,13 +212,6 @@ fn revert_rolls_back_the_config_even_with_an_empty_archive() {
         .unwrap()
         .expect("restore");
     assert_eq!(restored, 0, "an empty archive restores nothing");
-
-    let method = with_persistent_engine(|e| e.get_section_config().detection_method).unwrap();
-    assert_eq!(
-        method,
-        DetectionMethod::Corridor,
-        "revert must roll the config back even when the archive is empty"
-    );
     assert!(!veloqrs::ffi::is_cutover_pending());
 }
 
@@ -230,15 +222,13 @@ fn an_interrupted_run_is_still_owed() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     // Stand in for a process that died between the switch and the diff.
     with_persistent_engine(|e| {
         e.set_setting("__detector_cutover", "unified-1-inflight")
             .expect("write in-flight token");
-        let mut cfg = e.get_section_config();
-        cfg.detection_method = DetectionMethod::Unified;
-        e.set_section_config(cfg);
+        e.set_section_config(e.get_section_config());
     })
     .unwrap();
 
@@ -257,7 +247,7 @@ fn diff_payload_is_retrievable_after_restart() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().unwrap();
 
@@ -297,7 +287,7 @@ fn a_resumed_run_reuses_its_archive_snapshot() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().expect("first run");
 
@@ -343,7 +333,7 @@ fn not_owed_is_a_distinct_outcome() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     assert!(matches!(
         veloqrs::persistence::cutover::run_cutover().unwrap(),
@@ -363,7 +353,7 @@ fn clear_drops_the_cutover_token_and_config() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().expect("cutover");
     with_persistent_engine(|e| e.clear().expect("clear")).unwrap();
@@ -390,7 +380,7 @@ fn the_diff_sees_the_catalogue_the_cut_produced() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     let CutoverOutcome::Completed(json) =
         veloqrs::persistence::cutover::run_cutover().expect("cutover")
@@ -414,16 +404,16 @@ fn the_diff_sees_the_catalogue_the_cut_produced() {
     );
 }
 
-/// A corridor section's line is a verbatim slice of one real track, so it owes
+/// A migrated section's line is a verbatim slice of one real track, so it owes
 /// a range that re-slices to it. The opposite claim sat in a comment for months
 /// while the field was hardcoded to None, because nothing asserted it. This is
 /// what lets the pre-cutover catalogue be stored as a reference.
 #[test]
-fn a_corridor_section_records_the_range_it_was_sliced_from() {
+fn a_migrated_section_records_the_range_it_was_sliced_from() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     let rows: Vec<(
         String,
@@ -447,14 +437,14 @@ fn a_corridor_section_records_the_range_it_was_sliced_from() {
         .collect::<Result<Vec<_>, _>>()
         .expect("rows")
     };
-    assert!(!rows.is_empty(), "the corridor detect produced no sections");
+    assert!(!rows.is_empty(), "the seed detect produced no sections");
 
     let mut checked = 0;
     for (id, rep, start, end, source) in &rows {
         assert_eq!(
             source.as_deref(),
             Some("exact"),
-            "corridor section {id} was stored without a usable reference"
+            "section {id} was stored without a usable reference"
         );
         let rep = rep.as_deref().expect("an exact row names its activity");
         let (start, end) = (start.expect("start") as usize, end.expect("end") as usize);
@@ -469,7 +459,7 @@ fn a_corridor_section_records_the_range_it_was_sliced_from() {
         assert_eq!(
             &track[start..end],
             polyline.as_slice(),
-            "corridor section {id} does not re-slice to the line it drew"
+            "section {id} does not re-slice to the line it drew"
         );
         checked += 1;
     }
@@ -481,8 +471,8 @@ fn a_corridor_section_records_the_range_it_was_sliced_from() {
 ///
 /// The debounce exists to absorb detector noise over `k` detects. A cutover is
 /// not noise, so `commit_switch` arms the registry decisive: a section whose
-/// Unified extents disagree with its Corridor ones adopts the new line in one
-/// step instead of carrying frozen. A frozen carry keeps the averaged Corridor
+/// new extents disagree with its old ones adopts the new line in one step
+/// instead of carrying frozen. A frozen carry keeps the older averaged
 /// polyline and its NULL reference alive under a Unified label, which is the
 /// one thing the migration exists to prevent.
 ///
@@ -492,11 +482,11 @@ fn a_corridor_section_records_the_range_it_was_sliced_from() {
 /// real 1,201-activity library carried seven frozen. Only a corpus reproduces
 /// the disagreement, so only a corpus can guard it.
 #[test]
-fn no_section_keeps_its_corridor_geometry_across_the_cutover() {
+fn no_section_keeps_an_older_build_geometry_across_the_cutover() {
     let _serial = serial();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    seed_corridor_engine(&path);
+    seed_older_build_engine(&path);
 
     veloqrs::persistence::cutover::run_cutover().expect("cutover");
 

@@ -8,8 +8,8 @@
 use std::collections::{BTreeSet, HashMap};
 
 use tempfile::TempDir;
+use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
@@ -91,7 +91,6 @@ fn covered_sports(
 
 fn pooled_unified(engine: &mut PersistentRouteEngine) {
     engine.set_section_config(SectionConfig {
-        detection_method: DetectionMethod::Unified,
         pool_sports: true,
         ..SectionConfig::default()
     });

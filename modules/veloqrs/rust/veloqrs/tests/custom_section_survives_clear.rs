@@ -3,9 +3,6 @@
 
 #![cfg(feature = "synthetic")]
 
-mod lifecycle_support;
-
-use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentRouteEngine;

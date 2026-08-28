@@ -634,26 +634,7 @@ pub fn detect_sections_standalone(
     let config: tracematch::SectionConfig = serde_json::from_str(&config_json)
         .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
 
-    let groups = if matches!(
-        config.detection_method,
-        tracematch::DetectionMethod::DensityGrid
-    ) {
-        let match_config = tracematch::MatchConfig {
-            min_route_distance: 100.0,
-            endpoint_threshold: 500.0,
-            max_distance_diff_ratio: 0.8,
-            ..tracematch::MatchConfig::default()
-        };
-        let sigs: Vec<_> = tracks
-            .iter()
-            .filter_map(|(id, pts)| tracematch::RouteSignature::from_points(id, pts, &match_config))
-            .collect();
-        tracematch::group_signatures(&sigs, &match_config)
-    } else {
-        vec![]
-    };
-
-    let sections = tracematch::detect_sections(&tracks, &sport_types, &groups, &config);
+    let sections = tracematch::detect_sections_unified(&tracks, &[], &sport_types, &config);
     serde_json::to_string(&sections)
         .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })
 }

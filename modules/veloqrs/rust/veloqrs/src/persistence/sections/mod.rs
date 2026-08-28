@@ -16,14 +16,7 @@ pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
-// Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
-// can trigger it without reaching through private module paths. The sync
-// variant (`run_accumulator_backfill`) is re-exported pub so integration
-// tests in `tests/` can drive it deterministically - it's a test-only
-// entry point, not a FFI surface.
 pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
-pub use detection::run_accumulator_backfill;
-pub(super) use detection::spawn_accumulator_backfill;
 
 use crate::sections::assign_carried_exclusions;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
@@ -35,6 +28,10 @@ use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
+
+/// The one detector this build ships. Stored beside every catalogue so a
+/// database cut by an older build reads as owed a cutover.
+pub const DETECTOR_METHOD: &str = "unified";
 
 /// `schema_info` key holding [`section_config_digest`] of the config the stored
 /// catalogue ran under.
@@ -1998,10 +1995,7 @@ impl PersistentRouteEngine {
         // without anything having been re-cut.
         if from_detect {
             for (key, value) in [
-                (
-                    CATALOGUE_METHOD_KEY,
-                    self.section_config.detection_method.as_str().to_string(),
-                ),
+                (CATALOGUE_METHOD_KEY, DETECTOR_METHOD.to_string()),
                 (
                     CATALOGUE_CONFIG_DIGEST_KEY,
                     section_config_digest(&self.section_config),

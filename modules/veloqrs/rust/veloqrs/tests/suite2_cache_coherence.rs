@@ -43,7 +43,7 @@ fn corpus() -> LifecycleCorpus {
 /// A fresh engine cold-detected over bucket A, plus the busiest section id.
 fn cold() -> (PersistentRouteEngine, tempfile::TempDir, String) {
     let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let step = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&step.snapshot).expect("cold detect produced a section");
     (engine, dir, id)
@@ -147,7 +147,7 @@ fn create_custom(engine: &mut PersistentRouteEngine, corpus: &LifecycleCorpus) -
 #[test]
 fn custom_section_survives_resync_intact() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let cid = create_custom(&mut engine, &corpus);
     let before = engine.get_section(&cid).expect("custom present");
@@ -252,7 +252,7 @@ fn gate_disable_section_stays_consistent_across_caches() {
 #[test]
 fn gate_remove_activity_drops_performance_record() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let step = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&step.snapshot).expect("cold detect produced a section");
     seed_perf(&mut engine, &corpus.through_a());
@@ -281,7 +281,7 @@ fn gate_remove_activity_drops_performance_record() {
 #[test]
 fn gate_custom_section_reaches_in_memory_matcher() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let cid = create_custom(&mut engine, &corpus);
     assert!(

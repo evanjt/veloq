@@ -26,7 +26,7 @@ fn corpus() -> LifecycleCorpus {
 #[test]
 fn accept_survives_resync() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
@@ -52,7 +52,7 @@ fn accept_survives_resync() {
 #[test]
 fn disabled_corridor_stays_hidden() {
     let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, disabled_ground) =
         busiest_section(&cold.snapshot).expect("cold detect produced a section");

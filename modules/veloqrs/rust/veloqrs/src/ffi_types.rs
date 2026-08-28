@@ -419,7 +419,6 @@ pub struct FfiSectionConfig {
     pub min_routes: u32,
     pub enable_density_splits: bool,
     pub merge_distance_multiplier: f64,
-    pub detection_method: String,
     pub min_cell_visits: u32,
     pub divergence_threshold: f64,
     pub min_corridor_tracks: u32,
@@ -446,7 +445,6 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.parse().unwrap_or_default(),
             min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
             min_corridor_tracks: c.min_corridor_tracks,
@@ -478,7 +476,6 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.to_string(),
             min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
             min_corridor_tracks: c.min_corridor_tracks,
@@ -508,7 +505,6 @@ impl Default for FfiSectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
-            detection_method: c.detection_method.to_string(),
             min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
             min_corridor_tracks: c.min_corridor_tracks,
@@ -632,83 +628,6 @@ impl From<&tracematch::FrequentSection> for FfiFrequentSection {
             version: s.version,
             updated_at: s.updated_at.clone(),
             created_at: s.created_at.clone(),
-        }
-    }
-}
-
-/// Potential section for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiPotentialSection {
-    pub id: String,
-    pub sport_type: String,
-    pub encoded_polyline: Vec<u8>,
-    pub activity_ids: Vec<String>,
-    pub visit_count: u32,
-    pub distance_meters: f64,
-    pub confidence: f64,
-    pub scale: String,
-}
-
-impl From<tracematch::PotentialSection> for FfiPotentialSection {
-    fn from(s: tracematch::PotentialSection) -> Self {
-        Self {
-            id: s.id,
-            sport_type: s.sport_type,
-            encoded_polyline: crate::coords::encode(&s.polyline),
-            activity_ids: s.activity_ids,
-            visit_count: s.visit_count,
-            distance_meters: s.distance_meters,
-            confidence: s.confidence,
-            scale: s.scale.to_string(),
-        }
-    }
-}
-
-/// Detection stats for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiDetectionStats {
-    pub activities_processed: u32,
-    pub overlaps_found: u32,
-    pub sections_by_scale: std::collections::HashMap<String, u32>,
-    pub potentials_by_scale: std::collections::HashMap<String, u32>,
-}
-
-impl From<tracematch::DetectionStats> for FfiDetectionStats {
-    fn from(s: tracematch::DetectionStats) -> Self {
-        Self {
-            activities_processed: s.activities_processed,
-            overlaps_found: s.overlaps_found,
-            sections_by_scale: s.sections_by_scale,
-            potentials_by_scale: s.potentials_by_scale,
-        }
-    }
-}
-
-/// Multi-scale section result for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiMultiScaleSectionResult {
-    pub sections: Vec<FfiFrequentSection>,
-    pub potentials: Vec<FfiPotentialSection>,
-    pub stats: FfiDetectionStats,
-}
-
-impl From<tracematch::MultiScaleSectionResult> for FfiMultiScaleSectionResult {
-    fn from(r: tracematch::MultiScaleSectionResult) -> Self {
-        Self {
-            sections: r
-                .sections
-                .into_iter()
-                .map(FfiFrequentSection::from)
-                .collect(),
-            potentials: r
-                .potentials
-                .into_iter()
-                .map(FfiPotentialSection::from)
-                .collect(),
-            stats: FfiDetectionStats::from(r.stats),
         }
     }
 }

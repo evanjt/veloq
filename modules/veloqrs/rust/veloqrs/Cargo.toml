@@ -150,10 +150,6 @@ name = "playback_vs_batch"
 required-features = ["synthetic"]
 
 [[test]]
-name = "accumulator_backfill"
-required-features = ["synthetic"]
-
-[[test]]
 name = "section_portions_roundtrip"
 required-features = ["synthetic"]
 

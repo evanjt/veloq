@@ -171,11 +171,6 @@ fn passes_per_section(engine: &mut PersistentRouteEngine, activity_id: &str) -> 
         .collect()
 }
 
-/// Passes `activity_id` owns across every section it appears in.
-fn passes_for(engine: &mut PersistentRouteEngine, activity_id: &str) -> usize {
-    passes_per_section(engine, activity_id).iter().sum()
-}
-
 fn store(
     engine: &mut PersistentRouteEngine,
     id: &str,

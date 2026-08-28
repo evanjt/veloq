@@ -12,8 +12,8 @@ use std::collections::BTreeSet;
 
 use rusqlite::Connection;
 use tempfile::TempDir;
+use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
@@ -33,7 +33,6 @@ fn corpus() -> Vec<LifecycleActivity> {
 
 fn unified_config() -> SectionConfig {
     SectionConfig {
-        detection_method: DetectionMethod::Unified,
         ..SectionConfig::default()
     }
 }
@@ -111,7 +110,7 @@ fn seeded(dir: &TempDir) -> PersistentRouteEngine {
 #[test]
 fn a_detect_leaves_its_evidence_behind() {
     let dir = TempDir::new().unwrap();
-    let mut engine = seeded(&dir);
+    let engine = seeded(&dir);
 
     assert!(
         engine.evidence_cache_folded_count() > 0,
