@@ -1,0 +1,49 @@
+# Section history
+# Tests: a section's ledger renders on its screen, and a stored version can
+# be shown on the map.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+- tapOn:
+    id: "section-row-0"
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+
+- scrollUntilVisible:
+    element:
+      id: "section-history-panel"
+    direction: DOWN
+    timeout: 15000
+
+- assertVisible:
+    id: "section-history-event-formed"
+
+# A second stored version exists only after a re-cut or an edit, so the
+# overlay step runs when one is listed.
+- runFlow:
+    when:
+      visible:
+        id: "section-version-1-show"
+    commands:
+      - tapOn:
+          id: "section-version-1-show"
+      - takeScreenshot: "section-history-version-overlay"
+
+- takeScreenshot: "section-history"
