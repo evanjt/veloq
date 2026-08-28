@@ -21,7 +21,6 @@ import { initializeRecordingPreferences } from '@/features/recording/stores/Reco
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -53,7 +52,6 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeHRZones(),
     initializeUnitPreference(),
     initializeRouteSettings(),
-    initializeSectionDismissals(),
     initializeDashboardPreferences(),
     initializeDebugStore(),
     initializeTileCacheStore(),

@@ -79,7 +79,6 @@ const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
   retentionDays: 0,
   autoCleanupEnabled: false,
-  geocodingEnabled: false,
   heatmapEnabled: true,
   detectionStrictness: 60,
 };
@@ -317,7 +316,6 @@ describe('RouteSettingsStore', () => {
           enabled: true,
           retentionDays: 90,
           autoCleanupEnabled: true,
-          geocodingEnabled: true,
           heatmapEnabled: true,
           detectionStrictness: 60,
         },
@@ -369,7 +367,6 @@ describe('RouteSettingsStore', () => {
           enabled: false,
           retentionDays: 180,
           autoCleanupEnabled: false,
-          geocodingEnabled: true,
           heatmapEnabled: true,
           detectionStrictness: 60,
         },
