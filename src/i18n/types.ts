@@ -352,8 +352,6 @@ export interface TranslationResource {
     routeMatching: string;
     enableRouteMatching: string;
     routeMatchingDescription: string;
-    geocoding: string;
-    geocodingDescription: string;
     account: string;
     disconnectAccount: string;
     disconnectAndClearData: string;

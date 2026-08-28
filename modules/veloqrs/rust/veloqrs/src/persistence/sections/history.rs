@@ -103,6 +103,18 @@ pub struct SectionGeometryVersion {
     pub milestone: bool,
 }
 
+/// What one quarantine salvage carried into the fresh database, per table.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SalvageCounts {
+    pub history: usize,
+    pub geometry: usize,
+    pub pins: usize,
+    /// User-owned `sections` rows: custom, accepted, renamed, trimmed.
+    pub sections: usize,
+    /// `section_intents` suppressions, the disabled and deleted corridors.
+    pub intents: usize,
+}
+
 /// One section lifecycle event.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionHistoryEvent {
@@ -194,6 +206,54 @@ fn salvage_rows(
         }
     }
     written
+}
+
+/// The columns a table carries in BOTH databases, in the destination's order.
+/// A quarantined file is one that failed to open or migrate, so its shape can
+/// lag the fresh schema by any number of versions; a fixed column list would
+/// salvage nothing at all from it.
+fn shared_columns(
+    src: &rusqlite::Connection,
+    dst: &rusqlite::Connection,
+    table: &str,
+) -> Vec<String> {
+    let names = |conn: &rusqlite::Connection| -> Vec<String> {
+        let Ok(mut stmt) = conn.prepare(&format!("PRAGMA table_info({table})")) else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(1)) else {
+            return Vec::new();
+        };
+        rows.flatten().collect()
+    };
+    let source: std::collections::BTreeSet<String> = names(src).into_iter().collect();
+    names(dst)
+        .into_iter()
+        .filter(|c| source.contains(c))
+        .collect()
+}
+
+/// Copy readable rows of one table across on the shared columns, `filter`
+/// narrowing which rows qualify. Returns how many landed.
+fn salvage_table(
+    src: &rusqlite::Connection,
+    dst: &rusqlite::Connection,
+    table: &str,
+    filter: &str,
+) -> usize {
+    let columns = shared_columns(src, dst, table);
+    if columns.is_empty() {
+        return 0;
+    }
+    let list = columns.join(", ");
+    let placeholders = vec!["?"; columns.len()].join(", ");
+    salvage_rows(
+        src,
+        dst,
+        &format!("SELECT {list} FROM {table} {filter}"),
+        &format!("INSERT OR IGNORE INTO {table} ({list}) VALUES ({placeholders})"),
+        columns.len(),
+    )
 }
 
 /// The section's record as the junction rows stand now: the fastest included
@@ -936,16 +996,28 @@ impl PersistentRouteEngine {
         );
     }
 
-    /// Copy every readable ledger row out of a quarantined database into
-    /// this one: `section_history`, `section_geometry` and `section_pins`.
-    /// Best effort, row by row, so one torn page costs its rows and nothing
-    /// else. Returns how many rows of each table landed.
-    pub fn salvage_ledger_from(&self, corrupt_path: &str) -> (usize, usize, usize) {
+    /// Copy every readable row a rebuild cannot re-derive out of a quarantined
+    /// database into this one. Best effort, row by row, so one torn page costs
+    /// its rows and nothing else.
+    ///
+    /// The ledger (`section_history`, `section_geometry`, `section_pins`) plus
+    /// the two catalogue tables that hold user intent rather than detector
+    /// output: the user-owned `sections` rows (drawn, accepted, renamed,
+    /// trimmed or re-referenced) and the `section_intents` suppressions, whose
+    /// whole contract is that a removed corridor never re-emerges.
+    ///
+    /// Junction rows are deliberately NOT salvaged. `section_activities` has an
+    /// `ON DELETE CASCADE` foreign key to `activities`, which the fresh
+    /// database has none of until the next sync, so every insert would be
+    /// rejected. The ingest attach tier (`attach_stored_activity`) matches each
+    /// re-synced activity against the whole catalogue, custom sections
+    /// included, so the members come back as the library does.
+    pub fn salvage_ledger_from(&self, corrupt_path: &str) -> SalvageCounts {
         let Ok(src) = rusqlite::Connection::open_with_flags(
             corrupt_path,
             rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
         ) else {
-            return (0, 0, 0);
+            return SalvageCounts::default();
         };
         let history = salvage_rows(
             &src,
@@ -974,7 +1046,40 @@ impl PersistentRouteEngine {
             "INSERT OR IGNORE INTO section_pins (section_id, version, created_at) VALUES (?, ?, ?)",
             3,
         );
-        (history, geometry, pins)
+        // Ownership is any of the three marks a promotion leaves, matching the
+        // predicate the detection wipe spares and `durable_intent_rows` reads.
+        // Guarded on the source's own shape: an older file may lack a column,
+        // and one missing name would fail the whole statement.
+        let owned = [
+            "section_type = 'custom'",
+            "is_user_defined = 1",
+            "original_polyline_json IS NOT NULL",
+        ];
+        let present = shared_columns(&src, &self.db, "sections");
+        let predicate: Vec<&str> = owned
+            .iter()
+            .copied()
+            .filter(|clause| present.iter().any(|c| clause.starts_with(c.as_str())))
+            .collect();
+        let sections = if predicate.is_empty() {
+            0
+        } else {
+            salvage_table(
+                &src,
+                &self.db,
+                "sections",
+                &format!("WHERE {}", predicate.join(" OR ")),
+            )
+        };
+        let intents = salvage_table(&src, &self.db, "section_intents", "");
+
+        SalvageCounts {
+            history,
+            geometry,
+            pins,
+            sections,
+            intents,
+        }
     }
 
     /// The pinned version of one section, if any.

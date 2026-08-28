@@ -814,12 +814,21 @@ fn interrupted_beta_database_is_quarantined_rather_than_upgraded() {
         quarantined
     );
 
-    // The replacement is a working, empty database. Losing the cache is the
-    // accepted cost: it is re-derivable from intervals.icu.
+    // The replacement is a working database holding only what a resync cannot
+    // rebuild. Losing the detector's cache is the accepted cost: it is
+    // re-derivable from intervals.icu. The user's own custom section is not,
+    // so the quarantine salvages it.
     let conn = Connection::open(&db_path).expect("open replacement");
     assert_eq!(count(&conn, "activities"), 0);
-    assert_eq!(count(&conn, "sections"), 0);
     assert_eq!(count(&conn, "route_groups"), 0);
+    let salvaged: String = conn
+        .query_row(
+            "SELECT name FROM sections WHERE id = ?",
+            params![SECTION_ID],
+            |row| row.get(0),
+        )
+        .expect("the custom section and its name must survive the quarantine");
+    assert_eq!(salvaged, SECTION_NAME);
     conn.query_row("SELECT COUNT(*) FROM wellness", [], |_| Ok(()))
         .expect("replacement must be on the current schema");
 }

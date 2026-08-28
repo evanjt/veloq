@@ -86,6 +86,10 @@ httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
 [[test]]
+name = "clear_resets_identity"
+required-features = ["synthetic"]
+
+[[test]]
 name = "persistence_stress"
 required-features = ["synthetic"]
 
@@ -233,6 +237,10 @@ name = "conditioning_driver"
 required-features = ["synthetic"]
 
 [[test]]
+name = "ffi_add_conditions"
+required-features = ["synthetic"]
+
+[[test]]
 name = "refresh_portions"
 required-features = ["synthetic"]
 
@@ -281,6 +289,10 @@ required-features = ["real-corpus"]
 
 [[test]]
 name = "evidence_cache_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_final_cache"
 required-features = ["synthetic"]
 
 [[test]]

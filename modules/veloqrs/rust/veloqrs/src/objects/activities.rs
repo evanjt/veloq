@@ -1,4 +1,5 @@
 use super::error::{VeloqError, with_engine};
+use crate::persistence::sections::conditioning;
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -13,7 +14,7 @@ impl ActivityManager {
         Arc::new(Self { _private: () })
     }
 
-    fn add(
+    pub fn add(
         &self,
         activity_ids: Vec<String>,
         all_coords: Vec<f64>,
@@ -64,7 +65,12 @@ impl ActivityManager {
                     msg: format!("{}", e),
                 })?;
             Ok(())
-        })?
+        })??;
+        // A batch stored through the FFI is a stored batch like any other:
+        // the engine owns the detection run that follows it.
+        conditioning::note_stored(activity_ids.len() as u32);
+        conditioning::condition_pending();
+        Ok(())
     }
 
     fn get_ids(&self) -> Result<Vec<String>, VeloqError> {

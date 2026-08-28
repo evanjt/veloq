@@ -46,13 +46,3 @@ export {
   SPORT_COLORS,
   type PrimarySport,
 } from './stores';
-
-export {
-  demoPowerCurve,
-  demoPaceCurve,
-  demoSportSettings,
-  getTrainingDay,
-  demoWellness,
-  type TrainingPhase,
-  type TrainingDayContext,
-} from './demo';

@@ -280,14 +280,14 @@ tags:
 # Scroll to ensure first row is visible, then tap
 - scrollUntilVisible:
     element:
-      id: "section-row-0"
+      id: "section-row-.*"
     direction: DOWN
     timeout: 10000
     speed: 40
     optional: true
 
 - tapOn:
-    id: "section-row-0"
+    id: "section-row-.*"
 
 - extendedWaitUntil:
     visible:

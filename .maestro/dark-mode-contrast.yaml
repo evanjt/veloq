@@ -89,11 +89,15 @@ tags:
 - tapOn:
     text: "Sections"
     optional: true
-- tapOn:
-    text: "Section 7"
 - extendedWaitUntil:
     visible:
-      text: "Performance Over Time"
+      id: "section-row-.*"
+    timeout: 30000
+- tapOn:
+    id: "section-row-.*"
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
     timeout: 15000
 - takeScreenshot: "dark-mode-section-detail"
 

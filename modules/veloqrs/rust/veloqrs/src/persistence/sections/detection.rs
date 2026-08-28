@@ -994,6 +994,14 @@ impl PersistentRouteEngine {
         sections: Vec<FrequentSection>,
         update: Option<CacheUpdate>,
     ) -> SqlResult<()> {
+        // A checkpoint is a mid-fold snapshot, never the record of what was
+        // persisted: adopting one as the final cache silently poisons the next
+        // detect. The callers drain to the real update, so reaching here with
+        // one is a bug in the caller, not a state to tolerate.
+        debug_assert!(
+            !update.as_ref().is_some_and(|u| u.checkpoint),
+            "apply_sections_save_with_cache adopted a mid-fold checkpoint as the final cache"
+        );
         self.fork_records = update
             .as_ref()
             .map(|u| u.boundaries.clone())

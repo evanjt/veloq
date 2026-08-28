@@ -27,56 +27,40 @@ onFlowComplete:
     commands:
       - tapOn: "(?i)discard"
 
-# Look for an indoor activity type — scroll to find WeightTraining or similar
-- scrollUntilVisible:
-    element:
-      text: "Strength Training"
-    direction: DOWN
-    timeout: 5000
-    speed: 40
-    optional: true
-
-# Select manual entry mode — the recording screen for indoor types shows manual entry form
+# Weight training sits under the collapsed activity list, and an indoor
+# type opens the manual entry form.
+- extendedWaitUntil:
+    visible:
+      id: "record-all-activities"
+    timeout: 10000
 - tapOn:
-    text: "Strength Training"
-    optional: true
+    id: "record-all-activities"
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
+    duration: 200
+- extendedWaitUntil:
+    visible:
+      id: "record-category-gym"
+    timeout: 5000
+- tapOn:
+    id: "record-category-gym"
+- swipe:
+    start: 50%, 70%
+    end: 50%, 50%
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: "record-type-WeightTraining"
+    timeout: 5000
+- tapOn:
+    id: "record-type-WeightTraining"
 
-# If Strength Training not found, try tapping any type that triggers manual entry
-- runFlow:
-    when:
-      notVisible:
-        id: "manual-entry-name"
-    commands:
-      - openLink: "veloq://"
-      - extendedWaitUntil:
-          visible:
-            id: "home-screen"
-          timeout: 5000
-      - tapOn:
-          id: "record-fab"
-      - runFlow:
-          when:
-            visible: "(?i)discard"
-          commands:
-            - tapOn: "(?i)discard"
-      - scrollUntilVisible:
-          element:
-            id: "record-type-WeightTraining"
-          direction: DOWN
-          timeout: 5000
-          speed: 40
-          optional: true
-      - tapOn:
-          id: "record-type-WeightTraining"
-          optional: true
-
-# Wait for manual entry form
 - extendedWaitUntil:
     visible:
       id: "manual-entry-name"
     timeout: 10000
 
-# Fill in the form
 - tapOn:
     id: "manual-entry-name"
 - inputText: "Test Manual Entry"
@@ -89,7 +73,17 @@ onFlowComplete:
 
 - takeScreenshot: "manual-entry-filled"
 
-# Submit to review screen
+# Submit to review screen. The button sits under the keyboard and the
+# tab bar until the form is scrolled.
+- hideKeyboard
+- swipe:
+    start: 50%, 75%
+    end: 50%, 45%
+    duration: 800
+- extendedWaitUntil:
+    visible:
+      id: "manual-entry-continue"
+    timeout: 5000
 - tapOn:
     id: "manual-entry-continue"
 

@@ -19,8 +19,6 @@ interface RouteSettings {
   retentionDays: number;
   /** Whether automatic cleanup is enabled (default: false) */
   autoCleanupEnabled: boolean;
-  /** Whether reverse geocoding of route/section names is enabled (default: true) */
-  geocodingEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
   heatmapEnabled: boolean;
   /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
@@ -31,7 +29,6 @@ const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
   retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
-  geocodingEnabled: false, // Off by default - user must acknowledge OSM Nominatim terms
   heatmapEnabled: true, // Generate heatmap tiles by default
   detectionStrictness: 60,
 };
@@ -48,8 +45,6 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('retentionDays' in obj && typeof obj.retentionDays !== 'number') return false;
   // autoCleanupEnabled must be boolean if present
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
-  // geocodingEnabled must be boolean if present
-  if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
   // A value of the right type is not necessarily a valid one.
@@ -70,7 +65,6 @@ interface RouteSettingsState {
   setEnabled: (enabled: boolean) => Promise<void>;
   setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
-  setGeocodingEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
   setDetectionStrictness: (value: number) => Promise<void>;
 }
@@ -159,18 +153,6 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
     log.log(`Auto cleanup ${enabled ? 'enabled' : 'disabled'}`);
   },
 
-  setGeocodingEnabled: async (enabled: boolean) => {
-    set((state) => {
-      const newSettings = { ...state.settings, geocodingEnabled: enabled };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save geocoding setting:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(`Geocoding ${enabled ? 'enabled' : 'disabled'}`);
-  },
-
   setHeatmapEnabled: async (enabled: boolean) => {
     set((state) => {
       const newSettings = { ...state.settings, heatmapEnabled: enabled };
@@ -203,11 +185,6 @@ export function isRouteMatchingEnabled(): boolean {
 // Helper for getting retention days synchronously
 export function getRetentionDays(): number {
   return useRouteSettings.getState().settings.retentionDays;
-}
-
-// Helper for checking geocoding enabled synchronously
-export function isGeocodingEnabled(): boolean {
-  return useRouteSettings.getState().settings.geocodingEnabled;
 }
 
 // Helper for checking heatmap enabled synchronously

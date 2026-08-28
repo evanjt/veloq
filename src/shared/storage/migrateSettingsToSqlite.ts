@@ -23,7 +23,6 @@ export const PREFERENCE_KEYS = [
   'veloq-hr-zones',
   'veloq-debug-mode',
   'veloq-disabled-sections',
-  'veloq-section-dismissals',
   'veloq-superseded-sections',
   'dashboard_preferences',
   'dashboard_summary_card',

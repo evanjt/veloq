@@ -140,16 +140,24 @@ pub fn condition_pending() -> bool {
     if detection_suspended() {
         return false;
     }
-    let due = {
-        let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
-        let due = c.adds_pending > 0;
-        c.adds_pending = 0;
-        due
-    };
+    let due = CONDITIONER
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .adds_pending
+        > 0;
     if !due {
         return false;
     }
-    try_start_conditioning()
+    // A refused start (a run already active) keeps the count: the driver
+    // flushes it when that run applies, so the follow-up fires on its own.
+    let started = try_start_conditioning();
+    if started {
+        CONDITIONER
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .adds_pending = 0;
+    }
+    started
 }
 
 pub fn maybe_condition_backfill() -> bool {
@@ -215,10 +223,10 @@ fn spawn_conditioning_driver() {
                 Ok(DetectionPoll::Running) => continue,
                 Ok(DetectionPoll::Applied) => {
                     log::info!("tracematch: [conditioning] run applied");
-                    // Adds that landed during the run may already make the
-                    // next batch due; chain immediately so a fast download
-                    // never outpaces the cadence unboundedly.
-                    if maybe_condition_backfill() {
+                    // Adds that landed during the run get their run now,
+                    // threshold or not: a flush this run refused was kept
+                    // for exactly this moment.
+                    if condition_pending() {
                         // The fresh run spawned its own driver.
                     }
                     break;
@@ -351,13 +359,13 @@ mod tests {
         assert!(!condition_pending(), "nothing pending, nothing to flush");
         note_stored(3);
         // No engine in a unit test, so the start is refused; the pending
-        // count still resets, a flush never carries adds into the next batch.
-        condition_pending();
+        // count survives for the flush that follows the active run.
+        assert!(!condition_pending());
         let pending = CONDITIONER
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .adds_pending;
-        assert_eq!(pending, 0);
+        assert_eq!(pending, 3);
     }
 
     #[test]

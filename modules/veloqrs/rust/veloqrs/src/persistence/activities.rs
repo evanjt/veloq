@@ -429,18 +429,42 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Clear all data.
+    /// Clear all data. Every table except `settings` empties, because this is
+    /// the logout path and anything left behind is one athlete's data shown to
+    /// the next. Nothing cascades here: only three tables carry an activity
+    /// foreign key, so a table missing from this list survives indefinitely.
+    /// `clear_wipes_every_table` holds the list to the schema.
     pub fn clear(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
             "DELETE FROM section_activities;
              DELETE FROM sections;
+             DELETE FROM section_history;
+             DELETE FROM section_geometry;
+             DELETE FROM section_pins;
+             DELETE FROM section_intents;
+             DELETE FROM section_catalogue_archive_members;
+             DELETE FROM section_catalogue_archive;
+             DELETE FROM identity_state;
              DELETE FROM route_groups;
+             DELETE FROM route_names;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
              DELETE FROM activities;
              DELETE FROM activity_metrics;
              DELETE FROM activity_matches;
+             DELETE FROM activity_bodies;
+             DELETE FROM activity_indicators;
+             DELETE FROM activity_heatmap;
              DELETE FROM time_streams;
+             DELETE FROM stream_bodies;
+             DELETE FROM interval_bodies;
+             DELETE FROM curve_bodies;
+             DELETE FROM calendar_event_bodies;
+             DELETE FROM exercise_sets;
+             DELETE FROM fit_file_status;
+             DELETE FROM wellness;
+             DELETE FROM ftp_history;
+             DELETE FROM pace_history;
              DELETE FROM overlap_cache;
              DELETE FROM processed_activities;
              DELETE FROM athlete_profile;
@@ -474,6 +498,12 @@ impl PersistentRouteEngine {
         self.groups_dirty = false;
         self.sections_dirty = false;
         self.invalidate_perf_cache();
+
+        // The registries are in memory as well as on disk. Without this the
+        // deleted athlete's grounds stay live for the debounce window, so the
+        // next athlete's first detect adopts their ids, names and tombstones.
+        self.identity = super::sections::SectionIdentity::default();
+        self.route_identity = super::route_identity::RouteIdentity::default();
 
         Ok(())
     }
