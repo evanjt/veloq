@@ -310,6 +310,8 @@ table sections
   column version type=INTEGER notnull=0 default=1 pk=0
   column visit_count type=INTEGER notnull=1 default=0 pk=0
   index idx_sections_disabled unique=0 origin=c partial=0 cols=[disabled]
+  index idx_sections_klass unique=0 origin=c partial=0 cols=[klass]
+  index idx_sections_rank_score unique=0 origin=c partial=0 cols=[rank_score]
   index idx_sections_sport unique=0 origin=c partial=0 cols=[sport_type]
   index idx_sections_superseded unique=0 origin=c partial=0 cols=[superseded_by]
   index idx_sections_type unique=0 origin=c partial=0 cols=[section_type]
@@ -387,6 +389,8 @@ index idx_section_activities_perf :: CREATE INDEX idx_section_activities_perf ON
 index idx_section_history_at :: CREATE INDEX idx_section_history_at ON section_history(at)
 index idx_section_history_section :: CREATE INDEX idx_section_history_section ON section_history(section_id, at)
 index idx_sections_disabled :: CREATE INDEX idx_sections_disabled ON sections(disabled)
+index idx_sections_klass :: CREATE INDEX idx_sections_klass ON sections(klass)
+index idx_sections_rank_score :: CREATE INDEX idx_sections_rank_score ON sections(rank_score)
 index idx_sections_sport :: CREATE INDEX idx_sections_sport ON sections(sport_type)
 index idx_sections_superseded :: CREATE INDEX idx_sections_superseded ON sections(superseded_by)
 index idx_sections_type :: CREATE INDEX idx_sections_type ON sections(section_type)
