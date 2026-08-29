@@ -176,17 +176,20 @@ pub fn maybe_condition_backfill() -> bool {
     try_start_conditioning()
 }
 
-fn try_start_conditioning() -> bool {
+/// Start a conditioning run unless one is already in flight. The whole
+/// single-flight decision lives here, so this is the only start path.
+pub fn try_start_conditioning() -> bool {
     if detection_suspended() {
         return false;
     }
-    {
-        let guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            return false;
-        }
+    // Held across check, spawn and install. Releasing it to spawn lets a
+    // loser start a second worker that rewrites `route_groups` on its own
+    // connection beside the winner, with both track pools resident.
+    let mut guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_some() {
+        return false;
     }
 
     let handle = with_persistent_engine(|engine| engine.detect_sections_background());
@@ -195,17 +198,14 @@ fn try_start_conditioning() -> bool {
         return false;
     };
 
-    {
-        let mut guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            // Lost the start race. Drop our handle: the orphaned worker's
-            // sends fail harmlessly and the winning run covers the pool.
-            return false;
-        }
-        *guard = Some(handle);
+    // A suspension taken while the engine lock was held gives back a dead
+    // handle. Installing it would occupy the slot with a run that never ran.
+    if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
+        return false;
     }
+
+    *guard = Some(handle);
+    drop(guard);
 
     spawn_conditioning_driver();
     log::info!("tracematch: [conditioning] backfill run started");

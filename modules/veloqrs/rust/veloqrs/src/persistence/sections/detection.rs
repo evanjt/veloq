@@ -38,6 +38,18 @@ const MAX_CORRUPT_POOL_FRACTION: f64 = 0.10;
 /// both bars, so the floor costs nothing against the shape worth catching.
 const MIN_CORRUPT_TO_ABANDON: usize = 8;
 
+/// Detection worker threads spawned since process start. The single-flight
+/// gates are the only thing keeping this to one live worker at a time, and a
+/// count is the only way a test can see a worker that was spawned and then
+/// orphaned by a losing start.
+static DETECTION_WORKERS_STARTED: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+/// Total detection worker threads spawned since process start.
+pub fn detection_workers_started() -> u64 {
+    DETECTION_WORKERS_STARTED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// Seconds an abandoned pool stays abandoned while its activity ids are
 /// unchanged. The abort returns before `save_processed_activity_ids`, so
 /// without a window every sync reloads and re-decodes the whole store to reach
@@ -650,6 +662,7 @@ impl PersistentRouteEngine {
         // Clone activity_ids for the background thread (to persist as processed after detection)
         let all_activity_ids = activity_ids.clone();
 
+        DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
             log::info!(
                 "tracematch: [SectionDetection] Background thread started with {} activity IDs",
