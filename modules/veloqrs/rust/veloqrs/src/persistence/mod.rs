@@ -56,6 +56,7 @@ pub mod settings;
 pub use settings::settings_keys;
 pub mod bodies;
 mod strength;
+pub use strength::FitOutcome;
 mod tiles;
 pub mod wellness;
 

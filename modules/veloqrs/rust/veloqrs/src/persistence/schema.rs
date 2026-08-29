@@ -11,7 +11,7 @@ impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 19;
+    pub(super) const SCHEMA_VERSION: i32 = 20;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -22,6 +22,8 @@ impl PersistentRouteEngine {
     /// M16: bounded activity stream body cache.
     /// M17: section history, geometry versions and pins (B4 core).
     /// M18: persisted evidence cache.
+    /// M19: section enrichment and ranking columns.
+    /// M20: settled FIT verdict, replacing the has_sets bit a failure poisoned.
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
     /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
@@ -54,6 +56,7 @@ impl PersistentRouteEngine {
             include_str!("../migrations/017_b4_core.sql"),
             include_str!("../migrations/018_evidence_cache.sql"),
             include_str!("../migrations/019_enrichment.sql"),
+            include_str!("../migrations/020_fit_status_failures.sql"),
         ]
     }
 

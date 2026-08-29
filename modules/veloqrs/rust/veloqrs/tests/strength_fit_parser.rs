@@ -10,8 +10,8 @@
 
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
 use veloqrs::fit::{FitExerciseSet, parse_fit_strength_sets};
+use veloqrs::{FitOutcome, PersistentRouteEngine};
 
 #[test]
 fn parse_empty_bytes_reports_empty_error() {
@@ -82,7 +82,7 @@ fn store_and_read_back_exercise_sets() {
         .store_exercise_sets(activity_id, &sets)
         .expect("store ok");
     engine
-        .mark_fit_processed(activity_id, true)
+        .mark_fit_outcome(activity_id, FitOutcome::Parsed)
         .expect("mark processed");
 
     assert!(
@@ -104,4 +104,50 @@ fn store_and_read_back_exercise_sets() {
     assert_eq!(read_back[2].exercise_category, 28, "Squat preserved");
     assert_eq!(read_back[2].exercise_name, Some(3));
     assert_eq!(read_back[2].weight_kg, Some(100.0));
+}
+
+/// An activity is retried until it settles. `get_unprocessed_strength_ids` is
+/// the queue, and only a recorded outcome takes an activity out of it, so a
+/// download that failed for a retryable reason must record nothing.
+#[test]
+fn only_a_recorded_outcome_leaves_the_retry_queue() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("fit_queue.db");
+    let engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("engine");
+
+    let ids = vec![
+        "settled_with_sets".to_string(),
+        "settled_empty".to_string(),
+        "settled_absent".to_string(),
+        "failed_download".to_string(),
+    ];
+
+    engine
+        .mark_fit_outcome("settled_with_sets", FitOutcome::Parsed)
+        .expect("mark parsed");
+    engine
+        .mark_fit_outcome("settled_empty", FitOutcome::Empty)
+        .expect("mark empty");
+    engine
+        .mark_fit_outcome("settled_absent", FitOutcome::Absent)
+        .expect("mark absent");
+
+    let unprocessed = engine
+        .get_unprocessed_strength_ids(&ids)
+        .expect("unprocessed");
+    assert_eq!(
+        unprocessed,
+        vec!["failed_download".to_string()],
+        "an activity whose download failed must stay in the queue, and every \
+         settled verdict must leave it"
+    );
+
+    assert!(
+        engine.is_fit_processed("settled_empty").expect("processed"),
+        "a FIT that genuinely carries no sets is settled, not pending"
+    );
+    assert!(
+        !engine.is_fit_processed("failed_download").expect("pending"),
+        "a failed download must not read as processed"
+    );
 }

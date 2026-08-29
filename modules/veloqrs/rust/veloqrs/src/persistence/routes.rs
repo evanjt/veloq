@@ -806,7 +806,7 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    fn save_groups(&self) -> SqlResult<()> {
+    pub(super) fn save_groups(&self) -> SqlResult<()> {
         // The DELETE + rebuild below must be atomic: a failure mid-way would
         // otherwise permanently drop every route group and activity match.
         self.db.execute_batch("BEGIN IMMEDIATE")?;

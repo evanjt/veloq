@@ -18,6 +18,7 @@ import {
   INTERVALS_URLS,
   confirmAccountChange,
   getCachedAthleteId,
+  DEMO_ATHLETE_ID,
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
@@ -69,8 +70,8 @@ export default function LoginScreen() {
     // Warn before destroying a real account's cached data. Engine holds at
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
-    const cachedId = getCachedAthleteId();
-    if (cachedId) {
+    const cachedId = await getCachedAthleteId();
+    if (cachedId && cachedId !== DEMO_ATHLETE_ID) {
       const proceed = await confirmAccountChange({
         cachedAthleteId: cachedId,
         incomingKind: 'demo',

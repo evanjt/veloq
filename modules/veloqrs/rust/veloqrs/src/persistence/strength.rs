@@ -5,6 +5,33 @@ use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentRouteEngine;
 
+/// A settled verdict on an activity's FIT file. Only these three reach
+/// `fit_file_status`; a retryable download failure records nothing at all, which
+/// is what leaves the activity in `get_unprocessed_strength_ids`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FitOutcome {
+    /// Downloaded and parsed, and it carried exercise sets.
+    Parsed,
+    /// Downloaded and parsed, and it genuinely carries no sets.
+    Empty,
+    /// Upstream has no FIT file for this activity, and never will.
+    Absent,
+}
+
+impl FitOutcome {
+    fn has_sets(self) -> bool {
+        matches!(self, FitOutcome::Parsed)
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            FitOutcome::Parsed => "parsed",
+            FitOutcome::Empty => "empty",
+            FitOutcome::Absent => "absent",
+        }
+    }
+}
+
 impl PersistentRouteEngine {
     /// Store parsed exercise sets for an activity.
     pub fn store_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
@@ -60,12 +87,20 @@ impl PersistentRouteEngine {
         Ok(sets)
     }
 
-    /// Mark a FIT file as processed for an activity.
-    pub fn mark_fit_processed(&self, activity_id: &str, has_sets: bool) -> SqlResult<()> {
+    /// Record a SETTLED verdict for an activity's FIT file. A row here excludes
+    /// the activity from every retry path, so only a verdict that will not change
+    /// on a later attempt may be written: parsed, empty, or absent upstream. A
+    /// download that failed for any other reason writes nothing and is retried.
+    pub fn mark_fit_outcome(&self, activity_id: &str, outcome: FitOutcome) -> SqlResult<()> {
         self.db.execute(
-            "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets)
-             VALUES (?, ?, ?)",
-            params![activity_id, chrono::Utc::now().timestamp(), has_sets as i32,],
+            "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets, outcome)
+             VALUES (?, ?, ?, ?)",
+            params![
+                activity_id,
+                chrono::Utc::now().timestamp(),
+                outcome.has_sets() as i32,
+                outcome.as_str(),
+            ],
         )?;
         Ok(())
     }

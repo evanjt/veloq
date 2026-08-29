@@ -12,21 +12,32 @@ import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { safeJsonParse } from '@/shared/validation/validation';
+import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
 
 export type AccountChangeKind = 'login' | 'demo';
 
 /**
- * Returns the cached athlete id from the engine's `athlete_profile` blob,
- * or null if nothing is cached.
+ * Returns the cached athlete id, or null if the device holds no account data.
+ *
+ * Three sources, in order of confidence. The engine is only initialised in
+ * the authenticated branch, so at the login screen on a cold start it is
+ * absent and `getAthleteProfile` answers empty for a device that is full of
+ * another account's data. `clearAuthOnly` drops the profile blob but keeps
+ * the activities, which leaves the same gap with the engine up. The
+ * `__athlete_id` setting covers that one, and the AsyncStorage mirror
+ * outlives the engine being down and covers the cold start.
  */
-export function getCachedAthleteId(): string | null {
+export async function getCachedAthleteId(): Promise<string | null> {
   const engine = getRouteEngine();
-  if (!engine) return null;
-  const json = engine.getAthleteProfile();
-  if (!json) return null;
-  const parsed = safeJsonParse<{ id?: number | string }>(json, {});
-  if (!parsed?.id) return null;
-  return String(parsed.id);
+  if (engine) {
+    const json = engine.getAthleteProfile();
+    const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;
+    const id = parsed?.id ? String(parsed.id) : engine.getSetting('__athlete_id');
+    if (!id) return null;
+    await rememberCachedAthleteId(id);
+    return id;
+  }
+  return readCachedAthleteIdMirror();
 }
 
 interface ConfirmAccountChangeArgs {

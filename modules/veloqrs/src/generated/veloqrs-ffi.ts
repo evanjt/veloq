@@ -1148,7 +1148,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1159,7 +1159,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
     ptr: bigint,
     startTs: bigint,

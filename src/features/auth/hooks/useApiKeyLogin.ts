@@ -46,7 +46,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // for instant resume; only the auth/profile blobs are dropped so the
         // previous user's avatar can't bleed through.
         const incomingId = check.id;
-        const cachedId = getCachedAthleteId();
+        const cachedId = await getCachedAthleteId();
         if (cachedId && cachedId !== incomingId) {
           const proceed = await confirmAccountChange({
             cachedAthleteId: cachedId,

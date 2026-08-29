@@ -13,6 +13,7 @@ import { debug } from '@/shared/debug/debug';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { safeJsonParseWithSchema, type SchemaValidator } from '@/shared/validation/validation';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
+import { forgetCachedAthleteId } from './cachedAthleteId';
 
 const log = debug.create('GpsStorage');
 
@@ -352,6 +353,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
     clearBoundsCache(),
     FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
     clearTerrainPreviews(),
+    forgetCachedAthleteId(),
   ]);
 
   log.log('Cleared all app caches');

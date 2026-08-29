@@ -7,6 +7,7 @@
 
 import type { InsightsParams } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { INSIGHTS_CONFIG, maxPerCategoryFor } from './config';
 
@@ -16,7 +17,7 @@ const RANKED_LIMIT = 50;
 /** Efficiency candidates taken from each sport's ranked list. */
 const EFFICIENCY_PER_SPORT = 5;
 
-const toTs = (d: Date) => BigInt(Math.floor(d.getTime() / 1000));
+const toTs = (d: Date) => BigInt(localWallClockToEpochSeconds(d));
 
 /** The four trailing weeks the strength insights compare. */
 function trailingStrengthWeeks(): { startTs: bigint; endTs: bigint }[] {
@@ -74,7 +75,7 @@ export function buildInsightsParams(): InsightsParams {
     currentStart: toTs(startOfWeek),
     currentEnd: toTs(now),
     prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek),
+    prevEnd: toTs(startOfWeek) - 1n,
     chronicStart: toTs(fourWeeksAgo),
     todayStart: toTs(todayStart),
     includeSections: isRouteMatchingEnabled(),

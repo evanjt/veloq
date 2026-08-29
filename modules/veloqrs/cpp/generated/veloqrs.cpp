@@ -667,14 +667,13 @@ void uniffi_veloqrs_fn_free_strengthmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_strengthmanager_new(
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
+int8_t uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
     /*handle*/ uint64_t ptr, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer sets,
     RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
+int8_t uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
@@ -13369,7 +13368,7 @@ jsi::Value NativeVeloqrs::
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
@@ -13404,7 +13403,7 @@ jsi::Value NativeVeloqrs::
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(

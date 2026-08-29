@@ -31,6 +31,8 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use rusqlite::{Connection, Result as SqlResult};
+
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentRouteEngine;
@@ -61,6 +63,100 @@ pub(crate) struct RouteIdentity {
     ordinal: u64,
 }
 
+/// The highest ordinal already baked into an `r_<n>` group id, or 0. Both reseed
+/// (fresh adoption) and restore (crash-window reconcile) lift the mint counter
+/// past this so a later mint cannot collide with an id already persisted in
+/// `route_groups`, whose PK is `group_id`.
+fn max_adopted_route_ordinal(groups: &[RouteGroup]) -> u64 {
+    groups
+        .iter()
+        .filter_map(|g| g.group_id.strip_prefix("r_").and_then(|n| n.parse().ok()))
+        .max()
+        .unwrap_or(0)
+}
+
+/// Seed the registry from the groups already persisted, adopting each existing
+/// `group_id` as its stable id so an install keeps its route ids and simply stops
+/// re-deriving them, no migration. Seniority is assigned in sorted-id order (a
+/// deterministic proxy for age at adoption time); the mint counter is lifted past
+/// any adopted `r_<n>` so a later mint cannot collide.
+pub(crate) fn reseed_identity(groups: &[RouteGroup]) -> RouteIdentity {
+    let mut ids: Vec<String> = groups.iter().map(|g| g.group_id.clone()).collect();
+    ids.sort();
+
+    let mut ri = RouteIdentity::default();
+    for id in &ids {
+        ri.ordinal += 1;
+        ri.first_seen.insert(id.clone(), ri.ordinal);
+    }
+    ri.ordinal = ri.ordinal.max(max_adopted_route_ordinal(groups));
+    ri
+}
+
+/// The route registry as a version-tagged serde blob, or None on failure.
+pub(crate) fn identity_blob(state: &RouteIdentity) -> Option<Vec<u8>> {
+    codec::serialize(state)
+        .map(|body| codec::tag_blob(ROUTE_IDENTITY_BLOB_VERSION, body))
+        .ok()
+}
+
+/// Restore the registry from its persisted blob, or None when there is no blob,
+/// the version byte mismatches, or it fails to decode. An unreadable blob heals
+/// to a reseed by the caller, never to a failed load.
+pub(crate) fn restore_identity(conn: &Connection) -> Option<RouteIdentity> {
+    let bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT blob FROM identity_state WHERE key = ?",
+            rusqlite::params![ROUTE_IDENTITY_KEY],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
+        log::warn!("tracematch: [restore_identity] blob version mismatch, reseeding");
+        return None;
+    };
+    match codec::deserialize::<RouteIdentity>(body) {
+        Ok(state) => Some(state),
+        Err(e) => {
+            log::warn!("tracematch: [restore_identity] decode failed, reseeding: {e}");
+            None
+        }
+    }
+}
+
+/// The registry either writer needs before a regroup: the persisted blob when it
+/// reads, reconciled past the ids `groups` already holds, otherwise a reseed off
+/// those groups. The reconcile covers the crash window between the group commit
+/// and the registry write, where a stale blob's counter sits BELOW an `r_<n>`
+/// already live as a group PK and the next mint would collide with it.
+pub(crate) fn load_identity(conn: &Connection, groups: &[RouteGroup]) -> RouteIdentity {
+    match restore_identity(conn) {
+        Some(mut state) => {
+            let floor = max_adopted_route_ordinal(groups);
+            if state.ordinal < floor {
+                state.ordinal = floor;
+            }
+            state
+        }
+        None => reseed_identity(groups),
+    }
+}
+
+/// Persist the registry. The caller runs this inside the same transaction as the
+/// group write, so the registry commits atomically with the groups it describes.
+pub(crate) fn write_identity(conn: &Connection, state: &RouteIdentity) -> SqlResult<()> {
+    let Some(blob) = identity_blob(state) else {
+        return Ok(());
+    };
+    conn.execute(
+        "INSERT INTO identity_state (key, blob, updated_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+        rusqlite::params![ROUTE_IDENTITY_KEY, blob],
+    )?;
+    Ok(())
+}
+
 impl PersistentRouteEngine {
     /// Test-only fingerprint of the route registry state (first_seen + ordinal),
     /// for asserting a restart restores it exactly. Behind `synthetic`.
@@ -73,98 +169,52 @@ impl PersistentRouteEngine {
     /// Written INSIDE the `save_groups` transaction so the registry commits
     /// atomically with the groups it describes.
     pub(crate) fn route_identity_blob(&self) -> Option<Vec<u8>> {
-        codec::serialize(&self.route_identity)
-            .map(|body| codec::tag_blob(ROUTE_IDENTITY_BLOB_VERSION, body))
-            .ok()
+        identity_blob(&self.route_identity)
     }
 
     /// Restore the route registry from its persisted blob. Returns false, so the
-    /// caller reseeds from the DB groups, when there is no blob, the version byte
-    /// mismatches, or it fails to decode. An unreadable blob heals to a reseed,
-    /// never a failed load. On a clean restore the mint counter and seniority
-    /// survive, so a group minted after the restart cannot re-use a live ordinal.
+    /// caller reseeds from the DB groups, when the blob is missing or unreadable.
     pub(crate) fn route_identity_restore(&mut self) -> bool {
-        let bytes: Option<Vec<u8>> = self
-            .db
-            .query_row(
-                "SELECT blob FROM identity_state WHERE key = ?",
-                rusqlite::params![ROUTE_IDENTITY_KEY],
-                |row| row.get(0),
-            )
-            .ok();
-        let Some(bytes) = bytes else {
+        let Some(mut state) = restore_identity(&self.db) else {
             return false;
         };
-        let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
-            log::warn!("tracematch: [route_identity_restore] blob version mismatch, reseeding");
-            return false;
-        };
-        match codec::deserialize::<RouteIdentity>(body) {
-            Ok(state) => {
-                self.route_identity = state;
-                // Crash-window reconcile. The blob can lag `route_groups` by one
-                // save generation: a crash (or a torn write) between the group
-                // commit and the registry write leaves a stale blob whose ordinal
-                // sits BELOW an `r_<n>` already persisted as a group PK. Restore
-                // then succeeds, so reseed's counter-lift never runs, and the next
-                // mint would collide with that live id. Lift the counter past the
-                // max adopted id here, the same scan reseed does, so a stale blob
-                // heals to a safe counter rather than a duplicate-PK save.
-                let floor = self.max_adopted_route_ordinal();
-                if self.route_identity.ordinal < floor {
-                    self.route_identity.ordinal = floor;
-                }
-                true
-            }
-            Err(e) => {
-                log::warn!("tracematch: [route_identity_restore] decode failed, reseeding: {e}");
-                false
-            }
+        let floor = max_adopted_route_ordinal(&self.groups);
+        if state.ordinal < floor {
+            state.ordinal = floor;
         }
+        self.route_identity = state;
+        true
     }
 
-    /// The highest ordinal already baked into a loaded `r_<n>` group id, or 0.
-    /// Both reseed (fresh adoption) and restore (crash-window reconcile) lift the
-    /// mint counter past this so a later mint cannot collide with an id already
-    /// persisted in `route_groups`, whose PK is `group_id`.
-    fn max_adopted_route_ordinal(&self) -> u64 {
-        self.groups
-            .iter()
-            .filter_map(|g| g.group_id.strip_prefix("r_").and_then(|n| n.parse().ok()))
-            .max()
-            .unwrap_or(0)
-    }
-
-    /// Seed the registry from the groups already loaded from the DB, adopting each
-    /// existing `group_id` as its stable id so an install keeps its route ids and
-    /// simply stops re-deriving them, no migration. Seniority is assigned in
-    /// sorted-id order (a deterministic proxy for age at adoption time); the mint
-    /// counter is lifted past any adopted `r_<n>` so a later mint cannot collide.
+    /// Seed the registry from the groups already loaded from the DB.
     pub(crate) fn route_identity_reseed(&mut self) {
-        let mut ids: Vec<String> = self.groups.iter().map(|g| g.group_id.clone()).collect();
-        ids.sort();
-
-        let mut ri = RouteIdentity::default();
-        for id in &ids {
-            ri.ordinal += 1;
-            ri.first_seen.insert(id.clone(), ri.ordinal);
-        }
-        ri.ordinal = ri.ordinal.max(self.max_adopted_route_ordinal());
-        self.route_identity = ri;
+        self.route_identity = reseed_identity(&self.groups);
     }
 
+    /// Remap a freshly-grouped catalogue onto stable ids against `prior`, the
+    /// previous `self.groups`. See [`RouteIdentity::remap`].
+    pub(crate) fn route_identity_remap(
+        &mut self,
+        prior: Vec<RouteGroup>,
+        new_groups: Vec<RouteGroup>,
+    ) -> (Vec<RouteGroup>, HashMap<String, String>) {
+        self.route_identity.remap(prior, new_groups)
+    }
+}
+
+impl RouteIdentity {
     /// Remap a freshly-grouped catalogue (`new_groups`, still carrying churning
     /// UF-root ids and fresh min-member representatives) onto stable ids, matching
     /// each group to a prior by member-set overlap. A carry inherits the prior's
     /// stable id AND its representative (so a user's pick survives the regroup); a
     /// group matching no prior mints a fresh deterministic id. `prior` is the
-    /// previous `self.groups`, the source of the ids and reps being carried.
+    /// previously persisted groups, the source of the ids and reps being carried.
     ///
     /// Returns the remapped groups and the `old_group_id -> stable_id` map, so the
     /// caller can re-key anything the grouping keyed by the old UF-root id, chiefly
     /// `activity_matches`, whose per-member DIRECTION would otherwise be orphaned
     /// (leaving route highlights to read a wrong forward/back split).
-    pub(crate) fn route_identity_remap(
+    pub(crate) fn remap(
         &mut self,
         prior: Vec<RouteGroup>,
         new_groups: Vec<RouteGroup>,
@@ -268,15 +318,10 @@ impl PersistentRouteEngine {
             };
             id_map.insert(g.group_id.clone(), stable_id.clone());
             g.group_id = stable_id.clone();
-            let fs = self
-                .route_identity
-                .first_seen
-                .get(&stable_id)
-                .copied()
-                .unwrap_or_else(|| {
-                    self.route_identity.ordinal += 1;
-                    self.route_identity.ordinal
-                });
+            let fs = self.first_seen.get(&stable_id).copied().unwrap_or_else(|| {
+                self.ordinal += 1;
+                self.ordinal
+            });
             new_first_seen.insert(stable_id, fs);
             out[j] = Some(g);
         }
@@ -286,16 +331,16 @@ impl PersistentRouteEngine {
         let mut mint_order: Vec<usize> = (0..nc).filter(|&j| carrier_of[j].is_none()).collect();
         mint_order.sort_by(|&a, &b| new_members[a].cmp(&new_members[b]));
         for j in mint_order {
-            self.route_identity.ordinal += 1;
-            let id = format!("r_{}", self.route_identity.ordinal);
+            self.ordinal += 1;
+            let id = format!("r_{}", self.ordinal);
             let mut g = new_groups[j].clone();
             id_map.insert(g.group_id.clone(), id.clone());
             g.group_id = id.clone();
-            new_first_seen.insert(id, self.route_identity.ordinal);
+            new_first_seen.insert(id, self.ordinal);
             out[j] = Some(g);
         }
 
-        self.route_identity.first_seen = new_first_seen;
+        self.first_seen = new_first_seen;
         (out.into_iter().flatten().collect(), id_map)
     }
 
@@ -314,16 +359,8 @@ impl PersistentRouteEngine {
             std::cmp::Ordering::Greater => true,
             std::cmp::Ordering::Less => false,
             std::cmp::Ordering::Equal => {
-                let fi = self
-                    .route_identity
-                    .first_seen
-                    .get(&prior[i].group_id)
-                    .copied();
-                let fb = self
-                    .route_identity
-                    .first_seen
-                    .get(&prior[b].group_id)
-                    .copied();
+                let fi = self.first_seen.get(&prior[i].group_id).copied();
+                let fb = self.first_seen.get(&prior[b].group_id).copied();
                 match (fi, fb) {
                     (Some(a), Some(c)) if a != c => a < c,
                     _ => match prior[i]

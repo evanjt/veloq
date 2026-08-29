@@ -154,6 +154,10 @@ name = "section_portions_roundtrip"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_zero_visit_guard"
+required-features = ["synthetic"]
+
+[[test]]
 name = "suite2_battery"
 required-features = ["synthetic"]
 

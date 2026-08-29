@@ -18,8 +18,8 @@ pub use ffi_types::*;
 // Persistence layer with SQLite storage
 pub mod persistence;
 pub use persistence::{
-    CacheUpdate, GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats, PersistentRouteEngine,
-    SectionDetectionHandle, with_persistent_engine,
+    CacheUpdate, FitOutcome, GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats,
+    PersistentRouteEngine, SectionDetectionHandle, with_persistent_engine,
 };
 
 // Shared process-wide async runtime for all outbound network work

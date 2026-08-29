@@ -255,10 +255,14 @@ export function useRouteDataSync(
                 );
               }
               try {
-                const processed = nativeModule.routeEngine.batchFetchExerciseSets(unprocessed);
+                // Fire and forget: the downloads run on a Rust thread and the
+                // sets are read back from SQLite when a strength screen asks.
+                const started = nativeModule.routeEngine.batchFetchExerciseSets(unprocessed);
                 if (__DEV__) {
                   console.log(
-                    `[RouteDataSync] FIT batch complete: ${processed.length}/${unprocessed.length}`
+                    `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
+                      started ? 'started' : 'already running'
+                    }`
                   );
                 }
               } catch (err) {

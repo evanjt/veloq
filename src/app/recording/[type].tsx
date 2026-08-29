@@ -57,7 +57,6 @@ export default function RecordingScreen() {
   // selector would never notify). Each GPS point changes only the relevant
   // length, so only the consumers that need it re-render.
   const latlngLength = useRecordingStore((s) => s.streams.latlng.length);
-  const speedLength = useRecordingStore((s) => s.streams.speed.length);
   const distanceLength = useRecordingStore((s) => s.streams.distance.length);
   const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
 
@@ -105,7 +104,6 @@ export default function RecordingScreen() {
     activityType,
     mode,
     status,
-    speedLength,
     autoPaused,
     setAutoPaused,
   });

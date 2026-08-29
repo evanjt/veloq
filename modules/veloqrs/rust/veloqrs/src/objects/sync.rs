@@ -397,7 +397,7 @@ static IN_FLIGHT: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet
 /// Run an on-demand fetch unless one with the same key is already running.
 /// Returns false when the request was folded into an in-flight one, or when
 /// there are no credentials to fetch with.
-fn spawn_once<F, Fut>(key: String, job: F) -> bool
+pub(crate) fn spawn_once<F, Fut>(key: String, job: F) -> bool
 where
     F: FnOnce(Transport, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,

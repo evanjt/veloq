@@ -1014,7 +1014,7 @@ class RouteEngineClient implements DelegateHost {
   isFitProcessed = (activityId: string): boolean =>
     strengthDelegates.isFitProcessed(this, activityId);
 
-  fetchAndParseExerciseSets = (activityId: string): FfiExerciseSet[] =>
+  fetchAndParseExerciseSets = (activityId: string): boolean =>
     strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
@@ -1033,7 +1033,7 @@ class RouteEngineClient implements DelegateHost {
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
-  batchFetchExerciseSets = (activityIds: string[]): string[] =>
+  batchFetchExerciseSets = (activityIds: string[]): boolean =>
     strengthDelegates.batchFetchExerciseSets(this, activityIds);
 
   /**
