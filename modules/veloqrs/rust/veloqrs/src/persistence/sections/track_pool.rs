@@ -19,6 +19,9 @@ pub(crate) struct LoadedPool {
     pub empty: u32,
     /// Ids whose blob failed to decode.
     pub unreadable: u32,
+    /// Rows whose blob decoded, empty tracks included. The denominator the
+    /// corrupt-pool gate is measured against.
+    pub readable: usize,
 }
 
 /// Load full-resolution tracks in [`CHUNK_SIZE`] batches, preserving `ids`
@@ -35,6 +38,7 @@ pub(crate) fn load_tracks_chunked(
 ) -> Option<LoadedPool> {
     let mut empty: u32 = 0;
     let mut unreadable: u32 = 0;
+    let mut readable: usize = 0;
     let mut loaded: HashMap<String, Vec<GpsPoint>> = HashMap::with_capacity(ids.len());
 
     for chunk in ids.chunks(CHUNK_SIZE) {
@@ -59,6 +63,7 @@ pub(crate) fn load_tracks_chunked(
                     for (id, blob) in iter.flatten() {
                         match TrackRead::from_blob(&blob) {
                             TrackRead::Present(track) => {
+                                readable += 1;
                                 loaded.insert(id, track);
                             }
                             TrackRead::Missing => {}
@@ -97,5 +102,6 @@ pub(crate) fn load_tracks_chunked(
         tracks,
         empty,
         unreadable,
+        readable,
     })
 }

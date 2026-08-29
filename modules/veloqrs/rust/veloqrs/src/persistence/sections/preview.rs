@@ -60,6 +60,8 @@ pub enum PreviewOutcome {
     Complete(String),
     /// Cancelled cooperatively; nothing to take.
     Cancelled,
+    /// Too much of the pool is unreadable for a real detect to cut over it.
+    PoolUnusable { readable: usize, unreadable: u32 },
 }
 
 /// One poll of a preview handle.
@@ -67,6 +69,8 @@ pub enum PreviewPoll {
     Running,
     Complete,
     Cancelled,
+    /// The run refused the pool the real detect would also refuse.
+    PoolUnusable,
     /// The worker died without sending (panic, failed open).
     Died,
 }
@@ -94,11 +98,13 @@ impl SectionPreviewHandle {
         match self.outcome {
             Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
             Some(PreviewOutcome::Cancelled) => PreviewPoll::Cancelled,
+            Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
             None => match self.receiver.try_recv() {
                 Ok(o) => {
                     self.outcome = Some(o);
                     match self.outcome {
                         Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
+                        Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
                         _ => PreviewPoll::Cancelled,
                     }
                 }
@@ -599,6 +605,24 @@ impl PersistentRouteEngine {
                 pool.unreadable,
                 component_ids.len()
             );
+
+            // Same gate as the real detect, so a preview never proposes
+            // sections a Keep would refuse to cut. Read-only, so the refusal
+            // is reported to the caller and nothing is recorded.
+            if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
+                log::error!(
+                    "tracematch: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
+                    pool.unreadable,
+                    pool.readable + pool.unreadable as usize
+                );
+                progress_worker.set_phase("aborted", 0);
+                tx.send(PreviewOutcome::PoolUnusable {
+                    readable: pool.readable,
+                    unreadable: pool.unreadable,
+                })
+                .ok();
+                return;
+            }
 
             progress_worker.set_phase("analyzing", pool.tracks.len() as u32);
 
