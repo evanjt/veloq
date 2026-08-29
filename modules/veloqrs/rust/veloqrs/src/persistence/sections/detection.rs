@@ -932,6 +932,27 @@ impl PersistentRouteEngine {
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
         let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
+        // SB6: a section whose every portion belongs to an activity the pool no
+        // longer holds gets zero junction rows, so no trigger fires and it renders
+        // as "0 visits" over an empty detail screen. Keep it out of the visible
+        // catalogue. The registry row stays, so the hysteresis still dissolves the
+        // ground on its own schedule and its grave can re-emerge under the old id.
+        visible.retain(|section| {
+            let alive = section.is_user_defined
+                || section
+                    .activity_portions
+                    .iter()
+                    .any(|p| self.activity_metadata.contains_key(&p.activity_id));
+            if !alive {
+                log::warn!(
+                    "tracematch: [apply_sections_save] dropping section {} - none of its {} \
+                     portions belong to a pooled activity",
+                    section.id,
+                    section.activity_portions.len(),
+                );
+            }
+            alive
+        });
         // The identity layer owns only the auto catalogue. Carry the durable
         // user-defined sections (custom + accepted) already held in memory across
         // the apply so get_sections() keeps mirroring the full visible catalogue -

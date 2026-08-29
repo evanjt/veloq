@@ -1782,6 +1782,28 @@ impl PersistentRouteEngine {
         };
 
         for section in sorted_sections {
+            // SB6: the portions that will actually become junction rows. A
+            // section with none of them takes zero rows, so no visit_count
+            // trigger fires and the catalogue gains a "0 visits" card over an
+            // empty detail screen. Skip the row entirely rather than persist it.
+            // Detection prunes these before the save; this is the backstop for
+            // any other caller.
+            let surviving: Vec<&tracematch::SectionPortion> = section
+                .activity_portions
+                .iter()
+                .filter(|p| self.activity_metadata.contains_key(&p.activity_id))
+                .collect();
+            if surviving.is_empty() {
+                log::warn!(
+                    "tracematch: [save_sections] skipping section {} - {} activity_ids, {} \
+                     portions, none of them pooled",
+                    section.id,
+                    section.activity_ids.len(),
+                    section.activity_portions.len(),
+                );
+                continue;
+            }
+
             // Blob is the authoritative geometry; only legacy rows carry real
             // JSON, which readers use as a fallback.
             let polyline_blob = codec::serialize_points(&section.polyline)
@@ -1924,34 +1946,14 @@ impl PersistentRouteEngine {
                 section.rank.as_ref().map(|r| r.sport_score),
             ])?;
 
-            // Diagnostic: a section that claims attached activities but has
-            // no portions to record is a save-time symptom of a detection-side
-            // bug (regression test: postprocess.rs `split_high_variance_sections
-            // _populates_activity_portions`). Surfacing it here means the next
-            // such bug shows up loudly instead of silently producing
-            // "0 sections attached" sections in the UI.
-            if !section.activity_ids.is_empty() && section.activity_portions.is_empty() {
-                log::warn!(
-                    "tracematch: [save_sections] section {} has {} activity_ids \
-                     but 0 activity_portions - junction table will get 0 rows for this section. \
-                     Detection-side bug.",
-                    section.id,
-                    section.activity_ids.len(),
-                );
-            }
-
             // Populate junction table with full portion details and cached performance metrics.
             // Time streams come from `self.time_streams` (warm cache) or
             // the pre-fetched `db_time_streams` batch above (cold).
-            for portion in &section.activity_portions {
-                // Never emit a junction row for an activity the pool no longer
-                // holds. The activity_id foreign key would reject it and abort the
-                // entire apply (a single stale carried member bricking detection
-                // for the session). The identity purge on remove keeps this from
-                // arising; this is the failover-safe backstop for any it misses.
-                if !self.activity_metadata.contains_key(&portion.activity_id) {
-                    continue;
-                }
+            // `surviving` already dropped the portions whose activity the pool no
+            // longer holds. The activity_id foreign key would reject those and
+            // abort the entire apply, a single stale carried member bricking
+            // detection for the session.
+            for portion in &surviving {
                 let times = self
                     .time_streams
                     .peek(&portion.activity_id)
