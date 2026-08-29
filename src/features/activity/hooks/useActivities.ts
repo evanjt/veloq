@@ -6,6 +6,11 @@ import {
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
 import { formatLocalDate } from '@/shared/format/format';
+import {
+  addDaysToDay,
+  dayEndEpochSeconds,
+  dayStartEpochSeconds,
+} from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
@@ -13,16 +18,6 @@ import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
-
-/** Local midnight for a YYYY-MM-DD day, as the epoch seconds the engine keys on. */
-function dayStartTimestamp(day: string): number {
-  return Math.floor(new Date(`${day}T00:00:00`).getTime() / 1000);
-}
-
-/** Local end-of-day, so an inclusive window really includes its last day. */
-function dayEndTimestamp(day: string): number {
-  return Math.floor(new Date(`${day}T23:59:59`).getTime() / 1000);
-}
 
 /**
  * Read stored activities over a date window, newest first. A body that will
@@ -33,7 +28,7 @@ function readActivities(oldest: string, newest: string): Activity[] {
   if (!engine?.getActivityBodies) return [];
 
   const out: Activity[] = [];
-  for (const body of engine.getActivityBodies(dayStartTimestamp(oldest), dayEndTimestamp(newest))) {
+  for (const body of engine.getActivityBodies(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest))) {
     try {
       out.push(JSON.parse(body) as Activity);
     } catch {
@@ -166,14 +161,11 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
       // An empty page no longer means "end of history": the window may simply
       // not be fetched yet. Paging stops on the page cap instead.
       const pageParam = lastPageParam as { oldest: string };
-      const nextEnd = new Date(pageParam.oldest);
-      nextEnd.setDate(nextEnd.getDate() - 1);
-      const nextStart = new Date(nextEnd);
-      nextStart.setDate(nextStart.getDate() - PAGE_SIZE_DAYS);
+      const nextEnd = addDaysToDay(pageParam.oldest, -1);
 
       return {
-        oldest: formatLocalDate(nextStart),
-        newest: formatLocalDate(nextEnd),
+        oldest: addDaysToDay(nextEnd, -PAGE_SIZE_DAYS),
+        newest: nextEnd,
       };
     },
     // SQLite is the source, so a sync decides freshness, not a clock.
