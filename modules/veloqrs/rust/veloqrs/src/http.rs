@@ -174,8 +174,11 @@ impl ActivityFetcher {
     }
 
     /// Download the raw FIT file for an activity.
-    /// Returns the binary data or an error message.
-    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
+    ///
+    /// The error keeps its kind. The caller decides from it whether the activity
+    /// has settled (upstream holds no file) or should be retried, and flattening
+    /// it to a string made a transport blip indistinguishable from a 404.
+    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, NetError> {
         self.transport
             .get_bytes(
                 &format!("/activity/{}/file", activity_id),
@@ -183,7 +186,6 @@ impl ActivityFetcher {
                 Lane::Interactive,
             )
             .await
-            .map_err(|e| e.to_string())
     }
 
     /// Fetch map data for multiple activities in parallel

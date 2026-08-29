@@ -15004,10 +15004,14 @@ const FfiConverterTypeSettingsManager = new FfiConverterObject(
 
 export interface StrengthManagerLike {
   /**
-   * Batch download and parse FIT files for multiple activities.
-   * Returns the list of successfully processed activity IDs.
+   * Start FIT downloads for a batch of activities. Returns false when a batch
+   * is already in flight or there are no credentials.
+   *
+   * Runs in the background for the same reason the single fetch does: the
+   * caller is the sync path on the JS thread, and this loop is one blocking
+   * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>) /*throws*/ : Array<string>;
+  batchFetchExerciseSets(activityIds: Array<string>): boolean;
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network or FIT-file pipeline. Demo mode uses this to seed synthetic
@@ -15020,12 +15024,16 @@ export interface StrengthManagerLike {
     sets: Array<FfiExerciseSet>,
   ) /*throws*/ : void;
   /**
-   * Download FIT file, parse exercise sets, store in SQLite, return results.
-   * The FIT binary is held in memory only - not persisted to disk.
+   * Start a FIT download for one activity, parse its exercise sets and store
+   * them. Returns false when a download for this activity is already in
+   * flight or there are no credentials.
+   *
+   * Nothing is returned to the caller: the download ran on the JS thread
+   * before, so a black-hole network froze the UI for as long as the request
+   * took. The sets land in SQLite and are read back through
+   * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(
-    activityId: string,
-  ) /*throws*/ : Array<FfiExerciseSet>;
+  fetchAndParseExerciseSets(activityId: string): boolean;
   /**
    * Get activities for a specific exercise filtered by muscle group.
    * Returns activities sorted by date descending with per-activity stats.
@@ -15144,15 +15152,16 @@ export class StrengthManager
   }
 
   /**
-   * Batch download and parse FIT files for multiple activities.
-   * Returns the list of successfully processed activity IDs.
+   * Start FIT downloads for a batch of activities. Returns false when a batch
+   * is already in flight or there are no credentials.
+   *
+   * Runs in the background for the same reason the single fetch does: the
+   * caller is the sync path on the JS thread, and this loop is one blocking
+   * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): Array<string> /*throws*/ {
-    return FfiConverterArrayString.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+  batchFetchExerciseSets(activityIds: Array<string>): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
@@ -15193,17 +15202,18 @@ export class StrengthManager
   }
 
   /**
-   * Download FIT file, parse exercise sets, store in SQLite, return results.
-   * The FIT binary is held in memory only - not persisted to disk.
+   * Start a FIT download for one activity, parse its exercise sets and store
+   * them. Returns false when a download for this activity is already in
+   * flight or there are no credentials.
+   *
+   * Nothing is returned to the caller: the download ran on the JS thread
+   * before, so a black-hole network froze the UI for as long as the request
+   * took. The sets land in SQLite and are read back through
+   * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(
-    activityId: string,
-  ): Array<FfiExerciseSet> /*throws*/ {
-    return FfiConverterArrayTypeFfiExerciseSet.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
+  fetchAndParseExerciseSets(activityId: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
@@ -18877,7 +18887,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
-    36478
+    57349
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
@@ -18893,7 +18903,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    10165
+    1736
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
