@@ -1699,6 +1699,7 @@
     "previewRun": "Forhåndsvisning",
     "previewRunning": "Analyserer {{count}} aktiviteter i dette område",
     "previewFailed": "Forhåndsvisningen kunne ikke fuldføres.",
+    "previewPoolUnusable": "Nogle af dine aktivitetsspor kan ikke laeses, saa forhaandsvisningen blev afbrudt.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",
     "previewUnchanged": "{{count}} uændrede",
     "previewChanged": "{{count}} ændrede",

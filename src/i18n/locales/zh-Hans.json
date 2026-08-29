@@ -1699,6 +1699,7 @@
     "previewRun": "预览",
     "previewRunning": "正在分析该区域的 {{count}} 项活动",
     "previewFailed": "预览未能完成。",
+    "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",
     "previewUnchanged": "{{count}} 个未变",
     "previewChanged": "{{count}} 个已变",

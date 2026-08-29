@@ -1699,6 +1699,7 @@
     "previewRun": "Pré-visualizar",
     "previewRunning": "A analisar {{count}} atividades nesta zona",
     "previewFailed": "Não foi possível concluir a pré-visualização.",
+    "previewPoolUnusable": "Alguns dos seus registos de atividade nao podem ser lidos, por isso a pre-visualizacao parou.",
     "previewSuspended": "Atualização de altitude em curso. Tente novamente dentro de momentos.",
     "previewUnchanged": "{{count}} sem alterações",
     "previewChanged": "{{count}} alterados",

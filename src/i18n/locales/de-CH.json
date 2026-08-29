@@ -1699,6 +1699,7 @@
     "previewRun": "Vorschau",
     "previewRunning": "Analysiere {{count}} Aktivitäte i dem Gebiet",
     "previewFailed": "D Vorschau het nöd chöne fertig werde.",
+    "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",
     "previewUnchanged": "{{count}} unverändert",
     "previewChanged": "{{count}} gänderet",

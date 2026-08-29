@@ -1699,6 +1699,7 @@
     "previewRun": "Aperçu",
     "previewRunning": "Analyse de {{count}} activités dans cette zone",
     "previewFailed": "L'aperçu n'a pas pu aboutir.",
+    "previewPoolUnusable": "Certaines de tes traces d'activite sont illisibles, l'apercu s'est donc arrete.",
     "previewSuspended": "Mise à jour de l'altitude en cours. Réessayez dans un instant.",
     "previewUnchanged": "{{count}} inchangées",
     "previewChanged": "{{count}} modifiées",

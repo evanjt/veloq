@@ -206,6 +206,11 @@ export default function DetectionPreviewScreen() {
         {status === 'error' && (
           <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
         )}
+        {status === 'pool_unusable' && (
+          <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
+            {t('settings.previewPoolUnusable')}
+          </Text>
+        )}
         {suspended && (
           <Text style={[styles.notice, { color: textSecondary }]}>
             {t('settings.previewSuspended')}
