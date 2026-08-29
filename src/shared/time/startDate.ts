@@ -24,3 +24,23 @@ export function startDateLocalToEpochSeconds(
   );
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
+
+/**
+ * Stamp a `Date`'s local calendar fields as UTC, the same way
+ * `startDateLocalToEpochSeconds` stamps the components intervals.icu sends.
+ * Window bounds built from the device clock have to go through here, or they
+ * are true instants compared against wall clocks and the window slides by the
+ * UTC offset.
+ */
+export function localWallClockToEpochSeconds(date: Date): number {
+  return Math.floor(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds()
+    ) / 1000
+  );
+}

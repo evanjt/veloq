@@ -23,6 +23,7 @@ import {
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 
@@ -708,11 +709,11 @@ function weekBounds(now: Date): {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
+  const toTs = localWallClockToEpochSeconds;
   return {
     currentStart: toTs(startOfWeek),
     currentEnd: toTs(now),
     prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek),
+    prevEnd: toTs(startOfWeek) - 1,
   };
 }
