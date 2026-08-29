@@ -701,6 +701,13 @@ pub struct PersistentRouteEngine {
     /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
 
+    /// A `clear_processed_activity_ids` whose DELETE failed, usually a
+    /// `SQLITE_BUSY` outliving the 5 s timeout. The config that provoked the
+    /// clear is already persisted, so the processed set now disagrees with the
+    /// base detection would re-derive under. The next detect retries the clear
+    /// before it reads the set.
+    pending_processed_clear: bool,
+
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
     sections_dirty: bool,
@@ -786,6 +793,7 @@ impl PersistentRouteEngine {
             section_evidence_cache: SectionEvidenceCache::new(),
             fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
+            pending_processed_clear: false,
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
