@@ -514,9 +514,18 @@ impl PersistentRouteEngine {
     /// for heatmap).
     pub fn clear_routes_and_sections(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
+            // Same predicate as the detection wipe in `write_catalogue`: a
+            // disabled section keeps its row and members so enable can restore
+            // it, and a trimmed or accepted one is a user decision.
             "DELETE FROM section_activities
-                WHERE section_id IN (SELECT id FROM sections WHERE is_user_defined = 0);
-             DELETE FROM sections WHERE is_user_defined = 0;
+                WHERE section_id IN (
+                    SELECT id FROM sections
+                    WHERE section_type = 'auto' AND original_polyline_json IS NULL
+                      AND is_user_defined = 0 AND disabled = 0
+                );
+             DELETE FROM sections
+                WHERE section_type = 'auto' AND original_polyline_json IS NULL
+                  AND is_user_defined = 0 AND disabled = 0;
              DELETE FROM route_groups;
              DELETE FROM activity_matches;
              DELETE FROM overlap_cache;",
