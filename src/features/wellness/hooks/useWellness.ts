@@ -76,7 +76,7 @@ export function useWellness(range: TimeRange = '3m') {
   useWellnessInvalidation();
 
   return useQuery<WellnessData[]>({
-    queryKey: queryKeys.wellness.byRange(range),
+    queryKey: queryKeys.wellness.byRange(range, oldest, newest),
     queryFn: () => readWellness(oldest, newest),
     enabled: isAuthenticated,
     // SQLite is the source, so staleness is decided by the sync, not a clock.

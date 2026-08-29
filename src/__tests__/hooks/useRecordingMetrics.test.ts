@@ -43,6 +43,9 @@ function makeLap(overrides: Partial<RecordingLap> = {}): RecordingLap {
     index: 0,
     startTime: 0,
     endTime: 60,
+    startIndex: 0,
+    endIndex: 0,
+    movingEndTime: 60,
     distance: 1000,
     avgSpeed: 16.67,
     avgHeartrate: null,
@@ -391,7 +394,9 @@ describe('useRecordingMetrics', () => {
         makeLap({
           index: 0,
           startTime: 0,
-          endTime: 60, // lap ended at t=60s, which is sample index 2 (distance 500)
+          endTime: 60,
+          endIndex: 2, // the lap ended on sample index 2, cumulative distance 500
+          movingEndTime: 60,
           distance: 500,
         }),
       ],
@@ -399,9 +404,8 @@ describe('useRecordingMetrics', () => {
 
     const { result } = renderHook(() => useRecordingMetrics());
 
-    // endTime is a seconds value, not an array index: the last lap ended at
-    // t=60s where cumulative distance is 500, and the current total is 1000, so
-    // the in-progress lap covers 1000 - 500 = 500.
+    // The last lap ended on the sample whose cumulative distance is 500, and the
+    // current total is 1000, so the in-progress lap covers 1000 - 500 = 500.
     expect(result.current.lapDistance).toBe(500);
   });
 

@@ -262,19 +262,28 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     if (status !== 'recording' || !startTime) return;
 
     const now = Date.now();
-    const currentElapsed = (now - startTime - pausedDuration) / 1000;
+    // Laps carry two clocks. startTime/endTime are wall clock so they index the
+    // streams and the FIT lap timestamps; movingEndTime is the moving clock the
+    // timer and the lap duration are measured on. Mixing them made lap distance
+    // and average speed roughly double after any pause.
+    const elapsed = (now - startTime) / 1000;
+    const movingElapsed = (now - startTime - pausedDuration) / 1000;
     const lastLap = laps[laps.length - 1];
     const lapStart = lastLap ? lastLap.endTime : 0;
+    const lapMovingStart = lastLap ? lastLap.movingEndTime : 0;
 
-    // Calculate lap metrics from streams
-    const lapStartIdx = streams.time.findIndex((t) => t >= lapStart);
-    const hrSlice = lapStartIdx >= 0 ? streams.heartrate.slice(lapStartIdx) : [];
-    const pwrSlice = lapStartIdx >= 0 ? streams.power.slice(lapStartIdx) : [];
-    const cadSlice = lapStartIdx >= 0 ? streams.cadence.slice(lapStartIdx) : [];
-    const currentDist = streams.distance[streams.distance.length - 1] ?? 0;
-    const startDist = lapStartIdx >= 0 ? (streams.distance[lapStartIdx] ?? 0) : 0;
-    const lapDist = currentDist - startDist;
-    const lapDuration = currentElapsed - lapStart;
+    const startIdx = lastLap ? lastLap.endIndex + 1 : 0;
+    const endIdx = streams.time.length - 1;
+    const hasSamples = endIdx >= startIdx;
+    const slice = (arr: number[]): number[] => (hasSamples ? arr.slice(startIdx, endIdx + 1) : []);
+    const hrSlice = slice(streams.heartrate);
+    const pwrSlice = slice(streams.power);
+    const cadSlice = slice(streams.cadence);
+
+    const currentDist = streams.distance[endIdx] ?? 0;
+    const startDist = startIdx > 0 ? (streams.distance[startIdx - 1] ?? 0) : 0;
+    const lapDist = hasSamples ? currentDist - startDist : 0;
+    const lapDuration = movingElapsed - lapMovingStart;
 
     const avg = (arr: number[]): number | null =>
       arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
@@ -282,7 +291,10 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const lap: RecordingLap = {
       index: laps.length,
       startTime: lapStart,
-      endTime: currentElapsed,
+      endTime: elapsed,
+      startIndex: startIdx,
+      endIndex: endIdx,
+      movingEndTime: movingElapsed,
       distance: lapDist,
       avgSpeed: lapDuration > 0 ? lapDist / lapDuration : 0,
       avgHeartrate: avg(hrSlice),

@@ -74,7 +74,7 @@ export function useTimer(): {
 
   // Lap time: seconds since last lap ended
   const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
-  const lapStartSeconds = lastLap ? lastLap.endTime : 0;
+  const lapStartSeconds = lastLap ? lastLap.movingEndTime : 0;
   const lapTime = Math.max(0, movingTime - lapStartSeconds);
 
   return {

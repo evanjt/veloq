@@ -21,10 +21,14 @@ pub(crate) enum DetectionPoll {
 /// apply its results under the engine lock. Shared by the FFI poll (the TS
 /// sync UI) and the conditioning driver: whichever caller polls Ready first
 /// applies, the other sees Idle on its next poll.
+///
+/// Every take of the detection handle recovers a poisoned guard rather than
+/// failing: one panic under the lock would otherwise kill detection for the
+/// rest of the process with no way back.
 pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
     let mut handle_guard = SECTION_DETECTION_HANDLE
         .lock()
-        .map_err(|_| VeloqError::LockFailed)?;
+        .unwrap_or_else(|e| e.into_inner());
 
     if handle_guard.is_none() {
         return Ok(DetectionPoll::Idle);
@@ -125,11 +129,14 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
 /// worker aborts at its next cancellation point and its poller reads
 /// "cancelled".
 fn cancel_running_preview() {
-    if let Ok(slot) = crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE.lock() {
-        if let Some(handle) = slot.as_ref() {
-            handle.request_cancel();
-            info!("tracematch: [DetectionManager] Cancelled the running preview");
-        }
+    // Recover the guard from a poisoned lock. Skipping the cancel would let a
+    // detect start beside a preview that is still running.
+    let slot = crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if let Some(handle) = slot.as_ref() {
+        handle.request_cancel();
+        info!("tracematch: [DetectionManager] Cancelled the running preview");
     }
 }
 
@@ -151,7 +158,7 @@ impl DetectionManager {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
-                .map_err(|_| VeloqError::LockFailed)?;
+                .unwrap_or_else(|e| e.into_inner());
             if handle_guard.is_some() {
                 info!("tracematch: [DetectionManager] Section detection already running");
                 return Ok(false);
@@ -174,7 +181,7 @@ impl DetectionManager {
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         *handle_guard = Some(handle);
         info!("tracematch: [DetectionManager] Section detection started");
         Ok(true)
@@ -192,7 +199,7 @@ impl DetectionManager {
     fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
         let handle_guard = SECTION_DETECTION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
 
         Ok(handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
@@ -220,7 +227,7 @@ impl DetectionManager {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
-                .map_err(|_| VeloqError::LockFailed)?;
+                .unwrap_or_else(|e| e.into_inner());
             if handle_guard.is_some() {
                 info!(
                     "tracematch: [DetectionManager] Cannot force redetect: detection already running"
@@ -244,7 +251,7 @@ impl DetectionManager {
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         *handle_guard = Some(handle);
         info!("tracematch: [DetectionManager] Forced full section re-detection started");
         Ok(true)
@@ -292,5 +299,95 @@ impl DetectionManager {
             min_match_pct: e.match_config.min_match_percentage,
             endpoint_threshold: e.match_config.endpoint_threshold,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::persistent_engine_ffi::persistent_engine_init;
+    use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    /// The engine and both handles are process-wide, so these run in turn.
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn init_global_engine() -> TempDir {
+        let tmp = TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join("poison.db");
+        assert!(
+            persistent_engine_init(db_path.to_string_lossy().into_owned()),
+            "the fixture database must open"
+        );
+        tmp
+    }
+
+    /// Panic under a lock, swallowing the unwind and the hook's output.
+    fn poison<T>(lock: &Mutex<T>) {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+            panic!("blew up under the lock");
+        }));
+        std::panic::set_hook(previous);
+        assert!(result.is_err(), "the closure was supposed to panic");
+        assert!(lock.is_poisoned(), "the lock must be poisoned now");
+    }
+
+    fn clear_detection_handle() {
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    #[test]
+    fn detection_survives_a_poisoned_handle_lock() {
+        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _tmp = init_global_engine();
+        clear_detection_handle();
+
+        poison(&SECTION_DETECTION_HANDLE);
+
+        assert_eq!(
+            poll_detection_once().expect("poll must not answer LockFailed"),
+            DetectionPoll::Idle,
+            "an empty handle reads Idle through a poisoned lock"
+        );
+
+        let manager = DetectionManager::new();
+        assert!(
+            manager.start().expect("start must not answer LockFailed"),
+            "detection still starts after the handle lock is poisoned"
+        );
+        assert!(
+            manager.get_progress().is_ok(),
+            "progress still reads after the handle lock is poisoned"
+        );
+
+        clear_detection_handle();
+    }
+
+    #[test]
+    fn a_poisoned_preview_lock_still_cancels() {
+        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _tmp = init_global_engine();
+        clear_detection_handle();
+
+        poison(&SECTION_PREVIEW_HANDLE);
+
+        // Silently skipping the cancel is the failure this guards: a detect
+        // would then start beside a preview that is still running.
+        cancel_running_preview();
+
+        let manager = DetectionManager::new();
+        assert!(
+            manager.start().expect("start must not answer LockFailed"),
+            "a detect starts after cancelling through a poisoned preview lock"
+        );
+
+        clear_detection_handle();
     }
 }

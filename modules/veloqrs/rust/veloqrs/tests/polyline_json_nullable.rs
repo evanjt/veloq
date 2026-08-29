@@ -194,3 +194,52 @@ fn a_fresh_write_leaves_polyline_json_null() {
         .unwrap();
     assert_eq!(json, None);
 }
+
+/// The rebuild predates any index or column a later migration adds, so it
+/// reads both off the live table rather than a list written here.
+#[test]
+fn the_rebuild_keeps_every_index_and_column() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("indexes.db");
+    seed_previous(&path);
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "ALTER TABLE sections ADD COLUMN future_metric REAL;
+             UPDATE sections SET future_metric = 7.5 WHERE id = 'legacy';
+             CREATE INDEX idx_sections_future_metric ON sections(future_metric);",
+        )
+        .unwrap();
+
+    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    drop(engine);
+
+    let conn = Connection::open(&path).unwrap();
+    assert!(!polyline_json_not_null(&conn));
+    for index in [
+        "idx_sections_type",
+        "idx_sections_sport",
+        "idx_sections_disabled",
+        "idx_sections_superseded",
+        "idx_sections_rank_score",
+        "idx_sections_klass",
+        "idx_sections_future_metric",
+    ] {
+        let present: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?",
+                [index],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(present, 1, "{index} survives the rebuild");
+    }
+    let metric: Option<f64> = conn
+        .query_row(
+            "SELECT future_metric FROM sections WHERE id = 'legacy'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(metric, Some(7.5), "a migration-added column carries over");
+}
