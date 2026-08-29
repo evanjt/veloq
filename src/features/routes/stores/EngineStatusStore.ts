@@ -15,6 +15,14 @@ interface EngineStatusState {
    */
   retryNonce: number;
   requestRetry: () => void;
+  /**
+   * Bumped once the engine is open and usable. Effects that need a live
+   * engine but mount before the root layout's init effect runs depend on it,
+   * so they retry the moment the handle exists instead of latching on a
+   * call that never reached Rust.
+   */
+  readyNonce: number;
+  markEngineReady: () => void;
 }
 
 export const useEngineStatus = create<EngineStatusState>((set) => ({
@@ -24,4 +32,6 @@ export const useEngineStatus = create<EngineStatusState>((set) => ({
   setEngineBannerDismissed: (v: boolean) => set({ engineBannerDismissed: v }),
   retryNonce: 0,
   requestRetry: () => set((s) => ({ retryNonce: s.retryNonce + 1 })),
+  readyNonce: 0,
+  markEngineReady: () => set((s) => ({ readyNonce: s.readyNonce + 1 })),
 }));
