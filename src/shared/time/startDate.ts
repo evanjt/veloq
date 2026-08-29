@@ -24,3 +24,37 @@ export function startDateLocalToEpochSeconds(
   );
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
+
+const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function dayParts(day: string): [number, number, number] | null {
+  const m = CALENDAR_DAY.exec(day);
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
+}
+
+/**
+ * Start of a YYYY-MM-DD calendar day in the same wall-clock-as-UTC space the
+ * engine stamps dates in. Local parsing would shift the window by the device
+ * offset and hide activities from their own day.
+ */
+export function dayStartEpochSeconds(day: string): number {
+  const parts = dayParts(day);
+  if (!parts) return NaN;
+  return Math.floor(Date.UTC(parts[0], parts[1], parts[2]) / 1000);
+}
+
+/** End of that day, so an inclusive window really includes its last day. */
+export function dayEndEpochSeconds(day: string): number {
+  const parts = dayParts(day);
+  if (!parts) return NaN;
+  return Math.floor(Date.UTC(parts[0], parts[1], parts[2], 23, 59, 59) / 1000);
+}
+
+/** Shift a calendar day string by whole days without touching a local clock. */
+export function addDaysToDay(day: string, days: number): string {
+  const parts = dayParts(day);
+  if (!parts) return day;
+  const shifted = new Date(Date.UTC(parts[0], parts[1], parts[2] + days));
+  return shifted.toISOString().slice(0, 10);
+}
