@@ -1,24 +1,27 @@
-import { useState, useCallback, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useTranslation } from 'react-i18next';
+import { useState, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
-import { generateFitFile } from '@/features/recording/lib/fitGenerator';
-import { queryKeys } from '@/shared/query/queryKeys';
-import { createManualActivity } from '@/features/recording/lib/upload/intervalsUploads';
-import { debug } from '@/shared/debug/debug';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
-import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
-import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
-import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { isOAuthConfigured } from '@/features/auth';
-import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import type { ActivityType, RecordingLibraryEntry } from '@/types';
-import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
+import { generateFitFile } from "@/features/recording/lib/fitGenerator";
+import { queryKeys } from "@/shared/query/queryKeys";
+import { createManualActivity } from "@/features/recording/lib/upload/intervalsUploads";
+import { debug } from "@/shared/debug/debug";
+import { useRecordingStore } from "@/features/recording/stores/RecordingStore";
+import { clearRecordingBackup } from "@/features/recording/lib/storage/recordingBackup";
+import { saveRecording } from "@/features/recording/lib/storage/recordingLibrary";
+import { uploadRecording } from "@/features/recording/lib/upload/uploadRecording";
+import { useRecordingPreferences } from "@/features/recording/stores/RecordingPreferencesStore";
+import { useUploadPermissionStore } from "@/features/recording/stores/UploadPermissionStore";
+import { isOAuthConfigured } from "@/features/auth";
+import { usePermissionUpgrade } from "@/features/recording/hooks/usePermissionUpgrade";
+import type { ActivityType, RecordingLibraryEntry } from "@/types";
+import type {
+  RecordingStreams,
+  RecordingLap,
+} from "@/features/recording/types";
 
-const log = debug.create('Upload');
+const log = debug.create("Upload");
 
 export interface UseReviewSaveArgs {
   isManual: boolean;
@@ -32,7 +35,8 @@ export interface UseReviewSaveArgs {
   };
   notes: string;
   startTime: number | null;
-  pausedDuration: number;
+  /** Paused seconds inside the window being saved, not the whole session. */
+  pausedSecondsInWindow: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
@@ -77,7 +81,7 @@ export function useReviewSave({
   summary,
   notes,
   startTime,
-  pausedDuration,
+  pausedSecondsInWindow,
   laps,
   pairedEventId,
   getTrimmedStreams,
@@ -89,7 +93,8 @@ export function useReviewSave({
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [showPermissionFix, setShowPermissionFix] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
-  const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
+  const { upgradePermissions, isUpgrading: isOAuthLoading } =
+    usePermissionUpgrade();
   const queryClient = useQueryClient();
   // The library entry created on the first save attempt; retries reuse it so a
   // failed upload never produces a duplicate recording.
@@ -102,14 +107,14 @@ export function useReviewSave({
         setIsUploading(false);
         setTimeout(() => {
           useRecordingStore.getState().reset();
-          router.replace('/');
+          router.replace("/");
         }, 1500);
       } else {
         useRecordingStore.getState().reset();
-        router.replace('/');
+        router.replace("/");
       }
     },
-    [setQueuedMessage]
+    [setQueuedMessage],
   );
 
   const handleSave = useCallback(async () => {
@@ -129,7 +134,9 @@ export function useReviewSave({
           description: notes || undefined,
         });
         queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.activities.infinite.all,
+        });
         await clearRecordingBackup();
         setIsUploading(false);
         finishAndGoHome(null);
@@ -160,7 +167,7 @@ export function useReviewSave({
           streams: trimmedStreams,
           laps,
           name,
-          pausedTimeSeconds: pausedDuration / 1000,
+          pausedTimeSeconds: pausedSecondsInWindow,
         });
 
         const entry = await saveRecording({
@@ -174,10 +181,15 @@ export function useReviewSave({
           elevationGain: summary.elevationGain,
           avgHeartrate: summary.avgHeartrate,
           pairedEventId: pairedEventId ?? undefined,
-          uploadStatus: autoUpload ? 'pending' : 'localOnly',
+          uploadStatus: autoUpload ? "pending" : "localOnly",
         });
         if (!entry) {
-          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
+          setErrorMessage(
+            t(
+              "recording.saveError",
+              "Could not save activity. Please try again.",
+            ),
+          );
           setCanRetry(true);
           setIsUploading(false);
           return;
@@ -188,12 +200,12 @@ export function useReviewSave({
       }
 
       if (!autoUpload) {
-        log.log('Auto-upload off - recording saved to library only');
+        log.log("Auto-upload off - recording saved to library only");
         finishAndGoHome(
           t(
-            'recording.savedLocally',
-            'Activity saved on this device. Upload it any time from My Recordings.'
-          )
+            "recording.savedLocally",
+            "Activity saved on this device. Upload it any time from My Recordings.",
+          ),
         );
         return;
       }
@@ -201,20 +213,22 @@ export function useReviewSave({
       const result = await uploadRecording(savedEntryRef.current);
 
       switch (result.outcome) {
-        case 'uploaded':
+        case "uploaded":
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-          queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.activities.infinite.all,
+          });
           setIsUploading(false);
           finishAndGoHome(null);
           return;
 
-        case 'permissionBlocked':
+        case "permissionBlocked":
           useUploadPermissionStore.getState().setHasWritePermission(false);
           setErrorMessage(
             t(
-              'recording.permissionExplanation',
-              'Veloq needs your permission to upload activities to intervals.icu'
-            )
+              "recording.permissionExplanation",
+              "Veloq needs your permission to upload activities to intervals.icu",
+            ),
           );
           if (isOAuthConfigured()) {
             setShowPermissionFix(true);
@@ -222,34 +236,42 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case 'rejected':
-        case 'missing':
+        case "rejected":
+        case "missing":
           setErrorMessage(
-            t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-              error: result.errorDetail ?? 'unknown',
-            })
+            t(
+              "recording.uploadErrorMessage",
+              "Could not upload activity: {{error}}",
+              {
+                error: result.errorDetail ?? "unknown",
+              },
+            ),
           );
           setCanRetry(true);
           setIsUploading(false);
           return;
 
-        case 'network':
-        case 'retriable':
-          log.log('Upload deferred, recording waits in the library');
+        case "network":
+        case "retriable":
+          log.log("Upload deferred, recording waits in the library");
           finishAndGoHome(
             t(
-              'recording.savedQueued',
-              'Activity saved. It will upload automatically when connectivity is restored.'
-            )
+              "recording.savedQueued",
+              "Activity saved. It will upload automatically when connectivity is restored.",
+            ),
           );
           return;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : "Unknown error";
       setErrorMessage(
-        t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-          error: message,
-        })
+        t(
+          "recording.uploadErrorMessage",
+          "Could not upload activity: {{error}}",
+          {
+            error: message,
+          },
+        ),
       );
       setIsUploading(false);
     }
@@ -260,7 +282,7 @@ export function useReviewSave({
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     t,
@@ -274,7 +296,7 @@ export function useReviewSave({
     setErrorMessage(null);
     const success = await upgradePermissions();
     if (success) {
-      log.log('Upgraded to OAuth, retrying upload...');
+      log.log("Upgraded to OAuth, retrying upload...");
       setShowPermissionFix(false);
       handleSave();
     }

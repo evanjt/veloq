@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -8,69 +8,77 @@ import {
   Alert,
   Linking,
   Platform,
-} from 'react-native';
-import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { CollapsibleSection, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
-import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
-import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
-import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
-import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
-import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
-import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
+} from "react-native";
+import { Text } from "react-native-paper";
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from "@/shared/ui";
+import {
+  CollapsibleSection,
+  SignalStatus,
+  signalColor,
+  type SignalLevel,
+} from "@/shared/ui";
+import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
+import { useTheme } from "@/shared/app";
+import { colors, darkColors, spacing, layout, typography } from "@/theme";
+import {
+  getActivityIcon,
+  getActivityColor,
+} from "@/features/activity/lib/activityUtils";
+import type { MaterialIconName } from "@/features/activity/lib/activityUtils";
+import { ACTIVITY_CATEGORIES } from "@/features/recording/lib/recordingModes";
+import { useRecordingPreferences } from "@/features/recording/stores/RecordingPreferencesStore";
+import { useRecordingStore } from "@/features/recording/stores/RecordingStore";
+import { useCanRecord } from "@/features/recording/hooks/useCanRecord";
+import { usePermissionUpgrade } from "@/features/recording/hooks/usePermissionUpgrade";
 import {
   hasRecordingBackup,
   loadRecordingBackup,
   clearRecordingBackup,
-} from '@/features/recording/lib/storage/recordingBackup';
-import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
-import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
-import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
-import { navigateTo } from '@/shared/app/navigation';
-import { formatLocalDate, formatDuration } from '@/shared/format/format';
-import type { ActivityType, CalendarEvent } from '@/types';
+} from "@/features/recording/lib/storage/recordingBackup";
+import { BatteryOptimisationNudge } from "@/features/recording/components/BatteryOptimisationNudge";
+import { GrantAccessButton } from "@/features/recording/components/GrantAccessButton";
+import { requestNotificationPermission } from "@/features/settings/lib/notificationService";
+import { getRouteEngine } from "@/shared/native/routeEngine";
+import { readCalendarEvents } from "@/features/home/lib/calendarEvents";
+import { navigateTo } from "@/shared/app/navigation";
+import { formatLocalDate, formatDuration } from "@/shared/format/format";
+import type { ActivityType, CalendarEvent } from "@/types";
 
 const DEFAULT_QUICK_TYPES: ActivityType[] = [
-  'Ride',
-  'Run',
-  'Walk',
-  'Swim',
-  'Hike',
-  'WeightTraining',
+  "Ride",
+  "Run",
+  "Walk",
+  "Swim",
+  "Hike",
+  "WeightTraining",
 ];
 
 const GPS_READINESS_TIMEOUT_MS = 15_000;
 
 const CATEGORY_LABELS: Record<string, string> = {
-  cycling: 'Cycling',
-  running: 'Running',
-  swimming: 'Swimming',
-  winter: 'Winter Sports',
-  water: 'Water Sports',
-  gym: 'Gym & Fitness',
-  racket: 'Racket Sports',
-  other: 'Other',
+  cycling: "Cycling",
+  running: "Running",
+  swimming: "Swimming",
+  winter: "Winter Sports",
+  water: "Water Sports",
+  gym: "Gym & Fitness",
+  racket: "Racket Sports",
+  other: "Other",
 };
 
 const CATEGORY_ICONS: Record<string, MaterialIconName> = {
-  cycling: 'bike',
-  running: 'run',
-  swimming: 'swim',
-  winter: 'snowflake',
-  water: 'waves',
-  gym: 'dumbbell',
-  racket: 'tennis',
-  other: 'dots-horizontal',
+  cycling: "bike",
+  running: "run",
+  swimming: "swim",
+  winter: "snowflake",
+  water: "waves",
+  gym: "dumbbell",
+  racket: "tennis",
+  other: "dots-horizontal",
 };
 
 export default function RecordScreen() {
@@ -78,28 +86,36 @@ export default function RecordScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { canRecord, reason } = useCanRecord();
-  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
+  const {
+    upgradePermissions,
+    isUpgrading,
+    error: upgradeError,
+  } = usePermissionUpgrade();
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
 
   // GPS readiness state
-  const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
+  const [gpsState, setGpsState] = useState<
+    "checking" | "ready" | "weak" | "none"
+  >("checking");
 
   // A session is already active (cold navigation, notification tap, FAB while
   // recording) - go straight back to the live screen instead of the picker.
   useEffect(() => {
     const { status, activityType } = useRecordingStore.getState();
-    if ((status === 'recording' || status === 'paused') && activityType) {
+    if ((status === "recording" || status === "paused") && activityType) {
       router.replace(`/recording/${activityType}`);
     }
   }, []);
 
   const quickTypes = useMemo(
     () => (recentTypes.length > 0 ? recentTypes : DEFAULT_QUICK_TYPES),
-    [recentTypes]
+    [recentTypes],
   );
 
   useEffect(() => {
@@ -116,18 +132,19 @@ export default function RecordScreen() {
     (async () => {
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
-        if (status !== 'granted') {
+        if (status !== "granted") {
           // Request permission
-          const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-          if (newStatus !== 'granted') {
-            if (!cancelled) setGpsState('none');
+          const { status: newStatus } =
+            await Location.requestForegroundPermissionsAsync();
+          if (newStatus !== "granted") {
+            if (!cancelled) setGpsState("none");
             return;
           }
         }
 
         // Set timeout for weak GPS
         timeoutId = setTimeout(() => {
-          if (!cancelled) setGpsState('weak');
+          if (!cancelled) setGpsState("weak");
         }, GPS_READINESS_TIMEOUT_MS);
 
         // Try to get a single location fix
@@ -137,11 +154,13 @@ export default function RecordScreen() {
         if (!cancelled) {
           if (timeoutId) clearTimeout(timeoutId);
           setGpsState(
-            location.coords.accuracy != null && location.coords.accuracy <= 20 ? 'ready' : 'weak'
+            location.coords.accuracy != null && location.coords.accuracy <= 20
+              ? "ready"
+              : "weak",
           );
         }
       } catch {
-        if (!cancelled) setGpsState('weak');
+        if (!cancelled) setGpsState("weak");
       }
     })();
 
@@ -155,61 +174,75 @@ export default function RecordScreen() {
   useEffect(() => {
     (async () => {
       // An in-memory session owns the backup file - nothing to recover
-      if (useRecordingStore.getState().status !== 'idle') return;
+      if (useRecordingStore.getState().status !== "idle") return;
       const hasBackup = await hasRecordingBackup();
       if (!hasBackup) return;
 
-      Alert.alert(t('recording.resumePrevious'), t('recording.resumePreviousMessage'), [
-        {
-          text: t('recording.discard'),
-          style: 'destructive',
-          onPress: () => clearRecordingBackup(),
-        },
-        {
-          text: t('recording.controls.resume'),
-          onPress: async () => {
-            const backup = await loadRecordingBackup();
-            if (!backup) return;
+      Alert.alert(
+        t("recording.resumePrevious"),
+        t("recording.resumePreviousMessage"),
+        [
+          {
+            text: t("recording.discard"),
+            style: "destructive",
+            onPress: () => clearRecordingBackup(),
+          },
+          {
+            text: t("recording.controls.resume"),
+            onPress: async () => {
+              const backup = await loadRecordingBackup();
+              if (!backup) return;
 
-            const now = Date.now();
-            // Load backup into store
-            const store = useRecordingStore.getState();
-            store.startRecording(
-              backup.activityType,
-              backup.mode,
-              backup.pairedEventId ?? undefined
-            );
+              const now = Date.now();
+              // Load backup into store
+              const store = useRecordingStore.getState();
+              store.startRecording(
+                backup.activityType,
+                backup.mode,
+                backup.pairedEventId ?? undefined,
+              );
 
-            if (backup.status === 'stopped') {
-              // Session was already stopped - restore straight to review
+              if (backup.status === "stopped") {
+                // Session was already stopped - restore straight to review
+                useRecordingStore.setState({
+                  startTime: backup.startTime,
+                  stopTime: backup.stopTime ?? backup.savedAt,
+                  pausedDuration: backup.pausedDuration,
+                  pauseIntervals: backup.pauseIntervals ?? [],
+                  streams: backup.streams,
+                  laps: backup.laps,
+                  status: "stopped",
+                });
+                navigateTo("/recording/review");
+                return;
+              }
+
+              // Credit the offline gap (savedAt → now) as paused time so moving
+              // time does not inflate, and open the ongoing pause so the wait on
+              // this prompt is credited too when the user resumes.
               useRecordingStore.setState({
                 startTime: backup.startTime,
-                stopTime: backup.stopTime ?? backup.savedAt,
-                pausedDuration: backup.pausedDuration,
+                pausedDuration:
+                  backup.pausedDuration + Math.max(0, now - backup.savedAt),
+                pauseIntervals: [
+                  ...(backup.pauseIntervals ?? []),
+                  {
+                    start: (backup.savedAt - backup.startTime) / 1000,
+                    end:
+                      (Math.max(now, backup.savedAt) - backup.startTime) / 1000,
+                  },
+                ],
                 streams: backup.streams,
                 laps: backup.laps,
-                status: 'stopped',
+                status: "paused", // Start paused so user can review before resuming
+                _pauseStart: now,
               });
-              navigateTo('/recording/review');
-              return;
-            }
 
-            // Credit the offline gap (savedAt → now) as paused time so moving
-            // time does not inflate, and open the ongoing pause so the wait on
-            // this prompt is credited too when the user resumes.
-            useRecordingStore.setState({
-              startTime: backup.startTime,
-              pausedDuration: backup.pausedDuration + Math.max(0, now - backup.savedAt),
-              streams: backup.streams,
-              laps: backup.laps,
-              status: 'paused', // Start paused so user can review before resuming
-              _pauseStart: now,
-            });
-
-            navigateTo(`/recording/${backup.activityType}`);
+              navigateTo(`/recording/${backup.activityType}`);
+            },
           },
-        },
-      ]);
+        ],
+      );
     })();
   }, [t]);
 
@@ -222,33 +255,38 @@ export default function RecordScreen() {
     setTodayEvents(readCalendarEvents(today, today));
 
     if (!engine) return;
-    return engine.subscribe('activities', () => {
+    return engine.subscribe("activities", () => {
       setTodayEvents(readCalendarEvents(today, today));
     });
   }, []);
 
-  const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {
-    // Android 13+ suppresses the foreground-service notification without this;
-    // fire-and-forget so a denial never blocks the recording itself.
-    if (Platform.OS === 'android') {
-      requestNotificationPermission().catch(() => {});
-    }
-    const params = pairedEventId ? `?pairedEventId=${pairedEventId}` : '';
-    navigateTo(`/recording/${type}${params}`);
-  }, []);
+  const handleSelectType = useCallback(
+    (type: ActivityType, pairedEventId?: number) => {
+      // Android 13+ suppresses the foreground-service notification without this;
+      // fire-and-forget so a denial never blocks the recording itself.
+      if (Platform.OS === "android") {
+        requestNotificationPermission().catch(() => {});
+      }
+      const params = pairedEventId ? `?pairedEventId=${pairedEventId}` : "";
+      navigateTo(`/recording/${type}${params}`);
+    },
+    [],
+  );
 
   const toggleCategory = useCallback((key: string) => {
     setExpandedCategories((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const textSecondary = isDark
+    ? darkColors.textSecondary
+    : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
   // Permission gate: show upgrade screen instead of activity picker
-  if (!canRecord && reason === 'no_permission') {
+  if (!canRecord && reason === "no_permission") {
     return (
       <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
         <View style={styles.header}>
@@ -257,24 +295,37 @@ export default function RecordScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
             accessibilityRole="button"
-            accessibilityLabel={t('common.back', 'Back')}
+            accessibilityLabel={t("common.back", "Back")}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={textPrimary}
+            />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            {t('recording.startActivity', 'Start Activity')}
+            {t("recording.startActivity", "Start Activity")}
           </Text>
           <View style={{ flex: 1 }} />
         </View>
         <View style={styles.permissionGate}>
-          <MaterialCommunityIcons name="shield-lock-outline" size={48} color={colors.warning} />
+          <MaterialCommunityIcons
+            name="shield-lock-outline"
+            size={48}
+            color={colors.warning}
+          />
           <Text style={[styles.permissionTitle, { color: textPrimary }]}>
-            {t('recording.writePermissionRequired', 'Write permission required')}
-          </Text>
-          <Text style={[styles.permissionDescription, { color: textSecondary }]}>
             {t(
-              'recording.writePermissionDescription',
-              'Recording requires write permission. Tap below to grant access.'
+              "recording.writePermissionRequired",
+              "Write permission required",
+            )}
+          </Text>
+          <Text
+            style={[styles.permissionDescription, { color: textSecondary }]}
+          >
+            {t(
+              "recording.writePermissionDescription",
+              "Recording requires write permission. Tap below to grant access.",
             )}
           </Text>
           <GrantAccessButton
@@ -300,33 +351,45 @@ export default function RecordScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
           accessibilityRole="button"
-          accessibilityLabel={t('common.back', 'Back')}
+          accessibilityLabel={t("common.back", "Back")}
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color={textPrimary}
+          />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPrimary }]}>
-          {t('recording.startActivity', 'Start Activity')}
+          {t("recording.startActivity", "Start Activity")}
         </Text>
         <View style={{ flex: 1 }} />
         <TouchableOpacity
           testID="record-library"
-          onPress={() => navigateTo('/recordings')}
+          onPress={() => navigateTo("/recordings")}
           style={styles.settingsButton}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={t('recording.library.title', 'My Recordings')}
+          accessibilityLabel={t("recording.library.title", "My Recordings")}
         >
-          <MaterialCommunityIcons name="folder-play-outline" size={22} color={textSecondary} />
+          <MaterialCommunityIcons
+            name="folder-play-outline"
+            size={22}
+            color={textSecondary}
+          />
         </TouchableOpacity>
         <TouchableOpacity
           testID="record-settings"
-          onPress={() => navigateTo('/recording-settings')}
+          onPress={() => navigateTo("/recording-settings")}
           style={styles.settingsButton}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={t('settings.title', 'Settings')}
+          accessibilityLabel={t("settings.title", "Settings")}
         >
-          <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
+          <MaterialCommunityIcons
+            name="cog-outline"
+            size={22}
+            color={textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -346,7 +409,7 @@ export default function RecordScreen() {
         {/* Quick Start */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.quickStart', 'Quick Start')}
+            {t("recording.quickStart", "Quick Start")}
           </Text>
           <FlatList
             horizontal
@@ -357,7 +420,10 @@ export default function RecordScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 testID={`record-type-${item}`}
-                style={[styles.quickTypeCard, { backgroundColor: surface, borderColor: border }]}
+                style={[
+                  styles.quickTypeCard,
+                  { backgroundColor: surface, borderColor: border },
+                ]}
                 onPress={() => handleSelectType(item)}
                 activeOpacity={0.7}
               >
@@ -366,7 +432,10 @@ export default function RecordScreen() {
                   size={28}
                   color={getActivityColor(item)}
                 />
-                <Text style={[styles.quickTypeLabel, { color: textPrimary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.quickTypeLabel, { color: textPrimary }]}
+                  numberOfLines={1}
+                >
                   {t(`activityTypes.${item}`, item)}
                 </Text>
               </TouchableOpacity>
@@ -378,14 +447,19 @@ export default function RecordScreen() {
         {todayEvents.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-              {t('recording.todaysWorkouts', "Today's Workouts")}
+              {t("recording.todaysWorkouts", "Today's Workouts")}
             </Text>
             {todayEvents.map((event) => (
               <TouchableOpacity
                 key={event.id}
                 testID={`record-event-${event.id}`}
-                style={[styles.eventCard, { backgroundColor: surface, borderColor: border }]}
-                onPress={() => handleSelectType(event.type as ActivityType, event.id)}
+                style={[
+                  styles.eventCard,
+                  { backgroundColor: surface, borderColor: border },
+                ]}
+                onPress={() =>
+                  handleSelectType(event.type as ActivityType, event.id)
+                }
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons
@@ -395,7 +469,10 @@ export default function RecordScreen() {
                   style={styles.eventIcon}
                 />
                 <View style={styles.eventDetails}>
-                  <Text style={[styles.eventName, { color: textPrimary }]} numberOfLines={1}>
+                  <Text
+                    style={[styles.eventName, { color: textPrimary }]}
+                    numberOfLines={1}
+                  >
                     {event.name}
                   </Text>
                   {event.moving_time != null && event.moving_time > 0 && (
@@ -404,7 +481,11 @@ export default function RecordScreen() {
                     </Text>
                   )}
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={textSecondary}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -420,10 +501,10 @@ export default function RecordScreen() {
             accessibilityRole="button"
           >
             <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-              {t('recording.allActivities', 'All Activities')}
+              {t("recording.allActivities", "All Activities")}
             </Text>
             <MaterialCommunityIcons
-              name={showAllActivities ? 'chevron-up' : 'chevron-down'}
+              name={showAllActivities ? "chevron-up" : "chevron-down"}
               size={20}
               color={textSecondary}
             />
@@ -433,12 +514,18 @@ export default function RecordScreen() {
               <CollapsibleSection
                 key={category}
                 testID={`record-category-${category}`}
-                title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
+                title={t(
+                  `recording.categories.${category}`,
+                  CATEGORY_LABELS[category] ?? category,
+                )}
                 icon={CATEGORY_ICONS[category]}
                 expanded={expandedCategories[category] ?? false}
                 onToggle={() => toggleCategory(category)}
-                style={[styles.categorySection, { backgroundColor: surface, borderColor: border }]}
-                subtitle={`${types.length} ${t('recording.types', 'types')}`}
+                style={[
+                  styles.categorySection,
+                  { backgroundColor: surface, borderColor: border },
+                ]}
+                subtitle={`${types.length} ${t("recording.types", "types")}`}
               >
                 <View style={styles.typeGrid}>
                   {(types as readonly ActivityType[]).map((type) => (
@@ -474,7 +561,7 @@ function GpsReadinessBar({
   state,
   testID,
 }: {
-  state: 'checking' | 'ready' | 'weak' | 'none';
+  state: "checking" | "ready" | "weak" | "none";
   testID?: string;
 }) {
   const { t } = useTranslation();
@@ -482,30 +569,30 @@ function GpsReadinessBar({
   const configs: Record<
     string,
     {
-      icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+      icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
       level: SignalLevel;
       text: string;
     }
   > = {
     checking: {
-      icon: 'crosshairs-question',
-      level: 'idle',
-      text: t('recording.gpsAcquiring'),
+      icon: "crosshairs-question",
+      level: "idle",
+      text: t("recording.gpsAcquiring"),
     },
     ready: {
-      icon: 'crosshairs-gps',
-      level: 'ok',
-      text: t('recording.gpsReady'),
+      icon: "crosshairs-gps",
+      level: "ok",
+      text: t("recording.gpsReady"),
     },
     weak: {
-      icon: 'crosshairs',
-      level: 'warn',
-      text: t('recording.gpsWeakWarning'),
+      icon: "crosshairs",
+      level: "warn",
+      text: t("recording.gpsWeakWarning"),
     },
     none: {
-      icon: 'crosshairs-off',
-      level: 'bad',
-      text: t('recording.gpsNone', 'Location denied'),
+      icon: "crosshairs-off",
+      level: "bad",
+      text: t("recording.gpsNone", "Location denied"),
     },
   };
 
@@ -521,12 +608,16 @@ function GpsReadinessBar({
       icon={config.icon}
       label={config.text}
     >
-      {state === 'checking' && <MaterialCommunityIcons name="loading" size={14} color={tint} />}
-      {state === 'ready' && <MaterialCommunityIcons name="check-circle" size={14} color={tint} />}
-      {state === 'none' && (
+      {state === "checking" && (
+        <MaterialCommunityIcons name="loading" size={14} color={tint} />
+      )}
+      {state === "ready" && (
+        <MaterialCommunityIcons name="check-circle" size={14} color={tint} />
+      )}
+      {state === "none" && (
         <TouchableOpacity onPress={() => Linking.openSettings()}>
           <Text style={[styles.gpsSettingsLink, { color: tint }]}>
-            {t('recording.gpsAlertSettings', 'Open Settings')}
+            {t("recording.gpsAlertSettings", "Open Settings")}
           </Text>
         </TouchableOpacity>
       )}
@@ -539,16 +630,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   backButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     ...typography.sectionTitle,
@@ -557,23 +648,23 @@ const styles = StyleSheet.create({
   settingsButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   gpsReadinessWrap: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
   allActivitiesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     minHeight: layout.minTapTarget,
   },
   gpsSettingsLink: {
     fontSize: 13,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   scrollContent: {},
   section: {
@@ -588,8 +679,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   quickTypeCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: layout.borderRadius,
@@ -601,8 +692,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   eventCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadius,
@@ -626,14 +717,14 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: spacing.sm,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   typeGrid: {
     paddingHorizontal: spacing.sm,
   },
   typeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     minHeight: layout.minTapTarget,
@@ -642,32 +733,32 @@ const styles = StyleSheet.create({
   typeIcon: {
     marginRight: spacing.sm,
     width: 28,
-    textAlign: 'center',
+    textAlign: "center",
   },
   typeLabel: {
     ...typography.body,
   },
   permissionGate: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
   },
   permissionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginTop: spacing.sm,
   },
   permissionDescription: {
     fontSize: 15,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   permissionError: {
     fontSize: 13,
     color: colors.errorDark,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

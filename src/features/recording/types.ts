@@ -1,10 +1,10 @@
-import type { ActivityType } from '@/features/activity/types';
+import type { ActivityType } from "@/features/activity/types";
 
 /** Recording mode determines the UI and data collection approach */
-export type RecordingMode = 'gps' | 'indoor' | 'manual';
+export type RecordingMode = "gps" | "indoor" | "manual";
 
 /** Overall recording lifecycle state */
-export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
+export type RecordingStatus = "idle" | "recording" | "paused" | "stopped";
 
 /** GPS point collected during recording */
 export interface RecordingGpsPoint {
@@ -57,12 +57,12 @@ export interface ManualActivityData {
 }
 
 export type RecordingUploadStatus =
-  | 'localOnly'
-  | 'pending'
-  | 'uploading'
-  | 'uploaded'
-  | 'failed'
-  | 'permissionBlocked';
+  | "localOnly"
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "failed"
+  | "permissionBlocked";
 
 /** A recording saved permanently on device (FIT file + metadata + streams sidecar) */
 export interface RecordingLibraryEntry {
@@ -90,11 +90,13 @@ export interface RecordingBackup {
   activityType: ActivityType;
   mode: RecordingMode;
   /** Session state at save time. A 'stopped' backup restores to the review screen. */
-  status: 'recording' | 'paused' | 'stopped';
+  status: "recording" | "paused" | "stopped";
   startTime: number;
   stopTime: number | null;
   /** Includes any in-progress pause up to savedAt, so restore only credits savedAt→now. */
   pausedDuration: number;
+  /** Pauses as elapsed seconds since startTime. Absent in backups written before B4. */
+  pauseIntervals?: { start: number; end: number }[];
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
@@ -103,18 +105,18 @@ export interface RecordingBackup {
 
 /** Data field display configuration */
 export type DataFieldType =
-  | 'speed'
-  | 'avgSpeed'
-  | 'distance'
-  | 'heartrate'
-  | 'power'
-  | 'cadence'
-  | 'elevation'
-  | 'elevationGain'
-  | 'pace'
-  | 'avgPace'
-  | 'timer'
-  | 'movingTime'
-  | 'lapTime'
-  | 'lapDistance'
-  | 'calories';
+  | "speed"
+  | "avgSpeed"
+  | "distance"
+  | "heartrate"
+  | "power"
+  | "cadence"
+  | "elevation"
+  | "elevationGain"
+  | "pace"
+  | "avgPace"
+  | "timer"
+  | "movingTime"
+  | "lapTime"
+  | "lapDistance"
+  | "calories";

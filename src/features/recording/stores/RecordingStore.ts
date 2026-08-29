@@ -1,7 +1,8 @@
-import { haversineDistance } from '@/shared/geo/distance';
-import { create } from 'zustand';
+import { haversineDistance } from "@/shared/geo/distance";
+import { create } from "zustand";
 
-import { getMaxPlausibleSpeed } from '@/features/recording/lib/sportCategoryDetector';
+import { getMaxPlausibleSpeed } from "@/features/recording/lib/sportCategoryDetector";
+import type { PauseInterval } from "@/features/recording/lib/pausedTime";
 import type {
   ActivityType,
   RecordingMode,
@@ -9,7 +10,7 @@ import type {
   RecordingStreams,
   RecordingGpsPoint,
   RecordingLap,
-} from '@/types';
+} from "@/types";
 
 /** Sensor values older than this are stale and recorded as 0 (FIT no-data). */
 const SENSOR_STALE_MS = 5000;
@@ -19,7 +20,7 @@ interface SensorSampleLite {
   at: number;
 }
 
-type SensorStreamKind = 'heartrate' | 'power' | 'cadence';
+type SensorStreamKind = "heartrate" | "power" | "cadence";
 
 function freshValue(sample: SensorSampleLite | null, now: number): number {
   if (!sample) return 0;
@@ -44,6 +45,8 @@ interface RecordingState {
   startTime: number | null;
   stopTime: number | null;
   pausedDuration: number;
+  /** Each pause as elapsed seconds since startTime, so any stream window can subtract its own. */
+  pauseIntervals: PauseInterval[];
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
@@ -52,7 +55,11 @@ interface RecordingState {
   // Internal: track pause start for duration accumulation
   _pauseStart: number | null;
   // Actions
-  startRecording: (type: ActivityType, mode: RecordingMode, pairedEventId?: number) => void;
+  startRecording: (
+    type: ActivityType,
+    mode: RecordingMode,
+    pairedEventId?: number,
+  ) => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
   stopRecording: () => void;
@@ -65,13 +72,27 @@ interface RecordingState {
   reset: () => void;
 }
 
+function closePause(
+  intervals: PauseInterval[],
+  startTime: number | null,
+  pauseStart: number | null,
+  now: number,
+): PauseInterval[] {
+  if (!startTime || !pauseStart) return intervals;
+  return [
+    ...intervals,
+    { start: (pauseStart - startTime) / 1000, end: (now - startTime) / 1000 },
+  ];
+}
+
 export const useRecordingStore = create<RecordingState>((set, get) => ({
-  status: 'idle',
+  status: "idle",
   activityType: null,
   mode: null,
   startTime: null,
   stopTime: null,
   pausedDuration: 0,
+  pauseIntervals: [],
   streams: { ...EMPTY_STREAMS },
   laps: [],
   pairedEventId: null,
@@ -80,11 +101,12 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   startRecording: (type, mode, pairedEventId) => {
     set({
-      status: 'recording',
+      status: "recording",
       activityType: type,
       mode,
       startTime: Date.now(),
       pausedDuration: 0,
+      pauseIntervals: [],
       streams: {
         time: [],
         latlng: [],
@@ -104,42 +126,50 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   pauseRecording: () => {
     const { status } = get();
-    if (status !== 'recording') return;
-    set({ status: 'paused', _pauseStart: Date.now() });
+    if (status !== "recording") return;
+    set({ status: "paused", _pauseStart: Date.now() });
   },
 
   resumeRecording: () => {
-    const { status, _pauseStart, pausedDuration } = get();
-    if (status !== 'paused') return;
-    const additionalPause = _pauseStart ? Date.now() - _pauseStart : 0;
+    const { status, _pauseStart, pausedDuration, pauseIntervals, startTime } =
+      get();
+    if (status !== "paused") return;
+    const now = Date.now();
+    const additionalPause = _pauseStart ? now - _pauseStart : 0;
     set({
-      status: 'recording',
+      status: "recording",
       pausedDuration: pausedDuration + additionalPause,
+      pauseIntervals: closePause(pauseIntervals, startTime, _pauseStart, now),
       _pauseStart: null,
     });
   },
 
   stopRecording: () => {
-    const { status, _pauseStart, pausedDuration } = get();
-    if (status !== 'recording' && status !== 'paused') return;
-    const additionalPause = status === 'paused' && _pauseStart ? Date.now() - _pauseStart : 0;
+    const { status, _pauseStart, pausedDuration, pauseIntervals, startTime } =
+      get();
+    if (status !== "recording" && status !== "paused") return;
+    const now = Date.now();
+    const paused = status === "paused" && _pauseStart;
     set({
-      status: 'stopped',
-      stopTime: Date.now(),
-      pausedDuration: pausedDuration + additionalPause,
+      status: "stopped",
+      stopTime: now,
+      pausedDuration: pausedDuration + (paused ? now - _pauseStart! : 0),
+      pauseIntervals: paused
+        ? closePause(pauseIntervals, startTime, _pauseStart, now)
+        : pauseIntervals,
       _pauseStart: null,
     });
   },
 
   changeActivityType: (type) => {
     const { status } = get();
-    if (status === 'idle') return;
+    if (status === "idle") return;
     set({ activityType: type });
   },
 
   addGpsPoint: (point) => {
     const { status, startTime, streams, activityType } = get();
-    if (status !== 'recording' || !startTime) return;
+    if (status !== "recording" || !startTime) return;
 
     const elapsedSec = (point.timestamp - startTime) / 1000;
     // Drop duplicate / out-of-order points. Foreground watcher and background
@@ -158,7 +188,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         prevLatlng[0],
         prevLatlng[1],
         point.latitude,
-        point.longitude
+        point.longitude,
       );
       const prevTime = streams.time[streams.time.length - 1] ?? 0;
       const dt = elapsedSec - prevTime;
@@ -166,7 +196,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       // Teleport guard: a jump implying an implausible speed for this sport is
       // GPS noise (multipath, cold-fix snap), not movement. Drop the point so
       // distance and pace are not poisoned.
-      if (activityType && dt > 0 && speed > getMaxPlausibleSpeed(activityType)) return;
+      if (activityType && dt > 0 && speed > getMaxPlausibleSpeed(activityType))
+        return;
       dist = prevDist + delta;
     } else {
       speed = point.speed ?? 0;
@@ -195,13 +226,16 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   setSensorSample: (kind, value) => {
     if (!Number.isFinite(value) || value < 0) return;
     set((state) => ({
-      latestSensor: { ...state.latestSensor, [kind]: { value, at: Date.now() } },
+      latestSensor: {
+        ...state.latestSensor,
+        [kind]: { value, at: Date.now() },
+      },
     }));
   },
 
   addIndoorSample: () => {
     const { status, startTime, streams, latestSensor } = get();
-    if (status !== 'recording' || !startTime) return;
+    if (status !== "recording" || !startTime) return;
 
     const nowMs = Date.now();
     const elapsedSec = (nowMs - startTime) / 1000;
@@ -222,7 +256,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   addLap: () => {
     const { status, startTime, pausedDuration, streams, laps } = get();
-    if (status !== 'recording' || !startTime) return;
+    if (status !== "recording" || !startTime) return;
 
     const now = Date.now();
     const currentElapsed = (now - startTime - pausedDuration) / 1000;
@@ -231,11 +265,13 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
     // Calculate lap metrics from streams
     const lapStartIdx = streams.time.findIndex((t) => t >= lapStart);
-    const hrSlice = lapStartIdx >= 0 ? streams.heartrate.slice(lapStartIdx) : [];
+    const hrSlice =
+      lapStartIdx >= 0 ? streams.heartrate.slice(lapStartIdx) : [];
     const pwrSlice = lapStartIdx >= 0 ? streams.power.slice(lapStartIdx) : [];
     const cadSlice = lapStartIdx >= 0 ? streams.cadence.slice(lapStartIdx) : [];
     const currentDist = streams.distance[streams.distance.length - 1] ?? 0;
-    const startDist = lapStartIdx >= 0 ? (streams.distance[lapStartIdx] ?? 0) : 0;
+    const startDist =
+      lapStartIdx >= 0 ? (streams.distance[lapStartIdx] ?? 0) : 0;
     const lapDist = currentDist - startDist;
     const lapDuration = currentElapsed - lapStart;
 
@@ -258,12 +294,13 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   reset: () => {
     set({
-      status: 'idle',
+      status: "idle",
       activityType: null,
       mode: null,
       startTime: null,
       stopTime: null,
       pausedDuration: 0,
+      pauseIntervals: [],
       streams: {
         time: [],
         latlng: [],
