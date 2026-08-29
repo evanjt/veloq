@@ -13,6 +13,7 @@ use std::sync::mpsc;
 use std::thread;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
+use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
     CacheUpdate, PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress,
     load_groups_from_db,
@@ -324,7 +325,12 @@ fn recompute_and_save_groups(
     };
     let group_ms = group_start.elapsed().as_millis();
 
-    let mut groups = result.groups;
+    // SB5: the same assign-once remap the foreground writer runs. Without it this
+    // path persists the raw Union-Find roots, re-keying the catalogue behind the
+    // stable ids `route_names` and `activity_matches` are keyed on, and the user's
+    // route names are orphaned by whichever writer happened to run last.
+    let mut identity = load_identity(conn, existing_groups);
+    let (mut groups, _id_map) = identity.remap(existing_groups.to_vec(), result.groups);
 
     for group in &mut groups {
         if let Some(sport) = activity_metadata.get(&group.representative_id) {
@@ -336,7 +342,7 @@ fn recompute_and_save_groups(
         }
     }
 
-    if let Err(e) = save_groups_to_db(conn, &groups) {
+    if let Err(e) = save_groups_to_db(conn, &groups, &identity) {
         log::error!("[BG Groups] Save failed: {}", e);
     }
 
@@ -352,8 +358,30 @@ fn recompute_and_save_groups(
     groups
 }
 
-/// Save route groups to DB (standalone, no engine needed).
-fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
+/// Save route groups and the registry that keyed them to DB (standalone, no
+/// engine needed). One transaction: a failure mid-way would otherwise leave the
+/// catalogue half-written, or the groups committed under ids the registry does
+/// not know, which is the crash window the registry reconcile exists to heal.
+fn save_groups_to_db(
+    conn: &Connection,
+    groups: &[RouteGroup],
+    identity: &RouteIdentity,
+) -> SqlResult<()> {
+    conn.execute_batch("BEGIN IMMEDIATE")?;
+    let result = save_groups_txn(conn, groups, identity);
+    if result.is_ok() {
+        conn.execute_batch("COMMIT")?;
+    } else {
+        let _ = conn.execute_batch("ROLLBACK");
+    }
+    result
+}
+
+fn save_groups_txn(
+    conn: &Connection,
+    groups: &[RouteGroup],
+    identity: &RouteIdentity,
+) -> SqlResult<()> {
     conn.execute("DELETE FROM route_groups", [])?;
     let mut stmt = conn.prepare(
         "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
@@ -385,7 +413,36 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
             activity_ids_blob,
         ])?;
     }
-    Ok(())
+    drop(stmt);
+
+    // A name outlives its route only while the id survives. The remap keeps that
+    // id, so this drops only the names of routes the regroup actually dissolved.
+    let live: HashSet<&str> = groups.iter().map(|g| g.group_id.as_str()).collect();
+    let named: Vec<String> = {
+        let mut stmt = conn.prepare("SELECT route_id FROM route_names")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    let mut delete_name = conn.prepare("DELETE FROM route_names WHERE route_id = ?")?;
+    for id in named.iter().filter(|id| !live.contains(id.as_str())) {
+        delete_name.execute(params![id])?;
+    }
+    drop(delete_name);
+
+    // Same reasoning for the match rows, which carry the user's per-activity
+    // exclusions. A carried id keeps them; only a dissolved route loses them.
+    let matched: Vec<String> = {
+        let mut stmt = conn.prepare("SELECT DISTINCT route_id FROM activity_matches")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    let mut delete_match = conn.prepare("DELETE FROM activity_matches WHERE route_id = ?")?;
+    for id in matched.iter().filter(|id| !live.contains(id.as_str())) {
+        delete_match.execute(params![id])?;
+    }
+    drop(delete_match);
+
+    write_identity(conn, identity)
 }
 
 /// Phase reported by a handle that was refused because detection is
@@ -1238,5 +1295,147 @@ impl PersistentRouteEngine {
                 false
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::route_identity::restore_identity;
+
+    fn group(id: &str, members: &[&str]) -> RouteGroup {
+        RouteGroup {
+            group_id: id.to_string(),
+            representative_id: members[0].to_string(),
+            activity_ids: members.iter().map(|s| s.to_string()).collect(),
+            sport_type: "Ride".to_string(),
+            bounds: None,
+            custom_name: None,
+            best_time: None,
+            avg_time: None,
+            best_pace: None,
+            best_activity_id: None,
+        }
+    }
+
+    /// Two well-separated tracks, so the grouping returns two groups whose ids
+    /// are the Union-Find roots the members happen to produce, not the stable ids.
+    fn store_signatures(engine: &PersistentRouteEngine) {
+        for (id, base_lat) in [("a1", 40.0_f64), ("a2", 40.0), ("b1", 50.0)] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                     VALUES (?, 'Ride', ?, ?, 10.0, 10.0)",
+                    params![id, base_lat, base_lat + 0.04],
+                )
+                .unwrap();
+            let points: Vec<GpsPoint> = (0..40)
+                .map(|i| GpsPoint::new(base_lat + i as f64 * 0.001, 10.0))
+                .collect();
+            let sig = RouteSignature {
+                activity_id: id.to_string(),
+                start_point: points[0],
+                end_point: *points.last().unwrap(),
+                bounds: Bounds::from_points(&points).unwrap(),
+                center: Bounds::from_points(&points).unwrap().center(),
+                total_distance: 4000.0,
+                points,
+            };
+            engine.store_signature(id, &sig).unwrap();
+        }
+    }
+
+    fn sports(ids: &[&str]) -> HashMap<String, String> {
+        ids.iter()
+            .map(|id| (id.to_string(), "Ride".to_string()))
+            .collect()
+    }
+
+    fn names(conn: &Connection) -> HashMap<String, String> {
+        let mut stmt = conn
+            .prepare("SELECT route_id, custom_name FROM route_names")
+            .unwrap();
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap();
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
+    /// SB5. The background writer is handed the same catalogue back under fresh
+    /// Union-Find root ids, which is what the grouping emits. It must carry the
+    /// stable ids, so the user's route name stays attached, rather than persist
+    /// the roots raw and orphan it.
+    #[test]
+    fn background_save_carries_stable_ids_and_names() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        engine.groups = vec![group("r_1", &["a1", "a2"]), group("r_2", &["b1"])];
+        engine.route_identity_reseed();
+        store_signatures(&engine);
+        engine.save_groups().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT OR REPLACE INTO route_names (route_id, custom_name) VALUES (?, ?)",
+                params!["r_1", "Morning loop"],
+            )
+            .unwrap();
+
+        let prior = engine.groups.clone();
+        recompute_and_save_groups(
+            &engine.db,
+            &MatchConfig::default(),
+            &prior,
+            &sports(&["a1", "a2", "b1"]),
+        );
+
+        let saved: HashSet<String> = {
+            let mut stmt = engine.db.prepare("SELECT id FROM route_groups").unwrap();
+            let rows = stmt.query_map([], |row| row.get::<_, String>(0)).unwrap();
+            rows.filter_map(|r| r.ok()).collect()
+        };
+        assert_eq!(
+            saved,
+            ["r_1".to_string(), "r_2".to_string()].into_iter().collect(),
+            "the background writer must persist the stable ids, not the UF roots"
+        );
+        assert_eq!(
+            names(&engine.db).get("r_1").map(String::as_str),
+            Some("Morning loop"),
+            "the user's name must still be keyed to a live route"
+        );
+        assert!(
+            restore_identity(&engine.db).is_some(),
+            "the registry must commit with the groups it describes"
+        );
+    }
+
+    /// A route the regroup actually dissolves takes its name and match rows with
+    /// it, so the id namespace the next run reads holds no dead keys.
+    #[test]
+    fn background_save_drops_names_of_dissolved_routes() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        engine.groups = vec![group("r_1", &["a1"]), group("r_2", &["b1"])];
+        engine.route_identity_reseed();
+        engine.save_groups().unwrap();
+
+        let prior = engine.groups.clone();
+        let mut identity = load_identity(&engine.db, &prior);
+        let (remapped, _) = identity.remap(prior, vec![group("a1", &["a1"])]);
+        save_groups_to_db(&engine.db, &remapped, &identity).unwrap();
+
+        assert!(
+            !names(&engine.db).contains_key("r_2"),
+            "a dissolved route must not leave its name behind"
+        );
+        let orphan_matches: u32 = engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM activity_matches WHERE route_id = 'r_2'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphan_matches, 0);
     }
 }
