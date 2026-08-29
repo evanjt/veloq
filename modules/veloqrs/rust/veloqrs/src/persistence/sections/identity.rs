@@ -230,21 +230,31 @@ impl Default for SectionIdentity {
 impl PersistentRouteEngine {
     /// Every section id the database holds, whatever its state.
     /// Every id the database holds or has held: the live rows, the rows the
-    /// view hides, and every id the ledger or the geometry versions name. A
-    /// content id retired by a merge or a delete never comes back for the
-    /// same ground, or its history would read as one section.
+    /// view hides, and every id the ledger, the geometry versions, the pins or
+    /// the cutover archive name. A content id retired by a merge or a delete
+    /// never comes back for the same ground, or its history would read as one
+    /// section. The pins and the archive outlive the `sections` wipe, so a mint
+    /// that skipped them could re-issue an id a dead pin still claims.
     fn stored_section_ids(&self) -> BTreeSet<String> {
         self.db
             .prepare(
                 "SELECT id FROM sections
                  UNION SELECT section_id FROM section_history
-                 UNION SELECT section_id FROM section_geometry",
+                 UNION SELECT section_id FROM section_geometry
+                 UNION SELECT section_id FROM section_pins
+                 UNION SELECT section_id FROM section_catalogue_archive
+                 UNION SELECT section_id FROM section_catalogue_archive_members",
             )
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| row.get::<_, String>(0))
                     .map(|rows| rows.filter_map(|r| r.ok()).collect())
             })
             .unwrap_or_default()
+    }
+
+    /// Read accessor for tests: every id a mint has to avoid.
+    pub fn section_ids_a_mint_must_avoid(&self) -> BTreeSet<String> {
+        self.stored_section_ids()
     }
 
     /// Read accessor for tests/measurement: the number of visible registry rows.
@@ -616,6 +626,10 @@ impl PersistentRouteEngine {
         // identity blob is the known one, task #13). Loud in tests via
         // `debug_assert`, degraded to a safe mint in release so a corrupt blob
         // re-mints a fresh id rather than bricking the engine.
+        // One scan for the whole batch. This reads six tables, and the closure
+        // below runs once per minted section.
+        let stored_ids = self.stored_section_ids();
+
         for (j, section) in raw.into_iter().enumerate() {
             let pid = resolutions[j].id.clone();
             let membership_ok = match resolutions[j].fate {
@@ -706,7 +720,7 @@ impl PersistentRouteEngine {
                 // Every id the database holds or has held, the rows the
                 // view hides (disabled, superseded, accepted) and the
                 // retired included: a mint must never land on one of them.
-                let mut taken: BTreeSet<String> = self.stored_section_ids();
+                let mut taken: BTreeSet<String> = stored_ids.clone();
                 taken.extend(self.sections.iter().map(|s| s.id.clone()));
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_rows.values().map(|r| r.real_id.clone()));
