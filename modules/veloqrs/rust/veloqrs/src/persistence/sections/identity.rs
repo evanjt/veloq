@@ -496,6 +496,7 @@ impl PersistentRouteEngine {
         // ground must not be re-emitted (that is the UNIQUE-id collision the R2
         // crash rides), and any registry id that has passed to one is relinquished.
         let (intent_grounds, intent_ids) = self.durable_intent_rows();
+        let accepted_bounds = self.accepted_section_bounds();
 
         // RELINQUISH: a row whose real id now belongs to a durable-intent DB row
         // has handed identity ownership to that row. Stop carrying it (and stop
@@ -543,7 +544,11 @@ impl PersistentRouteEngine {
         // it is the collision. This is the custom-section rule generalised.
         let raw: Vec<FrequentSection> = raw
             .into_iter()
-            .filter(|s| !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds))
+            .filter(|s| {
+                !s.is_user_defined
+                    && !ground_owned_by_intent(&s.polyline, &intent_grounds)
+                    && !bbox_dominated(&s.polyline, &accepted_bounds)
+            })
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
@@ -1097,6 +1102,29 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Bounding boxes of the accepted sections. A candidate mostly inside one of
+    /// these is the same corridor drawn coarsely, so it is suppressed before the
+    /// registry sees it rather than dropped at save, where it would leave a row
+    /// behind with no catalogue entry.
+    fn accepted_section_bounds(&self) -> Vec<AcceptedBounds> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+             FROM sections WHERE is_user_defined = 1 AND bounds_min_lat IS NOT NULL",
+        ) else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| {
+            Ok(AcceptedBounds {
+                min_lat: row.get(0)?,
+                max_lat: row.get(1)?,
+                min_lng: row.get(2)?,
+                max_lng: row.get(3)?,
+            })
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
+    }
+
     /// Grounds (polylines) and ids of the durable-intent DB rows the emitter must
     /// not re-emit. Two sources, both read raw from the DB because they are the
     /// authority the registry defers to:
@@ -1165,6 +1193,36 @@ impl PersistentRouteEngine {
         }
         (grounds, ids)
     }
+}
+
+/// Bounding box of an accepted section, in degrees.
+struct AcceptedBounds {
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+}
+
+/// Whether most of a candidate's bounding box sits inside an accepted section's.
+fn bbox_dominated(polyline: &[GpsPoint], accepted: &[AcceptedBounds]) -> bool {
+    if accepted.is_empty() || polyline.len() < 2 {
+        return false;
+    }
+    let b = tracematch::geo_utils::compute_bounds(polyline);
+    let area = (b.max_lat - b.min_lat) * (b.max_lng - b.min_lng);
+    if area <= 0.0 {
+        return false;
+    }
+    accepted.iter().any(|a| {
+        let min_lat = b.min_lat.max(a.min_lat);
+        let max_lat = b.max_lat.min(a.max_lat);
+        let min_lng = b.min_lng.max(a.min_lng);
+        let max_lng = b.max_lng.min(a.max_lng);
+        if min_lat >= max_lat || min_lng >= max_lng {
+            return false;
+        }
+        ((max_lat - min_lat) * (max_lng - min_lng)) / area > 0.45
+    })
 }
 
 /// Whether a candidate polyline is the same corridor as any durable-intent
