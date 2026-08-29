@@ -53,7 +53,7 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
         // refresh keeps cached activities; switching accounts requires
         // explicit confirmation before we wipe the previous identity.
         const incomingId = String(tokenResponse.athlete_id);
-        const cachedId = getCachedAthleteId();
+        const cachedId = await getCachedAthleteId();
         if (cachedId && cachedId !== incomingId) {
           const proceed = await confirmAccountChange({
             cachedAthleteId: cachedId,

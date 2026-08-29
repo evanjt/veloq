@@ -55,6 +55,7 @@ import { RecordingReturnPill } from '@/features/recording/components/RecordingRe
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { rememberCachedAthleteId } from '@/shared/storage';
 import { migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
@@ -119,12 +120,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
         const tryInit = (attempt: number) => {
           let success = engine.initWithPath(dbPath);
+          let cachedAthleteId: string | undefined;
           if (success) {
             // Engine holds at most one identity's data at a time. If the cached
             // __athlete_id setting belongs to someone else (different real
             // account, or demo data left over after a force-quit), wipe and
             // re-init so the new identity starts from a clean slate.
-            const cachedAthleteId = engine.getSetting('__athlete_id');
+            cachedAthleteId = engine.getSetting('__athlete_id');
             const credentialsAthleteId = useAuthStore.getState().athleteId;
             if (
               cachedAthleteId &&
@@ -168,6 +170,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const athleteId = useAuthStore.getState().athleteId;
             if (athleteId) {
               engine.setSetting('__athlete_id', athleteId);
+              rememberCachedAthleteId(athleteId).catch(() => {});
+            } else if (cachedAthleteId) {
+              // Installs from before the mirror existed only have the SQLite
+              // setting. Seed the mirror so the login screen can still name
+              // whose data is on disk once the engine is down.
+              rememberCachedAthleteId(cachedAthleteId).catch(() => {});
             }
             // AuthStore.initialize() usually runs before the engine exists, so
             // its credential push was a no-op. Repeat it now the engine is up.
@@ -324,6 +332,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               onPress: async () => {
                 engine?.clear();
                 engine?.setSetting('__athlete_id', currentAthleteId);
+                await rememberCachedAthleteId(currentAthleteId);
                 router.replace('/' as Href);
               },
             },
@@ -334,6 +343,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // Update athlete ID for this account
       if (currentAthleteId && engine) {
         engine.setSetting('__athlete_id', currentAthleteId);
+        rememberCachedAthleteId(currentAthleteId).catch(() => {});
       }
       // Authenticated but on login screen - redirect to main app
       router.replace('/' as Href);
