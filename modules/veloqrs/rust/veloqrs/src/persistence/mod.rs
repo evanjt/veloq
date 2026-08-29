@@ -1473,6 +1473,34 @@ where
     guard.as_mut().map(f)
 }
 
+/// `with_persistent_engine` for async callers, off the async workers.
+///
+/// The write lock is a blocking `RwLock` and the closure runs SQLite, so taking
+/// it directly from an `async fn` parks one of the runtime's worker threads for
+/// the whole transaction. There are only eight (`runtime.rs`), and a sync pass
+/// takes this lock once per page, so enough concurrent passes starve the pool
+/// and unrelated network work stops being polled. `spawn_blocking` moves the
+/// wait onto the pool tokio keeps for exactly this.
+///
+/// The closure is `'static`, so callers hand it owned data rather than a
+/// borrow of a local.
+pub async fn with_persistent_engine_blocking<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentRouteEngine) -> R + Send + 'static,
+    R: Send + 'static,
+{
+    match tokio::task::spawn_blocking(move || with_persistent_engine(f)).await {
+        Ok(result) => result,
+        // The blocking task itself panicked, or the runtime is shutting down.
+        // Either way the write did not happen; the caller's other work should
+        // not be cancelled with it.
+        Err(e) => {
+            log::warn!("[Engine] blocking engine call failed: {e}");
+            None
+        }
+    }
+}
+
 /// Alias for `with_persistent_engine` - explicit write semantics.
 pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
 where

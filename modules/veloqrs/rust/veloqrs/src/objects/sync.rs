@@ -572,7 +572,10 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
 /// Persist the athlete profile body.
 async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
     let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
-    crate::persistence::with_persistent_engine(|engine| engine.set_athlete_profile(&body));
+    crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.set_athlete_profile(&body)
+    })
+    .await;
     Ok(())
 }
 
@@ -580,7 +583,10 @@ async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), Net
 async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
     let body =
         endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?;
-    crate::persistence::with_persistent_engine(|engine| engine.set_sport_settings(&body));
+    crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.set_sport_settings(&body)
+    })
+    .await;
     Ok(())
 }
 
@@ -656,14 +662,15 @@ async fn sync_activity_window(
         });
     }
 
-    crate::persistence::with_persistent_engine(|engine| {
+    crate::persistence::with_persistent_engine_blocking(move |engine| {
         if let Err(e) = engine.upsert_activity_bodies(&bodies) {
             log::warn!("[Sync] activity body upsert failed: {}", e);
         }
         if let Err(e) = engine.set_activity_metrics(metrics) {
             log::warn!("[Sync] activity metrics upsert failed: {}", e);
         }
-    });
+    })
+    .await;
     Ok(())
 }
 
@@ -688,11 +695,12 @@ async fn sync_oldest_activity_date(
     let Some(oldest) = oldest else {
         return Ok(());
     };
-    crate::persistence::with_persistent_engine(|engine| {
+    crate::persistence::with_persistent_engine_blocking(move |engine| {
         if let Err(e) = engine.set_setting(OLDEST_ACTIVITY_DATE_KEY, &oldest) {
             log::warn!("[Sync] oldest activity date write failed: {}", e);
         }
-    });
+    })
+    .await;
     Ok(())
 }
 
@@ -733,11 +741,12 @@ async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), Ne
         })
         .collect();
 
-    crate::persistence::with_persistent_engine(|engine| {
+    crate::persistence::with_persistent_engine_blocking(move |engine| {
         if let Err(e) = engine.upsert_wellness(&rows) {
             log::warn!("[Sync] wellness upsert failed: {}", e);
         }
-    });
+    })
+    .await;
     Ok(())
 }
 
@@ -843,13 +852,14 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) =
                         engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
                     {
                         log::warn!("[Sync] power curve store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -870,12 +880,13 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) = engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
                     {
                         log::warn!("[Sync] pace curve store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -889,11 +900,12 @@ impl SyncManager {
                 let body =
                     endpoints::fetch_intervals_body(&transport, &activity_id, Lane::Interactive)
                         .await?;
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) = engine.set_interval_body(&activity_id, &body) {
                         log::warn!("[Sync] interval body store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -925,11 +937,12 @@ impl SyncManager {
                 ) else {
                     return Ok(());
                 };
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) = engine.replace_calendar_events(oldest_ts, newest_ts, &rows) {
                         log::warn!("[Sync] calendar event store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -948,11 +961,12 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) = engine.set_stream_body(&activity_id, &types, &body) {
                         log::warn!("[Sync] stream body store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -977,13 +991,14 @@ impl SyncManager {
                 let Some(date) = date else {
                     return Ok(());
                 };
-                crate::persistence::with_persistent_engine(|engine| {
+                crate::persistence::with_persistent_engine_blocking(move |engine| {
                     if let Err(e) =
                         engine.upsert_activity_bodies(&[(activity_id.clone(), date, body)])
                     {
                         log::warn!("[Sync] activity detail store failed: {}", e);
                     }
-                });
+                })
+                .await;
                 Ok(())
             },
         )
@@ -998,17 +1013,19 @@ impl SyncManager {
         }
         let key = format!("timestreams:{}", activity_ids.join(","));
         spawn_once(key, move |transport, _athlete_id| async move {
-            let missing = crate::persistence::with_persistent_engine(|engine| {
+            let missing = crate::persistence::with_persistent_engine_blocking(move |engine| {
                 engine.get_activities_missing_time_streams(&activity_ids)
             })
+            .await
             .unwrap_or_default();
 
             for activity_id in missing {
                 match endpoints::fetch_time_stream(&transport, &activity_id, Lane::Backfill).await {
                     Ok(times) if !times.is_empty() => {
-                        crate::persistence::with_persistent_engine(|engine| {
-                            engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
-                        });
+                        crate::persistence::with_persistent_engine_blocking(move |engine| {
+                            engine.set_time_streams_flat(&[activity_id], &times, &[0]);
+                        })
+                        .await;
                     }
                     Ok(_) => {}
                     // One activity without streams must not stop the batch;
