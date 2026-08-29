@@ -24,11 +24,11 @@ import {
   prunePushHistory,
 } from './notifications';
 import { computeInsightFingerprint } from './store';
+import { readInsightFingerprint, writeInsightFingerprint } from './lib/fingerprintStore';
 const log = debug.create('BackgroundInsight');
 
 export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 
-const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
 const PREFS_KEY = 'veloq-notification-preferences';
 /** History of recent push timestamps (ms epoch) for D11 cooldown enforcement. */
 const PUSH_HISTORY_KEY = 'veloq-insight-push-history';
@@ -403,8 +403,8 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     // 8. Find insights that are NEW (caused by this activity)
-    const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
-    const previousIds = new Set((storedFingerprint ?? '').split('|'));
+    const storedFingerprint = await readInsightFingerprint();
+    const previousIds = new Set(storedFingerprint.split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
     const allowedNewInsights = filterInsightsForNotificationPreferences(newInsights, prefs);
 
@@ -482,7 +482,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     // 9. Update stored fingerprint
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     if (currentFingerprint) {
-      await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
+      await writeInsightFingerprint(currentFingerprint);
     }
 
     // 10. A delivered push proves the pipeline is alive, so use it to keep

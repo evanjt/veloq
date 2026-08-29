@@ -86,7 +86,10 @@ impl SectionPreview {
                     );
                     return Ok(false);
                 }
-                PreviewPoll::Complete | PreviewPoll::Cancelled | PreviewPoll::Died => {
+                PreviewPoll::Complete
+                | PreviewPoll::Cancelled
+                | PreviewPoll::PoolUnusable
+                | PreviewPoll::Died => {
                     *slot = None;
                 }
             }
@@ -126,7 +129,7 @@ impl SectionPreview {
         }
     }
 
-    /// "idle" | "running" | "complete" | "cancelled" | "error"
+    /// "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
     pub fn poll(&self) -> Result<String, VeloqError> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
@@ -142,6 +145,13 @@ impl SectionPreview {
             PreviewPoll::Cancelled => {
                 *slot = None;
                 "cancelled".to_string()
+            }
+            PreviewPoll::PoolUnusable => {
+                *slot = None;
+                log::error!(
+                    "tracematch: [SectionPreview] Preview refused: too much of the pool is unreadable to detect over"
+                );
+                "pool_unusable".to_string()
             }
             PreviewPoll::Died => {
                 *slot = None;

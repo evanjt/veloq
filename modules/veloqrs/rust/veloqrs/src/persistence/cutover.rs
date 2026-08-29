@@ -531,6 +531,20 @@ impl PersistentRouteEngine {
             params![CUTOVER_ID],
         )?;
 
+        // Only the members that came back fired the visit_count triggers. A
+        // section whose activities are all gone keeps the archived count, so a
+        // card claims visits its detail screen cannot list. Recount every
+        // restored row against what actually landed.
+        tx.execute(
+            "UPDATE sections SET visit_count = (
+                 SELECT COUNT(*) FROM section_activities sa
+                 WHERE sa.section_id = sections.id AND sa.excluded = 0
+             )
+             WHERE id IN (SELECT section_id FROM section_catalogue_archive
+                          WHERE token = ?)",
+            params![CUTOVER_ID],
+        )?;
+
         // The processed set still names every activity the Unified detect
         // folded. Left alone, the next detect short-circuits and re-emits that
         // catalogue instead of cutting a Corridor one.

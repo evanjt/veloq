@@ -586,23 +586,46 @@ impl PersistentRouteEngine {
 
     /// Clear all processed activity IDs to force full re-detection.
     pub(crate) fn clear_processed_activity_ids(&mut self) {
+        // The evidence cache goes first and unconditionally. Its caller has
+        // already persisted the config that provoked the clear, so a cache
+        // folded under the old one is wrong from here on however the DELETE
+        // goes; dropping it only costs a cold rebatch.
+        self.invalidate_evidence_cache();
         // Only clear the in-memory set when the DB delete succeeds; otherwise
         // the rows reload on next start and memory would disagree with disk.
         match self.db.execute("DELETE FROM processed_activities", []) {
             Ok(_) => {
                 self.processed_activity_ids.clear();
-                // The processed set and the evidence cache are two shadows of the
-                // same "what has detection already folded" state; clear them in
-                // lockstep so the next detect cold-rebatches under the new base.
-                self.invalidate_evidence_cache();
+                self.pending_processed_clear = false;
                 log::info!(
                     "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
                 );
             }
             Err(e) => {
+                // Leaving the set intact would short-circuit the next detect on
+                // every activity it holds, under a config that no longer matches
+                // them. Flag it so the next detect retries before it reads.
+                self.pending_processed_clear = true;
                 log::warn!("tracematch: failed to clear processed activity IDs: {e:?}");
             }
         }
+    }
+
+    /// Whether a processed-set clear is still owed. Exposed so a test can see
+    /// the flag without reaching into the engine's private state.
+    #[doc(hidden)]
+    pub fn processed_clear_pending(&self) -> bool {
+        self.pending_processed_clear
+    }
+
+    /// Re-run a clear whose DELETE failed. Called at the head of every detect,
+    /// which is the first moment the stale processed set would be read.
+    pub(crate) fn retry_pending_processed_clear(&mut self) {
+        if !self.pending_processed_clear {
+            return;
+        }
+        log::info!("tracematch: retrying the processed-activity clear owed from a failed DELETE");
+        self.clear_processed_activity_ids();
     }
 
     /// Evict specific activity IDs from the processed set (DB + in memory) so a
@@ -2049,5 +2072,68 @@ mod tests {
         let mut counter = 0;
         assert_eq!(next_section_number(&mut taken, &mut counter), 3);
         assert_eq!(next_section_number(&mut taken, &mut counter), 4);
+    }
+
+    /// Scenario: the DELETE behind a forced re-detect fails, after the config
+    /// that provoked it has already been persisted.
+    /// Expected behaviour: the evidence cache goes anyway, the processed set is
+    /// left matching disk, and the clear is retried at the next detect.
+    #[test]
+    fn a_failed_processed_clear_drops_the_cache_and_is_retried() {
+        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        engine
+            .save_processed_activity_ids(&["a".to_string(), "b".to_string()])
+            .unwrap();
+        engine.cache_folded_ids.insert("a".to_string());
+
+        engine
+            .db
+            .execute("DROP TABLE processed_activities", [])
+            .unwrap();
+        engine.clear_processed_activity_ids();
+
+        assert!(engine.processed_clear_pending());
+        assert_eq!(engine.processed_activity_ids.len(), 2);
+        assert_eq!(engine.evidence_cache_folded_count(), 0);
+
+        engine
+            .db
+            .execute(
+                "CREATE TABLE processed_activities (activity_id TEXT PRIMARY KEY)",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO processed_activities (activity_id) VALUES ('a'), ('b')",
+                [],
+            )
+            .unwrap();
+
+        engine.retry_pending_processed_clear();
+
+        assert!(!engine.processed_clear_pending());
+        assert!(engine.processed_activity_ids.is_empty());
+        let remaining: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM processed_activities", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn retry_is_a_no_op_when_no_clear_is_owed() {
+        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        engine
+            .save_processed_activity_ids(&["a".to_string()])
+            .unwrap();
+
+        engine.retry_pending_processed_clear();
+
+        assert!(!engine.processed_clear_pending());
+        assert_eq!(engine.processed_activity_ids.len(), 1);
     }
 }

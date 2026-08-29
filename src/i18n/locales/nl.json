@@ -1699,6 +1699,7 @@
     "previewRun": "Voorbeeld",
     "previewRunning": "{{count}} activiteiten in dit gebied analyseren",
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
+    "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
     "previewUnchanged": "{{count}} ongewijzigd",
     "previewChanged": "{{count}} gewijzigd",

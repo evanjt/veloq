@@ -1699,6 +1699,7 @@
     "previewRun": "Preview",
     "previewRunning": "Analysing {{count}} activities in this area",
     "previewFailed": "The preview could not finish.",
+    "previewPoolUnusable": "Some of your activity tracks cannot be read, so the preview stopped.",
     "previewSuspended": "Elevation update in progress. Try again shortly.",
     "previewUnchanged": "{{count}} unchanged",
     "previewChanged": "{{count}} changed",

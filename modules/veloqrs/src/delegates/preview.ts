@@ -70,7 +70,13 @@ export interface PreviewResult {
   sections: PreviewSection[];
 }
 
-export type PreviewPollStatus = 'idle' | 'running' | 'complete' | 'cancelled' | 'error';
+export type PreviewPollStatus =
+  | 'idle'
+  | 'running'
+  | 'complete'
+  | 'cancelled'
+  | 'error'
+  | 'pool_unusable';
 
 /**
  * The surface the preview screen talks to. The real implementation is

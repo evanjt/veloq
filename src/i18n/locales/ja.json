@@ -1699,6 +1699,7 @@
     "previewRun": "プレビュー",
     "previewRunning": "このエリアの {{count}} 件のアクティビティを分析中",
     "previewFailed": "プレビューを完了できませんでした。",
+    "previewPoolUnusable": "一部のアクティビティの軌跡を読み取れないため、プレビューを中止しました。",
     "previewSuspended": "標高の更新中です。しばらくしてからもう一度お試しください。",
     "previewUnchanged": "変更なし {{count}}",
     "previewChanged": "変更 {{count}}",

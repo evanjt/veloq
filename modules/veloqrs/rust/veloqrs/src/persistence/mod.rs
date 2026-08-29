@@ -701,6 +701,13 @@ pub struct PersistentRouteEngine {
     /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
 
+    /// A `clear_processed_activity_ids` whose DELETE failed, usually a
+    /// `SQLITE_BUSY` outliving the 5 s timeout. The config that provoked the
+    /// clear is already persisted, so the processed set now disagrees with the
+    /// base detection would re-derive under. The next detect retries the clear
+    /// before it reads the set.
+    pending_processed_clear: bool,
+
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
     sections_dirty: bool,
@@ -786,6 +793,7 @@ impl PersistentRouteEngine {
             section_evidence_cache: SectionEvidenceCache::new(),
             fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
+            pending_processed_clear: false,
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
@@ -1463,6 +1471,34 @@ where
     // here would disable the engine for the rest of the session.
     let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
     guard.as_mut().map(f)
+}
+
+/// `with_persistent_engine` for async callers, off the async workers.
+///
+/// The write lock is a blocking `RwLock` and the closure runs SQLite, so taking
+/// it directly from an `async fn` parks one of the runtime's worker threads for
+/// the whole transaction. There are only eight (`runtime.rs`), and a sync pass
+/// takes this lock once per page, so enough concurrent passes starve the pool
+/// and unrelated network work stops being polled. `spawn_blocking` moves the
+/// wait onto the pool tokio keeps for exactly this.
+///
+/// The closure is `'static`, so callers hand it owned data rather than a
+/// borrow of a local.
+pub async fn with_persistent_engine_blocking<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentRouteEngine) -> R + Send + 'static,
+    R: Send + 'static,
+{
+    match tokio::task::spawn_blocking(move || with_persistent_engine(f)).await {
+        Ok(result) => result,
+        // The blocking task itself panicked, or the runtime is shutting down.
+        // Either way the write did not happen; the caller's other work should
+        // not be cancelled with it.
+        Err(e) => {
+            log::warn!("[Engine] blocking engine call failed: {e}");
+            None
+        }
+    }
 }
 
 /// Alias for `with_persistent_engine` - explicit write semantics.

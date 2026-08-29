@@ -18,12 +18,12 @@
 
 appId: com.veloq.app.dev
 tags:
-  - tier3
+  # In the blocking gate core. It guards a shipped App Store rejection, so it
+  # has to be able to fail the gate. The gate retries a failed flow on its own
+  # from a clean launch, which covers the intermittent settings scroll and
+  # debug-dashboard nav that had it quarantined.
+  - tier1
   - pack-settings
-  # Quarantined from the blocking gate core: long multi-screen flow whose
-  # settings scroll + debug-dashboard nav are intermittent in CI. Runs in the
-  # gate's non-blocking flaky lane.
-  - flaky
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

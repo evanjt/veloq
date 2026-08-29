@@ -197,6 +197,52 @@ fn restore_gives_back_the_old_catalogue_as_pinned() {
     assert_eq!(leftover, 0, "Unified sections survived the revert");
 }
 
+/// The activities behind a section can go between the cutover and the revert.
+/// Its members cannot come back, so the count must not either.
+#[test]
+fn a_restore_without_members_comes_back_with_no_visits() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    let pre_ids: Vec<String> =
+        with_persistent_engine(|e| e.get_sections().iter().map(|s| s.id.clone()).collect())
+            .unwrap();
+    assert!(!pre_ids.is_empty());
+
+    veloqrs::persistence::cutover::run_cutover().unwrap();
+
+    with_persistent_engine(|e| {
+        for i in 0..4 {
+            e.remove_activity(&format!("ride_{i}")).expect("remove");
+        }
+    })
+    .unwrap();
+
+    with_persistent_engine(|e| e.restore_from_archive())
+        .unwrap()
+        .expect("restore");
+
+    // The stored column, not `get_sections`, which recounts on read.
+    let db = rusqlite::Connection::open(&path).expect("open");
+    let mut stmt = db
+        .prepare("SELECT id, visit_count FROM sections")
+        .expect("prepare");
+    let visits: Vec<(String, u32)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .expect("query")
+        .map(|r| r.expect("row"))
+        .collect();
+    assert!(
+        !visits.is_empty(),
+        "the archived catalogue did not come back"
+    );
+    for (id, v) in &visits {
+        assert_eq!(*v, 0, "section {id} claims visits it has no members for");
+    }
+}
+
 /// A user whose catalogue is entirely pinned archives nothing. Revert must
 /// still give them their archive back rather than silently doing nothing.
 #[test]
