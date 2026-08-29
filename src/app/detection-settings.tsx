@@ -26,7 +26,6 @@ import {
   getDetectionPresetByValue,
   getRouteEngine,
   UNIFIED_CONFIG,
-  type DetectionStrictness,
 } from '@/shared/native/routeEngine';
 
 type DetectionParams = {
@@ -44,6 +43,20 @@ function defaultParams(): DetectionParams {
     minSectionLength: UNIFIED_CONFIG.minSectionLength,
     minActivities: UNIFIED_CONFIG.minActivities,
     divergenceThreshold: UNIFIED_CONFIG.divergenceThreshold,
+  };
+}
+
+/** What the engine actually has persisted, or the compiled defaults when it
+ *  is not ready yet. The sliders have to start here or they show numbers the
+ *  detector is not using. */
+function loadParams(): DetectionParams {
+  const config = getRouteEngine()?.getSectionConfig();
+  if (!config) return defaultParams();
+  return {
+    proximityThreshold: config.proximityThreshold,
+    minSectionLength: config.minSectionLength,
+    minActivities: config.minActivities,
+    divergenceThreshold: config.divergenceThreshold,
   };
 }
 
@@ -70,13 +83,12 @@ export default function DetectionSettingsScreen() {
   const danger = isDark ? darkColors.error : colors.error;
 
   const activePreset = useMemo(() => getDetectionPresetByValue(strictnessValue), [strictnessValue]);
-  const activeStrictness: DetectionStrictness = activePreset.strictness;
   const activePresetIndex = useMemo(
     () => DETECTION_PRESETS.findIndex((p) => p.key === activePreset.key),
     [activePreset]
   );
 
-  const [params, setParams] = useState<DetectionParams>(defaultParams);
+  const [params, setParams] = useState<DetectionParams>(loadParams);
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -104,12 +116,21 @@ export default function DetectionSettingsScreen() {
     [applyParam]
   );
 
-  // The rescan button lights up only for unsaved slider tweaks.
+  // The rescan button lights up only for unsaved slider tweaks, so the
+  // baseline is the config the screen opened with, not the defaults.
   const initialConfig = useRef<DetectionParams>(params);
+
+  // The engine can still be initialising on the first render, and then the
+  // lazy seed above fell back to the defaults.
   useEffect(() => {
-    initialConfig.current = defaultParams();
-    // Only reset when strictness changes, not on every param tweak.
-  }, [activeStrictness]);
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const config = engine.getSectionConfig();
+    if (!config) return;
+    const loaded = loadParams();
+    setParams(loaded);
+    initialConfig.current = loaded;
+  }, []);
 
   const isDirty = useMemo(
     () => VISIBLE_KEYS.some((k) => params[k] !== initialConfig.current[k]),
