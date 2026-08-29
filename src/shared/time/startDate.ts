@@ -58,3 +58,23 @@ export function addDaysToDay(day: string, days: number): string {
   const shifted = new Date(Date.UTC(parts[0], parts[1], parts[2] + days));
   return shifted.toISOString().slice(0, 10);
 }
+
+/**
+ * Stamp a `Date`'s local calendar fields as UTC, the same way
+ * `startDateLocalToEpochSeconds` stamps the components intervals.icu sends.
+ * Window bounds built from the device clock have to go through here, or they
+ * are true instants compared against wall clocks and the window slides by the
+ * UTC offset.
+ */
+export function localWallClockToEpochSeconds(date: Date): number {
+  return Math.floor(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds()
+    ) / 1000
+  );
+}
