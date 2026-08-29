@@ -32,8 +32,11 @@ export interface RecordingStreams {
 /** A lap marker during recording */
 export interface RecordingLap {
   index: number;
-  startTime: number; // seconds since activity start
-  endTime: number; // seconds since activity start
+  startTime: number; // wall-clock seconds since activity start, same base as streams.time
+  endTime: number; // wall-clock seconds since activity start, same base as streams.time
+  startIndex: number; // first stream sample in the lap
+  endIndex: number; // last stream sample in the lap, -1 when the lap has no samples
+  movingEndTime: number; // cumulative moving seconds at the lap press
   distance: number; // meters
   avgSpeed: number; // m/s
   avgHeartrate: number | null;
