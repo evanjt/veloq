@@ -11,7 +11,7 @@
 //      useEngineSubscription / createEngineHook OR have every queryKey group they
 //      use invalidated in GlobalDataSync. Orphans are flagged.
 //   2. Every initialize* store hydrator imported into backup.ts must be called in
-//      the post-restore reinitializeAllStores block, so a restored preference
+//      the STORE_INITIALISERS table, so a restored preference
 //      key isn't silently left un-hydrated.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -120,7 +120,7 @@ function findEngineHookOrphans(knownGroups, invalidatedGroups) {
 }
 
 // Every initialize* hydrator imported into backup.ts must be invoked in the
-// reinitializeAllStores body. A restored preference whose initializer is missing
+// STORE_INITIALISERS table. A restored preference whose initializer is missing
 // reads pre-restore in-memory state until the next app launch.
 function findReinitGaps(src) {
   const imported = new Set();
@@ -128,17 +128,18 @@ function findReinitGaps(src) {
   let m;
   while ((m = importRe.exec(src))) imported.add(m[1]);
 
-  const bodyStart = src.indexOf('reinitializeAllStores');
+  // Registration is the STORE_INITIALISERS table, which reinitializeAllStores
+  // settles over.
+  const bodyStart = src.indexOf('STORE_INITIALISERS');
   if (bodyStart === -1) {
     return { missing: [...imported], noBody: true };
   }
-  // Reinit body runs to the end of the function (next `^}` at column 0).
   const after = src.slice(bodyStart);
-  const bodyEnd = after.search(/\n\}/);
+  const bodyEnd = after.search(/\n\];/);
   const body = bodyEnd === -1 ? after : after.slice(0, bodyEnd);
 
   const called = new Set();
-  const callRe = /\b(initialize[A-Z]\w*)\s*\(/g;
+  const callRe = /,\s*(initialize[A-Z]\w*)\s*\]/g;
   while ((m = callRe.exec(body))) called.add(m[1]);
 
   const missing = [...imported].filter((name) => !called.has(name));
@@ -169,13 +170,13 @@ function main() {
   const { missing, noBody } = findReinitGaps(backupSrc);
   if (noBody) {
     failed = true;
-    console.error('Could not locate reinitializeAllStores in backup.ts - restore reinit check skipped.');
+    console.error('Could not locate STORE_INITIALISERS in backup.ts - restore reinit check skipped.');
   } else if (missing.length > 0) {
     failed = true;
-    console.error('Imported store initializers never called in reinitializeAllStores:');
+    console.error('Imported store initializers missing from STORE_INITIALISERS:');
     for (const name of missing) console.error(`  ${name}`);
     console.error('');
-    console.error('Fix: add the initialize* call to the reinitializeAllStores Promise.all block,');
+    console.error('Fix: add the initialize* function to the STORE_INITIALISERS table in backup.ts,');
     console.error('     or drop the unused import.');
     console.error('');
   }

@@ -43,29 +43,41 @@ const log = debug.create('Backup');
 // Shared helpers
 // ============================================================================
 
-/** Reinitialize all Zustand stores from storage (SQLite + AsyncStorage). */
+const STORE_INITIALISERS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+  ['initializeTheme', initializeTheme],
+  ['initializeLanguage', initializeLanguage],
+  ['initializeSportPreference', initializeSportPreference],
+  ['initializeHRZones', initializeHRZones],
+  ['initializeUnitPreference', initializeUnitPreference],
+  ['initializeRouteSettings', initializeRouteSettings],
+  ['initializeDashboardPreferences', initializeDashboardPreferences],
+  ['initializeDebugStore', initializeDebugStore],
+  ['initializeTileCacheStore', initializeTileCacheStore],
+  ['initializeWhatsNewStore', initializeWhatsNewStore],
+  ['initializeInsightsStore', initializeInsightsStore],
+  ['initializeRecordingPreferences', initializeRecordingPreferences],
+  ['initializeKnownSensors', initializeKnownSensors],
+  ['initializeUploadPermission', initializeUploadPermission],
+  ['initializeNotificationPreferences', initializeNotificationPreferences],
+  ['initializeNotificationPrompt', initializeNotificationPrompt],
+  ['initializeSupportStore', initializeSupportStore],
+  ['reloadCameraOverrides', reloadCameraOverrides],
+  ['reloadMapCameraState', reloadMapCameraState],
+];
+
+/**
+ * Reinitialize all Zustand stores from storage (SQLite + AsyncStorage).
+ *
+ * Settled, not all: one store failing to load must not leave the rest on
+ * pre-restore state.
+ */
 export async function reinitializeAllStores(): Promise<void> {
-  await Promise.all([
-    initializeTheme(),
-    initializeLanguage(),
-    initializeSportPreference(),
-    initializeHRZones(),
-    initializeUnitPreference(),
-    initializeRouteSettings(),
-    initializeDashboardPreferences(),
-    initializeDebugStore(),
-    initializeTileCacheStore(),
-    initializeWhatsNewStore(),
-    initializeInsightsStore(),
-    initializeRecordingPreferences(),
-    initializeKnownSensors(),
-    initializeUploadPermission(),
-    initializeNotificationPreferences(),
-    initializeNotificationPrompt(),
-    initializeSupportStore(),
-    reloadCameraOverrides(),
-    reloadMapCameraState(),
-  ]);
+  const results = await Promise.allSettled(STORE_INITIALISERS.map(([, init]) => init()));
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      log.error(`${STORE_INITIALISERS[index][0]} failed`, result.reason);
+    }
+  });
 }
 
 const BackupValidationSchema = z.object({
@@ -118,12 +130,20 @@ export interface DatabaseRestoreResult {
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
   if (!dbPath) {
-    return { success: false, activityCount: 0, error: 'Cannot determine database path' };
+    return {
+      success: false,
+      activityCount: 0,
+      error: 'Cannot determine database path',
+    };
   }
 
   const fileInfo = await FileSystem.getInfoAsync(fileUri);
   if (!fileInfo.exists || fileInfo.size === 0) {
-    return { success: false, activityCount: 0, error: 'Backup file is empty or missing' };
+    return {
+      success: false,
+      activityCount: 0,
+      error: 'Backup file is empty or missing',
+    };
   }
 
   // Copy to a unique temp path so Rust can open it (fileUri may be a content://
@@ -154,7 +174,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       } catch (e) {
         await cleanupTemp();
         log.warn('Backup validation failed - refusing to restore', e);
-        return { success: false, activityCount: 0, error: 'Backup file is corrupt or unreadable' };
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup file is corrupt or unreadable',
+        };
       }
 
       backupAthleteId = backupMeta.athlete_id;
@@ -164,7 +188,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       if (backupMeta.activity_count <= 0) {
         await cleanupTemp();
         log.warn('Backup contains no activities - refusing to restore');
-        return { success: false, activityCount: 0, error: 'Backup file is empty or corrupt' };
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup file is empty or corrupt',
+        };
       }
 
       // Refuse a backup whose schema is newer than this build can open. We don't
@@ -213,7 +241,10 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
     const backupPath = `${dbPath}.bak`;
     if (liveExists) {
-      await FileSystem.copyAsync({ from: `file://${dbPath}`, to: `file://${backupPath}` });
+      await FileSystem.copyAsync({
+        from: `file://${dbPath}`,
+        to: `file://${backupPath}`,
+      });
     }
 
     // The engine quarantines an unopenable database (renames it aside and
@@ -257,10 +288,17 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
       // Restore succeeded - drop the rollback snapshot.
       if (liveExists) {
-        await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+        await FileSystem.deleteAsync(`file://${backupPath}`, {
+          idempotent: true,
+        });
       }
 
-      return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
+      return {
+        success: true,
+        activityCount,
+        athleteIdMismatch: false,
+        backupAthleteId,
+      };
     } catch (error) {
       // Restore failed after the live DB was overwritten - roll back to the
       // snapshot. Close the engine first: it may hold an open connection to
@@ -273,8 +311,13 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       }
       if (liveExists) {
         try {
-          await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });
-          await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+          await FileSystem.copyAsync({
+            from: `file://${backupPath}`,
+            to: `file://${dbPath}`,
+          });
+          await FileSystem.deleteAsync(`file://${backupPath}`, {
+            idempotent: true,
+          });
         } catch {
           // Rollback copy failed - leave the .bak in place for manual recovery.
         }
