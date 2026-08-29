@@ -5,6 +5,7 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { buildStrengthProgression } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';
@@ -44,11 +45,11 @@ function ensureDemoStrengthSeeded(): void {
  * Compute start/end timestamps for a period, rounded to start-of-day
  * so the values are stable within a day (prevents queryKey churn).
  */
-function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: number } {
+export function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: number } {
   const now = new Date();
   // Round to end of today (23:59:59) so it's stable within the day
   now.setHours(23, 59, 59, 0);
-  const endTs = Math.floor(now.getTime() / 1000);
+  const endTs = localWallClockToEpochSeconds(now);
 
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
@@ -66,12 +67,12 @@ function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: nu
       start.setMonth(start.getMonth() - 6);
       break;
   }
-  const startTs = Math.floor(start.getTime() / 1000);
+  const startTs = localWallClockToEpochSeconds(start);
 
   return { startTs, endTs };
 }
 
-function getTrailingWeekRanges(weekCount: number): {
+export function getTrailingWeekRanges(weekCount: number): {
   label: string;
   startTs: number;
   endTs: number;
@@ -90,8 +91,8 @@ function getTrailingWeekRanges(weekCount: number): {
 
     ranges.push({
       label: index === 0 ? 'This wk' : `-${index}w`,
-      startTs: Math.floor(rangeStart.getTime() / 1000),
-      endTs: Math.floor(rangeEnd.getTime() / 1000),
+      startTs: localWallClockToEpochSeconds(rangeStart),
+      endTs: localWallClockToEpochSeconds(rangeEnd),
     });
   }
 
