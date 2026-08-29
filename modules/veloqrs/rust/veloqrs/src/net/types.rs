@@ -233,8 +233,8 @@ fn select(
 /// pace (min/km).
 ///
 /// The `latlng` validity mask governs every series, so all of them come back the
-/// same length in one index space. TypeScript's `parseStreams` has no such rule,
-/// so the two shapes are not interchangeable.
+/// same length in one index space. TypeScript's `parseStreams` applies the same
+/// rule, so the chart cursor and the map cursor index the same samples.
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
     let mut misaligned = Vec::new();
