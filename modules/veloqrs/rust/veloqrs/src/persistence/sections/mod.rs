@@ -23,6 +23,7 @@ pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
 pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
+pub use detection::detection_workers_started;
 
 use crate::sections::assign_carried_exclusions;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
