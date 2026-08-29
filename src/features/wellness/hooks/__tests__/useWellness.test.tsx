@@ -13,22 +13,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useWellness } from '@/features/wellness/hooks/useWellness';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { intervalsApi } from '@/api';
-
-jest.mock('@/api', () => ({
-  intervalsApi: { getWellness: jest.fn() },
-}));
-
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
     selector({ isAuthenticated: true }),
 }));
 
+const mockGetWellnessBodies = jest.fn<string[], [string, string]>();
+
 jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
+  getRouteEngine: () => ({ getWellnessBodies: mockGetWellnessBodies }),
 }));
 
-const mockGetWellness = intervalsApi.getWellness as jest.Mock;
+jest.mock('@/shared/native/useEngineChannel', () => ({
+  useEngineChannel: () => undefined,
+}));
 
 // Fake only the clock, so react-query's own timers stay real.
 const DATE_ONLY: Pick<Config.FakeTimersConfig, 'doNotFake'> = {
@@ -62,7 +60,7 @@ afterEach(() => {
   // The 24 h gcTime arms a real timer that would keep the node process alive.
   activeClient?.clear();
   jest.useRealTimers();
-  mockGetWellness.mockReset();
+  mockGetWellnessBodies.mockReset();
 });
 
 describe('queryKeys.wellness.byRange', () => {
@@ -83,7 +81,7 @@ describe('queryKeys.wellness.byRange', () => {
 describe('useWellness', () => {
   it('keys the cache on the window it fetched', async () => {
     jest.useFakeTimers({ ...DATE_ONLY, now: new Date('2026-08-28T09:00:00') });
-    mockGetWellness.mockResolvedValue([]);
+    mockGetWellnessBodies.mockReturnValue([]);
     const client = newClient();
 
     const { result } = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
@@ -95,7 +93,7 @@ describe('useWellness', () => {
 
   it('refetches on the next day instead of serving the stale window', async () => {
     jest.useFakeTimers({ ...DATE_ONLY, now: new Date('2026-08-28T09:00:00') });
-    mockGetWellness.mockResolvedValue([{ id: '2026-08-28' }]);
+    mockGetWellnessBodies.mockReturnValue([JSON.stringify({ id: '2026-08-28' })]);
     const client = newClient();
 
     const first = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
@@ -103,17 +101,14 @@ describe('useWellness', () => {
     first.unmount();
 
     jest.setSystemTime(new Date('2026-08-29T09:00:00'));
-    mockGetWellness.mockResolvedValue([{ id: '2026-08-29' }]);
+    mockGetWellnessBodies.mockReturnValue([JSON.stringify({ id: '2026-08-29' })]);
 
     const second = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     // Yesterday's rows must not paint the chart while today's window loads.
     expect(second.result.current.data).toBeUndefined();
     await waitFor(() => expect(second.result.current.data).toEqual([{ id: '2026-08-29' }]));
 
-    expect(mockGetWellness).toHaveBeenCalledTimes(2);
-    expect(mockGetWellness).toHaveBeenLastCalledWith({
-      oldest: '2026-08-22',
-      newest: '2026-08-29',
-    });
+    expect(mockGetWellnessBodies).toHaveBeenCalledTimes(2);
+    expect(mockGetWellnessBodies).toHaveBeenLastCalledWith('2026-08-22', '2026-08-29');
   });
 });
