@@ -72,7 +72,7 @@ export function useWellness(range: TimeRange = '3m') {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return useQuery<WellnessData[]>({
-    queryKey: queryKeys.wellness.byRange(range),
+    queryKey: queryKeys.wellness.byRange(range, oldest, newest),
     queryFn: async () => {
       const rows = await intervalsApi.getWellness({ oldest, newest });
       syncWellnessToEngine(rows);
