@@ -58,7 +58,7 @@ const CORRUPT_ID_LOG_CAP: usize = 20;
 /// Whether a pool with this many unreadable rows may still be cut over. Both
 /// bars must be cleared to abandon: enough unreadable rows to rule out
 /// isolated rot, and enough of the store to rule out a catalogue worth cutting.
-fn pool_is_usable(readable: usize, corrupt: usize) -> bool {
+pub(crate) fn pool_is_usable(readable: usize, corrupt: usize) -> bool {
     let total = readable + corrupt;
     if total == 0 || corrupt < MIN_CORRUPT_TO_ABANDON {
         return true;
