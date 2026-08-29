@@ -49,6 +49,14 @@ interface RecordingState {
   pairedEventId: number | null;
   /** Sample-and-hold of the latest sensor values, written by the sensors feature. */
   latestSensor: Record<SensorStreamKind, SensorSampleLite | null>;
+  /**
+   * Speed from the last raw location fix, written whether or not points are
+   * being recorded. Auto-pause needs a signal that survives a pause, and
+   * `streams.speed` stops growing the moment `addGpsPoint` starts refusing.
+   */
+  rawSpeed: SensorSampleLite | null;
+  // Internal: previous raw fix, so speed can be derived when the OS omits it
+  _lastRawFix: { latitude: number; longitude: number; timestamp: number } | null;
   // Internal: track pause start for duration accumulation
   _pauseStart: number | null;
   // Actions
@@ -58,6 +66,7 @@ interface RecordingState {
   stopRecording: () => void;
   changeActivityType: (type: ActivityType) => void;
   addGpsPoint: (point: RecordingGpsPoint) => void;
+  setRawLocationFix: (fix: RecordingGpsPoint) => void;
   setSensorSample: (kind: SensorStreamKind, value: number) => void;
   /** Indoor mode has no GPS points; a 1 Hz tick appends aligned sensor samples instead. */
   addIndoorSample: () => void;
@@ -76,6 +85,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   laps: [],
   pairedEventId: null,
   latestSensor: { heartrate: null, power: null, cadence: null },
+  rawSpeed: null,
+  _lastRawFix: null,
   _pauseStart: null,
 
   startRecording: (type, mode, pairedEventId) => {
@@ -98,6 +109,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       laps: [],
       pairedEventId: pairedEventId ?? null,
       latestSensor: { heartrate: null, power: null, cadence: null },
+      rawSpeed: null,
+      _lastRawFix: null,
       _pauseStart: null,
     });
   },
@@ -192,6 +205,30 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({ streams: { ...streams } });
   },
 
+  setRawLocationFix: (fix) => {
+    const { _lastRawFix } = get();
+    let speed = fix.speed ?? null;
+    if (_lastRawFix) {
+      const dt = (fix.timestamp - _lastRawFix.timestamp) / 1000;
+      if (dt <= 0) return;
+      speed =
+        haversineDistance(
+          _lastRawFix.latitude,
+          _lastRawFix.longitude,
+          fix.latitude,
+          fix.longitude
+        ) / dt;
+    }
+    set({
+      _lastRawFix: {
+        latitude: fix.latitude,
+        longitude: fix.longitude,
+        timestamp: fix.timestamp,
+      },
+      rawSpeed: speed == null ? get().rawSpeed : { value: Math.max(speed, 0), at: fix.timestamp },
+    });
+  },
+
   setSensorSample: (kind, value) => {
     if (!Number.isFinite(value) || value < 0) return;
     set((state) => ({
@@ -277,6 +314,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       laps: [],
       pairedEventId: null,
       latestSensor: { heartrate: null, power: null, cadence: null },
+      rawSpeed: null,
+      _lastRawFix: null,
       _pauseStart: null,
     });
   },
