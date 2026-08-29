@@ -1,10 +1,7 @@
 import { create } from 'zustand';
 
-import { getSetting, setSetting } from '@/shared/storage';
-
 import type { Insight } from './types';
-
-const STORAGE_KEY = 'veloq-insights-fingerprint';
+import { readInsightFingerprint, writeInsightFingerprint } from './lib/fingerprintStore';
 
 /** Compute a stable fingerprint from a list of insights (sorted IDs only).
  *  Titles contain dynamic values (percentages, watts) that change between
@@ -49,8 +46,8 @@ export const useInsightsStore = create<InsightsState>((set) => ({
 
   initialize: async () => {
     try {
-      const stored = await getSetting(STORAGE_KEY);
-      if (stored && typeof stored === 'string') {
+      const stored = await readInsightFingerprint();
+      if (stored) {
         set({ lastSeenFingerprint: stored, isLoaded: true });
         return;
       }
@@ -63,7 +60,7 @@ export const useInsightsStore = create<InsightsState>((set) => ({
   markSeen: (insights: Insight[]) => {
     const fingerprint = computeInsightFingerprint(insights);
     set({ lastSeenFingerprint: fingerprint, hasNewInsights: false, changedInsightIds: new Set() });
-    setSetting(STORAGE_KEY, fingerprint).catch(() => {});
+    writeInsightFingerprint(fingerprint).catch(() => {});
   },
 
   setNewInsights: (changed: Set<string>) => {

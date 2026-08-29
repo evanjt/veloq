@@ -1,11 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  readInsightFingerprint,
+  writeInsightFingerprint,
+} from '@/features/insights/lib/fingerprintStore';
+import {
   useInsightsStore,
   initializeInsightsStore,
   computeInsightFingerprint,
   diffInsights,
 } from '@/features/insights/store';
 import type { Insight } from '@/types';
+
+const mockEngineSettings = new Map<string, string>();
+
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: () => ({
+    getSetting: (key: string) => mockEngineSettings.get(key),
+    setSetting: (key: string, value: string) => {
+      mockEngineSettings.set(key, value);
+    },
+    removeSetting: (key: string) => {
+      mockEngineSettings.delete(key);
+    },
+  }),
+}));
 
 const STORAGE_KEY = 'veloq-insights-fingerprint';
 
@@ -29,6 +47,7 @@ describe('InsightsStore', () => {
       isLoaded: false,
     });
     await AsyncStorage.clear();
+    mockEngineSettings.clear();
     jest.clearAllMocks();
   });
 
@@ -158,5 +177,40 @@ describe('diffInsights', () => {
     const updated = [makeInsight('a', 'New')];
     const changed = diffInsights(updated, fp);
     expect(changed.size).toBe(0);
+  });
+
+  /** Scenario: a background run advances the fingerprint while the app is closed.
+   *  Expected behaviour: the next foreground `initialize()` picks that write up,
+   *  so already-notified insights are not re-flagged as new. */
+  describe('fingerprint shared with the background task', () => {
+    it('initialises from a fingerprint the background task wrote after a markSeen', async () => {
+      useInsightsStore.getState().markSeen([makeInsight('a', 'A')]);
+      await Promise.resolve();
+
+      await writeInsightFingerprint('a|b');
+      useInsightsStore.setState({ lastSeenFingerprint: '', isLoaded: false });
+      await initializeInsightsStore();
+
+      const seen = useInsightsStore.getState().lastSeenFingerprint;
+      expect(seen).toBe('a|b');
+      expect(diffInsights([makeInsight('a', 'A'), makeInsight('b', 'B')], seen).size).toBe(0);
+    });
+
+    it('writes through to SQLite, so a later read cannot pick up a stale copy', async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, 'section_pr-stale');
+
+      await writeInsightFingerprint('a|b');
+
+      expect(mockEngineSettings.get(STORAGE_KEY)).toBe('a|b');
+    });
+
+    it('serves a foreground markSeen to the background reader', async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, 'section_pr-stale');
+
+      useInsightsStore.getState().markSeen([makeInsight('a', 'A'), makeInsight('b', 'B')]);
+      await Promise.resolve();
+
+      expect(await readInsightFingerprint()).toBe('a|b');
+    });
   });
 });
