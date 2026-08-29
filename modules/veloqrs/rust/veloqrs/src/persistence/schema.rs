@@ -307,6 +307,67 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Every index on `sections` as `CREATE INDEX IF NOT EXISTS`, so a rebuild
+    /// can replay what a migration added without naming it here. Indexes
+    /// SQLite made itself for a UNIQUE or PRIMARY KEY have no `sql` and come
+    /// back with the table definition.
+    fn sections_index_ddl(conn: &Connection) -> SqlResult<Vec<String>> {
+        conn.prepare(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index' AND tbl_name = 'sections' AND sql IS NOT NULL",
+        )?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .map(|sql| sql.map(|sql| sql.replacen("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", 1)))
+        .collect()
+    }
+
+    /// Add to `to` any column `from` carries that the rebuild's fixed DDL does
+    /// not name, so a migration written after this hook keeps its data and its
+    /// indexes. NOT NULL without a default cannot be added to a populated
+    /// table, so that column is added nullable rather than failing the swap.
+    fn carry_forward_columns(conn: &Connection, from: &str, to: &str) -> SqlResult<()> {
+        let existing: Vec<String> = conn
+            .prepare(&format!("PRAGMA table_info({to})"))?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<SqlResult<_>>()?;
+        let source: Vec<(String, String, i64, Option<String>)> = conn
+            .prepare(&format!("PRAGMA table_info({from})"))?
+            .query_map([], |row| {
+                Ok((row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+            })?
+            .collect::<SqlResult<_>>()?;
+        for (name, kind, notnull, default) in source {
+            if existing.contains(&name) {
+                continue;
+            }
+            let mut ddl = format!("ALTER TABLE {to} ADD COLUMN \"{name}\" {kind}");
+            if let Some(default) = &default {
+                ddl.push_str(&format!(" DEFAULT {default}"));
+                if notnull != 0 {
+                    ddl.push_str(" NOT NULL");
+                }
+            }
+            conn.execute(&ddl, [])?;
+            log::info!("tracematch: [Schema] carried {name} through the sections rebuild");
+        }
+        Ok(())
+    }
+
+    /// Columns the two tables share, in the destination's order.
+    fn shared_columns(conn: &Connection, from: &str, to: &str) -> SqlResult<String> {
+        let names = |table: &str| -> SqlResult<Vec<String>> {
+            conn.prepare(&format!("PRAGMA table_info({table})"))?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .collect()
+        };
+        let source = names(from)?;
+        let shared: Vec<String> = names(to)?
+            .into_iter()
+            .filter(|name| source.contains(name))
+            .collect();
+        Ok(shared.join(", "))
+    }
+
     /// Rebuild `sections` so `polyline_json` is nullable. The blob has been
     /// the geometry since 0.3.0 and the column has carried a placeholder
     /// since; a NOT NULL column that every write must fill with nothing is a
@@ -335,16 +396,10 @@ impl PersistentRouteEngine {
     /// One transaction: a leftover from a torn run is dropped first, the old
     /// table survives any failure, and the swap is atomic.
     fn rebuild_sections_nullable(conn: &Connection) -> SqlResult<()> {
-        const COLUMNS: &str = "id, section_type, name, sport_type, polyline_json, distance_meters,
-             representative_activity_id, confidence, observation_count, average_spread,
-             point_density_json, scale, version, is_user_defined, stability,
-             source_activity_id, start_index, end_index, created_at, updated_at,
-             bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-             original_polyline_json, disabled, superseded_by, consensus_state_blob,
-             polyline_blob, point_density_blob, visit_count, rep_start_index,
-             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent,
-             activity_count, sport_types, elevation_loss_m, max_grade_percent, straightness,
-             klass, is_lift, rank_score, sport_rank_score";
+        // Both the copied columns and the replayed indexes are read off the
+        // live table, so a column or index a later migration adds survives a
+        // rebuild that predates it.
+        let index_ddl = Self::sections_index_ddl(conn)?;
         let tx = conn.unchecked_transaction()?;
         tx.execute_batch(
             "DROP TABLE IF EXISTS sections_rebuild;
@@ -398,8 +453,10 @@ impl PersistentRouteEngine {
                  sport_rank_score REAL
              );",
         )?;
+        Self::carry_forward_columns(&tx, "sections", "sections_rebuild")?;
+        let columns = Self::shared_columns(&tx, "sections", "sections_rebuild")?;
         tx.execute(
-            &format!("INSERT INTO sections_rebuild ({COLUMNS}) SELECT {COLUMNS} FROM sections"),
+            &format!("INSERT INTO sections_rebuild ({columns}) SELECT {columns} FROM sections"),
             [],
         )?;
         // The visit_count triggers name `sections` in their bodies, and a
@@ -421,6 +478,9 @@ impl PersistentRouteEngine {
              CREATE INDEX IF NOT EXISTS idx_sections_disabled ON sections(disabled);
              CREATE INDEX IF NOT EXISTS idx_sections_superseded ON sections(superseded_by);",
         )?;
+        for ddl in &index_ddl {
+            tx.execute_batch(ddl)?;
+        }
         tx.commit()?;
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_summary_denormalisation(conn)?;
