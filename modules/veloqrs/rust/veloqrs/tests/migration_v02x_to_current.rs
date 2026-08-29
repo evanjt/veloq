@@ -1376,3 +1376,49 @@ fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
         );
     }
 }
+
+/// SB7. A failed FIT download used to be recorded as a settled `has_sets = 0`,
+/// which excluded the activity from every retry path for good. The upgrade drops
+/// those rows so a poisoned install re-queues its strength activities.
+#[test]
+fn migration_020_requeues_poisoned_fit_rows() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("fit_poison.db");
+
+    {
+        let conn = seed_at_version(&path, 19);
+        insert_activity(&conn, "act_lift", "WeightTraining", SEED_ACTIVITY_DATE);
+        insert_activity(&conn, "act_kept", "WeightTraining", SEED_ACTIVITY_DATE);
+        conn.execute(
+            "INSERT INTO fit_file_status(activity_id, processed_at, has_sets)
+             VALUES ('act_lift', 1700000000, 0), ('act_kept', 1700000000, 1)",
+            [],
+        )
+        .expect("seed fit status");
+    }
+
+    upgrade_in_place(&path);
+
+    let conn = Connection::open(&path).expect("reopen");
+    let poisoned: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM fit_file_status WHERE activity_id = 'act_lift'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(
+        poisoned, 0,
+        "a has_sets = 0 row cannot be told apart from a failed download, so the \
+         upgrade must re-queue it"
+    );
+
+    let kept: String = conn
+        .query_row(
+            "SELECT outcome FROM fit_file_status WHERE activity_id = 'act_kept'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("kept row survives");
+    assert_eq!(kept, "parsed", "an activity with sets keeps its verdict");
+}
