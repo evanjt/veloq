@@ -1298,6 +1298,12 @@ impl PersistentRouteEngine {
             .ok_or_else(|| "cache blob tag".to_string())
             .and_then(|b| codec::deserialize_gps_composite::<SectionEvidenceCache>(b))
             .and_then(|cache| {
+                // The blob tag only frames the row. A layout bump changes what
+                // the decoded cluster shape means, so the cache's own version
+                // is the guard that decides whether it can be trusted.
+                if !cache.is_current() {
+                    return Err("cache layout version".to_string());
+                }
                 let folded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &folded_blob)
                     .ok_or_else(|| "folded blob tag".to_string())
                     .and_then(codec::deserialize_gps_composite::<Vec<String>>)?;
@@ -1458,5 +1464,69 @@ mod tests {
             )
             .unwrap();
         assert_eq!(orphan_matches, 0);
+    }
+
+    /// A cache blob as an older or newer build would have written it: the same
+    /// named fields, a layout version this build does not recognise. Memos are
+    /// `serde(default)` so the shape stays minimal.
+    #[derive(serde::Serialize)]
+    struct ForeignVersionCache {
+        version: u32,
+        sports: HashMap<String, Vec<u8>>,
+    }
+
+    fn write_evidence_row(engine: &PersistentRouteEngine, cache_body: Vec<u8>) {
+        let digest = super::super::section_config_digest(&engine.section_config);
+        let folded = codec::tag_blob(
+            EVIDENCE_CACHE_BLOB_VERSION,
+            codec::serialize_gps_composite(&vec!["a1".to_string()]).unwrap(),
+        );
+        engine
+            .db
+            .execute(
+                "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
+                 VALUES (1, ?1, ?2, ?3, 0)",
+                params![
+                    digest,
+                    folded,
+                    codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, cache_body)
+                ],
+            )
+            .unwrap();
+    }
+
+    fn evidence_rows(engine: &PersistentRouteEngine) -> i64 {
+        engine
+            .db
+            .query_row("SELECT COUNT(*) FROM evidence_cache", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    /// The blob tag and the config digest both stay valid across a layout
+    /// bump, so without the cache's own version check the catalogue would
+    /// freeze at the previous detector's answer.
+    #[test]
+    fn a_cache_from_another_layout_version_is_rejected() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let stale = codec::serialize_named(&ForeignVersionCache {
+            version: u32::MAX,
+            sports: HashMap::new(),
+        })
+        .unwrap();
+        write_evidence_row(&engine, stale);
+
+        assert!(!engine.restore_evidence_cache());
+        assert!(engine.cache_folded_ids.is_empty());
+        assert_eq!(evidence_rows(&engine), 0);
+    }
+
+    #[test]
+    fn a_cache_at_the_current_layout_version_is_adopted() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
+        write_evidence_row(&engine, current);
+
+        assert!(engine.restore_evidence_cache());
+        assert!(engine.cache_folded_ids.contains("a1"));
     }
 }
