@@ -349,7 +349,7 @@ impl SectionManager {
             // Recompute indicators since exclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -364,7 +364,7 @@ impl SectionManager {
             // Recompute indicators since inclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -387,7 +387,7 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_lap] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_lap] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -406,7 +406,7 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_lap] Indicator recomputation failed: {}",
+                    "veloqrs: [include_lap] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -758,7 +758,7 @@ impl SectionManager {
             engine
                 .rematch_activity_to_section(&activity_id, &section_id)
                 .unwrap_or_else(|e| {
-                    log::warn!("tracematch: [rematch] {}", e);
+                    log::warn!("veloqrs: [rematch] {}", e);
                     false
                 })
         })

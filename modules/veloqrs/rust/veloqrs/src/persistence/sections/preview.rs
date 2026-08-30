@@ -607,7 +607,7 @@ impl PersistentRouteEngine {
                     c
                 }
                 Err(e) => {
-                    log::error!("tracematch: [SectionPreview] Failed to open read-only DB: {e:?}");
+                    log::error!("veloqrs: [SectionPreview] Failed to open read-only DB: {e:?}");
                     return;
                 }
             };
@@ -655,7 +655,7 @@ impl PersistentRouteEngine {
             }
 
             log::info!(
-                "tracematch: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
+                "veloqrs: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
                 pool.tracks.len(),
                 pool.empty,
                 pool.unreadable,
@@ -667,7 +667,7 @@ impl PersistentRouteEngine {
             // is reported to the caller and nothing is recorded.
             if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
                 log::error!(
-                    "tracematch: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
+                    "veloqrs: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
                     pool.unreadable,
                     pool.readable + pool.unreadable as usize
                 );
@@ -729,7 +729,7 @@ impl PersistentRouteEngine {
                     tx.send(PreviewOutcome::Complete(json)).ok();
                 }
                 Err(e) => {
-                    log::error!("tracematch: [SectionPreview] Payload serialisation failed: {e}");
+                    log::error!("veloqrs: [SectionPreview] Payload serialisation failed: {e}");
                 }
             }
         });

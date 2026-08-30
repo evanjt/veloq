@@ -53,7 +53,7 @@ impl PersistentRouteEngine {
                 Ok(s) => s,
                 Err(e) => {
                     log::error!(
-                        "tracematch: [RankedSections] Failed to prepare query: {}",
+                        "veloqrs: [RankedSections] Failed to prepare query: {}",
                         e
                     );
                     return Vec::new();
@@ -70,7 +70,7 @@ impl PersistentRouteEngine {
             }) {
                 Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
                 Err(e) => {
-                    log::error!("tracematch: [RankedSections] Query failed: {}", e);
+                    log::error!("veloqrs: [RankedSections] Query failed: {}", e);
                     return Vec::new();
                 }
             }
@@ -90,7 +90,7 @@ impl PersistentRouteEngine {
 
         if rows.is_empty() {
             log::info!(
-                "tracematch: [RankedSections] No traversals found for sport_type={}",
+                "veloqrs: [RankedSections] No traversals found for sport_type={}",
                 sport_type
             );
             return Vec::new();
@@ -277,7 +277,7 @@ impl PersistentRouteEngine {
         ranked.truncate(limit as usize);
 
         log::info!(
-            "tracematch: [RankedSections] Ranked {} sections for sport_type={} in {:?} (returning top {})",
+            "veloqrs: [RankedSections] Ranked {} sections for sport_type={} in {:?} (returning top {})",
             sections.len(),
             sport_type,
             start.elapsed(),

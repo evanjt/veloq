@@ -81,7 +81,7 @@ impl PersistentRouteEngine {
             .unwrap_or(0);
 
         log::info!(
-            "tracematch: [Schema] Current version: {}, Target version: {}",
+            "veloqrs: [Schema] Current version: {}, Target version: {}",
             current_version,
             Self::SCHEMA_VERSION
         );
@@ -144,7 +144,7 @@ impl PersistentRouteEngine {
                 )?;
                 if needs_population > 0 {
                     log::info!(
-                        "tracematch: [Migration] Populating performance cache for {} section portions...",
+                        "veloqrs: [Migration] Populating performance cache for {} section portions...",
                         needs_population
                     );
                     Self::populate_performance_cache(conn)?;
@@ -167,7 +167,7 @@ impl PersistentRouteEngine {
         // launch migrates nothing, so a timing there would read as one.
         if current_version < Self::SCHEMA_VERSION {
             log::info!(
-                "tracematch: [Schema] Migration complete from version {} to {}, migrations {}ms, hooks {}ms",
+                "veloqrs: [Schema] Migration complete from version {} to {}, migrations {}ms, hooks {}ms",
                 current_version,
                 Self::SCHEMA_VERSION,
                 migrations_ms,
@@ -195,7 +195,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converting {} section polylines from JSON to binary...",
+            "veloqrs: [Migration] Converting {} section polylines from JSON to binary...",
             rows.len()
         );
 
@@ -220,7 +220,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converted {}/{} section polylines to binary",
+            "veloqrs: [Migration] Converted {}/{} section polylines to binary",
             converted,
             rows.len()
         );
@@ -240,7 +240,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converting {} route group activity_ids from JSON to binary...",
+            "veloqrs: [Migration] Converting {} route group activity_ids from JSON to binary...",
             rows.len()
         );
 
@@ -258,7 +258,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converted {}/{} route group activity_ids to binary",
+            "veloqrs: [Migration] Converted {}/{} route group activity_ids to binary",
             converted,
             rows.len()
         );
@@ -352,7 +352,7 @@ impl PersistentRouteEngine {
                 }
             }
             conn.execute(&ddl, [])?;
-            log::info!("tracematch: [Schema] carried {name} through the sections rebuild");
+            log::info!("veloqrs: [Schema] carried {name} through the sections rebuild");
         }
         Ok(())
     }
@@ -494,7 +494,7 @@ impl PersistentRouteEngine {
             })?;
         if violations > 0 {
             log::warn!(
-                "tracematch: [Schema] {} foreign key rows dangling after the sections rebuild",
+                "veloqrs: [Schema] {} foreign key rows dangling after the sections rebuild",
                 violations
             );
         }
@@ -574,9 +574,9 @@ impl PersistentRouteEngine {
             // later open can improve on, so the marker still lands and the
             // count is the only record that it was passed over.
             Ok((seeded, skipped)) => log::info!(
-                "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
+                "veloqrs: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
             ),
-            Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
+            Err(e) => log::warn!("veloqrs: [Migration] Baseline geometry seeding failed: {e}"),
         }
     }
 
@@ -617,7 +617,7 @@ impl PersistentRouteEngine {
              )",
         ) {
             log::warn!(
-                "tracematch: [Migration] ensure_catalogue_archive failed: {}",
+                "veloqrs: [Migration] ensure_catalogue_archive failed: {}",
                 e
             );
         }
@@ -860,7 +860,7 @@ impl PersistentRouteEngine {
         tx.commit()?;
         if !renames.is_empty() {
             log::info!(
-                "tracematch: [Schema] Re-keyed {} sections to content ids",
+                "veloqrs: [Schema] Re-keyed {} sections to content ids",
                 renames.len()
             );
         }
@@ -1001,7 +1001,7 @@ impl PersistentRouteEngine {
         }
         if promoted > 0 {
             log::info!(
-                "tracematch: [Schema] Promoted {promoted} legacy section names to named intents"
+                "veloqrs: [Schema] Promoted {promoted} legacy section names to named intents"
             );
         }
         Ok(())
@@ -1018,7 +1018,7 @@ impl PersistentRouteEngine {
 
         let total_sections = section_ids.len();
         log::info!(
-            "tracematch: [Migration] Found {} sections needing performance cache population",
+            "veloqrs: [Migration] Found {} sections needing performance cache population",
             total_sections
         );
 
@@ -1028,7 +1028,7 @@ impl PersistentRouteEngine {
         for (section_idx, section_id) in section_ids.iter().enumerate() {
             if section_idx % 10 == 0 && section_idx > 0 {
                 log::info!(
-                    "tracematch: [Migration] Progress: {}/{} sections, {} portions populated",
+                    "veloqrs: [Migration] Progress: {}/{} sections, {} portions populated",
                     section_idx,
                     total_sections,
                     populated_portions
@@ -1113,7 +1113,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Performance cache population complete: {}/{} portions populated",
+            "veloqrs: [Migration] Performance cache population complete: {}/{} portions populated",
             populated_portions,
             total_portions
         );
@@ -1136,7 +1136,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Populating bounds for {} sections...",
+            "veloqrs: [Migration] Populating bounds for {} sections...",
             sections.len()
         );
 
@@ -1162,7 +1162,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Populated bounds for {}/{} sections",
+            "veloqrs: [Migration] Populated bounds for {}/{} sections",
             populated,
             sections.len()
         );
@@ -1182,7 +1182,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Backfilling activity_count for {} route groups...",
+            "veloqrs: [Migration] Backfilling activity_count for {} route groups...",
             groups.len()
         );
 
@@ -1197,7 +1197,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Backfilled activity_count for {} route groups",
+            "veloqrs: [Migration] Backfilled activity_count for {} route groups",
             groups.len()
         );
 
@@ -1207,10 +1207,10 @@ impl PersistentRouteEngine {
     /// Populate all performance caches for migration from schema v3 to v4.
     /// Consolidates zone distributions, FTP history, and heatmap intensity.
     fn populate_all_performance_caches(conn: &Connection) -> SqlResult<()> {
-        log::info!("tracematch: [Migration] Populating all performance caches...");
+        log::info!("veloqrs: [Migration] Populating all performance caches...");
 
         // Part 1: Zone distribution cache
-        log::info!("tracematch: [Migration]   - Populating zone cache from JSON blobs...");
+        log::info!("veloqrs: [Migration]   - Populating zone cache from JSON blobs...");
         let mut stmt = conn.prepare(
             "SELECT activity_id, power_zone_times, hr_zone_times FROM activity_metrics
              WHERE power_zone_times IS NOT NULL OR hr_zone_times IS NOT NULL",
@@ -1253,7 +1253,7 @@ impl PersistentRouteEngine {
         }
 
         // Part 2: FTP history cache
-        log::info!("tracematch: [Migration]   - Populating FTP history cache...");
+        log::info!("veloqrs: [Migration]   - Populating FTP history cache...");
         conn.execute("DELETE FROM ftp_history", [])?;
         conn.execute(
             "INSERT INTO ftp_history (date, ftp, activity_id, sport_type)
@@ -1265,7 +1265,7 @@ impl PersistentRouteEngine {
         )?;
 
         // Part 3: Heatmap intensity cache
-        log::info!("tracematch: [Migration]   - Populating heatmap intensity cache...");
+        log::info!("veloqrs: [Migration]   - Populating heatmap intensity cache...");
         conn.execute("DELETE FROM activity_heatmap", [])?;
         conn.execute(
             "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
@@ -1285,7 +1285,7 @@ impl PersistentRouteEngine {
             [],
         )?;
 
-        log::info!("tracematch: [Migration] All performance caches populated successfully");
+        log::info!("veloqrs: [Migration] All performance caches populated successfully");
         Ok(())
     }
 }
