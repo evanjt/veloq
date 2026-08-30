@@ -15623,6 +15623,14 @@ const FfiConverterTypeStrengthManager = new FfiConverterObject(
  */
 export interface SyncManagerLike {
   /**
+   * How many on-demand bodies have landed in SQLite this session.
+   *
+   * An on-demand fetch settles on a Rust thread with no way to reach the
+   * TypeScript listener map, so a reader waiting on a body watches this and
+   * fans a change out over the engine channel when it moves.
+   */
+  bodiesStored(): /*u64*/ bigint;
+  /**
    * Soft-cancel the running sync.
    */
   cancel(): void;
@@ -15749,6 +15757,27 @@ export class SyncManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSyncManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * How many on-demand bodies have landed in SQLite this session.
+   *
+   * An on-demand fetch settles on a Rust thread with no way to reach the
+   * TypeScript listener map, so a reader waiting on a body watches this and
+   * fans a change out over the engine channel when it moves.
+   */
+  bodiesStored(): /*u64*/ bigint {
+    return FfiConverterUInt64.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_bodies_stored(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -19007,6 +19036,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored() !==
+    23413
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_bodies_stored",
     );
   }
   if (

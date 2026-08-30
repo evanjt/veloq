@@ -28,6 +28,8 @@ const engine = {
   savePaceSnapshot: jest.fn(),
   getWeeklySummaries: jest.fn(),
   subscribe: jest.fn(() => () => {}),
+  getBodiesStored: jest.fn(() => 0),
+  triggerRefresh: jest.fn(),
 };
 
 const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
