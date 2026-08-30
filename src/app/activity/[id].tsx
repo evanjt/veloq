@@ -37,6 +37,7 @@ import type {
 } from '@/features/maps/components/ActivityMapView';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
+import type { Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing } from '@/theme';
@@ -50,6 +51,9 @@ import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
+
+/** Stable empty list so the custom-sections hook keeps skipping its own read. */
+const NO_CUSTOM_SECTIONS: NativeSection[] = [];
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42);
@@ -116,8 +120,10 @@ export default function ActivityDetailScreen() {
   const [sectionCreationError, setSectionCreationError] = useState<SectionCreationError | null>(
     null
   );
+  // The batch owns the custom sections here, empty until it lands, so the hook
+  // never opens a read of its own on this screen.
   const { createSection, removeSection, sections } = useCustomSections({
-    preComputedSections: detail?.customSections,
+    preComputedSections: detail?.customSections ?? NO_CUSTOM_SECTIONS,
   });
   // Highlighted section ID for map (when user long-presses a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
