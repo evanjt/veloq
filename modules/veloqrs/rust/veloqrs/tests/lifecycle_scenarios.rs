@@ -7,18 +7,18 @@
 //! cold-after-wipe).
 //!
 //! Test naming convention:
-//! - `scenario_*_baseline` — default-on. Prints perf + behaviour metrics for
+//! - `scenario_*_baseline`, default-on. Prints perf + behaviour metrics for
 //!   the perf doc, asserts only weak invariants (no section disappears
 //!   entirely, sport types stay stable, ingestion succeeds). Captures
 //!   current behaviour without gating future work.
-//! - `scenario_*_stable` — `#[ignore]`. Strict invariants the codebase
+//! - `scenario_*_stable`, `#[ignore]`. Strict invariants the codebase
 //!   should satisfy after Tier 2.1's incremental-consensus rewrite ships.
 //!   These are the explicit success gate for that work.
 //!
 //! Two purposes:
-//! 1. **Performance baseline** — every step prints its timing to stdout. The
+//! 1. **Performance baseline**, every step prints its timing to stdout. The
 //!    perf doc is regenerated from the captured output.
-//! 2. **Correctness regression net** — the `_stable` tests document the
+//! 2. **Correctness regression net**, the `_stable` tests document the
 //!    behaviour we want; the `_baseline` tests document what we have. The
 //!    delta between them is the work Tier 2.1 must close.
 
@@ -30,7 +30,7 @@ use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus}
 use veloqrs::PersistentRouteEngine;
 
 // ============================================================================
-// Snapshot types — what we record per step
+// Snapshot types, what we record per step
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,7 +169,7 @@ fn ingest_step(
 }
 
 // ============================================================================
-// Behaviour metrics — measured, not asserted (printed for the perf doc)
+// Behaviour metrics, measured, not asserted (printed for the perf doc)
 // ============================================================================
 
 #[derive(Debug, Default)]
@@ -275,7 +275,7 @@ fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnapshot)
 // ============================================================================
 
 /// Every section's sport_type must remain stable across an incremental add.
-/// This is a baseline correctness property — even today, sport_type churn
+/// This is a baseline correctness property, even today, sport_type churn
 /// would indicate a serious bug.
 fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) {
     for (id, prev) in &before.sections {
@@ -290,7 +290,7 @@ fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) 
 }
 
 // ============================================================================
-// Scenario A — cold start (no comparisons; just baseline)
+// Scenario A, cold start (no comparisons; just baseline)
 // ============================================================================
 
 #[test]
@@ -317,7 +317,7 @@ fn scenario_a_cold_start_90d_baseline() {
 }
 
 // ============================================================================
-// Scenario B — expand 90d → 1y
+// Scenario B, expand 90d → 1y
 // ============================================================================
 
 #[test]
@@ -380,7 +380,7 @@ fn scenario_b_expand_to_1y_stable() {
 }
 
 // ============================================================================
-// Scenario C — single-activity add
+// Scenario C, single-activity add
 // ============================================================================
 
 #[test]
@@ -444,7 +444,7 @@ fn scenario_c_single_add_stable() {
 }
 
 // ============================================================================
-// Scenario D — small batch (3 activities)
+// Scenario D, small batch (3 activities)
 // ============================================================================
 
 #[test]
@@ -552,7 +552,7 @@ fn assert_losses_are_fired_events(
 }
 
 // ============================================================================
-// Scenario E — year expansion (~550 activities, crosses BATCH_CAP=500)
+// Scenario E, year expansion (~550 activities, crosses BATCH_CAP=500)
 // ============================================================================
 
 #[test]
@@ -598,7 +598,7 @@ fn scenario_e_year_expansion_baseline() {
 }
 
 // ============================================================================
-// Scenario F — full-rebuild convergence (incremental sequence vs single-shot)
+// Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
 #[test]

@@ -241,7 +241,7 @@ fn pr_long_section_relative_tolerance_distinguishes_from_absolute() {
     assert_eq!(r.len(), 1);
     assert!(
         r[0].is_pr,
-        "1800.0s vs best 1799.0s on a 30min climb (0.06%) should be PR — proves relative tolerance"
+        "1800.0s vs best 1799.0s on a 30min climb (0.06%) should be PR, proves relative tolerance"
     );
 }
 
@@ -262,7 +262,7 @@ fn not_pr_when_outside_relative_tolerance() {
 
 #[test]
 fn pr_independent_per_direction() {
-    // PR forward, not PR reverse — direction-aware PR detection.
+    // PR forward, not PR reverse, direction-aware PR detection.
     let setup = setup();
     insert_section(&setup.raw, "s1", "Loop", 500.0);
     // Older reverse traversal sets the reverse best

@@ -118,7 +118,7 @@ fn get_section_summaries_is_a_fast_column_read() {
 
     assert!(
         median <= 30.0,
-        "get_section_summaries took {median:.2}ms over {count} sections ({label}) — read path exceeds the 30ms budget"
+        "get_section_summaries took {median:.2}ms over {count} sections ({label}), read path exceeds the 30ms budget"
     );
 }
 

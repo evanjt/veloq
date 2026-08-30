@@ -1,4 +1,4 @@
-# Strength — inline muscle panel (US-T1, US-T2)
+# Strength, inline muscle panel (US-T1, US-T2)
 # Opens the Strength tab seeded from demo-test-6 (a WeightTraining fixture
 # with bench/squat/deadlift sets bulk-inserted via engine.bulkInsertExerciseSets).
 # Verifies the body diagram renders, tapping a muscle produces the inline
@@ -44,7 +44,7 @@ tags:
 
 - takeScreenshot: "strength-tab-initial"
 
-# The body diagram is the primary affordance — must be on screen.
+# The body diagram is the primary affordance, must be on screen.
 - assertVisible:
     id: "strength-body-diagram"
 
@@ -54,7 +54,7 @@ tags:
     id: "strength-period-4weeks"
 
 # Tap the body diagram to select a muscle. The inline panel appears next to
-# the body card (US-T1). Keep the assertion tolerant — whether Maestro's tap
+# the body card (US-T1). Keep the assertion tolerant, whether Maestro's tap
 # registers inside a muscle polygon is flaky, so we fall back to a screenshot.
 - tapOn:
     id: "strength-body-diagram"

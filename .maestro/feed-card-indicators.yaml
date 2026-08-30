@@ -1,7 +1,7 @@
 # Feed Card Indicators (v0.3.0)
 # US-F1: Feed cards show section trend pills + route trend arrows.
 # US-F2: PR count on the card matches the number of trophy icons inside the
-#        activity detail Sections tab (dedup regression guard — was counting
+#        activity detail Sections tab (dedup regression guard, was counting
 #        (sectionId) not (sectionId, direction)).
 #
 # Strategy: sweep the first 5 demo activities; the flow fails if none of them
@@ -61,7 +61,7 @@ tags:
                       id: "activity-card-demo-test-1-section-chip"
 
 # ====================================================================
-# US-F2: PR count parity — if demo-test-0 has a section chip, count PR
+# US-F2: PR count parity, if demo-test-0 has a section chip, count PR
 # trophies after navigating in and compare.
 # ====================================================================
 - runFlow:

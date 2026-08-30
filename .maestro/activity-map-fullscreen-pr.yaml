@@ -1,4 +1,4 @@
-# Activity Map — Fullscreen + PR lines (US-M4)
+# Activity Map. Fullscreen + PR lines (US-M4)
 # Opens the activity map in fullscreen mode and confirms section overlays
 # (including PR gold lines when present) remain visible. Regression guard
 # for the v0.3.0 fix where PR lines weren't rendering in the fullscreen modal.
@@ -53,7 +53,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 2000
 
-# Screenshot skipped — fullscreen map at high resolution exceeds Maestro's
+# Screenshot skipped, fullscreen map at high resolution exceeds Maestro's
 # 4MB gRPC transfer limit (observed 5.5MB), causing RESOURCE_EXHAUSTED.
 
 - assertVisible:

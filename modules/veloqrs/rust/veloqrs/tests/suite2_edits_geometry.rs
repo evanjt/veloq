@@ -1,4 +1,4 @@
-//! Suite #2 — geometry & metadata edit survival + side effects.
+//! Suite #2, geometry & metadata edit survival + side effects.
 //!
 //! The believability core beyond accept/hide (`suite2_edits.rs`): when a user
 //! renames, re-references, trims, resets, or recalculates a section, the edit
@@ -209,7 +209,7 @@ fn recalculate_polyline_stays_on_real_corridor() {
     let cov = coverage(&after.polyline, &one_act, 50.0);
     assert!(
         cov >= 0.9,
-        "recalculated polyline is only {:.0}% covered by a contributing activity — it drifted off the corridor",
+        "recalculated polyline is only {:.0}% covered by a contributing activity, it drifted off the corridor",
         cov * 100.0,
     );
 }
@@ -254,7 +254,7 @@ fn set_reference_polyline_stays_within_one_source_activity() {
     let cov = coverage(&after.polyline, &track, 50.0);
     assert!(
         cov >= 0.9,
-        "set_reference polyline only {:.0}% covered by its reference activity — it is not one contiguous real trace",
+        "set_reference polyline only {:.0}% covered by its reference activity, it is not one contiguous real trace",
         cov * 100.0
     );
     assert!(
@@ -293,7 +293,7 @@ fn reset_bounds_disarms_the_resync_crash() {
 /// A user-edited (here: trimmed) section survives a later resync with its
 /// trimmed extent intact. The edit promotes the row to user-defined, sparing it
 /// from the wipe, and stable identity (B2) stops fresh detection re-minting the
-/// same id for other ground — so `apply_sections` neither collides nor snaps the
+/// same id for other ground, so `apply_sections` neither collides nor snaps the
 /// extent back.
 #[test]
 fn gate_edited_section_survives_resync() {

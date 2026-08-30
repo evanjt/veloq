@@ -38,7 +38,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/theme$": "<rootDir>/src/__tests__/__mocks__/theme.js",
     "^@/(.*)$": "<rootDir>/src/$1",
-    // Block expo's ReadableStream polyfill — its cancel() throws when axios
+    // Block expo's ReadableStream polyfill, its cancel() throws when axios
     // probes stream support. Node already provides native ReadableStream.
     "expo/virtual/streams": "<rootDir>/config/jest.emptyModule.js",
   },

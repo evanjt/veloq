@@ -1,12 +1,12 @@
-//! Tier 1.4 — assert that the perf indexes added in migration 024 are
+//! Tier 1.4, assert that the perf indexes added in migration 024 are
 //! actually used by the planner for the queries they target.
 //!
 //! Two checks via `EXPLAIN QUERY PLAN`:
 //! 1. `SELECT COUNT(*) FROM section_activities WHERE section_id = ?
-//!    AND excluded = 0 AND lap_time IS NOT NULL` — visit_count derivation,
+//!    AND excluded = 0 AND lap_time IS NOT NULL`, visit_count derivation,
 //!    must use `idx_section_activities_perf`.
 //! 2. `SELECT id FROM activity_metrics WHERE sport_type = ? ORDER BY date
-//!    DESC LIMIT 50` — feed/sport-filtered queries, must use
+//!    DESC LIMIT 50`, feed/sport-filtered queries, must use
 //!    `idx_activity_metrics_sport_date`.
 //!
 //! Without an index, EXPLAIN QUERY PLAN reports `SCAN <table>`. With the

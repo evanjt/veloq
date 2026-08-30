@@ -3,4 +3,4 @@ v0.3.7
 • Detección de tramos rediseñada con tres métodos a elegir: Corredor, Cuadrícula de densidad y Grafo de flujo
 • Cada método tiene sus propios controles y una vista previa en vivo
 • El botón de reanálisis se resalta cuando cambian los ajustes
-• Corregido: páginas de tramos vacías — actividades coincidentes e historial vuelven a verse
+• Corregido: páginas de tramos vacías, actividades coincidentes e historial vuelven a verse

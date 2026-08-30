@@ -1,5 +1,5 @@
 v0.1.4 (Feb 16, 2026)
 
-• Fixed stats card showing 0 until GPS download completes — weekly stats now appear immediately after activity sync
+• Fixed stats card showing 0 until GPS download completes. Weekly stats now appear immediately after activity sync
 
 Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.4

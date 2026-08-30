@@ -2,7 +2,7 @@
 //! catalogue it produced, and the next process picks it up.
 //!
 //! Expected behaviour: a restart resumes warm under the same config, and
-//! goes cold — without complaint — under any other config or on a row it
+//! goes cold, without complaint, under any other config or on a row it
 //! cannot read. Being cold is only ever slow; adopting a cache that does not
 //! match the catalogue would be wrong.
 

@@ -1,4 +1,4 @@
-# Activity Map — Long-press Section Highlight (US-M2)
+# Activity Map. Long-press Section Highlight (US-M2)
 # Long-pressing a section card highlights that section on the map with a
 # distinct white casing underneath the coloured line. This is the primary
 # v0.3.0 visual fix for "section overlays blend into the terrain".
