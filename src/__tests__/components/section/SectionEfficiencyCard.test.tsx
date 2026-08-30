@@ -12,8 +12,6 @@ import {
 } from '@/features/routes/components/section/SectionEfficiencyCard';
 import type { EfficiencyTrend } from 'veloqrs';
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
-
 jest.mock('react-native-iap', () => ({
   useIAP: () => ({}),
   ErrorCode: {},
