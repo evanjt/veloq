@@ -15,12 +15,12 @@ import { colors, darkColors, brand, spacing, layout, typography } from '@/theme'
 import { useTheme } from '@/shared/app';
 import { MapSurface, type MapSurfaceRef } from '@/features/maps/components';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import {
-  boundsOfLngLat,
-  EMPTY_FEATURE_COLLECTION,
-  type LngLat,
-} from '@/features/maps/lib/coordinates';
+import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
+import {
+  previewCameraBounds,
+  type PreviewAreaCentre,
+} from '@/features/routes/lib/previewMapCamera';
 import type {
   PreviewResult,
   PreviewSection,
@@ -32,7 +32,6 @@ import {
 } from './previewMapLayerSpecs';
 
 const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-const BOUNDS_PADDING = 0.15;
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
@@ -61,8 +60,8 @@ function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature
 
 interface PreviewMapViewProps {
   result: PreviewResult | null;
-  /** Fallback camera centre before a run completes. */
-  centre: { lat: number; lng: number } | null;
+  /** Selected riding area. The camera never leaves its bin. */
+  centre: PreviewAreaCentre | null;
   selectedId: string | null;
   showCurrent: boolean;
   showProposed: boolean;
@@ -136,11 +135,10 @@ export function PreviewMapView({
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 
-  const bounds = useMemo(() => {
-    const all: LngLat[] = [];
-    for (const coords of decoded.values()) all.push(...coords);
-    return boundsOfLngLat(all, BOUNDS_PADDING);
-  }, [decoded]);
+  const bounds = useMemo(
+    () => previewCameraBounds(centre, [...decoded.values()]),
+    [centre, decoded]
+  );
 
   const initialCamera = useMemo(() => {
     if (bounds) return sectionCameraSpec(bounds);
@@ -153,14 +151,6 @@ export function PreviewMapView({
   useEffect(() => {
     if (bounds) surfaceRef.current?.fitBounds(bounds, 60, 400);
   }, [bounds]);
-
-  // Before a run completes there is no geometry to frame, so picking a
-  // different riding area moves the camera to its centre.
-  useEffect(() => {
-    if (!bounds && centre) {
-      surfaceRef.current?.setCamera({ center: [centre.lng, centre.lat], zoom: 11 }, 400);
-    }
-  }, [bounds, centre]);
 
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
