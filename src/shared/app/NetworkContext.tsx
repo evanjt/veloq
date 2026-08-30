@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import * as Network from 'expo-network';
+import { onlineManager } from '@tanstack/react-query';
 
 interface NetworkContextValue {
   /** Whether device has network connectivity */
@@ -44,6 +45,10 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
           isInternetReachable: state.isInternetReachable ?? null,
           connectionType: state.type ?? null,
         });
+        // TanStack has no React Native connectivity source of its own, so
+        // without this it believes it is permanently online and
+        // `refetchOnReconnect` never fires.
+        onlineManager.setOnline(true);
       } else {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
@@ -53,6 +58,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
             isInternetReachable: state.isInternetReachable ?? null,
             connectionType: state.type ?? null,
           });
+          onlineManager.setOnline(false);
         }, 3000);
       }
     };
@@ -83,6 +89,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         clearTimeout(offlineTimerRef.current);
       }
       subscription.remove();
+      // Nothing is watching the network any more, so leaving the manager
+      // offline would strand every query behind `networkMode`.
+      onlineManager.setOnline(true);
     };
   }, []);
 
