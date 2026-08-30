@@ -4,7 +4,6 @@
 //! backup captures the complete app state.
 
 use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
 
 use super::PersistentRouteEngine;
 
@@ -59,34 +58,6 @@ impl PersistentRouteEngine {
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
             params![key, value],
         )?;
-        Ok(())
-    }
-
-    /// Get all settings as a HashMap.
-    pub fn get_all_settings(&self) -> SqlResult<HashMap<String, String>> {
-        let mut stmt = self.db.prepare("SELECT key, value FROM settings")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-
-        let mut settings = HashMap::new();
-        for row in rows {
-            let (key, value) = row?;
-            settings.insert(key, value);
-        }
-        Ok(settings)
-    }
-
-    /// Bulk upsert settings from a HashMap.
-    pub fn set_all_settings(&self, settings: &HashMap<String, String>) -> SqlResult<()> {
-        let mut stmt = self.db.prepare(
-            "INSERT INTO settings (key, value, updated_at)
-             VALUES (?, ?, strftime('%s', 'now'))
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-        )?;
-        for (key, value) in settings {
-            stmt.execute(params![key, value])?;
-        }
         Ok(())
     }
 

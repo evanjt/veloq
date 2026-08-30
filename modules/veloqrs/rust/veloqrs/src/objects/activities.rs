@@ -136,22 +136,6 @@ impl ActivityManager {
         })?
     }
 
-    /// Store a stream payload directly. Demo seeding writes the same table a
-    /// live fetch fills, so every downstream read is identical in both modes.
-    fn set_stream_body(
-        &self,
-        activity_id: String,
-        types: String,
-        raw: String,
-    ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_stream_body(&activity_id, &types, &raw)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })?
-    }
-
     /// Store an activity's interval payload directly, for demo seeding.
     fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
         with_engine(|e| {

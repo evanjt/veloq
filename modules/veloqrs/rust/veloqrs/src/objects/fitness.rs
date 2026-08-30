@@ -86,14 +86,6 @@ impl FitnessManager {
         with_engine(|e| e.get_activity_metric_ids())
     }
 
-    fn get_period_stats(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-    ) -> Result<crate::FfiPeriodStats, VeloqError> {
-        with_engine(|e| e.get_period_stats(start_ts, end_ts))
-    }
-
     /// Weekly training totals over a range, one entry per Monday-anchored
     /// week that has activities. Derived from `activity_metrics` rather than
     /// fetched, so there is no athlete-summary endpoint to keep in sync.
@@ -190,10 +182,6 @@ impl FitnessManager {
         with_engine(|e| e.get_zone_distribution(&sport_type, &zone_type))
     }
 
-    fn get_ftp_trend(&self) -> Result<crate::FfiFtpTrend, VeloqError> {
-        with_engine(|e| e.get_ftp_trend())
-    }
-
     fn save_pace_snapshot(
         &self,
         sport_type: String,
@@ -205,10 +193,6 @@ impl FitnessManager {
         with_engine(|e| {
             e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date);
         })
-    }
-
-    fn get_pace_trend(&self, sport_type: String) -> Result<crate::FfiPaceTrend, VeloqError> {
-        with_engine(|e| e.get_pace_trend(&sport_type))
     }
 
     fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
@@ -237,14 +221,6 @@ impl FitnessManager {
             run_pace_trend: e.get_pace_trend("Run"),
             swim_pace_trend: e.get_pace_trend("Swim"),
         })
-    }
-
-    fn get_activity_patterns(&self) -> Result<Vec<crate::FfiActivityPattern>, VeloqError> {
-        with_engine(|e| crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics))
-    }
-
-    fn get_pattern_for_today(&self) -> Result<Option<crate::FfiActivityPattern>, VeloqError> {
-        with_engine(|e| crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics))
     }
 
     /// Combined patterns query: today's pattern + full pattern set in one lock.

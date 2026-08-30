@@ -75,20 +75,6 @@ impl VeloqEngine {
         *guard = None;
     }
 
-    fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            let count =
-                e.cleanup_old_activities(retention_days)
-                    .map_err(|e| VeloqError::Database {
-                        msg: format!("{}", e),
-                    })?;
-            if retention_days > 0 && count > 0 {
-                info!("[VeloqEngine] Cleanup: {} activities removed", count);
-            }
-            Ok(count)
-        })?
-    }
-
     fn mark_for_recomputation(&self) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.mark_for_recomputation();

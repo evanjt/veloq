@@ -12,7 +12,7 @@ use crate::persistence::FitOutcome;
 use crate::{
     FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseSet,
     FfiExerciseSummary, FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleGroupDetail,
-    FfiMuscleVolume, FfiStrengthInsightSeries, FfiStrengthSummary, FfiTimestampRange,
+    FfiMuscleVolume, FfiStrengthSummary, FfiTimestampRange,
 };
 use log::info;
 use std::collections::HashMap;
@@ -246,41 +246,6 @@ impl StrengthManager {
                         })
                 })
                 .collect()
-        })?
-    }
-
-    /// Bundled strength payload for insights: one monthly summary + N weekly
-    /// summaries, computed in a single lock. Superseded by the insights
-    /// bundle, which builds the same series through
-    /// `PersistentRouteEngine::strength_insight_series` without crossing FFI.
-    fn get_strength_insight_series(
-        &self,
-        monthly: FfiTimestampRange,
-        weekly: Vec<FfiTimestampRange>,
-    ) -> Result<FfiStrengthInsightSeries, VeloqError> {
-        with_engine(|e| {
-            let monthly_sets = e
-                .get_exercise_sets_in_range(monthly.start_ts, monthly.end_ts)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })?;
-            let monthly_summary = aggregate_strength_sets(&monthly_sets);
-
-            let weekly_summaries: Result<Vec<_>, VeloqError> = weekly
-                .into_iter()
-                .map(|range| {
-                    e.get_exercise_sets_in_range(range.start_ts, range.end_ts)
-                        .map(|sets| aggregate_strength_sets(&sets))
-                        .map_err(|err| VeloqError::Database {
-                            msg: format!("{}", err),
-                        })
-                })
-                .collect();
-
-            Ok(FfiStrengthInsightSeries {
-                monthly: monthly_summary,
-                weekly: weekly_summaries?,
-            })
         })?
     }
 
