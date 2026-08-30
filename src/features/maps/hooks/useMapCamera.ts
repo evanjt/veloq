@@ -17,7 +17,7 @@ import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/M
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
 /** Bounds returned by getMapLibreBounds */
-export interface MapBounds {
+interface MapBounds {
   ne: [number, number];
   sw: [number, number];
 }
