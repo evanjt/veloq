@@ -685,7 +685,12 @@
       "hrChange": "HR-ændring",
       "efforts": "Bestræbelser",
       "trendSlope": "Tendenshældning",
-      "recentMedian": "Seneste median"
+      "recentMedian": "Seneste median",
+      "relevance": "Relevans",
+      "recency": "Aktualitet",
+      "improvementSignal": "Forbedringssignal",
+      "anomaly": "Afvigelse",
+      "engagement": "Engagement"
     },
     "hrvTrend": {
       "trendingUp": "Restitution forbedres",

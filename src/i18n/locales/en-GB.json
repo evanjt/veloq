@@ -712,7 +712,12 @@
       "hrChange": "HR change",
       "efforts": "Efforts",
       "trendSlope": "Trend slope",
-      "recentMedian": "Recent median"
+      "recentMedian": "Recent median",
+      "relevance": "Relevance",
+      "recency": "Recency",
+      "improvementSignal": "Improvement signal",
+      "anomaly": "Anomaly",
+      "engagement": "Engagement"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",

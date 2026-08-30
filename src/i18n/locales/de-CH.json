@@ -686,7 +686,12 @@
       "hrChange": "HF-Änderig",
       "efforts": "Versüech",
       "trendSlope": "Trendsteiging",
-      "recentMedian": "Letschte Median"
+      "recentMedian": "Letschte Median",
+      "relevance": "Relevanz",
+      "recency": "Aktualität",
+      "improvementSignal": "Verbesserigssignal",
+      "anomaly": "Abwychig",
+      "engagement": "Nutzig"
     },
     "hrvTrend": {
       "trendingUp": "Erholig am besser wärde",
