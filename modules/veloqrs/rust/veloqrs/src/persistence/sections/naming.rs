@@ -3,9 +3,9 @@
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 use std::collections::{BTreeMap, HashMap};
 
-use super::super::{PersistentRouteEngine, get_section_word};
+use super::super::{PersistentEngine, get_section_word};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Section Name Migration
     // ========================================================================

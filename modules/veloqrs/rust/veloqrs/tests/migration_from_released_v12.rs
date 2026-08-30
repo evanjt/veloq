@@ -20,7 +20,7 @@ use rusqlite::Connection;
 use std::collections::BTreeMap;
 use std::path::Path;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const FIXTURE: &str = include_str!("fixtures/v12_demo.sql");
 
@@ -72,7 +72,7 @@ fn junction_rows(conn: &Connection) -> Vec<(String, String, i64)> {
 }
 
 fn migrate_only(path: &Path) {
-    drop(PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine"));
+    drop(PersistentEngine::new(path.to_str().unwrap()).expect("open engine"));
 }
 
 #[test]

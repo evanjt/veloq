@@ -1,11 +1,11 @@
-//! Heatmap tile generation for PersistentRouteEngine.
+//! Heatmap tile generation for PersistentEngine.
 //!
 //! Tile generation runs on a background thread with its own SQLite connection,
 //! following the same pattern as section detection. The engine mutex is held
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
 use super::codec::TrackRead;
-use super::{PersistentRouteEngine, TileGenerationHandle};
+use super::{PersistentEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
@@ -49,7 +49,7 @@ struct TileGeneration {
     corrupt: usize,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Check whether heatmap tiles need (re)generation.
     /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
     pub fn is_heatmap_dirty(&self) -> bool {

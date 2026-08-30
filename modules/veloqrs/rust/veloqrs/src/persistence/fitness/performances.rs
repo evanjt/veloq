@@ -11,9 +11,9 @@ use crate::{
 use rusqlite::params;
 use std::collections::HashMap;
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Set time streams for activities from flat buffer.
     /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
     /// Persists to SQLite for offline access.

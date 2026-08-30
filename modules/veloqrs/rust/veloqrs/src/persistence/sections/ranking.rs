@@ -3,7 +3,7 @@
 use chrono::Utc;
 use std::collections::HashMap;
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
 /// A ranked section's median has to move by this fraction before the chip
 /// calls it improving or declining. Matches the feed card deadband.
@@ -13,7 +13,7 @@ const TREND_DEADBAND: f64 = 0.02;
 /// because it compares five-effort medians rather than three.
 const WORKOUT_TREND_DEADBAND: f64 = 0.03;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Get sections ranked by ML-driven composite relevance score.
     ///
     /// For each section matching the sport type, computes a weighted score from:
@@ -489,7 +489,7 @@ fn median_of(values: &[f64]) -> f64 {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Section-detail chart payload. Iterates performance records + lap
     /// traversals already in Rust to emit one chart point per lap, plus
     /// best/avg/last summary stats and a speed-rank per point. Replaces the

@@ -12,7 +12,7 @@
 use std::sync::Mutex;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::conditioning;
 use veloqrs::persistence::{WorkerPoll, detection_suspended, suspend_detection};
 
@@ -33,11 +33,11 @@ fn track(seed: f64) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn engine_with(ids: &[&str]) -> (TempDir, PersistentRouteEngine) {
+fn engine_with(ids: &[&str]) -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     let mut engine =
-        PersistentRouteEngine::new(path.to_str().expect("utf-8 path")).expect("open engine");
+        PersistentEngine::new(path.to_str().expect("utf-8 path")).expect("open engine");
     for (i, id) in ids.iter().enumerate() {
         engine
             .add_activity((*id).to_string(), track(i as f64), "Ride".to_string())

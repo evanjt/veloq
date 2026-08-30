@@ -21,12 +21,12 @@ use std::collections::BTreeMap;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn engine_with_b_state() -> (PersistentRouteEngine, TempDir) {
+fn engine_with_b_state() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("atomicity.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -64,7 +64,7 @@ fn engine_with_b_state() -> (PersistentRouteEngine, TempDir) {
     (engine, dir)
 }
 
-fn fingerprint(engine: &mut PersistentRouteEngine) -> BTreeMap<String, (u32, usize, String)> {
+fn fingerprint(engine: &mut PersistentEngine) -> BTreeMap<String, (u32, usize, String)> {
     engine
         .get_sections()
         .into_iter()

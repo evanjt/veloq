@@ -8,9 +8,9 @@ use chrono::{DateTime, Datelike};
 use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
     // ========================================================================

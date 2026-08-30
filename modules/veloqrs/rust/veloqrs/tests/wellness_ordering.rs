@@ -7,7 +7,7 @@
 //! trend arrows. These tests pin the contract so that cannot regress silently.
 
 use tempfile::TempDir;
-use veloqrs::persistence::PersistentRouteEngine;
+use veloqrs::persistence::PersistentEngine;
 use veloqrs::persistence::wellness::WellnessRow;
 
 fn row(date: &str, ctl: f64, atl: f64) -> WellnessRow {
@@ -30,10 +30,10 @@ fn row(date: &str, ctl: f64, atl: f64) -> WellnessRow {
     }
 }
 
-fn engine_with_five_days() -> (TempDir, PersistentRouteEngine) {
+fn engine_with_five_days() -> (TempDir, PersistentEngine) {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("routes.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open");
 
     // Inserted newest-first on purpose: storage order must not decide read order.
     engine

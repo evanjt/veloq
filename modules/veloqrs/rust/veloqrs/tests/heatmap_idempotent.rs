@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn seed_engine() -> (PersistentRouteEngine, TempDir) {
+fn seed_engine() -> (PersistentEngine, TempDir) {
     let cfg = LifecycleConfig {
         bucket_a_count: 25,
         bucket_b_delta_count: 0,
@@ -24,7 +24,7 @@ fn seed_engine() -> (PersistentRouteEngine, TempDir) {
 
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("heatmap.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in corpus.bucket_a {
         engine
             .add_activity(a.id, a.gps_points, a.sport_type)

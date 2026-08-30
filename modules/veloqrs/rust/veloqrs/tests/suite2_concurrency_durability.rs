@@ -3,7 +3,7 @@
 //! The five other Suite #2 files probe identity, config, and edit survival
 //! (roots R1/R2/R3). None of them touch what happens across a process restart
 //! or when a second SQLite connection reads the file mid-write. That seam is
-//! this file: does a detected catalogue survive a fresh `PersistentRouteEngine`
+//! this file: does a detected catalogue survive a fresh `PersistentEngine`
 //! open, does the in-memory detection cache agree with the DB view the app
 //! actually renders, and does the no-WAL single-writer store stay consistent
 //! under a concurrent reader, racing detections, and an interrupted sync.
@@ -11,7 +11,7 @@
 //! One live gate per curiosity, each asserting the invariant. Everything is
 //! method-agnostic persistence behaviour, so it runs on the fast Control arm.
 //!
-//! A second engine is opened directly with `PersistentRouteEngine::new(path)` on
+//! A second engine is opened directly with `PersistentEngine::new(path)` on
 //! the SAME db file, exactly what production's background detection thread does
 //! (it clones `db_path` and opens its own connection). The harness engines are
 //! owned by value, not the global `PERSISTENT_ENGINE` singleton, so this
@@ -39,7 +39,7 @@ use std::time::{Duration, Instant};
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::sections::FrequentSection;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -49,7 +49,7 @@ fn corpus() -> LifecycleCorpus {
 /// `snapshot()` so the two can be compared with the same signature/ground
 /// machinery. This is the cache `apply_sections_save` overwrites and never
 /// reloads from DB. The DB `snapshot()` is what the user actually sees.
-fn in_memory_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
+fn in_memory_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
     SectionSnapshot {
         sections: engine
             .get_sections()
@@ -136,7 +136,7 @@ fn restart_state() -> (String, String, usize, usize) {
 
     // Production restart path: new() then load(). new() alone comes up with an
     // empty in-memory cache. load() hydrates it from the DB.
-    let mut e2 = PersistentRouteEngine::new(&db_path(&dir)).expect("reopen");
+    let mut e2 = PersistentEngine::new(&db_path(&dir)).expect("reopen");
     e2.load().expect("load after reopen");
     let e2_inmem = in_memory_snapshot(&e2).count();
     let sig_db_after = snapshot(&mut e2).catalogue_signature();
@@ -186,7 +186,7 @@ fn identity_registries_survive_restart() {
     let route_fp = e1.route_identity_fingerprint();
     drop(e1);
 
-    let mut e2 = PersistentRouteEngine::new(&db_path(&dir)).expect("reopen");
+    let mut e2 = PersistentEngine::new(&db_path(&dir)).expect("reopen");
     e2.load().expect("load after reopen");
 
     assert!(
@@ -291,7 +291,7 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
     // expand is >50% new activities, so the engine runs a full re-detect: one
     // `save_sections` DELETE+INSERT transaction is the write the reader races.
     let writer = thread::spawn(move || {
-        let mut w = PersistentRouteEngine::new(&path).expect("writer open");
+        let mut w = PersistentEngine::new(&path).expect("writer open");
         w.load().expect("writer load");
         for a in &delta {
             w.add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -445,7 +445,7 @@ fn crash_before_apply() -> (usize, usize, usize) {
     }
     drop(e1);
 
-    let mut e2 = PersistentRouteEngine::new(&db_path(&dir)).expect("reopen");
+    let mut e2 = PersistentEngine::new(&db_path(&dir)).expect("reopen");
     e2.load().expect("load after crash");
     let activities = e2.get_activity_ids().len();
     let sections_before = snapshot(&mut e2).count();

@@ -17,7 +17,7 @@ use std::sync::Mutex;
 use tempfile::TempDir;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::sections::CreateSectionParams;
-use veloqrs::{GpsPoint, PersistentRouteEngine};
+use veloqrs::{GpsPoint, PersistentEngine};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 
@@ -87,7 +87,7 @@ fn transient_lock_does_not_quarantine() {
     let db_str = db_path.to_string_lossy().into_owned();
 
     {
-        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        let mut engine = PersistentEngine::new(&db_str).unwrap();
         engine
             .add_activity(
                 "a1".to_string(),
@@ -227,7 +227,7 @@ fn quarantine_salvages_readable_history_rows() {
         .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0005, 7.0))
         .collect();
     {
-        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        let mut engine = PersistentEngine::new(&db_str).unwrap();
         engine
             .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
             .unwrap();
@@ -260,7 +260,7 @@ fn quarantine_salvages_readable_history_rows() {
     assert!(recovered, "init must quarantine and start fresh");
     assert!(!quarantine_files(tmp.path()).is_empty());
 
-    let fresh = PersistentRouteEngine::new(&db_str).unwrap();
+    let fresh = PersistentEngine::new(&db_str).unwrap();
     let kinds: Vec<String> = fresh
         .section_history("sec_ledger")
         .into_iter()
@@ -299,7 +299,7 @@ fn quarantine_salvages_user_sections_and_intents() {
     let kept_id;
     let removed_id;
     {
-        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        let mut engine = PersistentEngine::new(&db_str).unwrap();
         engine
             .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
             .unwrap();
@@ -338,7 +338,7 @@ fn quarantine_salvages_user_sections_and_intents() {
     });
     assert!(recovered, "init must quarantine and start fresh");
 
-    let fresh = PersistentRouteEngine::new(&db_str).unwrap();
+    let fresh = PersistentEngine::new(&db_str).unwrap();
     let kept = fresh
         .get_section(&kept_id)
         .expect("the custom section came across");

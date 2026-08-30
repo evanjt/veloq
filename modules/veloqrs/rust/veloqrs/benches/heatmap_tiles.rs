@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::{PersistentRouteEngine, tiles};
+use veloqrs::{PersistentEngine, tiles};
 
 // ============================================================================
 // Tile-level bench fixtures
@@ -129,7 +129,7 @@ fn bench_single_tile(c: &mut Criterion) {
 /// Seed a tempdir-backed engine with `target_count` activities from the
 /// lifecycle corpus, returning (engine, tmp, tiles_dir). Tiles dir is empty,
 /// the first `generate_tiles_background` will cold-generate everything.
-fn seed_engine(target_count: usize) -> (PersistentRouteEngine, TempDir, PathBuf) {
+fn seed_engine(target_count: usize) -> (PersistentEngine, TempDir, PathBuf) {
     // Pick counts that stack up to ~target_count.
     let (a, b, e) = match target_count {
         100 => (60, 40, 0),
@@ -151,7 +151,7 @@ fn seed_engine(target_count: usize) -> (PersistentRouteEngine, TempDir, PathBuf)
     let db = tmp.path().join("bench.db");
     let tiles_dir = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles_dir).ok();
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in &activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())

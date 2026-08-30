@@ -32,7 +32,7 @@ use crate::net::types::ParsedStreams;
 use crate::objects::detection::{DetectionPoll, poll_detection_once};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
-    ELEVATION_STATE_UNAVAILABLE, PersistentRouteEngine, suspend_detection, with_persistent_engine,
+    ELEVATION_STATE_UNAVAILABLE, PersistentEngine, suspend_detection, with_persistent_engine,
 };
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
@@ -192,7 +192,7 @@ pub enum BackfillRun {
 // The queue
 // ============================================================================
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The backfill queue: every stored track upstream has not been asked
     /// about, with the sport its re-ingest has to preserve.
     ///

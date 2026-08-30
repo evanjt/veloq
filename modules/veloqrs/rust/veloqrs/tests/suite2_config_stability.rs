@@ -24,7 +24,7 @@ use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::sections::SectionConfig;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -114,7 +114,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     cfg.min_corridor_tracks = 5;
 
     let before = {
-        let mut e = PersistentRouteEngine::new(ps).expect("engine");
+        let mut e = PersistentEngine::new(ps).expect("engine");
         e.set_section_config(cfg.clone());
         ingest_step(&mut e, "cold", &corpus.through_a());
         ids(&snapshot(&mut e))
@@ -122,7 +122,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     assert!(!before.is_empty(), "cold detect produced no sections");
 
     // Restart: reopen the same DB, hydrate from settings.
-    let mut e2 = PersistentRouteEngine::new(ps).expect("reopen");
+    let mut e2 = PersistentEngine::new(ps).expect("reopen");
     e2.load().expect("load");
     // The launch re-apply of the identical config, must be a no-op now.
     e2.set_section_config(cfg.clone());

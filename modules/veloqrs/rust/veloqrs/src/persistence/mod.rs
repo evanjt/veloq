@@ -588,7 +588,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 /// Only loads lightweight metadata into memory. Signatures are LRU cached,
 /// and GPS tracks are loaded on-demand only when needed for section detection.
 
-pub struct PersistentRouteEngine {
+pub struct PersistentEngine {
     /// Database connection
     pub(crate) db: Connection,
 
@@ -727,7 +727,7 @@ pub struct PersistentRouteEngine {
     perf_cache: LruCache<String, SectionPerformanceResult>,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     pub(crate) fn invalidate_perf_cache(&mut self) {
@@ -1431,26 +1431,26 @@ pub struct PersistentEngineStats {
 ///
 /// # Safety invariant
 ///
-/// `PersistentRouteEngine` contains a `rusqlite::Connection`, which is
+/// `PersistentEngine` contains a `rusqlite::Connection`, which is
 /// `Send + !Sync`. We `unsafe impl Sync` (below) because callers are
 /// required to access the connection only through the **write** lock:
 /// every FFI method that touches SQLite goes through `with_persistent_engine`
 /// / `with_engine` (write), which guarantees exclusive access. The read
 /// lock (`with_persistent_engine_read` / `with_engine_read`) is only valid
 /// for closures that do not dereference `self.db`; those closures take
-/// `&PersistentRouteEngine` but must stay on pure-memory `&self` methods.
+/// `&PersistentEngine` but must stay on pure-memory `&self` methods.
 
-pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentRouteEngine>>> =
+pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentEngine>>> =
     Lazy::new(|| RwLock::new(None));
 
 // SAFETY: see invariant above. All SQLite operations go through the write
 // lock, which provides exclusive `&mut` access; read-lock callers only touch
 // `&self` methods that don't dereference `self.db`.
-unsafe impl Sync for PersistentRouteEngine {}
+unsafe impl Sync for PersistentEngine {}
 
 /// Acquire the **write** lock on the global persistent engine.
 ///
-/// Required for any closure that needs `&mut PersistentRouteEngine` -
+/// Required for any closure that needs `&mut PersistentEngine` -
 /// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
 /// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
 /// mutate LRU caches (`get_signature`, `get_group_by_id`,
@@ -1459,7 +1459,7 @@ unsafe impl Sync for PersistentRouteEngine {}
 /// is memory-only - see safety invariant above).
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&mut PersistentRouteEngine) -> R,
+    F: FnOnce(&mut PersistentEngine) -> R,
 {
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
     // here would disable the engine for the rest of the session.
@@ -1480,7 +1480,7 @@ where
 /// borrow of a local.
 pub async fn with_persistent_engine_blocking<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&mut PersistentRouteEngine) -> R + Send + 'static,
+    F: FnOnce(&mut PersistentEngine) -> R + Send + 'static,
     R: Send + 'static,
 {
     match tokio::task::spawn_blocking(move || with_persistent_engine(f)).await {
@@ -1498,14 +1498,14 @@ where
 /// Acquire the **read** lock on the global persistent engine.
 ///
 /// Multiple callers can hold the read lock concurrently. The closure
-/// receives `&PersistentRouteEngine`, so any call to a `&mut self` helper
+/// receives `&PersistentEngine`, so any call to a `&mut self` helper
 /// fails to compile - that is the point.
 ///
 /// **Safety**: do not call any method that dereferences `self.db` from
 /// inside this closure. SQLite access goes through the write lock only.
 pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&PersistentRouteEngine) -> R,
+    F: FnOnce(&PersistentEngine) -> R,
 {
     // Same poison recovery as with_persistent_engine.
     let guard = PERSISTENT_ENGINE.read().unwrap_or_else(|e| e.into_inner());
@@ -1611,7 +1611,7 @@ pub mod persistent_engine_ffi {
             }
         }
 
-        let mut engine = match PersistentRouteEngine::new(&db_path) {
+        let mut engine = match PersistentEngine::new(&db_path) {
             Ok(engine) => engine,
             Err(e) => {
                 log::error!(
@@ -1670,7 +1670,7 @@ pub mod persistent_engine_ffi {
     /// engine-backed feature on every launch, permanently. Renaming it aside
     /// loses only the cache, which the next sync repopulates. The quarantined
     /// copy is kept (one generation) for post-mortem inspection.
-    fn reopen_after_quarantine(db_path: &str) -> Option<PersistentRouteEngine> {
+    fn reopen_after_quarantine(db_path: &str) -> Option<PersistentEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
             // Environmental failure (permissions, missing dir). Nothing to
@@ -1730,7 +1730,7 @@ pub mod persistent_engine_ffi {
             ts
         );
 
-        match PersistentRouteEngine::new(db_path) {
+        match PersistentEngine::new(db_path) {
             Ok(engine) => {
                 // Detector output is a re-derivable cache; the ledger and the
                 // user's own rows are not. Whatever the quarantined file still
@@ -1848,7 +1848,7 @@ mod tests {
 
     #[test]
     fn test_add_activity() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1859,7 +1859,7 @@ mod tests {
 
     #[test]
     fn test_signature_caching() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1875,7 +1875,7 @@ mod tests {
 
     #[test]
     fn test_viewport_query() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1907,7 +1907,7 @@ mod tests {
 
         // Create and add data
         {
-            let mut engine = PersistentRouteEngine::new(temp_path).unwrap();
+            let mut engine = PersistentEngine::new(temp_path).unwrap();
             engine.clear().unwrap();
             engine
                 .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
@@ -1916,7 +1916,7 @@ mod tests {
 
         // Reload and verify
         {
-            let mut engine = PersistentRouteEngine::new(temp_path).unwrap();
+            let mut engine = PersistentEngine::new(temp_path).unwrap();
             engine.load().unwrap();
             assert_eq!(engine.activity_count(), 1);
             assert!(engine.has_activity("test-1"));
@@ -1925,7 +1925,7 @@ mod tests {
 
     #[test]
     fn test_grouping() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Add two identical activities
         engine
@@ -1942,7 +1942,7 @@ mod tests {
 
     #[test]
     fn test_remove_activity() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -2011,7 +2011,7 @@ mod tests {
     /// Test: set_section_reference works for auto-detected (FrequentSection) sections
     #[test]
     fn test_set_section_reference_autodetected_section() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Add two activities with the same route
         let coords = sample_coords();
@@ -2080,7 +2080,7 @@ mod tests {
     /// the section, preserving approximately the same geographic extent.
     #[test]
     fn test_set_section_reference_extracts_matching_portion_for_auto_section() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create a SHORT section polyline (50 points, ~5km)
         let section_coords: Vec<GpsPoint> = (0..50)
@@ -2174,7 +2174,7 @@ mod tests {
     /// is_user_defined flag. This is acceptable if Bug 1 is fixed (polyline won't be corrupted).
     #[test]
     fn test_reset_section_reference_clears_user_defined_flag() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create two activities with slightly different but overlapping routes
         let coords_1: Vec<GpsPoint> = (0..50)
@@ -2253,7 +2253,7 @@ mod tests {
     /// The bug was that activity_traces in FrequentSection accumulated GPS data and was never cleared.
     #[test]
     fn test_activity_traces_cleared_after_section_save() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create activities with GPS tracks
         let coords: Vec<GpsPoint> = (0..1000)
@@ -2305,7 +2305,7 @@ mod tests {
     /// updated to match the new polyline.
     #[test]
     fn test_section_distance_matches_polyline() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create section polyline
         let coords: Vec<GpsPoint> = (0..50)
@@ -2398,7 +2398,7 @@ mod tests {
     /// Activities that no longer overlap should be removed from the junction table.
     #[test]
     fn test_set_section_reference_rematches_activities() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create section polyline in a specific area
         let section_coords: Vec<GpsPoint> = (0..50)
@@ -2505,7 +2505,7 @@ mod tests {
     /// for activities whose time streams arrive after detection.
     #[test]
     fn test_lap_time_populated_by_apply_sections() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Two activities sharing the same route.
         let coords = sample_coords();

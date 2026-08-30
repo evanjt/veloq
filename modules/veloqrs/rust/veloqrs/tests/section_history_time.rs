@@ -5,15 +5,15 @@
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const BACKDATED: &str = "2024-03-01 08:15:00";
 
-fn open() -> (TempDir, PersistentRouteEngine, String) {
+fn open() -> (TempDir, PersistentEngine, String) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("history.db");
     let db_path = path.to_str().unwrap().to_string();
-    let engine = PersistentRouteEngine::new(&db_path).expect("engine");
+    let engine = PersistentEngine::new(&db_path).expect("engine");
     (dir, engine, db_path)
 }
 

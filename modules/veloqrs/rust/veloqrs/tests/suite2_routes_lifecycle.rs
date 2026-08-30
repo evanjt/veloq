@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 /// Cold set for the route lifecycle. Route grouping is O(N^2); this is enough
 /// repeats to form groups without a slow cold grouping in debug.
@@ -86,7 +86,7 @@ impl RouteSnapshot {
 
 /// Trigger grouping and snapshot the visible route catalogue. `get_groups()`
 /// recomputes when dirty, so this is the route analogue of `snapshot`.
-fn route_snapshot(engine: &mut PersistentRouteEngine) -> RouteSnapshot {
+fn route_snapshot(engine: &mut PersistentEngine) -> RouteSnapshot {
     let groups = engine.get_groups().to_vec();
     RouteSnapshot {
         groups: groups

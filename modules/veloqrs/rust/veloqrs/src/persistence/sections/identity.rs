@@ -43,7 +43,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
@@ -227,7 +227,7 @@ impl Default for SectionIdentity {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Every section id the database holds, whatever its state.
     /// Every id the database holds or has held: the live rows, the rows the
     /// view hides, and every id the ledger, the geometry versions, the pins or
@@ -1277,7 +1277,7 @@ fn fold_new_activities(
 /// the junction rows `save_sections` writes stay coherent; a member whose
 /// track genuinely left the adopted ground stays dropped.
 fn graft_prior_members(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     section: &mut FrequentSection,
     prior: &FrequentSection,
     config: &SectionConfig,

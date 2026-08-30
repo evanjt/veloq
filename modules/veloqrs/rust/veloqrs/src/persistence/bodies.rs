@@ -8,7 +8,7 @@
 
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// Which curve a body belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +26,7 @@ impl CurveKind {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Store a curve body under the parameters that produced it.
     pub fn set_curve_body(
         &self,
@@ -152,7 +152,7 @@ const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "tim
 /// cache with a ceiling, not a mirror of the athlete's history.
 const MAX_STREAM_BODIES: i64 = 50;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Store a stream payload for an activity and series selection, then drop
     /// the least recently used ones beyond the cache ceiling.
     pub fn set_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
@@ -292,10 +292,10 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn engine() -> (TempDir, PersistentRouteEngine) {
+    fn engine() -> (TempDir, PersistentEngine) {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("routes.db");
-        let engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+        let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
         (dir, engine)
     }
 
@@ -414,7 +414,7 @@ mod tests {
 
     /// Backdate every stored stream to a distinct second so eviction order is
     /// the read order rather than a tie broken by rowid.
-    fn age_streams(engine: &PersistentRouteEngine) {
+    fn age_streams(engine: &PersistentEngine) {
         engine
             .db
             .execute(
@@ -424,7 +424,7 @@ mod tests {
             .unwrap();
     }
 
-    fn stored_ids(engine: &PersistentRouteEngine) -> Vec<String> {
+    fn stored_ids(engine: &PersistentEngine) -> Vec<String> {
         let mut stmt = engine
             .db
             .prepare("SELECT activity_id FROM stream_bodies ORDER BY activity_id")

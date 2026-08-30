@@ -9,7 +9,7 @@ mod lifecycle_support;
 
 use lifecycle_support::fresh_engine;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const SID: &str = "s_1700000000000__ab12cd34";
 
@@ -25,7 +25,7 @@ fn poly(seed: u32) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn versions_of(engine: &PersistentRouteEngine, sid: &str) -> Vec<i64> {
+fn versions_of(engine: &PersistentEngine, sid: &str) -> Vec<i64> {
     engine
         .section_geometry_versions(sid)
         .iter()
@@ -178,7 +178,7 @@ fn history_geometry_and_pin_survive_restart() {
     let path = dir.path().join("lifecycle.db");
     drop(engine);
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     assert_eq!(versions_of(&engine, SID), vec![1, 2]);
     assert_eq!(engine.section_geometry_polyline(SID, 1).unwrap(), poly(1));

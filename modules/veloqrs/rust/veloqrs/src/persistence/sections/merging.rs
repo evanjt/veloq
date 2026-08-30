@@ -2,10 +2,10 @@
 
 use rusqlite::Result as SqlResult;
 
-use super::super::{PersistentRouteEngine, get_section_word};
+use super::super::{PersistentEngine, get_section_word};
 use super::haversine_distance;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Find merge candidates for a section.
     /// Returns sections with >30% polyline overlap or close centers with similar distances.
     pub fn get_merge_candidates(&self, section_id: &str) -> Vec<crate::FfiMergeCandidate> {

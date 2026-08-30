@@ -676,7 +676,7 @@ impl SectionManager {
                 e.get_all_section_summaries(None)
                     .into_iter()
                     .filter(|s| {
-                        crate::persistence::PersistentRouteEngine::summary_covers_sport(s, sport)
+                        crate::persistence::PersistentEngine::summary_covers_sport(s, sport)
                     })
                     .collect()
             }

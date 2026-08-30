@@ -20,7 +20,7 @@
 use rusqlite::{Connection, params};
 use std::time::Instant;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Synthetic scale: enough sections and junction rows that an O(junction)
 /// aggregation is measurable, without being slow to build.
@@ -75,7 +75,7 @@ fn seed_synthetic(path: &str) {
 
 /// What `get_summaries_with_count` does, minus the global-engine lock.
 fn summaries_with_count(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     sport_type: Option<&str>,
 ) -> (u32, usize) {
     let total_count = engine.get_section_count();
@@ -86,7 +86,7 @@ fn summaries_with_count(
     (total_count, summaries.len())
 }
 
-fn median_ms(engine: &mut PersistentRouteEngine, sport_type: Option<&str>, iterations: u32) -> f64 {
+fn median_ms(engine: &mut PersistentEngine, sport_type: Option<&str>, iterations: u32) -> f64 {
     let mut samples: Vec<f64> = Vec::new();
     for _ in 0..iterations {
         let start = Instant::now();
@@ -104,7 +104,7 @@ fn median_ms(engine: &mut PersistentRouteEngine, sport_type: Option<&str>, itera
 fn get_summaries_with_count_is_a_fast_column_read() {
     let (mut engine, _dir, label) = match std::env::var("VELOQ_DB") {
         Ok(p) if std::path::Path::new(&p).exists() => {
-            let mut e = PersistentRouteEngine::new(&p).expect("open device DB");
+            let mut e = PersistentEngine::new(&p).expect("open device DB");
             e.load().expect("load device DB");
             (e, None, format!("VELOQ_DB {p}"))
         }
@@ -113,10 +113,10 @@ fn get_summaries_with_count_is_a_fast_column_read() {
             let path = dir.path().join("bench.db");
             let path_str = path.to_str().unwrap().to_string();
             {
-                let _e = PersistentRouteEngine::new(&path_str).expect("migrate");
+                let _e = PersistentEngine::new(&path_str).expect("migrate");
             }
             seed_synthetic(&path_str);
-            let mut e = PersistentRouteEngine::new(&path_str).expect("reopen");
+            let mut e = PersistentEngine::new(&path_str).expect("reopen");
             e.load().expect("load synthetic DB");
             (
                 e,
@@ -161,10 +161,10 @@ fn visit_count_column_tracks_the_junction() {
     let path = dir.path().join("vc.db");
     let path_str = path.to_str().unwrap().to_string();
     {
-        let _e = PersistentRouteEngine::new(&path_str).expect("migrate");
+        let _e = PersistentEngine::new(&path_str).expect("migrate");
     }
     seed_synthetic(&path_str);
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("reopen");
+    let mut engine = PersistentEngine::new(&path_str).expect("reopen");
     engine.load().expect("load");
 
     let summaries = engine.get_section_summaries();
@@ -200,10 +200,10 @@ fn get_sections_reads_the_fixture_inside_its_budget() {
     let path = dir.path().join("sections_bench.db");
     let path_str = path.to_str().unwrap().to_string();
     {
-        let _engine = PersistentRouteEngine::new(&path_str).expect("create schema");
+        let _engine = PersistentEngine::new(&path_str).expect("create schema");
     }
     seed_synthetic(&path_str);
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("open");
+    let mut engine = PersistentEngine::new(&path_str).expect("open");
     engine.load().expect("load");
     let mut samples = Vec::new();
     for _ in 0..5 {

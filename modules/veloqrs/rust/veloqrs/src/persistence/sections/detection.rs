@@ -15,7 +15,7 @@ use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
-    CacheUpdate, PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress,
+    CacheUpdate, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
     load_groups_from_db,
 };
 
@@ -462,7 +462,7 @@ fn save_groups_txn(
 /// reports the unknown-phase 50 rather than pretending to progress.
 pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// A handle for a run that never started: no worker, both senders dropped.
     ///
     /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
@@ -1184,7 +1184,7 @@ impl PersistentRouteEngine {
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Write the evidence cache and its folded-id shadow beside the config
     /// digest they were folded under.
     ///
@@ -1365,7 +1365,7 @@ mod tests {
 
     /// Two well-separated tracks, so the grouping returns two groups whose ids
     /// are the Union-Find roots the members happen to produce, not the stable ids.
-    fn store_signatures(engine: &PersistentRouteEngine) {
+    fn store_signatures(engine: &PersistentEngine) {
         for (id, base_lat) in [("a1", 40.0_f64), ("a2", 40.0), ("b1", 50.0)] {
             engine
                 .db
@@ -1413,7 +1413,7 @@ mod tests {
     /// the roots raw and orphan it.
     #[test]
     fn background_save_carries_stable_ids_and_names() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1", "a2"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         store_signatures(&engine);
@@ -1459,7 +1459,7 @@ mod tests {
     /// it, so the id namespace the next run reads holds no dead keys.
     #[test]
     fn background_save_drops_names_of_dissolved_routes() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         engine.save_groups().unwrap();
@@ -1493,7 +1493,7 @@ mod tests {
         sports: HashMap<String, Vec<u8>>,
     }
 
-    fn write_evidence_row(engine: &PersistentRouteEngine, cache_body: Vec<u8>) {
+    fn write_evidence_row(engine: &PersistentEngine, cache_body: Vec<u8>) {
         let digest = super::super::section_config_digest(&engine.section_config);
         let folded = codec::tag_blob(
             EVIDENCE_CACHE_BLOB_VERSION,
@@ -1513,7 +1513,7 @@ mod tests {
             .unwrap();
     }
 
-    fn evidence_rows(engine: &PersistentRouteEngine) -> i64 {
+    fn evidence_rows(engine: &PersistentEngine) -> i64 {
         engine
             .db
             .query_row("SELECT COUNT(*) FROM evidence_cache", [], |r| r.get(0))
@@ -1525,7 +1525,7 @@ mod tests {
     /// freeze at the previous detector's answer.
     #[test]
     fn a_cache_from_another_layout_version_is_rejected() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         let stale = codec::serialize_named(&ForeignVersionCache {
             version: u32::MAX,
             sports: HashMap::new(),
@@ -1540,7 +1540,7 @@ mod tests {
 
     #[test]
     fn a_cache_at_the_current_layout_version_is_adopted() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
         write_evidence_row(&engine, current);
 

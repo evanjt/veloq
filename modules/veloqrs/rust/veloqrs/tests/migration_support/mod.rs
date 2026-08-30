@@ -5,7 +5,7 @@
 //! genuinely at that version, built from the migrations that shipped rather than
 //! from a hand-copied list that drifts silently.
 //!
-//! `seed_at_version` applies a prefix of `PersistentRouteEngine::migration_scripts()`,
+//! `seed_at_version` applies a prefix of `PersistentEngine::migration_scripts()`,
 //! the same vector `init_schema` runs, so a seed can never disagree with the
 //! production chain.
 
@@ -14,12 +14,12 @@
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 use std::path::Path;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Highest migration number the crate ships. A seed above this is a bug in the
 /// caller, not something to clamp silently.
 pub fn latest_version() -> u32 {
-    PersistentRouteEngine::migration_scripts().len() as u32
+    PersistentEngine::migration_scripts().len() as u32
 }
 
 /// Build a database at `path` holding exactly migrations `1..=n` and nothing
@@ -36,7 +36,7 @@ pub fn latest_version() -> u32 {
 /// Panics rather than returning a Result: a seed that cannot be built is a
 /// broken test, and a silently skipped precondition would print green.
 pub fn seed_at_version(path: &Path, n: u32) -> Connection {
-    let scripts = PersistentRouteEngine::migration_scripts();
+    let scripts = PersistentEngine::migration_scripts();
     assert!(n >= 1, "seed_at_version needs at least migration 1");
     assert!(
         n as usize <= scripts.len(),

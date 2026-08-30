@@ -14,7 +14,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const FIRED: [&str; 3] = ["recut", "dissolved", "merged"];
 
@@ -29,14 +29,14 @@ fn corpus() -> LifecycleCorpus {
     })
 }
 
-fn open(dir: &TempDir) -> PersistentRouteEngine {
+fn open(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("attribution.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     engine.load().unwrap();
     engine
 }
 
-fn step(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivity]) {
+fn step(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -54,11 +54,11 @@ fn step(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivity]) {
     engine.save_processed_activity_ids(&processed).unwrap();
 }
 
-fn section_ids(engine: &mut PersistentRouteEngine) -> Vec<String> {
+fn section_ids(engine: &mut PersistentEngine) -> Vec<String> {
     engine.get_sections().iter().map(|s| s.id.clone()).collect()
 }
 
-fn event_counts(engine: &PersistentRouteEngine, ids: &[String]) -> BTreeMap<String, usize> {
+fn event_counts(engine: &PersistentEngine, ids: &[String]) -> BTreeMap<String, usize> {
     ids.iter()
         .map(|id| (id.clone(), engine.section_history(id).len()))
         .collect()
@@ -66,7 +66,7 @@ fn event_counts(engine: &PersistentRouteEngine, ids: &[String]) -> BTreeMap<Stri
 
 /// `(kind, around)` of every change fired since `before`, on the ids listed.
 fn fired_since(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     before: &BTreeMap<String, usize>,
 ) -> Vec<(String, Vec<String>)> {
     let mut out = Vec::new();

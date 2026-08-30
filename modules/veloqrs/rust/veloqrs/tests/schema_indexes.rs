@@ -17,7 +17,7 @@
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn open_engine_db() -> (TempDir, Connection) {
     let dir = TempDir::new().expect("tempdir");
@@ -25,7 +25,7 @@ fn open_engine_db() -> (TempDir, Connection) {
     // Run migrations by opening the engine, then drop and reopen as plain
     // Connection to introspect.
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     }
     let conn = Connection::open(&path).expect("reopen");
     (dir, conn)
