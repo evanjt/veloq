@@ -5,7 +5,12 @@ export { buildRenderSnapshotScript } from './terrainSnapshotScripts';
 export type { SnapshotRequest } from './terrainSnapshotScripts';
 export { buildSnapshotWorkerHtml } from './snapshotWorker';
 export { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
-export { resolveStyleForWebView, resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
+export {
+  resolveStyleForWebView,
+  resolveStyleExpression,
+  LIGHT_STYLE_URL,
+  TERRAIN_STYLE_OPTIONS,
+} from './styleResolution';
 export type { ResolvedWebViewStyle, WebViewStyleOptions } from './styleResolution';
 export {
   buildMapSurfaceHtml,

@@ -80,7 +80,6 @@ const DEFAULT_ROUTE_SETTINGS = {
   retentionDays: 0,
   autoCleanupEnabled: false,
   heatmapEnabled: true,
-  detectionStrictness: 60,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -327,6 +326,29 @@ describe("RouteSettingsStore", () => {
       expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
     });
 
+    it("drops the retired detectionStrictness key from a stored payload", async () => {
+      await AsyncStorage.setItem(
+        ROUTE_SETTINGS_KEY,
+        JSON.stringify({
+          enabled: true,
+          retentionDays: 0,
+          autoCleanupEnabled: false,
+          heatmapEnabled: true,
+          detectionStrictness: 90,
+        }),
+      );
+      await initializeRouteSettings();
+      expect(useRouteSettings.getState().settings).toEqual(
+        DEFAULT_ROUTE_SETTINGS,
+      );
+
+      await useRouteSettings.getState().setHeatmapEnabled(false);
+      const stored = JSON.parse(
+        (await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!,
+      );
+      expect(stored).not.toHaveProperty("detectionStrictness");
+    });
+
     it("sets isLoaded even when AsyncStorage throws", async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(
         new Error("fail"),
@@ -344,7 +366,6 @@ describe("RouteSettingsStore", () => {
           retentionDays: 90,
           autoCleanupEnabled: true,
           heatmapEnabled: true,
-          detectionStrictness: 60,
         },
         isLoaded: true,
       });
@@ -401,7 +422,6 @@ describe("RouteSettingsStore", () => {
           retentionDays: 180,
           autoCleanupEnabled: false,
           heatmapEnabled: true,
-          detectionStrictness: 60,
         },
         isLoaded: true,
       });

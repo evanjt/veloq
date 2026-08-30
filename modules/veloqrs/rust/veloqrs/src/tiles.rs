@@ -5,7 +5,6 @@
 //! LUT to produce heatmap tiles with additive intensity.
 
 use image::{ImageBuffer, Rgba, RgbaImage};
-use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::io::Cursor;
 use std::path::Path;
@@ -132,16 +131,6 @@ fn intensity_idx_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
     }
 }
 
-/// Cached fully transparent PNG used for empty raster tiles.
-static EMPTY_TILE_PNG: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
-    let img: RgbaImage = ImageBuffer::from_pixel(TILE_SIZE, TILE_SIZE, Rgba([0, 0, 0, 0]));
-    let mut png_data = Vec::new();
-    let mut cursor = Cursor::new(&mut png_data);
-    img.write_to(&mut cursor, image::ImageFormat::Png)
-        .expect("Empty tile PNG encoding failed");
-    png_data
-});
-
 // ============================================================================
 // Zoom-Dependent Line Width
 // ============================================================================
@@ -248,20 +237,6 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     } else {
         None
     }
-}
-
-/// Determine which tiles a GPS track intersects at a given zoom level
-pub fn tiles_for_track(points: &[GpsPoint], zoom: u8) -> Vec<(u32, u32)> {
-    let mut tiles = std::collections::HashSet::new();
-    for point in points {
-        if !point.is_valid() {
-            continue;
-        }
-        let tx = lon_to_tile_x(point.longitude, zoom).floor() as u32;
-        let ty = lat_to_tile_y(point.latitude, zoom).floor() as u32;
-        tiles.insert((tx, ty));
-    }
-    tiles.into_iter().collect()
 }
 
 /// Sweep the polyline through tile space at a given zoom, returning every
@@ -634,35 +609,11 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     Some(png_data)
 }
 
-/// Generate heatmap tiles for a set of tile coordinates.
-/// Returns vec of (z, x, y, png_bytes) for non-empty tiles.
-pub fn generate_tiles_parallel<T>(
-    tile_coords: &[(u8, u32, u32)],
-    tracks: &[T],
-) -> Vec<(u8, u32, u32, Vec<u8>)>
-where
-    T: AsRef<[GpsPoint]> + Sync,
-{
-    tile_coords
-        .par_iter()
-        .filter_map(|&(z, x, y)| generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png)))
-        .collect()
-}
-
 /// Save a tile PNG to disk at the standard z/x/y.png path
 pub fn save_tile(base_path: &Path, z: u8, x: u32, y: u32, png_data: &[u8]) -> std::io::Result<()> {
     let tile_dir = base_path.join(z.to_string()).join(x.to_string());
     std::fs::create_dir_all(&tile_dir)?;
     std::fs::write(tile_dir.join(format!("{}.png", y)), png_data)
-}
-
-/// Write a valid transparent PNG to mark an empty tile (prevents re-generation).
-/// MapLibre still decodes requested raster tiles, so a 0-byte sentinel will log
-/// bitmap decode errors on Android.
-pub fn save_empty_sentinel(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Result<()> {
-    let tile_dir = base_path.join(z.to_string()).join(x.to_string());
-    std::fs::create_dir_all(&tile_dir)?;
-    std::fs::write(tile_dir.join(format!("{}.png", y)), &*EMPTY_TILE_PNG)
 }
 
 /// Check if a tile file already exists on disk (including transparent empty tiles)

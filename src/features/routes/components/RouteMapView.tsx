@@ -185,7 +185,6 @@ export function RouteMapView({
       >
         <MapSurface
           mapStyle={mapStyle}
-          styleOptions={SURFACE_STYLE_OPTIONS}
           initialCamera={{ bounds, padding: FIT_PADDING }}
           sources={sources}
           layers={layers}
@@ -221,8 +220,6 @@ export function RouteMapView({
     </>
   );
 }
-
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
 
 /**
  * Layer stack, back to front: other attempts, then the consensus route, then

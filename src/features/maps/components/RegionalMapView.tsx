@@ -40,13 +40,7 @@ import {
   HEATMAP_ROUTE_COLOR,
   REGIONAL_INTERACTIVE_LAYERS,
 } from './regional/regionalMapLayerSpecs';
-
-const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
-
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
+import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 
 /** World view until the camera hook fits the activities it finds. */
 const WORLD_CAMERA = { center: [0, 0] as [number, number], zoom: 2 };
@@ -486,7 +480,6 @@ export function RegionalMapView({
         <MapSurface
           ref={surfaceRef}
           mapStyle={mapStyle}
-          styleOptions={SURFACE_STYLE_OPTIONS}
           initialCamera={WORLD_CAMERA}
           sources={sources}
           layers={layers}

@@ -1,12 +1,10 @@
-//! Section mutations: create, rename, reference, delete, save, activity matching.
+//! Section mutations: create, rename, reference, delete, activity matching.
 //!
 //! Covers create/save operations, reference-activity selection (including complex
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{
-    BatchAttachSummary, CreateSectionParams, IndexActivitySummary, Section, SectionType,
-};
+use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use super::compute_section_portions;
 use crate::persistence::PersistentRouteEngine;
 use crate::sections::assign_carried_exclusions;
@@ -1049,85 +1047,6 @@ impl PersistentRouteEngine {
                 e
             );
         }
-
-        Ok(())
-    }
-
-    /// Save a section (insert or update).
-    /// Used by section detection to persist auto-detected sections.
-    pub fn save_section(&mut self, section: &Section) -> Result<(), String> {
-        let polyline_blob = crate::persistence::codec::serialize_points(&section.polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
-        let point_density_blob = match section.point_density.as_ref() {
-            Some(pd) => Some(
-                crate::persistence::codec::serialize(pd)
-                    .map_err(|e| format!("Failed to encode point density: {}", e))?,
-            ),
-            None => None,
-        };
-
-        // Compute bounds from polyline
-        let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
-            if section.polyline.len() >= 2 {
-                let bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
-                (
-                    Some(bounds.min_lat),
-                    Some(bounds.max_lat),
-                    Some(bounds.min_lng),
-                    Some(bounds.max_lng),
-                )
-            } else {
-                (None, None, None, None)
-            };
-
-        self.db
-            .execute(
-                "INSERT OR REPLACE INTO sections (
-                    id, section_type, name, sport_type, polyline_json, distance_meters,
-                    representative_activity_id, confidence, observation_count, average_spread,
-                    point_density_json, scale, version, is_user_defined, stability,
-                    source_activity_id, start_index, end_index, created_at, updated_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    polyline_blob, point_density_blob
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                params![
-                    section.id,
-                    section.section_type.as_str(),
-                    section.name,
-                    section.sport_type,
-                    crate::persistence::codec::NO_POLYLINE_JSON,
-                    section.distance_meters,
-                    section.representative_activity_id,
-                    section.confidence,
-                    section.observation_count,
-                    section.average_spread,
-                    None::<String>, // point_density_json: legacy column, blob is authoritative
-                    section.scale,
-                    section.version.unwrap_or(1),
-                    if section.is_user_defined { 1 } else { 0 },
-                    section.stability,
-                    section.source_activity_id,
-                    section.start_index,
-                    section.end_index,
-                    section.created_at,
-                    section.updated_at,
-                    bounds_min_lat,
-                    bounds_max_lat,
-                    bounds_min_lng,
-                    bounds_max_lng,
-                    polyline_blob,
-                    point_density_blob,
-                ],
-            )
-            .map_err(|e| format!("Failed to save section: {}", e))?;
-
-        // Update junction table
-        for activity_id in &section.activity_ids {
-            self.add_section_activity(&section.id, activity_id)?;
-        }
-
-        // Invalidate cache so next fetch gets fresh data
-        self.invalidate_section_cache(&section.id);
 
         Ok(())
     }

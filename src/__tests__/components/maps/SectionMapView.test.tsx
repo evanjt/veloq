@@ -129,11 +129,10 @@ describe('SectionMapView', () => {
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
   });
 
-  it('renders pre-loaded traces while scrubbing', () => {
+  it('renders pre-loaded traces for every activity', () => {
     renderSection({
       allActivityTraces: { a1: POLYLINE, a2: POLYLINE.slice(0, 3) },
       highlightedActivityId: 'a1',
-      isScrubbing: true,
     });
 
     expect(screen.getByTestId('section-map-container')).toBeTruthy();

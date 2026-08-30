@@ -89,25 +89,6 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
   }
 }
 
-export function getAllSettings(host: DelegateHost): Record<string, string> {
-  if (!host.ready) return {};
-  try {
-    const json = host.engine.settings().getAllSettings();
-    return JSON.parse(json) as Record<string, string>;
-  } catch {
-    return {};
-  }
-}
-
-export function setAllSettings(host: DelegateHost, settings: Record<string, string>): void {
-  if (!host.ready) return;
-  try {
-    host.engine.settings().setAllSettings(JSON.stringify(settings));
-  } catch {
-    // Settings write failed - non-critical
-  }
-}
-
 export function deleteSetting(host: DelegateHost, key: string): void {
   if (!host.ready) return;
   try {

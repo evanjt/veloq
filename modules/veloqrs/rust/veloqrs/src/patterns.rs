@@ -29,8 +29,6 @@ struct ActivityFeature {
 
 /// K-means cluster result.
 struct ActivityCluster {
-    #[allow(dead_code)]
-    centroid: [f64; 4],
     members: Vec<usize>, // indices into features array
     silhouette: f64,
 }
@@ -55,6 +53,9 @@ const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
 const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
 const SECTION_APPEARANCE_THRESHOLD: f64 = 0.5; // 50% of cluster activities
+/// A pattern's half-and-half average has to move by this fraction before the
+/// pattern is called improving or declining.
+const PATTERN_TREND_DEADBAND: f64 = 0.03;
 
 // ============================================================================
 // Public API
@@ -290,7 +291,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     let mut best_k = MIN_K;
 
     for k in MIN_K..=max_k {
-        let (centroids, assignments) = kmeans(data, k);
+        let (_centroids, assignments) = kmeans(data, k);
         let silhouette = compute_silhouette(data, &assignments, k);
 
         if silhouette > best_silhouette {
@@ -298,7 +299,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
             best_k = k;
 
             // Build cluster objects
-            best_clusters = build_clusters(&centroids, &assignments, data, k);
+            best_clusters = build_clusters(&assignments, data, k);
         }
     }
 
@@ -514,12 +515,7 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
 }
 
 /// Build ActivityCluster objects from k-means results.
-fn build_clusters(
-    centroids: &[[f64; 4]],
-    assignments: &[usize],
-    data: &[[f64; 4]],
-    k: usize,
-) -> Vec<ActivityCluster> {
+fn build_clusters(assignments: &[usize], data: &[[f64; 4]], k: usize) -> Vec<ActivityCluster> {
     let mut clusters = Vec::with_capacity(k);
 
     for c in 0..k {
@@ -538,7 +534,6 @@ fn build_clusters(
         let cluster_silhouette = compute_cluster_silhouette(data, assignments, &members, c, k);
 
         clusters.push(ActivityCluster {
-            centroid: centroids[c],
             members,
             silhouette: cluster_silhouette,
         });
@@ -969,20 +964,7 @@ fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
 
     // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
     // has no meaningful trend.
-    if !older_avg.is_finite() || older_avg <= 0.0 || !recent_avg.is_finite() {
-        return None;
-    }
-
-    // Compare: if recent is faster (lower), that's improving
-    let change_pct = (recent_avg - older_avg) / older_avg;
-
-    if change_pct < -0.03 {
-        Some(1) // Improving (recent times are lower/faster)
-    } else if change_pct > 0.03 {
-        Some(-1) // Declining (recent times are higher/slower)
-    } else {
-        Some(0) // Stable
-    }
+    crate::trend::classify_time(older_avg, recent_avg, PATTERN_TREND_DEADBAND)
 }
 
 // ============================================================================

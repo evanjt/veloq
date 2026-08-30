@@ -39,11 +39,6 @@ import {
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 
-const SURFACE_STYLE_OPTIONS = {
-  bundledLightStyle: true,
-  cacheVectorTiles: true,
-} as const;
-
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
@@ -229,7 +224,6 @@ export function PreviewMapView({
       <MapSurface
         ref={surfaceRef}
         mapStyle={mapStyle}
-        styleOptions={SURFACE_STYLE_OPTIONS}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}

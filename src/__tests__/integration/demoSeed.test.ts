@@ -19,7 +19,6 @@ const engine = {
   setActivityMetrics: jest.fn(),
   upsertActivityBodies: jest.fn(),
   setSetting: jest.fn(),
-  setStreamBody: jest.fn(),
   setIntervalBody: jest.fn(),
   setCurveBody: jest.fn(),
   replaceCalendarEvents: jest.fn(),
@@ -85,12 +84,6 @@ describe('seedDemoEngine', () => {
       'oldest_activity_date',
       expect.stringMatching(/^\d{4}-\d{2}-\d{2}/)
     );
-  });
-
-  it('never writes stream bodies, whose bounded store a full seed would evict', () => {
-    seedDemoEngine();
-
-    expect(engine.setStreamBody).not.toHaveBeenCalled();
   });
 
   it('stores both curve kinds under the windows the stats screens ask for', () => {

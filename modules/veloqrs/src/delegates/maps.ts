@@ -8,20 +8,6 @@
 import type { FfiBounds, FfiMapScreenData, MapActivityComplete } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-export function getMapActivitiesFiltered(
-  host: DelegateHost,
-  startDate: Date,
-  endDate: Date,
-  sportTypesArray?: string[]
-): MapActivityComplete[] {
-  if (!host.ready) return [];
-  const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
-  const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-  return host.timed('getMapActivitiesFiltered', () =>
-    host.engine.maps().getFiltered(startTs, endTs, sportTypesArray ?? [])
-  );
-}
-
 /**
  * Everything the map tab paints with in one round-trip: the engine total, the
  * sport types the filter chips offer, and the activities inside the window.
@@ -38,21 +24,6 @@ export function getMapScreenData(
   return host.timed('getMapScreenData', () =>
     host.engine.maps().getScreenData(startTs, endTs, sportTypesArray ?? [])
   );
-}
-
-export function getActivityBoundsForRange(
-  host: DelegateHost,
-  startDate: Date,
-  endDate: Date,
-  sportTypesArray?: string[]
-): FfiBounds | null {
-  if (!host.ready) return null;
-  const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
-  const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-  const result = host.timed('getActivityBoundsForRange', () =>
-    host.engine.maps().getBoundsForRange(startTs, endTs, sportTypesArray ?? [])
-  );
-  return result ?? null;
 }
 
 export function getAllMapSignatures(

@@ -14,7 +14,9 @@
 //! on, while still running their I/O on the shared runtime.
 
 use super::error::VeloqError;
-use crate::governor::{self, AuthMethod, Lane};
+#[cfg(test)]
+use crate::governor;
+use crate::governor::{AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ManualActivityBody;
@@ -263,6 +265,9 @@ impl SyncService {
     }
 
     /// The `Authorization` header value for the held credential, if any.
+    /// Only the credential tests read this: the app resolves headers through
+    /// `current_transport`.
+    #[cfg(test)]
     fn auth_header(&self) -> Option<String> {
         let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
         g.as_ref().map(|c| match c.method {
@@ -272,6 +277,7 @@ impl SyncService {
     }
 
     /// The athlete id the held credential belongs to, if any.
+    #[cfg(test)]
     fn athlete_id(&self) -> Option<String> {
         let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
         g.as_ref().map(|c| c.athlete_id.clone())
@@ -481,18 +487,6 @@ where
         }
     });
     true
-}
-
-/// The `Authorization` header for the process-wide credential, or `None` before
-/// TypeScript has called `set_credentials`. Every Rust I/O path resolves its
-/// header here rather than accepting one across FFI.
-pub fn current_auth_header() -> Option<String> {
-    SYNC_SERVICE.auth_header()
-}
-
-/// The athlete id the process-wide credential belongs to.
-pub fn current_athlete_id() -> Option<String> {
-    SYNC_SERVICE.athlete_id()
 }
 
 /// A transport built from the process-wide credential, so every outbound

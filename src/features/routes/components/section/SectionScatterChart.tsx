@@ -46,7 +46,6 @@ export interface SectionScatterChartProps {
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
   onSetAsReference?: (activityId: string) => void;
@@ -75,7 +74,6 @@ export function SectionScatterChart({
   forwardStats,
   reverseStats,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -197,7 +195,6 @@ export function SectionScatterChart({
     scrubEnabled: !compact,
     crosshairMode: 'finger',
     onSelect: handlePointPress,
-    onInteractionChange: onScrubChange,
     resolveTapIndex,
   });
 

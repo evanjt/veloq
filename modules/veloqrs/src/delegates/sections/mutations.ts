@@ -221,9 +221,3 @@ export function acceptAllSections(host: DelegateHost): number {
   }
 }
 
-
-/** Recompute all activity indicators (PRs and trends). */
-export function recomputeIndicators(host: DelegateHost): void {
-  if (!host.ready) return;
-  host.timed('recomputeIndicators', () => host.engine.sections().recomputeIndicators());
-}

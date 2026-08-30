@@ -96,8 +96,6 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   return validTypes.has(sportType);
 }
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-
 interface SectionMapViewProps {
   section: FrequentSection;
   height?: number;
@@ -118,8 +116,6 @@ interface SectionMapViewProps {
    * This avoids expensive shape geometry updates during scrubbing.
    */
   allActivityTraces?: Record<string, RoutePoint[]>;
-  /** Whether user is actively scrubbing - skips expensive renders during scrub */
-  isScrubbing?: boolean;
   /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
@@ -439,7 +435,6 @@ export const SectionMapView = memo(function SectionMapView({
     <MapSurface
       ref={surfaceRef}
       mapStyle={currentMapStyle}
-      styleOptions={SURFACE_STYLE_OPTIONS}
       initialCamera={{ ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }}
       sources={inlineSources}
       layers={inlineLayers}

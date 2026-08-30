@@ -1,4 +1,8 @@
-import { signatureScore, sortBySignature } from '@/features/routes/lib/sectionRanking';
+import {
+  signatureScore,
+  sortBySignature,
+  sortSections,
+} from '@/features/routes/lib/sectionRanking';
 
 describe('signatureScore', () => {
   it('reads the pooled score, or the sport score inside a sport context', () => {
@@ -24,5 +28,45 @@ describe('sortBySignature', () => {
     const sorted = sortBySignature(input, false);
     expect(sorted.map((s) => s.id)).toEqual(['a', 'b', 'c', 'unranked']);
     expect(input.map((s) => s.id)).toEqual(['c', 'unranked', 'a', 'b']);
+  });
+});
+
+describe('sortSections', () => {
+  const list = [
+    { id: 'c', rankScore: 0.5, visitCount: 9, distanceMeters: 400, name: 'Bakery Sprint' },
+    { id: 'a', rankScore: 0.9, visitCount: 2, distanceMeters: 1200, name: 'Zoo Climb' },
+    { id: 'b', rankScore: 0.9, visitCount: 9, distanceMeters: 400, name: 'Bakery Sprint' },
+  ];
+
+  it('orders by signature, ties by id', () => {
+    expect(sortSections(list, 'signature', false).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('orders by visits, most first, ties by id', () => {
+    expect(sortSections(list, 'visits', false).map((s) => s.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('orders by distance, longest first, ties by id', () => {
+    expect(sortSections(list, 'distance', false).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('orders by name, ties by id', () => {
+    expect(sortSections(list, 'name', false).map((s) => s.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('leaves the nearby order alone, the engine already ranked it', () => {
+    expect(sortSections(list, 'nearby', false).map((s) => s.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('does not mutate its input', () => {
+    sortSections(list, 'signature', false);
+    expect(list.map((s) => s.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('handles an empty list and missing fields', () => {
+    expect(sortSections([], 'visits', false)).toEqual([]);
+    const sparse = [{ id: 'y' }, { id: 'x' }];
+    expect(sortSections(sparse, 'visits', false).map((s) => s.id)).toEqual(['x', 'y']);
+    expect(sortSections(sparse, 'name', false).map((s) => s.id)).toEqual(['x', 'y']);
   });
 });

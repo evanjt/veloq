@@ -27,8 +27,6 @@ import {
   getCombinedSatelliteAttribution,
 } from './mapStyles';
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
 
@@ -376,7 +374,6 @@ export function BaseMapView({
         <MapSurface
           ref={surfaceRef}
           mapStyle={mapStyle}
-          styleOptions={SURFACE_STYLE_OPTIONS}
           initialCamera={initialCamera}
           sources={sources}
           layers={layers}

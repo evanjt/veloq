@@ -1,16 +1,16 @@
-import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
-import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
-import type { SectionChangeInput } from '../generators/sectionChanged';
-import { ledgerDate } from '@/features/routes/lib/sectionLedger';
-import type { StrengthSummary } from '@/features/strength/types';
-import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { generateStrengthInsights } from "@/features/strength/hooks/strengthInsights";
+import { getAllSectionDisplayNames } from "@/features/routes/lib/sectionDisplayNames";
+import type { SectionChangeInput } from "../generators/sectionChanged";
+import { ledgerDate } from "@/features/routes/lib/sectionLedger";
+import type { StrengthSummary } from "@/features/strength/types";
+import { isRouteMatchingEnabled } from "@/features/routes/stores/RouteSettingsStore";
+import { getRouteEngine } from "@/shared/native/routeEngine";
 
-import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
+import type { InsightsData, PeriodStats, SummaryCardData } from "veloqrs";
 
-import type { Insight, SectionRankingScores } from '../types';
-import { generateInsights } from './generateInsights';
-import { buildInsightsParams } from './insightsParams';
+import type { Insight, SectionRankingScores } from "../types";
+import { generateInsights } from "./generateInsights";
+import { buildInsightsParams } from "./insightsParams";
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -86,7 +86,9 @@ interface InsightsEnginePayload {
 const MAX_SECTION_STORY_INSIGHTS = 2;
 
 function isSectionStoryInsight(insight: Insight): boolean {
-  return insight.category === 'stale_pr' || insight.category === 'efficiency_trend';
+  return (
+    insight.category === "stale_pr" || insight.category === "efficiency_trend"
+  );
 }
 
 function getInsightSectionIds(insight: Insight): string[] {
@@ -97,8 +99,8 @@ function getInsightSectionIds(insight: Insight): string[] {
 
   if (sectionIds.length > 0) return sectionIds;
 
-  if (insight.navigationTarget?.startsWith('/section/')) {
-    return [insight.navigationTarget.replace('/section/', '')];
+  if (insight.navigationTarget?.startsWith("/section/")) {
+    return [insight.navigationTarget.replace("/section/", "")];
   }
 
   return [];
@@ -107,7 +109,9 @@ function getInsightSectionIds(insight: Insight): string[] {
 export function consolidateInsights(insights: Insight[]): Insight[] {
   if (insights.length <= 1) return insights;
 
-  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  const sorted = [...insights].sort(
+    (a, b) => a.priority - b.priority || b.timestamp - a.timestamp,
+  );
 
   const kept: Insight[] = [];
   const dropped: { id: string; category: string; reason: string }[] = [];
@@ -115,8 +119,10 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   let keptSectionStories = 0;
 
   for (const insight of sorted) {
-    if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
+    if (insight.category === "section_pr") {
+      getInsightSectionIds(insight).forEach((sectionId) =>
+        seenSectionIds.add(sectionId),
+      );
       kept.push(insight);
       continue;
     }
@@ -132,11 +138,14 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
       }
 
       const sectionIds = getInsightSectionIds(insight);
-      if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
+      if (
+        sectionIds.length > 0 &&
+        sectionIds.every((sectionId) => seenSectionIds.has(sectionId))
+      ) {
         dropped.push({
           id: insight.id,
           category: insight.category,
-          reason: 'duplicate section (already covered by PR insight)',
+          reason: "duplicate section (already covered by PR insight)",
         });
         continue;
       }
@@ -177,7 +186,7 @@ export function computeInsightsFromData(
   ffiData: InsightsData | null,
   wellnessData: WellnessInput[] | null,
   t: TFunc,
-  summaryCardData?: SummaryCardData | null
+  summaryCardData?: SummaryCardData | null,
 ): Insight[] {
   if (!ffiData) return [];
 
@@ -199,9 +208,13 @@ export function computeInsightsFromData(
     };
 
     // Compute CTL/ATL/TSB from wellness
-    const sortedWellness = (wellnessData ?? []).sort((a, b) => a.id.localeCompare(b.id));
+    const sortedWellness = (wellnessData ?? []).sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
     const latestWellness =
-      sortedWellness.length > 0 ? sortedWellness[sortedWellness.length - 1] : null;
+      sortedWellness.length > 0
+        ? sortedWellness[sortedWellness.length - 1]
+        : null;
     const ctl = latestWellness?.ctl ?? latestWellness?.ctlLoad ?? 0;
     const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
     const tsb = ctl - atl;
@@ -241,7 +254,7 @@ export function computeInsightsFromData(
           if (!sectionTrendMap.has(rs.sectionId)) {
             sectionTrendMap.set(rs.sectionId, {
               sectionId: rs.sectionId,
-              sectionName: rs.sectionName || 'Section',
+              sectionName: rs.sectionName || "Section",
               trend: rs.trend,
               medianRecentSecs: rs.medianRecentSecs,
               bestTimeSecs: rs.bestTimeSecs,
@@ -272,7 +285,7 @@ export function computeInsightsFromData(
           if (!existing || section.traversalCount > existing.traversalCount) {
             sectionTrendMap.set(section.sectionId, {
               sectionId: section.sectionId,
-              sectionName: section.sectionName || 'Section',
+              sectionName: section.sectionName || "Section",
               trend: section.trend,
               medianRecentSecs: section.medianRecentSecs,
               bestTimeSecs: section.bestTimeSecs,
@@ -290,17 +303,9 @@ export function computeInsightsFromData(
     const sectionChanges = sectionsReady ? recentSectionChanges() : [];
 
     // Aerobic efficiency trends arrive already filtered and capped by Rust.
-    const efficiencyTrends = sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
-
-    // 7-day wellness window
-    const wellnessWindow = sortedWellness.slice(-7).map((w) => ({
-      date: w.id,
-      hrv: w.hrv ?? undefined,
-      restingHR: w.restingHR ?? undefined,
-      sleepSecs: w.sleepSecs ?? undefined,
-      ctl: w.ctl ?? w.ctlLoad ?? undefined,
-      atl: w.atl ?? w.atlLoad ?? undefined,
-    }));
+    const efficiencyTrends = sectionsReady
+      ? (ffiData.efficiencyTrends ?? [])
+      : [];
 
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
@@ -326,13 +331,12 @@ export function computeInsightsFromData(
         formAtl: atl > 0 ? atl : null,
         peakCtl: null,
         currentCtl: ctl > 0 ? ctl : null,
-        wellnessWindow,
         chronicPeriod,
         allSectionTrends: sectionTrends,
         efficiencyTrends,
         sectionChanges,
       },
-      t
+      t,
     );
 
     // Strength insights come from the same bundle as everything else.
@@ -341,26 +345,34 @@ export function computeInsightsFromData(
     if (series) {
       const monthlySummary = normalizeStrengthSummary(series.monthly);
       const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
-      strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now(), t);
+      strengthInsights = generateStrengthInsights(
+        monthlySummary,
+        weeklySummaries,
+        Date.now(),
+        t,
+      );
     }
 
-    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+    const consolidated = consolidateInsights([
+      ...coreInsights,
+      ...strengthInsights,
+    ]);
 
     if (__DEV__) {
       console.log(
-        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`,
       );
       for (const i of consolidated) {
         console.log(
-          `[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`
+          `[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`,
         );
       }
     }
 
     return consolidated;
   } catch (err) {
-    if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
-      console.error('[computeInsightsFromData] swallowed error:', err);
+    if (typeof process !== "undefined" && process.env?.VELOQ_INSIGHTS_DEBUG) {
+      console.error("[computeInsightsFromData] swallowed error:", err);
     }
     return [];
   }
@@ -384,7 +396,7 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
       Number(params.currentStart),
       Number(params.currentEnd),
       Number(params.prevStart),
-      Number(params.prevEnd)
+      Number(params.prevEnd),
     ),
   };
 }

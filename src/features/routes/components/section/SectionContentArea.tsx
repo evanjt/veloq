@@ -37,7 +37,6 @@ export interface SectionContentAreaProps {
   excludedActivityIds: Set<string>;
   sectionTimeRange: SectionTimeRange;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange: (scrubbing: boolean) => void;
   onExcludeActivity: (activityId: string) => void;
   onIncludeActivity: (activityId: string) => void;
   onSetAsReference: (activityId: string) => void;
@@ -67,7 +66,6 @@ export function SectionContentArea({
   excludedActivityIds,
   sectionTimeRange,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -125,7 +123,6 @@ export function SectionContentArea({
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
         onActivitySelect={onActivitySelect}
-        onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
         onSetAsReference={onSetAsReference}

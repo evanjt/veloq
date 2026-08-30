@@ -2,16 +2,43 @@ import {
   generateInsights,
   formatDurationCompact,
   InsightInputData,
-} from '@/features/insights/lib/generateInsights';
-import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
-import type { Insight } from '@/types';
+} from "@/features/insights/lib/generateInsights";
+import { consolidateInsights } from "@/features/insights/lib/computeInsightsData";
+import type { Insight } from "@/types";
+import { getRouteEngine } from "@/shared/native/routeEngine";
+
+jest.mock("@/shared/native/routeEngine", () => ({
+  getRouteEngine: jest.fn(() => null),
+}));
+
+const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<
+  typeof getRouteEngine
+>;
+
+/** The HRV verdict is Rust's, so the generator only ever sees this shape. */
+const stubHrvTrend = (
+  trend: {
+    label: string;
+    avg: number;
+    latest: number;
+    dataPoints: number;
+    sparkline: number[];
+  } | null,
+) => {
+  mockGetRouteEngine.mockReturnValue({
+    computeHrvTrend: () => trend,
+  } as unknown as ReturnType<typeof getRouteEngine>);
+};
 
 // Mock translation function - returns key with interpolated params
-const mockT = (key: string, params?: Record<string, string | number>): string => {
+const mockT = (
+  key: string,
+  params?: Record<string, string | number>,
+): string => {
   if (!params) return key;
   const paramStr = Object.entries(params)
     .map(([k, v]) => `${k}: ${v}`)
-    .join(', ');
+    .join(", ");
   return `${key} {${paramStr}}`;
 };
 
@@ -29,27 +56,39 @@ const EMPTY_INPUT: InsightInputData = {
   currentCtl: null,
 };
 
-describe('generateInsights', () => {
+describe("generateInsights", () => {
   // ============================================================
   // EDGE CASES
   // ============================================================
 
-  describe('edge cases', () => {
-    it('returns empty array for all-null input without formTsb', () => {
+  describe("edge cases", () => {
+    it("returns empty array for all-null input without formTsb", () => {
       const result = generateInsights(EMPTY_INPUT, mockT);
       expect(result).toEqual([]);
     });
 
-    it('previous period with zero duration does not crash', () => {
+    it("previous period with zero duration does not crash", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 0,
+            totalDuration: 0,
+            totalDistance: 0,
+            totalTss: 0,
+          },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "period_comparison-volume"),
+      ).toBeUndefined();
     });
   });
 
@@ -57,46 +96,56 @@ describe('generateInsights', () => {
   // SECTION PRs (Priority 1)
   // ============================================================
 
-  describe('section PRs', () => {
-    it('generates insight for recent PR', () => {
+  describe("section PRs", () => {
+    it("generates insight for recent PR", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 1 }],
+          recentPRs: [
+            {
+              sectionId: "s1",
+              sectionName: "Hill Climb",
+              bestTime: 300,
+              daysAgo: 1,
+            },
+          ],
         },
-        mockT
+        mockT,
       );
-      const pr = result.find((i) => i.category === 'section_pr');
+      const pr = result.find((i) => i.category === "section_pr");
       expect(pr!.priority).toBe(1);
-      expect(pr!.navigationTarget).toBe('/section/s1');
-      expect(pr!.title).toContain('insights.sectionPr');
+      expect(pr!.navigationTarget).toBe("/section/s1");
+      expect(pr!.title).toContain("insights.sectionPr");
     });
 
-    it('limits to 3 PRs max', () => {
+    it("limits to 3 PRs max", () => {
       const prs = Array.from({ length: 5 }, (_, i) => ({
         sectionId: `s${i}`,
         sectionName: `Section ${i}`,
         bestTime: 100 + i,
         daysAgo: i,
       }));
-      const result = generateInsights({ ...EMPTY_INPUT, recentPRs: prs }, mockT);
-      const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+      const result = generateInsights(
+        { ...EMPTY_INPUT, recentPRs: prs },
+        mockT,
+      );
+      const prInsights = result.filter((i) => i.id.startsWith("section_pr-"));
       expect(prInsights).toHaveLength(3);
     });
 
-    it('skips PRs with invalid data', () => {
+    it("skips PRs with invalid data", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
           recentPRs: [
-            { sectionId: '', sectionName: 'Test', bestTime: 100, daysAgo: 0 },
-            { sectionId: 's1', sectionName: '', bestTime: 100, daysAgo: 0 },
-            { sectionId: 's2', sectionName: 'Test', bestTime: NaN, daysAgo: 0 },
+            { sectionId: "", sectionName: "Test", bestTime: 100, daysAgo: 0 },
+            { sectionId: "s1", sectionName: "", bestTime: 100, daysAgo: 0 },
+            { sectionId: "s2", sectionName: "Test", bestTime: NaN, daysAgo: 0 },
           ],
         },
-        mockT
+        mockT,
       );
-      const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+      const prInsights = result.filter((i) => i.id.startsWith("section_pr-"));
       expect(prInsights).toHaveLength(0);
     });
   });
@@ -105,55 +154,62 @@ describe('generateInsights', () => {
   // HRV TREND (Priority 2) - replaces recovery readiness
   // ============================================================
 
-  describe('HRV trend', () => {
-    const makeHrvInput = (hrvValues: number[]): InsightInputData => ({
-      ...EMPTY_INPUT,
-      wellnessWindow: hrvValues.map((hrv, i) => ({
-        date: `2026-02-${15 + i}`,
-        hrv,
-      })),
+  describe("HRV trend", () => {
+    const hrvTrend = (label: string, sparkline: number[]) => ({
+      label,
+      avg: sparkline.reduce((a, b) => a + b, 0) / sparkline.length,
+      latest: sparkline[sparkline.length - 1],
+      dataPoints: sparkline.length,
+      sparkline,
     });
 
-    it('generates HRV trend with 3+ HRV values', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.category).toBe('hrv_trend');
+    afterEach(() => {
+      mockGetRouteEngine.mockReturnValue(null);
+    });
+
+    it("generates HRV trend from the engine verdict", () => {
+      stubHrvTrend(hrvTrend("trendingUp", [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      const hrv = result.find((i) => i.id === "hrv_trend");
+      expect(hrv!.category).toBe("hrv_trend");
       expect(hrv!.priority).toBe(2);
     });
 
-    it('does not generate with fewer than 5 HRV values', () => {
-      const result = generateInsights(makeHrvInput([50, 52]), mockT);
-      expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+    it("generates nothing when the engine withholds a verdict", () => {
+      stubHrvTrend(null);
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result.find((i) => i.id === "hrv_trend")).toBeUndefined();
     });
 
-    it('detects upward, downward, and stable trends from HRV direction', () => {
-      const cases: [number[], string][] = [
-        [[40, 45, 50, 55, 60], 'trendingUp'],
-        [[60, 55, 50, 45, 40], 'trendingDown'],
-        [[50, 50, 50, 50, 50], 'stable'],
-      ];
-      for (const [values, expected] of cases) {
-        const result = generateInsights(makeHrvInput(values), mockT);
-        const hrv = result.find((i) => i.id === 'hrv_trend');
-        expect(hrv!.title).toContain(expected);
+    it("generates nothing when there is no engine at all", () => {
+      mockGetRouteEngine.mockReturnValue(null);
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result.find((i) => i.id === "hrv_trend")).toBeUndefined();
+    });
+
+    it("titles each verdict the engine can return", () => {
+      for (const label of ["trendingUp", "trendingDown", "stable"]) {
+        stubHrvTrend(hrvTrend(label, [50, 52, 55, 58, 60]));
+        const result = generateInsights(EMPTY_INPUT, mockT);
+        const hrv = result.find((i) => i.id === "hrv_trend");
+        expect(hrv!.title).toContain(label);
       }
     });
 
-    it('includes HRV sparkline in supporting data', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
+    it("includes HRV sparkline in supporting data", () => {
+      stubHrvTrend(hrvTrend("trendingUp", [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      const hrv = result.find((i) => i.id === "hrv_trend");
       expect(hrv!.supportingData?.sparklineData).toEqual([50, 52, 55, 58, 60]);
     });
 
-    it('includes methodology with Kiviniemi reference in APA format', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.methodology?.description).toContain('insights.methodology.hrvDescription');
-    });
-
-    it('skips when all HRV values are zero', () => {
-      const result = generateInsights(makeHrvInput([0, 0, 0, 0, 0]), mockT);
-      expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+    it("includes methodology with Kiviniemi reference in APA format", () => {
+      stubHrvTrend(hrvTrend("trendingUp", [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      const hrv = result.find((i) => i.id === "hrv_trend");
+      expect(hrv!.methodology?.description).toContain(
+        "insights.methodology.hrvDescription",
+      );
     });
   });
 
@@ -161,8 +217,8 @@ describe('generateInsights', () => {
   // FITNESS MILESTONES (Priority 2)
   // ============================================================
 
-  describe('fitness milestones', () => {
-    it('detects FTP increase', () => {
+  describe("fitness milestones", () => {
+    it("detects FTP increase", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -173,15 +229,15 @@ describe('generateInsights', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+      const ftp = result.find((i) => i.id === "fitness_milestone-ftp");
       expect(ftp!.priority).toBe(2);
-      expect(ftp!.title).toContain('current: 260');
-      expect(ftp!.title).toContain('change: 10');
+      expect(ftp!.title).toContain("current: 260");
+      expect(ftp!.title).toContain("change: 10");
     });
 
-    it('does not generate FTP insight when FTP decreased', () => {
+    it("does not generate FTP insight when FTP decreased", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -192,12 +248,14 @@ describe('generateInsights', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "fitness_milestone-ftp"),
+      ).toBeUndefined();
     });
 
-    it('detects pace improvement from a higher threshold speed', () => {
+    it("detects pace improvement from a higher threshold speed", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -208,13 +266,13 @@ describe('generateInsights', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      const pace = result.find((i) => i.id === 'fitness_milestone-pace');
-      expect(pace!.title).toContain('delta: 20s/km');
+      const pace = result.find((i) => i.id === "fitness_milestone-pace");
+      expect(pace!.title).toContain("delta: 20s/km");
     });
 
-    it('does not generate pace insight when pace got worse', () => {
+    it("does not generate pace insight when pace got worse", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -225,12 +283,14 @@ describe('generateInsights', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "fitness_milestone-pace"),
+      ).toBeUndefined();
     });
 
-    it('detects swim pace improvement from a higher threshold speed', () => {
+    it("detects swim pace improvement from a higher threshold speed", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -241,10 +301,10 @@ describe('generateInsights', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      const swim = result.find((i) => i.id === 'fitness_milestone-swim-pace');
-      expect(swim!.title).toContain('delta: 9s/100m');
+      const swim = result.find((i) => i.id === "fitness_milestone-swim-pace");
+      expect(swim!.title).toContain("delta: 9s/100m");
     });
   });
 
@@ -252,88 +312,152 @@ describe('generateInsights', () => {
   // PERIOD COMPARISON (Priority 2)
   // ============================================================
 
-  describe('period comparison', () => {
-    it('detects load increase >15% (uses TSS when available)', () => {
+  describe("period comparison", () => {
+    it("detects load increase >15% (uses TSS when available)", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
         },
-        mockT
+        mockT,
       );
-      const vol = result.find((i) => i.id === 'period_comparison-volume');
-      expect(vol!.icon).toBe('trending-up');
-      expect(vol!.title).toContain('weeklyLoadUp');
+      const vol = result.find((i) => i.id === "period_comparison-volume");
+      expect(vol!.icon).toBe("trending-up");
+      expect(vol!.title).toContain("weeklyLoadUp");
     });
 
-    it('detects load decrease >15% (uses TSS when available)', () => {
+    it("detects load decrease >15% (uses TSS when available)", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 2, totalDuration: 3000, totalDistance: 40000, totalTss: 80 },
-          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 2,
+            totalDuration: 3000,
+            totalDistance: 40000,
+            totalTss: 80,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
-        mockT
+        mockT,
       );
-      const vol = result.find((i) => i.id === 'period_comparison-volume');
-      expect(vol!.icon).toBe('trending-down');
-      expect(vol!.title).toContain('weeklyLoadDown');
+      const vol = result.find((i) => i.id === "period_comparison-volume");
+      expect(vol!.icon).toBe("trending-down");
+      expect(vol!.title).toContain("weeklyLoadDown");
     });
 
-    it('no insight when load change <15%', () => {
+    it("no insight when load change <15%", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 5200, totalDistance: 100000, totalTss: 195 },
-          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 5200,
+            totalDistance: 100000,
+            totalTss: 195,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "period_comparison-volume"),
+      ).toBeUndefined();
     });
 
-    it('falls back to duration when TSS is zero', () => {
+    it("falls back to duration when TSS is zero", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 0 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 0 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 0,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 0,
+          },
         },
-        mockT
+        mockT,
       );
-      const vol = result.find((i) => i.id === 'period_comparison-volume');
-      expect(vol!.title).toContain('weeklyVolumeUp');
+      const vol = result.find((i) => i.id === "period_comparison-volume");
+      expect(vol!.title).toContain("weeklyVolumeUp");
       expect(vol!.supportingData!.comparisonData!.current.value).toBe(120);
-      expect(vol!.supportingData!.comparisonData!.current.unit).toBe('min');
+      expect(vol!.supportingData!.comparisonData!.current.unit).toBe("min");
       expect(vol!.supportingData!.comparisonData!.previous.value).toBe(83);
-      expect(vol!.supportingData!.comparisonData!.previous.unit).toBe('min');
+      expect(vol!.supportingData!.comparisonData!.previous.unit).toBe("min");
     });
 
-    it('change context is always neutral (no warning)', () => {
+    it("change context is always neutral (no warning)", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 400 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 400,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
-        mockT
+        mockT,
       );
-      const vol = result.find((i) => i.id === 'period_comparison-volume');
+      const vol = result.find((i) => i.id === "period_comparison-volume");
       const changeDP = vol!.supportingData!.comparisonData!.change;
-      expect(changeDP.context).toBe('neutral');
+      expect(changeDP.context).toBe("neutral");
     });
 
-    it('suppresses period comparison when current week has zero activities', () => {
+    it("suppresses period comparison when current week has zero activities", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
-          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 0,
+            totalDuration: 0,
+            totalDistance: 0,
+            totalTss: 0,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "period_comparison-volume"),
+      ).toBeUndefined();
     });
   });
 
@@ -341,68 +465,63 @@ describe('generateInsights', () => {
   // REMOVED INSIGHTS - ensure they are gone
   // ============================================================
 
-  describe('removed insights', () => {
+  describe("removed insights", () => {
     it.each([
       {
-        name: 'ACWR',
+        name: "ACWR",
         input: {
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          chronicPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
-        missingId: 'workload_risk-acwr',
+        missingId: "workload_risk-acwr",
       },
       {
-        name: 'recovery readiness',
+        name: "recovery readiness",
         input: {
           formTsb: 10,
           formCtl: 50,
           formAtl: 40,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 50, ctl: 50, atl: 40 },
-            { date: '2026-02-16', hrv: 52, ctl: 50, atl: 40 },
-            { date: '2026-02-17', hrv: 55, ctl: 50, atl: 40 },
-            { date: '2026-02-18', hrv: 58, ctl: 50, atl: 40 },
-            { date: '2026-02-19', hrv: 60, ctl: 50, atl: 40 },
-          ],
         },
-        missingId: 'recovery_readiness',
+        missingId: "recovery_readiness",
       },
       {
-        name: 'training monotony',
-        input: {
-          wellnessWindow: [
-            { date: '2026-02-15', atl: 50, ctl: 50 },
-            { date: '2026-02-16', atl: 50, ctl: 50 },
-            { date: '2026-02-17', atl: 50, ctl: 50 },
-            { date: '2026-02-18', atl: 51, ctl: 50 },
-            { date: '2026-02-19', atl: 50, ctl: 50 },
-          ],
-        },
-        missingId: 'workload_risk-monotony',
+        name: "training monotony",
+        input: {},
+        missingId: "workload_risk-monotony",
       },
       {
-        name: 'form trajectory',
+        name: "form trajectory",
         input: { formTsb: -5, formCtl: 50, formAtl: 55 },
-        missingId: 'form_trajectory',
+        missingId: "form_trajectory",
       },
       {
-        name: 'ramp rate',
+        name: "ramp rate",
         input: { formTsb: 0, formCtl: 50, formAtl: 50 },
-        missingId: 'form_trajectory-ramp',
+        missingId: "form_trajectory-ramp",
       },
       {
-        name: 'peak CTL',
+        name: "peak CTL",
         input: { currentCtl: 96, peakCtl: 100 },
-        missingId: 'fitness_milestone-peak-ctl',
+        missingId: "fitness_milestone-peak-ctl",
       },
       {
-        name: 'section performance vs fitness',
+        name: "section performance vs fitness",
         input: {
           formCtl: 50,
           sectionTrends: [
             {
-              sectionId: 's1',
-              sectionName: 'Hill',
+              sectionId: "s1",
+              sectionName: "Hill",
               trend: 1,
               medianRecentSecs: 300,
               bestTimeSecs: 270,
@@ -410,24 +529,27 @@ describe('generateInsights', () => {
             },
           ],
         },
-        missingIdPrefix: 'section_performance-fitness',
+        missingIdPrefix: "section_performance-fitness",
       },
       {
-        name: 'old form advice',
+        name: "old form advice",
         input: { formTsb: -5, formCtl: 50, formAtl: 55 },
-        missingId: 'training_consistency-form',
+        missingId: "training_consistency-form",
       },
-    ])('does not generate $name insight', ({ input, missingId, missingIdPrefix }) => {
-      const result = generateInsights({ ...EMPTY_INPUT, ...input }, mockT);
-      const hit = missingIdPrefix
-        ? result.find((i) => i.id.startsWith(missingIdPrefix))
-        : result.find((i) => i.id === missingId);
-      expect(hit).toBeUndefined();
-    });
+    ])(
+      "does not generate $name insight",
+      ({ input, missingId, missingIdPrefix }) => {
+        const result = generateInsights({ ...EMPTY_INPUT, ...input }, mockT);
+        const hit = missingIdPrefix
+          ? result.find((i) => i.id.startsWith(missingIdPrefix))
+          : result.find((i) => i.id === missingId);
+        expect(hit).toBeUndefined();
+      },
+    );
   });
 
-  describe('stale PR grouping', () => {
-    it('formats grouped stale PR subtitles with sport-appropriate units', () => {
+  describe("stale PR grouping", () => {
+    it("formats grouped stale PR subtitles with sport-appropriate units", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -446,33 +568,35 @@ describe('generateInsights', () => {
           recentPRs: [],
           sectionTrends: [
             {
-              sectionId: 'ride-1',
-              sectionName: 'North Climb',
+              sectionId: "ride-1",
+              sectionName: "North Climb",
               trend: 0,
               medianRecentSecs: 620,
               bestTimeSecs: 590,
               traversalCount: 8,
               daysSinceLast: 60,
-              sportType: 'Ride',
+              sportType: "Ride",
             },
             {
-              sectionId: 'swim-1',
-              sectionName: 'Pool Threshold Set',
+              sectionId: "swim-1",
+              sectionName: "Pool Threshold Set",
               trend: 0,
               medianRecentSecs: 390,
               bestTimeSecs: 360,
               traversalCount: 5,
               daysSinceLast: 75,
-              sportType: 'Swim',
+              sportType: "Swim",
             },
           ],
         },
-        mockT
+        mockT,
       );
 
-      const stale = result.find((insight) => insight.id === 'stale_pr-group');
-      expect(stale!.subtitle).toContain('FTP: 250W → 270W');
-      expect(stale!.subtitle).toContain('Swim threshold: 1:40/100m → 1:31/100m');
+      const stale = result.find((insight) => insight.id === "stale_pr-group");
+      expect(stale!.subtitle).toContain("FTP: 250W → 270W");
+      expect(stale!.subtitle).toContain(
+        "Swim threshold: 1:40/100m → 1:31/100m",
+      );
     });
   });
 
@@ -480,98 +604,119 @@ describe('generateInsights', () => {
   // PRIORITY ORDERING
   // ============================================================
 
-  describe('priority ordering', () => {
-    it('sorts by priority ascending', () => {
+  describe("priority ordering", () => {
+    it("sorts by priority ascending", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          recentPRs: [
+            { sectionId: "s1", sectionName: "Hill", bestTime: 300, daysAgo: 0 },
+          ],
           ftpTrend: {
             latestFtp: 260,
             latestDate: BigInt(1000),
             previousFtp: 250,
             previousDate: BigInt(500),
           },
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
           formTsb: 0,
           formCtl: 50,
           formAtl: 50,
         },
-        mockT
+        mockT,
       );
 
       expect(result.length).toBeGreaterThanOrEqual(3);
       for (let i = 1; i < result.length; i++) {
-        expect(result[i].priority).toBeGreaterThanOrEqual(result[i - 1].priority);
+        expect(result[i].priority).toBeGreaterThanOrEqual(
+          result[i - 1].priority,
+        );
       }
     });
   });
 
-  describe('navigation coverage', () => {
-    it('generated insight categories include navigation targets for current detail flows', () => {
+  describe("navigation coverage", () => {
+    it("generated insight categories include navigation targets for current detail flows", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 240 },
-          previousPeriod: { count: 4, totalDuration: 5400, totalDistance: 70000, totalTss: 180 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 240,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5400,
+            totalDistance: 70000,
+            totalTss: 180,
+          },
           ftpTrend: {
             latestFtp: 265,
             latestDate: BigInt(1000),
             previousFtp: 255,
             previousDate: BigInt(500),
           },
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1 }],
+          recentPRs: [
+            { sectionId: "s1", sectionName: "Hill", bestTime: 300, daysAgo: 1 },
+          ],
           sectionTrends: [
             {
-              sectionId: 's1',
-              sectionName: 'Hill',
+              sectionId: "s1",
+              sectionName: "Hill",
               trend: 1,
               medianRecentSecs: 320,
               bestTimeSecs: 300,
               traversalCount: 8,
-              sportType: 'Ride',
+              sportType: "Ride",
             },
             {
-              sectionId: 's2',
-              sectionName: 'Valley',
+              sectionId: "s2",
+              sectionName: "Valley",
               trend: 1,
               medianRecentSecs: 420,
               bestTimeSecs: 390,
               traversalCount: 6,
-              sportType: 'Ride',
+              sportType: "Ride",
             },
           ],
           allSectionTrends: [
             {
-              sectionId: 's1',
-              sectionName: 'Hill',
+              sectionId: "s1",
+              sectionName: "Hill",
               trend: 1,
               medianRecentSecs: 320,
               bestTimeSecs: 300,
               traversalCount: 8,
-              sportType: 'Ride',
+              sportType: "Ride",
             },
             {
-              sectionId: 's2',
-              sectionName: 'Valley',
+              sectionId: "s2",
+              sectionName: "Valley",
               trend: 1,
               medianRecentSecs: 420,
               bestTimeSecs: 390,
               traversalCount: 6,
-              sportType: 'Ride',
+              sportType: "Ride",
             },
           ],
           formTsb: -5,
           formCtl: 60,
           formAtl: 65,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 55, ctl: 60, atl: 65 },
-            { date: '2026-02-16', hrv: 57, ctl: 60, atl: 65 },
-            { date: '2026-02-17', hrv: 59, ctl: 60, atl: 65 },
-          ],
         },
-        mockT
+        mockT,
       );
 
       expect(result.length).toBeGreaterThan(0);
@@ -585,17 +730,19 @@ describe('generateInsights', () => {
   // isNew FIELD
   // ============================================================
 
-  describe('isNew field', () => {
-    it('all generated insights have isNew = false (annotated by useInsights)', () => {
+  describe("isNew field", () => {
+    it("all generated insights have isNew = false (annotated by useInsights)", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 0 }],
+          recentPRs: [
+            { sectionId: "s1", sectionName: "Hill", bestTime: 300, daysAgo: 0 },
+          ],
           formTsb: 0,
           formCtl: 50,
           formAtl: 50,
         },
-        mockT
+        mockT,
       );
       expect(result.length).toBeGreaterThan(0);
       result.forEach((insight) => expect(insight.isNew).toBe(false));
@@ -606,24 +753,34 @@ describe('generateInsights', () => {
   // INFORMATIONAL FRAMING - no prescriptive text
   // ============================================================
 
-  describe('informational framing', () => {
-    it('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
+  describe("informational framing", () => {
+    it("no insight has alternatives array (removed prescriptive zone comparisons)", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
           formTsb: -5,
           formCtl: 50,
           formAtl: 55,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 50, ctl: 50, atl: 55 },
-            { date: '2026-02-16', hrv: 52, ctl: 50, atl: 55 },
-            { date: '2026-02-17', hrv: 55, ctl: 50, atl: 55 },
-          ],
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
-          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 250,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
+          chronicPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
-        mockT
+        mockT,
       );
       for (const insight of result) {
         expect(insight.alternatives).toBeUndefined();
@@ -635,18 +792,28 @@ describe('generateInsights', () => {
   // BODY TEXT
   // ============================================================
 
-  describe('body text', () => {
-    it('load insight has body with TSS and duration context', () => {
+  describe("body text", () => {
+    it("load insight has body with TSS and duration context", () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
         },
-        mockT
+        mockT,
       );
-      const vol = result.find((i) => i.id === 'period_comparison-volume');
-      expect(vol!.body).toContain('insights.loadBody');
+      const vol = result.find((i) => i.id === "period_comparison-volume");
+      expect(vol!.body).toContain("insights.loadBody");
     });
   });
 });
@@ -655,17 +822,17 @@ describe('generateInsights', () => {
 // formatDurationCompact
 // ============================================================
 
-describe('formatDurationCompact', () => {
+describe("formatDurationCompact", () => {
   it.each([
-    [5400, '1h30', 'hours and minutes'],
-    [3600, '1h', 'hours only'],
-    [2700, '45m', 'minutes only'],
-    [3660, '1h01', 'minutes padded with leading zero'],
-    [0, '0m', 'zero'],
-    [-100, '0m', 'negative'],
-    [NaN, '0m', 'NaN'],
-    [Infinity, '0m', 'Infinity'],
-  ])('formats %p as %p (%s)', (seconds, expected) => {
+    [5400, "1h30", "hours and minutes"],
+    [3600, "1h", "hours only"],
+    [2700, "45m", "minutes only"],
+    [3660, "1h01", "minutes padded with leading zero"],
+    [0, "0m", "zero"],
+    [-100, "0m", "negative"],
+    [NaN, "0m", "NaN"],
+    [Infinity, "0m", "Infinity"],
+  ])("formats %p as %p (%s)", (seconds, expected) => {
     expect(formatDurationCompact(seconds)).toBe(expected);
   });
 });
@@ -674,7 +841,7 @@ describe('formatDurationCompact', () => {
 // ADDITIONAL EDGE CASE BUG HUNTING
 // ============================================================
 
-describe('generateInsights - additional edge cases', () => {
+describe("generateInsights - additional edge cases", () => {
   /**
    * All-zero metrics: CTL=0, ATL=0, TSB=0 should NOT generate a TSB form
    * insight because there is no wellness data to report on.
@@ -685,7 +852,7 @@ describe('generateInsights - additional edge cases', () => {
   /**
    * FTP with NaN values should not produce an insight.
    */
-  it('FTP trend with NaN latestFtp does not crash or generate insight', () => {
+  it("FTP trend with NaN latestFtp does not crash or generate insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -696,16 +863,16 @@ describe('generateInsights - additional edge cases', () => {
           previousDate: BigInt(500),
         },
       },
-      mockT
+      mockT,
     );
-    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+    const ftp = result.find((i) => i.id === "fitness_milestone-ftp");
     expect(ftp).toBeUndefined();
   });
 
   /**
    * FTP trend with undefined values should not crash.
    */
-  it('FTP trend with undefined values does not crash', () => {
+  it("FTP trend with undefined values does not crash", () => {
     expect(() =>
       generateInsights(
         {
@@ -717,8 +884,8 @@ describe('generateInsights - additional edge cases', () => {
             previousDate: undefined,
           },
         },
-        mockT
-      )
+        mockT,
+      ),
     ).not.toThrow();
   });
 
@@ -726,7 +893,7 @@ describe('generateInsights - additional edge cases', () => {
    * Pace trend with zero values should not generate a milestone.
    * pace.latestPace = 0 means 0 m/s - effectively no movement.
    */
-  it('pace trend with zero latestPace does not generate insight', () => {
+  it("pace trend with zero latestPace does not generate insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -737,74 +904,56 @@ describe('generateInsights - additional edge cases', () => {
           previousDate: BigInt(500),
         },
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+    expect(
+      result.find((i) => i.id === "fitness_milestone-pace"),
+    ).toBeUndefined();
   });
 
   /**
    * Period comparison where previous period has zero TSS and zero duration.
    * Both fallback paths have prevValue=0, which triggers the prevValue <= 0 guard.
    */
-  it('previous period all zeroes does not generate period comparison', () => {
+  it("previous period all zeroes does not generate period comparison", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 150 },
-        previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+        currentPeriod: {
+          count: 3,
+          totalDuration: 5000,
+          totalDistance: 50000,
+          totalTss: 150,
+        },
+        previousPeriod: {
+          count: 0,
+          totalDuration: 0,
+          totalDistance: 0,
+          totalTss: 0,
+        },
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
-  });
-
-  /**
-   * Single HRV data point should NOT generate an HRV trend.
-   * Trends from 1-2 points are unreliable.
-   */
-  it('single HRV value does not produce trend insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [{ date: '2026-02-15', hrv: 55 }],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
-  });
-
-  /**
-   * HRV values with NaN entries should be filtered out and not crash.
-   * If all values are NaN, no insight should be generated.
-   */
-  it('all-NaN HRV values do not produce trend insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: NaN },
-          { date: '2026-02-16', hrv: NaN },
-          { date: '2026-02-17', hrv: NaN },
-        ],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+    expect(
+      result.find((i) => i.id === "period_comparison-volume"),
+    ).toBeUndefined();
   });
 
   /**
    * Section PR with bestTime = 0 should be skipped.
    * 0 seconds is clearly invalid for a section time.
    */
-  it('section PR with bestTime = 0 is skipped', () => {
+  it("section PR with bestTime = 0 is skipped", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: 0, daysAgo: 1 }],
+        recentPRs: [
+          { sectionId: "s1", sectionName: "Test", bestTime: 0, daysAgo: 1 },
+        ],
       },
-      mockT
+      mockT,
     );
-    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    const prInsights = result.filter((i) => i.id.startsWith("section_pr-"));
     // bestTime = 0 is not NaN, so Number.isFinite(0) = true. It passes the guard.
     // This may or may not be intentional (a 0-second PR is nonsensical).
     // The test documents the current behavior.
@@ -815,15 +964,17 @@ describe('generateInsights - additional edge cases', () => {
    * Section PR with negative bestTime should be filtered.
    * Negative time makes no physical sense.
    */
-  it('section PR with negative bestTime is skipped', () => {
+  it("section PR with negative bestTime is skipped", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Test', bestTime: -100, daysAgo: 1 }],
+        recentPRs: [
+          { sectionId: "s1", sectionName: "Test", bestTime: -100, daysAgo: 1 },
+        ],
       },
-      mockT
+      mockT,
     );
-    const prInsights = result.filter((i) => i.id.startsWith('section_pr-'));
+    const prInsights = result.filter((i) => i.id.startsWith("section_pr-"));
     // Number.isFinite(-100) is true, so the guard only catches NaN/Infinity.
     // Negative bestTime passes through. This may be a gap in validation.
     expect(prInsights).toHaveLength(1);
@@ -833,23 +984,30 @@ describe('generateInsights - additional edge cases', () => {
    * Period comparison with both periods having identical non-zero values.
    * Change should be < 10% so no insight is generated.
    */
-  it('identical periods produce no comparison insight', () => {
-    const period = { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 };
+  it("identical periods produce no comparison insight", () => {
+    const period = {
+      count: 5,
+      totalDuration: 7200,
+      totalDistance: 100000,
+      totalTss: 200,
+    };
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
         currentPeriod: period,
         previousPeriod: period,
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    expect(
+      result.find((i) => i.id === "period_comparison-volume"),
+    ).toBeUndefined();
   });
 
   /**
    * FTP equal values (no change) should not generate milestone.
    */
-  it('FTP with no change (same value) does not generate insight', () => {
+  it("FTP with no change (same value) does not generate insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -860,15 +1018,17 @@ describe('generateInsights - additional edge cases', () => {
           previousDate: BigInt(500),
         },
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
+    expect(
+      result.find((i) => i.id === "fitness_milestone-ftp"),
+    ).toBeUndefined();
   });
 
   /**
    * Pace got worse (lower threshold speed) should not generate milestone.
    */
-  it('pace regression does not produce insight', () => {
+  it("pace regression does not produce insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -879,9 +1039,11 @@ describe('generateInsights - additional edge cases', () => {
           previousDate: BigInt(500),
         },
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
+    expect(
+      result.find((i) => i.id === "fitness_milestone-pace"),
+    ).toBeUndefined();
   });
 });
 
@@ -889,72 +1051,41 @@ describe('generateInsights - additional edge cases', () => {
 // BOUNDARY CONDITION TESTS
 // ============================================================
 
-describe('generateInsights - boundary conditions', () => {
-  /**
-   * HRV trend with exactly 3 values (minimum for trend detection).
-   * The guard requires >= 5 HRV values for a reliable trend.
-   * At exactly 5, the split is:
-   * firstHalf = [0..floor(5/2)) = [v0, v1], secondHalf = [floor(5/2)..) = [v2, v3, v4]
-   */
-  it('HRV trend with exactly 5 values generates insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-13', hrv: 45 },
-          { date: '2026-02-14', hrv: 48 },
-          { date: '2026-02-15', hrv: 50 },
-          { date: '2026-02-16', hrv: 55 },
-          { date: '2026-02-17', hrv: 60 },
-        ],
-      },
-      mockT
-    );
-    const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv!.category).toBe('hrv_trend');
-    // Confidence should be 5/7
+describe("generateInsights - boundary conditions", () => {
+  it("confidence tracks the day count the engine reports", () => {
+    stubHrvTrend({
+      label: "trendingUp",
+      avg: 51.6,
+      latest: 60,
+      dataPoints: 5,
+      sparkline: [45, 48, 50, 55, 60],
+    });
+    const result = generateInsights(EMPTY_INPUT, mockT);
+    const hrv = result.find((i) => i.id === "hrv_trend");
+    expect(hrv!.category).toBe("hrv_trend");
     expect(hrv!.confidence).toBeCloseTo(5 / 7, 2);
+    mockGetRouteEngine.mockReturnValue(null);
   });
 
-  it('HRV trend with fewer than 5 values does not generate insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 40 },
-          { date: '2026-02-16', hrv: 50 },
-          { date: '2026-02-17', hrv: 60 },
-        ],
-      },
-      mockT
-    );
-    const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv).toBeUndefined();
-  });
-
-  it('HRV sparkline data with 5 values is accurate', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-13', hrv: 45 },
-          { date: '2026-02-14', hrv: 48 },
-          { date: '2026-02-15', hrv: 52 },
-          { date: '2026-02-16', hrv: 49 },
-          { date: '2026-02-17', hrv: 51 },
-        ],
-      },
-      mockT
-    );
-    const hrv = result.find((i) => i.id === 'hrv_trend');
+  it("the sparkline passes through the engine window untouched", () => {
+    stubHrvTrend({
+      label: "stable",
+      avg: 49,
+      latest: 51,
+      dataPoints: 5,
+      sparkline: [45, 48, 52, 49, 51],
+    });
+    const result = generateInsights(EMPTY_INPUT, mockT);
+    const hrv = result.find((i) => i.id === "hrv_trend");
     expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
+    mockGetRouteEngine.mockReturnValue(null);
   });
 
   /**
    * FTP improvement by tiny delta (1W) does not generate insight.
    * The minimum threshold is 5W to filter noise from small fluctuations.
    */
-  it('FTP improvement below 5W threshold does not generate insight', () => {
+  it("FTP improvement below 5W threshold does not generate insight", () => {
     // 1W is below threshold; 0.4W rounds to 0 delta. Both must be suppressed.
     for (const latestFtp of [251, 250.4]) {
       const result = generateInsights(
@@ -967,9 +1098,9 @@ describe('generateInsights - boundary conditions', () => {
             previousDate: BigInt(500),
           },
         },
-        mockT
+        mockT,
       );
-      const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+      const ftp = result.find((i) => i.id === "fitness_milestone-ftp");
       expect(ftp).toBeUndefined();
     }
   });
@@ -977,7 +1108,7 @@ describe('generateInsights - boundary conditions', () => {
   /**
    * FTP improvement at exactly 5W boundary generates insight.
    */
-  it('FTP improvement by exactly 5W generates insight', () => {
+  it("FTP improvement by exactly 5W generates insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -988,10 +1119,10 @@ describe('generateInsights - boundary conditions', () => {
           previousDate: BigInt(500),
         },
       },
-      mockT
+      mockT,
     );
-    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
-    expect(ftp!.title).toContain('change: 5');
+    const ftp = result.find((i) => i.id === "fitness_milestone-ftp");
+    expect(ftp!.title).toContain("change: 5");
   });
 
   /**
@@ -1000,7 +1131,7 @@ describe('generateInsights - boundary conditions', () => {
    * `!data.sectionTrends || data.sectionTrends.length === 0`
    * so no stale PR insight should be generated.
    */
-  it('empty sectionTrends produces no stale PR insight', () => {
+  it("empty sectionTrends produces no stale PR insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1012,13 +1143,13 @@ describe('generateInsights - boundary conditions', () => {
         },
         sectionTrends: [],
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id === 'stale_pr-group')).toBeUndefined();
-    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
+    expect(result.find((i) => i.id === "stale_pr-group")).toBeUndefined();
+    expect(result.find((i) => i.id.startsWith("stale_pr-"))).toBeUndefined();
   });
 
-  it('sectionTrends present but no fitness trend produces no stale PR insight', () => {
+  it("sectionTrends present but no fitness trend produces no stale PR insight", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1026,8 +1157,8 @@ describe('generateInsights - boundary conditions', () => {
         paceTrend: null,
         sectionTrends: [
           {
-            sectionId: 's1',
-            sectionName: 'Hill',
+            sectionId: "s1",
+            sectionName: "Hill",
             trend: 0,
             medianRecentSecs: 300,
             bestTimeSecs: 280,
@@ -1035,84 +1166,38 @@ describe('generateInsights - boundary conditions', () => {
           },
         ],
       },
-      mockT
+      mockT,
     );
-    expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
-  });
-
-  /**
-   * All-zero wellness window - verify no division by zero.
-   * The HRV filter `w.hrv > 0` removes all entries, leaving fewer than 3,
-   * so no HRV insight is generated. Additionally the avg check `avg <= 0`
-   * is a second guard.
-   */
-  it('all-zero wellness window does not crash or generate HRV insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-16', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-17', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-18', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-19', hrv: 0, ctl: 0, atl: 0 },
-        ],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
-  });
-
-  it('wellness window with mix of zero and undefined HRV does not crash', () => {
-    expect(() =>
-      generateInsights(
-        {
-          ...EMPTY_INPUT,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 0 },
-            { date: '2026-02-16' },
-            { date: '2026-02-17', hrv: undefined },
-            { date: '2026-02-18', hrv: 0 },
-            { date: '2026-02-19', hrv: 0 },
-          ],
-        },
-        mockT
-      )
-    ).not.toThrow();
-  });
-
-  it('wellness window with exactly one non-zero HRV does not generate trend', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 0 },
-          { date: '2026-02-16', hrv: 55 },
-          { date: '2026-02-17', hrv: 0 },
-          { date: '2026-02-18', hrv: 0 },
-        ],
-      },
-      mockT
-    );
-    // Only 1 valid HRV value, need >= 5
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+    expect(result.find((i) => i.id.startsWith("stale_pr-"))).toBeUndefined();
   });
 
   /**
    * Period comparison below the 15% threshold does not trigger.
    * 9% and 10% are both under 0.15.
    */
-  it('period comparison below 15% threshold does not trigger', () => {
+  it("period comparison below 15% threshold does not trigger", () => {
     for (const totalTss of [109, 110]) {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss },
-          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+          currentPeriod: {
+            count: 3,
+            totalDuration: 5450,
+            totalDistance: 50000,
+            totalTss,
+          },
+          previousPeriod: {
+            count: 3,
+            totalDuration: 5000,
+            totalDistance: 50000,
+            totalTss: 100,
+          },
         },
-        mockT
+        mockT,
       );
-      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+      expect(
+        result.find((i) => i.id === "period_comparison-volume"),
+      ).toBeUndefined();
     }
   });
 
@@ -1120,17 +1205,27 @@ describe('generateInsights - boundary conditions', () => {
    * Period comparison at 16% triggers (above 15% threshold).
    * 116/100 - 1 = 0.16 > 0.15.
    */
-  it('period comparison at 16% triggers (above 15% threshold)', () => {
+  it("period comparison at 16% triggers (above 15% threshold)", () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5800, totalDistance: 50000, totalTss: 116 },
-        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+        currentPeriod: {
+          count: 3,
+          totalDuration: 5800,
+          totalDistance: 50000,
+          totalTss: 116,
+        },
+        previousPeriod: {
+          count: 3,
+          totalDuration: 5000,
+          totalDistance: 50000,
+          totalTss: 100,
+        },
       },
-      mockT
+      mockT,
     );
-    const vol = result.find((i) => i.id === 'period_comparison-volume');
-    expect(vol!.icon).toBe('trending-up');
+    const vol = result.find((i) => i.id === "period_comparison-volume");
+    expect(vol!.icon).toBe("trending-up");
   });
 });
 
@@ -1138,24 +1233,24 @@ describe('generateInsights - boundary conditions', () => {
 // Insight consolidation
 // ============================================================
 
-describe('consolidateInsights', () => {
+describe("consolidateInsights", () => {
   function createInsight(
     id: string,
-    category: Insight['category'],
-    priority: Insight['priority'],
+    category: Insight["category"],
+    priority: Insight["priority"],
     options?: {
       timestamp?: number;
       sectionIds?: string[];
       navigationTarget?: string;
-    }
+    },
   ): Insight {
     return {
       id,
       category,
       priority,
       title: id,
-      icon: 'star',
-      iconColor: '#000',
+      icon: "star",
+      iconColor: "#000",
       timestamp: options?.timestamp ?? 0,
       isNew: false,
       navigationTarget: options?.navigationTarget,
@@ -1170,36 +1265,43 @@ describe('consolidateInsights', () => {
     };
   }
 
-  it('drops overlapping section stories when a recent PR already covers that section', () => {
+  it("drops overlapping section stories when a recent PR already covers that section", () => {
     const result = consolidateInsights([
-      createInsight('section-pr', 'section_pr', 1, {
-        navigationTarget: '/section/s1',
+      createInsight("section-pr", "section_pr", 1, {
+        navigationTarget: "/section/s1",
       }),
-      createInsight('efficiency-s1', 'efficiency_trend', 1, {
-        sectionIds: ['s1'],
+      createInsight("efficiency-s1", "efficiency_trend", 1, {
+        sectionIds: ["s1"],
       }),
-      createInsight('stale-s2', 'stale_pr', 2, {
-        sectionIds: ['s2'],
+      createInsight("stale-s2", "stale_pr", 2, {
+        sectionIds: ["s2"],
       }),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'stale-s2']);
+    expect(result.map((insight) => insight.id)).toEqual([
+      "section-pr",
+      "stale-s2",
+    ]);
   });
 
-  it('keeps only the two strongest non-PR section stories', () => {
+  it("keeps only the two strongest non-PR section stories", () => {
     const result = consolidateInsights([
-      createInsight('stale', 'stale_pr', 2, {
-        sectionIds: ['s2'],
+      createInsight("stale", "stale_pr", 2, {
+        sectionIds: ["s2"],
       }),
-      createInsight('efficiency', 'efficiency_trend', 1, {
-        sectionIds: ['s1'],
+      createInsight("efficiency", "efficiency_trend", 1, {
+        sectionIds: ["s1"],
       }),
-      createInsight('efficiency2', 'efficiency_trend', 1, {
-        sectionIds: ['s3'],
+      createInsight("efficiency2", "efficiency_trend", 1, {
+        sectionIds: ["s3"],
       }),
-      createInsight('fitness', 'fitness_milestone', 2),
+      createInsight("fitness", "fitness_milestone", 2),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
+    expect(result.map((insight) => insight.id)).toEqual([
+      "efficiency",
+      "efficiency2",
+      "fitness",
+    ]);
   });
 });

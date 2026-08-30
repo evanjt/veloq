@@ -1,19 +1,19 @@
-import type { EfficiencyTrend } from 'veloqrs';
+import type { EfficiencyTrend } from "veloqrs";
 
-import { generateStalePRInsights } from '../generators/stalePr';
-import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
-import { generateSectionPRInsights } from '../generators/sectionPR';
-import { generateHrvTrendInsight } from '../generators/hrvTrend';
+import { generateStalePRInsights } from "../generators/stalePr";
+import { generateEfficiencyTrendInsights } from "../generators/efficiencyTrend";
+import { generateSectionPRInsights } from "../generators/sectionPR";
+import { generateHrvTrendInsight } from "../generators/hrvTrend";
 import {
   generatePeriodComparisonInsights,
   formatDurationCompact,
-} from '../generators/periodComparison';
-import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
-import { generateSectionTrendInsights } from '../generators/sectionTrend';
+} from "../generators/periodComparison";
+import { generateFitnessMilestoneInsights } from "../generators/fitnessMilestone";
+import { generateSectionTrendInsights } from "../generators/sectionTrend";
 import {
   generateSectionChangedInsights,
   type SectionChangeInput,
-} from '../generators/sectionChanged';
+} from "../generators/sectionChanged";
 import type {
   Insight,
   PeriodStats,
@@ -22,8 +22,8 @@ import type {
   SectionPR,
   SectionTrendData,
   TFunc,
-} from '../types';
-import { INSIGHTS_CONFIG } from './config';
+} from "../types";
+import { INSIGHTS_CONFIG } from "./config";
 import {
   applyMixAndCap,
   passesProximity,
@@ -35,7 +35,7 @@ import {
   type DropRecord,
   type GateReason,
   type ScoredInsight,
-} from './rules';
+} from "./rules";
 
 // Re-export for tests and consumers
 export { formatDurationCompact };
@@ -62,14 +62,6 @@ export interface InsightInputData {
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: {
-    date: string;
-    hrv?: number;
-    restingHR?: number;
-    sleepSecs?: number;
-    ctl?: number;
-    atl?: number;
-  }[];
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
@@ -108,27 +100,31 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
 
   const total = outcome.scored.length + outcome.rejected.length;
   // eslint-disable-next-line no-console
-  console.log('\n[INSIGHTS] ═══════════════════════════════════════');
+  console.log("\n[INSIGHTS] ═══════════════════════════════════════");
   // eslint-disable-next-line no-console
   console.log(
-    `[INSIGHTS] ${total} candidates → ${outcome.kept.length} kept, ${outcome.rejected.length} gated, ${outcome.capDropped.length} capped`
+    `[INSIGHTS] ${total} candidates → ${outcome.kept.length} kept, ${outcome.rejected.length} gated, ${outcome.capDropped.length} capped`,
   );
 
   for (const r of outcome.rejected) {
     // eslint-disable-next-line no-console
-    console.log(`[INSIGHTS] [GATED ] ${r.insight.category}/${r.insight.id} - ${r.reason}`);
+    console.log(
+      `[INSIGHTS] [GATED ] ${r.insight.category}/${r.insight.id} - ${r.reason}`,
+    );
   }
   for (const s of outcome.scored) {
-    const capped = outcome.capDropped.find((d) => d.insight.id === s.insight.id);
-    const status = capped ? 'CAPPED' : '  KEPT';
-    const reason = capped ? ` (${capped.reason})` : '';
+    const capped = outcome.capDropped.find(
+      (d) => d.insight.id === s.insight.id,
+    );
+    const status = capped ? "CAPPED" : "  KEPT";
+    const reason = capped ? ` (${capped.reason})` : "";
     // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`,
     );
   }
   // eslint-disable-next-line no-console
-  console.log('[INSIGHTS] ═══════════════════════════════════════\n');
+  console.log("[INSIGHTS] ═══════════════════════════════════════\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -140,9 +136,9 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
     return fn();
   } catch (err) {
     if (
-      typeof process !== 'undefined' &&
+      typeof process !== "undefined" &&
       process.env &&
-      (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
+      (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === "test")
     ) {
       console.warn(`[insights/${label}] generator failed; isolating:`, err);
     }
@@ -157,28 +153,42 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // 1. Generate candidates - each generator is isolated so a thrown error
   //    from one yields zero insights for that category but does not kill
   //    the rest.
-  candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
   candidates.push(
-    ...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t))
+    ...safeRun("sectionPR", () =>
+      generateSectionPRInsights(data.recentPRs, now, t),
+    ),
   );
   candidates.push(
-    ...safeRun('periodComparison', () =>
+    ...safeRun("hrvTrend", () => generateHrvTrendInsight(now, t)),
+  );
+  candidates.push(
+    ...safeRun("periodComparison", () =>
       generatePeriodComparisonInsights(
         data.currentPeriod,
         data.previousPeriod,
         data.chronicPeriod,
         now,
-        t
-      )
-    )
+        t,
+      ),
+    ),
   );
   candidates.push(
-    ...safeRun('fitnessMilestone', () =>
-      generateFitnessMilestoneInsights(data.ftpTrend, data.paceTrend, data.swimPaceTrend, now, t)
-    )
+    ...safeRun("fitnessMilestone", () =>
+      generateFitnessMilestoneInsights(
+        data.ftpTrend,
+        data.paceTrend,
+        data.swimPaceTrend,
+        now,
+        t,
+      ),
+    ),
   );
 
-  if ((data.ftpTrend || data.paceTrend) && data.sectionTrends && data.sectionTrends.length > 0) {
+  if (
+    (data.ftpTrend || data.paceTrend) &&
+    data.sectionTrends &&
+    data.sectionTrends.length > 0
+  ) {
     const sections = data.sectionTrends.map((s) => ({
       sectionId: s.sectionId,
       sectionName: s.sectionName,
@@ -189,7 +199,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     }));
     const existingStalePrIds = new Set(candidates.map((i) => i.id));
     candidates.push(
-      ...safeRun('stalePR', () =>
+      ...safeRun("stalePR", () =>
         generateStalePRInsights(
           {
             sections,
@@ -199,9 +209,9 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
             existingInsightIds: existingStalePrIds,
           },
           t,
-          now
-        )
-      )
+          now,
+        ),
+      ),
     );
   }
 
@@ -209,24 +219,26 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     candidates.flatMap((i) => {
       const match = i.id.match(/section_pr-(.+)|stale_pr-(.+)/);
       return match ? [match[1] ?? match[2]] : [];
-    })
+    }),
   );
   candidates.push(
-    ...safeRun('sectionTrend', () =>
-      generateSectionTrendInsights(data.sectionTrends, existingIds, now, t)
-    )
+    ...safeRun("sectionTrend", () =>
+      generateSectionTrendInsights(data.sectionTrends, existingIds, now, t),
+    ),
   );
 
   candidates.push(
-    ...safeRun('sectionChanged', () =>
-      generateSectionChangedInsights(data.sectionChanges ?? [], now, t)
-    )
+    ...safeRun("sectionChanged", () =>
+      generateSectionChangedInsights(data.sectionChanges ?? [], now, t),
+    ),
   );
 
   const efficiencyTrends = data.efficiencyTrends;
   if (efficiencyTrends && efficiencyTrends.length > 0) {
     candidates.push(
-      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(efficiencyTrends, now, t))
+      ...safeRun("efficiencyTrend", () =>
+        generateEfficiencyTrendInsights(efficiencyTrends, now, t),
+      ),
     );
   }
 

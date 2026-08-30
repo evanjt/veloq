@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
-use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+use super::{ActivityBoundsEntry, ActivityMetadata, PersistentRouteEngine};
 
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
@@ -845,82 +845,6 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-    /// Get all activities with complete metadata for map display.
-    /// Queries the database for metadata fields (date, name, distance, duration).
-    /// Get activities filtered by date range and sport types.
-    /// - start_ts: Unix timestamp (seconds) for start of range
-    /// - end_ts: Unix timestamp (seconds) for end of range
-    /// - sport_types: Optional list of sport types to include (empty = all)
-    pub fn get_map_activities_filtered(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-        sport_types: &[String],
-    ) -> Vec<MapActivityComplete> {
-        // Build query based on filters
-        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                                 COALESCE(start_date, 0) as start_date,
-                                 COALESCE(name, '') as name,
-                                 COALESCE(distance_meters, 0.0) as distance_meters,
-                                 COALESCE(duration_secs, 0) as duration_secs
-                          FROM activities
-                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
-
-        let query = if sport_types.is_empty() {
-            base_query.to_string()
-        } else {
-            let placeholders = sport_types
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("{} AND sport_type IN ({})", base_query, placeholders)
-        };
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
-                return Vec::new();
-            }
-        };
-
-        // Build params
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start_ts), Box::new(end_ts)];
-        for sport in sport_types {
-            params.push(Box::new(sport.clone()));
-        }
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-        let results = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(MapActivityComplete {
-                activity_id: row.get(0)?,
-                sport_type: row.get(1)?,
-                bounds: crate::FfiBounds {
-                    min_lat: row.get(2)?,
-                    max_lat: row.get(3)?,
-                    min_lng: row.get(4)?,
-                    max_lng: row.get(5)?,
-                },
-                date: row.get(6)?,
-                name: row.get(7)?,
-                distance: row.get(8)?,
-                duration: row.get(9)?,
-            })
-        });
-
-        match results {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!(
-                    "[PersistentEngine] Failed to query filtered activities: {}",
-                    e
-                );
-                Vec::new()
-            }
-        }
-    }
-
     /// Get a signature, loading from DB if not cached.
     pub fn get_signature(&mut self, id: &str) -> Option<Arc<RouteSignature>> {
         if let Some(sig) = self.signature_cache.get(&id.to_string()) {
@@ -1296,36 +1220,6 @@ impl PersistentRouteEngine {
         self.track(id).into_option("get_gps_track", id)
     }
 
-    /// Get all GPS tracks from database for tile generation.
-    /// Returns a vector of track point arrays, suitable for heatmap rendering.
-    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
-        let mut tracks: Vec<Vec<GpsPoint>> = Vec::new();
-        let mut total_points = 0usize;
-        let walk = self.for_each_track(|_, points| {
-            if points.is_empty() {
-                return;
-            }
-            total_points += points.len();
-            tracks.push(points.to_vec());
-        });
-        if walk.corrupt > 0 || walk.is_incomplete() {
-            log::warn!(
-                "[get_all_tracks] {} tracks, {} total points, {} corrupt, {} unreadable rows: the result is incomplete",
-                tracks.len(),
-                total_points,
-                walk.corrupt,
-                walk.failed
-            );
-        } else {
-            log::info!(
-                "[get_all_tracks] {} tracks, {} total points",
-                tracks.len(),
-                total_points
-            );
-        }
-        tracks
-    }
-
     /// Load original GPS track from database (separate function to avoid borrow issues)
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
         self.track(activity_id)
@@ -1451,23 +1345,6 @@ impl PersistentRouteEngine {
             .filter(|id| !cached_in_sqlite.contains(*id))
             .cloned()
             .collect()
-    }
-
-    /// Check if a specific activity has a time stream (in memory or SQLite).
-    pub fn has_time_stream(&self, activity_id: &str) -> bool {
-        // First check memory cache
-        if self.time_streams.contains(activity_id) {
-            return true;
-        }
-        // Then check SQLite
-        let mut stmt = match self
-            .db
-            .prepare("SELECT 1 FROM time_streams WHERE activity_id = ? LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        stmt.exists(params![activity_id]).unwrap_or(false)
     }
 
     /// Ensure time stream is loaded into memory (from SQLite if needed).

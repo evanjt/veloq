@@ -33,7 +33,7 @@ pub mod net;
 
 // HTTP client for activity fetching
 pub mod http;
-pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
+pub use http::{ActivityFetcher, ActivityMapResult};
 
 // FFI bindings for mobile platforms
 pub mod ffi;
@@ -52,6 +52,9 @@ pub use types::*;
 
 // Activity pattern detection via k-means clustering
 pub mod patterns;
+
+// The one three-way better/worse/same verdict every trend reads
+pub mod trend;
 
 // FIT file parser for strength training exercise data
 pub mod fit;

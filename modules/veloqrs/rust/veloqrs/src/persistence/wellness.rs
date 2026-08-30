@@ -8,6 +8,10 @@ use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentRouteEngine;
 
+/// HRV has to move by this fraction between the two halves of the window
+/// before the trend is called, per Kiviniemi 2007.
+const HRV_TREND_DEADBAND: f64 = 0.02;
+
 /// One wellness record - shape used by upsert and range queries.
 #[derive(Debug, Clone)]
 pub struct WellnessRow {
@@ -257,39 +261,8 @@ impl PersistentRouteEngine {
             .filter_map(|w| w.hrv)
             .filter(|v| *v > 0.0)
             .collect();
-        if values.len() < 5 {
+        let Some((label, avg)) = hrv_verdict(&values) else {
             return Ok(None);
-        }
-
-        let avg = values.iter().sum::<f64>() / values.len() as f64;
-        if avg <= 0.0 {
-            return Ok(None);
-        }
-
-        let mid = values.len() / 2;
-        let first_half = &values[..mid];
-        let second_half = &values[mid..];
-        let first_avg = if first_half.is_empty() {
-            0.0
-        } else {
-            first_half.iter().sum::<f64>() / first_half.len() as f64
-        };
-        let second_avg = if second_half.is_empty() {
-            0.0
-        } else {
-            second_half.iter().sum::<f64>() / second_half.len() as f64
-        };
-
-        let last_two = &values[values.len().saturating_sub(2)..];
-        let consecutive_decline =
-            last_two.len() == 2 && last_two[0] > last_two[1] && last_two[1] < avg;
-
-        let label = if second_avg > first_avg * 1.02 {
-            "trendingUp"
-        } else if consecutive_decline || second_avg < first_avg * 0.98 {
-            "trendingDown"
-        } else {
-            "stable"
         };
 
         Ok(Some(crate::FfiHrvTrend {
@@ -324,9 +297,104 @@ where
     out
 }
 
+/// The label and window average behind [`PersistentRouteEngine::compute_hrv_trend`],
+/// split out from the read so the rule itself can be tested without a database.
+/// `None` when the window is too short to say anything.
+fn hrv_verdict(values: &[f64]) -> Option<(&'static str, f64)> {
+    if values.len() < 5 {
+        return None;
+    }
+    let avg = values.iter().sum::<f64>() / values.len() as f64;
+    if avg <= 0.0 {
+        return None;
+    }
+
+    let mid = values.len() / 2;
+    let mean = |xs: &[f64]| {
+        if xs.is_empty() {
+            0.0
+        } else {
+            xs.iter().sum::<f64>() / xs.len() as f64
+        }
+    };
+    let first_avg = mean(&values[..mid]);
+    let second_avg = mean(&values[mid..]);
+
+    let last_two = &values[values.len().saturating_sub(2)..];
+    let consecutive_decline = last_two.len() == 2 && last_two[0] > last_two[1] && last_two[1] < avg;
+
+    // Higher HRV is the better direction, so this reads as a value, not a
+    // time. A consecutive decline overrides a stable verdict: two days down
+    // and below the average is the signal the study leans on.
+    let verdict =
+        crate::trend::classify_value(first_avg, second_avg, HRV_TREND_DEADBAND).unwrap_or(0);
+    let label = if verdict > 0 {
+        "trendingUp"
+    } else if verdict < 0 || consecutive_decline {
+        "trendingDown"
+    } else {
+        "stable"
+    };
+    Some((label, avg))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_window_under_five_days_has_no_hrv_verdict() {
+        assert_eq!(hrv_verdict(&[50.0, 52.0]), None);
+        assert_eq!(hrv_verdict(&[]), None);
+    }
+
+    #[test]
+    fn a_window_averaging_zero_has_no_hrv_verdict() {
+        assert_eq!(hrv_verdict(&[0.0, 0.0, 0.0, 0.0, 0.0]), None);
+    }
+
+    #[test]
+    fn a_rising_second_half_trends_up() {
+        assert_eq!(
+            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0]).map(|(l, _)| l),
+            Some("trendingUp")
+        );
+    }
+
+    #[test]
+    fn a_falling_second_half_trends_down() {
+        assert_eq!(
+            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0]).map(|(l, _)| l),
+            Some("trendingDown")
+        );
+    }
+
+    #[test]
+    fn a_flat_window_is_stable() {
+        let verdict = hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.0]);
+        assert_eq!(verdict.map(|(l, _)| l), Some("stable"));
+        assert_eq!(verdict.map(|(_, avg)| avg), Some(50.0));
+    }
+
+    #[test]
+    fn a_move_inside_the_deadband_is_stable() {
+        // Second half is 1 % above the first, under the 2 % deadband, and the
+        // last two days rise so the decline override cannot fire.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.5]).map(|(l, _)| l),
+            Some("stable")
+        );
+    }
+
+    #[test]
+    fn two_days_down_and_below_average_overrides_stable() {
+        // Halves are within the deadband, but the window ends on a drop that
+        // sits under the window average.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0]).map(|(l, _)| l),
+            Some("trendingDown")
+        );
+    }
 
     #[test]
     fn finite_drops_non_finite_floats() {

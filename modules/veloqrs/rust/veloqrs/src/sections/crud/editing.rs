@@ -651,39 +651,4 @@ impl PersistentRouteEngine {
         self.refresh_superseded_ids();
         Ok(())
     }
-
-    /// Import disabled section IDs from AsyncStorage migration.
-    pub fn import_disabled_ids(&mut self, ids: &[String]) -> Result<u32, String> {
-        if ids.is_empty() {
-            return Ok(0);
-        }
-        let mut count = 0u32;
-        for id in ids {
-            let rows = self
-                .db
-                .execute("UPDATE sections SET disabled = 1 WHERE id = ?", params![id])
-                .map_err(|e| format!("Failed to import disabled: {}", e))?;
-            count += rows as u32;
-        }
-        Ok(count)
-    }
-
-    /// Import superseded mappings from AsyncStorage migration.
-    pub fn import_superseded_map(&mut self, map: &[(String, Vec<String>)]) -> Result<u32, String> {
-        let mut count = 0u32;
-        for (custom_id, auto_ids) in map {
-            for auto_id in auto_ids {
-                let rows = self
-                    .db
-                    .execute(
-                        "UPDATE sections SET superseded_by = ? WHERE id = ?",
-                        params![custom_id, auto_id],
-                    )
-                    .map_err(|e| format!("Failed to import superseded: {}", e))?;
-                count += rows as u32;
-            }
-        }
-        self.refresh_superseded_ids();
-        Ok(count)
-    }
 }

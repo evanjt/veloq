@@ -28,8 +28,6 @@ const FOLLOW_ZOOM = 15;
 /** Room around the finished track in review mode, in pixels. */
 const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const;
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-
 interface RecordingMapProps {
   coordinates: [number, number][]; // [lat, lng] from recording streams
   currentLocation: { latitude: number; longitude: number } | null;
@@ -200,7 +198,6 @@ function RecordingMapInner({
       <MapSurface
         ref={surfaceRef}
         mapStyle={preferences.defaultStyle}
-        styleOptions={SURFACE_STYLE_OPTIONS}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}

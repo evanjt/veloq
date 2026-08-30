@@ -123,26 +123,6 @@ export interface RankedSectionsBySport {
   sections: FfiRankedSection[];
 }
 
-export function getRankedSectionsBatch(
-  host: DelegateHost,
-  sportTypes: string[],
-  limit: number
-): RankedSectionsBySport[] {
-  if (!host.ready || sportTypes.length === 0) return [];
-  return host.timed('getRankedSectionsBatch', () =>
-    host.engine.sections().getRankedBatch(sportTypes, limit)
-  );
-}
-
-export function getRankedSections(
-  host: DelegateHost,
-  sportType: string,
-  limit: number
-): FfiRankedSection[] {
-  if (!host.ready) return [];
-  return host.timed('getRankedSections', () => host.engine.sections().getRanked(sportType, limit));
-}
-
 export function getSectionById(host: DelegateHost, sectionId: string): FfiFrequentSection | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
@@ -385,16 +365,6 @@ export function getMergeCandidates(host: DelegateHost, sectionId: string): FfiMe
   );
 }
 
-export function getActivitySectionHighlights(
-  host: DelegateHost,
-  activityIds: string[]
-): FfiActivitySectionHighlight[] {
-  if (!host.ready || activityIds.length === 0) return [];
-  return host.timed('getActivitySectionHighlights', () =>
-    host.engine.sections().getActivitySectionHighlights(activityIds)
-  );
-}
-
 /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
 export function getActivityIndicators(
   host: DelegateHost,
@@ -403,17 +373,6 @@ export function getActivityIndicators(
   if (!host.ready || activityIds.length === 0) return [];
   return host.timed('getActivityIndicators', () =>
     host.engine.sections().getActivityIndicators(activityIds)
-  );
-}
-
-/** Read pre-computed indicators for a single activity. */
-export function getIndicatorsForActivity(
-  host: DelegateHost,
-  activityId: string
-): FfiActivityIndicator[] {
-  if (!host.ready) return [];
-  return host.timed('getIndicatorsForActivity', () =>
-    host.engine.sections().getIndicatorsForActivity(activityId)
   );
 }
 
@@ -456,28 +415,6 @@ export function extractSectionTrace(
     longitude: p.longitude,
     elevation: undefined,
   }));
-}
-
-export function extractSectionTracesBatch(
-  host: DelegateHost,
-  activityIds: string[],
-  sectionPolylineFlat: number[]
-): Record<string, RoutePoint[]> {
-  if (!host.ready || activityIds.length === 0) return {};
-  const results = host.timed('extractSectionTracesBatch', () =>
-    host.engine.sections().extractTracesBatch(activityIds, sectionPolylineFlat)
-  );
-  const traces: Record<string, RoutePoint[]> = {};
-  for (const batch of results) {
-    const points: RoutePoint[] = decodeCoords(batch.encodedCoords).map((p) => ({
-      lat: p.latitude,
-      lng: p.longitude,
-    }));
-    if (points.length > 0) {
-      traces[batch.activityId] = points;
-    }
-  }
-  return traces;
 }
 
 /**

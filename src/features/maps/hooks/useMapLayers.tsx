@@ -14,6 +14,7 @@ import type { SectionOverlay } from '@/features/maps/components/ActivityMapView'
 import { sectionPaletteIndex } from '@/theme';
 import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';
 import type { ActivityStreams } from '@/types';
+import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
@@ -94,11 +95,6 @@ const MINIMAL_LINE: GeoJSON.FeatureCollection = {
   ],
 };
 
-const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection' as const,
-  features: [],
-};
-
 export function useMapLayers({
   validCoordinates,
   coordinates,
@@ -116,7 +112,7 @@ export function useMapLayers({
           `[ActivityMapView] routeGeoJSON: insufficient coordinates (${validCoordinates.length})`
         );
       }
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
     return {
       type: 'Feature' as const,
@@ -135,11 +131,11 @@ export function useMapLayers({
   // ----- route overlay (matched route trace) -----
   const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     if (!routeOverlay || routeOverlay.length < 2) {
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
     const validOverlay = routeOverlay.filter((c) => !isNaN(c.latitude) && !isNaN(c.longitude));
     if (validOverlay.length < 2) {
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
     return {
       type: 'Feature' as const,
@@ -239,7 +235,12 @@ export function useMapLayers({
           }
         }
 
-        overlayData.push({ id: overlay.id, sectionGeo, portionGeo, isPR: overlay.isPR });
+        overlayData.push({
+          id: overlay.id,
+          sectionGeo,
+          portionGeo,
+          isPR: overlay.isPR,
+        });
       });
 
       if (__DEV__ && (skippedSections > 0 || skippedPortions > 0)) {
@@ -272,13 +273,13 @@ export function useMapLayers({
   // Charts tab: PR markers for PR sections only
   // Markers are geo-anchored features so they track pan and zoom.
   const sectionMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+    if (!sectionOverlaysGeoJSON) return EMPTY_FEATURE_COLLECTION;
 
     const isPRMarker = activeTab !== 'sections';
     const overlaysToRender = isPRMarker
       ? sectionOverlaysGeoJSON.filter((o) => o.isPR)
       : sectionOverlaysGeoJSON;
-    if (overlaysToRender.length === 0) return EMPTY_COLLECTION;
+    if (overlaysToRender.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
 
@@ -337,7 +338,7 @@ export function useMapLayers({
   // These cut through the stacked portion overlays so the user can see exactly
   // where each section begins and ends, even where multiple sections overlap.
   const sectionBoundariesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+    if (!sectionOverlaysGeoJSON) return EMPTY_FEATURE_COLLECTION;
 
     const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
     const halfLen = 0.00014; // ~15m perpendicular tick at mid latitudes
@@ -377,10 +378,10 @@ export function useMapLayers({
   // ----- fullscreen PR marker GeoJSON -----
   // Always PR-only; uses section geometry midpoint without perpendicular offset.
   const fullscreenPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+    if (!sectionOverlaysGeoJSON) return EMPTY_FEATURE_COLLECTION;
 
     const prOverlays = sectionOverlaysGeoJSON.filter((o) => o.isPR);
-    if (prOverlays.length === 0) return EMPTY_COLLECTION;
+    if (prOverlays.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
 

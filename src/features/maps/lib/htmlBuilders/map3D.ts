@@ -14,7 +14,7 @@
 import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
+import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
 
 export interface Map3DHtmlConfig {
@@ -105,6 +105,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   // Satellite and dark are inline objects on cached tile protocols; light is
   // URL-based so MapLibre resolves the TileJSON itself.
   const { styleJSON: styleConfig } = resolveStyleExpression(initStyle, {
+    ...TERRAIN_STYLE_OPTIONS,
     cacheVectorTiles: true,
   });
 
