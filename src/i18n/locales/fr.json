@@ -1931,7 +1931,16 @@
       "rowRevert": "Rétablir une version antérieure d'un tronçon et l'épingler",
       "rowRetired": "Les tronçons sortis du catalogue restent listés",
       "rowPinned": "Les tronçons acceptés survivent à chaque réanalyse",
-      "rowEveryDevice": "Des tronçons identiques sur chaque appareil"
+      "rowEveryDevice": "Des tronçons identiques sur chaque appareil",
+      "recutRunning": "Nouvelle analyse de tes tronçons",
+      "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
+      "phaseDraining": "fin du travail en cours",
+      "phaseArchiving": "archivage de l'ancien catalogue",
+      "phaseDetecting": "découpe des nouveaux tronçons",
+      "phaseDiffing": "comparaison des deux catalogues",
+      "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
+      "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
+      "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse."
     }
   },
   "strength": {

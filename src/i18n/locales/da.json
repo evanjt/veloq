@@ -1931,7 +1931,16 @@
       "rowRevert": "Sæt en tidligere version af en strækning tilbage og fastgør den",
       "rowRetired": "Strækninger, der forlod kataloget, bliver stående på listen",
       "rowPinned": "Accepterede strækninger overlever enhver ny analyse",
-      "rowEveryDevice": "Identiske strækninger på alle enheder"
+      "rowEveryDevice": "Identiske strækninger på alle enheder",
+      "recutRunning": "Analyserer dine strækninger igen",
+      "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
+      "phaseDraining": "afslutter igangværende arbejde",
+      "phaseArchiving": "arkiverer det gamle katalog",
+      "phaseDetecting": "skærer nye strækninger",
+      "phaseDiffing": "sammenligner de to kataloger",
+      "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
+      "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
+      "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen."
     }
   },
   "strength": {

@@ -1931,7 +1931,16 @@
       "rowRevert": "Put an earlier version of a section back and pin it",
       "rowRetired": "Sections that left the catalogue stay listed",
       "rowPinned": "Accepted sections survive every re-analysis",
-      "rowEveryDevice": "Identical sections on every device"
+      "rowEveryDevice": "Identical sections on every device",
+      "recutRunning": "Re-analysing your sections",
+      "recutRunningPhase": "Re-analysing your sections: {{phase}}",
+      "phaseDraining": "finishing the work in flight",
+      "phaseArchiving": "archiving the old catalogue",
+      "phaseDetecting": "cutting new sections",
+      "phaseDiffing": "comparing the two catalogues",
+      "diffTotals": "{{current}} sections became {{proposed}}.",
+      "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
+      "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged."
     }
   },
   "strength": {

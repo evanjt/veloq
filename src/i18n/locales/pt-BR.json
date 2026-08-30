@@ -1931,7 +1931,16 @@
       "rowRevert": "Restaure uma versão anterior de um trecho e fixe-a",
       "rowRetired": "Trechos que saíram do catálogo continuam listados",
       "rowPinned": "Trechos aceitos sobrevivem a cada reanálise",
-      "rowEveryDevice": "Trechos idênticos em todos os dispositivos"
+      "rowEveryDevice": "Trechos idênticos em todos os dispositivos",
+      "recutRunning": "Analisando seus trechos de novo",
+      "recutRunningPhase": "Analisando seus trechos de novo: {{phase}}",
+      "phaseDraining": "finalizando o trabalho em andamento",
+      "phaseArchiving": "arquivando o catálogo antigo",
+      "phaseDetecting": "cortando trechos novos",
+      "phaseDiffing": "comparando os dois catálogos",
+      "diffTotals": "{{current}} trechos viraram {{proposed}}.",
+      "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
+      "diffUnchanged": "Todos os {{sections}} trechos saíram da nova análise sem mudanças."
     }
   },
   "strength": {

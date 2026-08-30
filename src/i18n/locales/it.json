@@ -1931,7 +1931,16 @@
       "rowRevert": "Ripristina una versione precedente di un tratto e bloccala",
       "rowRetired": "I tratti usciti dal catalogo restano elencati",
       "rowPinned": "I tratti accettati sopravvivono a ogni nuova analisi",
-      "rowEveryDevice": "Tratti identici su ogni dispositivo"
+      "rowEveryDevice": "Tratti identici su ogni dispositivo",
+      "recutRunning": "Nuova analisi dei tuoi tratti",
+      "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
+      "phaseDraining": "completamento del lavoro in corso",
+      "phaseArchiving": "archiviazione del vecchio catalogo",
+      "phaseDetecting": "taglio dei nuovi tratti",
+      "phaseDiffing": "confronto dei due cataloghi",
+      "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
+      "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
+      "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi."
     }
   },
   "strength": {

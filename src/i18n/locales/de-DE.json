@@ -1931,7 +1931,16 @@
       "rowRevert": "Eine frühere Version eines Abschnitts zurücksetzen und anheften",
       "rowRetired": "Ausgeschiedene Abschnitte bleiben gelistet",
       "rowPinned": "Übernommene Abschnitte überstehen jede Neuanalyse",
-      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät"
+      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät",
+      "recutRunning": "Deine Abschnitte werden neu analysiert",
+      "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
+      "phaseDraining": "laufende Arbeit wird abgeschlossen",
+      "phaseArchiving": "der alte Katalog wird archiviert",
+      "phaseDetecting": "neue Abschnitte werden geschnitten",
+      "phaseDiffing": "die beiden Kataloge werden verglichen",
+      "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
+      "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
+      "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert."
     }
   },
   "strength": {

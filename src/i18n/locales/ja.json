@@ -1931,7 +1931,16 @@
       "rowRevert": "区間を以前のバージョンに戻して固定できます",
       "rowRetired": "カタログから消えた区間も一覧に残ります",
       "rowPinned": "承認済みの区間はどの再解析でも残ります",
-      "rowEveryDevice": "どの端末でも同じ区間"
+      "rowEveryDevice": "どの端末でも同じ区間",
+      "recutRunning": "区間を再解析しています",
+      "recutRunningPhase": "区間を再解析しています: {{phase}}",
+      "phaseDraining": "進行中の処理を終えています",
+      "phaseArchiving": "以前のカタログを保管しています",
+      "phaseDetecting": "新しい区間を切り出しています",
+      "phaseDiffing": "2つのカタログを比較しています",
+      "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
+      "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
+      "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。"
     }
   },
   "strength": {
