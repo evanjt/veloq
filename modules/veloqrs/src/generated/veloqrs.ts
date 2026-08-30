@@ -14407,7 +14407,7 @@ export interface SectionPreviewLike {
   centres(limit: /*u32*/ number) /*throws*/ : Array<FfiPreviewCentre>;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "error"
+   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
    */
   poll() /*throws*/ : string;
   /**
@@ -14514,7 +14514,7 @@ export class SectionPreview
   }
 
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "error"
+   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
    */
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
@@ -18055,7 +18055,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
-    23284
+    49176
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_poll",
