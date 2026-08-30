@@ -100,13 +100,6 @@ export function getStartupData(
   );
 }
 
-export function getPeriodStats(host: DelegateHost, startTs: number, endTs: number): FfiPeriodStats {
-  if (!host.ready) return EMPTY_PERIOD_STATS;
-  return host.timed('getPeriodStats', () =>
-    host.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs))
-  );
-}
-
 export function getZoneDistribution(
   host: DelegateHost,
   sportType: string,
@@ -116,11 +109,6 @@ export function getZoneDistribution(
   return host.timed('getZoneDistribution', () =>
     host.engine.fitness().getZoneDistribution(sportType, zoneType)
   );
-}
-
-export function getFtpTrend(host: DelegateHost): FfiFtpTrend {
-  if (!host.ready) return EMPTY_FTP_TREND;
-  return host.timed('getFtpTrend', () => host.engine.fitness().getFtpTrend());
 }
 
 export function savePaceSnapshot(
@@ -142,11 +130,6 @@ export function savePaceSnapshot(
   }
 }
 
-export function getPaceTrend(host: DelegateHost, sportType: string): FfiPaceTrend {
-  if (!host.ready) return EMPTY_PACE_TREND;
-  return host.timed('getPaceTrend', () => host.engine.fitness().getPaceTrend(sportType));
-}
-
 export function getAvailableSportTypes(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getAvailableSportTypes', () => host.engine.fitness().getAvailableSportTypes());
@@ -160,28 +143,6 @@ export function getActivityHeatmap(
   if (!host.ready) return [];
   return host.timed('getActivityHeatmap', () =>
     host.engine.fitness().getActivityHeatmap(startDate, endDate)
-  );
-}
-
-/**
- * Get activity patterns detected via k-means clustering on activity features.
- * Returns patterns meeting confidence >= 0.6 threshold.
- * K-means on [day_of_week, duration, TSS, distance] per sport type.
- */
-export function getActivityPatterns(host: DelegateHost): FfiActivityPattern[] {
-  if (!host.ready) return [];
-  return host.timed('getActivityPatterns', () => host.engine.fitness().getActivityPatterns());
-}
-
-/**
- * Get the highest-confidence pattern matching today's day_of_week + season.
- * Convenience method for Feed tab teaser (avoids loading all patterns in JS).
- */
-export function getPatternForToday(host: DelegateHost): FfiActivityPattern | undefined {
-  if (!host.ready) return undefined;
-  return host.timed(
-    'getPatternForToday',
-    () => host.engine.fitness().getPatternForToday() ?? undefined
   );
 }
 

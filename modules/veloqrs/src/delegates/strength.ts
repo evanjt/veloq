@@ -82,24 +82,6 @@ export function getStrengthSummary(
 export type StrengthInsightSeries = FfiStrengthInsightSeries;
 
 /**
- * Batch strength aggregation: one monthly window plus N weekly windows in a
- * single FFI round-trip. Replaces the per-range getStrengthSummary loop in
- * the insights hook.
- */
-export function getStrengthInsightSeries(
-  host: DelegateHost,
-  monthly: { startTs: number; endTs: number },
-  weekly: { startTs: number; endTs: number }[]
-): StrengthInsightSeries {
-  return host.timed('getStrengthInsightSeries', () =>
-    host.engine.strength().getStrengthInsightSeries(
-      { startTs: BigInt(monthly.startTs), endTs: BigInt(monthly.endTs) },
-      weekly.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
-    )
-  );
-}
-
-/**
  * Batch variant of getStrengthSummary: each range is aggregated under a
  * single engine lock, eliminating per-range FFI overhead for series callers
  * (e.g. muscle progression charts).

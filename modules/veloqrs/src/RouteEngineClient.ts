@@ -201,10 +201,6 @@ class RouteEngineClient implements DelegateHost {
     return this.initialized;
   }
 
-  isPersistent(): boolean {
-    return this.dbPath !== null;
-  }
-
   /** Clear only route/section data, keeping GPS tracks and activities.
    *  Used when route matching is toggled off to free storage. */
   clearRoutesAndSections(): void {
@@ -263,9 +259,6 @@ class RouteEngineClient implements DelegateHost {
   getActivityMetricIds = (): string[] => fitnessDelegates.getActivityMetricIds(this);
 
   getActivityCount = (): number => activityDelegates.getActivityCount(this);
-
-  cleanupOldActivities = (retentionDays: number): number =>
-    activityDelegates.cleanupOldActivities(this, retentionDays);
 
   markForRecomputation(): void {
     if (!this.ready) return;
@@ -393,15 +386,6 @@ class RouteEngineClient implements DelegateHost {
   ): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
 
-  getRankedSections = (sportType: string, limit: number): FfiRankedSection[] =>
-    sectionDelegates.getRankedSections(this, sportType, limit);
-
-  getRankedSectionsBatch = (
-    sportTypes: string[],
-    limit: number
-  ): sectionDelegates.RankedSectionsBySport[] =>
-    sectionDelegates.getRankedSectionsBatch(this, sportTypes, limit);
-
   getGroupSummaries = (): { totalCount: number; summaries: GroupSummary[] } =>
     routeDelegates.getGroupSummaries(this);
 
@@ -420,26 +404,12 @@ class RouteEngineClient implements DelegateHost {
   getSectionPolyline = (sectionId: string): FfiGpsPoint[] =>
     sectionDelegates.getSectionPolyline(this, sectionId);
 
-  getMapActivitiesFiltered = (
-    startDate: Date,
-    endDate: Date,
-    sportTypesArray?: string[]
-  ): MapActivityComplete[] =>
-    mapsDelegates.getMapActivitiesFiltered(this, startDate, endDate, sportTypesArray);
-
   getMapScreenData = (
     startDate: Date,
     endDate: Date,
     sportTypesArray?: string[]
   ): FfiMapScreenData | undefined =>
     mapsDelegates.getMapScreenData(this, startDate, endDate, sportTypesArray);
-
-  getActivityBoundsForRange = (
-    startDate: Date,
-    endDate: Date,
-    sportTypesArray?: string[]
-  ): FfiBounds | null =>
-    mapsDelegates.getActivityBoundsForRange(this, startDate, endDate, sportTypesArray);
 
   getAllMapSignatures = (): {
     activityId: string;
@@ -694,13 +664,8 @@ class RouteEngineClient implements DelegateHost {
       sparklineDays
     );
 
-  getPeriodStats = (startTs: number, endTs: number): FfiPeriodStats =>
-    fitnessDelegates.getPeriodStats(this, startTs, endTs);
-
   getZoneDistribution = (sportType: string, zoneType: string): number[] =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType);
-
-  getFtpTrend = (): FfiFtpTrend => fitnessDelegates.getFtpTrend(this);
 
   savePaceSnapshot = (
     sportType: string,
@@ -709,9 +674,6 @@ class RouteEngineClient implements DelegateHost {
     r2?: number,
     date?: number
   ): void => fitnessDelegates.savePaceSnapshot(this, sportType, criticalSpeed, dPrime, r2, date);
-
-  getPaceTrend = (sportType: string): FfiPaceTrend =>
-    fitnessDelegates.getPaceTrend(this, sportType);
 
   getAvailableSportTypes = (): string[] => fitnessDelegates.getAvailableSportTypes(this);
 
@@ -748,11 +710,6 @@ class RouteEngineClient implements DelegateHost {
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 
-  getActivityPatterns = (): FfiActivityPattern[] => fitnessDelegates.getActivityPatterns(this);
-
-  getPatternForToday = (): FfiActivityPattern | undefined =>
-    fitnessDelegates.getPatternForToday(this);
-
   getActivityPatternsWithToday = (): {
     today: FfiActivityPattern | undefined;
     all: FfiActivityPattern[];
@@ -769,9 +726,6 @@ class RouteEngineClient implements DelegateHost {
 
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
-
-  setStreamBody = (activityId: string, types: string, raw: string): void =>
-    activityDelegates.setStreamBody(this, activityId, types, raw);
 
   setIntervalBody = (activityId: string, raw: string): void =>
     activityDelegates.setIntervalBody(this, activityId, raw);
@@ -849,11 +803,6 @@ class RouteEngineClient implements DelegateHost {
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 
   setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
-
-  getAllSettings = (): Record<string, string> => settingsDelegates.getAllSettings(this);
-
-  setAllSettings = (settings: Record<string, string>): void =>
-    settingsDelegates.setAllSettings(this, settings);
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
@@ -936,22 +885,11 @@ class RouteEngineClient implements DelegateHost {
   clearSuperseded = (customSectionId: string): boolean =>
     sectionDelegates.clearSuperseded(this, customSectionId);
 
-  importDisabledIds = (ids: string[]): number => sectionDelegates.importDisabledIds(this, ids);
-
-  importSupersededMap = (map: Record<string, string[]>): number =>
-    sectionDelegates.importSupersededMap(this, map);
-
   getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
     sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
   extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
     sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
-
-  extractSectionTracesBatch = (
-    activityIds: string[],
-    sectionPolylineFlat: number[]
-  ): Record<string, RoutePoint[]> =>
-    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineFlat);
 
   getActivityMetricsForIds = (ids: string[]): FfiActivityMetrics[] =>
     activityDelegates.getActivityMetricsForIds(this, ids);
@@ -1055,12 +993,6 @@ class RouteEngineClient implements DelegateHost {
   getStrengthSummary = (startTs: number, endTs: number): FfiStrengthSummary =>
     strengthDelegates.getStrengthSummary(this, startTs, endTs);
 
-  getStrengthInsightSeries = (
-    monthly: { startTs: number; endTs: number },
-    weekly: { startTs: number; endTs: number }[]
-  ): strengthDelegates.StrengthInsightSeries =>
-    strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
-
   getStrengthSummaryBatch = (ranges: { startTs: number; endTs: number }[]): FfiStrengthSummary[] =>
     strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
@@ -1113,9 +1045,6 @@ class RouteEngineClient implements DelegateHost {
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
 
-  getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
-    sectionDelegates.getActivitySectionHighlights(this, activityIds);
-
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
 
@@ -1123,16 +1052,9 @@ class RouteEngineClient implements DelegateHost {
   getActivityIndicators = (activityIds: string[]): FfiActivityIndicator[] =>
     sectionDelegates.getActivityIndicators(this, activityIds);
 
-  /** Read pre-computed indicators for a single activity. */
-  getIndicatorsForActivity = (activityId: string): FfiActivityIndicator[] =>
-    sectionDelegates.getIndicatorsForActivity(this, activityId);
-
   /** Get section encounters for an activity: one entry per (section, direction). */
   getActivitySectionEncounters = (activityId: string): SectionEncounter[] =>
     sectionDelegates.getActivitySectionEncounters(this, activityId);
-
-  /** Recompute all activity indicators (PRs and trends). */
-  recomputeIndicators = (): void => sectionDelegates.recomputeIndicators(this);
 
   forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
 
