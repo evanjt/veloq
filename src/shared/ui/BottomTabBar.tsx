@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { brand, colorWithOpacity, spacing } from '@/theme';
+import { brand, colorWithOpacity, ink, spacing } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 
@@ -32,9 +32,9 @@ export const TAB_BAR_SAFE_PADDING = TAB_BAR_HEIGHT + GRADIENT_HEIGHT; // Total p
 const ICON_SIZE = 26;
 
 // Colors - WCAG AA requires 3:1 for icons, 4.5:1 for text
-const INACTIVE_COLOR_DARK = colorWithOpacity('#FFFFFF', 0.55); // Muted but visible
-const INACTIVE_COLOR_LIGHT = colorWithOpacity('#000000', 0.45); // Muted but visible
-const ACTIVE_COLOR_DARK = '#FFFFFF'; // Bright white - pops
+const INACTIVE_COLOR_DARK = colorWithOpacity(ink.white, 0.55); // Muted but visible
+const INACTIVE_COLOR_LIGHT = colorWithOpacity(ink.black, 0.45); // Muted but visible
+const ACTIVE_COLOR_DARK = ink.white; // Bright white - pops
 
 function BottomTabBarComponent() {
   // Performance: Track render count
@@ -58,19 +58,19 @@ function BottomTabBarComponent() {
   const gradientColors = isDark
     ? ([
         'transparent',
-        colorWithOpacity('#000000', 0.35),
-        colorWithOpacity('#000000', 0.6),
-        colorWithOpacity('#000000', 0.8),
-        colorWithOpacity('#000000', 0.9),
-        colorWithOpacity('#000000', 0.92),
+        colorWithOpacity(ink.black, 0.35),
+        colorWithOpacity(ink.black, 0.6),
+        colorWithOpacity(ink.black, 0.8),
+        colorWithOpacity(ink.black, 0.9),
+        colorWithOpacity(ink.black, 0.92),
       ] as const)
     : ([
         'transparent',
-        colorWithOpacity('#FFFFFF', 0.35),
-        colorWithOpacity('#FFFFFF', 0.6),
-        colorWithOpacity('#FFFFFF', 0.8),
-        colorWithOpacity('#FFFFFF', 0.9),
-        colorWithOpacity('#FFFFFF', 0.92),
+        colorWithOpacity(ink.white, 0.35),
+        colorWithOpacity(ink.white, 0.6),
+        colorWithOpacity(ink.white, 0.8),
+        colorWithOpacity(ink.white, 0.9),
+        colorWithOpacity(ink.white, 0.92),
       ] as const);
 
   const handlePress = useCallback(

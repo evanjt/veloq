@@ -8,7 +8,7 @@ import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, insightIcon } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
@@ -72,7 +72,7 @@ function getContextCopy(
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
   const { section } = useSectionDetail(sectionId);
   if (!section?.polyline || section.polyline.length < 2) return null;
-  return <SectionInsightMap polyline={section.polyline} lineColor="#FF9800" />;
+  return <SectionInsightMap polyline={section.polyline} lineColor={insightIcon.opportunity} />;
 });
 
 /**
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   dataValueGood: {
-    color: '#22C55E',
+    color: colors.success,
   },
   sectionList: {
     gap: spacing.xs,

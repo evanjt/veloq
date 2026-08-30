@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, contributionRamp } from '@/theme';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { formatLocalDate } from '@/shared/format/format';
 import type { Activity } from '@/types';
@@ -17,21 +17,8 @@ interface ActivityHeatmapProps {
 }
 
 // Color scale for activity intensity (based on TSS or duration)
-const INTENSITY_COLORS = [
-  '#161B22', // No activity (dark)
-  '#0E4429', // Light
-  '#006D32', // Medium-light
-  '#26A641', // Medium
-  '#39D353', // High
-];
-
-const INTENSITY_COLORS_LIGHT = [
-  '#EBEDF0', // No activity
-  '#9BE9A8', // Light
-  '#40C463', // Medium-light
-  '#30A14E', // Medium
-  '#216E39', // High
-];
+const INTENSITY_COLORS = contributionRamp.dark;
+const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];

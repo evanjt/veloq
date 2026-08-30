@@ -5,7 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/shared/app';
-import { spacing, layout, colors, gradients, colorWithOpacity, shadows, typography } from '@/theme';
+import {
+  spacing,
+  layout,
+  colors,
+  gradients,
+  colorWithOpacity,
+  ink,
+  shadows,
+  typography,
+} from '@/theme';
 
 interface EmptyStateProps {
   /** Icon name from MaterialCommunityIcons */
@@ -39,8 +48,8 @@ export function EmptyState({
           styles.iconContainer,
           {
             backgroundColor: isDark
-              ? colorWithOpacity('#FFFFFF', 0.1)
-              : colorWithOpacity('#000000', 0.05),
+              ? colorWithOpacity(ink.white, 0.1)
+              : colorWithOpacity(ink.black, 0.05),
           },
           compact && styles.iconContainerCompact,
         ]}
@@ -48,7 +57,7 @@ export function EmptyState({
         <MaterialCommunityIcons
           name={icon}
           size={compact ? 32 : 48}
-          color={isDark ? colorWithOpacity('#FFFFFF', 0.4) : colorWithOpacity('#000000', 0.3)}
+          color={isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.3)}
         />
       </View>
 

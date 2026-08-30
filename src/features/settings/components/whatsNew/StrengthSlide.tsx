@@ -19,8 +19,8 @@ const GAP = 6;
 const CANVAS_WIDTH = BAR_WIDTH * 2 + GAP;
 const CANVAS_HEIGHT = MUSCLE_GROUPS.length * ROW_HEIGHT;
 
-const LEFT_COLOR = '#8B5CF6';
-const RIGHT_COLOR = '#06B6D4';
+const LEFT_COLOR = colors.walk;
+const RIGHT_COLOR = colors.swim;
 
 export function StrengthSlide() {
   const { isDark } = useTheme();

@@ -6,10 +6,10 @@ import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { DataPoint } from '@/types';
 
 const CONTEXT_COLORS: Record<string, string> = {
-  good: '#22C55E',
-  warning: '#F59E0B',
-  concern: '#EF4444',
-  neutral: '#A1A1AA',
+  good: colors.success,
+  warning: colors.warning,
+  concern: colors.error,
+  neutral: colors.textDisabled,
 };
 
 interface DataPointRowProps {
