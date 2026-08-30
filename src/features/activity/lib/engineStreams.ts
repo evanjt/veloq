@@ -4,34 +4,40 @@
  * Rust stores the intervals.icu response body untouched and `parseStreams`
  * stays the single transform, so what the charts render is what they rendered
  * when the fetch lived in axios. Streams are the largest payloads the API
- * returns, so the engine keeps a bounded cache rather than a full mirror: a
- * body that has aged out simply reads as absent and is re-requested.
+ * returns, so the engine keeps a bounded cache rather than a full mirror.
+ *
+ * A miss is not the end of the read. Rust rebuilds latlng, altitude and time
+ * from the points and times the activity ingest already stored, so a map
+ * preview costs nothing over the wire however long ago the body aged out. A
+ * selection it cannot serve whole, the detail set among them, still reads as
+ * absent and is re-requested: a partial body would look stocked and cost the
+ * athlete their power and heart rate.
  */
 
-import { parseStreams } from '@/features/activity/lib/streams';
-import { useAuthStore } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import type { ActivityStreams, RawStreamItem } from '@/types';
+import { parseStreams } from "@/features/activity/lib/streams";
+import { useAuthStore } from "@/shared/app/AuthStore";
+import { getRouteEngine } from "@/shared/native/routeEngine";
+import type { ActivityStreams, RawStreamItem } from "@/types";
 
 /** The full series set the detail charts render. */
 export const DETAIL_STREAM_TYPES = [
-  'latlng',
-  'altitude',
-  'fixed_altitude',
-  'heartrate',
-  'watts',
-  'cadence',
-  'distance',
-  'time',
-  'velocity_smooth',
-  'grade_smooth',
-  'temp',
-  'w_bal',
-  'ga_velocity',
+  "latlng",
+  "altitude",
+  "fixed_altitude",
+  "heartrate",
+  "watts",
+  "cadence",
+  "distance",
+  "time",
+  "velocity_smooth",
+  "grade_smooth",
+  "temp",
+  "w_bal",
+  "ga_velocity",
 ] as const;
 
 /** The two series a static map preview needs. */
-export const PREVIEW_STREAM_TYPES = ['latlng', 'altitude'] as const;
+export const PREVIEW_STREAM_TYPES = ["latlng", "altitude"] as const;
 
 /**
  * The cache key for a series selection. Rust keys the stored body on this
@@ -41,11 +47,14 @@ export const PREVIEW_STREAM_TYPES = ['latlng', 'altitude'] as const;
  * 100-500KB download and then evict one another.
  */
 export function streamTypesKey(types: readonly string[]): string {
-  return [...types].sort().join(',');
+  return [...types].sort().join(",");
 }
 
 /** Streams parsed from the stored body, or null when nothing is stored. */
-export function readStreams(activityId: string, types: readonly string[]): ActivityStreams | null {
+export function readStreams(
+  activityId: string,
+  types: readonly string[],
+): ActivityStreams | null {
   const engine = getRouteEngine();
   if (!engine?.getStreamBody || !activityId) return null;
 
@@ -74,12 +83,15 @@ export function readStreams(activityId: string, types: readonly string[]): Activ
 function demoStreams(activityId: string): ActivityStreams | null {
   if (!useAuthStore.getState().isDemoMode) return null;
   const { getActivityStreams } =
-    require('@/features/activity/demo') as typeof import('@/features/activity/demo');
+    require("@/features/activity/demo") as typeof import("@/features/activity/demo");
   return (getActivityStreams(activityId) as ActivityStreams | null) ?? null;
 }
 
 /** Ask Rust to fetch and store a series selection for an activity. */
-export function requestStreams(activityId: string, types: readonly string[]): void {
+export function requestStreams(
+  activityId: string,
+  types: readonly string[],
+): void {
   if (!activityId) return;
   // Demo mode has no account to fetch against, the generator answers instead.
   if (useAuthStore.getState().isDemoMode) return;

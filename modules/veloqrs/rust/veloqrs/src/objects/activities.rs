@@ -208,15 +208,17 @@ impl ActivityManager {
         })?
     }
 
-    /// A stored stream payload for an activity and series selection, or
-    /// `None` when it has not been fetched or has aged out of the cache.
+    /// A stream payload for an activity and series selection: the cached
+    /// server body, or one rebuilt from the points and times the ingest
+    /// already stored. `None` when neither can answer the selection, which is
+    /// what makes the caller fetch.
     fn get_stream_body(
         &self,
         activity_id: String,
         types: String,
     ) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {
-            e.get_stream_body(&activity_id, &types)
+            e.read_stream_body(&activity_id, &types)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
