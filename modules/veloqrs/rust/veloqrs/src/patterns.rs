@@ -29,8 +29,6 @@ struct ActivityFeature {
 
 /// K-means cluster result.
 struct ActivityCluster {
-    #[allow(dead_code)]
-    centroid: [f64; 4],
     members: Vec<usize>, // indices into features array
     silhouette: f64,
 }
@@ -290,7 +288,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     let mut best_k = MIN_K;
 
     for k in MIN_K..=max_k {
-        let (centroids, assignments) = kmeans(data, k);
+        let (_centroids, assignments) = kmeans(data, k);
         let silhouette = compute_silhouette(data, &assignments, k);
 
         if silhouette > best_silhouette {
@@ -298,7 +296,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
             best_k = k;
 
             // Build cluster objects
-            best_clusters = build_clusters(&centroids, &assignments, data, k);
+            best_clusters = build_clusters(&assignments, data, k);
         }
     }
 
@@ -514,12 +512,7 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
 }
 
 /// Build ActivityCluster objects from k-means results.
-fn build_clusters(
-    centroids: &[[f64; 4]],
-    assignments: &[usize],
-    data: &[[f64; 4]],
-    k: usize,
-) -> Vec<ActivityCluster> {
+fn build_clusters(assignments: &[usize], data: &[[f64; 4]], k: usize) -> Vec<ActivityCluster> {
     let mut clusters = Vec::with_capacity(k);
 
     for c in 0..k {
@@ -538,7 +531,6 @@ fn build_clusters(
         let cluster_silhouette = compute_cluster_silhouette(data, assignments, &members, c, k);
 
         clusters.push(ActivityCluster {
-            centroid: centroids[c],
             members,
             silhouette: cluster_silhouette,
         });
