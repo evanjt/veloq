@@ -3,9 +3,9 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 import type {
   ActivityMetrics,
-  FrequentSection as NativeFrequentSection,
   MergeCandidate,
   NearbySectionSummary,
+  Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
 } from 'veloqrs';
@@ -21,7 +21,7 @@ export const NEARBY_RADIUS_METERS = 500;
  */
 export interface SectionDetailBundle {
   activityCount: number;
-  section: NativeFrequentSection | undefined;
+  section: NativeSection | undefined;
   nearby: NearbySectionSummary[];
   mergeCandidates: MergeCandidate[];
   excludedActivityIds: string[];

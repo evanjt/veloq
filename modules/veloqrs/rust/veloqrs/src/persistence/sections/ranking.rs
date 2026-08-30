@@ -229,11 +229,10 @@ impl PersistentRouteEngine {
                     recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     crate::trend::classify_time(previous[1], recent[1], TREND_DEADBAND).unwrap_or(0)
-                        as i32
                 } else if data.times.len() >= 2 {
                     let first = data.times[0];
                     let last = *data.times.last().unwrap();
-                    crate::trend::classify_time(first, last, TREND_DEADBAND).unwrap_or(0) as i32
+                    crate::trend::classify_time(first, last, TREND_DEADBAND).unwrap_or(0)
                 } else {
                     0
                 };
@@ -351,7 +350,7 @@ fn enrich_from_ranked(
             last_time_secs: positive(rs.median_recent_secs),
             days_since_last: (rs.days_since_last > 0).then_some(rs.days_since_last as i32),
             pr_days_ago: None,
-            trend: trend_label(rs.trend),
+            trend: Some(rs.trend),
         };
     }
 
@@ -391,7 +390,7 @@ fn enrich_from_ranked(
         last_time_secs,
         days_since_last,
         pr_days_ago,
-        trend: trend_label(rs.trend),
+        trend: Some(rs.trend),
     }
 }
 
@@ -427,21 +426,16 @@ fn enrich_from_summary(
         let recent: Vec<f64> = sorted.iter().take(5).map(|r| r.best_time).collect();
         let previous: Vec<f64> = sorted.iter().skip(5).take(5).map(|r| r.best_time).collect();
         if previous.len() >= 5 {
-            let recent_median = median_of(&recent);
-            let previous_median = median_of(&previous);
-            match crate::trend::classify_time(
-                previous_median,
-                recent_median,
+            crate::trend::classify_time(
+                median_of(&previous),
+                median_of(&recent),
                 WORKOUT_TREND_DEADBAND,
-            ) {
-                Some(verdict) => trend_label(verdict as i32),
-                None => String::new(),
-            }
+            )
         } else {
-            String::new()
+            None
         }
     } else {
-        String::new()
+        None
     };
 
     let name = summary
@@ -464,14 +458,6 @@ fn enrich_from_summary(
 
 fn positive(v: f64) -> Option<f64> {
     (v > 0.0).then_some(v)
-}
-
-fn trend_label(trend: i32) -> String {
-    match trend {
-        t if t > 0 => String::from("improving"),
-        t if t < 0 => String::from("declining"),
-        _ => String::from("stable"),
-    }
 }
 
 /// Freshness of a section's last traversal, the largest single term in the
@@ -711,5 +697,146 @@ mod recency_decay_tests {
             assert!(score < previous, "not monotonic at {days}d");
             previous = score;
         }
+    }
+}
+
+/// Every trend on the wire is the same three-way verdict `crate::trend`
+/// produces: -1 declining, 0 stable, 1 improving, and absent when there is not
+/// enough history to say. A label built here would be a fifth encoding of it.
+#[cfg(test)]
+mod workout_trend_encoding_tests {
+    use super::{enrich_from_ranked, enrich_from_summary};
+
+    fn ranked(trend: i8) -> crate::FfiRankedSection {
+        crate::FfiRankedSection {
+            section_id: "sec_1".to_string(),
+            section_name: "Hill".to_string(),
+            relevance_score: 1.0,
+            recency_score: 1.0,
+            improvement_score: 0.0,
+            anomaly_score: 0.0,
+            engagement_score: 0.0,
+            traversal_count: 9,
+            best_time_secs: 300.0,
+            median_recent_secs: 320.0,
+            days_since_last: 3,
+            trend,
+            latest_is_pr: false,
+        }
+    }
+
+    fn empty_performances() -> crate::SectionPerformanceResult {
+        crate::SectionPerformanceResult {
+            records: Vec::new(),
+            best_record: None,
+            best_forward_record: None,
+            best_reverse_record: None,
+            forward_stats: None,
+            reverse_stats: None,
+        }
+    }
+
+    fn record(activity_date: i64, best_time: f64) -> crate::SectionPerformanceRecord {
+        crate::SectionPerformanceRecord {
+            activity_id: format!("act_{activity_date}"),
+            activity_name: "Ride".to_string(),
+            activity_date,
+            laps: Vec::new(),
+            lap_count: 1,
+            best_time,
+            best_pace: 1000.0 / best_time,
+            avg_time: best_time,
+            avg_pace: 1000.0 / best_time,
+            direction: "forward".to_string(),
+            section_distance: 1000.0,
+        }
+    }
+
+    fn summary() -> crate::SectionSummary {
+        crate::SectionSummary {
+            id: "sec_1".to_string(),
+            section_type: "auto".to_string(),
+            name: Some("Hill".to_string()),
+            sport_type: "Ride".to_string(),
+            distance_meters: 1000.0,
+            visit_count: 12,
+            activity_count: 12,
+            representative_activity_id: None,
+            confidence: 0.8,
+            scale: None,
+            bounds: None,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            elevation_loss_m: None,
+            max_grade_percent: None,
+            straightness: None,
+            klass: None,
+            is_lift: false,
+            rank_score: None,
+            sport_rank_score: None,
+            created_at: "2024-01-01T00:00:00Z".to_string(),
+            sport_types: vec!["Ride".to_string()],
+            is_user_defined: false,
+            disabled: false,
+            superseded_by: None,
+        }
+    }
+
+    #[test]
+    fn a_ranked_verdict_reaches_the_wire_unchanged() {
+        for verdict in [-1i8, 0, 1] {
+            let row = enrich_from_ranked(ranked(verdict), empty_performances());
+            assert_eq!(row.trend, Some(verdict));
+        }
+    }
+
+    #[test]
+    fn too_little_history_has_no_trend_rather_than_a_stable_one() {
+        let records: Vec<_> = (0..4)
+            .map(|i| record(1_700_000 + i * 86_400, 300.0))
+            .collect();
+        let perf = crate::SectionPerformanceResult {
+            records,
+            ..empty_performances()
+        };
+        let row = enrich_from_summary(summary(), perf);
+        assert_eq!(
+            row.trend, None,
+            "four traversals cannot support a verdict, and 'stable' is a claim"
+        );
+    }
+
+    #[test]
+    fn ten_traversals_getting_faster_read_as_improving() {
+        // Oldest five near 400s, most recent five near 300s: a 25% move, well
+        // outside the deadband.
+        let mut records = Vec::new();
+        for i in 0..5 {
+            records.push(record(1_700_000 + i * 86_400, 400.0));
+        }
+        for i in 5..10 {
+            records.push(record(1_700_000 + i * 86_400, 300.0));
+        }
+        let perf = crate::SectionPerformanceResult {
+            records,
+            ..empty_performances()
+        };
+        assert_eq!(enrich_from_summary(summary(), perf).trend, Some(1));
+    }
+
+    #[test]
+    fn ten_traversals_getting_slower_read_as_declining() {
+        let mut records = Vec::new();
+        for i in 0..5 {
+            records.push(record(1_700_000 + i * 86_400, 300.0));
+        }
+        for i in 5..10 {
+            records.push(record(1_700_000 + i * 86_400, 400.0));
+        }
+        let perf = crate::SectionPerformanceResult {
+            records,
+            ..empty_performances()
+        };
+        assert_eq!(enrich_from_summary(summary(), perf).trend, Some(-1));
     }
 }

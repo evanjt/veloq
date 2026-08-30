@@ -1086,7 +1086,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "file": "objects/sections.rs",
     "line": 17,
     "paramCount": 0,
-    "returnType": "Result<Vec<crate::FfiFrequentSection>, VeloqError>",
+    "returnType": "Result<Vec<crate::FfiSection>, VeloqError>",
     "object": "SectionManager"
   },
   {
@@ -1095,7 +1095,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "file": "objects/sections.rs",
     "line": 39,
     "paramCount": 2,
-    "returnType": "Result<Vec<crate::FfiFrequentSection>, VeloqError>",
+    "returnType": "Result<Vec<crate::FfiSection>, VeloqError>",
     "object": "SectionManager"
   },
   {
@@ -1122,7 +1122,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "file": "objects/sections.rs",
     "line": 85,
     "paramCount": 1,
-    "returnType": "Result<Option<crate::FfiFrequentSection>, VeloqError>",
+    "returnType": "Result<Option<crate::FfiSection>, VeloqError>",
     "object": "SectionManager"
   },
   {
@@ -2101,7 +2101,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "compute_polyline_overlap",
     "camelName": "computePolylineOverlap",
     "file": "persistence/mod.rs",
-    "line": 1773,
+    "line": 1774,
     "paramCount": 3,
     "returnType": "f64"
   }
