@@ -170,11 +170,6 @@ export function isRouteMatchingEnabled(): boolean {
   return useRouteSettings.getState().settings.enabled;
 }
 
-// Helper for getting retention days synchronously
-export function getRetentionDays(): number {
-  return useRouteSettings.getState().settings.retentionDays;
-}
-
 // Helper for checking heatmap enabled synchronously
 export function isHeatmapEnabled(): boolean {
   return useRouteSettings.getState().settings.heatmapEnabled;

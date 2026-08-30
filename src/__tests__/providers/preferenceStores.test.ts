@@ -31,7 +31,6 @@ import {
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
-  getRetentionDays,
   initializeRouteSettings,
 } from "@/features/routes/stores/RouteSettingsStore";
 
@@ -395,7 +394,7 @@ describe("RouteSettingsStore", () => {
   });
 
   describe("Synchronous Helpers", () => {
-    it("isRouteMatchingEnabled and getRetentionDays reflect state", () => {
+    it("isRouteMatchingEnabled reflects state", () => {
       useRouteSettings.setState({
         settings: {
           enabled: false,
@@ -407,7 +406,6 @@ describe("RouteSettingsStore", () => {
         isLoaded: true,
       });
       expect(isRouteMatchingEnabled()).toBe(false);
-      expect(getRetentionDays()).toBe(180);
     });
 
     it("helpers work before initialization", () => {
@@ -416,7 +414,6 @@ describe("RouteSettingsStore", () => {
         isLoaded: false,
       });
       expect(isRouteMatchingEnabled()).toBe(true);
-      expect(getRetentionDays()).toBe(0);
     });
   });
 });

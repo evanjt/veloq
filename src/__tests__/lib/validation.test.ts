@@ -1,7 +1,6 @@
 import {
   safeJsonParse,
   safeJsonParseWithSchema,
-  isValidRecord,
   type SchemaValidator,
 } from '@/shared/validation/validation';
 
@@ -44,50 +43,5 @@ describe('safeJsonParseWithSchema', () => {
       safeJsonParseWithSchema('{"name":"test","value":"not a number"}', isTestData, fallback)
     ).toEqual(fallback);
     expect(safeJsonParseWithSchema(null, isTestData, fallback)).toEqual(fallback);
-  });
-});
-
-describe('isValidRecord', () => {
-  it('validates correct records', () => {
-    const validKeys = new Set(['a', 'b', 'c']);
-    const validValues = new Set([1, 2, 3]);
-
-    const result = isValidRecord({ a: 1, b: 2 }, validKeys, validValues);
-    expect(result).toBe(true);
-  });
-
-  it('rejects invalid keys', () => {
-    const validKeys = new Set(['a', 'b']);
-    const validValues = new Set([1, 2, 3]);
-
-    const result = isValidRecord({ a: 1, invalidKey: 2 }, validKeys, validValues);
-    expect(result).toBe(false);
-  });
-
-  it('rejects invalid values', () => {
-    const validKeys = new Set(['a', 'b']);
-    const validValues = new Set([1, 2]);
-
-    const result = isValidRecord({ a: 1, b: 999 }, validKeys, validValues);
-    expect(result).toBe(false);
-  });
-
-  it('rejects non-objects', () => {
-    const validKeys = new Set(['a']);
-    const validValues = new Set([1]);
-
-    expect(isValidRecord(null, validKeys, validValues)).toBe(false);
-    expect(isValidRecord(undefined, validKeys, validValues)).toBe(false);
-    expect(isValidRecord('string', validKeys, validValues)).toBe(false);
-    expect(isValidRecord(123, validKeys, validValues)).toBe(false);
-    expect(isValidRecord([], validKeys, validValues)).toBe(true); // Empty array is an object
-  });
-
-  it('accepts empty records', () => {
-    const validKeys = new Set(['a', 'b']);
-    const validValues = new Set([1, 2]);
-
-    const result = isValidRecord({}, validKeys, validValues);
-    expect(result).toBe(true);
   });
 });

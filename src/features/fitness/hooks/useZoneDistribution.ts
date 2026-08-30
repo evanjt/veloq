@@ -54,37 +54,3 @@ export function useZoneDistribution({
     }));
   }, [type, sport]);
 }
-
-/**
- * Calculate zone distribution from activity streams (for single activity)
- * Uses heartrate/watts streams and zone thresholds
- */
-export function calculateZonesFromStreams(
-  stream: number[],
-  zones: { min: number; max: number }[],
-  zoneColors: string[],
-  zoneNames: string[]
-): ZoneDistribution[] {
-  const zoneCounts: number[] = new Array(zones.length).fill(0);
-
-  for (const value of stream) {
-    for (let i = 0; i < zones.length; i++) {
-      const zone = zones[i];
-      if (value >= zone.min && value < zone.max) {
-        zoneCounts[i]++;
-        break;
-      }
-    }
-  }
-
-  const totalPoints = stream.length;
-  if (totalPoints === 0) return [];
-
-  return zones.map((_, idx) => ({
-    zone: idx + 1,
-    name: zoneNames[idx] || `Zone ${idx + 1}`,
-    seconds: zoneCounts[idx], // In this case, it's sample count, not seconds
-    percentage: Math.round((zoneCounts[idx] / totalPoints) * 100),
-    color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
-  }));
-}
