@@ -8,13 +8,20 @@
  * themselves never unmount.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { MapSurface, type MapSurfaceRef } from '@/features/maps/components';
+import {
+  AttributionOverlay,
+  MapSurface,
+  type AttributionOverlayRef,
+  type MapCameraState,
+  type MapSurfaceRef,
+} from '@/features/maps/components';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
@@ -32,7 +39,13 @@ import {
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
+const SURFACE_STYLE_OPTIONS = {
+  bundledLightStyle: true,
+  cacheVectorTiles: true,
+} as const;
+
+/** Zoom assumed before the surface reports one, matching the camera fallback. */
+const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
@@ -167,6 +180,37 @@ export function PreviewMapView({
     if (bounds) surfaceRef.current?.fitBounds(bounds, 60, 400);
   }, [bounds]);
 
+  // Attribution is a licence condition, so the credit line has to name the
+  // imagery actually drawn. Satellite sources are regional, so it follows the
+  // viewport rather than the area the picker started on.
+  const [viewport, setViewport] = useState<{
+    center: LngLat;
+    zoom: number;
+  } | null>(null);
+
+  const mapStyle = getGlobalMapStyle();
+  const attribution = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: false,
+        center: viewport?.center ?? (centre ? [centre.lng, centre.lat] : null),
+        zoom: viewport?.zoom ?? DEFAULT_ATTRIBUTION_ZOOM,
+      }),
+    [mapStyle, viewport, centre]
+  );
+
+  // The overlay keeps its own state so a camera move never re-renders the
+  // surface, so the text goes in through the ref rather than the prop.
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  useEffect(() => {
+    attributionRef.current?.setAttribution(attribution);
+  }, [attribution]);
+
+  const handleRegionDidChange = useCallback((state: MapCameraState) => {
+    setViewport({ center: state.center, zoom: state.zoom });
+  }, []);
+
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
       const id = event.feature?.properties?.id;
@@ -184,15 +228,17 @@ export function PreviewMapView({
     <View style={styles.container}>
       <MapSurface
         ref={surfaceRef}
-        mapStyle={getGlobalMapStyle()}
+        mapStyle={mapStyle}
         styleOptions={SURFACE_STYLE_OPTIONS}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
         interactiveLayers={PREVIEW_INTERACTIVE_LAYERS}
         onPress={handlePress}
+        onRegionDidChange={handleRegionDidChange}
         testID="preview-map"
       />
+      <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       <View style={styles.legend} pointerEvents="box-none">
         <Pressable
           style={[
