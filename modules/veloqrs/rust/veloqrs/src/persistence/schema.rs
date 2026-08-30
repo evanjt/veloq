@@ -96,6 +96,7 @@ impl PersistentRouteEngine {
         }
 
         // Run all pending migrations
+        let migrations_started = std::time::Instant::now();
         Self::migrations().to_latest(conn).map_err(|e| {
             rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -115,10 +116,8 @@ impl PersistentRouteEngine {
             [],
         )?;
 
-        log::info!(
-            "tracematch: [Schema] Migration complete. Now at version {}",
-            Self::SCHEMA_VERSION
-        );
+        let migrations_ms = crate::elapsed_ms(migrations_started);
+        let hooks_started = std::time::Instant::now();
 
         if current_version < 12 {
             Self::migrate_polyline_json_to_blob(conn)?;
@@ -169,6 +168,20 @@ impl PersistentRouteEngine {
             if current_version < 6 {
                 Self::populate_route_group_counts(conn)?;
             }
+        }
+
+        // The first launch after an update is the one a user waits on, and a
+        // field report of a slow one is unactionable without a split between
+        // the SQL chain and these hooks. Only an upgrade reports: an ordinary
+        // launch migrates nothing, so a timing there would read as one.
+        if current_version < Self::SCHEMA_VERSION {
+            log::info!(
+                "tracematch: [Schema] Migration complete from version {} to {}, migrations {}ms, hooks {}ms",
+                current_version,
+                Self::SCHEMA_VERSION,
+                migrations_ms,
+                crate::elapsed_ms(hooks_started)
+            );
         }
 
         Ok(())

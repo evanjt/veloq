@@ -464,7 +464,12 @@
       "expandInSettings": "Espandi nelle impostazioni",
       "title": "Sei offline"
     },
-    "refresh": "Aggiorna"
+    "refresh": "Aggiorna",
+    "syncError": {
+      "title": "La sincronizzazione non arriva",
+      "lastSynced": "Ultima sincronizzazione {{when}}",
+      "neverSynced": "Nessuna sincronizzazione completata"
+    }
   },
   "engine": {
     "initFailed": "Il motore dei percorsi non è riuscito ad avviarsi. I percorsi e le sezioni potrebbero non essere disponibili."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Ri-rileva sezioni",
     "redetectSectionsHint": "Esegui di nuovo la rilevazione di sezioni su tutte le attività. Può richiedere 1-2 minuti.",
     "sectionDetection": "Rilevamento sezioni",
-    "detectionSensitivity": "Sensibilità del rilevamento",
     "detectionRelaxed": "Permissivo",
     "detectionStrict": "Rigoroso",
     "matchThreshold": "Corrispondenza: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Tracce min corridoio: {{count}}",
     "sectionJaccard": "Sovrapposizione celle: {{value}}",
     "sectionMinCellVisits": "Visite min cella: {{count}}",
-    "sectionDivergence": "Divergenza: {{value}}",
     "general": "Generale",
     "data": "Dati",
     "notificationsAndStorage": "Notifiche e archiviazione",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} di {{total}} attività",
     "elevationBackfillComplete": "Tutti i tracciati delle attività hanno l'altitudine",
     "elevationBackfillPartial": "Alcuni tracciati delle attività non hanno ancora l'altitudine. Verranno ritentati più tardi.",
-    "elevationBackfillRetrying": "Non è stato possibile aggiornare {{value}} tracciati delle attività. Verranno ritentati più tardi.",
+    "elevationBackfillRetrying_one": "Non è stato possibile aggiornare {{count}} tracciato delle attività. Verrà ritentato più tardi.",
+    "elevationBackfillRetrying_other": "Non è stato possibile aggiornare {{count}} tracciati delle attività. Verranno ritentati più tardi.",
     "elevationBackfillFailed": "Non è stato possibile eseguire l'aggiornamento dell'altitudine.",
     "previewSections": "Anteprima delle modifiche alle sezioni",
     "previewIntro": "Prova le nuove impostazioni su una zona prima di applicarle ovunque.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
     "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
-    "advanced": "Avanzate"
+    "previewKeepRefusedTitle": "La nuova analisi non è partita",
+    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento."
   },
   "stats": {
     "activities": "Attività",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Ripristina una versione precedente di un tratto e bloccala",
       "rowRetired": "I tratti usciti dal catalogo restano elencati",
       "rowPinned": "I tratti accettati sopravvivono a ogni nuova analisi",
-      "rowEveryDevice": "Tratti identici su ogni dispositivo"
+      "rowEveryDevice": "Tratti identici su ogni dispositivo",
+      "recutRunning": "Nuova analisi dei tuoi tratti",
+      "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
+      "phaseDraining": "completamento del lavoro in corso",
+      "phaseArchiving": "archiviazione del vecchio catalogo",
+      "phaseDetecting": "taglio dei nuovi tratti",
+      "phaseDiffing": "confronto dei due cataloghi",
+      "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
+      "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
+      "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Record ricalcolato sull'estensione attuale",
     "kind_baseline": "Registrato da una versione precedente dell'app",
     "kind_algorithm_changed": "Rianalizzato da un rilevatore più recente"
+  },
+  "namedCorridors": {
+    "title": "Nomi che hai dato",
+    "link": "Nomi che hai dato",
+    "empty": "Non hai ancora dato un nome a nessun tratto",
+    "created": "Nominato il {{date}}",
+    "dormant": "Nessun tratto copre questo terreno al momento",
+    "onSection": "Su {{name}} · {{percent}}% coperto",
+    "secondary": "Un altro nome copre lo stesso terreno",
+    "delete": "Elimina nome",
+    "deleteTitle": "Elimina nome",
+    "deleteConfirm": "Eliminare \"{{name}}\"? Il tratto torna al suo nome generato."
   }
 }

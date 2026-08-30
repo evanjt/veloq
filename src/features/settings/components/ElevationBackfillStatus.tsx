@@ -56,7 +56,7 @@ export function ElevationBackfillStatus() {
     phase === 'complete'
       ? t('settings.elevationBackfillComplete')
       : failed > 0
-        ? t('settings.elevationBackfillRetrying', { value: failed })
+        ? t('settings.elevationBackfillRetrying', { count: failed })
         : t('settings.elevationBackfillPartial');
 
   return (

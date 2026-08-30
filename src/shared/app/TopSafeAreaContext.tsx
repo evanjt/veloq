@@ -7,12 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncHealth } from '@/shared/native/useSyncHealth';
+
 import { useNetwork } from './NetworkContext';
 
 interface TopSafeAreaContextValue {
   hasTopBanner: boolean;
   topInset: number;
-  activeBanner: 'demo' | 'offline' | null;
+  activeBanner: 'demo' | 'offline' | 'syncError' | null;
   screenEdges: Edge[];
   setSyncBannerVisible: (visible: boolean) => void;
 }
@@ -25,6 +27,7 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isOnline } = useNetwork();
+  const { lastError } = useSyncHealth();
   const [, setSyncBannerVisibleState] = useState(false);
 
   const setSyncBannerVisible = useCallback((visible: boolean) => {
@@ -32,13 +35,18 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(() => {
-    // Determine which banner is showing (priority order: offline > demo > sync)
+    // Determine which banner is showing (priority order: offline > syncError > demo > sync)
     const showOfflineBanner = isAuthenticated && !isOnline;
+    // A connected device whose sync keeps failing takes the same slot, so the
+    // offline case is checked first and the two never both claim the inset.
+    const showSyncErrorBanner = isAuthenticated && isOnline && lastError !== null;
     const showDemoBanner = isDemoMode && !hideDemoBanner;
 
-    let activeBanner: 'demo' | 'offline' | null = null;
+    let activeBanner: 'demo' | 'offline' | 'syncError' | null = null;
     if (showOfflineBanner) {
       activeBanner = 'offline';
+    } else if (showSyncErrorBanner) {
+      activeBanner = 'syncError';
     } else if (showDemoBanner) {
       activeBanner = 'demo';
     }
@@ -58,7 +66,15 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       screenEdges,
       setSyncBannerVisible,
     };
-  }, [isDemoMode, hideDemoBanner, isAuthenticated, isOnline, insets.top, setSyncBannerVisible]);
+  }, [
+    isDemoMode,
+    hideDemoBanner,
+    isAuthenticated,
+    isOnline,
+    lastError,
+    insets.top,
+    setSyncBannerVisible,
+  ]);
 
   // Banner animations are handled by Reanimated SlideInUp/SlideOutUp on each banner component
   return <TopSafeAreaContext.Provider value={value}>{children}</TopSafeAreaContext.Provider>;

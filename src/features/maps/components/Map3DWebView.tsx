@@ -70,6 +70,8 @@ export interface Map3DWebViewRef {
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when the map has finished loading */
   onMapReady?: () => void;
+  /** Called when the page or the WebView failed and no map will appear */
+  onMapFailed?: (reason: string) => void;
   /** Called when bearing changes (for compass sync) */
   onBearingChange?: (bearing: number) => void;
   /** Called when the full camera state updates (center, zoom, bearing, pitch) */
@@ -130,6 +132,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       highlightedSectionId,
       showHeatmap = false,
       onMapReady,
+      onMapFailed,
       onBearingChange,
       onCameraStateChange,
       initialCamera,
@@ -234,6 +237,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onActivityClickRef,
       updateLayers,
       onMapReady,
+      onMapFailed,
       onBearingChange,
       onCameraStateChange,
     });
@@ -575,6 +579,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       `);
     }, [showHeatmap]);
 
+    // The page reports its own failures, but it can only do that once it has
+    // loaded. A main frame that never arrives has to be reported from here.
+    const handleWebViewError = useCallback(() => {
+      mapReadyRef.current = false;
+      onMapFailed?.('webview load error');
+    }, [onMapFailed]);
+
     // Reload WebView on crash (iOS content process termination / Android render process gone)
     const handleWebViewCrash = useCallback(() => {
       mapReadyRef.current = false;
@@ -652,6 +663,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           mixedContentMode="always"
           androidLayerType="hardware"
           onMessage={handleMessage}
+          onError={handleWebViewError}
           onContentProcessDidTerminate={handleWebViewCrash}
           onRenderProcessGone={handleWebViewCrash}
         />

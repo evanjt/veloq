@@ -464,7 +464,12 @@
       "expandInSettings": "In Istellige erwitere",
       "title": "Du bisch offline"
     },
-    "refresh": "Nöi lade"
+    "refresh": "Nöi lade",
+    "syncError": {
+      "title": "Synchronisierig chunt nid dure",
+      "lastSynced": "Zletscht gsynced {{when}}",
+      "neverSynced": "Nonig e Synchronisierig fertig"
+    }
   },
   "engine": {
     "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Abschnitte nöi erchenne",
     "redetectSectionsHint": "Abschnittserchennig über alli Aktivitäte nomal laufe lah. Cha 1-2 Minuute dure.",
     "sectionDetection": "Abschnittserkennig",
-    "detectionSensitivity": "Erkennigsempfindlichkeit",
     "detectionRelaxed": "Locker",
     "detectionStrict": "Striikt",
     "matchThreshold": "Übriistimmig: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. Korridor-Tracks: {{count}}",
     "sectionJaccard": "Zellüberlappung: {{value}}",
     "sectionMinCellVisits": "Min. Zellbesuche: {{count}}",
-    "sectionDivergence": "Divergenz: {{value}}",
     "general": "Allgemein",
     "data": "Date",
     "notificationsAndStorage": "Benachrichtigunge & Speicher",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} von {{total}} Aktivitäten",
     "elevationBackfillComplete": "Alle Aktivitätsspuren haben Höhendaten",
     "elevationBackfillPartial": "Einigen Aktivitätsspuren fehlen noch Höhendaten. Sie werden später erneut versucht.",
-    "elevationBackfillRetrying": "{{value}} Aktivitätsspuren konnten nicht aktualisiert werden. Sie werden später erneut versucht.",
+    "elevationBackfillRetrying_one": "{{count}} Aktivitätsspur konnte nicht aktualisiert werden. Sie wird später erneut versucht.",
+    "elevationBackfillRetrying_other": "{{count}} Aktivitätsspuren konnten nicht aktualisiert werden. Sie werden später erneut versucht.",
     "elevationBackfillFailed": "Die Höhenaktualisierung konnte nicht ausgeführt werden.",
     "previewSections": "Vorschau vo de Abschnittsänderige",
     "previewIntro": "Probier di neue Iistellige zerscht i eim Fahrgebiet us, bevor si überall aagwändet werded.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Verwerfe",
     "previewKeepTitle": "Die Iistellige aawände?",
     "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
-    "advanced": "Erweitert"
+    "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Eine frühere Version eines Abschnitts zurücksetzen und anheften",
       "rowRetired": "Ausgeschiedene Abschnitte bleiben gelistet",
       "rowPinned": "Übernommene Abschnitte überstehen jede Neuanalyse",
-      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät"
+      "rowEveryDevice": "Identische Abschnitte auf jedem Gerät",
+      "recutRunning": "Deine Abschnitte werden neu analysiert",
+      "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
+      "phaseDraining": "laufende Arbeit wird abgeschlossen",
+      "phaseArchiving": "der alte Katalog wird archiviert",
+      "phaseDetecting": "neue Abschnitte werden geschnitten",
+      "phaseDiffing": "die beiden Kataloge werden verglichen",
+      "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
+      "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
+      "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Rekord auf die aktuelle Ausdehnung bezogen",
     "kind_baseline": "Aus einer früheren App-Version übernommen",
     "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert"
+  },
+  "namedCorridors": {
+    "title": "Von dir vergebene Namen",
+    "link": "Von dir vergebene Namen",
+    "empty": "Du hast noch keinen Abschnitt benannt",
+    "created": "Benannt am {{date}}",
+    "dormant": "Derzeit deckt kein Abschnitt dieses Gebiet ab",
+    "onSection": "Auf {{name}} · {{percent}}% abgedeckt",
+    "secondary": "Ein weiterer Name deckt dieses Gebiet ebenfalls ab",
+    "delete": "Namen löschen",
+    "deleteTitle": "Namen löschen",
+    "deleteConfirm": "\"{{name}}\" löschen? Der Abschnitt erhält wieder seinen generierten Namen."
   }
 }

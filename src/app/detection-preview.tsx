@@ -21,7 +21,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
@@ -89,7 +89,14 @@ export default function DetectionPreviewScreen() {
           const config = client?.getSectionConfig();
           if (!client || !config) return;
           client.setSectionConfig({ ...config, ...params });
-          client.forceRedetectSections();
+          // The engine refuses a re-cut while a detect runs or the elevation
+          // backfill holds detection. The config above is already written and
+          // the evidence cache already cleared, so closing here would report a
+          // change that never ran. Stay, say why, and let Keep be pressed again.
+          if (!client.forceRedetectSections()) {
+            Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
+            return;
+          }
           router.back();
         },
       },
@@ -141,7 +148,10 @@ export default function DetectionPreviewScreen() {
 
       <ScrollView
         style={styles.panel}
-        contentContainerStyle={[styles.panelContent, { paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[
+          styles.panelContent,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.intro, { color: textSecondary }]}>{t('settings.previewIntro')}</Text>

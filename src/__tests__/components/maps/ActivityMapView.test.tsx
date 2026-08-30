@@ -188,4 +188,85 @@ describe('ActivityMapView', () => {
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
   });
+  describe('3D terrain hero', () => {
+    const CAMERA_3D = {
+      center: [7.448, 46.949] as [number, number],
+      zoom: 13,
+      bearing: 20,
+      pitch: 60,
+    };
+
+    function post(message: Record<string, unknown>) {
+      fireEvent(screen.getByTestId('webview'), 'message', {
+        nativeEvent: { data: JSON.stringify(message) },
+      });
+    }
+
+    it('shows a spinner while the terrain page is still loading', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+
+      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+      expect(screen.getByTestId('webview')).toBeTruthy();
+    });
+
+    it('clears the spinner once the terrain page reports ready', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+
+      post({ type: 'mapReady' });
+
+      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+    });
+
+    it('falls back to the 2D map when the terrain page reports failure', () => {
+      const on3DModeChange = jest.fn();
+      renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      post({ type: 'mapFailed', reason: 'load timeout' });
+
+      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+      expect(screen.queryByTestId('webview')).toBeNull();
+      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(on3DModeChange).toHaveBeenCalledWith(false);
+    });
+
+    it('falls back to the 2D map when the WebView itself fails to load', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+
+      fireEvent(screen.getByTestId('webview'), 'error', {
+        nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
+      });
+
+      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    });
+
+    it('does not re-enter 3D after a failure', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+
+      post({ type: 'mapFailed', reason: 'load timeout' });
+      fireEvent(screen.getByTestId('activity-map-3d-toggle'), 'pressIn');
+
+      expect(screen.getByTestId('webview')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+    });
+
+    it('reaches a terminal state again on a second mount', () => {
+      const first = renderActivityMap({ initial3DCamera: CAMERA_3D });
+      post({ type: 'mapFailed', reason: 'load timeout' });
+      first.unmount();
+
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+
+      post({ type: 'mapFailed', reason: 'load timeout' });
+      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+    });
+
+    it('tolerates unmounting while the terrain page is still loading', () => {
+      const view = renderActivityMap({ initial3DCamera: CAMERA_3D });
+
+      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+      expect(() => view.unmount()).not.toThrow();
+    });
+  });
 });

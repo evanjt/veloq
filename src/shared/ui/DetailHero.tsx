@@ -27,6 +27,12 @@ export interface DetailHeroProps {
   rightActions?: React.ReactNode;
   /** Bottom info overlay content (HeroNameRow / HeroStatsRow or custom). */
   overlay?: React.ReactNode;
+  /**
+   * Extra bottom padding for the info overlay, so it clears a map attribution
+   * pill drawn in the same corner. Pass ATTRIBUTION_CLEARANCE when the hero's
+   * map shows attribution.
+   */
+  attributionClearance?: number;
   /** The map (or placeholder) filling the hero. */
   children: React.ReactNode;
 }
@@ -39,6 +45,7 @@ export function DetailHero({
   containerTestID,
   rightActions,
   overlay,
+  attributionClearance = 0,
   children,
 }: DetailHeroProps) {
   return (
@@ -51,7 +58,11 @@ export function DetailHero({
         pointerEvents="none"
       />
 
-      <View style={[styles.floatingHeader, { paddingTop: insetTop }]} pointerEvents="box-none">
+      <View
+        testID="detail-hero-header"
+        style={[styles.floatingHeader, { paddingTop: insetTop }]}
+        pointerEvents="box-none"
+      >
         <TouchableOpacity
           testID={backTestID}
           style={styles.backButton}
@@ -65,7 +76,11 @@ export function DetailHero({
       </View>
 
       {overlay != null && (
-        <View style={styles.infoOverlay} pointerEvents="box-none">
+        <View
+          testID="detail-hero-overlay"
+          style={[styles.infoOverlay, { paddingBottom: spacing.md + attributionClearance }]}
+          pointerEvents="box-none"
+        >
           {overlay}
         </View>
       )}
@@ -225,7 +240,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
     zIndex: 5,
   },
   nameRow: {

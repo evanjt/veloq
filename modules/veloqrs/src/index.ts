@@ -87,6 +87,9 @@ export type {
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
 
+// Detector cutover consumer types
+export type { CutoverPhase, CutoverCounts } from './delegates/cutover';
+
 // Preview detection consumer types
 export type {
   PreviewCentre,

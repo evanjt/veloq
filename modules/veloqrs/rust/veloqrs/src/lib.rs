@@ -59,6 +59,112 @@ pub mod fit;
 // Raster tile generation for activity heatmaps
 pub mod tiles;
 
+/// Fixtures for the process-wide engine, detection handle and suspension
+/// counter. They live at the crate root because tests in several modules race
+/// the same globals and have to take the same lock to stay honest.
+#[cfg(test)]
+pub(crate) mod test_globals {
+    use crate::objects::detection::{DetectionPoll, poll_detection_once};
+    use crate::persistence::persistent_engine_ffi::persistent_engine_init;
+    use crate::persistence::with_persistent_engine;
+    use std::sync::{Arc, Barrier, Mutex, MutexGuard};
+    use std::time::{Duration, Instant};
+    use tempfile::TempDir;
+    use tracematch::GpsPoint;
+
+    /// Threads released together at a start, enough that a blind install
+    /// overwrites more than once.
+    pub(crate) const RACERS: usize = 4;
+
+    /// One lock for the whole crate: the engine, the detection handle and the
+    /// suspension counter are process-wide, so these tests run one at a time.
+    pub(crate) fn serial_global_state() -> MutexGuard<'static, ()> {
+        static SERIAL: Mutex<()> = Mutex::new(());
+        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn track(seed: f64) -> Vec<GpsPoint> {
+        (0..8)
+            .map(|i| GpsPoint::new(46.2 + seed + f64::from(i) * 0.001, 7.35 + seed))
+            .collect()
+    }
+
+    /// A global engine holding unprocessed activities, so a start reaches the
+    /// spawn rather than the no-new-activities short circuit.
+    pub(crate) fn seeded_global_engine() -> TempDir {
+        let tmp = TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join("detection.db");
+        assert!(
+            persistent_engine_init(db_path.to_string_lossy().into_owned()),
+            "the fixture database must open"
+        );
+        with_persistent_engine(|engine| {
+            for i in 0..6 {
+                let id = format!("a{}", i);
+                engine
+                    .add_activity(id.clone(), track(f64::from(i) * 0.05), "Ride".into())
+                    .expect("add activity");
+                engine
+                    .update_activity_metadata(
+                        &id,
+                        Some(1_700_000_000 - i64::from(i) * 86_400),
+                        Some("ride"),
+                        Some(12_345.0),
+                        Some(3_600),
+                    )
+                    .expect("metadata");
+            }
+        })
+        .expect("engine");
+        tmp
+    }
+
+    pub(crate) fn clear_detection_handle() {
+        *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// Drive the winning run to its end so the worker is finished with the
+    /// database before the fixture directory goes away.
+    pub(crate) fn drain_detection() {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        loop {
+            match poll_detection_once() {
+                Ok(DetectionPoll::Idle) => return,
+                Ok(_) => std::thread::sleep(Duration::from_millis(25)),
+                Err(e) => panic!("drain failed: {:?}", e),
+            }
+            assert!(Instant::now() < deadline, "detection never went idle");
+        }
+    }
+
+    /// Run `start` on `RACERS` threads released together and report how many
+    /// claimed to have started.
+    pub(crate) fn race<F>(start: F) -> usize
+    where
+        F: Fn() -> bool + Send + Sync + 'static,
+    {
+        let barrier = Arc::new(Barrier::new(RACERS));
+        let start = Arc::new(start);
+        let racers: Vec<_> = (0..RACERS)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                let start = Arc::clone(&start);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    start()
+                })
+            })
+            .collect();
+        racers
+            .into_iter()
+            .map(|r| r.join().expect("racer thread"))
+            .filter(|started| *started)
+            .count()
+    }
+}
+
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
 pub(crate) fn elapsed_ms(start: std::time::Instant) -> u64 {

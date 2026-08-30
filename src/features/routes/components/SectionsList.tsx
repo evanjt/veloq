@@ -117,6 +117,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
     elevationGainM: s.elevationGainM ?? undefined,
+    elevationLossM: s.elevationLossM ?? undefined,
     avgGradePercent: s.avgGradePercent ?? undefined,
     maxGradePercent: s.maxGradePercent ?? undefined,
     klass: s.klass ?? undefined,
@@ -622,6 +623,17 @@ export const SectionsList = memo(function SectionsList({
           <MaterialCommunityIcons name="history" size={16} color={colors.textSecondary} />
           <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
             {t('sectionHistory.seeRetired')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="sections-named-corridors-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/named-corridors' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="tag-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('namedCorridors.link')}
           </Text>
         </TouchableOpacity>
         <DataRangeFooter days={cacheDays} isDark={isDark} />

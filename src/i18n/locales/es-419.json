@@ -464,7 +464,12 @@
       "expandInSettings": "Expandir en Ajustes",
       "title": "Estás sin conexión"
     },
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "syncError": {
+      "title": "La sincronizacion no llega",
+      "lastSynced": "Ultima sincronizacion {{when}}",
+      "neverSynced": "Ninguna sincronizacion ha terminado"
+    }
   },
   "engine": {
     "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Detectar secciones",
     "redetectSectionsHint": "Ejecutar la detección de secciones en todas las actividades. Puede tardar 1-2 minutos.",
     "sectionDetection": "Detección de secciones",
-    "detectionSensitivity": "Sensibilidad de detección",
     "detectionRelaxed": "Permisiva",
     "detectionStrict": "Estricta",
     "matchThreshold": "Coincidencia: {{pct}} %",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Trazas mín. corredor: {{count}}",
     "sectionJaccard": "Solapamiento celdas: {{value}}",
     "sectionMinCellVisits": "Visitas mín. celda: {{count}}",
-    "sectionDivergence": "Divergencia: {{value}}",
     "general": "General",
     "data": "Datos",
     "notificationsAndStorage": "Notificaciones y almacenamiento",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} de {{total}} actividades",
     "elevationBackfillComplete": "Todos los recorridos de actividad tienen altitud",
     "elevationBackfillPartial": "Algunos recorridos de actividad aún necesitan altitud. Se reintentarán más tarde.",
-    "elevationBackfillRetrying": "No se pudieron actualizar {{value}} recorridos de actividad. Se reintentarán más tarde.",
+    "elevationBackfillRetrying_one": "No se pudo actualizar {{count}} recorrido de actividad. Se reintentará más tarde.",
+    "elevationBackfillRetrying_other": "No se pudieron actualizar {{count}} recorridos de actividad. Se reintentarán más tarde.",
     "elevationBackfillFailed": "No se pudo ejecutar la actualización de altitud.",
     "previewSections": "Vista previa de cambios de secciones",
     "previewIntro": "Prueba la nueva configuración en una zona antes de aplicarla en todas partes.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Descartar",
     "previewKeepTitle": "¿Aplicar esta configuración?",
     "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar.",
-    "advanced": "Avanzado"
+    "previewKeepRefusedTitle": "El nuevo análisis no comenzó",
+    "previewKeepRefused": "Tu configuración quedó guardada. Hay otro análisis en curso, por lo que el recálculo no comenzó. Vuelve a tocar Conservar en un momento."
   },
   "stats": {
     "activities": "Actividades",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Restaura una versión anterior de un tramo y fíjala",
       "rowRetired": "Los tramos que salieron del catálogo siguen listados",
       "rowPinned": "Los tramos aceptados sobreviven a cada reanálisis",
-      "rowEveryDevice": "Tramos idénticos en todos los dispositivos"
+      "rowEveryDevice": "Tramos idénticos en todos los dispositivos",
+      "recutRunning": "Analizando de nuevo tus tramos",
+      "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
+      "phaseDraining": "terminando el trabajo en curso",
+      "phaseArchiving": "archivando el catálogo anterior",
+      "phaseDetecting": "cortando tramos nuevos",
+      "phaseDiffing": "comparando los dos catálogos",
+      "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
+      "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
+      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Récord recalculado sobre la extensión actual",
     "kind_baseline": "Registrado desde una versión anterior de la app",
     "kind_algorithm_changed": "Reanalizado por un detector más reciente"
+  },
+  "namedCorridors": {
+    "title": "Nombres que pusiste",
+    "link": "Nombres que pusiste",
+    "empty": "Aún no has puesto nombre a ningún tramo",
+    "created": "Nombrado el {{date}}",
+    "dormant": "Ningún tramo cubre este terreno ahora mismo",
+    "onSection": "En {{name}} · {{percent}}% cubierto",
+    "secondary": "Otro nombre también cubre este terreno",
+    "delete": "Eliminar nombre",
+    "deleteTitle": "Eliminar nombre",
+    "deleteConfirm": "¿Eliminar \"{{name}}\"? El tramo volverá a su nombre generado."
   }
 }

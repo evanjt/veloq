@@ -464,7 +464,12 @@
       "expandInSettings": "在设置中展开",
       "title": "您已离线"
     },
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "syncError": {
+      "title": "同步未能完成",
+      "lastSynced": "上次同步 {{when}}",
+      "neverSynced": "尚未完成任何同步"
+    }
   },
   "engine": {
     "initFailed": "路线引擎初始化失败。路线和区间可能不可用。"
@@ -1655,7 +1660,6 @@
     "redetectSections": "重新检测路段",
     "redetectSectionsHint": "对所有活动重新运行路段检测。需要 1-2 分钟。",
     "sectionDetection": "路段检测",
-    "detectionSensitivity": "检测灵敏度",
     "detectionRelaxed": "宽松",
     "detectionStrict": "严格",
     "matchThreshold": "匹配:{{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "最少走廊轨迹: {{count}}",
     "sectionJaccard": "单元重叠: {{value}}",
     "sectionMinCellVisits": "最少单元访问: {{count}}",
-    "sectionDivergence": "分歧阈值: {{value}}",
     "general": "通用",
     "data": "数据",
     "notificationsAndStorage": "通知与存储",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{total}} 项活动中的 {{completed}} 项",
     "elevationBackfillComplete": "所有活动轨迹均已包含海拔",
     "elevationBackfillPartial": "部分活动轨迹仍缺少海拔，稍后将重试。",
-    "elevationBackfillRetrying": "{{value}} 条活动轨迹更新失败，稍后将重试。",
+    "elevationBackfillRetrying_one": "{{count}} 条活动轨迹更新失败，稍后将重试。",
+    "elevationBackfillRetrying_other": "{{count}} 条活动轨迹更新失败，稍后将重试。",
     "elevationBackfillFailed": "无法运行海拔更新。",
     "previewSections": "预览路段变化",
     "previewIntro": "先在一个区域测试新设置，再应用到全部。",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
     "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
-    "advanced": "高级"
+    "previewKeepRefusedTitle": "未开始重新分析",
+    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。"
   },
   "stats": {
     "activities": "活动",
@@ -1928,7 +1933,16 @@
       "rowRevert": "恢复路段的早期版本并固定",
       "rowRetired": "退出目录的路段仍会列出",
       "rowPinned": "已接受的路段在每次重新分析后都保留",
-      "rowEveryDevice": "每台设备上的路段完全一致"
+      "rowEveryDevice": "每台设备上的路段完全一致",
+      "recutRunning": "正在重新分析你的路段",
+      "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
+      "phaseDraining": "正在完成进行中的处理",
+      "phaseArchiving": "正在归档旧目录",
+      "phaseDetecting": "正在切分新路段",
+      "phaseDiffing": "正在比较两份目录",
+      "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
+      "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
+      "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。"
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "纪录已按当前范围重算",
     "kind_baseline": "来自旧版应用的记录",
     "kind_algorithm_changed": "由新检测器重新分析"
+  },
+  "namedCorridors": {
+    "title": "你起的名字",
+    "link": "你起的名字",
+    "empty": "你还没有为任何路段命名",
+    "created": "命名于 {{date}}",
+    "dormant": "目前没有路段覆盖这段路",
+    "onSection": "在 {{name}} · 覆盖 {{percent}}%",
+    "secondary": "另一个名字也覆盖这段路",
+    "delete": "删除名字",
+    "deleteTitle": "删除名字",
+    "deleteConfirm": "删除“{{name}}”？该路段将恢复自动生成的名称。"
   }
 }

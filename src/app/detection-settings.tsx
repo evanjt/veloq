@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
-import Slider from '@react-native-community/slider';
 import { router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,13 +19,7 @@ import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { DetectionIllustration, ElevationBackfillStatus } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import {
-  DETECTION_PRESETS,
-  applyDetectionStrictness,
-  getDetectionPresetByValue,
-  getRouteEngine,
-  UNIFIED_CONFIG,
-} from '@/shared/native/routeEngine';
+import { getRouteEngine, UNIFIED_CONFIG } from '@/shared/native/routeEngine';
 
 type DetectionParams = {
   proximityThreshold: number;
@@ -35,8 +28,8 @@ type DetectionParams = {
   divergenceThreshold: number;
 };
 
-/** The configuration the detector is validated at. Strictness moves route
- *  grouping, not these, so the sliders start here however it is set. */
+/** The configuration the detector is validated at, used until the engine
+ *  reports what it has persisted. */
 function defaultParams(): DetectionParams {
   return {
     proximityThreshold: UNIFIED_CONFIG.proximityThreshold,
@@ -47,8 +40,8 @@ function defaultParams(): DetectionParams {
 }
 
 /** What the engine actually has persisted, or the compiled defaults when it
- *  is not ready yet. The sliders have to start here or they show numbers the
- *  detector is not using. */
+ *  is not ready yet. The illustration has to draw these or it shows numbers
+ *  the detector is not using. */
 function loadParams(): DetectionParams {
   const config = getRouteEngine()?.getSectionConfig();
   if (!config) return defaultParams();
@@ -60,19 +53,11 @@ function loadParams(): DetectionParams {
   };
 }
 
-const VISIBLE_KEYS: (keyof DetectionParams)[] = [
-  'proximityThreshold',
-  'minSectionLength',
-  'minActivities',
-  'divergenceThreshold',
-];
-
 export default function DetectionSettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const strictnessValue = useRouteSettings((s) => s.settings.detectionStrictness);
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -82,59 +67,14 @@ export default function DetectionSettingsScreen() {
   const border = isDark ? darkColors.border : colors.border;
   const danger = isDark ? darkColors.error : colors.error;
 
-  const activePreset = useMemo(() => getDetectionPresetByValue(strictnessValue), [strictnessValue]);
-  const activePresetIndex = useMemo(
-    () => DETECTION_PRESETS.findIndex((p) => p.key === activePreset.key),
-    [activePreset]
-  );
-
   const [params, setParams] = useState<DetectionParams>(loadParams);
-
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-
-  const handlePresetSelect = useCallback((index: number) => {
-    const preset = DETECTION_PRESETS[index];
-    useRouteSettings.getState().setDetectionStrictness(preset.value);
-    // A preset is route-grouping strictness; the sliders are the detector's
-    // own parameters and keep what the user set.
-    applyDetectionStrictness(preset.strictness);
-  }, []);
-
-  const applyParam = useCallback((key: keyof DetectionParams, value: number) => {
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const config = engine.getSectionConfig();
-    if (!config) return;
-    engine.setSectionConfig({ ...config, [key]: value });
-  }, []);
-
-  // The label tracks the thumb, but each engine write clears
-  // `processed_activities` and reseeds identities, so only the released
-  // value is committed.
-  const setParam = useCallback((key: keyof DetectionParams, value: number) => {
-    setParams((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  // The rescan button lights up only for unsaved slider tweaks, so the
-  // baseline is the config the screen opened with, not the defaults.
-  const initialConfig = useRef<DetectionParams>(params);
 
   // The engine can still be initialising on the first render, and then the
   // lazy seed above fell back to the defaults.
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const config = engine.getSectionConfig();
-    if (!config) return;
-    const loaded = loadParams();
-    setParams(loaded);
-    initialConfig.current = loaded;
+    if (!getRouteEngine()?.getSectionConfig()) return;
+    setParams(loadParams());
   }, []);
-
-  const isDirty = useMemo(
-    () => VISIBLE_KEYS.some((k) => params[k] !== initialConfig.current[k]),
-    [params]
-  );
 
   const {
     forceRescan,
@@ -146,10 +86,9 @@ export default function DetectionSettingsScreen() {
 
   useEffect(() => {
     if (rescanResult === null) return;
-    initialConfig.current = params;
     const timer = setTimeout(clearResult, 5000);
     return () => clearTimeout(timer);
-  }, [rescanResult, clearResult, params]);
+  }, [rescanResult, clearResult]);
 
   const handleRescan = useCallback(() => {
     Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
@@ -210,119 +149,16 @@ export default function DetectionSettingsScreen() {
             divergenceThreshold={params.divergenceThreshold}
           />
 
-          <Text style={[styles.sectionLabel, { color: textSecondary }]}>
-            {t('settings.detectionSensitivity')}
-          </Text>
-          <View style={styles.chipRow}>
-            {DETECTION_PRESETS.map((p, i) => {
-              const label =
-                p.key === 'default' ? t('settings.default') : t(`settings.${p.key}` as never);
-              const active = i === activePresetIndex;
-              return (
-                <Pressable
-                  key={p.key}
-                  style={[
-                    styles.chip,
-                    { borderColor: border, backgroundColor: surface },
-                    active && styles.chipActive,
-                  ]}
-                  onPress={() => handlePresetSelect(i)}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: textSecondary },
-                      active && styles.chipTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Pressable
-            testID="detection-advanced-toggle"
-            style={[styles.advancedToggle, { borderColor: border }]}
-            onPress={() => setAdvancedOpen((open) => !open)}
-          >
-            <Text style={[styles.advancedLabel, { color: textSecondary }]}>
-              {t('settings.advanced')}
-            </Text>
-            <MaterialCommunityIcons
-              name={advancedOpen ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={textSecondary}
-            />
-          </Pressable>
-          {advancedOpen && (
-            <View
-              testID="detection-advanced-panel"
-              style={[styles.paramsCard, { backgroundColor: surface, borderColor: border }]}
-            >
-              <ParamRow
-                label={t('settings.sectionProximity', {
-                  meters: params.proximityThreshold,
-                })}
-                value={params.proximityThreshold}
-                min={25}
-                max={300}
-                step={25}
-                onChange={(v) => setParam('proximityThreshold', v)}
-                onCommit={(v) => applyParam('proximityThreshold', v)}
-                isDark={isDark}
-              />
-              <ParamRow
-                label={t('settings.sectionMinLength', {
-                  meters: params.minSectionLength,
-                })}
-                value={params.minSectionLength}
-                min={50}
-                max={2000}
-                step={50}
-                onChange={(v) => setParam('minSectionLength', v)}
-                onCommit={(v) => applyParam('minSectionLength', v)}
-                isDark={isDark}
-              />
-              <ParamRow
-                label={t('settings.sectionMinActivities', {
-                  count: params.minActivities,
-                })}
-                value={params.minActivities}
-                min={2}
-                max={10}
-                step={1}
-                onChange={(v) => setParam('minActivities', v)}
-                onCommit={(v) => applyParam('minActivities', v)}
-                isDark={isDark}
-              />
-
-              <ParamRow
-                label={t('settings.sectionDivergence', {
-                  value: params.divergenceThreshold.toFixed(2),
-                })}
-                value={params.divergenceThreshold}
-                min={0.05}
-                max={0.5}
-                step={0.05}
-                onChange={(v) => setParam('divergenceThreshold', v)}
-                onCommit={(v) => applyParam('divergenceThreshold', v)}
-                isDark={isDark}
-              />
-            </View>
-          )}
-
           <Pressable
             style={[
               styles.rescanBtn,
-              isDirty && !isScanning
-                ? { backgroundColor: brand.tealLight }
-                : {
+              isScanning
+                ? {
                     backgroundColor: surface,
                     borderColor: border,
                     borderWidth: StyleSheet.hairlineWidth,
-                  },
+                  }
+                : { backgroundColor: brand.tealLight },
             ]}
             onPress={handleRescan}
             disabled={isScanning}
@@ -332,12 +168,8 @@ export default function DetectionSettingsScreen() {
               <ActivityIndicator size="small" color={textSecondary} />
             ) : (
               <>
-                <MaterialCommunityIcons
-                  name="refresh"
-                  size={18}
-                  color={isDirty ? '#fff' : textSecondary}
-                />
-                <Text style={[styles.rescanText, { color: isDirty ? '#fff' : textSecondary }]}>
+                <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnDark} />
+                <Text style={[styles.rescanText, { color: colors.textOnDark }]}>
                   {t('settings.reanalyzeSections')}
                 </Text>
               </>
@@ -375,46 +207,6 @@ export default function DetectionSettingsScreen() {
         </View>
       </ScrollView>
     </ScreenSafeAreaView>
-  );
-}
-
-function ParamRow({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  onCommit,
-  isDark,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  onCommit: (v: number) => void;
-  isDark: boolean;
-}) {
-  const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
-  return (
-    <View style={styles.paramRow}>
-      <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
-      <Slider
-        style={styles.slider}
-        value={value}
-        minimumValue={min}
-        maximumValue={max}
-        step={step}
-        onValueChange={onChange}
-        onSlidingComplete={onCommit}
-        minimumTrackTintColor={brand.tealLight}
-        maximumTrackTintColor={trackBg}
-        thumbTintColor={brand.tealLight}
-      />
-    </View>
   );
 }
 
@@ -456,68 +248,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.md,
-  },
-  sectionLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  modeDescription: {
-    ...typography.bodySmall,
-    marginTop: 4,
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  chip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
-    borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  chipActive: {
-    backgroundColor: brand.tealLight,
-    borderColor: brand.tealLight,
-  },
-  chipText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-  },
-  chipTextActive: { color: '#FFFFFF' },
-  advancedToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: spacing.sm,
-  },
-  advancedLabel: {
-    ...typography.label,
-  },
-  paramsCard: {
-    marginTop: spacing.md,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  paramRow: {
-    gap: 2,
-  },
-  paramLabel: {
-    ...typography.bodySmall,
-  },
-  slider: {
-    width: '100%',
-    height: 36,
   },
   rescanBtn: {
     flexDirection: 'row',

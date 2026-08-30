@@ -28,6 +28,7 @@ interface Map3DBridgeParams {
   onActivityClickRef: MutableRefObject<((activityId: string) => void) | undefined>;
   updateLayers: () => void;
   onMapReady?: () => void;
+  onMapFailed?: (reason: string) => void;
   onBearingChange?: (bearing: number) => void;
   onCameraStateChange?: (camera: Camera) => void;
 }
@@ -43,6 +44,7 @@ export function useMap3DBridge({
   onActivityClickRef,
   updateLayers,
   onMapReady,
+  onMapFailed,
   onBearingChange,
   onCameraStateChange,
 }: Map3DBridgeParams) {
@@ -56,6 +58,12 @@ export function useMap3DBridge({
         onMapReady?.();
         // Update layers after map is ready - small delay ensures style is fully settled
         setTimeout(() => updateLayers(), 100);
+      },
+      // Terminal counterpart to mapReady. The page cannot render, so the
+      // caller has to stop waiting rather than sit on a spinner.
+      mapFailed: (data: WebViewBridgeMessage) => {
+        mapReadyRef.current = false;
+        onMapFailed?.(typeof data.reason === 'string' ? data.reason : 'unknown');
       },
       bearingChange: (data: WebViewBridgeMessage) => {
         if (typeof data.bearing === 'number') {
@@ -164,6 +172,7 @@ export function useMap3DBridge({
       onSectionClickRef,
       onActivityClickRef,
       onMapReady,
+      onMapFailed,
       onBearingChange,
       onCameraStateChange,
       updateLayers,

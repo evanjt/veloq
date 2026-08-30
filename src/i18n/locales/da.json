@@ -464,7 +464,12 @@
       "expandInSettings": "Udvid i Indstillinger",
       "title": "Du er offline"
     },
-    "refresh": "Opdater"
+    "refresh": "Opdater",
+    "syncError": {
+      "title": "Synkronisering kommer ikke igennem",
+      "lastSynced": "Sidst synkroniseret {{when}}",
+      "neverSynced": "Ingen synkronisering er gennemfoert"
+    }
   },
   "engine": {
     "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Gendetekter sektioner",
     "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter.",
     "sectionDetection": "Sektionsdetektering",
-    "detectionSensitivity": "Detekteringsfølsomhed",
     "detectionRelaxed": "Lempelig",
     "detectionStrict": "Streng",
     "matchThreshold": "Lighed: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. korridor-spor: {{count}}",
     "sectionJaccard": "Celleoverlap: {{value}}",
     "sectionMinCellVisits": "Min. cellebesøg: {{count}}",
-    "sectionDivergence": "Divergens: {{value}}",
     "general": "Generelt",
     "data": "Datalagring",
     "notificationsAndStorage": "Notifikationer & Lager",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} af {{total}} aktiviteter",
     "elevationBackfillComplete": "Alle aktivitetsspor har højde",
     "elevationBackfillPartial": "Nogle aktivitetsspor mangler stadig højde. De forsøges igen senere.",
-    "elevationBackfillRetrying": "{{value}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
+    "elevationBackfillRetrying_one": "{{count}} aktivitetsspor kunne ikke opdateres. Det forsøges igen senere.",
+    "elevationBackfillRetrying_other": "{{count}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
     "elevationBackfillFailed": "Højdeopdateringen kunne ikke køre.",
     "previewSections": "Se sektionsændringer på forhånd",
     "previewIntro": "Afprøv nye indstillinger på ét kørselsområde, før du anvender dem overalt.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Kassér",
     "previewKeepTitle": "Anvend disse indstillinger?",
     "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
-    "advanced": "Avanceret"
+    "previewKeepRefusedTitle": "Genanalysen startede ikke",
+    "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik."
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Sæt en tidligere version af en strækning tilbage og fastgør den",
       "rowRetired": "Strækninger, der forlod kataloget, bliver stående på listen",
       "rowPinned": "Accepterede strækninger overlever enhver ny analyse",
-      "rowEveryDevice": "Identiske strækninger på alle enheder"
+      "rowEveryDevice": "Identiske strækninger på alle enheder",
+      "recutRunning": "Analyserer dine strækninger igen",
+      "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
+      "phaseDraining": "afslutter igangværende arbejde",
+      "phaseArchiving": "arkiverer det gamle katalog",
+      "phaseDetecting": "skærer nye strækninger",
+      "phaseDiffing": "sammenligner de to kataloger",
+      "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
+      "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
+      "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Rekord genberegnet mod den nuværende udstrækning",
     "kind_baseline": "Registreret fra en tidligere version af appen",
     "kind_algorithm_changed": "Analyseret igen af en nyere detektor"
+  },
+  "namedCorridors": {
+    "title": "Navne du har givet",
+    "link": "Navne du har givet",
+    "empty": "Du har endnu ikke navngivet en strækning",
+    "created": "Navngivet {{date}}",
+    "dormant": "Ingen strækning dækker dette område lige nu",
+    "onSection": "På {{name}} · {{percent}}% dækket",
+    "secondary": "Et andet navn dækker også dette område",
+    "delete": "Slet navn",
+    "deleteTitle": "Slet navn",
+    "deleteConfirm": "Slet \"{{name}}\"? Strækningen får sit genererede navn tilbage."
   }
 }

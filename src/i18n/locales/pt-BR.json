@@ -464,7 +464,12 @@
       "expandInSettings": "Expandir nas Configurações",
       "title": "Voce esta offline"
     },
-    "refresh": "Atualizar"
+    "refresh": "Atualizar",
+    "syncError": {
+      "title": "A sincronizacao nao esta passando",
+      "lastSynced": "Ultima sincronizacao {{when}}",
+      "neverSynced": "Nenhuma sincronizacao concluida"
+    }
   },
   "engine": {
     "initFailed": "O motor de rotas falhou ao inicializar. Rotas e trechos podem não estar disponíveis."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Re-detectar seções",
     "redetectSectionsHint": "Executar a detecção de seções em todas as atividades. Pode demorar 1-2 minutos.",
     "sectionDetection": "Detecção de trechos",
-    "detectionSensitivity": "Sensibilidade da detecção",
     "detectionRelaxed": "Permissiva",
     "detectionStrict": "Rigorosa",
     "matchThreshold": "Correspondência: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Trilhas mín. corredor: {{count}}",
     "sectionJaccard": "Sobreposição de células: {{value}}",
     "sectionMinCellVisits": "Visitas mín. célula: {{count}}",
-    "sectionDivergence": "Divergência: {{value}}",
     "general": "Geral",
     "data": "Dados",
     "notificationsAndStorage": "Notificações e armazenamento",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} de {{total}} atividades",
     "elevationBackfillComplete": "Todos os trajetos das atividades têm altitude",
     "elevationBackfillPartial": "Alguns trajetos das atividades ainda precisam de altitude. Serão tentados novamente mais tarde.",
-    "elevationBackfillRetrying": "Não foi possível atualizar {{value}} trajetos das atividades. Serão tentados novamente mais tarde.",
+    "elevationBackfillRetrying_one": "Não foi possível atualizar {{count}} trajeto das atividades. Será tentado novamente mais tarde.",
+    "elevationBackfillRetrying_other": "Não foi possível atualizar {{count}} trajetos das atividades. Serão tentados novamente mais tarde.",
     "elevationBackfillFailed": "Não foi possível executar a atualização de altitude.",
     "previewSections": "Pré-visualizar mudanças de trechos",
     "previewIntro": "Teste as novas configurações em uma área antes de aplicá-las em todo lugar.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas configurações?",
     "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar.",
-    "advanced": "Avançado"
+    "previewKeepRefusedTitle": "A nova análise não começou",
+    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes."
   },
   "stats": {
     "activities": "Atividades",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Restaure uma versão anterior de um trecho e fixe-a",
       "rowRetired": "Trechos que saíram do catálogo continuam listados",
       "rowPinned": "Trechos aceitos sobrevivem a cada reanálise",
-      "rowEveryDevice": "Trechos idênticos em todos os dispositivos"
+      "rowEveryDevice": "Trechos idênticos em todos os dispositivos",
+      "recutRunning": "Analisando seus trechos de novo",
+      "recutRunningPhase": "Analisando seus trechos de novo: {{phase}}",
+      "phaseDraining": "finalizando o trabalho em andamento",
+      "phaseArchiving": "arquivando o catálogo antigo",
+      "phaseDetecting": "cortando trechos novos",
+      "phaseDiffing": "comparando os dois catálogos",
+      "diffTotals": "{{current}} trechos viraram {{proposed}}.",
+      "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
+      "diffUnchanged": "Todos os {{sections}} trechos saíram da nova análise sem mudanças."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
     "kind_baseline": "Registrado de uma versão anterior do app",
     "kind_algorithm_changed": "Reanalisado por um detector mais recente"
+  },
+  "namedCorridors": {
+    "title": "Nomes que você deu",
+    "link": "Nomes que você deu",
+    "empty": "Você ainda não nomeou nenhum trecho",
+    "created": "Nomeado em {{date}}",
+    "dormant": "Nenhum trecho cobre este terreno agora",
+    "onSection": "Em {{name}} · {{percent}}% coberto",
+    "secondary": "Outro nome também cobre este terreno",
+    "delete": "Excluir nome",
+    "deleteTitle": "Excluir nome",
+    "deleteConfirm": "Excluir \"{{name}}\"? O trecho volta ao nome gerado."
   }
 }

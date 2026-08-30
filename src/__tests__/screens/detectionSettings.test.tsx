@@ -1,11 +1,13 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import DetectionSettingsScreen from '@/app/detection-settings';
 
 /**
- * Scenario: dragging a detector slider.
- * Expected behaviour: the engine is written once, on release, because every
- * write clears `processed_activities` and reseeds identities.
+ * Scenario: sensitivity is edited in the preview, which shows the consequence
+ * of a change before it is applied.
+ * Expected behaviour: this screen carries Route Matching, the illustration,
+ * Reanalyse sections and the link into the preview, and no sensitivity control
+ * of its own.
  */
 
 const mockSetSectionConfig = jest.fn();
@@ -17,9 +19,6 @@ const mockGetSectionConfig = jest.fn(() => ({
 }));
 
 jest.mock('@/shared/native/routeEngine', () => ({
-  DETECTION_PRESETS: [{ key: 'balanced', value: 0.5, strictness: 0.5, labelKey: 'balanced' }],
-  applyDetectionStrictness: jest.fn(),
-  getDetectionPresetByValue: () => ({ key: 'balanced', value: 0.5, strictness: 0.5 }),
   getRouteEngine: () => ({
     getSectionConfig: mockGetSectionConfig,
     setSectionConfig: mockSetSectionConfig,
@@ -71,33 +70,35 @@ jest.mock('@/features/settings/components', () => ({
   ElevationBackfillStatus: () => null,
 }));
 
-function proximitySlider(tree: ReturnType<typeof render>) {
-  return tree.UNSAFE_getAllByType(require('@react-native-community/slider').default)[0];
-}
-
-describe('detection settings sliders', () => {
+describe('detection settings screen', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
   });
 
-  it('does not write the engine while the thumb moves', () => {
+  it('offers no sensitivity sliders', () => {
     const tree = render(<DetectionSettingsScreen />);
-    fireEvent(tree.getByTestId('detection-advanced-toggle'), 'press');
-    const slider = proximitySlider(tree);
-    fireEvent(slider, 'valueChange', 75);
-    fireEvent(slider, 'valueChange', 100);
+    expect(
+      tree.UNSAFE_queryAllByType(require('@react-native-community/slider').default)
+    ).toHaveLength(0);
+    expect(tree.queryByTestId('detection-advanced-toggle')).toBeNull();
+    expect(tree.queryByTestId('detection-advanced-panel')).toBeNull();
+  });
+
+  it('offers no sensitivity presets', () => {
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.queryByText('settings.detectionSensitivity')).toBeNull();
+    expect(tree.queryByText('settings.balanced')).toBeNull();
+    expect(tree.queryByText('settings.default')).toBeNull();
+  });
+
+  it('never writes the detector config from this screen', () => {
+    render(<DetectionSettingsScreen />);
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('writes the released value once', () => {
+  it('keeps the rescan button and the route into the preview', () => {
     const tree = render(<DetectionSettingsScreen />);
-    fireEvent(tree.getByTestId('detection-advanced-toggle'), 'press');
-    const slider = proximitySlider(tree);
-    fireEvent(slider, 'valueChange', 100);
-    fireEvent(slider, 'slidingComplete', 100);
-    expect(mockSetSectionConfig).toHaveBeenCalledTimes(1);
-    expect(mockSetSectionConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ proximityThreshold: 100 })
-    );
+    expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
+    expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
   });
 });

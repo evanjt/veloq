@@ -12,6 +12,17 @@ import React, { memo, forwardRef, useImperativeHandle, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '@/theme';
 
+const PILL_INSET = 4;
+const PILL_PADDING_VERTICAL = 5;
+const PILL_LINE_HEIGHT = 12;
+
+/**
+ * Vertical space the pill claims above the map's bottom edge. Map attribution
+ * is a licence condition, so anything drawn over the same corner has to pad
+ * itself clear of this rather than cover it.
+ */
+export const ATTRIBUTION_CLEARANCE = PILL_INSET + PILL_PADDING_VERTICAL * 2 + PILL_LINE_HEIGHT;
+
 export interface AttributionOverlayRef {
   setAttribution: (text: string) => void;
 }
@@ -29,9 +40,11 @@ export const AttributionOverlay = memo(
     }));
 
     return (
-      <View style={attributionStyles.attribution} pointerEvents="none">
-        <View style={attributionStyles.attributionPill}>
-          <Text style={attributionStyles.attributionText}>{attribution}</Text>
+      <View testID="map-attribution" style={attributionStyles.attribution} pointerEvents="none">
+        <View testID="map-attribution-pill" style={attributionStyles.attributionPill}>
+          <Text testID="map-attribution-text" style={attributionStyles.attributionText}>
+            {attribution}
+          </Text>
         </View>
       </View>
     );
@@ -46,18 +59,19 @@ const attributionStyles = StyleSheet.create({
     bottom: 0,
     right: 0,
     alignItems: 'flex-end',
-    paddingBottom: 4,
+    paddingBottom: PILL_INSET,
     paddingRight: 6,
     zIndex: 5,
   },
   attributionPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: PILL_PADDING_VERTICAL,
     borderRadius: spacing.sm,
   },
   attributionText: {
     fontSize: 9,
+    lineHeight: PILL_LINE_HEIGHT,
     color: colors.textSecondary,
   },
 });

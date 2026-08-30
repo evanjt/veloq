@@ -464,7 +464,12 @@
       "expandInSettings": "Étendre dans les paramètres",
       "title": "Vous êtes hors ligne"
     },
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "syncError": {
+      "title": "La synchronisation n'aboutit pas",
+      "lastSynced": "Derniere synchronisation {{when}}",
+      "neverSynced": "Aucune synchronisation n'a abouti"
+    }
   },
   "engine": {
     "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Re-détecter les sections",
     "redetectSectionsHint": "Relancer la détection de sections sur toutes les activités. Peut prendre 1-2 minutes.",
     "sectionDetection": "Détection de sections",
-    "detectionSensitivity": "Sensibilité de détection",
     "detectionRelaxed": "Souple",
     "detectionStrict": "Stricte",
     "matchThreshold": "Correspondance : {{pct}} %",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Traces couloir min. : {{count}}",
     "sectionJaccard": "Chevauchement cellules : {{value}}",
     "sectionMinCellVisits": "Visites cellule min. : {{count}}",
-    "sectionDivergence": "Divergence : {{value}}",
     "general": "Général",
     "data": "Données",
     "notificationsAndStorage": "Notifications et stockage",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} sur {{total}} activités",
     "elevationBackfillComplete": "Tous les tracés d'activité ont une altitude",
     "elevationBackfillPartial": "Certains tracés d'activité n'ont pas encore d'altitude. Ils seront réessayés plus tard.",
-    "elevationBackfillRetrying": "{{value}} tracés d'activité n'ont pas pu être mis à jour. Ils seront réessayés plus tard.",
+    "elevationBackfillRetrying_one": "{{count}} tracé d'activité n'a pas pu être mis à jour. Il sera réessayé plus tard.",
+    "elevationBackfillRetrying_other": "{{count}} tracés d'activité n'ont pas pu être mis à jour. Ils seront réessayés plus tard.",
     "elevationBackfillFailed": "La mise à jour de l'altitude n'a pas pu s'exécuter.",
     "previewSections": "Aperçu des modifications de sections",
     "previewIntro": "Testez les nouveaux réglages sur une zone avant de les appliquer partout.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Abandonner",
     "previewKeepTitle": "Appliquer ces réglages ?",
     "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer.",
-    "advanced": "Avancé"
+    "previewKeepRefusedTitle": "La nouvelle analyse n'a pas démarré",
+    "previewKeepRefused": "Vos réglages sont enregistrés. Une autre analyse est en cours, le recalcul n'a donc pas démarré. Réessayez dans un instant."
   },
   "stats": {
     "activities": "Activités",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Rétablir une version antérieure d'un tronçon et l'épingler",
       "rowRetired": "Les tronçons sortis du catalogue restent listés",
       "rowPinned": "Les tronçons acceptés survivent à chaque réanalyse",
-      "rowEveryDevice": "Des tronçons identiques sur chaque appareil"
+      "rowEveryDevice": "Des tronçons identiques sur chaque appareil",
+      "recutRunning": "Nouvelle analyse de tes tronçons",
+      "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
+      "phaseDraining": "fin du travail en cours",
+      "phaseArchiving": "archivage de l'ancien catalogue",
+      "phaseDetecting": "découpe des nouveaux tronçons",
+      "phaseDiffing": "comparaison des deux catalogues",
+      "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
+      "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
+      "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Record recalculé sur l'étendue actuelle",
     "kind_baseline": "Enregistré depuis une version antérieure de l'app",
     "kind_algorithm_changed": "Réanalysé par un détecteur plus récent"
+  },
+  "namedCorridors": {
+    "title": "Les noms que tu as donnés",
+    "link": "Les noms que tu as donnés",
+    "empty": "Tu n'as encore nommé aucun tronçon",
+    "created": "Nommé le {{date}}",
+    "dormant": "Aucun tronçon ne couvre ce terrain pour l'instant",
+    "onSection": "Sur {{name}} · {{percent}}% couvert",
+    "secondary": "Un autre nom couvre aussi ce terrain",
+    "delete": "Supprimer le nom",
+    "deleteTitle": "Supprimer le nom",
+    "deleteConfirm": "Supprimer \"{{name}}\" ? Le tronçon reprend son nom généré."
   }
 }

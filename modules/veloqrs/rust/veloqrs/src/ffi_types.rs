@@ -1147,6 +1147,7 @@ pub struct FfiSectionWithPolyline {
     pub disabled: bool,
     pub superseded_by: Option<String>,
     pub elevation_gain_m: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
     pub avg_grade_percent: Option<f64>,
     pub max_grade_percent: Option<f64>,
     pub klass: Option<String>,

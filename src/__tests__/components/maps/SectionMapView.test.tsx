@@ -172,4 +172,18 @@ describe('SectionMapView', () => {
       expect(screen.getByTestId('section-map-container')).toBeTruthy();
     });
   });
+  it('falls back to the 2D map when the terrain page reports failure', () => {
+    renderSection();
+
+    fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
+    expect(screen.getByTestId('section-map-3d-loading')).toBeTruthy();
+
+    fireEvent(screen.getByTestId('webview'), 'message', {
+      nativeEvent: { data: JSON.stringify({ type: 'mapFailed', reason: 'ready timeout' }) },
+    });
+
+    expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
+    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.getByTestId('section-map-container')).toBeTruthy();
+  });
 });

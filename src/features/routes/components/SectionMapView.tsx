@@ -217,6 +217,13 @@ export const SectionMapView = memo(function SectionMapView({
   }, [is3DMode, map3DOpacity]);
 
   // Handle 3D map ready - fade in the 3D view
+  // A 3D page that cannot render drops back to the 2D map, otherwise the
+  // spinner has no terminal path. Same landing as the error boundary below.
+  const handleMap3DFailed = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+  }, []);
+
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
     Animated.timing(map3DOpacity, {
@@ -479,6 +486,7 @@ export const SectionMapView = memo(function SectionMapView({
                     mapStyle={currentMapStyle}
                     routeColor={activityColor}
                     onMapReady={handleMap3DReady}
+                    onMapFailed={handleMap3DFailed}
                     onBearingChange={handleBearingChange}
                   />
                 </Animated.View>
@@ -487,7 +495,7 @@ export const SectionMapView = memo(function SectionMapView({
 
             {/* 3D loading spinner */}
             {is3DMode && !is3DReady && (
-              <View style={styles.loadingOverlay}>
+              <View style={styles.loadingOverlay} testID="section-map-3d-loading">
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
             )}

@@ -12,6 +12,7 @@ export { EmptyState, NetworkErrorState, ErrorStatePreset } from './EmptyState';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { OfflineBanner } from './OfflineBanner';
+export { SyncErrorBanner } from './SyncErrorBanner';
 export { ShaderWarmup } from './ShaderWarmup';
 export { ChartErrorBoundary } from './ChartErrorBoundary';
 export { ComponentErrorBoundary } from './ComponentErrorBoundary';

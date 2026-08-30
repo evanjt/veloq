@@ -464,7 +464,12 @@
       "expandInSettings": "Expand in Settings",
       "title": "You've gone walkabout"
     },
-    "refresh": "Give it another go"
+    "refresh": "Give it another go",
+    "syncError": {
+      "title": "Sync isn't getting through",
+      "lastSynced": "Last grabbed {{when}}",
+      "neverSynced": "No sync has completed yet"
+    }
   },
   "engine": {
     "initFailed": "Route engine couldn't start up. Routes and sections might not be available."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Re-detect sections",
     "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes.",
     "sectionDetection": "Section Detection",
-    "detectionSensitivity": "Detection sensitivity",
     "detectionRelaxed": "Relaxed",
     "detectionStrict": "Strict",
     "matchThreshold": "Match: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min corridor tracks: {{count}}",
     "sectionJaccard": "Cell overlap: {{value}}",
     "sectionMinCellVisits": "Min cell visits: {{count}}",
-    "sectionDivergence": "Divergence: {{value}}",
     "general": "General",
     "data": "Data",
     "notificationsAndStorage": "Notifications & Storage",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} of {{total}} activities",
     "elevationBackfillComplete": "All activity tracks have elevation",
     "elevationBackfillPartial": "Some activity tracks still need elevation. They will be retried later.",
-    "elevationBackfillRetrying": "{{value}} activity tracks could not be updated. They will be retried later.",
+    "elevationBackfillRetrying_one": "{{count}} activity track could not be updated. It will be retried later.",
+    "elevationBackfillRetrying_other": "{{count}} activity tracks could not be updated. They will be retried later.",
     "elevationBackfillFailed": "The elevation update could not run.",
     "previewSections": "Preview section changes",
     "previewIntro": "Test new settings on one riding area before applying them everywhere.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
     "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too.",
-    "advanced": "Advanced"
+    "previewKeepRefusedTitle": "Re-analysis did not start",
+    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment."
   },
   "stats": {
     "activities": "Activities",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Put an earlier version of a section back and pin it",
       "rowRetired": "Sections that left the catalogue stay listed",
       "rowPinned": "Accepted sections survive every re-analysis",
-      "rowEveryDevice": "Identical sections on every device"
+      "rowEveryDevice": "Identical sections on every device",
+      "recutRunning": "Re-analysing your sections",
+      "recutRunningPhase": "Re-analysing your sections: {{phase}}",
+      "phaseDraining": "finishing the work in flight",
+      "phaseArchiving": "archiving the old catalogue",
+      "phaseDetecting": "cutting new sections",
+      "phaseDiffing": "comparing the two catalogues",
+      "diffTotals": "{{current}} sections became {{proposed}}.",
+      "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
+      "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Record re-based against the current extent",
     "kind_baseline": "Recorded from an earlier version of the app",
     "kind_algorithm_changed": "Re-analysed by a newer detector"
+  },
+  "namedCorridors": {
+    "title": "Names you gave",
+    "link": "Names you gave",
+    "empty": "You have not named a section yet",
+    "created": "Named {{date}}",
+    "dormant": "No section covers this ground right now",
+    "onSection": "On {{name}} · {{percent}}% covered",
+    "secondary": "Another name also covers this ground",
+    "delete": "Delete name",
+    "deleteTitle": "Delete name",
+    "deleteConfirm": "Delete \"{{name}}\"? The section goes back to its generated name."
   }
 }

@@ -9,11 +9,71 @@ use crate::governor::{self, AuthMethod, Governor, Lane, RateBudget};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Retries for transient failures (429 / 5xx / transport). Matches the prior
 /// axios client (`maxRetries = 3`).
 const MAX_RETRIES: u32 = 3;
+
+/// How long each lane may spend on one request, and how long the whole retry
+/// loop may run for the lane a user is waiting on.
+///
+/// A total timeout on its own does nothing for the worst case, which is not a
+/// dead network but a live one that accepts and then goes quiet: a captive
+/// portal, hotel wifi, a black-holed DNS. There every attempt runs the full
+/// ceiling, so the retries multiply it. Aeroplane mode fails in milliseconds by
+/// comparison. So the interactive lane gets a short per-attempt ceiling and a
+/// whole-request budget that stops it retrying into a wait nobody will sit
+/// through, while backfill, which no one is watching, keeps the long ceiling
+/// and the full retry budget.
+#[derive(Clone, Copy, Debug)]
+pub struct LaneTimeouts {
+    /// TCP connect ceiling, shared by both lanes. Without it a handshake that
+    /// never completes burns a whole attempt.
+    pub connect: Duration,
+    /// Per-attempt ceiling for work a user is waiting on.
+    pub interactive: Duration,
+    /// Per-attempt ceiling for opportunistic backfill.
+    pub backfill: Duration,
+    /// Whole-request ceiling for the interactive lane, retries and backoff
+    /// included.
+    pub interactive_budget: Duration,
+}
+
+impl Default for LaneTimeouts {
+    fn default() -> Self {
+        Self {
+            connect: Duration::from_secs(5),
+            // Wide enough for a FIT file over a poor mobile connection, far
+            // short of the two minutes the old 4 x 30s worst case cost.
+            interactive: Duration::from_secs(8),
+            backfill: Duration::from_secs(30),
+            interactive_budget: Duration::from_secs(10),
+        }
+    }
+}
+
+impl LaneTimeouts {
+    /// The ceiling for the attempt about to be dispatched. A budgeted lane
+    /// never gets more than the budget has left, so the retries add up to the
+    /// budget rather than multiplying the per-attempt ceiling.
+    fn attempt(&self, lane: Lane, started: Instant) -> Duration {
+        match self.budget(lane) {
+            None => self.backfill,
+            Some(budget) => self
+                .interactive
+                .min(budget.saturating_sub(started.elapsed())),
+        }
+    }
+
+    /// The whole-request ceiling for `lane`, if it has one.
+    fn budget(&self, lane: Lane) -> Option<Duration> {
+        match lane {
+            Lane::Interactive => Some(self.interactive_budget),
+            Lane::Backfill => None,
+        }
+    }
+}
 
 /// A failed request, classified so the service can react (e.g. `Unauthorized`
 /// drives the `authExpired` status).
@@ -55,6 +115,7 @@ pub struct Transport {
     base_url: String,
     auth_header: String,
     governor: Arc<Governor>,
+    timeouts: LaneTimeouts,
 }
 
 impl Transport {
@@ -70,13 +131,25 @@ impl Transport {
         auth: AuthMethod<'_>,
         governor: Arc<Governor>,
     ) -> Result<Self, String> {
+        Self::with_timeouts(base_url, auth, governor, LaneTimeouts::default())
+    }
+
+    /// Build a transport with explicit lane timeouts.
+    pub fn with_timeouts(
+        base_url: impl Into<String>,
+        auth: AuthMethod<'_>,
+        governor: Arc<Governor>,
+        timeouts: LaneTimeouts,
+    ) -> Result<Self, String> {
         let client = Client::builder()
             // Sends `Accept-Encoding: gzip` and decodes the body transparently.
             .gzip(true)
             .pool_max_idle_per_host(16)
             .pool_idle_timeout(Duration::from_secs(60))
             .tcp_keepalive(Duration::from_secs(30))
-            .timeout(Duration::from_secs(30))
+            .connect_timeout(timeouts.connect)
+            // The floor for a request that names no lane ceiling of its own.
+            .timeout(timeouts.backfill)
             .build()
             .map_err(|e| format!("failed to build HTTP client: {}", e))?;
         Ok(Self {
@@ -84,6 +157,7 @@ impl Transport {
             base_url: base_url.into(),
             auth_header: governor::format_auth_header(auth),
             governor,
+            timeouts,
         })
     }
 
@@ -111,6 +185,7 @@ impl Transport {
     ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
         let mut attempt = 0u32;
+        let started = Instant::now();
         loop {
             // Single shared choke point: pace every dispatch.
             self.governor.acquire(lane).await;
@@ -120,6 +195,7 @@ impl Transport {
                 .get(&url)
                 .header("Authorization", &self.auth_header)
                 .query(query)
+                .timeout(self.timeouts.attempt(lane, started))
                 .send()
                 .await;
 
@@ -141,18 +217,20 @@ impl Transport {
                     }
                     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
                         attempt += 1;
-                        if attempt > MAX_RETRIES {
+                        let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
+                        if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
                             return Err(NetError::RateLimited);
                         }
-                        let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
                         tokio::time::sleep(wait).await;
                         continue;
                     }
                     if status.is_server_error() && attempt < MAX_RETRIES {
-                        attempt += 1;
-                        let wait = governor::decide_backoff(None, attempt, false);
-                        tokio::time::sleep(wait).await;
-                        continue;
+                        let wait = governor::decide_backoff(None, attempt + 1, false);
+                        if self.retry_fits(lane, started, wait) {
+                            attempt += 1;
+                            tokio::time::sleep(wait).await;
+                            continue;
+                        }
                     }
                     let code = status.as_u16();
                     let body = resp.text().await.unwrap_or_default();
@@ -160,10 +238,10 @@ impl Transport {
                 }
                 Err(e) => {
                     attempt += 1;
-                    if attempt > MAX_RETRIES {
+                    let wait = governor::decide_backoff(None, attempt, false);
+                    if attempt > MAX_RETRIES || !self.retry_fits(lane, started, wait) {
                         return Err(NetError::Transport(e.to_string()));
                     }
-                    let wait = governor::decide_backoff(None, attempt, false);
                     tokio::time::sleep(wait).await;
                 }
             }
@@ -186,6 +264,7 @@ impl Transport {
     ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
         let mut attempt = 0u32;
+        let started = Instant::now();
         loop {
             // Same single choke point as the reads: writes share the pace.
             self.governor.acquire(lane).await;
@@ -193,10 +272,14 @@ impl Transport {
                 .client
                 .post(&url)
                 .header("Authorization", &self.auth_header)
+                .timeout(self.timeouts.attempt(lane, started))
                 .json(body);
             match self.settle_write(req.send().await, attempt).await {
                 WriteStep::Done(result) => return result,
                 WriteStep::Backoff(wait) => {
+                    if !self.retry_fits(lane, started, wait) {
+                        return Err(NetError::RateLimited);
+                    }
                     attempt += 1;
                     tokio::time::sleep(wait).await;
                 }
@@ -240,6 +323,17 @@ impl Transport {
                     tokio::time::sleep(wait).await;
                 }
             }
+        }
+    }
+
+    /// Whether the backoff still leaves the lane's whole-request budget with
+    /// time to dispatch again. A server that fails fast keeps every retry; a
+    /// socket that hangs spends the budget on the first attempt and gets none.
+    /// Backfill has no budget and always retries.
+    fn retry_fits(&self, lane: Lane, started: Instant, wait: Duration) -> bool {
+        match self.timeouts.budget(lane) {
+            None => true,
+            Some(budget) => started.elapsed() + wait < budget,
         }
     }
 
@@ -753,5 +847,171 @@ mod tests {
         ));
         assert!(matches!(res, Err(NetError::Unauthorized)));
         assert_eq!(mock.hits(), 1);
+    }
+
+    /// A socket that completes the TCP handshake and then never answers. This
+    /// is the captive portal and the hotel wifi, and it is the case a bare
+    /// total timeout handles worst.
+    struct HangingSocket {
+        addr: std::net::SocketAddr,
+        connections: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    fn hanging_socket() -> HangingSocket {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let connections = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            // Accepted streams are parked, never read and never written, so the
+            // client sees a live connection that produces no response.
+            let mut parked = Vec::new();
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                parked.push(stream);
+            }
+        });
+        HangingSocket { addr, connections }
+    }
+
+    fn brisk_timeouts() -> LaneTimeouts {
+        LaneTimeouts {
+            connect: Duration::from_millis(200),
+            interactive: Duration::from_millis(300),
+            backfill: Duration::from_millis(300),
+            interactive_budget: Duration::from_millis(400),
+        }
+    }
+
+    fn transport_to(addr: std::net::SocketAddr, timeouts: LaneTimeouts) -> Transport {
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        Transport::with_timeouts(
+            format!("http://{}", addr),
+            AuthMethod::ApiKey("k"),
+            gov,
+            timeouts,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_hanging_socket_costs_the_interactive_lane_one_attempt_not_four() {
+        let socket = hanging_socket();
+        let t = transport_to(socket.addr, brisk_timeouts());
+        let started = std::time::Instant::now();
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::Transport(_))), "{:?}", res);
+        assert_eq!(
+            socket.connections.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "a lane a user waits on must not spend its retries on a socket that hangs"
+        );
+        assert!(
+            started.elapsed() < brisk_timeouts().interactive_budget * 3,
+            "interactive request outran its budget: {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn the_backfill_lane_still_spends_every_retry_on_a_hanging_socket() {
+        // Backfill has no user waiting on it, so the retry budget is the point.
+        let socket = hanging_socket();
+        let t = transport_to(socket.addr, brisk_timeouts());
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/x", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Transport(_))), "{:?}", res);
+        assert_eq!(
+            socket.connections.load(std::sync::atomic::Ordering::SeqCst),
+            (MAX_RETRIES + 1) as usize
+        );
+    }
+
+    #[test]
+    fn a_repeated_429_stops_at_the_interactive_budget() {
+        // Retry-After is honoured, but not past what the waiting user is owed.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/x");
+            then.status(429).header("retry-after", "1");
+        });
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_timeouts(
+            server.base_url(),
+            AuthMethod::ApiKey("k"),
+            gov,
+            brisk_timeouts(),
+        )
+        .unwrap();
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::RateLimited)));
+        assert_eq!(
+            mock.hits(),
+            1,
+            "a 1s Retry-After does not fit a 400ms budget"
+        );
+    }
+
+    #[test]
+    fn a_5xx_run_stops_at_the_interactive_budget() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/y");
+            then.status(503);
+        });
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let t = Transport::with_timeouts(
+            server.base_url(),
+            AuthMethod::ApiKey("k"),
+            gov,
+            brisk_timeouts(),
+        )
+        .unwrap();
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/y", &[], Lane::Interactive));
+        // The 503 comes back at once, so the attempt is not what runs out: the
+        // 400ms backoff no longer fits the 400ms budget, so the error surfaces
+        // instead of being retried into a wait the user is still sitting in.
+        assert!(
+            matches!(res, Err(NetError::Http { status: 503, .. })),
+            "{:?}",
+            res
+        );
+        assert_eq!(mock.hits(), 1);
+    }
+
+    #[test]
+    fn an_attempt_never_gets_more_than_the_budget_has_left() {
+        let t = LaneTimeouts::default();
+        let fresh = Instant::now();
+        assert_eq!(t.attempt(Lane::Interactive, fresh), t.interactive);
+        // Backfill is unbudgeted, so it keeps the long ceiling however long the
+        // request has already run.
+        assert_eq!(t.attempt(Lane::Backfill, fresh), t.backfill);
+        let spent = Instant::now() - (t.interactive_budget - Duration::from_secs(1));
+        let left = t.attempt(Lane::Interactive, spent);
+        assert!(
+            left <= Duration::from_secs(1) && left > Duration::from_millis(900),
+            "expected roughly the second the budget had left, got {:?}",
+            left
+        );
+        let overrun = Instant::now() - (t.interactive_budget + Duration::from_secs(1));
+        assert_eq!(t.attempt(Lane::Interactive, overrun), Duration::ZERO);
+    }
+
+    #[test]
+    fn the_shipped_timeouts_bound_what_a_user_can_be_made_to_wait() {
+        let t = LaneTimeouts::default();
+        assert!(
+            t.connect <= Duration::from_secs(5),
+            "a connect that never completes must not burn a whole attempt"
+        );
+        assert!(t.interactive < t.backfill);
+        // The old worst case was 4 x 30s of frozen UI. Whatever the numbers
+        // become, one interactive request stays inside ten seconds.
+        assert!(t.interactive_budget <= Duration::from_secs(10));
+        assert!(t.interactive <= t.interactive_budget);
     }
 }

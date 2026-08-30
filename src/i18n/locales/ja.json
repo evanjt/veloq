@@ -464,7 +464,12 @@
       "expandInSettings": "設定で拡張",
       "title": "オフラインです"
     },
-    "refresh": "更新"
+    "refresh": "更新",
+    "syncError": {
+      "title": "同期が通っていません",
+      "lastSynced": "最終同期 {{when}}",
+      "neverSynced": "完了した同期はありません"
+    }
   },
   "engine": {
     "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。"
@@ -1655,7 +1660,6 @@
     "redetectSections": "セクションを再検出",
     "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。",
     "sectionDetection": "セクション検出",
-    "detectionSensitivity": "検出感度",
     "detectionRelaxed": "緩め",
     "detectionStrict": "厳しめ",
     "matchThreshold": "一致率: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "最小コリドートラック: {{count}}",
     "sectionJaccard": "セル重なり: {{value}}",
     "sectionMinCellVisits": "最小セル訪問数: {{count}}",
-    "sectionDivergence": "分岐閾値: {{value}}",
     "general": "一般",
     "data": "データ",
     "notificationsAndStorage": "通知とストレージ",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{total}} 件中 {{completed}} 件",
     "elevationBackfillComplete": "すべてのアクティビティの軌跡に標高があります",
     "elevationBackfillPartial": "一部のアクティビティの軌跡に標高がありません。後で再試行します。",
-    "elevationBackfillRetrying": "{{value}} 件のアクティビティの軌跡を更新できませんでした。後で再試行します。",
+    "elevationBackfillRetrying_one": "{{count}} 件のアクティビティの軌跡を更新できませんでした。後で再試行します。",
+    "elevationBackfillRetrying_other": "{{count}} 件のアクティビティの軌跡を更新できませんでした。後で再試行します。",
     "elevationBackfillFailed": "標高の更新を実行できませんでした。",
     "previewSections": "セクション変更のプレビュー",
     "previewIntro": "新しい設定をひとつのエリアで試してから全体に適用できます。",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
     "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
-    "advanced": "詳細設定"
+    "previewKeepRefusedTitle": "再解析が開始されませんでした",
+    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1928,7 +1933,16 @@
       "rowRevert": "区間を以前のバージョンに戻して固定できます",
       "rowRetired": "カタログから消えた区間も一覧に残ります",
       "rowPinned": "承認済みの区間はどの再解析でも残ります",
-      "rowEveryDevice": "どの端末でも同じ区間"
+      "rowEveryDevice": "どの端末でも同じ区間",
+      "recutRunning": "区間を再解析しています",
+      "recutRunningPhase": "区間を再解析しています: {{phase}}",
+      "phaseDraining": "進行中の処理を終えています",
+      "phaseArchiving": "以前のカタログを保管しています",
+      "phaseDetecting": "新しい区間を切り出しています",
+      "phaseDiffing": "2つのカタログを比較しています",
+      "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
+      "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
+      "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。"
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "現在の範囲で記録を再計算",
     "kind_baseline": "以前のアプリ版から記録",
     "kind_algorithm_changed": "新しい検出器で再解析"
+  },
+  "namedCorridors": {
+    "title": "つけた名前",
+    "link": "つけた名前",
+    "empty": "まだ区間に名前をつけていません",
+    "created": "{{date}} に命名",
+    "dormant": "現在この場所を覆う区間はありません",
+    "onSection": "{{name}} · {{percent}}% 一致",
+    "secondary": "別の名前も同じ場所を指しています",
+    "delete": "名前を削除",
+    "deleteTitle": "名前を削除",
+    "deleteConfirm": "「{{name}}」を削除しますか？区間は自動生成の名前に戻ります。"
   }
 }

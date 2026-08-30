@@ -1,16 +1,12 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
 import { formatLocalDate } from '@/shared/format/format';
-import {
-  addDaysToDay,
-  dayEndEpochSeconds,
-  dayStartEpochSeconds,
-} from '@/shared/time/startDate';
+import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
@@ -18,6 +14,7 @@ import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 
 /**
  * Read stored activities over a date window, newest first. A body that will
@@ -28,7 +25,10 @@ function readActivities(oldest: string, newest: string): Activity[] {
   if (!engine?.getActivityBodies) return [];
 
   const out: Activity[] = [];
-  for (const body of engine.getActivityBodies(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest))) {
+  for (const body of engine.getActivityBodies(
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
+  )) {
     try {
       out.push(JSON.parse(body) as Activity);
     } catch {
@@ -44,21 +44,39 @@ function readActivities(oldest: string, newest: string): Activity[] {
  * The sync pulls a year on launch. The timeline slider and the infinite feed
  * both reach further back than that, so a window they open is requested once
  * and the engine event wakes the read when it lands.
+ *
+ * Only an accepted job is remembered. `syncActivitiesWindow` returns false
+ * whenever the exclusive sync slot is held, which the launch sync holds for
+ * minutes, and a key recorded for a job that never ran leaves that window
+ * blank for the life of the process.
  */
 const requestedWindows = new Set<string>();
 
+function windowKey(oldest: string, newest: string): string {
+  return `${oldest}:${newest}`;
+}
+
 function requestActivityWindow(oldest: string, newest: string): void {
-  const key = `${oldest}:${newest}`;
-  if (requestedWindows.has(key)) return;
+  if (requestedWindows.has(windowKey(oldest, newest))) return;
   const engine = getRouteEngine();
   if (!engine?.syncActivitiesWindow) return;
-  requestedWindows.add(key);
-  engine.syncActivitiesWindow(oldest, newest);
+  try {
+    if (engine.syncActivitiesWindow(oldest, newest)) {
+      requestedWindows.add(windowKey(oldest, newest));
+    }
+  } catch {
+    // A throw is a settled failure, so the key stays free for the next ask.
+  }
 }
 
 /** Forget requested windows so a new session re-fetches them. */
 export function resetActivityWindowRequests(): void {
   requestedWindows.clear();
+}
+
+/** Forget one window, so the next ask reaches the engine again. */
+function forgetActivityWindow(oldest: string, newest: string): void {
+  requestedWindows.delete(windowKey(oldest, newest));
 }
 
 interface UseActivitiesOptions {
@@ -96,10 +114,20 @@ export function useActivities(options: UseActivitiesOptions = {}) {
 
   useEngineChannel('activities', queryKeys.activities.all);
 
-  useEffect(() => {
+  const askForWindow = useCallback(() => {
     if (!enabled || !athleteId) return;
     requestActivityWindow(queryOldest!, queryNewest!);
   }, [enabled, athleteId, queryOldest, queryNewest]);
+
+  useEffect(askForWindow, [askForWindow]);
+
+  // A window accepted while the connection was dropping may have fetched
+  // nothing, and the mount effect never re-runs for an unchanged window.
+  useReconnect(() => {
+    if (!enabled || !athleteId) return;
+    forgetActivityWindow(queryOldest!, queryNewest!);
+    askForWindow();
+  });
 
   return useQuery<Activity[]>({
     queryKey: queryKeys.activities.list(
@@ -173,6 +201,13 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     maxPages: 10, // Evict old pages to prevent memory growth
     enabled: isAuthenticated && !!athleteId,
+  });
+
+  // The pages already loaded asked for their windows once. A reconnect is the
+  // point where a window that came back empty is worth asking for again.
+  useReconnect(() => {
+    resetActivityWindowRequests();
+    void query.refetch();
   });
 
   // All activities flattened from loaded pages

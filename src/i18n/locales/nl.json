@@ -464,7 +464,12 @@
       "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Je bent offline"
     },
-    "refresh": "Vernieuwen"
+    "refresh": "Vernieuwen",
+    "syncError": {
+      "title": "Synchronisatie komt niet door",
+      "lastSynced": "Laatst gesynchroniseerd {{when}}",
+      "neverSynced": "Nog geen synchronisatie voltooid"
+    }
   },
   "engine": {
     "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar."
@@ -1655,7 +1660,6 @@
     "redetectSections": "Secties opnieuw detecteren",
     "redetectSectionsHint": "Sectie-detectie opnieuw uitvoeren op alle activiteiten. Kan 1-2 minuten duren.",
     "sectionDetection": "Sectiedetectie",
-    "detectionSensitivity": "Detectiegevoeligheid",
     "detectionRelaxed": "Soepel",
     "detectionStrict": "Strikt",
     "matchThreshold": "Overeenkomst: {{pct}}%",
@@ -1676,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. corridor-tracks: {{count}}",
     "sectionJaccard": "Celoverlap: {{value}}",
     "sectionMinCellVisits": "Min. celbezoeken: {{count}}",
-    "sectionDivergence": "Divergentie: {{value}}",
     "general": "Algemeen",
     "data": "Gegevens",
     "notificationsAndStorage": "Meldingen en opslag",
@@ -1686,7 +1689,8 @@
     "elevationBackfillProgress": "{{completed}} van {{total}} activiteiten",
     "elevationBackfillComplete": "Alle activiteitensporen hebben hoogte",
     "elevationBackfillPartial": "Sommige activiteitensporen hebben nog geen hoogte. Ze worden later opnieuw geprobeerd.",
-    "elevationBackfillRetrying": "{{value}} activiteitensporen konden niet worden bijgewerkt. Ze worden later opnieuw geprobeerd.",
+    "elevationBackfillRetrying_one": "{{count}} activiteitenspoor kon niet worden bijgewerkt. Het wordt later opnieuw geprobeerd.",
+    "elevationBackfillRetrying_other": "{{count}} activiteitensporen konden niet worden bijgewerkt. Ze worden later opnieuw geprobeerd.",
     "elevationBackfillFailed": "De hoogte-update kon niet worden uitgevoerd.",
     "previewSections": "Voorbeeld van sectiewijzigingen",
     "previewIntro": "Test nieuwe instellingen op één gebied voordat je ze overal toepast.",
@@ -1715,7 +1719,8 @@
     "previewDiscard": "Verwerpen",
     "previewKeepTitle": "Deze instellingen toepassen?",
     "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
-    "advanced": "Geavanceerd"
+    "previewKeepRefusedTitle": "Heranalyse is niet gestart",
+    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw."
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1928,7 +1933,16 @@
       "rowRevert": "Zet een eerdere versie van een stuk terug en zet hem vast",
       "rowRetired": "Stukken die uit de catalogus verdwenen blijven vermeld",
       "rowPinned": "Geaccepteerde stukken overleven elke heranalyse",
-      "rowEveryDevice": "Identieke stukken op elk apparaat"
+      "rowEveryDevice": "Identieke stukken op elk apparaat",
+      "recutRunning": "Je stukken worden opnieuw geanalyseerd",
+      "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
+      "phaseDraining": "lopend werk wordt afgerond",
+      "phaseArchiving": "de oude catalogus wordt gearchiveerd",
+      "phaseDetecting": "nieuwe stukken worden gesneden",
+      "phaseDiffing": "de twee catalogi worden vergeleken",
+      "diffTotals": "{{current}} stukken werden er {{proposed}}.",
+      "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
+      "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse."
     }
   },
   "strength": {
@@ -2059,5 +2073,17 @@
     "kind_pr_rebased": "Record herberekend op het huidige bereik",
     "kind_baseline": "Vastgelegd uit een eerdere versie van de app",
     "kind_algorithm_changed": "Opnieuw geanalyseerd door een nieuwere detector"
+  },
+  "namedCorridors": {
+    "title": "Namen die je gaf",
+    "link": "Namen die je gaf",
+    "empty": "Je hebt nog geen stuk een naam gegeven",
+    "created": "Benoemd op {{date}}",
+    "dormant": "Geen stuk dekt dit terrein op dit moment",
+    "onSection": "Op {{name}} · {{percent}}% gedekt",
+    "secondary": "Een andere naam dekt dit terrein ook",
+    "delete": "Naam verwijderen",
+    "deleteTitle": "Naam verwijderen",
+    "deleteConfirm": "\"{{name}}\" verwijderen? Het stuk krijgt zijn gegenereerde naam terug."
   }
 }

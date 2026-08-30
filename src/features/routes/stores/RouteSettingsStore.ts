@@ -66,7 +66,6 @@ interface RouteSettingsState {
   setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
-  setDetectionStrictness: (value: number) => Promise<void>;
 }
 
 export const useRouteSettings = create<RouteSettingsState>((set) => ({
@@ -163,17 +162,6 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
     });
 
     log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
-  },
-
-  setDetectionStrictness: async (value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)));
-    set((state) => {
-      const newSettings = { ...state.settings, detectionStrictness: clamped };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection strictness:', error);
-      });
-      return { settings: newSettings };
-    });
   },
 }));
 

@@ -125,6 +125,15 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
     }
 }
 
+/// Whether a detection run currently holds the shared slot. A snapshot only:
+/// callers that must not lose the race hold the guard themselves.
+fn detection_running() -> bool {
+    SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_some()
+}
+
 /// Ask a running preview to stop. Cooperative and non-blocking: the preview
 /// worker aborts at its next cancellation point and its poller reads
 /// "cancelled".
@@ -155,20 +164,32 @@ impl DetectionManager {
             info!("tracematch: [DetectionManager] Start refused: detection is suspended");
             return Ok(false);
         }
-        {
-            let handle_guard = SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            if handle_guard.is_some() {
-                info!("tracematch: [DetectionManager] Section detection already running");
-                return Ok(false);
-            }
+        // A cheap refusal before the cancel below, so a start that is going to
+        // lose does not cost a running preview its answer. The decision that
+        // counts is made under the guard held further down.
+        if detection_running() {
+            info!("tracematch: [DetectionManager] Section detection already running");
+            return Ok(false);
         }
 
         // A real detect supersedes any running preview: the preview's answer
         // is for a catalogue that is about to move, so cancel it rather than
-        // let the two runs overlap.
+        // let the two runs overlap. Done before the guard is taken, because
+        // `objects/preview.rs` takes the preview slot then the detection slot
+        // and the reverse order here would deadlock the pair.
         cancel_running_preview();
+
+        // Held across check, spawn and install. Releasing it to spawn lets
+        // every loser start a worker of its own that rewrites `route_groups`
+        // beside the winner, and then overwrite the winner's handle so the
+        // run left in the slot is not the one being polled.
+        let mut handle_guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if handle_guard.is_some() {
+            info!("tracematch: [DetectionManager] Section detection already running");
+            return Ok(false);
+        }
 
         let handle = with_engine(|e| e.detect_sections_background())?;
         // The funnel refuses with a dead handle when a backfill takes the
@@ -179,9 +200,6 @@ impl DetectionManager {
             return Ok(false);
         }
 
-        let mut handle_guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
         *handle_guard = Some(handle);
         info!("tracematch: [DetectionManager] Section detection started");
         Ok(true)
@@ -224,19 +242,28 @@ impl DetectionManager {
             info!("tracematch: [DetectionManager] Force redetect refused: detection is suspended");
             return Ok(false);
         }
-        {
-            let handle_guard = SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            if handle_guard.is_some() {
-                info!(
-                    "tracematch: [DetectionManager] Cannot force redetect: detection already running"
-                );
-                return Ok(false);
-            }
+        if detection_running() {
+            info!(
+                "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+            );
+            return Ok(false);
         }
 
         cancel_running_preview();
+
+        // Held across check, clear, spawn and install, for the same reason as
+        // `start`. The clear belongs inside it too: two losers clearing the
+        // processed set behind the winner would throw away the evidence cache
+        // a run that is already going has been folding into.
+        let mut handle_guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if handle_guard.is_some() {
+            info!(
+                "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+            );
+            return Ok(false);
+        }
 
         // Clear processed activity IDs to force full re-evaluation
         with_engine(|e| {
@@ -249,9 +276,6 @@ impl DetectionManager {
             return Ok(false);
         }
 
-        let mut handle_guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
         *handle_guard = Some(handle);
         info!("tracematch: [DetectionManager] Forced full section re-detection started");
         Ok(true)
@@ -306,13 +330,14 @@ impl DetectionManager {
 mod tests {
     use super::*;
     use crate::persistence::persistent_engine_ffi::persistent_engine_init;
+    use crate::persistence::sections::detection_workers_started;
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
+    use crate::test_globals::{
+        clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
+    };
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::sync::Mutex;
     use tempfile::TempDir;
-
-    /// The engine and both handles are process-wide, so these run in turn.
-    static SERIAL: Mutex<()> = Mutex::new(());
 
     fn init_global_engine() -> TempDir {
         let tmp = TempDir::new().expect("tempdir");
@@ -337,15 +362,108 @@ mod tests {
         assert!(lock.is_poisoned(), "the lock must be poisoned now");
     }
 
-    fn clear_detection_handle() {
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+    #[test]
+    fn concurrent_starts_spawn_exactly_one_worker() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        let won = race(|| DetectionManager::new().start().expect("start"));
+
+        assert_eq!(won, 1, "exactly one start may win the race");
+        assert_eq!(
+            detection_workers_started() - before,
+            1,
+            "a losing start must not leave an orphan worker behind"
+        );
+
+        drain_detection();
+    }
+
+    #[test]
+    fn concurrent_force_redetects_spawn_exactly_one_worker() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        let won = race(|| DetectionManager::new().force_redetect().expect("redetect"));
+
+        assert_eq!(won, 1, "exactly one force redetect may win the race");
+        assert_eq!(
+            detection_workers_started() - before,
+            1,
+            "a losing force redetect must not leave an orphan worker behind"
+        );
+
+        drain_detection();
+    }
+
+    /// Expected behaviour: the second caller of an idle-then-busy slot is
+    /// refused without paying for a worker, which is the non-racing shape of
+    /// the same guarantee.
+    #[test]
+    fn a_second_start_while_running_costs_nothing() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert!(
+            manager.start().expect("first start"),
+            "the first start wins"
+        );
+
+        let before = detection_workers_started();
+        assert!(!manager.start().expect("second start"), "the slot is taken");
+        assert!(
+            !manager.force_redetect().expect("second redetect"),
+            "the slot is taken"
+        );
+        assert_eq!(
+            detection_workers_started() - before,
+            0,
+            "a refused start must not spawn a worker"
+        );
+
+        drain_detection();
+    }
+
+    /// Expected behaviour: a suspension refuses every arm, and a refusal must
+    /// leave the slot empty so the backfill's own re-cut can take it.
+    #[test]
+    fn a_suspended_start_installs_nothing() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        let _suspension = crate::persistence::suspend_detection();
+        let manager = DetectionManager::new();
+        assert!(!manager.start().expect("start"), "suspended start refuses");
+        assert!(
+            !manager.force_redetect().expect("redetect"),
+            "suspended force redetect refuses"
+        );
+
+        assert!(
+            SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none(),
+            "a refused run must not occupy the slot"
+        );
+        assert_eq!(
+            detection_workers_started() - before,
+            0,
+            "a refused run must not spawn a worker"
+        );
     }
 
     #[test]
     fn detection_survives_a_poisoned_handle_lock() {
-        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _serial = serial_global_state();
         let _tmp = init_global_engine();
         clear_detection_handle();
 
@@ -372,7 +490,7 @@ mod tests {
 
     #[test]
     fn a_poisoned_preview_lock_still_cancels() {
-        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _serial = serial_global_state();
         let _tmp = init_global_engine();
         clear_detection_handle();
 

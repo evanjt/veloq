@@ -37,6 +37,7 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { TIME_RANGES } from '@/shared/app/constants';
 
 export default function HealthScreen() {
@@ -118,6 +119,7 @@ export default function HealthScreen() {
   // Handle pull-to-refresh - invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    requestSyncRefresh();
     await Promise.all([
       refetchActivities(),
       refetchWellness(),

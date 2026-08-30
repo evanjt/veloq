@@ -240,6 +240,8 @@ export interface Section {
   stability?: number;
   /** Elevation gain in metres over the representative slice, absent when unknown */
   elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice, absent when unknown */
+  elevationLossM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
@@ -319,6 +321,8 @@ export interface SectionSummary {
   createdAt: string;
   /** Elevation gain in metres over the representative slice, absent when unknown */
   elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice, absent when unknown */
+  elevationLossM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */

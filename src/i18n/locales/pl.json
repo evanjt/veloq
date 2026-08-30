@@ -464,7 +464,12 @@
       "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Jesteś offline"
     },
-    "refresh": "Odśwież"
+    "refresh": "Odśwież",
+    "syncError": {
+      "title": "Synchronizacja nie dochodzi",
+      "lastSynced": "Ostatnia synchronizacja {{when}}",
+      "neverSynced": "Zadna synchronizacja sie nie zakonczyla"
+    }
   },
   "engine": {
     "initFailed": "Silnik tras nie mógł się uruchomić. Trasy i odcinki mogą być niedostępne."
@@ -1657,7 +1662,6 @@
     "redetectSections": "Wykryj sekcje ponownie",
     "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty.",
     "sectionDetection": "Wykrywanie sekcji",
-    "detectionSensitivity": "Czułość wykrywania",
     "detectionRelaxed": "Łagodne",
     "detectionStrict": "Surowe",
     "matchThreshold": "Dopasowanie: {{pct}}%",
@@ -1678,7 +1682,6 @@
     "sectionMinCorridorTracks": "Min. śladów korytarza: {{count}}",
     "sectionJaccard": "Nakładanie komórek: {{value}}",
     "sectionMinCellVisits": "Min. wizyt komórki: {{count}}",
-    "sectionDivergence": "Dywergencja: {{value}}",
     "general": "Ogólne",
     "data": "Dane",
     "notificationsAndStorage": "Powiadomienia i pamięć",
@@ -1688,7 +1691,8 @@
     "elevationBackfillProgress": "{{completed}} z {{total}} aktywności",
     "elevationBackfillComplete": "Wszystkie ślady aktywności mają wysokość",
     "elevationBackfillPartial": "Niektóre ślady aktywności nadal nie mają wysokości. Zostaną ponowione później.",
-    "elevationBackfillRetrying": "Nie udało się zaktualizować {{value}} śladów aktywności. Zostaną ponowione później.",
+    "elevationBackfillRetrying_one": "Nie udało się zaktualizować {{count}} śladu aktywności. Zostanie ponowiony później.",
+    "elevationBackfillRetrying_other": "Nie udało się zaktualizować {{count}} śladów aktywności. Zostaną ponowione później.",
     "elevationBackfillFailed": "Nie udało się uruchomić aktualizacji wysokości.",
     "previewSections": "Podgląd zmian sekcji",
     "previewIntro": "Wypróbuj nowe ustawienia na jednym obszarze, zanim zastosujesz je wszędzie.",
@@ -1717,7 +1721,8 @@
     "previewDiscard": "Odrzuć",
     "previewKeepTitle": "Zastosować te ustawienia?",
     "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
-    "advanced": "Zaawansowane"
+    "previewKeepRefusedTitle": "Ponowna analiza nie ruszyła",
+    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę."
   },
   "stats": {
     "activities": "Aktywności",
@@ -1930,7 +1935,16 @@
       "rowRevert": "Przywróć wcześniejszą wersję odcinka i przypnij ją",
       "rowRetired": "Odcinki, które opuściły katalog, pozostają na liście",
       "rowPinned": "Zaakceptowane odcinki przetrwają każdą ponowną analizę",
-      "rowEveryDevice": "Identyczne odcinki na każdym urządzeniu"
+      "rowEveryDevice": "Identyczne odcinki na każdym urządzeniu",
+      "recutRunning": "Ponowna analiza Twoich odcinków",
+      "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
+      "phaseDraining": "kończenie trwających prac",
+      "phaseArchiving": "archiwizowanie starego katalogu",
+      "phaseDetecting": "wycinanie nowych odcinków",
+      "phaseDiffing": "porównywanie obu katalogów",
+      "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
+      "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
+      "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian."
     }
   },
   "strength": {
@@ -2061,5 +2075,17 @@
     "kind_pr_rebased": "Rekord przeliczony na bieżący zakres",
     "kind_baseline": "Zapisany z wcześniejszej wersji aplikacji",
     "kind_algorithm_changed": "Przeanalizowany ponownie przez nowszy detektor"
+  },
+  "namedCorridors": {
+    "title": "Nadane nazwy",
+    "link": "Nadane nazwy",
+    "empty": "Nie nazwano jeszcze żadnego odcinka",
+    "created": "Nazwano {{date}}",
+    "dormant": "Żaden odcinek nie pokrywa teraz tego terenu",
+    "onSection": "Na {{name}} · {{percent}}% pokrycia",
+    "secondary": "Inna nazwa też pokrywa ten teren",
+    "delete": "Usuń nazwę",
+    "deleteTitle": "Usuń nazwę",
+    "deleteConfirm": "Usunąć \"{{name}}\"? Odcinek wróci do nazwy wygenerowanej."
   }
 }

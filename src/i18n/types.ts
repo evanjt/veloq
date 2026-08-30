@@ -252,7 +252,6 @@ export interface TranslationResource {
   };
 
   settings: {
-    advanced: string;
     title: string;
     display: string;
     displayAndMaps: string;
@@ -289,7 +288,6 @@ export interface TranslationResource {
     routesCount: string;
     sectionsCount: string;
     sectionDetection: string;
-    detectionSensitivity: string;
     detectionRelaxed: string;
     detectionStrict: string;
     matchThreshold: string;
@@ -303,14 +301,14 @@ export interface TranslationResource {
     sectionMinCorridorTracks: string;
     sectionJaccard: string;
     sectionMinCellVisits: string;
-    sectionDivergence: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     elevationBackfillRunning: string;
     elevationBackfillProgress: string;
     elevationBackfillComplete: string;
     elevationBackfillPartial: string;
-    elevationBackfillRetrying: string;
+    elevationBackfillRetrying_one: string;
+    elevationBackfillRetrying_other: string;
     elevationBackfillFailed: string;
     previewSections: string;
     previewIntro: string;
@@ -339,6 +337,8 @@ export interface TranslationResource {
     previewDiscard: string;
     previewKeepTitle: string;
     previewKeepWarning: string;
+    previewKeepRefusedTitle: string;
+    previewKeepRefused: string;
     cleanupOverlapping: string;
     cleanupResult: string;
     total: string;
@@ -904,6 +904,15 @@ export interface TranslationResource {
       rowRetired: string;
       rowPinned: string;
       rowEveryDevice: string;
+      recutRunning: string;
+      recutRunningPhase: string;
+      phaseDraining: string;
+      phaseArchiving: string;
+      phaseDetecting: string;
+      phaseDiffing: string;
+      diffTotals: string;
+      diffBreakdown: string;
+      diffUnchanged: string;
     };
     v030: {
       insightsTitle: string;
@@ -1160,6 +1169,18 @@ export interface TranslationResource {
     kind_baseline: string;
     kind_algorithm_changed: string;
   };
+  namedCorridors: {
+    title: string;
+    link: string;
+    empty: string;
+    created: string;
+    dormant: string;
+    onSection: string;
+    secondary: string;
+    delete: string;
+    deleteTitle: string;
+    deleteConfirm: string;
+  };
   sections: {
     acceptSection: string;
     acceptAllSections: string;
@@ -1329,6 +1350,11 @@ export interface TranslationResource {
     offline: {
       title: string;
       description: string;
+    };
+    syncError: {
+      title: string;
+      lastSynced: string;
+      neverSynced: string;
     };
   };
 

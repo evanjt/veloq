@@ -29,6 +29,7 @@ import {
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -61,8 +62,12 @@ interface SectionRowData {
   isUserDefined?: boolean;
   /** Elevation gain in metres over the representative slice */
   elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice */
+  elevationLossM?: number;
   /** Net grade percent over the representative slice */
   avgGradePercent?: number;
+  /** climb, descent, rolling, flat or loop, absent when nothing says */
+  klass?: string;
 }
 
 interface SectionRowProps {
@@ -112,6 +117,11 @@ function normalizeSectionData(
         'elevationGainM' in section
           ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
           : undefined,
+      elevationLossM:
+        'elevationLossM' in section
+          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
+          : undefined,
+      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
       avgGradePercent:
         'avgGradePercent' in section
           ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
@@ -140,6 +150,11 @@ function normalizeSectionData(
         'elevationGainM' in section
           ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
           : undefined,
+      elevationLossM:
+        'elevationLossM' in section
+          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
+          : undefined,
+      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
       avgGradePercent:
         'avgGradePercent' in section
           ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
@@ -178,6 +193,7 @@ export const SectionRow = memo(function SectionRow({
 
   // Normalize section data to common format
   const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
+  const elevation = useMemo(() => sectionElevation(section), [section]);
 
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
   // This is fast - Rust query with LRU caching
@@ -436,15 +452,15 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
-          {section.elevationGainM != null && section.elevationGainM >= 10 && (
+          {elevation && (
             <View style={styles.gainChip}>
               <MaterialCommunityIcons
-                name="arrow-top-right"
+                name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
                 size={10}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
               <Text style={[styles.metaText, isDark && styles.textMuted]}>
-                {formatElevation(section.elevationGainM, isMetric)}
+                {formatElevation(elevation.metres, isMetric)}
               </Text>
             </View>
           )}
