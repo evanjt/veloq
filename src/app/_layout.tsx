@@ -515,10 +515,7 @@ export default function RootLayout() {
             <TopSafeAreaProvider>
               <MapPreferencesProvider>
                 <PaperProvider theme={theme}>
-                  <StatusBar
-                    style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    animated
-                  />
+                  <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} animated />
                   <AuthGate>
                     {startupError ? (
                       <View

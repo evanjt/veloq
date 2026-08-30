@@ -12,10 +12,7 @@ import type { FrequentSection } from '@/types';
  * a screen bundle skip this hook's own FFI calls. The bundle is re-read on the
  * same refresh key, so the stale-data guard below is not needed for it.
  */
-export function useSectionDataRefresh(
-  id: string | undefined,
-  preComputedSection?: NativeSection
-) {
+export function useSectionDataRefresh(id: string | undefined, preComputedSection?: NativeSection) {
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
   const skipOwnFfiCall = preComputedSection !== undefined;
