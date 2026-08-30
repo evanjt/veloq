@@ -22,11 +22,9 @@ import {
  * Skia GPU (Android) shader programs needed for these primitives are
  * compiled the first time they are drawn, so by drawing them during app
  * launch (when the user is not looking at a chart yet) we move the
- * shader-compile cost off the first-visit-to-fitness-tab path.
- *
- * Without this warmup, FitnessScreen defers its secondary charts by one
- * `requestAnimationFrame` to avoid a first-visit stutter; with it, that
- * defer is no longer needed.
+ * shader-compile cost off the first-visit-to-fitness-tab path. It is what
+ * lets FitnessScreen draw its secondary charts in the same frame rather than
+ * deferring them by one `requestAnimationFrame` to hide the stutter.
  */
 const warmupPath = Skia.Path.MakeFromSVGString('M0 0L1 1Z');
 

@@ -472,8 +472,8 @@ impl PersistentRouteEngine {
         // Take the incremental path when we have existing groups AND the
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
-        // ~10× less work - this was the dominant slice of scenario E
-        // before the change (4s of the 9s wall-clock).
+        // ~10× less work, and the full path dominates the wall clock
+        // without it (4s of 9s on scenario E).
         let group_start = Instant::now();
 
         let already_grouped: std::collections::HashSet<&str> = self
