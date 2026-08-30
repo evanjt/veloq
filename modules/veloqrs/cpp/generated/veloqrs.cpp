@@ -344,6 +344,9 @@ void uniffi_veloqrs_fn_method_sectionpreview_cancel(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionpreview_centres(
     /*handle*/ uint64_t ptr, uint32_t limit, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionpreview_current(
+    /*handle*/ uint64_t ptr, double lat, double lng,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionpreview_get_progress(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionpreview_poll(
@@ -1043,6 +1046,7 @@ uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_query_viewport();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_cancel();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_centres();
+uint16_t uniffi_veloqrs_checksum_method_sectionpreview_current();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_get_progress();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_poll();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_start();
@@ -3746,6 +3750,17 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_sectionpreview_centres(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionpreview_current"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionpreview_current"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_sectionpreview_current(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress"] =
@@ -7578,6 +7593,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_sectionpreview_centres(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionpreview_current(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress"] =
@@ -11488,6 +11515,21 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionpreview_centres(
                                                         args[0]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionpreview_current(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionpreview_current(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -15631,6 +15673,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionpreview_centres(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionpreview_centres();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionpreview_current(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionpreview_current();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

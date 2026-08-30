@@ -52,6 +52,17 @@ impl SectionPreview {
         })
     }
 
+    /// The live auto catalogue for the riding area containing (lat, lng), as
+    /// a JSON array in the same section shape a run's payload carries. Scoped
+    /// by the same component the run uses, so the screen opens on exactly the
+    /// catalogue the next run will diff against. None when no activity covers
+    /// the point.
+    pub fn current(&self, lat: f64, lng: f64) -> Result<Option<String>, VeloqError> {
+        // Write lock, not read: this queries SQLite for pin intent and the
+        // read lock is memory-only by invariant.
+        with_engine(|e| e.preview_current(lat, lng))
+    }
+
     /// Resolve the whole geo component containing (lat, lng) and start the
     /// pure preview detect over it. Only the five exposed fields of `config`
     /// overlay the engine's live config. Returns false when a preview or real

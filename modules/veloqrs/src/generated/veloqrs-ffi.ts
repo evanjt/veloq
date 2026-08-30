@@ -532,6 +532,12 @@ interface NativeModuleInterface {
     limit: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionpreview_current(
+    ptr: bigint,
+    lat: number,
+    lng: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionpreview_get_progress(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1655,6 +1661,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_start(): number;

@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 15 standalone `#[uniffi::export]` functions plus
- * 240 methods inside `#[uniffi::export] impl` blocks across
+ * 241 methods inside `#[uniffi::export] impl` blocks across
  * 12 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 255 exports (15 standalone + 240 methods)
+ * Total: 256 exports (15 standalone + 241 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -328,7 +328,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "new",
     "camelName": "new",
     "file": "objects/detection.rs",
-    "line": 146,
+    "line": 155,
     "paramCount": 0,
     "returnType": "Arc<Self>",
     "object": "DetectionManager"
@@ -337,7 +337,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "start",
     "camelName": "start",
     "file": "objects/detection.rs",
-    "line": 150,
+    "line": 159,
     "paramCount": 0,
     "returnType": "Result<bool, VeloqError>",
     "object": "DetectionManager"
@@ -346,7 +346,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "poll",
     "camelName": "poll",
     "file": "objects/detection.rs",
-    "line": 190,
+    "line": 208,
     "paramCount": 0,
     "returnType": "Result<String, VeloqError>",
     "object": "DetectionManager"
@@ -355,7 +355,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_progress",
     "camelName": "getProgress",
     "file": "objects/detection.rs",
-    "line": 199,
+    "line": 217,
     "paramCount": 0,
     "returnType": "Result<Option<crate::FfiDetectionProgress>, VeloqError>",
     "object": "DetectionManager"
@@ -364,7 +364,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "force_redetect",
     "camelName": "forceRedetect",
     "file": "objects/detection.rs",
-    "line": 219,
+    "line": 237,
     "paramCount": 0,
     "returnType": "Result<bool, VeloqError>",
     "object": "DetectionManager"
@@ -373,7 +373,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_config",
     "camelName": "setConfig",
     "file": "objects/detection.rs",
-    "line": 260,
+    "line": 284,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "DetectionManager"
@@ -382,7 +382,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_config",
     "camelName": "getConfig",
     "file": "objects/detection.rs",
-    "line": 266,
+    "line": 290,
     "paramCount": 0,
     "returnType": "Result<crate::FfiSectionConfig, VeloqError>",
     "object": "DetectionManager"
@@ -391,7 +391,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_match_strictness",
     "camelName": "setMatchStrictness",
     "file": "objects/detection.rs",
-    "line": 270,
+    "line": 294,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "DetectionManager"
@@ -400,7 +400,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_match_strictness",
     "camelName": "getMatchStrictness",
     "file": "objects/detection.rs",
-    "line": 297,
+    "line": 321,
     "paramCount": 0,
     "returnType": "Result<crate::FfiMatchStrictness, VeloqError>",
     "object": "DetectionManager"
@@ -946,10 +946,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "object": "SectionPreview"
   },
   {
+    "name": "current",
+    "camelName": "current",
+    "file": "objects/preview.rs",
+    "line": 60,
+    "paramCount": 2,
+    "returnType": "Result<Option<String>, VeloqError>",
+    "object": "SectionPreview"
+  },
+  {
     "name": "start",
     "camelName": "start",
     "file": "objects/preview.rs",
-    "line": 60,
+    "line": 71,
     "paramCount": 3,
     "returnType": "Result<bool, VeloqError>",
     "object": "SectionPreview"
@@ -958,7 +967,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "poll",
     "camelName": "poll",
     "file": "objects/preview.rs",
-    "line": 133,
+    "line": 144,
     "paramCount": 0,
     "returnType": "Result<String, VeloqError>",
     "object": "SectionPreview"
@@ -967,7 +976,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_progress",
     "camelName": "getProgress",
     "file": "objects/preview.rs",
-    "line": 164,
+    "line": 175,
     "paramCount": 0,
     "returnType": "Result<Option<crate::FfiDetectionProgress>, VeloqError>",
     "object": "SectionPreview"
@@ -976,7 +985,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "take_result",
     "camelName": "takeResult",
     "file": "objects/preview.rs",
-    "line": 183,
+    "line": 194,
     "paramCount": 0,
     "returnType": "Result<Option<String>, VeloqError>",
     "object": "SectionPreview"
@@ -985,7 +994,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "cancel",
     "camelName": "cancel",
     "file": "objects/preview.rs",
-    "line": 201,
+    "line": 212,
     "paramCount": 0,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionPreview"
@@ -2308,7 +2317,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "compute_polyline_overlap",
     "camelName": "computePolylineOverlap",
     "file": "persistence/mod.rs",
-    "line": 1788,
+    "line": 1789,
     "paramCount": 3,
     "returnType": "f64"
   }
@@ -2421,6 +2430,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getSignaturesForIds',
   'new',
   'centres',
+  'current',
   'start',
   'poll',
   'getProgress',
@@ -2682,6 +2692,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   'get_all_signatures': 'getAllSignatures',
   'get_signatures_for_ids': 'getSignaturesForIds',
   'centres': 'centres',
+  'current': 'current',
   'take_result': 'takeResult',
   'cancel': 'cancel',
   'get_all': 'getAll',

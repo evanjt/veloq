@@ -60,7 +60,12 @@ import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
-import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
+import type {
+  PreviewCentre,
+  PreviewPollStatus,
+  PreviewResult,
+  PreviewSection,
+} from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
@@ -280,6 +285,9 @@ class RouteEngineClient implements DelegateHost {
 
   getPreviewCentres = (limit: number): PreviewCentre[] =>
     previewDelegates.getPreviewCentres(this, limit);
+
+  getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] =>
+    previewDelegates.getPreviewCurrentSections(this, lat, lng);
 
   startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
     previewDelegates.startPreviewDetect(this, lat, lng, config);

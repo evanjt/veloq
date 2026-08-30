@@ -259,6 +259,17 @@ struct PreviewPayload {
     sections: Vec<PayloadSection>,
 }
 
+/// Does an auto section's ground fall inside a component's padded box? The
+/// preview run and the catalogue the screen opens on both scope by this, so
+/// the two can never disagree about what belongs to the area.
+fn within_component(section: &FrequentSection, padded_bbox: DegreeBox) -> bool {
+    let b = tracematch::geo_utils::compute_bounds(&section.polyline);
+    b.min_lat <= padded_bbox.1
+        && padded_bbox.0 <= b.max_lat
+        && b.min_lng <= padded_bbox.3
+        && padded_bbox.2 <= b.max_lng
+}
+
 /// Diff two catalogues. `proposed` is the new state, `live` is the old.
 /// Used by both the preview and the cutover.
 pub(crate) fn diff_catalogues_public(
@@ -473,6 +484,57 @@ impl PersistentRouteEngine {
         centres
     }
 
+    /// The live auto catalogue for the riding area containing (lat, lng), in
+    /// the preview's own section shape. Scoped by the same component and
+    /// padded box a run uses, so what the screen shows on open is exactly the
+    /// catalogue the next run will diff against.
+    ///
+    /// Reads only what is already persisted, so it costs one bounds sweep and
+    /// a pin lookup rather than a detect. Returns None when no activity's
+    /// padded box contains the point.
+    pub fn preview_current(&self, lat: f64, lng: f64) -> Option<String> {
+        let boxes: Vec<(String, tracematch::Bounds)> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.bounds))
+            .collect();
+        let (_component_ids, padded_bbox) =
+            cluster_for(&boxes, lat, lng, Tunables::DEFAULT.cluster_gap_m)?;
+
+        let pinned: HashSet<String> = self
+            .db
+            .prepare("SELECT section_id FROM section_pins")
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.flatten().collect())
+                    .ok()
+            })
+            .unwrap_or_default();
+
+        let rows: Vec<PayloadSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .filter(|s| within_component(s, padded_bbox))
+            .map(|s| PayloadSection {
+                id: s.id.clone(),
+                live_id: Some(s.id.clone()),
+                status: "unchanged",
+                name: s.name.clone(),
+                sport: s.sport_type.clone(),
+                polyline: encoded_polyline(&s.polyline),
+                visits: s.visit_count,
+                distance_m: s.distance_meters,
+                elevation_gain_m: s.elevation_gain_m,
+                avg_grade_percent: s.avg_grade_percent,
+                pinned: pinned.contains(&s.id),
+            })
+            .collect();
+
+        serde_json::to_string(&rows).ok()
+    }
+
     /// Start a preview run over the component containing (lat, lng).
     ///
     /// Snapshots everything the worker needs from memory under the read lock,
@@ -516,13 +578,7 @@ impl PersistentRouteEngine {
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
-            .filter(|s| {
-                let b = tracematch::geo_utils::compute_bounds(&s.polyline);
-                b.min_lat <= padded_bbox.1
-                    && padded_bbox.0 <= b.max_lat
-                    && b.min_lng <= padded_bbox.3
-                    && padded_bbox.2 <= b.max_lng
-            })
+            .filter(|s| within_component(s, padded_bbox))
             .cloned()
             .collect();
 
