@@ -464,7 +464,12 @@
       "expandInSettings": "Expandir en Ajustes",
       "title": "Estáis sin conexión"
     },
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "syncError": {
+      "title": "La sincronizacion no llega",
+      "lastSynced": "Ultima sincronizacion {{when}}",
+      "neverSynced": "Ninguna sincronizacion ha terminado"
+    }
   },
   "engine": {
     "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles."

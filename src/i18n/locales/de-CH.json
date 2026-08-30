@@ -464,7 +464,12 @@
       "expandInSettings": "In Istellige erwitere",
       "title": "Du bisch offline"
     },
-    "refresh": "Nöi lade"
+    "refresh": "Nöi lade",
+    "syncError": {
+      "title": "Synchronisierig chunt nid dure",
+      "lastSynced": "Zletscht gsynced {{when}}",
+      "neverSynced": "Nonig e Synchronisierig fertig"
+    }
   },
   "engine": {
     "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar."

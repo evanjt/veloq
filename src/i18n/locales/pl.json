@@ -464,7 +464,12 @@
       "expandInSettings": "Rozwiń w Ustawieniach",
       "title": "Jesteś offline"
     },
-    "refresh": "Odśwież"
+    "refresh": "Odśwież",
+    "syncError": {
+      "title": "Synchronizacja nie dochodzi",
+      "lastSynced": "Ostatnia synchronizacja {{when}}",
+      "neverSynced": "Zadna synchronizacja sie nie zakonczyla"
+    }
   },
   "engine": {
     "initFailed": "Silnik tras nie mógł się uruchomić. Trasy i odcinki mogą być niedostępne."

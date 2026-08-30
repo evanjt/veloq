@@ -1331,6 +1331,11 @@ export interface TranslationResource {
       title: string;
       description: string;
     };
+    syncError: {
+      title: string;
+      lastSynced: string;
+      neverSynced: string;
+    };
   };
 
   cache: {

@@ -464,7 +464,12 @@
       "expandInSettings": "Expandir nas Configurações",
       "title": "Voce esta offline"
     },
-    "refresh": "Atualizar"
+    "refresh": "Atualizar",
+    "syncError": {
+      "title": "A sincronizacao nao esta passando",
+      "lastSynced": "Ultima sincronizacao {{when}}",
+      "neverSynced": "Nenhuma sincronizacao concluida"
+    }
   },
   "engine": {
     "initFailed": "O motor de rotas falhou ao inicializar. Rotas e trechos podem não estar disponíveis."

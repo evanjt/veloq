@@ -464,7 +464,12 @@
       "expandInSettings": "Espandi nelle impostazioni",
       "title": "Sei offline"
     },
-    "refresh": "Aggiorna"
+    "refresh": "Aggiorna",
+    "syncError": {
+      "title": "La sincronizzazione non arriva",
+      "lastSynced": "Ultima sincronizzazione {{when}}",
+      "neverSynced": "Nessuna sincronizzazione completata"
+    }
   },
   "engine": {
     "initFailed": "Il motore dei percorsi non è riuscito ad avviarsi. I percorsi e le sezioni potrebbero non essere disponibili."
