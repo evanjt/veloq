@@ -11,8 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRouteEngine, getRouteDbPath, getNativeModule } from '@/shared/native/routeEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
-import { shareFile } from './shareFile';
-import { getSetting, setSetting } from '@/shared/storage';
+import { setSetting } from '@/shared/storage';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
@@ -32,11 +31,9 @@ import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { queryClient } from '@/shared/query/QueryProvider';
 import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import Constants from 'expo-constants';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
 
-const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 const log = debug.create('Backup');
 
 // ============================================================================
@@ -413,68 +410,6 @@ export interface RestoreResult {
   namesApplied: number;
   namesSkipped: number;
   preferencesRestored: number;
-}
-
-export async function createBackup(): Promise<string> {
-  const engine = getRouteEngine();
-
-  // Collect custom sections (slim format - no polyline or distanceMeters)
-  const customSections: BackupCustomSection[] = [];
-  if (engine) {
-    const sections = engine.getSectionsByType('custom');
-    for (const s of sections) {
-      customSections.push({
-        name: s.name || '',
-        sportType: s.sportType,
-        sourceActivityId: s.sourceActivityId || '',
-        startIndex: s.startIndex ?? 0,
-        endIndex: s.endIndex ?? 0,
-      });
-    }
-  }
-
-  // Collect names
-  const sectionNames = engine?.getAllSectionNames() ?? {};
-  const routeNames = engine?.getAllRouteNames() ?? {};
-
-  // Collect preferences from SQLite first, then AsyncStorage fallback
-  const preferences: Record<string, unknown> = {};
-  for (const key of LEGACY_PREFERENCE_KEYS) {
-    try {
-      const value = await getSetting(key);
-      if (value !== null) {
-        try {
-          preferences[key] = JSON.parse(value);
-        } catch {
-          preferences[key] = value;
-        }
-      }
-    } catch {
-      // Skip unreadable keys
-    }
-  }
-
-  const backup: BackupData = {
-    version: LEGACY_BACKUP_VERSION,
-    exportedAt: new Date().toISOString(),
-    appVersion: APP_VERSION,
-    customSections,
-    sectionNames,
-    routeNames,
-    preferences,
-  };
-
-  return JSON.stringify(backup, null, 2);
-}
-
-export async function exportBackup(): Promise<void> {
-  const json = await createBackup();
-  const date = formatLocalDate(new Date());
-  await shareFile({
-    content: json,
-    filename: `veloq-backup-${date}.veloq`,
-    mimeType: 'application/json',
-  });
 }
 
 export async function restoreBackup(json: string): Promise<RestoreResult> {
