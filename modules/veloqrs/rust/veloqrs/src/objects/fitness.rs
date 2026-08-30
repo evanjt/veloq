@@ -391,8 +391,8 @@ impl FitnessManager {
     }
 
     /// Batch insights data: combines period stats, trends, patterns, recent PRs
-    /// and the section and strength tail the pipeline used to fetch one call at
-    /// a time. Reduces the Insights hook to a single round-trip.
+    /// and the section and strength tail. Reduces the Insights hook to a single
+    /// round-trip.
     fn get_insights_data(
         &self,
         params: crate::FfiInsightsParams,

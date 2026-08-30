@@ -1,10 +1,8 @@
 /**
  * One place that turns a `MapStyleType` into something a WebView map can load.
- *
- * Every WebView surface used to inline its own copy of this decision, and they
- * had drifted: the dark style was vector-cached in one place and not in
- * another, and each site re-derived the light style URL. Callers now state the
- * difference through options instead of duplicating the branch.
+ * Callers state their difference through options rather than branching
+ * themselves, so the dark style's vector cache and the light style URL are
+ * decided once.
  *
  * The defaults are what the seven 2D surfaces want, so they state nothing. The
  * three 3D paths pass `TERRAIN_STYLE_OPTIONS`, which is the only opt-out.

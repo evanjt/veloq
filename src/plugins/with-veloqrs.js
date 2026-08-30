@@ -270,8 +270,8 @@ const RUST_HASH_FILE = path.join(MODULE_DIR, '.rust-source-hash');
 /**
  * Hash every Rust source / manifest / lockfile under rust/ (excluding build
  * output). Content-based, so a git checkout, branch switch, or submodule
- * update is detected even when file mtimes are misleading - the failure mode
- * that previously left a stale .a linked (undefined-symbol errors).
+ * update is detected even when file mtimes are misleading, which is what
+ * leaves a stale .a linked and produces undefined-symbol errors.
  */
 function hashRustSources() {
   const crypto = require('crypto');
