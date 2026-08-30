@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Tramos idénticos en todos los dispositivos",
       "recutRunning": "Analizando de nuevo tus tramos",
       "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
-      "phaseDraining": "terminando el trabajo en curso",
-      "phaseArchiving": "archivando el catálogo anterior",
+      "phasePreparing": "preparando el catálogo",
       "phaseDetecting": "cortando tramos nuevos",
       "phaseDiffing": "comparando los dos catálogos",
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
-      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios."
+      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios.",
+      "recutFailed": "El nuevo análisis no terminó. Tus tramos siguen igual y se ejecuta otra vez al abrir la app."
     }
   },
   "strength": {

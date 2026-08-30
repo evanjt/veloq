@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Troços idênticos em todos os dispositivos",
       "recutRunning": "A analisar de novo os teus troços",
       "recutRunningPhase": "A analisar de novo os teus troços: {{phase}}",
-      "phaseDraining": "a terminar o trabalho em curso",
-      "phaseArchiving": "a arquivar o catálogo antigo",
+      "phasePreparing": "a preparar o catálogo",
       "phaseDetecting": "a cortar troços novos",
       "phaseDiffing": "a comparar os dois catálogos",
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
-      "diffUnchanged": "Os {{sections}} troços saíram da nova análise sem alterações."
+      "diffUnchanged": "Os {{sections}} troços saíram da nova análise sem alterações.",
+      "recutFailed": "A nova análise não terminou. Os teus troços continuam iguais e volta a correr no próximo arranque."
     }
   },
   "strength": {

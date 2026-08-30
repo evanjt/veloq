@@ -1938,13 +1938,13 @@
       "rowEveryDevice": "Identyczne odcinki na każdym urządzeniu",
       "recutRunning": "Ponowna analiza Twoich odcinków",
       "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
-      "phaseDraining": "kończenie trwających prac",
-      "phaseArchiving": "archiwizowanie starego katalogu",
+      "phasePreparing": "przygotowywanie katalogu",
       "phaseDetecting": "wycinanie nowych odcinków",
       "phaseDiffing": "porównywanie obu katalogów",
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
-      "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian."
+      "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian.",
+      "recutFailed": "Ponowna analiza nie dobiegła końca. Twoje odcinki są bez zmian, a analiza uruchomi się przy następnym starcie."
     }
   },
   "strength": {

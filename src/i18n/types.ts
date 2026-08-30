@@ -906,13 +906,13 @@ export interface TranslationResource {
       rowEveryDevice: string;
       recutRunning: string;
       recutRunningPhase: string;
-      phaseDraining: string;
-      phaseArchiving: string;
+      phasePreparing: string;
       phaseDetecting: string;
       phaseDiffing: string;
       diffTotals: string;
       diffBreakdown: string;
       diffUnchanged: string;
+      recutFailed: string;
     };
     v030: {
       insightsTitle: string;

@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "每台设备上的路段完全一致",
       "recutRunning": "正在重新分析你的路段",
       "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
-      "phaseDraining": "正在完成进行中的处理",
-      "phaseArchiving": "正在归档旧目录",
+      "phasePreparing": "正在准备目录",
       "phaseDetecting": "正在切分新路段",
       "phaseDiffing": "正在比较两份目录",
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
-      "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。"
+      "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
+      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。"
     }
   },
   "strength": {

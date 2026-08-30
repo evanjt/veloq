@@ -12,13 +12,13 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 const KEYS = [
   'recutRunning',
   'recutRunningPhase',
-  'phaseDraining',
-  'phaseArchiving',
+  'phasePreparing',
   'phaseDetecting',
   'phaseDiffing',
   'diffTotals',
   'diffBreakdown',
   'diffUnchanged',
+  'recutFailed',
 ] as const;
 
 const PLACEHOLDERS: Record<string, string[]> = {

@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Identieke stukken op elk apparaat",
       "recutRunning": "Je stukken worden opnieuw geanalyseerd",
       "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
-      "phaseDraining": "lopend werk wordt afgerond",
-      "phaseArchiving": "de oude catalogus wordt gearchiveerd",
+      "phasePreparing": "de catalogus wordt voorbereid",
       "phaseDetecting": "nieuwe stukken worden gesneden",
       "phaseDiffing": "de twee catalogi worden vergeleken",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
-      "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse."
+      "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
+      "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw."
     }
   },
   "strength": {
