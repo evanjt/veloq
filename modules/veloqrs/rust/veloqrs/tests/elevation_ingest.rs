@@ -9,7 +9,7 @@
 //! candidate needs point elevation to be raised.
 
 use tempfile::TempDir;
-use veloqrs::{GpsPoint, PersistentRouteEngine};
+use veloqrs::{GpsPoint, PersistentEngine};
 
 const METRES_PER_DEGREE_LAT: f64 = 111_132.0;
 
@@ -35,7 +35,7 @@ fn climbing_line(with_elevation: bool) -> Vec<GpsPoint> {
 fn stored_track_round_trips_elevation() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     engine
         .add_activity(
@@ -67,7 +67,7 @@ fn lift_detection_needs_point_elevation() {
 fn a_track_without_elevation_still_stores() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     engine
         .add_activity(
@@ -86,7 +86,7 @@ fn a_track_without_elevation_still_stores() {
 fn a_track_with_elevation_gaps_stores_the_gaps_as_absent() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     let mut points = climbing_line(true);
     points[10].elevation = None;

@@ -10,7 +10,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use tracematch::{GpsPoint, SectionConfig};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -27,10 +27,10 @@ fn corpus() -> Vec<LifecycleActivity> {
     .collect()
 }
 
-fn detected() -> (TempDir, PersistentRouteEngine) {
+fn detected() -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("geometry.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(SectionConfig {
         ..Default::default()
     });

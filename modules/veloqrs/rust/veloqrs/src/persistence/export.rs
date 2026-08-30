@@ -6,7 +6,7 @@
 
 use std::io::Write;
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 use super::codec::TrackRead;
 use crate::GpsPoint;
 
@@ -62,7 +62,7 @@ pub struct BulkExportResult {
     pub total_bytes: u64,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Export all activities with GPS data as GPX files inside a ZIP archive.
     ///
     /// Streams one track at a time from SQLite → GPX XML → ZIP entry on disk.

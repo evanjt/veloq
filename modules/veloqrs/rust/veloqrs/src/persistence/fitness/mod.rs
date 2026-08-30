@@ -9,9 +9,9 @@ mod performances;
 use crate::ActivityMetrics;
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Activity Metrics & Route Performances
     // ========================================================================

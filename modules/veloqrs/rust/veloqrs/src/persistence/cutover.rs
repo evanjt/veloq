@@ -9,7 +9,7 @@
 //! to go back to, so the config stays as it is.
 
 use crate::persistence::{
-    PersistentRouteEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
+    PersistentEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
 };
 use log::info;
 use rusqlite::params;
@@ -208,7 +208,7 @@ pub enum CutoverState {
     Reverted,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Called from `load()`. Reads the cutover token and sets the
     /// process-global pending flag. Nothing slow, nothing fallible beyond
     /// a missing settings table (which returns None).
@@ -288,7 +288,7 @@ fn bounds_of(points: &[tracematch::GpsPoint]) -> Option<(f64, f64, f64, f64)> {
 // Archive
 // ───────────────────────────────────────────────────────────────────
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Step 1: snapshot every auto section about to be wiped, and its
     /// members. The row predicate is `write_catalogue`'s DELETE predicate:
     /// exactly the rows the coming detect destroys, no more.

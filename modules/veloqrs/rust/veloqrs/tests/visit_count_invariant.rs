@@ -1,8 +1,8 @@
 //! The denormalised `sections.visit_count` column must agree with the junction
 //! table after every mutation path, not just the ones the triggers can see.
 //!
-//! `get_section_summaries` reads the column instead of counting rows (B4 phase
-//! 3), so a path that moves or removes junction rows without recomputing shows
+//! `get_section_summaries` reads the column instead of counting rows, so a
+//! path that moves or removes junction rows without recomputing shows
 //! the user a stale visit count until some unrelated write repairs it.
 //!
 //! Run: `cargo test --test visit_count_invariant -p veloqrs`
@@ -10,10 +10,10 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -22,7 +22,7 @@ fn setup() -> Setup {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
     Setup {
         engine,
@@ -205,7 +205,7 @@ fn a_database_left_stale_by_an_older_build_repairs_on_open() {
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
     let raw = {
-        let mut engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+        let mut engine = PersistentEngine::new(&path_str).expect("engine new");
         let raw = Connection::open(&path).expect("raw open");
         insert_activity(&raw, "a1", 1_700_000_000);
         insert_activity(&raw, "a2", 1_700_086_400);
@@ -233,7 +233,7 @@ fn a_database_left_stale_by_an_older_build_repairs_on_open() {
         "the older build's merge must leave the count stale"
     );
 
-    let _engine = PersistentRouteEngine::new(&path_str).expect("reopen");
+    let _engine = PersistentEngine::new(&path_str).expect("reopen");
     assert_counts_true(&raw, "a reopen");
 }
 
@@ -464,7 +464,7 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
     let path: PathBuf = tmp.path().join("restart.db");
     let path_str = path.to_str().unwrap().to_string();
     {
-        let _engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+        let _engine = PersistentEngine::new(&path_str).expect("engine new");
     }
     let raw = Connection::open(&path).expect("raw open");
     insert_activity(&raw, "act_a", 1_600_000_000);
@@ -490,7 +490,7 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
     assert_eq!(column, 4);
     drop(raw);
 
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("reopen");
+    let mut engine = PersistentEngine::new(&path_str).expect("reopen");
     engine.load().expect("load");
     let in_memory = engine
         .get_sections_filtered(None, None)

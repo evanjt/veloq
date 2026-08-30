@@ -6,10 +6,10 @@
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -17,7 +17,7 @@ struct Setup {
 fn setup(name: &str) -> Setup {
     let tmp = TempDir::new().expect("temp dir");
     let path = tmp.path().join(name);
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     let raw = Connection::open(&path).expect("raw open");
     Setup {
         engine,

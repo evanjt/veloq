@@ -7,9 +7,9 @@ use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{GroupSummary, PersistentRouteEngine, codec, get_route_word};
+use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -270,7 +270,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Route N" - still recognize for numbering
+                // Old pattern: "{Sport} Route N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -473,7 +473,7 @@ impl PersistentRouteEngine {
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
         // ~10× less work, and the full path dominates the wall clock
-        // without it (4s of 9s on scenario E).
+        // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
         let already_grouped: std::collections::HashSet<&str> = self
@@ -498,7 +498,7 @@ impl PersistentRouteEngine {
         let use_incremental =
             !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
-        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
             let new_sigs: Vec<RouteSignature> = arc_sigs
@@ -539,7 +539,7 @@ impl PersistentRouteEngine {
             group_ms
         );
 
-        // B2: remap the freshly-grouped catalogue onto stable assign-once ids. The
+        // Remap the freshly-grouped catalogue onto stable assign-once ids. The
         // grouping assigned each group the Union-Find root as its id (which the
         // full and incremental paths pick differently, re-keying to the min member
         // on a resync); the registry carries the prior stable id and the user's
@@ -596,7 +596,7 @@ impl PersistentRouteEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
-        // B4: `save_groups` writes the route registry blob in its own transaction
+        // `save_groups` writes the route registry blob in its own transaction
         // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
             log::error!("veloqrs: Failed to save groups to database: {}", e);
@@ -604,7 +604,7 @@ impl PersistentRouteEngine {
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
-        // Recompute materialized PR/trend indicators with updated route groups
+        // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
                 "veloqrs: [recompute_groups] Indicator recomputation failed: {}",
@@ -675,8 +675,8 @@ impl PersistentRouteEngine {
 
         // Second pass: recalculate match percentages using AMD
         // PERF: CPU bound - O(n*m) distance calculations per pair
-        // OPTIMIZATION 1: Skip self-comparisons (activity == representative)
-        // OPTIMIZATION 2: Parallelize with rayon
+        // OPTIMISATION 1: Skip self-comparisons (activity == representative)
+        // OPTIMISATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
         let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
@@ -1023,7 +1023,7 @@ impl PersistentRouteEngine {
                 }
             }
 
-            // B4: write the route registry blob in THIS transaction so it commits
+            // Write the route registry blob in THIS transaction so it commits
             // atomically with the groups.
             if let Some(blob) = self.route_identity_blob() {
                 self.db.execute(

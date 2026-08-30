@@ -225,7 +225,7 @@ fn released_migrations_are_immutable() {
 /// `migration_scripts()` never runs, and one wired in twice runs twice.
 #[test]
 fn golden_covers_every_compiled_migration() {
-    let scripts = veloqrs::PersistentRouteEngine::migration_scripts();
+    let scripts = veloqrs::PersistentEngine::migration_scripts();
     let current = current_checksums();
 
     assert_eq!(

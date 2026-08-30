@@ -15,7 +15,7 @@ use lifecycle_support::*;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Distinctive name that can never collide with the generated
 /// "<section_word> N" pattern.
@@ -29,12 +29,12 @@ fn corpus() -> LifecycleCorpus {
 
 /// The one name read used everywhere: today the DB row, after D1 the
 /// resolution overlay behind the same call.
-fn section_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
+fn section_name(engine: &PersistentEngine, id: &str) -> Option<String> {
     engine.get_section(id).and_then(|s| s.name)
 }
 
 /// Name as the list UI reads it, via the summaries path.
-fn summary_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
+fn summary_name(engine: &PersistentEngine, id: &str) -> Option<String> {
     engine
         .get_section_summaries()
         .into_iter()
@@ -44,7 +44,7 @@ fn summary_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
 
 /// Ids of visible sections currently carrying `name`.
 fn sections_named(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     snap: &SectionSnapshot,
     name: &str,
 ) -> Vec<String> {
@@ -57,7 +57,7 @@ fn sections_named(
 
 /// Exactly one visible section carries `NAME`, and it sits on `fp`'s ground.
 fn assert_single_carrier(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     snap: &SectionSnapshot,
     fp: &SectionFingerprint,
     ctx: &str,
@@ -230,7 +230,7 @@ fn junction_corpus() -> JunctionCorpus {
 /// Cold-ingest the trunk, name its section, then feed the branch chunks.
 /// Returns the engine and the final snapshot.
 fn run_junction_scenario() -> (
-    PersistentRouteEngine,
+    PersistentEngine,
     tempfile::TempDir,
     SectionSnapshot,
     Vec<GpsPoint>,
@@ -424,7 +424,7 @@ fn accepted_section_name_stays_row_local_across_restart() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let section = engine
         .get_section(&id)
@@ -454,7 +454,7 @@ fn row_name_beats_corridor_name_on_same_section() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(
         section_name(&engine, &id).as_deref(),
@@ -477,7 +477,7 @@ fn name_readable_after_restart_without_sync() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(
         section_name(&engine, &id).as_deref(),
@@ -590,7 +590,7 @@ fn name_survives_restart_and_resync() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
     assert_single_carrier(&engine, &after, &fp, "after restart + resync");
@@ -851,7 +851,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
         .expect("seed a legacy user name");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let listed = engine.get_named_corridors();
     assert_eq!(
@@ -866,7 +866,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
     drop(engine);
 
     let engine = {
-        let mut e = PersistentRouteEngine::new(path.to_str().unwrap()).expect("second reopen");
+        let mut e = PersistentEngine::new(path.to_str().unwrap()).expect("second reopen");
         e.load().expect("load again");
         e
     };
@@ -929,7 +929,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
         .expect("plant the named row");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     engine
         .clear_routes_and_sections()
@@ -949,7 +949,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
         )
         .expect("flip to disabled");
     }
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     engine
         .clear_routes_and_sections()
@@ -1007,7 +1007,7 @@ fn two_names_one_section_keeps_both() {
         .expect("plant the second intent");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     let listed = engine.get_named_corridors();
     assert_eq!(listed.len(), 2, "both intents must persist");
@@ -1077,7 +1077,7 @@ fn accepting_a_named_section_keeps_the_name() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(section_name(&engine, &id).as_deref(), Some(NAME));
     let _ = snapshot(&mut engine);

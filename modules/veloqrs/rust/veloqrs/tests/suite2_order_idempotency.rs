@@ -69,11 +69,11 @@ fn deterministic_shuffle(n: usize) -> Vec<usize> {
 /// crash mid-drip is itself a finding and is surfaced, not swallowed.
 ///
 /// Reads the raw (pre-hysteresis) catalogue: invariant 4 (order-free) is a
-/// property of DETECTION, which the raw catalogue is. Since B2 the damped visible
-/// view is deliberately path-dependent, the debounce state at the end of a drip
+/// property of DETECTION, which the raw catalogue is. The damped visible view
+/// is deliberately path-dependent, the debounce state at the end of a drip
 /// depends on the arrival order, so its final catalogue can differ fwd-vs-rev even
 /// though detection converged to the same set. Comparing the damped view here
-/// would gate B2's intentional path-dependence as a B1 order violation.
+/// would gate that intentional path-dependence as an order violation.
 fn drip(arm: Arm, pool: &[&LifecycleActivity], order: &[usize]) -> SectionSnapshot {
     let (mut engine, _dir) = fresh_engine_for(arm);
     for &i in order {
@@ -198,7 +198,8 @@ fn reingest_different_track_updates_catalogue() {
     // Freshness is a DETECTION property, so compare the RAW catalogue: an
     // append-only damped fold never drops the moved contributor from the section
     // it fed, so the visible view legitimately would not change on a single move
-    // (that member-level purge is B4). Detection re-derives immediately.
+    // (the damped view has no member-level purge). Detection re-derives
+    // immediately.
     let cold = raw_snapshot(&engine);
     let original = activity_by_id(
         &pool,
@@ -245,7 +246,7 @@ fn remove_readd_roundtrips_through_effective_removal() {
     ingest_step(&mut engine, "cold", &pool);
     // Detection-freshness gate, so read the RAW catalogue: the damped fold is
     // append-only and would keep the removed victim as a phantom member of a
-    // surviving section (member-level purge on remove is the B4 junction-FK fix),
+    // surviving section (member-level purge on remove is the junction-FK cascade),
     // but DETECTION re-derives the catalogue without it immediately.
     let s0 = raw_snapshot(&engine);
     let victim = activity_by_id(

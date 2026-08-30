@@ -7,7 +7,7 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -21,10 +21,10 @@ fn corpus() -> LifecycleCorpus {
 
 /// An engine holding a detected catalogue, plus one auto section id and
 /// one of its member activities to exclude.
-fn engine_with_excludable(dir: &TempDir) -> (PersistentRouteEngine, String, String) {
+fn engine_with_excludable(dir: &TempDir) -> (PersistentEngine, String, String) {
     let corpus = corpus();
     let path = dir.path().join("exclusion.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     let mut metrics = Vec::new();
     let mut ids = Vec::new();
     let mut times: Vec<u32> = Vec::new();
@@ -72,16 +72,16 @@ fn engine_with_excludable(dir: &TempDir) -> (PersistentRouteEngine, String, Stri
     (engine, section.id, member)
 }
 
-fn excluded(engine: &PersistentRouteEngine, section_id: &str) -> Vec<String> {
+fn excluded(engine: &PersistentEngine, section_id: &str) -> Vec<String> {
     engine.get_excluded_activity_ids(section_id)
 }
 
 /// An engine whose detected catalogue includes a member with several laps
 /// on one section, plus that section's id and the excluded lap's index.
-fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u32) {
+fn engine_with_lapped_member(dir: &TempDir) -> (PersistentEngine, String, u32) {
     let corpus = corpus();
     let path = dir.path().join("exclusion_laps.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     for a in corpus.through_a() {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -132,7 +132,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u
     (engine, section.id.clone(), starts[1])
 }
 
-fn lapped_exclusions(engine: &PersistentRouteEngine, section_id: &str) -> Vec<(String, u32)> {
+fn lapped_exclusions(engine: &PersistentEngine, section_id: &str) -> Vec<(String, u32)> {
     engine
         .get_excluded_section_laps(section_id)
         .into_iter()

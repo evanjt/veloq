@@ -25,7 +25,7 @@ use rusqlite_migration::{M, Migrations};
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 
 /// The migration set as it stood before migration 12, matching a database
@@ -267,7 +267,7 @@ fn upgrade_from_previous_version_keeps_the_data() {
     let db_path = tmp.path().join("routes.db");
     seed_previous_version_db(&db_path).expect("seed");
 
-    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
+    let engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
     drop(engine);
 
     let conn = Connection::open(&db_path).expect("reopen");
@@ -339,7 +339,7 @@ fn upgrade_from_previous_version_lands_on_the_current_schema() {
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
 
-    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
+    let engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
     drop(engine);
 
     let conn = Connection::open(&db_path).expect("reopen");
@@ -413,13 +413,13 @@ fn reopening_an_already_current_database_is_a_no_op() {
     let db_path = tmp.path().join("routes.db");
     seed_previous_version_db(&db_path).expect("seed");
 
-    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("first open"));
+    drop(PersistentEngine::new(db_path.to_str().unwrap()).expect("first open"));
     let version_after_first: i64 = Connection::open(&db_path)
         .unwrap()
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
 
-    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("second open"));
+    drop(PersistentEngine::new(db_path.to_str().unwrap()).expect("second open"));
 
     let conn = Connection::open(&db_path).unwrap();
     let version_after_second: i64 = conn
@@ -487,7 +487,7 @@ fn upgrade_to_the_stream_cache_keeps_existing_bodies() {
     .expect("seed a curve written before the upgrade");
     drop(conn);
 
-    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+    drop(PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
 
     let conn = Connection::open(&db_path).expect("reopen");
     assert_eq!(
@@ -516,7 +516,7 @@ fn upgrade_to_the_on_demand_body_tables_keeps_existing_data() {
     .expect("seed a body written before the upgrade");
     drop(conn);
 
-    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+    drop(PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
 
     let conn = Connection::open(&db_path).expect("reopen");
     for table in ["curve_bodies", "interval_bodies", "calendar_event_bodies"] {
@@ -561,7 +561,7 @@ fn upgrade_to_the_activity_bodies_table_keeps_existing_data() {
     .expect("seed metrics");
     drop(conn);
 
-    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+    drop(PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
 
     let conn = Connection::open(&db_path).expect("reopen");
     assert_eq!(
@@ -584,7 +584,7 @@ fn upgrade_to_the_activity_bodies_table_keeps_existing_data() {
 fn activity_bodies_round_trip_within_a_date_window() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
-    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open");
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open");
 
     let older = r#"{"id":"a1","name":"Older","locality":"Bern"}"#;
     let newer = r#"{"id":"a2","name":"Newer","locality":"Sion"}"#;
@@ -624,7 +624,7 @@ fn upgrading_keeps_wellness_days_written_before_the_body_column() {
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
 
-    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
+    let engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
     drop(engine);
 
     let conn = Connection::open(&db_path).expect("reopen");
@@ -662,7 +662,7 @@ fn the_wellness_body_column_survives_a_typed_only_rewrite() {
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
 
-    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("migrate");
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("migrate");
     let body = r#"{"id":"2026-07-04","ctl":62.4,"hrr":18}"#;
 
     engine
@@ -721,7 +721,7 @@ fn rows_without_a_body_are_rebuilt_from_the_typed_columns() {
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");
 
-    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("migrate");
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("migrate");
 
     engine
         .upsert_wellness(&[veloqrs::persistence::wellness::WellnessRow {
@@ -794,7 +794,7 @@ fn interrupted_beta_database_is_quarantined_rather_than_upgraded() {
 
     // Migration 012 is not idempotent, so the upgrade cannot succeed.
     assert!(
-        PersistentRouteEngine::new(&db_str).is_err(),
+        PersistentEngine::new(&db_str).is_err(),
         "re-running the non-idempotent migration must fail, not silently pass"
     );
 

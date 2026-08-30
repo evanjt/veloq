@@ -10,7 +10,7 @@ use tracematch::{
     RankTraversal, SectionClass,
 };
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 
 /// Read the profile columns: gain and grade at `gain_idx`, the rest of the
 /// enrichment from `base` in migration order.
@@ -69,7 +69,7 @@ fn iso_date(epoch: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}")
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The stored profile and scores of one section, defaults when the row
     /// predates the columns.
     pub(super) fn read_enrichment(&self, section_id: &str) -> (Enrichment, Option<RankFeatures>) {

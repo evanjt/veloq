@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use tracematch::{GpsPoint, SectionEvidenceCache, detect_sections_unified_incremental_observed};
-use veloqrs::persistence::{CacheUpdate, PersistentRouteEngine};
+use veloqrs::persistence::{CacheUpdate, PersistentEngine};
 
 /// Three far-apart clusters, each its own corridor library, ids prefixed
 /// per cluster so the three generators cannot mint the same id.
@@ -69,7 +69,7 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
     let twin_path = dir.path().join("twin.db");
     std::fs::copy(&path, &twin_path).expect("copy db");
     let expected = {
-        let mut twin = PersistentRouteEngine::new(twin_path.to_str().unwrap()).expect("twin");
+        let mut twin = PersistentEngine::new(twin_path.to_str().unwrap()).expect("twin");
         twin.load().expect("load twin");
         ingest_step(&mut twin, "twin", &held).snapshot
     };
@@ -143,7 +143,7 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
     drop(engine);
 
     // Next launch: the debt is restored, and one detect settles it.
-    let mut resumed = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut resumed = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     resumed.load().expect("load");
     assert_eq!(
         resumed.evidence_cache_dirty_clusters(),

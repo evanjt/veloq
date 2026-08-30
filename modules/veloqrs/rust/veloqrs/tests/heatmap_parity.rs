@@ -17,11 +17,11 @@ use image::GenericImageView;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const FIXTURE_FILE: &str = "tests/fixtures/heatmap_parity_v1.txt";
 
-fn seed_engine(tmp: &TempDir) -> PersistentRouteEngine {
+fn seed_engine(tmp: &TempDir) -> PersistentEngine {
     let cfg = LifecycleConfig {
         bucket_a_count: 15,
         bucket_b_delta_count: 0,
@@ -32,7 +32,7 @@ fn seed_engine(tmp: &TempDir) -> PersistentRouteEngine {
     };
     let corpus = LifecycleCorpus::generate(&cfg);
     let db = tmp.path().join("parity.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in corpus.bucket_a {
         engine
             .add_activity(a.id, a.gps_points, a.sport_type)

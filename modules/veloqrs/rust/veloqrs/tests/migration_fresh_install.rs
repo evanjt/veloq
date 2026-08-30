@@ -1,18 +1,18 @@
 //! Fresh-install schema verification test.
 //!
-//! Opens a PersistentRouteEngine against an empty database, then verifies
+//! Opens a PersistentEngine against an empty database, then verifies
 //! that the whole migration chain produces the expected tables, columns and
 //! indexes.
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn open_fresh_db() -> (TempDir, Connection) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fresh.db");
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     }
     let conn = Connection::open(&path).expect("reopen");
     (dir, conn)
@@ -45,7 +45,7 @@ fn index_exists(conn: &Connection, name: &str) -> bool {
 fn fresh_install_version_numbers() {
     let (_dir, conn) = open_fresh_db();
 
-    let expected = PersistentRouteEngine::migration_scripts().len() as i64;
+    let expected = PersistentEngine::migration_scripts().len() as i64;
 
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))

@@ -10,7 +10,7 @@
 //! The Battery arm (`DetectionMethod::Unified`) is the probe here because the
 //! behaviour under test lives in the detector: it cuts one pool and emits
 //! sections ordered by each cluster's south-west corner. Identity is layered on
-//! top (B2), so an id must stay on its ground while that emission order moves
+//! top, so an id must stay on its ground while that emission order moves
 //! underneath it.
 //!
 //! One gate per curiosity. Three hold today and run live; the shared-corridor
@@ -276,7 +276,7 @@ fn geo_scenario(
 /// geography 1 when geography 2 is added to the SOUTH, the harder direction,
 /// its clusters sort ahead of geography 1's, so a counter numbered by south-west
 /// corner would renumber geography 1 wholesale. Identity is assigned once and
-/// carried with the ground (B2), independent of what else the catalogue holds.
+/// carried with the ground, independent of what else the catalogue holds.
 #[test]
 fn distant_geography_must_not_reshuffle_ids() {
     let (g1a, g1b) = geo_scenario(46.37, 0x5150, "g2s_");
@@ -387,7 +387,7 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
 /// Gate (invariant 2, id survives a sport addition): adding a second sport on
 /// the same ground must leave the cold section's id still on that ground.
 ///
-/// This is B2's identity layer: the Run pass re-cuts the whole pool, and B2's
+/// This is the identity layer: the Run pass re-cuts the whole pool, and its
 /// resolution hands the cold id to the surviving candidate rather than
 /// re-minting it. The heading that candidate carries is gated separately by
 /// `shared_corridor_yields_one_section_with_stable_sport`.

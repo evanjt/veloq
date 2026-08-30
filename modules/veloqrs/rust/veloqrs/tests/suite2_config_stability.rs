@@ -1,14 +1,15 @@
 //! Suite #2, `set_section_config` no-op stability (the launch-renumber guard).
 //!
-//! Since B2, `set_section_config` resets the identity registry, because a genuine
+//! `set_section_config` resets the identity registry, because a genuine
 //! config change invalidates the identity basis (the stable ids were assigned to
 //! ground the old params found). But the TS init path re-sends the PERSISTED
 //! config on every launch (GlobalDataSync applies the strictness preset whenever
 //! `detectionStrictness != 60`), so an UNCHANGED config must be a no-op or every
-//! section renumbers on each open for any user who has moved the slider. B2
-//! defeated at startup for exactly the engaged users. The guard is a
-//! top-of-function early-return when `config == self.section_config`, gating the
-//! whole tail (settings persist, processed-set clear, dirty flag, registry reset).
+//! section renumbers on each open for any user who has moved the slider, which
+//! defeats stable identity at startup for exactly the engaged users. The guard
+//! is a top-of-function early-return when `config == self.section_config`,
+//! gating the whole tail (settings persist, processed-set clear, dirty flag,
+//! registry reset).
 //!
 //! These gates lock both halves: re-sending the active config leaves the
 //! catalogue and its ids untouched across a later detect, while a genuine change
@@ -24,7 +25,7 @@ use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::sections::SectionConfig;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -114,7 +115,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     cfg.min_corridor_tracks = 5;
 
     let before = {
-        let mut e = PersistentRouteEngine::new(ps).expect("engine");
+        let mut e = PersistentEngine::new(ps).expect("engine");
         e.set_section_config(cfg.clone());
         ingest_step(&mut e, "cold", &corpus.through_a());
         ids(&snapshot(&mut e))
@@ -122,7 +123,7 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     assert!(!before.is_empty(), "cold detect produced no sections");
 
     // Restart: reopen the same DB, hydrate from settings.
-    let mut e2 = PersistentRouteEngine::new(ps).expect("reopen");
+    let mut e2 = PersistentEngine::new(ps).expect("reopen");
     e2.load().expect("load");
     // The launch re-apply of the identical config, must be a no-op now.
     e2.set_section_config(cfg.clone());

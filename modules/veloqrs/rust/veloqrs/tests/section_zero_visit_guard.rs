@@ -1,4 +1,4 @@
-//! SB6. A section whose portions all belong to activities the pool no longer
+//! A section whose portions all belong to activities the pool no longer
 //! holds gets zero junction rows, so no `visit_count` trigger fires and the
 //! catalogue gains a "0 visits" card over an empty detail screen. The apply
 //! must drop such a section instead of persisting it.
@@ -10,12 +10,12 @@
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn engine_with_sections() -> (PersistentRouteEngine, TempDir, std::path::PathBuf) {
+fn engine_with_sections() -> (PersistentEngine, TempDir, std::path::PathBuf) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("sb6.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -92,7 +92,7 @@ fn a_section_whose_members_left_the_pool_is_not_persisted() {
 
     let before = engine.get_sections().len();
 
-    // The SB6 payload: a frozen carry whose every member has left the pool.
+    // The payload: a frozen carry whose every member has left the pool.
     let mut broken: Vec<_> = engine.get_sections().to_vec();
     let victim = broken[0].id.clone();
     for portion in &mut broken[0].activity_portions {

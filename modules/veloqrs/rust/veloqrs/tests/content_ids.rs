@@ -16,7 +16,7 @@ use lifecycle_support::*;
 use rusqlite::{Connection, params};
 use std::collections::BTreeSet;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::content_id_for;
 
 fn corpus() -> LifecycleCorpus {
@@ -91,7 +91,7 @@ fn an_id_remint_carries_history_pins_intents_and_exclusions() {
         );
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     let conn = Connection::open(&path).unwrap();
     for (table, column) in [

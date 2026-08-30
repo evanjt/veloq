@@ -5,7 +5,7 @@
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 fn polyline() -> Vec<GpsPoint> {
@@ -14,15 +14,15 @@ fn polyline() -> Vec<GpsPoint> {
         .collect()
 }
 
-fn open() -> (TempDir, PersistentRouteEngine, String) {
+fn open() -> (TempDir, PersistentEngine, String) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("intents.db");
     let db_path = path.to_str().unwrap().to_string();
-    let engine = PersistentRouteEngine::new(&db_path).expect("engine");
+    let engine = PersistentEngine::new(&db_path).expect("engine");
     (dir, engine, db_path)
 }
 
-fn create(engine: &mut PersistentRouteEngine) -> String {
+fn create(engine: &mut PersistentEngine) -> String {
     engine
         .create_section(CreateSectionParams {
             sport_type: "Ride".to_string(),
@@ -129,7 +129,7 @@ fn upgrade_widens_key_and_keeps_named_columns() {
         .expect("install old shape");
     }
 
-    let engine = PersistentRouteEngine::new(&db_path).expect("reopen engine");
+    let engine = PersistentEngine::new(&db_path).expect("reopen engine");
     drop(engine);
 
     let conn = Connection::open(&db_path).expect("reopen");

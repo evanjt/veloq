@@ -1,4 +1,4 @@
--- Migration 017: B4 core, durable identity + intent + read-path columns.
+-- Migration 017: B4 core — durable identity + intent + read-path columns.
 --
 -- Phase 1 (this block): persist the B2 identity registries. The section and
 -- route registries were in-memory pre-B4 (reseeded from the DB on open, which
@@ -19,13 +19,13 @@ CREATE TABLE IF NOT EXISTS identity_state (
 -- section_id FK. So a deleted ride left a phantom member behind: an inflated
 -- visit_count and a performance record for a GPS track that no longer exists.
 -- SQLite cannot ADD a constraint to a live table, so rebuild it with the second
--- cascade. foreign_keys defaults ON on this connection (so it is ON here, the
+-- cascade. foreign_keys defaults ON on this connection (so it is ON here — the
 -- whole migration is one transaction, where a PRAGMA toggle would be a no-op), so
 -- the copy FILTERS orphans rather than aborting the insert on one. That filter
 -- also cleans any phantom rows an earlier remove_activity already stranded.
 -- Ground truth (behavioural probe): rusqlite's bundled SQLite defaults foreign
 -- keys ON per connection, so enforcement is live for FRESH and REOPENED engines
--- alike, the activity_id cascade fires at runtime for existing users too, not
+-- alike — the activity_id cascade fires at runtime for existing users too, not
 -- only for the fresh install that ran migration 001's explicit PRAGMA.
 --
 -- Re-runnable by design: the DROP … _rebuild guard makes a repeat run rebuild
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS section_intents (
 
 -- D4: section history, versioned geometry, and pins. All three key on the
 -- durable real section id with NO foreign key to sections: that table is
--- wipe-managed per save, and history must outlive any catalogue rebuild,
+-- wipe-managed per save, and history must outlive any catalogue rebuild —
 -- events are kept forever, geometry versions survive a re-cut of the row
 -- they describe. Ships dark: the D5 emitter writes these rows.
 
@@ -147,8 +147,8 @@ CREATE INDEX IF NOT EXISTS idx_section_history_at
 
 -- Versioned polylines. encoding 1 = quantised zigzag-varint stream
 -- (codec.rs encode_polyline: 1e-6 deg, 0.1 m elevation, ~3 B/point on the
--- measured corpora vs ~62 B/point JSON). Versions are independent, each
--- row decodes alone, no delta chains, so a revert needs no chain walk
+-- measured corpora vs ~62 B/point JSON). Versions are independent — each
+-- row decodes alone, no delta chains — so a revert needs no chain walk
 -- and a quarantine salvage cannot lose a version to a torn predecessor.
 -- Retention on write: version 1 (birth geometry), milestones, the pinned
 -- version, and the newest three always survive; other versions are pruned.

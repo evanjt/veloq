@@ -1,7 +1,7 @@
-//! Suite #2, engine-side evidence-cache coherence (B1 Phase 2).
+//! Suite #2, engine-side evidence-cache coherence.
 //!
 //! Phase 2 makes the engine USE tracematch's cached cluster-recompute
-//! incremental: `PersistentRouteEngine` holds a per-(sport, cluster) evidence
+//! incremental: `PersistentEngine` holds a per-(sport, cluster) evidence
 //! cache in memory and folds only the activities a sync newly sees, recomputing
 //! just the touched cluster(s). tracematch proves the cached fold equals the
 //! batch; THIS suite proves the ENGINE never desyncs that cache from the DB it
@@ -64,16 +64,17 @@ fn namespaced(prefix: &str, acts: &[&LifecycleActivity]) -> Vec<LifecycleActivit
 }
 
 /// The from-scratch batch catalogue over `activities`: a fresh Battery engine,
-/// one batch ingest, the RAW detection catalogue. This is the B1 convergence
+/// one batch ingest, the RAW detection catalogue. This is the convergence
 /// ground truth the cached drip must match at every step.
 ///
 /// Reads the raw (pre-hysteresis) catalogue, not the damped visible view: this
-/// suite is the B1 evidence-cache parity contract (detection == batch), and since
-/// B2 the damped view legitimately lags the raw batch by up to `k` steps while a
+/// suite is the evidence-cache parity contract (detection == batch), and the
+/// damped view legitimately lags the raw batch by up to `k` steps while a
 /// dissolve debounces (a drip that has seen a section dissolve holds it a few more
-/// detects, so its DAMPED count can exceed the batch's, that is B2 working, not a
-/// cache desync). DETECTION stays order-free every step, so both sides compare the
-/// raw catalogue. B2 identity stability is gated separately (suite2_battery et al.,
+/// detects, so its DAMPED count can exceed the batch's, that is hysteresis
+/// working, not a cache desync). DETECTION stays order-free every step, so both
+/// sides compare the raw catalogue. Identity stability is gated separately
+/// (suite2_battery et al.,
 /// on the visible view). A one-step batch from empty has no lag, so its raw and
 /// damped views are identical anyway.
 fn batch_snapshot(activities: &[&LifecycleActivity]) -> SectionSnapshot {
@@ -210,7 +211,7 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
 // ============================================================================
 // Gate 3. RESTART cold-rebatches the full pool
 //
-// The cache is in-memory only (B4 owns persistence), so a fresh engine after a
+// The cache is in-memory only, so a fresh engine after a
 // restart starts cold while the catalogue lives in the DB. The risk: a cold
 // cache plus one new activity must fold the WHOLE pool (cold-rebatch = batch),
 // not just the one new id onto an empty cache (which would collapse the
@@ -232,7 +233,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
     // Production restart: new() + load() hydrates the catalogue from the DB but
     // comes up with an EMPTY evidence cache.
     let path = dir.path().join("lifecycle.db");
-    let mut e2 = veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut e2 = veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     e2.load().expect("load after reopen");
     assert_eq!(
         snapshot(&mut e2).catalogue_signature(),

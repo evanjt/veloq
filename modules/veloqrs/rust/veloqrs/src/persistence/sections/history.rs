@@ -1,10 +1,10 @@
-//! Section history, versioned geometry, and pins: the D4 storage layer.
+//! Section history, versioned geometry, and pins: the storage layer.
 //!
 //! Three tables keyed on the durable real section id with no foreign key to
 //! the wipe-managed `sections` table, so events outlive every catalogue
 //! rebuild. `section_history` holds one row per lifecycle event, kept
 //! forever; the event vocabulary and `details` payload shape belong to the
-//! emitter (D5), which is the only writer of event rows. `section_geometry`
+//! lifecycle emitter, which is the only writer of event rows. `section_geometry`
 //! holds independently-decodable polyline versions (codec `encode_polyline`,
 //! corpus-measured ~3 B/point); `section_pins` freezes a section at a stored
 //! version (revert = pin at version).
@@ -16,7 +16,7 @@
 
 use rusqlite::{OptionalExtension, params};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use tracematch::GpsPoint;
 
@@ -645,7 +645,7 @@ pub(super) fn append_superseded_pair_on(
     Ok((old_event, new_event))
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The generation the stored catalogue was cut under, when it disagrees
     /// with the live config. None on a catalogue nothing has saved yet, and
     /// None while the two agree.

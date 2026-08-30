@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -37,15 +37,15 @@ fn unified_config() -> SectionConfig {
     }
 }
 
-fn open(dir: &TempDir) -> PersistentRouteEngine {
+fn open(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("evidence.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
     engine.set_section_config(unified_config());
     engine
 }
 
-fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) {
+fn ingest(engine: &mut PersistentEngine, activities: &[LifecycleActivity]) {
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -56,7 +56,7 @@ fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) 
     }
 }
 
-fn detect(engine: &mut PersistentRouteEngine) {
+fn detect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (main, cache_update) = handle.recv_with_cache();
     let (sections, processed) = main.unwrap_or_default();
@@ -71,7 +71,7 @@ fn detect(engine: &mut PersistentRouteEngine) {
 /// Every section's member set, order-free. Ids are minted off the clock until
 /// they come from the ground, so two engines cutting the same catalogue at
 /// different moments agree on membership and not on ids.
-fn catalogue(engine: &mut PersistentRouteEngine) -> BTreeSet<BTreeSet<String>> {
+fn catalogue(engine: &mut PersistentEngine) -> BTreeSet<BTreeSet<String>> {
     engine
         .get_sections()
         .iter()
@@ -81,7 +81,7 @@ fn catalogue(engine: &mut PersistentRouteEngine) -> BTreeSet<BTreeSet<String>> {
 
 /// The catalogue including its ids, for the paths where nothing is re-cut and
 /// the ids must therefore be the ones already stored.
-fn catalogue_with_ids(engine: &mut PersistentRouteEngine) -> BTreeSet<(String, BTreeSet<String>)> {
+fn catalogue_with_ids(engine: &mut PersistentEngine) -> BTreeSet<(String, BTreeSet<String>)> {
     engine
         .get_sections()
         .iter()
@@ -99,7 +99,7 @@ fn cache_row(dir: &TempDir) -> Option<(String, usize)> {
     .ok()
 }
 
-fn seeded(dir: &TempDir) -> PersistentRouteEngine {
+fn seeded(dir: &TempDir) -> PersistentEngine {
     let pool = corpus();
     let mut engine = open(dir);
     ingest(&mut engine, &pool);
@@ -149,7 +149,7 @@ fn a_restart_under_another_config_starts_cold() {
     drop(first);
 
     let path = dir.path().join("evidence.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(SectionConfig {
         min_activities: unified_config().min_activities + 1,
         ..unified_config()
@@ -271,7 +271,7 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
 
     let fresh_dir = TempDir::new().unwrap();
     let path = fresh_dir.path().join("evidence.db");
-    let mut fresh = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut fresh = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     fresh.load().expect("load");
     fresh.set_section_config(SectionConfig {
         min_activities: unified_config().min_activities + 3,

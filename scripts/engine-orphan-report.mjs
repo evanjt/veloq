@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Engine orphan report: public PersistentRouteEngine methods whose only
+ * Engine orphan report: public PersistentEngine methods whose only
  * callers are tests. Such a method is dead app surface, the app cannot
  * reach it, tests keep it compiling, and its semantics can silently drift
  * from the path the app actually uses (the rename_section case: promoted
@@ -28,7 +28,7 @@ function rustFiles(dir) {
   return out;
 }
 
-// Public methods declared inside `impl PersistentRouteEngine` blocks.
+// Public methods declared inside `impl PersistentEngine` blocks.
 // Brace-count from each impl header; collect `pub fn` names in that span.
 function engineMethods() {
   const methods = new Map(); // name -> file
@@ -38,7 +38,7 @@ function engineMethods() {
     let depth = 0;
     let inImpl = false;
     for (const line of lines) {
-      if (!inImpl && /^impl\s+PersistentRouteEngine\b/.test(line)) {
+      if (!inImpl && /^impl\s+PersistentEngine\b/.test(line)) {
         inImpl = true;
         depth = 0;
       }

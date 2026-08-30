@@ -3,7 +3,7 @@
 use crate::fit::FitExerciseSet;
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// A settled verdict on an activity's FIT file. Only these three reach
 /// `fit_file_status`; a retryable download failure records nothing at all, which
@@ -32,7 +32,7 @@ impl FitOutcome {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Store parsed exercise sets for an activity.
     pub fn store_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
         let mut stmt = self.db.prepare(

@@ -1,3 +1,8 @@
+# Patterns here are matched against paths relative to this file, so they must
+# stay unanchored: a bare `android/` matches because the relative path carries
+# a `../`, but a leading-slash `/android/` would resolve under config/ and
+# match nothing. Anchor a pattern only from a root-level .prettierignore.
+
 node_modules/
 android/
 ios/

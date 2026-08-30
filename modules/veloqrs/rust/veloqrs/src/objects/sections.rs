@@ -676,7 +676,7 @@ impl SectionManager {
                 e.get_all_section_summaries(None)
                     .into_iter()
                     .filter(|s| {
-                        crate::persistence::PersistentRouteEngine::summary_covers_sport(s, sport)
+                        crate::persistence::PersistentEngine::summary_covers_sport(s, sport)
                     })
                     .collect()
             }
@@ -798,7 +798,7 @@ impl SectionManager {
 
     /// Read pre-computed indicators for a batch of activity IDs.
     /// Returns section PRs, route PRs, section trends, and route trends
-    /// from the materialized `activity_indicators` table.
+    /// from the materialised `activity_indicators` table.
     fn get_activity_indicators(
         &self,
         activity_ids: Vec<String>,

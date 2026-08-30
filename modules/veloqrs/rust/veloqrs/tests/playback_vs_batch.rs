@@ -86,8 +86,8 @@ fn playback_vs_batch_cold_set() {
     }
 }
 
-/// Target gate (B1 order-free incremental): the drip MUST converge to the
-/// batch catalogue. Green under B1, the Unified cached incremental folds the
+/// Target gate (order-free incremental): the drip MUST converge to the
+/// batch catalogue. The Unified cached incremental folds the
 /// accumulated pool cluster by cluster, so the one-at-a-time drip lands on the
 /// same ground as the from-scratch batch. Ground-based so it survives id
 /// renumbering. This is the single most important gate in the suite.

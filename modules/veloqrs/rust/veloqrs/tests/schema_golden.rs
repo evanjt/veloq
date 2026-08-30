@@ -19,7 +19,7 @@ use migration_support::*;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn fixture_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/schema")
@@ -306,7 +306,7 @@ fn fresh_engine_schema() -> (TempDir, String) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fresh.db");
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("fresh engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("fresh engine");
     }
     let conn = Connection::open(&path).expect("reopen fresh");
     let dump = canonical_schema(&conn);
@@ -318,7 +318,7 @@ fn upgraded_from_schema(seed: u32) -> (TempDir, String) {
     let path = dir.path().join(format!("from_v{seed}.db"));
     drop(seed_at_version(&path, seed));
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
     }
     let conn = Connection::open(&path).expect("reopen upgraded");
     let dump = canonical_schema(&conn);
@@ -381,7 +381,7 @@ fn upgrade_from_v11_stamped_seven_lands_on_the_fresh_schema() {
     stamp_app_schema_version(&conn, 7);
     drop(conn);
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
     }
     let conn = Connection::open(&path).expect("reopen");
     let upgraded = canonical_schema(&conn);
@@ -401,7 +401,7 @@ fn fresh_install_carries_every_table_including_the_post_012_ones() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fresh.db");
     {
-        let _engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("fresh engine");
+        let _engine = PersistentEngine::new(path.to_str().unwrap()).expect("fresh engine");
     }
     let conn = Connection::open(&path).expect("reopen");
     let tables = tables_at(&conn);

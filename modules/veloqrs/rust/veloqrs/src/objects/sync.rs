@@ -20,7 +20,7 @@ use crate::governor::{AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ManualActivityBody;
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::bodies::CurveKind;
 use once_cell::sync::Lazy;
 use rusqlite::Result as SqlResult;
@@ -415,7 +415,7 @@ pub fn bodies_stored() -> u64 {
 /// still absent.
 async fn store_body<F>(what: &'static str, write: F)
 where
-    F: FnOnce(&mut PersistentRouteEngine) -> SqlResult<()> + Send + 'static,
+    F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
 {
     let stored =
         crate::persistence::with_persistent_engine_blocking(move |engine| match write(engine) {

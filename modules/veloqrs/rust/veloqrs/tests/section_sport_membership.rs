@@ -17,7 +17,7 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::SectionConfig;
 use tracematch::scenarios::LifecycleActivity;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const RIDE: &str = "Ride";
 const RUN: &str = "Run";
@@ -81,10 +81,10 @@ fn pass(idx: usize, sport: &str) -> LifecycleActivity {
     }
 }
 
-fn pooled_engine() -> (PersistentRouteEngine, TempDir) {
+fn pooled_engine() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("sport.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(SectionConfig {
         pool_sports: true,
         ..SectionConfig::default()
@@ -92,7 +92,7 @@ fn pooled_engine() -> (PersistentRouteEngine, TempDir) {
     (engine, dir)
 }
 
-fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) {
+fn ingest(engine: &mut PersistentEngine, activities: &[LifecycleActivity]) {
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -103,7 +103,7 @@ fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) 
     }
 }
 
-fn detect(engine: &mut PersistentRouteEngine) {
+fn detect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("apply_sections");
@@ -113,7 +113,7 @@ fn detect(engine: &mut PersistentRouteEngine) {
 }
 
 /// A pool both sports travel: six rides and six runs over the same road.
-fn shared_road_engine() -> (PersistentRouteEngine, TempDir) {
+fn shared_road_engine() -> (PersistentEngine, TempDir) {
     let (mut engine, dir) = pooled_engine();
     let mut pool: Vec<LifecycleActivity> = (0..6).map(|i| pass(i, RIDE)).collect();
     pool.extend((6..12).map(|i| pass(i, RUN)));
@@ -122,7 +122,7 @@ fn shared_road_engine() -> (PersistentRouteEngine, TempDir) {
     (engine, dir)
 }
 
-fn sports_of(engine: &PersistentRouteEngine, section_id: &str) -> BTreeSet<String> {
+fn sports_of(engine: &PersistentEngine, section_id: &str) -> BTreeSet<String> {
     engine
         .get_sections()
         .iter()
@@ -252,7 +252,7 @@ fn seed_shared_section(db_path: &std::path::Path) {
 fn ranking_partitions_traversals_by_sport() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("rank.db");
-    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("engine");
+    let engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("engine");
     seed_shared_section(&db_path);
 
     let ranked = |sport: &str| {
@@ -288,7 +288,7 @@ fn ranking_partitions_traversals_by_sport() {
 fn a_record_is_earned_against_the_same_sport() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("pr.db");
-    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("engine");
+    let engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("engine");
     seed_shared_section(&db_path);
     engine
         .recompute_activity_indicators()

@@ -15,7 +15,7 @@ use rusqlite::{Connection, params};
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 const PREVIOUS: u32 = 18;
@@ -96,7 +96,7 @@ fn an_upgrade_relaxes_the_column_and_keeps_every_row() {
     seed_previous(&path);
     assert!(polyline_json_not_null(&Connection::open(&path).unwrap()));
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
     let legacy = engine.get_section_by_id("legacy").expect("legacy row");
     assert_eq!(legacy.polyline.len(), 40, "legacy JSON still decodes");
     let blob = engine.get_section_by_id("blob").expect("blob row");
@@ -155,7 +155,7 @@ fn a_torn_rebuild_leaves_the_old_table_intact() {
         .execute_batch("CREATE VIEW sections_rebuild AS SELECT 1 AS x")
         .unwrap();
 
-    let opened = PersistentRouteEngine::new(path.to_str().unwrap());
+    let opened = PersistentEngine::new(path.to_str().unwrap());
     assert!(opened.is_err(), "a failed rebuild must not open as healthy");
 
     let conn = Connection::open(&path).unwrap();
@@ -168,7 +168,7 @@ fn a_torn_rebuild_leaves_the_old_table_intact() {
 fn a_fresh_write_leaves_polyline_json_null() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("fresh.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     engine
         .add_activity("a1".into(), points(60), "Ride".into())
         .unwrap();
@@ -211,7 +211,7 @@ fn the_rebuild_keeps_every_index_and_column() {
         )
         .unwrap();
 
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
     drop(engine);
 
     let conn = Connection::open(&path).unwrap();

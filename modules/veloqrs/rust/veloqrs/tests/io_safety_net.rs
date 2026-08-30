@@ -13,12 +13,12 @@ use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn fresh_engine() -> (Arc<RwLock<PersistentRouteEngine>>, TempDir) {
+fn fresh_engine() -> (Arc<RwLock<PersistentEngine>>, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("io_safety.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (Arc::new(RwLock::new(engine)), dir)
 }
 

@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashMap};
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -27,7 +27,7 @@ fn corpus() -> Vec<LifecycleActivity> {
     .collect()
 }
 
-fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) {
+fn ingest(engine: &mut PersistentEngine, activities: &[LifecycleActivity]) {
     for activity in activities {
         engine
             .add_activity(
@@ -48,7 +48,7 @@ fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) 
     }
 }
 
-fn detect(engine: &mut PersistentRouteEngine) {
+fn detect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("apply_sections");
@@ -58,7 +58,7 @@ fn detect(engine: &mut PersistentRouteEngine) {
 }
 
 /// Member activities of every section, order-free.
-fn catalogue(engine: &PersistentRouteEngine) -> Vec<Vec<String>> {
+fn catalogue(engine: &PersistentEngine) -> Vec<Vec<String>> {
     let mut entries: Vec<Vec<String>> = engine
         .get_sections()
         .iter()
@@ -74,7 +74,7 @@ fn catalogue(engine: &PersistentRouteEngine) -> Vec<Vec<String>> {
 
 /// Sports of the activities that ended up in the catalogue.
 fn covered_sports(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     activities: &[LifecycleActivity],
 ) -> BTreeSet<String> {
     let sports: HashMap<&str, &str> = activities
@@ -89,7 +89,7 @@ fn covered_sports(
         .collect()
 }
 
-fn pooled_unified(engine: &mut PersistentRouteEngine) {
+fn pooled_unified(engine: &mut PersistentEngine) {
     engine.set_section_config(SectionConfig {
         pool_sports: true,
         ..SectionConfig::default()
@@ -105,13 +105,13 @@ fn test_pooled_cold_and_warm_detections_agree() {
     let dir = TempDir::new().unwrap();
 
     let cold_path = dir.path().join("cold.db");
-    let mut cold = PersistentRouteEngine::new(cold_path.to_str().unwrap()).expect("engine");
+    let mut cold = PersistentEngine::new(cold_path.to_str().unwrap()).expect("engine");
     pooled_unified(&mut cold);
     ingest(&mut cold, &activities);
     detect(&mut cold);
 
     let warm_path = dir.path().join("warm.db");
-    let mut warm = PersistentRouteEngine::new(warm_path.to_str().unwrap()).expect("engine");
+    let mut warm = PersistentEngine::new(warm_path.to_str().unwrap()).expect("engine");
     pooled_unified(&mut warm);
     let (head, tail) = activities.split_at(activities.len() / 2);
     ingest(&mut warm, head);
@@ -126,7 +126,7 @@ fn test_pooled_cold_and_warm_detections_agree() {
         detect(&mut cold);
     }
 
-    let raw = |e: &PersistentRouteEngine| -> Vec<Vec<String>> {
+    let raw = |e: &PersistentEngine| -> Vec<Vec<String>> {
         let mut v: Vec<Vec<String>> = e
             .raw_detection_catalogue()
             .iter()
@@ -164,13 +164,13 @@ fn test_detection_catalogue_stable_across_invocations() {
     let dir = TempDir::new().unwrap();
     let start_path = dir.path().join("start.db");
     let mut start_engine =
-        PersistentRouteEngine::new(start_path.to_str().unwrap()).expect("engine");
+        PersistentEngine::new(start_path.to_str().unwrap()).expect("engine");
     ingest(&mut start_engine, &activities);
     detect(&mut start_engine);
 
     let reversed_path = dir.path().join("reversed.db");
     let mut reversed_engine =
-        PersistentRouteEngine::new(reversed_path.to_str().unwrap()).expect("engine");
+        PersistentEngine::new(reversed_path.to_str().unwrap()).expect("engine");
     let mut reversed: Vec<LifecycleActivity> = activities.clone();
     reversed.reverse();
     ingest(&mut reversed_engine, &reversed);

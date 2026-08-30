@@ -9,7 +9,7 @@
 
 use tempfile::TempDir;
 use tracematch::{Direction, FrequentSection, GpsPoint, SectionPortion};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 const BASE_LAT: f64 = 46.0;
@@ -113,10 +113,10 @@ fn auto_section(id: &str, polyline: Vec<GpsPoint>, members: &[&str]) -> Frequent
     }
 }
 
-fn engine_with_activities(tracks: &[(&str, Vec<GpsPoint>)]) -> (PersistentRouteEngine, TempDir) {
+fn engine_with_activities(tracks: &[(&str, Vec<GpsPoint>)]) -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("dedup.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     for (i, (id, pts)) in tracks.iter().enumerate() {
         engine
             .add_activity((*id).to_string(), pts.clone(), "Ride".to_string())

@@ -6,9 +6,9 @@
 
 use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use super::compute_section_portions;
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
@@ -24,7 +24,7 @@ pub(super) struct ExclusionSnapshot {
     pub(super) partial: Vec<(String, Vec<u32>)>,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Exclude an activity from a section's analysis.
     /// Sets the `excluded` flag to 1 on the junction table row(s).
     pub fn exclude_activity_from_section(
@@ -112,7 +112,6 @@ impl PersistentRouteEngine {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let rand_suffix: u32 = (ts % 100000) as u32;
 
         // Determine section type based on whether source_activity_id is provided
         let (section_type, id_prefix) = if params.source_activity_id.is_some() {
@@ -121,7 +120,35 @@ impl PersistentRouteEngine {
             (SectionType::Auto, "auto")
         };
 
-        let id = format!("{}_{}__{:05}", id_prefix, ts, rand_suffix);
+        // The trailing number disambiguates draws that share a millisecond. It
+        // was `ts % 100000`, a second reading of the same clock, so it carried no
+        // information and two calls inside one millisecond minted the same id.
+        // The `custom_` prefix is load-bearing in five places, so the shape stays
+        // and only the number is earned, the way `content_id_for` earns its own.
+        let mut id = String::new();
+        for n in 0..100_000u32 {
+            let candidate = format!("{}_{}__{:05}", id_prefix, ts, n);
+            let taken: bool = self
+                .db
+                .query_row(
+                    "SELECT 1 FROM sections WHERE id = ?",
+                    params![candidate],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(|e| format!("Failed to check section id: {}", e))?
+                .is_some();
+            if !taken {
+                id = candidate;
+                break;
+            }
+        }
+        if id.is_empty() {
+            return Err(format!(
+                "Failed to create section: every id for millisecond {} is taken",
+                ts
+            ));
+        }
         let created_at = chrono::Utc::now().to_rfc3339();
         let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
             .map_err(|e| format!("Failed to encode polyline: {}", e))?;
@@ -180,7 +207,7 @@ impl PersistentRouteEngine {
         // get_sections() reflects it without a reload.
         self.refresh_section_in_memory(&id);
 
-        // Refresh the materialized activity_indicators table so feed cards
+        // Refresh the materialised activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
         if let Err(e) = self.recompute_activity_indicators() {
@@ -1039,7 +1066,7 @@ impl PersistentRouteEngine {
         self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the
-        // materialized indicators table so feed cards stop showing chips
+        // materialised indicators table so feed cards stop showing chips
         // for a section the user just removed.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(

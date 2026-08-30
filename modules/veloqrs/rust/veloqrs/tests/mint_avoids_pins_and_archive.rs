@@ -7,13 +7,13 @@
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn open() -> (TempDir, PersistentRouteEngine, String) {
+fn open() -> (TempDir, PersistentEngine, String) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("mint.db");
     let db_path = path.to_str().unwrap().to_string();
-    let engine = PersistentRouteEngine::new(&db_path).expect("engine");
+    let engine = PersistentEngine::new(&db_path).expect("engine");
     (dir, engine, db_path)
 }
 

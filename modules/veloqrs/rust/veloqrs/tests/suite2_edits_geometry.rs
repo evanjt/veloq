@@ -30,7 +30,7 @@ mod lifecycle_support;
 use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -81,7 +81,7 @@ fn middle_trim(n: usize) -> (u32, u32) {
 /// `get_section_performances` can name, date, and time each traversal. Without
 /// this the perf query returns no records (the synthetic corpus ships neither
 /// `activity_metrics` rows nor time streams).
-fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivity]) {
+fn seed_metrics_and_streams(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
     let mut metrics = Vec::new();
     let mut ids = Vec::new();
     let mut times: Vec<u32> = Vec::new();
@@ -216,7 +216,7 @@ fn recalculate_polyline_stays_on_real_corridor() {
 
 /// Touch one unrelated activity's metrics purely for the invalidate_perf_cache
 /// side effect, so the next perf read is recomputed rather than served stale.
-fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str) {
+fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
     engine
         .set_activity_metrics(vec![ActivityMetrics {
             activity_id: activity_id.to_string(),
@@ -292,7 +292,7 @@ fn reset_bounds_disarms_the_resync_crash() {
 
 /// A user-edited (here: trimmed) section survives a later resync with its
 /// trimmed extent intact. The edit promotes the row to user-defined, sparing it
-/// from the wipe, and stable identity (B2) stops fresh detection re-minting the
+/// from the wipe, and stable identity stops fresh detection re-minting the
 /// same id for other ground, so `apply_sections` neither collides nor snaps the
 /// extent back.
 #[test]

@@ -130,6 +130,10 @@ name = "section_sport_membership"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_blob_is_droppable"
+required-features = ["synthetic"]
+
+[[test]]
 name = "section_geometry_reference"
 required-features = ["synthetic"]
 
@@ -266,6 +270,10 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "custom_section_survives_clear"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_count_matches_the_list"
 required-features = ["synthetic"]
 
 [[test]]

@@ -1,14 +1,14 @@
 //! Per-screen data bundles.
 //!
 //! One method per rendered surface, each composing the reads that screen used
-//! to make one at a time. Living on `PersistentRouteEngine` keeps the FFI
+//! to make one at a time. Living on `PersistentEngine` keeps the FFI
 //! objects thin and lets tests compare a bundle against the individual calls
 //! it replaces without standing up the global engine.
 
 use crate::objects::strength::aggregate_strength_sets;
 use crate::sections::SectionType;
 
-impl super::PersistentRouteEngine {
+impl super::PersistentEngine {
     /// Everything the insights pipeline reads from the engine.
     ///
     /// Period stats, trends and patterns, plus the section and strength tail,

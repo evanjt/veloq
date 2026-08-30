@@ -83,6 +83,27 @@ it('skips an allowlisted path, which is how this test file survives the guard', 
   expect(runGuard(root).status).toBe(0);
 });
 
+it('skips migration SQL, whose bytes are hashed and cannot be swept', () => {
+  const root = fixture({
+    'modules/veloqrs/rust/veloqrs/src/migrations/017_b4_core.sql':
+      '-- B4 core \u2014 durable identity.\nCREATE TABLE t (a INTEGER);\n',
+    'modules/veloqrs/rust/veloqrs/src/lib.rs': '// plain\n',
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
+it('still fails on Rust outside the migrations directory', () => {
+  const root = fixture({
+    'modules/veloqrs/rust/veloqrs/src/objects/sections.rs': '// one \u2014 two\n',
+  });
+
+  const { status, output } = runGuard(root);
+
+  expect(status).toBe(1);
+  expect(output).toContain('modules/veloqrs/rust/veloqrs/src/objects/sections.rs:1');
+});
+
 it('ignores an untracked file', () => {
   const root = fixture({ 'kept.md': 'clean\n' });
   writeFileSync(join(root, 'scratch.md'), 'loose — dash\n');

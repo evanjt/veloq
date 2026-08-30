@@ -2501,7 +2501,7 @@ pub struct FfiActivityRouteHighlight {
 }
 
 // ============================================================================
-// Materialized Activity Indicator (from activity_indicators table)
+// Materialised Activity Indicator (from activity_indicators table)
 // ============================================================================
 
 /// Pre-computed PR or trend indicator for an activity.

@@ -1,6 +1,6 @@
 //! Integration tests for `get_activity_section_encounters` and PR detection.
 //!
-//! Strategy: spin up a real PersistentRouteEngine (which runs migrations),
+//! Strategy: spin up a real PersistentEngine (which runs migrations),
 //! then insert fixtures directly via a parallel rusqlite connection. This
 //! avoids the slow GPS-detection pipeline while exercising the actual SQL
 //! that the production query runs.
@@ -10,10 +10,10 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -24,7 +24,7 @@ fn setup() -> Setup {
     let path_str = path.to_str().unwrap().to_string();
 
     // Constructing the engine runs all migrations.
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {

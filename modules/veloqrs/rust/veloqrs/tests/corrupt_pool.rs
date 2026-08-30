@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE;
 
 /// Not framed postcard, not unframed postcard, not an rmp array header: no
@@ -57,7 +57,7 @@ fn track(seed: usize, n: usize) -> Vec<GpsPoint> {
 }
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     dir: TempDir,
 }
@@ -65,7 +65,7 @@ struct Setup {
 fn setup(activities: usize) -> Setup {
     let dir = TempDir::new().expect("temp dir");
     let path: PathBuf = dir.path().join("test.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine new");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine new");
     let batch: Vec<(String, Vec<GpsPoint>, String)> = (0..activities)
         .map(|i| (format!("a{i}"), track(i, 80), "Ride".to_string()))
         .collect();

@@ -2,6 +2,7 @@
 
 pub mod conditioning;
 mod detection;
+pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
@@ -31,7 +32,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
+use super::{PersistentEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
@@ -241,7 +242,7 @@ fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
         self.sections.clear();
@@ -344,9 +345,18 @@ impl PersistentRouteEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = codec::decode_polyline_row(
+                    // Both columns or neither: a half-range indexes nothing.
+                    let rep_start: Option<u32> = row.get(22)?;
+                    let rep_end: Option<u32> = row.get(23)?;
+                    let polyline: Vec<GpsPoint> = geometry::line(
+                        &self.db,
                         polyline_blob.as_deref(),
                         polyline_json.as_deref(),
+                        geometry::reference(
+                            representative_activity_id.as_deref(),
+                            rep_start,
+                            rep_end,
+                        ),
                     )
                     .unwrap_or_else(|e| {
                         log::error!(
@@ -373,9 +383,6 @@ impl PersistentRouteEngine {
                         .collect();
                     let visit_count = portions.len() as u32;
 
-                    // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
                     let representative_range = rep_start.zip(rep_end);
 
                     Ok(FrequentSection {
@@ -934,10 +941,17 @@ impl PersistentRouteEngine {
                 .unwrap_or_default()
         };
 
-        // Decode polyline (blob authoritative, JSON fallback for legacy rows)
-        let polyline: Vec<GpsPoint> = match codec::decode_polyline_row(
+        // The cached blob first, then the reference triple, so a refresh after a
+        // cleared cache reads the same line the load does.
+        let polyline: Vec<GpsPoint> = match geometry::line(
+            &self.db,
             polyline_blob.as_deref(),
             polyline_json.as_deref(),
+            geometry::reference(
+                representative_activity_id.as_deref(),
+                rep_start_index,
+                rep_end_index,
+            ),
         ) {
             Ok(p) => p,
             Err(e) => {
@@ -1039,9 +1053,21 @@ impl PersistentRouteEngine {
 
     /// Get section count directly from SQLite (no data loading).
     /// This is O(1) and doesn't require loading sections into memory.
+    ///
+    /// Counts what the section views show, so it carries the same visibility
+    /// predicate `get_section_summaries` and `get_sections_by_type` use. A
+    /// disabled or superseded section reaches no list, and every caller here
+    /// is asking whether the athlete has sections to look at.
     pub fn get_section_count(&self) -> u32 {
         self.db
-            .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM sections WHERE {}",
+                    Self::VISIBLE_FILTER
+                ),
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0)
     }
 
@@ -1055,7 +1081,7 @@ impl PersistentRouteEngine {
         // separate DISTINCT.
         // `activity_count` and `sport_types` are denormalised onto the row and
         // kept by the junction triggers, so the list needs no GROUP BY.
-        let mut stmt = match self.db.prepare(
+        let mut stmt = match self.db.prepare(&format!(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
@@ -1063,8 +1089,9 @@ impl PersistentRouteEngine {
                     elevation_gain_m, avg_grade_percent, activity_count, sport_types,
                     elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
-             WHERE disabled = 0 AND superseded_by IS NULL",
-        ) {
+             WHERE {}",
+            Self::VISIBLE_FILTER
+        )) {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
@@ -1143,12 +1170,13 @@ impl PersistentRouteEngine {
             .map(|iter| {
                 iter.filter_map(|r| {
                     r.map_err(|e| {
-                    log::error!(
-                        "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
+                        log::error!(
+                            "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
+                            e
+                        );
                         e
-                    );
-                    e
-                }).ok()
+                    })
+                    .ok()
                 })
                 .collect()
             })
@@ -1354,36 +1382,16 @@ impl PersistentRouteEngine {
     /// Get section polyline only (flat coordinates for map rendering).
     /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
     pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
-        let result: Option<Vec<f64>> = self
-            .db
-            .query_row(
-                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| {
-                    let blob: Option<Vec<u8>> = row.get(0)?;
-                    let json: Option<String> = row.get(1)?;
-                    match codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
-                        Ok(points) => Ok(Some(
-                            points
-                                .iter()
-                                .flat_map(|p| [p.latitude, p.longitude])
-                                .collect(),
-                        )),
-                        Err(e) => {
-                            log::error!(
-                                "veloqrs: get_section_polyline decode error for {}: {}",
-                                section_id,
-                                e
-                            );
-                            Ok(None)
-                        }
-                    }
-                },
-            )
-            .ok()
-            .flatten();
-
-        result.unwrap_or_default()
+        match geometry::stored_line(&self.db, section_id) {
+            Ok(points) => points
+                .iter()
+                .flat_map(|p| [p.latitude, p.longitude])
+                .collect(),
+            Err(e) => {
+                log::error!("veloqrs: get_section_polyline decode error for {section_id}: {e}");
+                Vec::new()
+            }
+        }
     }
 
     /// Batch-load section polylines for multiple section IDs in a single query.
@@ -1398,7 +1406,9 @@ impl PersistentRouteEngine {
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_blob, polyline_json FROM sections WHERE id IN ({})",
+            "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                    rep_start_index, rep_end_index
+             FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
 
@@ -1423,9 +1433,16 @@ impl PersistentRouteEngine {
                 let section_id: String = row.get(0)?;
                 let polyline_blob: Option<Vec<u8>> = row.get(1)?;
                 let polyline_json: Option<String> = row.get(2)?;
-                let points =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .unwrap_or_default();
+                let rep: Option<String> = row.get(3)?;
+                let rep_start: Option<u32> = row.get(4)?;
+                let rep_end: Option<u32> = row.get(5)?;
+                let points = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .unwrap_or_default();
                 Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
@@ -1518,7 +1535,8 @@ impl PersistentRouteEngine {
                     s.visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
-                    s.polyline_json, s.polyline_blob
+                    s.polyline_json, s.polyline_blob,
+                    s.representative_activity_id, s.rep_start_index, s.rep_end_index
              FROM sections s
              WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
                AND s.bounds_min_lat IS NOT NULL",
@@ -1540,6 +1558,9 @@ impl PersistentRouteEngine {
                     row.get::<_, f64>(7)?,             // center_lng
                     row.get::<_, Option<String>>(8)?,  // polyline_json
                     row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
+                    row.get::<_, Option<String>>(10)?, // representative_activity_id
+                    row.get::<_, Option<u32>>(11)?,    // rep_start_index
+                    row.get::<_, Option<u32>>(12)?,    // rep_end_index
                 ))
             })
             .ok();
@@ -1559,16 +1580,23 @@ impl PersistentRouteEngine {
                     lng,
                     polyline_json,
                     polyline_blob,
+                    rep,
+                    rep_start,
+                    rep_end,
                 ) = row;
                 let dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if dist > radius_meters {
                     continue;
                 }
 
-                let encoded_polyline =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .map(|points| crate::coords::encode(&points))
-                        .unwrap_or_default();
+                let encoded_polyline = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .map(|points| crate::coords::encode(&points))
+                .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
                     id,
@@ -1781,7 +1809,7 @@ impl PersistentRouteEngine {
         };
 
         for section in sorted_sections {
-            // SB6: the portions that will actually become junction rows. A
+            // The portions that will actually become junction rows. A
             // section with none of them takes zero rows, so no visit_count
             // trigger fires and the catalogue gains a "0 visits" card over an
             // empty detail screen. Skip the row entirely rather than persist it.
@@ -1959,7 +1987,7 @@ impl PersistentRouteEngine {
         // back; a section that died has no rows and the updates are no-ops.
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
 
-        // B4: write the identity-registry blob in THIS transaction so the
+        // Write the identity-registry blob in THIS transaction so the
         // registry and the catalogue it describes commit (or roll back) together.
         if let Some(blob) = self.section_identity_blob() {
             tx.execute(
@@ -1970,7 +1998,7 @@ impl PersistentRouteEngine {
             )?;
         }
 
-        // D5: the emitter's fired lifecycle events, durable with the
+        // The emitter's fired lifecycle events, durable with the
         // catalogue they narrate. A geometry-bearing event versions its
         // polyline first and the history row links the version.
         for event in events {
@@ -2080,7 +2108,7 @@ mod tests {
     /// left matching disk, and the clear is retried at the next detect.
     #[test]
     fn a_failed_processed_clear_drops_the_cache_and_is_retried() {
-        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
         engine
             .save_processed_activity_ids(&["a".to_string(), "b".to_string()])
             .unwrap();
@@ -2126,7 +2154,7 @@ mod tests {
 
     #[test]
     fn retry_is_a_no_op_when_no_clear_is_owed() {
-        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
         engine
             .save_processed_activity_ids(&["a".to_string()])
             .unwrap();

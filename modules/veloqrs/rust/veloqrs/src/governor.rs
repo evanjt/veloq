@@ -231,6 +231,10 @@ pub struct Governor {
     min_interval: Duration,
     next_at: std::sync::Mutex<Option<Instant>>,
     policy: Box<dyn Policy>,
+    /// Acquires that actually parked waiting for a higher lane to drain. The
+    /// yield is otherwise only visible as elapsed time, which reads as load
+    /// rather than as policy.
+    yields: std::sync::atomic::AtomicU64,
 }
 
 impl Governor {
@@ -241,6 +245,7 @@ impl Governor {
             min_interval: Duration::from_secs_f64(1.0 / per_sec),
             next_at: std::sync::Mutex::new(None),
             policy,
+            yields: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
@@ -287,10 +292,21 @@ impl Governor {
             if backlog <= max_ahead {
                 return;
             }
+            if waited.is_zero() {
+                self.yields
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
             let wait = (backlog - max_ahead).min(MAX_LANE_YIELD - waited);
             tokio::time::sleep(wait).await;
             waited += wait;
         }
+    }
+
+    /// How many acquires have parked for a higher lane since this governor was
+    /// built. The one observable an idle schedule can be asserted on without
+    /// timing it.
+    pub fn yields(&self) -> u64 {
+        self.yields.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Feed a response's rate budget to the policy.
@@ -491,19 +507,49 @@ mod tests {
 
     /// Expected behaviour: with nothing else in flight the backfill pays no
     /// yield at all, so a lone conversion runs at the full shared pace.
+    ///
+    /// The governor reports the yield itself. Reading it off the wall clock
+    /// made the test a load detector: one scheduling hiccup on a busy box put
+    /// an idle five-acquire loop over its bound, and because this lives in the
+    /// lib target its failure aborted the workspace run before any integration
+    /// binary started.
     #[test]
     fn backfill_alone_pays_no_yield() {
         crate::runtime::block_on(async {
             let gov = Governor::new(1000, Box::new(YieldBackfillPolicy::new()));
-            let start = Instant::now();
             for _ in 0..5 {
                 gov.acquire(Lane::Backfill).await;
             }
-            assert!(
-                start.elapsed() < Duration::from_millis(200),
-                "an idle schedule must not make backfill wait: {:?}",
-                start.elapsed()
+            assert_eq!(
+                gov.yields(),
+                0,
+                "an idle schedule must not make backfill wait"
             );
+        });
+    }
+
+    /// A counter wired to nothing also reads zero, so the same counter has to
+    /// move when the backfill really does park.
+    #[test]
+    fn a_busy_schedule_records_the_yield_it_costs() {
+        crate::runtime::block_on(async {
+            let gov = Arc::new(Governor::new(8, Box::new(YieldBackfillPolicy::new())));
+            let mut claims = Vec::new();
+            for _ in 0..8 {
+                let g = gov.clone();
+                claims.push(crate::runtime::spawn(async move {
+                    g.acquire(Lane::Interactive).await
+                }));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert_eq!(gov.yields(), 0, "interactive work has no queue limit");
+
+            gov.acquire(Lane::Backfill).await;
+            assert_eq!(gov.yields(), 1);
+
+            for c in claims {
+                c.await.unwrap();
+            }
         });
     }
 

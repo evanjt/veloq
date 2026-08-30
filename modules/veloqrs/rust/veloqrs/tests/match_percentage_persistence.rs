@@ -8,7 +8,7 @@
 use rusqlite::params;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Generate a GPS track along a line with slight lateral jitter.
 /// All tracks share the same base route so they group together,
@@ -25,10 +25,10 @@ fn make_track(base_lat: f64, base_lng: f64, points: usize, jitter: f64) -> Vec<G
         .collect()
 }
 
-fn setup_engine(activity_count: usize) -> (PersistentRouteEngine, TempDir) {
+fn setup_engine(activity_count: usize) -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("test.db");
-    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).unwrap();
 
     for i in 0..activity_count {
         let id = format!("activity_{}", i);

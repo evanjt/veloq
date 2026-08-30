@@ -17,7 +17,7 @@ use lifecycle_support::*;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Enough overlapping traffic to form several corridors, small enough to
 /// re-detect many times in a debug build.
@@ -32,11 +32,11 @@ fn corpus() -> LifecycleCorpus {
 }
 
 /// An engine on the Unified arm holding a detected catalogue over `corpus`.
-/// Unified is explicit: the shipped default is still Corridor until the B3
-/// flip, and Corridor's damped view does not settle.
-fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRouteEngine {
+/// Unified is explicit: the shipped default is still Corridor, and Corridor's
+/// damped view does not settle.
+fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEngine {
     let path = dir.path().join("settles.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     let cfg = SectionConfig {
         ..SectionConfig::default()
     };
@@ -54,7 +54,7 @@ fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRouteEn
 }
 
 /// One detect+apply round, as a sync performs it.
-fn redetect(engine: &mut PersistentRouteEngine) {
+fn redetect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();

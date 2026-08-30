@@ -8,9 +8,9 @@ use chrono::{DateTime, Datelike};
 use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
     // ========================================================================
@@ -270,7 +270,7 @@ impl PersistentRouteEngine {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
-        // for activities without time streams, matching the strict behavior).
+        // for activities without time streams, matching the strict behaviour).
         let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {

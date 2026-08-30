@@ -4,7 +4,7 @@
 
 use tempfile::TempDir;
 use tracematch::sections::SectionConfig;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::section_config_digest;
 
 /// Set on the re-executed test binary so the child prints digests instead of
@@ -18,10 +18,10 @@ fn mutated() -> SectionConfig {
     }
 }
 
-fn open(config: SectionConfig) -> (TempDir, PersistentRouteEngine) {
+fn open(config: SectionConfig) -> (TempDir, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("provenance.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(config);
     (dir, engine)
 }

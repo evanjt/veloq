@@ -4,7 +4,7 @@
 //! here asserts the bundle field-for-field against the calls it replaced on a
 //! fixture dataset. A drift between the two is the failure mode these guard.
 //!
-//! Strategy follows `encounters.rs`: a real `PersistentRouteEngine` (so
+//! Strategy follows `encounters.rs`: a real `PersistentEngine` (so
 //! migrations run) with fixtures written through a parallel rusqlite
 //! connection, plus GPS tracks added through the engine API so trace
 //! extraction has something to work on.
@@ -14,10 +14,10 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::{GpsPoint, PersistentRouteEngine};
+use veloqrs::{GpsPoint, PersistentEngine};
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -27,7 +27,7 @@ fn setup() -> Setup {
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
 
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {

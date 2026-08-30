@@ -103,7 +103,7 @@ fn the_upgrade_every_live_user_takes_logs_how_long_its_migrations_ran() {
     let path = dir.path().join("routes.db");
     drop(seed_at_version(&path, 12));
 
-    drop(veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine"));
+    drop(veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("open engine"));
 
     let line = line_with(&["[Schema]", "Migration complete"]);
     assert!(
@@ -122,10 +122,10 @@ fn a_launch_with_no_migration_owed_logs_no_migration_duration() {
 
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("routes.db");
-    drop(veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("first open"));
+    drop(veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("first open"));
 
     start_capturing();
-    drop(veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("second open"));
+    drop(veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("second open"));
 
     let migrated: Vec<String> = captured()
         .into_iter()

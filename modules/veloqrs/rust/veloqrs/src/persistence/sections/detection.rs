@@ -15,7 +15,7 @@ use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
-    CacheUpdate, PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress,
+    CacheUpdate, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
     load_groups_from_db,
 };
 
@@ -337,7 +337,7 @@ fn recompute_and_save_groups(
     };
     let group_ms = group_start.elapsed().as_millis();
 
-    // SB5: the same assign-once remap the foreground writer runs. Without it this
+    // The same assign-once remap the foreground writer runs. Without it this
     // path persists the raw Union-Find roots, re-keying the catalogue behind the
     // stable ids `route_names` and `activity_matches` are keyed on, and the user's
     // route names are orphaned by whichever writer happened to run last.
@@ -462,7 +462,7 @@ fn save_groups_txn(
 /// reports the unknown-phase 50 rather than pretending to progress.
 pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// A handle for a run that never started: no worker, both senders dropped.
     ///
     /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
@@ -1000,14 +1000,14 @@ impl PersistentRouteEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        // B2: remap the raw detection batch through the assign-once identity +
+        // Remap the raw detection batch through the assign-once identity +
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
         let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
-        // SB6: a section whose every portion belongs to an activity the pool no
+        // A section whose every portion belongs to an activity the pool no
         // longer holds gets zero junction rows, so no trigger fires and it renders
         // as "0 visits" over an empty detail screen. Keep it out of the visible
         // catalogue. The registry row stays, so the hysteresis still dissolves the
@@ -1040,7 +1040,7 @@ impl PersistentRouteEngine {
         }
         let old_sections = std::mem::replace(&mut self.sections, visible);
         // Make the trial registry live BEFORE the save: `save_sections` writes its
-        // blob (B4) inside the same transaction as the catalogue, so the two
+        // blob inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
@@ -1184,7 +1184,7 @@ impl PersistentRouteEngine {
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Write the evidence cache and its folded-id shadow beside the config
     /// digest they were folded under.
     ///
@@ -1365,7 +1365,7 @@ mod tests {
 
     /// Two well-separated tracks, so the grouping returns two groups whose ids
     /// are the Union-Find roots the members happen to produce, not the stable ids.
-    fn store_signatures(engine: &PersistentRouteEngine) {
+    fn store_signatures(engine: &PersistentEngine) {
         for (id, base_lat) in [("a1", 40.0_f64), ("a2", 40.0), ("b1", 50.0)] {
             engine
                 .db
@@ -1407,13 +1407,13 @@ mod tests {
         rows.filter_map(|r| r.ok()).collect()
     }
 
-    /// SB5. The background writer is handed the same catalogue back under fresh
+    /// The background writer is handed the same catalogue back under fresh
     /// Union-Find root ids, which is what the grouping emits. It must carry the
     /// stable ids, so the user's route name stays attached, rather than persist
     /// the roots raw and orphan it.
     #[test]
     fn background_save_carries_stable_ids_and_names() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1", "a2"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         store_signatures(&engine);
@@ -1459,7 +1459,7 @@ mod tests {
     /// it, so the id namespace the next run reads holds no dead keys.
     #[test]
     fn background_save_drops_names_of_dissolved_routes() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         engine.save_groups().unwrap();
@@ -1493,7 +1493,7 @@ mod tests {
         sports: HashMap<String, Vec<u8>>,
     }
 
-    fn write_evidence_row(engine: &PersistentRouteEngine, cache_body: Vec<u8>) {
+    fn write_evidence_row(engine: &PersistentEngine, cache_body: Vec<u8>) {
         let digest = super::super::section_config_digest(&engine.section_config);
         let folded = codec::tag_blob(
             EVIDENCE_CACHE_BLOB_VERSION,
@@ -1513,7 +1513,7 @@ mod tests {
             .unwrap();
     }
 
-    fn evidence_rows(engine: &PersistentRouteEngine) -> i64 {
+    fn evidence_rows(engine: &PersistentEngine) -> i64 {
         engine
             .db
             .query_row("SELECT COUNT(*) FROM evidence_cache", [], |r| r.get(0))
@@ -1525,7 +1525,7 @@ mod tests {
     /// freeze at the previous detector's answer.
     #[test]
     fn a_cache_from_another_layout_version_is_rejected() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         let stale = codec::serialize_named(&ForeignVersionCache {
             version: u32::MAX,
             sports: HashMap::new(),
@@ -1540,7 +1540,7 @@ mod tests {
 
     #[test]
     fn a_cache_at_the_current_layout_version_is_adopted() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
         write_evidence_row(&engine, current);
 

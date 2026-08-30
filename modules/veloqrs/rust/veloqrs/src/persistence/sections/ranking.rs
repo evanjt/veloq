@@ -3,7 +3,7 @@
 use chrono::Utc;
 use std::collections::HashMap;
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
 /// A ranked section's median has to move by this fraction before the chip
 /// calls it improving or declining. Matches the feed card deadband.
@@ -13,7 +13,7 @@ const TREND_DEADBAND: f64 = 0.02;
 /// because it compares five-effort medians rather than three.
 const WORKOUT_TREND_DEADBAND: f64 = 0.03;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Get sections ranked by ML-driven composite relevance score.
     ///
     /// For each section matching the sport type, computes a weighted score from:
@@ -118,7 +118,7 @@ impl PersistentRouteEngine {
 
         let now_secs = Utc::now().timestamp();
 
-        // Find max traversal count for engagement normalization
+        // Find max traversal count for engagement normalisation
         let max_traversal_count = sections
             .values()
             .map(|s| s.times.len())
@@ -148,7 +148,7 @@ impl PersistentRouteEngine {
                     let median_previous = previous[1];
                     if median_previous > 0.0 {
                         // Negative change = faster = improving (for time-based metrics)
-                        // Normalize: cap at +/- 100% change, then map to 0..1
+                        // Normalise: cap at +/- 100% change, then map to 0..1
                         let pct_change = (median_previous - median_recent) / median_previous;
                         (pct_change.clamp(-1.0, 1.0) + 1.0) / 2.0
                     } else {
@@ -178,7 +178,7 @@ impl PersistentRouteEngine {
                     if std_dev > 0.0 {
                         let latest = *data.times.last().unwrap();
                         let z = ((latest - mean) / std_dev).abs();
-                        // Normalize: z of 0 = 0, z of 3+ = 1.0
+                        // Normalise: z of 0 = 0, z of 3+ = 1.0
                         (z / 3.0).min(1.0)
                     } else {
                         0.0
@@ -489,7 +489,7 @@ fn median_of(values: &[f64]) -> f64 {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Section-detail chart payload. Iterates performance records + lap
     /// traversals already in Rust to emit one chart point per lap, plus
     /// best/avg/last summary stats and a speed-rank per point. Replaces the
