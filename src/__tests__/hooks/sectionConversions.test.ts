@@ -194,6 +194,20 @@ describe('convertNativeSectionToApp', () => {
     expect(result.routeIds).toEqual(['route-1']);
   });
 
+  it('carries the elevation loss the engine recorded', () => {
+    const native = makeNativeFrequentSection({ elevationGainM: 12, elevationLossM: 640 });
+    const result = convertNativeSectionToApp(native as any);
+
+    expect(result.elevationGainM).toBe(12);
+    expect(result.elevationLossM).toBe(640);
+  });
+
+  it('leaves elevationLossM undefined when the engine has none', () => {
+    const result = convertNativeSectionToApp(makeNativeSection() as any);
+
+    expect(result.elevationLossM).toBeUndefined();
+  });
+
   it('converts activityPortions with direction casting', () => {
     const native = makeNativeFrequentSection({
       activityPortions: [

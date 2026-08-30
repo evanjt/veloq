@@ -57,6 +57,10 @@ export function convertNativeSectionToApp(
       ('elevationGainM' in native
         ? (native as { elevationGainM?: number | null }).elevationGainM
         : undefined) ?? undefined,
+    elevationLossM:
+      ('elevationLossM' in native
+        ? (native as { elevationLossM?: number | null }).elevationLossM
+        : undefined) ?? undefined,
     avgGradePercent:
       ('avgGradePercent' in native
         ? (native as { avgGradePercent?: number | null }).avgGradePercent
