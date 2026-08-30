@@ -11,6 +11,7 @@ export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';
 export { ProfileAccountSection } from './ProfileAccountSection';
+export { RecordingPermissionSection } from './RecordingPermissionSection';
 export { SettingsNavRow } from './SettingsNavRow';
 export { StorageStatsPanel } from './StorageStatsPanel';
 export { SummaryCardSection } from './SummaryCardSection';
