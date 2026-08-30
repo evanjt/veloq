@@ -3,11 +3,7 @@
  */
 
 // In-memory file system for testing - prefixed with "mock" for jest.mock scope rules
-import {
-  clearAllGpsTracks,
-  clearBoundsCache,
-  deleteGpsTracks,
-} from '@/shared/storage/gpsStorage';
+import { clearAllGpsTracks, clearBoundsCache, deleteGpsTracks } from '@/shared/storage/gpsStorage';
 
 const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();

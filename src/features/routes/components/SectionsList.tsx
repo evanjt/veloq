@@ -31,10 +31,7 @@ import {
   useSections,
   generateSectionName,
 } from '@/features/routes/hooks/useSections';
-import {
-  sortSections,
-  type SectionsSortOption,
-} from '@/features/routes/lib/sectionRanking';
+import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';

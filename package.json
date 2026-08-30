@@ -65,7 +65,7 @@
     "lint:reachability": "node scripts/reachability-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs"
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
