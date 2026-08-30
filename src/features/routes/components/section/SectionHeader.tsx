@@ -12,6 +12,7 @@ import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import { colors, darkColors } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 
@@ -93,6 +94,7 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
+  const elevation = sectionElevation(section);
 
   return (
     <DetailHero
@@ -123,11 +125,14 @@ export function SectionHeader({
               ...(avgHr != null && avgHr > 0
                 ? [`${t('sections.avgHr')} ${Math.round(avgHr)}`]
                 : []),
-              ...(section.elevationGainM != null && section.elevationGainM >= 10
-                ? [formatElevation(section.elevationGainM, isMetric)]
+              ...(elevation
+                ? [
+                    elevation.direction === 'loss'
+                      ? `-${formatElevation(elevation.metres, isMetric)}`
+                      : formatElevation(elevation.metres, isMetric),
+                  ]
                 : []),
-              ...(section.elevationGainM != null &&
-              section.elevationGainM >= 10 &&
+              ...(elevation != null &&
               section.avgGradePercent != null &&
               Math.abs(section.avgGradePercent) >= 1.0
                 ? [`${section.avgGradePercent.toFixed(1)}%`]

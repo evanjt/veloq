@@ -1377,6 +1377,7 @@ impl PersistentRouteEngine {
                     disabled: s.disabled,
                     superseded_by: s.superseded_by,
                     elevation_gain_m: s.elevation_gain_m,
+                    elevation_loss_m: s.elevation_loss_m,
                     avg_grade_percent: s.avg_grade_percent,
                     max_grade_percent: s.max_grade_percent,
                     klass: s.klass,

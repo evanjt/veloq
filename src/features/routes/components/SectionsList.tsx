@@ -117,6 +117,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
     elevationGainM: s.elevationGainM ?? undefined,
+    elevationLossM: s.elevationLossM ?? undefined,
     avgGradePercent: s.avgGradePercent ?? undefined,
     maxGradePercent: s.maxGradePercent ?? undefined,
     klass: s.klass ?? undefined,

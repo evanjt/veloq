@@ -7724,6 +7724,7 @@ export type FfiSectionWithPolyline = {
   disabled: boolean;
   supersededBy?: string;
   elevationGainM?: /*f64*/ number;
+  elevationLossM?: /*f64*/ number;
   avgGradePercent?: /*f64*/ number;
   maxGradePercent?: /*f64*/ number;
   klass?: string;
@@ -7771,6 +7772,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         disabled: FfiConverterBool.read(from),
         supersededBy: FfiConverterOptionalString.read(from),
         elevationGainM: FfiConverterOptionalFloat64.read(from),
+        elevationLossM: FfiConverterOptionalFloat64.read(from),
         avgGradePercent: FfiConverterOptionalFloat64.read(from),
         maxGradePercent: FfiConverterOptionalFloat64.read(from),
         klass: FfiConverterOptionalString.read(from),
@@ -7795,6 +7797,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterBool.write(value.disabled, into);
       FfiConverterOptionalString.write(value.supersededBy, into);
       FfiConverterOptionalFloat64.write(value.elevationGainM, into);
+      FfiConverterOptionalFloat64.write(value.elevationLossM, into);
       FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
       FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
       FfiConverterOptionalString.write(value.klass, into);
@@ -7819,6 +7822,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterBool.allocationSize(value.disabled) +
         FfiConverterOptionalString.allocationSize(value.supersededBy) +
         FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
         FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
         FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
         FfiConverterOptionalString.allocationSize(value.klass) +
