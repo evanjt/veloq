@@ -23,6 +23,8 @@ jest.mock('veloqrs', () => ({
 jest.mock('@/features/maps/components', () => {
   const { View } = require('react-native');
   return {
+    // The real overlay, so the credit line under test is the shipped one.
+    ...require('@/features/maps/components/AttributionOverlay'),
     MapSurface: ({ sources }: { sources: Record<string, { data: GeoJSON.FeatureCollection }> }) => {
       capturedSources.push(sources);
       return <View testID="map-surface" />;
@@ -30,8 +32,10 @@ jest.mock('@/features/maps/components', () => {
   };
 });
 
+let mockGlobalMapStyle = 'light';
+
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
-  useMapPreferences: () => ({ getGlobalMapStyle: () => 'street' }),
+  useMapPreferences: () => ({ getGlobalMapStyle: () => mockGlobalMapStyle }),
 }));
 
 jest.mock('@/shared/app', () => ({
@@ -72,6 +76,7 @@ const CENTRE = { lat: 47.5, lng: 8.7 };
 describe('PreviewMapView', () => {
   beforeEach(() => {
     capturedSources.length = 0;
+    mockGlobalMapStyle = 'light';
   });
 
   it('draws the live catalogue as current alone before a run', () => {
@@ -144,7 +149,14 @@ describe('PreviewMapView', () => {
         minActivities: 3,
         divergenceThreshold: 0.2,
       },
-      counts: { current: 1, proposed: 1, unchanged: 0, changed: 0, new: 1, gone: 1 },
+      counts: {
+        current: 1,
+        proposed: 1,
+        unchanged: 0,
+        changed: 0,
+        new: 1,
+        gone: 1,
+      },
       sections: [
         section('proposed-a', { liveId: null, status: 'new' }),
         section('live-b', { liveId: null, status: 'gone' }),
@@ -187,5 +199,67 @@ describe('PreviewMapView', () => {
     );
 
     expect(featureIds(latestSources()['selected-section'].data)).toEqual(['live-a']);
+  });
+
+  it('credits the tile source, which the licence requires on every map surface', () => {
+    const { getByTestId } = render(
+      <PreviewMapView
+        result={null}
+        currentSections={[section('live-a')]}
+        centre={CENTRE}
+        selectedId={null}
+        showCurrent
+        showProposed
+        onToggleCurrent={jest.fn()}
+        onToggleProposed={jest.fn()}
+        onSelect={jest.fn()}
+      />
+    );
+
+    expect(getByTestId('map-attribution-text').props.children).toBe(
+      '\u00a9 OpenFreeMap \u00a9 OpenMapTiles \u00a9 OpenStreetMap'
+    );
+  });
+
+  it('names the regional satellite sources under the selected area', () => {
+    mockGlobalMapStyle = 'satellite';
+
+    const { getByTestId } = render(
+      <PreviewMapView
+        result={null}
+        currentSections={[section('live-a')]}
+        centre={CENTRE}
+        selectedId={null}
+        showCurrent
+        showProposed
+        onToggleCurrent={jest.fn()}
+        onToggleProposed={jest.fn()}
+        onSelect={jest.fn()}
+      />
+    );
+
+    const text = getByTestId('map-attribution-text').props.children as string;
+    expect(text).toContain('swisstopo');
+    expect(text).toContain('EOX');
+  });
+
+  it('still credits satellite imagery when no area is selected', () => {
+    mockGlobalMapStyle = 'satellite';
+
+    const { getByTestId } = render(
+      <PreviewMapView
+        result={null}
+        currentSections={[]}
+        centre={null}
+        selectedId={null}
+        showCurrent
+        showProposed
+        onToggleCurrent={jest.fn()}
+        onToggleProposed={jest.fn()}
+        onSelect={jest.fn()}
+      />
+    );
+
+    expect(getByTestId('map-attribution-text').props.children).toBe('Sentinel-2 cloudless by EOX');
   });
 });
