@@ -57,6 +57,7 @@
     "check:expo": "node scripts/check-expo-sdk.mjs",
     "lint:detector-ordering": "node scripts/lint-detector-ordering.mjs",
     "lint:em-dashes": "node scripts/lint-em-dashes.mjs",
+    "lint:comment-line-refs": "node scripts/lint-comment-line-refs.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
     "gen:muscle-polygons": "node scripts/generate-muscle-polygons.mjs",
@@ -64,7 +65,7 @@
     "lint:reachability": "node scripts/reachability-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes"
+    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

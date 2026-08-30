@@ -1,43 +1,3 @@
-/**
- * @fileoverview useRouteDataSync - Route data sync orchestrator
- *
- * **Refactored Architecture** (Phase 1 Complete)
- *
- * Original 441-line file split into focused modules:
- *
- * **Extracted Modules:**
- * 1. `useRouteSyncProgress.ts` (88 lines)
- *    - Progress state management with mount guards
- *    - Derives isSyncing from progress status
- *
- * 2. `useRouteSyncContext.ts` (140 lines)
- *    - Lifecycle refs (auth, demo mode, online, syncing)
- *    - Abort controller management
- *    - Sync state coordination
- *
- * 3. `useGpsDataFetcher.ts` (270 lines)
- *    - Demo mode GPS loading from fixtures
- *    - Real API GPS fetching via Rust HTTP client
- *    - Progress tracking and coordinate building
- *
- * 4. `activityMetrics.ts` (38 lines)
- *    - Activity to ActivityMetrics conversion
- *
- * **Orchestrator (this file - 240 lines):**
- * - Coordinates sync flow
- * - Manages sync triggers (reset, reconnection)
- * - Delegates to specialized hooks
- * - Auto-syncs on activity changes
- *
- * **Benefits:**
- * - Each module has single responsibility
- * - Easier to test individual pieces
- * - Clearer data flow
- * - Better code organization
- *
- * Original file backed up as `useRouteDataSync.ts.backup`
- */
-
 import { useEffect, useState, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
@@ -69,42 +29,15 @@ interface UseRouteDataSyncResult {
 export type { SyncProgress };
 
 /**
- * Orchestrates activity GPS data synchronization to the Rust route engine.
+ * Pulls GPS for activities the engine has not seen yet and hands it to Rust,
+ * which then starts section detection.
  *
- * **High-Level Flow:**
- * 1. Check auth, online status, and concurrent sync state
- * 2. Filter activities to those with GPS not yet in engine
- * 3. Fetch GPS (demo fixtures or real API based on mode)
- * 4. Add to engine with metrics and trigger section detection
- * 5. Update progress throughout
+ * Runs on an activities change, an engine reset, a reconnection, or a manual
+ * `syncActivities` call. `enabled` turns off only the automatic trigger.
  *
- * **Triggers:**
- * - Activities list changes
- * - Engine reset (cache clear)
- * - Network reconnection
- * - Manual trigger via syncActivities()
- *
- * **Delegation:**
- * - Progress state → useRouteSyncProgress
- * - Lifecycle refs → useRouteSyncContext
- * - GPS fetching → useGpsDataFetcher
- *
- * @param activities - Activities to sync (should have GPS data available)
- * @param enabled - Whether to automatically sync when activities change
- *
- * @example
- * ```tsx
- * function ActivityList({ activities }: Props) {
- *   const { progress, isSyncing } = useRouteDataSync(activities, true);
- *
- *   return (
- *     <View>
- *       <Text>Status: {progress.message}</Text>
- *       {activities.map(activity => <ActivityCard key={activity.id} {...activity} />)}
- *     </View>
- *   );
- * }
- * ```
+ * Progress lives in `useRouteSyncProgress`, the lifecycle refs in
+ * `useRouteSyncContext` and the fetching in `useGpsDataFetcher`. This file is
+ * the order they run in, nothing more.
  */
 export function useRouteDataSync(
   activities: Activity[] | undefined,
