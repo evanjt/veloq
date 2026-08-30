@@ -118,8 +118,6 @@ interface SectionMapViewProps {
    * This avoids expensive shape geometry updates during scrubbing.
    */
   allActivityTraces?: Record<string, RoutePoint[]>;
-  /** Whether user is actively scrubbing - skips expensive renders during scrub */
-  isScrubbing?: boolean;
   /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */

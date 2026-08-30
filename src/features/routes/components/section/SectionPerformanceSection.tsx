@@ -26,7 +26,6 @@ export interface SectionPerformanceSectionProps {
   bestForwardRecord: DirectionBestRecord | null;
   bestReverseRecord: DirectionBestRecord | null;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
   onSetAsReference?: (activityId: string) => void;
@@ -48,7 +47,6 @@ export function SectionPerformanceSection({
   bestForwardRecord,
   bestReverseRecord,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -109,7 +107,6 @@ export function SectionPerformanceSection({
             forwardStats={forwardStats}
             reverseStats={reverseStats}
             onActivitySelect={onActivitySelect}
-            onScrubChange={onScrubChange}
             onExcludeActivity={onExcludeActivity}
             onIncludeActivity={onIncludeActivity}
             onSetAsReference={onSetAsReference}

@@ -44,7 +44,6 @@ export interface SectionHeaderProps {
   highlightedActivityId: string | null;
   highlightedLapPoints?: RoutePoint[];
   allActivityTraces?: Record<string, RoutePoint[]>;
-  isScrubbing: boolean;
   nearbyPolylines?: {
     id: string;
     name?: string;
@@ -83,7 +82,6 @@ export function SectionHeader({
   highlightedActivityId,
   highlightedLapPoints,
   allActivityTraces,
-  isScrubbing,
   nearbyPolylines,
   onNearbyPress,
   onBack,
@@ -156,7 +154,6 @@ export function SectionHeader({
           highlightedActivityId={highlightedActivityId}
           highlightedLapPoints={highlightedLapPoints}
           allActivityTraces={allActivityTraces}
-          isScrubbing={isScrubbing}
           trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
           extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
           nearbyPolylines={nearbyPolylines}
