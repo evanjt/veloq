@@ -1,5 +1,5 @@
 /**
- * Static regression for B31. Pull-to-refresh on home, fitness and training only
+ * Static regression. Pull-to-refresh on home, fitness and training only
  * invalidated queries whose `queryFn` reads SQLite, so the gesture redrew what
  * the last sync wrote and never reached intervals.icu. Each handler has to ask
  * the engine for a sync as well.
@@ -22,7 +22,7 @@ function read(relative: string): string {
   return readFileSync(join(ROOT, relative), 'utf8');
 }
 
-describe('B31: pull-to-refresh reaches the network', () => {
+describe('pull-to-refresh reaches the network', () => {
   it.each(REFRESH_HANDLERS)('%s imports requestSyncRefresh', (relative) => {
     expect(read(relative)).toMatch(
       /import\s+\{[^}]*\brequestSyncRefresh\b[^}]*\}\s+from\s+['"][^'"]*syncRefresh['"]/
@@ -34,7 +34,7 @@ describe('B31: pull-to-refresh reaches the network', () => {
   });
 });
 
-describe('B31: the route-sync reconnect effect is keyed on a value', () => {
+describe('the route-sync reconnect effect is keyed on a value', () => {
   it('useRouteDataSync no longer depends on a ref object for the edge', () => {
     expect(read('features/routes/hooks/useRouteDataSync.ts')).not.toMatch(/\}, \[isOnlineRef\]\);/);
   });
