@@ -310,7 +310,8 @@ export interface TranslationResource {
     elevationBackfillProgress: string;
     elevationBackfillComplete: string;
     elevationBackfillPartial: string;
-    elevationBackfillRetrying: string;
+    elevationBackfillRetrying_one: string;
+    elevationBackfillRetrying_other: string;
     elevationBackfillFailed: string;
     previewSections: string;
     previewIntro: string;
