@@ -1718,7 +1718,9 @@
     "previewKeep": "Conserver",
     "previewDiscard": "Abandonner",
     "previewKeepTitle": "Appliquer ces réglages ?",
-    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer."
+    "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer.",
+    "previewKeepRefusedTitle": "La nouvelle analyse n'a pas démarré",
+    "previewKeepRefused": "Vos réglages sont enregistrés. Une autre analyse est en cours, le recalcul n'a donc pas démarré. Réessayez dans un instant."
   },
   "stats": {
     "activities": "Activités",

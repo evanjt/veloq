@@ -1718,7 +1718,9 @@
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas definições?",
-    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar."
+    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar.",
+    "previewKeepRefusedTitle": "A nova análise não começou",
+    "previewKeepRefused": "As tuas definições estão guardadas. Está a decorrer outra análise, por isso o recálculo não começou. Tenta novamente daqui a pouco."
   },
   "stats": {
     "activities": "Atividades",

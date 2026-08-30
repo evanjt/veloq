@@ -337,6 +337,8 @@ export interface TranslationResource {
     previewDiscard: string;
     previewKeepTitle: string;
     previewKeepWarning: string;
+    previewKeepRefusedTitle: string;
+    previewKeepRefused: string;
     cleanupOverlapping: string;
     cleanupResult: string;
     total: string;

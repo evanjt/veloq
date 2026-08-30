@@ -1720,7 +1720,9 @@
     "previewKeep": "Zachowaj",
     "previewDiscard": "Odrzuć",
     "previewKeepTitle": "Zastosować te ustawienia?",
-    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić."
+    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
+    "previewKeepRefusedTitle": "Ponowna analiza nie ruszyła",
+    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę."
   },
   "stats": {
     "activities": "Aktywności",

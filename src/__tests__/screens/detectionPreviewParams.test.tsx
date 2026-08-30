@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import DetectionPreviewScreen from '@/app/detection-preview';
 
 /**
@@ -11,7 +12,7 @@ import DetectionPreviewScreen from '@/app/detection-preview';
  */
 
 const mockSetSectionConfig = jest.fn();
-const mockForceRedetect = jest.fn();
+const mockForceRedetect = jest.fn(() => true);
 const mockGetSectionConfig = jest.fn(() => ({
   proximityThreshold: 50,
   minSectionLength: 500,
@@ -99,7 +100,7 @@ function sliders(tree: ReturnType<typeof render>) {
 }
 
 function confirmNextAlert() {
-  jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+  return jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
     buttons?.find((b) => b.style !== 'cancel')?.onPress?.();
   });
 }
@@ -108,6 +109,8 @@ describe('detection preview sensitivity controls', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
     mockForceRedetect.mockClear();
+    mockForceRedetect.mockReturnValue(true);
+    (router.back as jest.Mock).mockClear();
     mockStart.mockClear();
     mockResult = previewResult;
   });
@@ -169,6 +172,45 @@ describe('detection preview sensitivity controls', () => {
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
     expect(mockForceRedetect).not.toHaveBeenCalled();
+  });
+
+  it('closes the screen once the re-cut has actually started', () => {
+    confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    expect(mockForceRedetect).toHaveBeenCalledTimes(1);
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays on the screen when the engine refuses the re-cut', () => {
+    // A refusal lands after the config is already persisted and the evidence
+    // cache cleared, so closing here would report a change that never ran.
+    mockForceRedetect.mockReturnValue(false);
+    confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('states why the re-cut did not start', () => {
+    mockForceRedetect.mockReturnValue(false);
+    const alert = confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const [title, message] = alert.mock.calls[alert.mock.calls.length - 1];
+    expect(title).toBe('settings.previewKeepRefusedTitle');
+    expect(message).toBe('settings.previewKeepRefused');
+  });
+
+  it('lets a refused accept be retried without leaving the screen', () => {
+    mockForceRedetect.mockReturnValue(false);
+    confirmNextAlert();
+    const tree = render(<DetectionPreviewScreen />);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    mockForceRedetect.mockReturnValue(true);
+    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    expect(mockForceRedetect).toHaveBeenCalledTimes(2);
+    expect(router.back).toHaveBeenCalledTimes(1);
   });
 
   it('offers no Keep until a run has produced a result', () => {

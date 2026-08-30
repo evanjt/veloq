@@ -1757,7 +1757,9 @@
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
-    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too."
+    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too.",
+    "previewKeepRefusedTitle": "Re-analysis did not start",
+    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment."
   },
   "stats": {
     "activities": "Activities",

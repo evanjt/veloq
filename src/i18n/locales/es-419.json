@@ -1718,7 +1718,9 @@
     "previewKeep": "Conservar",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "¿Aplicar esta configuración?",
-    "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar."
+    "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar.",
+    "previewKeepRefusedTitle": "El nuevo análisis no comenzó",
+    "previewKeepRefused": "Tu configuración quedó guardada. Hay otro análisis en curso, por lo que el recálculo no comenzó. Vuelve a tocar Conservar en un momento."
   },
   "stats": {
     "activities": "Actividades",
