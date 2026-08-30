@@ -275,6 +275,10 @@ export interface TranslationResource {
     dataCache: string;
     syncAllHistory: string;
     syncAllHistoryDescription: string;
+    syncActivities: string;
+    syncActivitiesProgress: string;
+    syncStop: string;
+    syncStopping: string;
     syncInProgress: string;
     viewRoutes: string;
     pauseRouteProcessing: string;

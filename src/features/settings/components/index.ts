@@ -1,3 +1,4 @@
+export { ActivitySyncRow } from './ActivitySyncRow';
 export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
