@@ -1,4 +1,3 @@
-import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import type { SectionChangeInput } from '../generators/sectionChanged';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
@@ -302,6 +301,9 @@ export function computeInsightsFromData(
         }))
       : [];
 
+    // Strength rides the same bundle, so it enters the same pipeline.
+    const strengthSeries = ffiData.hasStrengthData ? ffiData.strengthSeries : undefined;
+
     const coreInsights = generateInsights(
       {
         currentPeriod: toPeriod(ffiData.currentWeek),
@@ -320,24 +322,17 @@ export function computeInsightsFromData(
         allSectionTrends: sectionTrends,
         efficiencyTrends,
         sectionChanges,
+        strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
+        strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
       },
       t
     );
 
-    // Strength insights come from the same bundle as everything else.
-    let strengthInsights: Insight[] = [];
-    const series = ffiData.hasStrengthData ? ffiData.strengthSeries : undefined;
-    if (series) {
-      const monthlySummary = normalizeStrengthSummary(series.monthly);
-      const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
-      strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now(), t);
-    }
-
-    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+    const consolidated = consolidateInsights(coreInsights);
 
     if (__DEV__) {
       console.log(
-        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} before consolidation)`
       );
       for (const i of consolidated) {
         console.log(

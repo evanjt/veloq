@@ -1,8 +1,10 @@
 import type { EfficiencyTrend } from 'veloqrs';
+import type { StrengthSummary } from '@/features/strength/types';
 
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import {
   generatePeriodComparisonInsights,
@@ -71,6 +73,10 @@ export interface InsightInputData {
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
    */
   activeRegion?: Bbox | null;
+  /** Four-week strength rollup. Null when the athlete logs no strength work. */
+  strengthMonthly?: StrengthSummary | null;
+  /** Per-week strength rollups backing the progression candidates. */
+  strengthWeekly?: StrengthSummary[];
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +223,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   if (efficiencyTrends && efficiencyTrends.length > 0) {
     candidates.push(
       ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(efficiencyTrends, now, t))
+    );
+  }
+
+  if (data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
+    candidates.push(
+      ...safeRun('strength', () =>
+        generateStrengthInsights(data.strengthMonthly ?? null, data.strengthWeekly ?? [], now, t)
+      )
     );
   }
 
