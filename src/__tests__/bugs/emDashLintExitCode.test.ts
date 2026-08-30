@@ -74,6 +74,15 @@ it('names every line, not only the first', () => {
   expect(output).toContain('docs/notes.md:3');
 });
 
+it('skips an allowlisted path, which is how this test file survives the guard', () => {
+  const root = fixture({
+    'src/__tests__/bugs/emDashLintExitCode.test.ts': "const dash = '\u2014';\n",
+    'src/other.ts': "const dash = 'plain';\n",
+  });
+
+  expect(runGuard(root).status).toBe(0);
+});
+
 it('ignores an untracked file', () => {
   const root = fixture({ 'kept.md': 'clean\n' });
   writeFileSync(join(root, 'scratch.md'), 'loose — dash\n');

@@ -11,10 +11,14 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const EM_DASH = '—';
+// Built from its code point so this file is not its own first offender.
+const EM_DASH = String.fromCharCode(0x2014);
 
 // Paths that may keep an em dash, each with the reason. Prefixes, not globs.
-const ALLOWED = [];
+const ALLOWED = [
+  // The guard's own fixtures have to hold the character it looks for.
+  'src/__tests__/bugs/emDashLintExitCode.test.ts',
+];
 
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
