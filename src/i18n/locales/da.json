@@ -1655,7 +1655,6 @@
     "redetectSections": "Gendetekter sektioner",
     "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter.",
     "sectionDetection": "Sektionsdetektering",
-    "detectionSensitivity": "Detekteringsfølsomhed",
     "detectionRelaxed": "Lempelig",
     "detectionStrict": "Streng",
     "matchThreshold": "Lighed: {{pct}}%",
@@ -1676,7 +1675,6 @@
     "sectionMinCorridorTracks": "Min. korridor-spor: {{count}}",
     "sectionJaccard": "Celleoverlap: {{value}}",
     "sectionMinCellVisits": "Min. cellebesøg: {{count}}",
-    "sectionDivergence": "Divergens: {{value}}",
     "general": "Generelt",
     "data": "Datalagring",
     "notificationsAndStorage": "Notifikationer & Lager",
@@ -1714,8 +1712,7 @@
     "previewKeep": "Behold",
     "previewDiscard": "Kassér",
     "previewKeepTitle": "Anvend disse indstillinger?",
-    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
-    "advanced": "Avanceret"
+    "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig."
   },
   "stats": {
     "activities": "Aktiviteter",

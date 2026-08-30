@@ -1655,7 +1655,6 @@
     "redetectSections": "Ri-rileva sezioni",
     "redetectSectionsHint": "Esegui di nuovo la rilevazione di sezioni su tutte le attività. Può richiedere 1-2 minuti.",
     "sectionDetection": "Rilevamento sezioni",
-    "detectionSensitivity": "Sensibilità del rilevamento",
     "detectionRelaxed": "Permissivo",
     "detectionStrict": "Rigoroso",
     "matchThreshold": "Corrispondenza: {{pct}}%",
@@ -1676,7 +1675,6 @@
     "sectionMinCorridorTracks": "Tracce min corridoio: {{count}}",
     "sectionJaccard": "Sovrapposizione celle: {{value}}",
     "sectionMinCellVisits": "Visite min cella: {{count}}",
-    "sectionDivergence": "Divergenza: {{value}}",
     "general": "Generale",
     "data": "Dati",
     "notificationsAndStorage": "Notifiche e archiviazione",
@@ -1714,8 +1712,7 @@
     "previewKeep": "Mantieni",
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
-    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
-    "advanced": "Avanzate"
+    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare."
   },
   "stats": {
     "activities": "Attività",

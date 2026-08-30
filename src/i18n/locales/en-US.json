@@ -1636,7 +1636,6 @@
     "satellite": "Satellite",
     "sectionsCount": "Sections",
     "sectionDetection": "Section Detection",
-    "detectionSensitivity": "Detection sensitivity",
     "detectionRelaxed": "Relaxed",
     "detectionStrict": "Strict",
     "matchThreshold": "Match: {{pct}}%",
@@ -1715,7 +1714,6 @@
     "sectionMinCorridorTracks": "Min corridor tracks: {{count}}",
     "sectionJaccard": "Cell overlap: {{value}}",
     "sectionMinCellVisits": "Min cell visits: {{count}}",
-    "sectionDivergence": "Divergence: {{value}}",
     "general": "General",
     "data": "Data",
     "notificationsAndStorage": "Notifications & Storage",
@@ -1753,8 +1751,7 @@
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
-    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too.",
-    "advanced": "Advanced"
+    "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too."
   },
   "stats": {
     "activities": "Activities",

@@ -1655,7 +1655,6 @@
     "redetectSections": "Re-detect sections",
     "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes.",
     "sectionDetection": "Section Detection",
-    "detectionSensitivity": "Detection sensitivity",
     "detectionRelaxed": "Relaxed",
     "detectionStrict": "Strict",
     "matchThreshold": "Match: {{pct}}%",
@@ -1676,7 +1675,6 @@
     "sectionMinCorridorTracks": "Min corridor tracks: {{count}}",
     "sectionJaccard": "Cell overlap: {{value}}",
     "sectionMinCellVisits": "Min cell visits: {{count}}",
-    "sectionDivergence": "Divergence: {{value}}",
     "general": "General",
     "data": "Data",
     "notificationsAndStorage": "Notifications & Storage",
@@ -1714,8 +1712,7 @@
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
-    "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too.",
-    "advanced": "Advanced"
+    "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too."
   },
   "stats": {
     "activities": "Activities",

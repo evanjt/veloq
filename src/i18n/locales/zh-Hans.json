@@ -1655,7 +1655,6 @@
     "redetectSections": "重新检测路段",
     "redetectSectionsHint": "对所有活动重新运行路段检测。需要 1-2 分钟。",
     "sectionDetection": "路段检测",
-    "detectionSensitivity": "检测灵敏度",
     "detectionRelaxed": "宽松",
     "detectionStrict": "严格",
     "matchThreshold": "匹配:{{pct}}%",
@@ -1676,7 +1675,6 @@
     "sectionMinCorridorTracks": "最少走廊轨迹: {{count}}",
     "sectionJaccard": "单元重叠: {{value}}",
     "sectionMinCellVisits": "最少单元访问: {{count}}",
-    "sectionDivergence": "分歧阈值: {{value}}",
     "general": "通用",
     "data": "数据",
     "notificationsAndStorage": "通知与存储",
@@ -1714,8 +1712,7 @@
     "previewKeep": "保留",
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
-    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
-    "advanced": "高级"
+    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。"
   },
   "stats": {
     "activities": "活动",

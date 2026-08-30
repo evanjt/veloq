@@ -252,7 +252,6 @@ export interface TranslationResource {
   };
 
   settings: {
-    advanced: string;
     title: string;
     display: string;
     displayAndMaps: string;
@@ -289,7 +288,6 @@ export interface TranslationResource {
     routesCount: string;
     sectionsCount: string;
     sectionDetection: string;
-    detectionSensitivity: string;
     detectionRelaxed: string;
     detectionStrict: string;
     matchThreshold: string;
@@ -303,7 +301,6 @@ export interface TranslationResource {
     sectionMinCorridorTracks: string;
     sectionJaccard: string;
     sectionMinCellVisits: string;
-    sectionDivergence: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     elevationBackfillRunning: string;
