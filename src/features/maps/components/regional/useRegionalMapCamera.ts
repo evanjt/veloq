@@ -15,13 +15,13 @@ import type { RouteSignature } from '@/features/routes/hooks';
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 
-interface UseMapCameraOptions {
+interface UseRegionalMapCameraOptions {
   activities: ActivityBoundsItem[];
   routeSignatures: Record<string, RouteSignature>;
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
 }
 
-interface UseMapCameraResult {
+interface UseRegionalMapCameraResult {
   activityCenters: Record<string, [number, number]>;
   mapCenter: [number, number] | null;
   currentZoomRef: React.MutableRefObject<number>;
@@ -40,11 +40,11 @@ interface BoundsData {
   recentZoom: number;
 }
 
-export function useMapCamera({
+export function useRegionalMapCamera({
   activities,
   routeSignatures,
   surfaceRef,
-}: UseMapCameraOptions): UseMapCameraResult {
+}: UseRegionalMapCameraOptions): UseRegionalMapCameraResult {
   // Refs for zoom/center avoid re-renders during map gestures.
   // State updates from regionDidChange cause React re-renders that disrupt
   // MapLibre gesture handling on Android, causing camera snap-back.
