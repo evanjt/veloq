@@ -8,6 +8,10 @@ use std::collections::HashMap;
 
 use super::{PersistentRouteEngine, codec};
 
+/// A traversal has to beat, or miss, the running average by this fraction
+/// before the feed card calls it a move. Matches the section ranking deadband.
+const TREND_DEADBAND: f64 = 0.02;
+
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
 const INDICATOR_ALGORITHM_VERSION: i32 = 5;
@@ -207,13 +211,7 @@ impl PersistentRouteEngine {
                     0
                 } else {
                     let avg = running_sum / count as f64;
-                    if *lap_time < avg * 0.98 {
-                        1 // 2%+ faster
-                    } else if *lap_time > avg * 1.02 {
-                        -1 // 2%+ slower
-                    } else {
-                        0
-                    }
+                    crate::trend::classify_time(avg, *lap_time, TREND_DEADBAND).unwrap_or(0)
                 };
 
                 // PR forces trend to 1 (improving by definition)

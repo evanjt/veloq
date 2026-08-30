@@ -53,6 +53,9 @@ pub use types::*;
 // Activity pattern detection via k-means clustering
 pub mod patterns;
 
+// The one three-way better/worse/same verdict every trend reads
+pub mod trend;
+
 // FIT file parser for strength training exercise data
 pub mod fit;
 

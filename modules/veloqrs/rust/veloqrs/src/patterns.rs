@@ -53,6 +53,9 @@ const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
 const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
 const SECTION_APPEARANCE_THRESHOLD: f64 = 0.5; // 50% of cluster activities
+/// A pattern's half-and-half average has to move by this fraction before the
+/// pattern is called improving or declining.
+const PATTERN_TREND_DEADBAND: f64 = 0.03;
 
 // ============================================================================
 // Public API
@@ -961,20 +964,7 @@ fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
 
     // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
     // has no meaningful trend.
-    if !older_avg.is_finite() || older_avg <= 0.0 || !recent_avg.is_finite() {
-        return None;
-    }
-
-    // Compare: if recent is faster (lower), that's improving
-    let change_pct = (recent_avg - older_avg) / older_avg;
-
-    if change_pct < -0.03 {
-        Some(1) // Improving (recent times are lower/faster)
-    } else if change_pct > 0.03 {
-        Some(-1) // Declining (recent times are higher/slower)
-    } else {
-        Some(0) // Stable
-    }
+    crate::trend::classify_time(older_avg, recent_avg, PATTERN_TREND_DEADBAND)
 }
 
 // ============================================================================

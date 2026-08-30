@@ -1,4 +1,4 @@
-import type { InsightCategory } from '../types';
+import type { InsightCategory } from "../types";
 
 /**
  * Single source of truth for insight curation. Every threshold, cap, window,
@@ -44,8 +44,6 @@ export interface InsightsConfig {
     /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
-    /** HRV - minimum days of data in the rolling window. */
-    minHrvDataPoints: number;
   };
 
   /** G2 - proximity gate. */
@@ -89,7 +87,7 @@ export interface InsightsConfig {
   };
 }
 
-const __dev__ = typeof __DEV__ !== 'undefined' && __DEV__;
+const __dev__ = typeof __DEV__ !== "undefined" && __DEV__;
 
 export const INSIGHTS_CONFIG: InsightsConfig = {
   activeWindowDays: ACTIVE_WINDOW_DAYS,
@@ -124,7 +122,6 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     minProgressChangePct: 15,
     signalFloorDelta: 0.5,
     signalCeilingDelta: 2.0,
-    minHrvDataPoints: 5,
   },
 
   proximity: {
@@ -178,7 +175,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
  */
 export function maxAgeDaysFor(
   category: InsightCategory,
-  cfg: InsightsConfig = INSIGHTS_CONFIG
+  cfg: InsightsConfig = INSIGHTS_CONFIG,
 ): number {
   return cfg.recency[category]?.max ?? cfg.activeWindowDays;
 }
@@ -189,7 +186,7 @@ export function maxAgeDaysFor(
  */
 export function minAgeDaysFor(
   category: InsightCategory,
-  cfg: InsightsConfig = INSIGHTS_CONFIG
+  cfg: InsightsConfig = INSIGHTS_CONFIG,
 ): number {
   return cfg.recency[category]?.min ?? 0;
 }
@@ -197,7 +194,9 @@ export function minAgeDaysFor(
 /** Resolve the effective per-category surface cap. */
 export function maxPerCategoryFor(
   category: InsightCategory,
-  cfg: InsightsConfig = INSIGHTS_CONFIG
+  cfg: InsightsConfig = INSIGHTS_CONFIG,
 ): number {
-  return cfg.surface.maxPerCategoryOverride[category] ?? cfg.surface.maxPerCategory;
+  return (
+    cfg.surface.maxPerCategoryOverride[category] ?? cfg.surface.maxPerCategory
+  );
 }
