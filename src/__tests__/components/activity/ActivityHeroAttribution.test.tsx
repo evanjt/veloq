@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import type { ActivityDetail } from '@/types';
@@ -30,7 +30,16 @@ jest.mock('@/features/maps/components/ActivityMapView', () => {
     '@/features/maps/components/AttributionOverlay'
   );
   return {
-    ActivityMapView: () => <AttributionOverlay initialAttribution="© swisstopo © OpenStreetMap" />,
+    ActivityMapView: ({
+      onAttributionClearanceChange,
+    }: {
+      onAttributionClearanceChange?: (clearance: number) => void;
+    }) => (
+      <AttributionOverlay
+        initialAttribution="© swisstopo © OpenStreetMap"
+        onClearanceChange={onAttributionClearanceChange}
+      />
+    ),
   };
 });
 
@@ -102,6 +111,38 @@ describe('activity hero clears the map attribution', () => {
 
     expect(screen.getByTestId('map-attribution-text')).toBeTruthy();
     expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(attributionHeight());
+  });
+
+  it('grows the reservation when the credit line wraps to a second row', () => {
+    renderHero(0, activity({ locality: 'Lausanne', country: 'Switzerland' }));
+    const oneLine = overlayPaddingBottom();
+
+    // Satellite with 3D on runs to two rows at phone width, which the
+    // single-line estimate does not cover.
+    const twoLines = attributionHeight() * 2;
+    fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 320, height: twoLines } },
+    });
+
+    expect(overlayPaddingBottom()).toBeGreaterThan(oneLine);
+    expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(twoLines);
+  });
+
+  it('gives the room back when the credit line fits on one row again', () => {
+    renderHero(0, activity());
+    const oneLine = attributionHeight();
+
+    const layoutTo = (height: number) =>
+      fireEvent(screen.getByTestId('map-attribution-pill'), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: 320, height } },
+      });
+
+    layoutTo(oneLine * 2);
+    const wrapped = overlayPaddingBottom();
+    layoutTo(oneLine);
+
+    expect(overlayPaddingBottom()).toBeLessThan(wrapped);
+    expect(overlayPaddingBottom()).toBeGreaterThanOrEqual(oneLine);
   });
 
   it('spends the safe-area inset on the top header, not the bottom overlay', () => {
