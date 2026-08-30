@@ -10,7 +10,7 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
-import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, shadows, ink } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
 export function NotificationSection() {
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
   },
   acceptText: {
-    color: '#fff',
+    color: ink.white,
     fontSize: typography.body.fontSize,
     fontWeight: '600',
   },

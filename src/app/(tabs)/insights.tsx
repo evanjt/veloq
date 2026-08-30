@@ -28,7 +28,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, amberBanner } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -592,16 +592,16 @@ const styles = StyleSheet.create({
     margin: spacing.md,
     borderRadius: 12,
     padding: spacing.md,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: amberBanner.light.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   routeMessageCardDark: {
-    backgroundColor: '#3F2A17',
-    borderColor: '#92400E',
+    backgroundColor: amberBanner.dark.bg,
+    borderColor: amberBanner.dark.border,
   },
   routeMessageText: {
     flex: 1,
@@ -609,18 +609,18 @@ const styles = StyleSheet.create({
   routeMessageTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#92400E',
+    color: amberBanner.light.text,
   },
   routeMessageTitleDark: {
-    color: '#FDE68A',
+    color: amberBanner.dark.text,
   },
   routeMessageBody: {
     fontSize: 12,
-    color: '#92400E',
+    color: amberBanner.light.text,
     marginTop: 2,
   },
   routeMessageBodyDark: {
-    color: '#FCD34D',
+    color: amberBanner.dark.subtext,
   },
   routeMessageButton: {
     margin: 0,
@@ -633,23 +633,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 12,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: amberBanner.light.border,
   },
   engineBannerDark: {
-    backgroundColor: '#3F2A17',
-    borderColor: '#92400E',
+    backgroundColor: amberBanner.dark.bg,
+    borderColor: amberBanner.dark.border,
   },
   engineBannerText: {
     flex: 1,
     marginLeft: spacing.xs,
-    color: '#92400E',
+    color: amberBanner.light.text,
     fontSize: 13,
     lineHeight: 18,
   },
   engineBannerTextDark: {
-    color: '#FDE68A',
+    color: amberBanner.dark.text,
   },
   engineBannerClose: {
     margin: -4,

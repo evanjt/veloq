@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, ink } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -353,7 +353,7 @@ function NavigationButtons({
             hitSlop={12}
             style={[styles.doneButton, { backgroundColor: primaryColor }]}
           >
-            <Text style={[styles.doneText, { color: '#FFFFFF' }]}>{doneLabel}</Text>
+            <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>

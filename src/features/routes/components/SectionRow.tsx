@@ -25,6 +25,7 @@ import {
   shadows,
   mapPreviewColors,
   colorWithOpacity,
+  ink,
 } from '@/theme';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
@@ -360,7 +361,7 @@ export const SectionRow = memo(function SectionRow({
             <Polyline
               points={sectionPolylineString}
               fill="none"
-              stroke="#000000"
+              stroke={ink.black}
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -391,7 +392,7 @@ export const SectionRow = memo(function SectionRow({
                   cx={polylinePoints.start.x}
                   cy={polylinePoints.start.y}
                   r={2}
-                  fill="#FFFFFF"
+                  fill={ink.white}
                 />
               </>
             )}
@@ -405,7 +406,12 @@ export const SectionRow = memo(function SectionRow({
                   r={3}
                   fill={colors.error}
                 />
-                <Circle cx={polylinePoints.end.x} cy={polylinePoints.end.y} r={2} fill="#FFFFFF" />
+                <Circle
+                  cx={polylinePoints.end.x}
+                  cy={polylinePoints.end.y}
+                  r={2}
+                  fill={ink.white}
+                />
               </>
             )}
           </Svg>
@@ -501,7 +507,7 @@ export const SectionRow = memo(function SectionRow({
       {/* Visit count badge */}
       <View style={styles.countBadge}>
         <Text style={styles.countText}>{section.visitCount}</Text>
-        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
+        <MaterialCommunityIcons name="chevron-right" size={16} color={ink.white} />
       </View>
     </TouchableOpacity>
   );
@@ -617,10 +623,10 @@ const styles = StyleSheet.create({
   customTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#A855F7',
+    color: colors.chartPurple,
   },
   customTagTextDark: {
-    color: '#C084FC',
+    color: darkColors.chartFatigue,
   },
   disabledTag: {
     flexDirection: 'row',

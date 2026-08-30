@@ -7,7 +7,15 @@ import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  chartStyles,
+  switchTrackOff,
+} from '@/theme';
 import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
@@ -280,7 +288,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
               value={showGap}
               onValueChange={setShowGap}
               trackColor={{
-                false: isDark ? '#444' : '#DDD',
+                false: isDark ? switchTrackOff.dark : switchTrackOff.light,
                 true: colors.primary,
               }}
               thumbColor={

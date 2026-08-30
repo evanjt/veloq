@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing } from '@/theme';
+import { amberBanner, redBanner, spacing } from '@/theme';
 
 interface DebugWarning {
   level: 'warn' | 'error';
@@ -12,10 +12,10 @@ interface DebugWarningBannerProps {
   warnings: DebugWarning[];
 }
 
-const WARN_BG = '#fef3c7';
-const WARN_BORDER = '#f59e0b';
-const ERROR_BG = '#fee2e2';
-const ERROR_BORDER = '#ef4444';
+const WARN_BG = amberBanner.light.bg;
+const WARN_BORDER = amberBanner.light.border;
+const ERROR_BG = redBanner.bg;
+const ERROR_BORDER = redBanner.border;
 
 export function DebugWarningBanner({ warnings }: DebugWarningBannerProps) {
   if (warnings.length === 0) return null;
@@ -40,7 +40,9 @@ export function DebugWarningBanner({ warnings }: DebugWarningBannerProps) {
               size={16}
               color={isError ? ERROR_BORDER : WARN_BORDER}
             />
-            <Text style={[styles.text, { color: isError ? '#991b1b' : '#92400e' }]}>
+            <Text
+              style={[styles.text, { color: isError ? redBanner.text : amberBanner.light.text }]}
+            >
               {w.message}
             </Text>
           </View>
