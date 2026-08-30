@@ -9,14 +9,14 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 
 // Infrastructure constant (not theme). The AppWidgetProvider reads the same file from
-// the app's private filesDir — provider and module run in the same app process.
+// the app's private filesDir, provider and module run in the same app process.
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
 /**
  * Bridges the JS snapshot pipeline to the Android home-screen widget: writes the
  * pre-formatted JSON to the app's filesDir (where the provider reads it), then
  * broadcasts an update to every widget provider this app declares so each instance
- * redraws. The provider never computes — it only renders this file.
+ * redraws. The provider never computes, it only renders this file.
  */
 class VeloqWidgetModule : Module() {
   private val context: Context

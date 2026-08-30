@@ -43,7 +43,7 @@ fn clone_preserves_cached_lap_time_and_pace() {
         .expect("add source activity");
 
     // Seed a section and a source section_activities row with known
-    // lap_time/lap_pace. We don't need a real section polyline for this —
+    // lap_time/lap_pace. We don't need a real section polyline for this,
     // we're testing the clone SQL, not detection.
     {
         let raw = Connection::open(&db_path).expect("raw open");
@@ -66,7 +66,7 @@ fn clone_preserves_cached_lap_time_and_pace() {
     let created = engine.debug_clone_activity(&source_id, 2);
     assert_eq!(created, 2, "expected two clones");
 
-    // Read back — every clone row must carry the source's lap_time/lap_pace.
+    // Read back, every clone row must carry the source's lap_time/lap_pace.
     let raw = Connection::open(&db_path).expect("raw open");
     let mut stmt = raw
         .prepare(

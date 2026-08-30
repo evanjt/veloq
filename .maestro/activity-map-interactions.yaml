@@ -31,7 +31,7 @@ tags:
 
 - takeScreenshot: "activity-map-loaded"
 
-# 3D toggle (optional — crashes on emulator with WebGL)
+# 3D toggle (optional, crashes on emulator with WebGL)
 - tapOn:
     id: "map-toggle-3d"
     optional: true

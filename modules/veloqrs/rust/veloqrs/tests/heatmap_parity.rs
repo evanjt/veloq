@@ -1,8 +1,8 @@
-//! Tier 0.2 — pixel-parity fixture for heatmap tiles.
+//! Tier 0.2, pixel-parity fixture for heatmap tiles.
 //!
 //! Seeds a deterministic corpus, runs the full generation pipeline, decodes
 //! every tile PNG, and hashes the RGBA pixel buffers. The fixture stored at
-//! `tests/fixtures/heatmap_parity_v1.txt` is the canonical digest — Tier 1
+//! `tests/fixtures/heatmap_parity_v1.txt` is the canonical digest. Tier 1
 //! changes must either match it exactly or the test fails with the new
 //! digest printed for review.
 //!
@@ -135,7 +135,7 @@ fn tile_pixels_match_fixture() {
         }
         std::fs::write(&fixture_path, &actual).expect("write fixture");
         panic!(
-            "fixture was missing — wrote it to {}. Review the tile output, then commit the fixture so future runs can compare.",
+            "fixture was missing, wrote it to {}. Review the tile output, then commit the fixture so future runs can compare.",
             fixture_path.display()
         );
     }

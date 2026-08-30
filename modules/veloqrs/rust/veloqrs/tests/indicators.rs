@@ -106,7 +106,7 @@ fn version_match_skips_recompute() {
         .engine
         .get_activity_indicators(&["any-activity".to_string()]);
 
-    // Recompute did NOT fire — the row is preserved. Proves the guard works
+    // Recompute did NOT fire, the row is preserved. Proves the guard works
     // both ways (no spurious recomputes when version matches).
     assert_eq!(
         count_indicators(&setup.raw),

@@ -17,7 +17,7 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-# Scroll to performance section and verify it exists (don't expand — keeps page short)
+# Scroll to performance section and verify it exists (don't expand, keeps page short)
 - scrollUntilVisible:
     element:
       id: "fitness-section-performance"
@@ -37,7 +37,7 @@ tags:
 
 - takeScreenshot: "fitness-bests-header"
 
-# Zones section — just verify presence, don't try to expand.
+# Zones section, just verify presence, don't try to expand.
 # CollapsibleSection headers stay in the accessibility tree even when off-screen,
 # which causes `runFlow when visible` + `tapOn` to fire on an untappable element.
 - takeScreenshot: "fitness-after-bests"

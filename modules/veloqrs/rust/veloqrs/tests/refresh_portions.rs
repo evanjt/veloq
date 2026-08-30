@@ -97,7 +97,7 @@ fn a_reset_reference_does_not_wedge_the_next_save() {
     let _ = recalced;
     // Trim promotes and backs up the original polyline; reset-reference
     // demotes back to auto. The catalogue save wipes only auto rows with
-    // no backup, then re-inserts every auto section from memory — a
+    // no backup, then re-inserts every auto section from memory, a
     // demoted row still carrying its backup is spared by the wipe AND
     // re-inserted, so the whole save aborts on the UNIQUE collision.
     // The invariant: a demoted section carries no backup.
@@ -116,7 +116,7 @@ fn a_reset_reference_does_not_wedge_the_next_save() {
     assert_eq!(user_defined, 0);
     assert!(
         !has_backup,
-        "demoted section still carries its polyline backup — the next catalogue save collides on it"
+        "demoted section still carries its polyline backup, the next catalogue save collides on it"
     );
 }
 

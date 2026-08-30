@@ -165,7 +165,7 @@ fn restart_preserves_catalogue() {
     );
 }
 
-/// Gate (B4 durability): the identity REGISTRIES survive a restart intact — not
+/// Gate (B4 durability): the identity REGISTRIES survive a restart intact, not
 /// just the ids (a reseed from the DB rows already adopts those) but the
 /// hysteresis debounce streaks and the tombstones a dissolved ground re-emerges
 /// under, which live only in the registry blob. A multi-step drip builds that

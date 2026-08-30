@@ -169,7 +169,7 @@ fn audit_route_match_quality(conn: &Connection) {
     let groups = load_existing_groups(conn);
 
     println!("\n======================================================================");
-    println!("ROUTE MATCH QUALITY — pairwise AMD within groups");
+    println!("ROUTE MATCH QUALITY, pairwise AMD within groups");
     println!("======================================================================\n");
 
     for (group_id, rep_id, count, sport) in groups.iter().take(10) {
@@ -231,7 +231,7 @@ fn audit_route_match_quality(conn: &Connection) {
         if !below_70.is_empty() {
             println!("  Activities below 70% match:");
             for (aid, pct) in below_70.iter().take(10) {
-                println!("    {} — {:.1}%", aid, pct);
+                println!("    {}, {:.1}%", aid, pct);
             }
         }
 
@@ -261,7 +261,7 @@ fn audit_existing_sections(conn: &Connection) {
     let per_activity = per_activity_section_counts(conn);
 
     println!("\n======================================================================");
-    println!("SECTION AUDIT — existing database state");
+    println!("SECTION AUDIT, existing database state");
     println!("======================================================================\n");
 
     println!("Total sections: {}", sections.len());
@@ -334,7 +334,7 @@ fn audit_existing_sections(conn: &Connection) {
 
     println!("\nTop 10 most over-sectioned activities:");
     for (id, count) in per_activity.iter().take(10) {
-        println!("  {} — {} sections", id, count);
+        println!("  {}, {} sections", id, count);
     }
 
     println!();
@@ -346,7 +346,7 @@ fn audit_existing_route_groups(conn: &Connection) {
     let groups = load_existing_groups(conn);
 
     println!("\n======================================================================");
-    println!("ROUTE GROUP AUDIT — existing database state");
+    println!("ROUTE GROUP AUDIT, existing database state");
     println!("======================================================================\n");
 
     println!("Total route groups: {}", groups.len());
@@ -380,7 +380,7 @@ fn audit_existing_route_groups(conn: &Connection) {
 
     println!("\nTop 15 largest groups:");
     for (id, rep, count, sport) in groups.iter().take(15) {
-        println!("  {} — {} activities (rep: {}, {})", id, count, rep, sport);
+        println!("  {}, {} activities (rep: {}, {})", id, count, rep, sport);
     }
 
     println!();
@@ -393,7 +393,7 @@ fn redetect_and_compare(conn: &Connection) {
     let total_activities = all_tracks.len();
 
     println!("\n======================================================================");
-    println!("RE-DETECTION — running section detection from scratch");
+    println!("RE-DETECTION, running section detection from scratch");
     println!("======================================================================\n");
     println!("Loaded {} activities with GPS tracks", total_activities);
 
@@ -444,7 +444,7 @@ fn redetect_and_compare(conn: &Connection) {
     for (sport, sport_sigs) in &sig_by_sport {
         let groups = tracematch::group_signatures_parallel(sport_sigs, &config);
         println!(
-            "  {} — {} signatures → {} groups",
+            "  {}, {} signatures → {} groups",
             sport,
             sport_sigs.len(),
             groups.len()
@@ -457,7 +457,7 @@ fn redetect_and_compare(conn: &Connection) {
         large.sort_by(|a, b| b.activity_ids.len().cmp(&a.activity_ids.len()));
         for g in large.iter().take(5) {
             println!(
-                "    Group {} — {} activities",
+                "    Group {}, {} activities",
                 g.group_id,
                 g.activity_ids.len()
             );
@@ -548,7 +548,7 @@ fn redetect_and_compare(conn: &Connection) {
             .get(&id.to_string())
             .map(|s| s.as_str())
             .unwrap_or("?");
-        println!("    {} ({}) — {} sections", id, sport, count);
+        println!("    {} ({}), {} sections", id, sport, count);
     }
 
     println!("\n--- Overlap Audit ---");
@@ -606,7 +606,7 @@ fn redetect_and_compare(conn: &Connection) {
         println!("\nSample overlapping pairs:");
         for (id_i, id_j, dist_i, dist_j, vis_i, vis_j, j_in_i, i_in_j) in &high_overlap_pairs {
             println!(
-                "  {} ({:.0}m, {}v) vs {} ({:.0}m, {}v) — {:.0}%/{:.0}%",
+                "  {} ({:.0}m, {}v) vs {} ({:.0}m, {}v), {:.0}%/{:.0}%",
                 id_i,
                 dist_i,
                 vis_i,
@@ -628,7 +628,7 @@ fn redetect_and_compare(conn: &Connection) {
 
 fn report_accepted_survive_delete(conn: &Connection) {
     println!("\n======================================================================");
-    println!("ACCEPTED SECTIONS — would save_sections' DELETE remove them?");
+    println!("ACCEPTED SECTIONS, would save_sections' DELETE remove them?");
     println!("======================================================================\n");
 
     let accepted_count: i64 = conn
@@ -640,7 +640,7 @@ fn report_accepted_survive_delete(conn: &Connection) {
         .unwrap_or(0);
 
     if accepted_count == 0 {
-        println!("No accepted sections in this database — nothing to check");
+        println!("No accepted sections in this database, nothing to check");
         return;
     }
 

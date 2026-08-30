@@ -59,7 +59,7 @@ fn concurrent_reads_during_writes_make_progress() {
                 let t = Instant::now();
                 {
                     // In-memory read under the read lock (safe per the SQLite
-                    // invariant — no `self.db` access here).
+                    // invariant, no `self.db` access here).
                     let g = engine.read().unwrap_or_else(|e| e.into_inner());
                     let _ = g.activity_count();
                 }
@@ -84,11 +84,11 @@ fn concurrent_reads_during_writes_make_progress() {
     assert_eq!(count, WRITES);
 
     // With tile I/O moved off the write lock, readers are never starved for
-    // long. Generous bound — this asserts "no convoy", not a tight latency SLA.
+    // long. Generous bound, this asserts "no convoy", not a tight latency SLA.
     let worst = *worst.lock().unwrap_or_else(|e| e.into_inner());
     assert!(
         worst < Duration::from_secs(5),
-        "reader starved for {worst:?} — possible lock convoy"
+        "reader starved for {worst:?}, possible lock convoy"
     );
 }
 
@@ -119,7 +119,7 @@ fn settings_under_concurrent_mutation_stay_consistent() {
                     g.get_setting(&key).expect("get_setting")
                 };
                 // No other thread writes *our* key, so we read back our own
-                // last write every time — no torn reads, no cross-key bleed.
+                // last write every time, no torn reads, no cross-key bleed.
                 assert_eq!(got.as_deref(), Some(val.as_str()));
             }
         }));

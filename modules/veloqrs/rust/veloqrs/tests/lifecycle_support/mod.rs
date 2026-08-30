@@ -38,7 +38,7 @@ impl Arm {
 }
 
 // ============================================================================
-// Fingerprint types — what we record per section per step
+// Fingerprint types, what we record per section per step
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,7 +47,7 @@ pub struct SectionFingerprint {
     pub visit_count: u32,
     pub polyline_point_count: usize,
     pub distance_meters: f64,
-    /// Full rendered polyline — carried so the suites can match sections by
+    /// Full rendered polyline, carried so the suites can match sections by
     /// GROUND (overlap), not by id. String ids lie in both directions: rank
     /// ids (Corridor) reshuffle on every set change, and emission ids
     /// (Unified, `sec_ride_0`) persist trivially onto different ground. Ground
@@ -276,7 +276,7 @@ pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
 /// has not yet retired (or a member an append-only fold has not dropped), so it
 /// lags the raw batch by up to `k` steps. DETECTION itself stays order-free and
 /// tracks the batch every step, so the B1 convergence / order-invariance /
-/// freshness gates read this raw view — comparing the damped view there would
+/// freshness gates read this raw view, comparing the damped view there would
 /// score a legitimate hysteresis lag as a detection desync. B2 identity/stability
 /// gates keep reading `snapshot` (the visible view the app renders).
 pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
@@ -361,7 +361,7 @@ impl StepMeasurement {
 /// the production poll path (`objects/detection.rs`) including
 /// `save_processed_activity_ids` so the next step enters incremental mode.
 /// (Today a resync after `accept_section` fails here with a UNIQUE
-/// `sections.id` violation — a positional-id collision.)
+/// `sections.id` violation, a positional-id collision.)
 pub fn try_ingest_step(
     engine: &mut PersistentRouteEngine,
     label: &str,
@@ -432,7 +432,7 @@ pub fn refs(activities: &[LifecycleActivity]) -> Vec<&LifecycleActivity> {
 }
 
 // ============================================================================
-// Survival metrics — the discontinuity the redesign targets
+// Survival metrics, the discontinuity the redesign targets
 // ============================================================================
 
 /// Fraction of `before`'s section ids still present in `after`. Exact. Low id
@@ -455,7 +455,7 @@ pub fn id_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64 {
 
 /// Fraction of `before`'s sections whose ground (geo_key proxy) still appears
 /// in `after`, regardless of id. High ground survival with low id survival is
-/// exactly "same sections, reshuffled" — the thing to eliminate.
+/// exactly "same sections, reshuffled", the thing to eliminate.
 ///
 /// An empty `before` scores 0.0 for the same reason as `id_survival`: an
 /// undefined comparison must never read as a pass.
@@ -475,7 +475,7 @@ pub fn ground_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64
 /// The honest identity metric: among `before` sections whose GROUND survives
 /// somewhere in `after`, the fraction that survive under the SAME id. It
 /// ignores string-id coincidence (a positional `sec_ride_0` always exists) and
-/// asks the real question — did the id follow its ground? Low today (ids are
+/// asks the real question, did the id follow its ground? Low today (ids are
 /// positional and renumber); B2's assign-once identity layer is what drives it
 /// up. This is what the identity gate asserts on, never raw id survival.
 ///
@@ -559,7 +559,7 @@ pub fn busiest_section(snap: &SectionSnapshot) -> Option<(String, SectionFingerp
 }
 
 // ============================================================================
-// Behaviour delta — measured, printed (not asserted)
+// Behaviour delta, measured, printed (not asserted)
 // ============================================================================
 
 #[derive(Debug, Default)]

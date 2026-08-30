@@ -13,13 +13,13 @@ Routenverfolgung
 Erkenne automatisch wiederholte Routen und Abschnitte in deiner Aktivitätshistorie. Vergleiche Leistungen über die Zeit und verfolge deinen Fortschritt auf Lieblingsanstiegen und -strecken.
 
 Diagramme und Analyse
-Herzfrequenz, Leistung, Pace, Höhe und Kadenz — alles synchronisiert mit der Karte. Zeige Zonenverteilungen, TSS, Intensitätsfaktor und Rundenaufschlüsselungen an.
+Herzfrequenz, Leistung, Pace, Höhe und Kadenz, alles synchronisiert mit der Karte. Zeige Zonenverteilungen, TSS, Intensitätsfaktor und Rundenaufschlüsselungen an.
 
 Fitness
 Verfolge deine Form mit CTL/ATL/TSB-Tracking und visuellen Zonen. Überwache HRV, Ruheherzfrequenz, Schlaf und Wohlbefinden. Zeige Leistungs- und Pace-Kurven nach Sportart an.
 
 Datenschutz
-Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem Ablauf nach 30 Tagen — keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
+Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem Ablauf nach 30 Tagen, keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 

@@ -3,11 +3,11 @@
 //! Run with: `cargo bench --bench heatmap_tiles --features synthetic`
 //!
 //! Two bench groups:
-//! - `tile/*` — pure `generate_heatmap_tile` cost for representative zoom +
+//! - `tile/*`, pure `generate_heatmap_tile` cost for representative zoom +
 //!   density shapes (sparse low-zoom, medium medium-zoom, dense high-zoom).
-//! - `full_cycle/*` — end-to-end `generate_tiles_background` against a seeded
+//! - `full_cycle/*`, end-to-end `generate_tiles_background` against a seeded
 //!   in-memory SQLite with 100 or 500 activities. These are the numbers the
-//!   user feels — "finalizing heatmap" banner duration.
+//!   user feels, "finalizing heatmap" banner duration.
 
 use criterion::{BenchmarkId, Criterion, SamplingMode, criterion_group, criterion_main};
 use std::path::PathBuf;
@@ -123,11 +123,11 @@ fn bench_single_tile(c: &mut Criterion) {
 }
 
 // ============================================================================
-// Full-cycle bench fixtures — seeded SQLite + background generation
+// Full-cycle bench fixtures, seeded SQLite + background generation
 // ============================================================================
 
 /// Seed a tempdir-backed engine with `target_count` activities from the
-/// lifecycle corpus, returning (engine, tmp, tiles_dir). Tiles dir is empty —
+/// lifecycle corpus, returning (engine, tmp, tiles_dir). Tiles dir is empty,
 /// the first `generate_tiles_background` will cold-generate everything.
 fn seed_engine(target_count: usize) -> (PersistentRouteEngine, TempDir, PathBuf) {
     // Pick counts that stack up to ~target_count.

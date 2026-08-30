@@ -1,7 +1,7 @@
 # IAP regression test: validates the App Store rejection fix.
 #
 # The Apple reviewer screenshotted "Small Tip" / "Medium Tip" / "Large Tip"
-# buttons without prices — those were fake fallback Product objects that
+# buttons without prices, those were fake fallback Product objects that
 # rendered translation keys as displayPrice when fetchProducts() returned
 # empty in their sandbox. Tapping them did nothing because StoreKit had
 # no real products to sell. Apple flagged this as "buttons greyed out and
@@ -68,7 +68,7 @@ tags:
 - assertNotVisible:
     text: "Large Tip"
 
-# Either real tip buttons OR GitHub Sponsors fallback must be visible — both
+# Either real tip buttons OR GitHub Sponsors fallback must be visible, both
 # checked optionally so neither failing causes flow abort. The takeScreenshot
 # above captured whichever variant rendered.
 - assertVisible:
@@ -115,7 +115,7 @@ tags:
       id: "settings-debug-switch"
     timeout: 10000
 
-# Toggle Debug Mode on (idempotent — if it's already on the switch is a no-op)
+# Toggle Debug Mode on (idempotent, if it's already on the switch is a no-op)
 # The footer sits under the tab bar until scrolled clear of it.
 - swipe:
     start: 50%, 75%
@@ -145,7 +145,7 @@ tags:
 
 # ---- Find Support Card section in dev dashboard, expand, set 31d ago ----
 
-# The Support Card collapsible is collapsed by default — tap header to expand.
+# The Support Card collapsible is collapsed by default, tap header to expand.
 # Use explicit edge swipes since the FFI metrics table can intercept centered swipes.
 - repeat:
     times: 10
@@ -222,7 +222,7 @@ tags:
 
 - takeScreenshot: "support-card-expanded"
 
-# Same regression check on this surface — fake labels must not appear
+# Same regression check on this surface, fake labels must not appear
 - assertNotVisible:
     text: "Small Tip"
 - assertNotVisible:

@@ -37,7 +37,7 @@ onFlowComplete:
 - tapOn:
     id: "record-library"
 
-# Library renders — either the list or the empty state
+# Library renders, either the list or the empty state
 - extendedWaitUntil:
     visible:
       id: "recordings-list"

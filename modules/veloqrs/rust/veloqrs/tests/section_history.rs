@@ -161,7 +161,7 @@ fn history_events_append_in_order_and_read_back() {
 
 /// Scenario: the app restarts.
 /// Expected behaviour: events, versions, and the pin read back from the DB
-/// alone — the layer holds no in-memory state to lose.
+/// alone, the layer holds no in-memory state to lose.
 #[test]
 fn history_geometry_and_pin_survive_restart() {
     let (mut engine, dir) = fresh_engine();

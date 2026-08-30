@@ -1,7 +1,7 @@
 # Insights Panel (v0.3.0)
 # Verifies the /routes Insights sub-tab renders the panel, and that the panel
 # always resolves to exactly one of its two bodies: the card list or the empty
-# state. Neither-branch is the failure this guards — a regression in the
+# state. Neither-branch is the failure this guards, a regression in the
 # insights ternary (or a throw inside the card map) leaves the panel blank
 # while every screenshot-only check still passes.
 
