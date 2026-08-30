@@ -1039,9 +1039,21 @@ impl PersistentRouteEngine {
 
     /// Get section count directly from SQLite (no data loading).
     /// This is O(1) and doesn't require loading sections into memory.
+    ///
+    /// Counts what the section views show, so it carries the same visibility
+    /// predicate `get_section_summaries` and `get_sections_by_type` use. A
+    /// disabled or superseded section reaches no list, and every caller here
+    /// is asking whether the athlete has sections to look at.
     pub fn get_section_count(&self) -> u32 {
         self.db
-            .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM sections WHERE {}",
+                    Self::VISIBLE_FILTER
+                ),
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0)
     }
 
@@ -1055,7 +1067,7 @@ impl PersistentRouteEngine {
         // separate DISTINCT.
         // `activity_count` and `sport_types` are denormalised onto the row and
         // kept by the junction triggers, so the list needs no GROUP BY.
-        let mut stmt = match self.db.prepare(
+        let mut stmt = match self.db.prepare(&format!(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
@@ -1063,8 +1075,9 @@ impl PersistentRouteEngine {
                     elevation_gain_m, avg_grade_percent, activity_count, sport_types,
                     elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
-             WHERE disabled = 0 AND superseded_by IS NULL",
-        ) {
+             WHERE {}",
+            Self::VISIBLE_FILTER
+        )) {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
@@ -1143,12 +1156,13 @@ impl PersistentRouteEngine {
             .map(|iter| {
                 iter.filter_map(|r| {
                     r.map_err(|e| {
-                    log::error!(
-                        "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
+                        log::error!(
+                            "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
+                            e
+                        );
                         e
-                    );
-                    e
-                }).ok()
+                    })
+                    .ok()
                 })
                 .collect()
             })
