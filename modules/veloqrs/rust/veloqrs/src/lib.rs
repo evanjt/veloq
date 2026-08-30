@@ -226,7 +226,7 @@ pub(crate) fn calendar_days_between(earlier: i64, later: i64) -> u32 {
 
 uniffi::setup_scaffolding!();
 
-/// Initialize logging for Android
+/// Initialise logging for Android
 #[cfg(target_os = "android")]
 pub(crate) fn init_logging() {
     use android_logger::Config;
@@ -239,7 +239,7 @@ pub(crate) fn init_logging() {
     );
 }
 
-/// Initialize logging for iOS (Apple unified logging / os_log)
+/// Initialise logging for iOS (Apple unified logging / os_log)
 #[cfg(target_os = "ios")]
 pub(crate) fn init_logging() {
     use log::LevelFilter;

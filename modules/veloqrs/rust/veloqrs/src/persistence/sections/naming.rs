@@ -46,7 +46,7 @@ impl PersistentEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Section N" - still recognize for numbering
+                // Old pattern: "{Sport} Section N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",

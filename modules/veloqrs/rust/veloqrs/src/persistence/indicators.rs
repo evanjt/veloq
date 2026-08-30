@@ -1,4 +1,4 @@
-//! Activity indicators: materialized PR and trend badges.
+//! Activity indicators: materialised PR and trend badges.
 //!
 //! Computed once after sync/detection, stored in `activity_indicators` table.
 //! Feed card rendering reads from this table - no on-demand computation needed.

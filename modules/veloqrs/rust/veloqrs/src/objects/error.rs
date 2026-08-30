@@ -1,6 +1,6 @@
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum VeloqError {
-    #[error("Engine not initialized")]
+    #[error("Engine not initialised")]
     NotInitialized,
     #[error("Engine lock failed")]
     LockFailed,

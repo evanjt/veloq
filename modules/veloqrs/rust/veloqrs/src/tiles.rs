@@ -1,7 +1,7 @@
 //! Raster tile generation for activity heatmaps.
 //!
 //! Generates PNG tiles from GPS traces using web mercator projection.
-//! Uses an intensity buffer with additive accumulation and a color gradient
+//! Uses an intensity buffer with additive accumulation and a colour gradient
 //! LUT to produce heatmap tiles with additive intensity.
 
 use image::{ImageBuffer, Rgba, RgbaImage};
@@ -31,13 +31,13 @@ impl Default for HeatmapConfig {
 }
 
 // ============================================================================
-// Color Gradient LUT
+// Colour Gradient LUT
 // ============================================================================
 
-/// Pre-computed 256-entry color lookup table mapping intensity to RGBA.
+/// Pre-computed 256-entry colour lookup table mapping intensity to RGBA.
 /// Gradient: transparent → deep teal → brand teal → pale teal highlight.
 /// Uses the Veloq brand teal palette for good contrast on both light and dark maps.
-fn build_color_lut() -> [[u8; 4]; 256] {
+fn build_colour_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
     // Gradient stops: (intensity, r, g, b, a)
@@ -82,17 +82,17 @@ fn build_color_lut() -> [[u8; 4]; 256] {
     lut
 }
 
-/// Cached color LUT (built once)
-static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_color_lut);
+/// Cached colour LUT (built once)
+static COLOUR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_colour_lut);
 
 /// Pre-computed `u16 intensity → u8 lut_idx` table for a given exposure.
-/// Replaces the per-pixel exp()/round/clamp in the color mapping loop.
+/// Replaces the per-pixel exp()/round/clamp in the colour mapping loop.
 fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
     let mut v: Vec<u8> = vec![0u8; 65536];
     // Index 0 stays 0 (skip write path in the hot loop).
     for val in 1..65536u32 {
-        let normalized = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
-        let idx = (normalized * 255.0).round().clamp(1.0, 255.0) as u8;
+        let normalised = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
+        let idx = (normalised * 255.0).round().clamp(1.0, 255.0) as u8;
         v[val as usize] = idx;
     }
     let slice: Box<[u8]> = v.into_boxed_slice();
@@ -362,10 +362,10 @@ pub fn tiles_for_bounds(
 }
 
 // ============================================================================
-// Intensity Buffer Line Rasterization
+// Intensity Buffer Line Rasterisation
 // ============================================================================
 
-/// Intensity buffer for accumulating line draws before color mapping
+/// Intensity buffer for accumulating line draws before colour mapping
 pub struct IntensityBuffer {
     data: Vec<u16>,
     width: u32,
@@ -581,12 +581,12 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
     let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
 
     // Map intensity buffer to RGBA via two pre-computed LUTs:
-    //   u16 intensity → u8 color idx (depends on zoom's exposure curve)
-    //   u8 color idx  → RGBA (shared gradient)
+    //   u16 intensity → u8 colour idx (depends on zoom's exposure curve)
+    //   u8 colour idx  → RGBA (shared gradient)
     // Replaces the per-pixel exp()/round/clamp from the original code;
     // pixel output is bit-identical because the f32 math is pre-computed
     // once at the same precision.
-    let color_lut = &*COLOR_LUT;
+    let colour_lut = &*COLOUR_LUT;
     let idx_lut = intensity_idx_lut_for_zoom(z);
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     for y_px in 0..TILE_SIZE {
@@ -594,7 +594,7 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
             let val = buf.get(x_px, y_px);
             if val > 0 {
                 let lut_idx = idx_lut[val as usize] as usize;
-                let c = color_lut[lut_idx];
+                let c = colour_lut[lut_idx];
                 img.put_pixel(x_px, y_px, Rgba(c));
             }
         }
@@ -833,8 +833,8 @@ mod tests {
     }
 
     #[test]
-    fn test_color_lut() {
-        let lut = &*COLOR_LUT;
+    fn test_colour_lut() {
+        let lut = &*COLOUR_LUT;
         // Index 0 is transparent
         assert_eq!(lut[0], [0, 0, 0, 0]);
         // Index 255 should be bright
@@ -854,7 +854,7 @@ mod tests {
     }
 
     #[test]
-    fn test_thick_line_rasterization_produces_solid_center() {
+    fn test_thick_line_rasterisation_produces_solid_center() {
         let mut buf = IntensityBuffer::new(32, 32);
         draw_line_intensity(&mut buf, 4.0, 16.0, 28.0, 16.0, 6.0, 24.0);
 
