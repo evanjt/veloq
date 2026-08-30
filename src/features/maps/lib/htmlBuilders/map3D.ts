@@ -11,6 +11,7 @@
  * state (refs, savedCameraRef, etc.) on the caller's side - pass only resolved
  * values here.
  */
+import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
@@ -112,6 +113,42 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   <div id="map"></div>
   <script>
 ${consoleBridgeScript()}
+
+    // The ready signal is the only thing that clears the loading spinner, so
+    // it is armed before anything that can throw. maplibregl comes off a CDN
+    // and the light style is fetched at runtime, so the page has to be able to
+    // report its own failure without either of them.
+    var mapReadySent = false;
+    var mapFailedSent = false;
+
+    function sendMapReady() {
+      if (mapReadySent || mapFailedSent) return;
+      mapReadySent = true;
+      window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+      }
+    }
+
+    function sendMapFailed(reason) {
+      if (mapReadySent || mapFailedSent) return;
+      mapFailedSent = true;
+      window._rn_log('sending mapFailed - ' + reason);
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'mapFailed',
+          reason: String(reason)
+        }));
+      }
+    }
+
+    if (window.addEventListener) {
+      window.addEventListener('error', function(e) {
+        sendMapFailed('page error: ' + ((e && e.message) || 'unknown'));
+      });
+    }
+
+    setTimeout(function() { sendMapFailed('ready timeout'); }, ${MAP_3D_READY_TIMEOUT_MS});
 
     const coordinates = ${coordsJSON};
     window._routeCoords = coordinates;
@@ -489,16 +526,6 @@ ${tileProtocolsScript()}
       // Terrain-first ready detection - only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
       // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
-      var mapReadySent = false;
-      function sendMapReady() {
-        if (mapReadySent) return;
-        mapReadySent = true;
-        window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-        }
-      }
-
       var terrainReady = false;
       var routeReady = coordinates.length === 0;
 
@@ -554,6 +581,7 @@ ${tileProtocolsScript()}
 
     } catch(e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
+      sendMapFailed('script error: ' + e.message);
     }
   </script>
 </body>

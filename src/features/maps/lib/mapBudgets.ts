@@ -29,3 +29,11 @@ export const VIEWPORT_CULLING_THRESHOLD = 2000;
 
 /** Zoom at which the regional map starts drawing per-activity detail. */
 export const TRACE_ZOOM_THRESHOLD = 11;
+
+/**
+ * How long the 3D terrain page may take to report itself ready before it is
+ * treated as failed. The page arms this before it touches maplibregl, so a
+ * missing CDN bundle or a style that never loads still ends somewhere instead
+ * of leaving the hero on a spinner.
+ */
+export const MAP_3D_READY_TIMEOUT_MS = 15000;

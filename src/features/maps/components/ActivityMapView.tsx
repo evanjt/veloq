@@ -368,6 +368,14 @@ export const ActivityMapView = memo(function ActivityMapView({
     [currentCenterRef, currentZoomRef]
   );
 
+  // The 3D layer is the only thing that can clear its own spinner, so a page
+  // that cannot render drops back to the 2D map rather than spinning forever.
+  // Same landing as the error boundary below.
+  const handleMap3DFailed = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+  }, []);
+
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
@@ -665,6 +673,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
                 onMapReady={handleMap3DReady}
+                onMapFailed={handleMap3DFailed}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
@@ -680,7 +689,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D loading spinner */}
         {is3DMode && !is3DReady && !isFullscreen && (
-          <View style={styles.loadingOverlay}>
+          <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
