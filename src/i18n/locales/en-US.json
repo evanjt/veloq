@@ -1554,7 +1554,6 @@
     "mergeSuccess": "Sections merged",
     "rescan": "Re-scan",
     "rescanComplete": "Re-scan complete",
-    "forceRedetect": "Force full re-detect",
     "rematchActivities": "Re-match activities",
     "awayDistance": "{{distance}}m away",
     "viewSection": "View",

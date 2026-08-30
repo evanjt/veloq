@@ -1503,7 +1503,6 @@
     "mergeSuccess": "セクションを結合しました",
     "rescan": "再スキャン",
     "rescanComplete": "再スキャン完了",
-    "forceRedetect": "完全再検出",
     "rematchActivities": "アクティビティを再照合",
     "awayDistance": "{{distance}}m先",
     "viewSection": "表示",

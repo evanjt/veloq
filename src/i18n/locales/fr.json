@@ -1503,7 +1503,6 @@
     "mergeSuccess": "Sections fusionnées",
     "rescan": "Re-scanner",
     "rescanComplete": "Re-scan terminé",
-    "forceRedetect": "Forcer la re-détection complète",
     "rematchActivities": "Re-comparer les activités",
     "awayDistance": "à {{distance}}m",
     "viewSection": "Voir",

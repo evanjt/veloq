@@ -1309,7 +1309,6 @@ export interface TranslationResource {
     overlapLabel: string;
     rescan: string;
     rescanComplete: string;
-    forceRedetect: string;
     rematchActivities: string;
     awayDistance: string;
     viewSection: string;

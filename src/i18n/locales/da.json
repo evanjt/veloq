@@ -1503,7 +1503,6 @@
     "mergeSuccess": "Sektioner flettet",
     "rescan": "Genscan",
     "rescanComplete": "Genscan fuldført",
-    "forceRedetect": "Tving fuld gen-registrering",
     "rematchActivities": "Genmatch aktiviteter",
     "awayDistance": "{{distance}}m væk",
     "viewSection": "Vis",

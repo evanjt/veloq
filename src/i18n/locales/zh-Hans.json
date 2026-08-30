@@ -1503,7 +1503,6 @@
     "mergeSuccess": "路段已合并",
     "rescan": "重新扫描",
     "rescanComplete": "重新扫描完成",
-    "forceRedetect": "强制重新检测",
     "rematchActivities": "重新匹配活动",
     "awayDistance": "距离 {{distance}}m",
     "viewSection": "查看",

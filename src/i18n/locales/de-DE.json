@@ -1503,7 +1503,6 @@
     "mergeSuccess": "Abschnitte zusammengeführt",
     "rescan": "Erneut scannen",
     "rescanComplete": "Erneutes Scannen abgeschlossen",
-    "forceRedetect": "Vollständige Neuerkennung erzwingen",
     "rematchActivities": "Aktivitäten erneut zuordnen",
     "awayDistance": "{{distance}}m entfernt",
     "viewSection": "Anzeigen",
