@@ -1,14 +1,14 @@
 export type InsightCategory =
-  | "section_pr"
-  | "section_trend"
-  | "stale_pr"
-  | "fitness_milestone"
-  | "period_comparison"
-  | "strength_progression"
-  | "strength_balance"
-  | "hrv_trend"
-  | "efficiency_trend"
-  | "section_changed";
+  | 'section_pr'
+  | 'section_trend'
+  | 'stale_pr'
+  | 'fitness_milestone'
+  | 'period_comparison'
+  | 'strength_progression'
+  | 'strength_balance'
+  | 'hrv_trend'
+  | 'efficiency_trend'
+  | 'section_changed';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 
@@ -16,7 +16,7 @@ export interface DataPoint {
   label: string;
   value: number | string;
   unit?: string;
-  context?: "good" | "warning" | "concern" | "neutral";
+  context?: 'good' | 'warning' | 'concern' | 'neutral';
 }
 
 export interface InsightAlternative {
@@ -99,7 +99,7 @@ export interface InsightMeta {
    * 'self' compares the user to their own past (Kappen 2018 - preferred).
    * 'other' compares to population/others. 'none' for pure status facts.
    */
-  comparisonKind?: "self" | "other" | "none";
+  comparisonKind?: 'self' | 'other' | 'none';
   /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
   repetitionCount?: number;
   /** Proximal-specificity tags - drives R5 ranking bonus. */
@@ -172,7 +172,4 @@ export interface SectionTrendData {
 }
 
 /** Translation function signature (react-i18next-compatible). */
-export type TFunc = (
-  key: string,
-  params?: Record<string, string | number>,
-) => string;
+export type TFunc = (key: string, params?: Record<string, string | number>) => string;
