@@ -8,6 +8,7 @@ import {
   SectionCreationResult,
   SectionCreationError,
 } from '@/features/maps/components/ActivityMapView';
+import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { ComponentErrorBoundary, DetailHero } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
@@ -90,6 +91,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       onBack={() => router.back()}
       backTestID="activity-detail-back"
       containerTestID="activity-detail-content"
+      attributionClearance={ATTRIBUTION_CLEARANCE}
       overlay={
         <>
           <Pressable
