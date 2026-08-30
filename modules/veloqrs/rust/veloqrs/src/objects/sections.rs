@@ -14,7 +14,7 @@ impl SectionManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
+    fn get_all(&self) -> Result<Vec<crate::FfiSection>, VeloqError> {
         // Read lock: get_visible_sections() only borrows in-memory state (no
         // self.db), so concurrent reads are sound and no longer serialize on the
         // engine write lock - this is the hot Routes/section-list path. Corridor
@@ -24,7 +24,7 @@ impl SectionManager {
             e.get_visible_sections()
                 .into_iter()
                 .map(|s| {
-                    let mut f = crate::FfiFrequentSection::from(s);
+                    let mut f = crate::FfiSection::from(s);
                     if !s.is_user_defined {
                         if let Some(n) = names.get(&s.id) {
                             f.name = Some(n.clone());
@@ -40,7 +40,7 @@ impl SectionManager {
         &self,
         sport_type: Option<String>,
         min_visits: Option<u32>,
-    ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
+    ) -> Result<Vec<crate::FfiSection>, VeloqError> {
         // Read lock: get_sections_filtered() filters the in-memory Vec only.
         // Corridor names from the cached overlay, as in get_all.
         with_engine_read(|e| {
@@ -48,7 +48,7 @@ impl SectionManager {
             e.get_sections_filtered(sport_type.as_deref(), min_visits)
                 .into_iter()
                 .map(|s| {
-                    let mut f = crate::FfiFrequentSection::from(s);
+                    let mut f = crate::FfiSection::from(s);
                     if !s.is_user_defined {
                         if let Some(n) = names.get(&s.id) {
                             f.name = Some(n.clone());
@@ -82,13 +82,10 @@ impl SectionManager {
         })
     }
 
-    fn get_by_id(
-        &self,
-        section_id: String,
-    ) -> Result<Option<crate::FfiFrequentSection>, VeloqError> {
+    fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiSection>, VeloqError> {
         with_engine(|e| {
             e.get_section_by_id(&section_id)
-                .map(crate::FfiFrequentSection::from)
+                .map(crate::FfiSection::from)
         })
     }
 

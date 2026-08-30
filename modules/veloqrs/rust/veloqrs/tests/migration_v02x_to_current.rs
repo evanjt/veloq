@@ -21,7 +21,7 @@ use rusqlite::{Connection, params};
 use std::collections::HashMap;
 use std::path::Path;
 use tempfile::TempDir;
-use veloqrs::{FfiFrequentSection, FfiSection, FfiSectionPerformanceResult, PersistentRouteEngine};
+use veloqrs::{FfiSection, FfiSectionPerformanceResult, PersistentRouteEngine};
 
 /// Open the current engine, which runs every pending migration plus the
 /// post-migration Rust hooks, then load in-memory caches.
@@ -940,7 +940,7 @@ fn ffi_custom_section_readable_after_migration() {
 
     let section = engine
         .get_section_by_id(SECTION_ID)
-        .map(FfiFrequentSection::from)
+        .map(FfiSection::from)
         .expect("custom section must be readable by id after migration");
     assert_eq!(section.id, SECTION_ID);
     assert_eq!(section.name.as_deref(), Some(SECTION_NAME));
@@ -1140,13 +1140,13 @@ fn ffi_survives_orphan_and_null_edge_cases() {
 
     let null_name_section = engine
         .get_section_by_id("custom_1700000000001__nullnm")
-        .map(FfiFrequentSection::from)
+        .map(FfiSection::from)
         .expect("null-name section retrievable");
     assert!(null_name_section.name.is_none());
 
     let empty_poly = engine
         .get_section_by_id("custom_1700000000002__empty")
-        .map(FfiFrequentSection::from)
+        .map(FfiSection::from)
         .expect("empty-polyline section retrievable");
     assert!(veloqrs::coords::decode(&empty_poly.encoded_polyline).is_empty());
     assert!(
@@ -1157,7 +1157,7 @@ fn ffi_survives_orphan_and_null_edge_cases() {
 
     let standard = engine
         .get_section_by_id(SECTION_ID)
-        .map(FfiFrequentSection::from)
+        .map(FfiSection::from)
         .expect("healthy custom section still present alongside the orphan");
     assert_eq!(standard.activity_portions.len(), 1);
     assert!(

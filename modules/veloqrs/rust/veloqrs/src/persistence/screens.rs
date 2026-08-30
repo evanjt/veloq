@@ -345,7 +345,7 @@ impl super::PersistentRouteEngine {
             map_signatures: self.get_map_signatures_for_ids(&activity_ids),
             missing_time_stream_ids: self
                 .get_activities_missing_time_streams(&portion_activity_ids),
-            section: section.map(crate::FfiFrequentSection::from),
+            section: section.map(crate::FfiSection::from),
         }
     }
 

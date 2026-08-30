@@ -2982,167 +2982,6 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
- * Frequent section for FFI
- */
-export type FfiFrequentSection = {
-  id: string;
-  name?: string;
-  sportType: string;
-  encodedPolyline: ArrayBuffer;
-  representativeActivityId: string;
-  activityIds: Array<string>;
-  activityPortions: Array<FfiSectionPortion>;
-  routeIds: Array<string>;
-  visitCount: /*u32*/ number;
-  distanceMeters: /*f64*/ number;
-  confidence: /*f64*/ number;
-  observationCount: /*u32*/ number;
-  averageSpread: /*f64*/ number;
-  pointDensity: Array</*u32*/ number>;
-  scale?: string;
-  isUserDefined: boolean;
-  stability: /*f64*/ number;
-  version: /*u32*/ number;
-  updatedAt?: string;
-  createdAt?: string;
-  elevationGainM?: /*f64*/ number;
-  avgGradePercent?: /*f64*/ number;
-  elevationLossM?: /*f64*/ number;
-  maxGradePercent?: /*f64*/ number;
-  straightness?: /*f64*/ number;
-  klass?: string;
-  isLift: boolean;
-  rankScore?: /*f64*/ number;
-  sportRankScore?: /*f64*/ number;
-};
-
-/**
- * Generated factory for {@link FfiFrequentSection} record objects.
- */
-export const FfiFrequentSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiFrequentSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiFrequentSection>,
-  });
-})();
-
-const FfiConverterTypeFfiFrequentSection = (() => {
-  type TypeName = FfiFrequentSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        id: FfiConverterString.read(from),
-        name: FfiConverterOptionalString.read(from),
-        sportType: FfiConverterString.read(from),
-        encodedPolyline: FfiConverterArrayBuffer.read(from),
-        representativeActivityId: FfiConverterString.read(from),
-        activityIds: FfiConverterArrayString.read(from),
-        activityPortions: FfiConverterArrayTypeFfiSectionPortion.read(from),
-        routeIds: FfiConverterArrayString.read(from),
-        visitCount: FfiConverterUInt32.read(from),
-        distanceMeters: FfiConverterFloat64.read(from),
-        confidence: FfiConverterFloat64.read(from),
-        observationCount: FfiConverterUInt32.read(from),
-        averageSpread: FfiConverterFloat64.read(from),
-        pointDensity: FfiConverterArrayUInt32.read(from),
-        scale: FfiConverterOptionalString.read(from),
-        isUserDefined: FfiConverterBool.read(from),
-        stability: FfiConverterFloat64.read(from),
-        version: FfiConverterUInt32.read(from),
-        updatedAt: FfiConverterOptionalString.read(from),
-        createdAt: FfiConverterOptionalString.read(from),
-        elevationGainM: FfiConverterOptionalFloat64.read(from),
-        avgGradePercent: FfiConverterOptionalFloat64.read(from),
-        elevationLossM: FfiConverterOptionalFloat64.read(from),
-        maxGradePercent: FfiConverterOptionalFloat64.read(from),
-        straightness: FfiConverterOptionalFloat64.read(from),
-        klass: FfiConverterOptionalString.read(from),
-        isLift: FfiConverterBool.read(from),
-        rankScore: FfiConverterOptionalFloat64.read(from),
-        sportRankScore: FfiConverterOptionalFloat64.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.id, into);
-      FfiConverterOptionalString.write(value.name, into);
-      FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
-      FfiConverterString.write(value.representativeActivityId, into);
-      FfiConverterArrayString.write(value.activityIds, into);
-      FfiConverterArrayTypeFfiSectionPortion.write(
-        value.activityPortions,
-        into,
-      );
-      FfiConverterArrayString.write(value.routeIds, into);
-      FfiConverterUInt32.write(value.visitCount, into);
-      FfiConverterFloat64.write(value.distanceMeters, into);
-      FfiConverterFloat64.write(value.confidence, into);
-      FfiConverterUInt32.write(value.observationCount, into);
-      FfiConverterFloat64.write(value.averageSpread, into);
-      FfiConverterArrayUInt32.write(value.pointDensity, into);
-      FfiConverterOptionalString.write(value.scale, into);
-      FfiConverterBool.write(value.isUserDefined, into);
-      FfiConverterFloat64.write(value.stability, into);
-      FfiConverterUInt32.write(value.version, into);
-      FfiConverterOptionalString.write(value.updatedAt, into);
-      FfiConverterOptionalString.write(value.createdAt, into);
-      FfiConverterOptionalFloat64.write(value.elevationGainM, into);
-      FfiConverterOptionalFloat64.write(value.avgGradePercent, into);
-      FfiConverterOptionalFloat64.write(value.elevationLossM, into);
-      FfiConverterOptionalFloat64.write(value.maxGradePercent, into);
-      FfiConverterOptionalFloat64.write(value.straightness, into);
-      FfiConverterOptionalString.write(value.klass, into);
-      FfiConverterBool.write(value.isLift, into);
-      FfiConverterOptionalFloat64.write(value.rankScore, into);
-      FfiConverterOptionalFloat64.write(value.sportRankScore, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.id) +
-        FfiConverterOptionalString.allocationSize(value.name) +
-        FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
-        FfiConverterString.allocationSize(value.representativeActivityId) +
-        FfiConverterArrayString.allocationSize(value.activityIds) +
-        FfiConverterArrayTypeFfiSectionPortion.allocationSize(
-          value.activityPortions,
-        ) +
-        FfiConverterArrayString.allocationSize(value.routeIds) +
-        FfiConverterUInt32.allocationSize(value.visitCount) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterFloat64.allocationSize(value.confidence) +
-        FfiConverterUInt32.allocationSize(value.observationCount) +
-        FfiConverterFloat64.allocationSize(value.averageSpread) +
-        FfiConverterArrayUInt32.allocationSize(value.pointDensity) +
-        FfiConverterOptionalString.allocationSize(value.scale) +
-        FfiConverterBool.allocationSize(value.isUserDefined) +
-        FfiConverterFloat64.allocationSize(value.stability) +
-        FfiConverterUInt32.allocationSize(value.version) +
-        FfiConverterOptionalString.allocationSize(value.updatedAt) +
-        FfiConverterOptionalString.allocationSize(value.createdAt) +
-        FfiConverterOptionalFloat64.allocationSize(value.elevationGainM) +
-        FfiConverterOptionalFloat64.allocationSize(value.avgGradePercent) +
-        FfiConverterOptionalFloat64.allocationSize(value.elevationLossM) +
-        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
-        FfiConverterOptionalFloat64.allocationSize(value.straightness) +
-        FfiConverterOptionalString.allocationSize(value.klass) +
-        FfiConverterBool.allocationSize(value.isLift) +
-        FfiConverterOptionalFloat64.allocationSize(value.rankScore) +
-        FfiConverterOptionalFloat64.allocationSize(value.sportRankScore)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * FTP trend data.
  */
 export type FfiFtpTrend = {
@@ -5027,7 +4866,7 @@ export type FfiRankedSection = {
   /**
    * -1 = declining, 0 = stable, 1 = improving
    */
-  trend: /*i32*/ number;
+  trend: /*i8*/ number;
   /**
    * Whether the most recent effort is the all-time best time
    */
@@ -5067,7 +4906,7 @@ const FfiConverterTypeFfiRankedSection = (() => {
         bestTimeSecs: FfiConverterFloat64.read(from),
         medianRecentSecs: FfiConverterFloat64.read(from),
         daysSinceLast: FfiConverterUInt32.read(from),
-        trend: FfiConverterInt32.read(from),
+        trend: FfiConverterInt8.read(from),
         latestIsPr: FfiConverterBool.read(from),
       };
     }
@@ -5083,7 +4922,7 @@ const FfiConverterTypeFfiRankedSection = (() => {
       FfiConverterFloat64.write(value.bestTimeSecs, into);
       FfiConverterFloat64.write(value.medianRecentSecs, into);
       FfiConverterUInt32.write(value.daysSinceLast, into);
-      FfiConverterInt32.write(value.trend, into);
+      FfiConverterInt8.write(value.trend, into);
       FfiConverterBool.write(value.latestIsPr, into);
     }
     allocationSize(value: TypeName): number {
@@ -5099,7 +4938,7 @@ const FfiConverterTypeFfiRankedSection = (() => {
         FfiConverterFloat64.allocationSize(value.bestTimeSecs) +
         FfiConverterFloat64.allocationSize(value.medianRecentSecs) +
         FfiConverterUInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterInt32.allocationSize(value.trend) +
+        FfiConverterInt8.allocationSize(value.trend) +
         FfiConverterBool.allocationSize(value.latestIsPr)
       );
     }
@@ -5931,6 +5770,11 @@ export type FfiSection = {
   distanceMeters: /*f64*/ number;
   representativeActivityId?: string;
   activityIds: Array<string>;
+  /**
+   * Each activity's portion of the section. Only the in-memory catalogue
+   * carries these, so the database path sends an empty list.
+   */
+  activityPortions: Array<FfiSectionPortion>;
   visitCount: /*u32*/ number;
   confidence?: /*f64*/ number;
   observationCount?: /*u32*/ number;
@@ -5989,6 +5833,7 @@ const FfiConverterTypeFfiSection = (() => {
         distanceMeters: FfiConverterFloat64.read(from),
         representativeActivityId: FfiConverterOptionalString.read(from),
         activityIds: FfiConverterArrayString.read(from),
+        activityPortions: FfiConverterArrayTypeFfiSectionPortion.read(from),
         visitCount: FfiConverterUInt32.read(from),
         confidence: FfiConverterOptionalFloat64.read(from),
         observationCount: FfiConverterOptionalUInt32.read(from),
@@ -6026,6 +5871,10 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterOptionalString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
+      FfiConverterArrayTypeFfiSectionPortion.write(
+        value.activityPortions,
+        into,
+      );
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterOptionalFloat64.write(value.confidence, into);
       FfiConverterOptionalUInt32.write(value.observationCount, into);
@@ -6065,6 +5914,9 @@ const FfiConverterTypeFfiSection = (() => {
           value.representativeActivityId,
         ) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
+        FfiConverterArrayTypeFfiSectionPortion.allocationSize(
+          value.activityPortions,
+        ) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterOptionalFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalUInt32.allocationSize(value.observationCount) +
@@ -6451,7 +6303,7 @@ export type FfiSectionDetailData = {
   /**
    * The section itself, or `None` when the ID is unknown
    */
-  section?: FfiFrequentSection;
+  section?: FfiSection;
   /**
    * Sections within the requested radius, for the map overlay
    */
@@ -6506,7 +6358,7 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityCount: FfiConverterUInt32.read(from),
-        section: FfiConverterOptionalTypeFfiFrequentSection.read(from),
+        section: FfiConverterOptionalTypeFfiSection.read(from),
         nearby: FfiConverterArrayTypeFfiNearbySectionSummary.read(from),
         mergeCandidates: FfiConverterArrayTypeFfiMergeCandidate.read(from),
         excludedActivityIds: FfiConverterArrayString.read(from),
@@ -6518,7 +6370,7 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterUInt32.write(value.activityCount, into);
-      FfiConverterOptionalTypeFfiFrequentSection.write(value.section, into);
+      FfiConverterOptionalTypeFfiSection.write(value.section, into);
       FfiConverterArrayTypeFfiNearbySectionSummary.write(value.nearby, into);
       FfiConverterArrayTypeFfiMergeCandidate.write(value.mergeCandidates, into);
       FfiConverterArrayString.write(value.excludedActivityIds, into);
@@ -6533,9 +6385,7 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterOptionalTypeFfiFrequentSection.allocationSize(
-          value.section,
-        ) +
+        FfiConverterOptionalTypeFfiSection.allocationSize(value.section) +
         FfiConverterArrayTypeFfiNearbySectionSummary.allocationSize(
           value.nearby,
         ) +
@@ -8681,9 +8531,10 @@ export type FfiWorkoutSection = {
   daysSinceLast?: /*i32*/ number;
   prDaysAgo?: /*i32*/ number;
   /**
-   * "improving" | "stable" | "declining" - empty string when insufficient data
+   * -1 = declining, 0 = stable, 1 = improving. None when there is not
+   * enough history to say.
    */
-  trend: string;
+  trend?: /*i8*/ number;
 };
 
 /**
@@ -8715,7 +8566,7 @@ const FfiConverterTypeFfiWorkoutSection = (() => {
         lastTimeSecs: FfiConverterOptionalFloat64.read(from),
         daysSinceLast: FfiConverterOptionalInt32.read(from),
         prDaysAgo: FfiConverterOptionalInt32.read(from),
-        trend: FfiConverterString.read(from),
+        trend: FfiConverterOptionalInt8.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -8726,7 +8577,7 @@ const FfiConverterTypeFfiWorkoutSection = (() => {
       FfiConverterOptionalFloat64.write(value.lastTimeSecs, into);
       FfiConverterOptionalInt32.write(value.daysSinceLast, into);
       FfiConverterOptionalInt32.write(value.prDaysAgo, into);
-      FfiConverterString.write(value.trend, into);
+      FfiConverterOptionalInt8.write(value.trend, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8737,7 +8588,7 @@ const FfiConverterTypeFfiWorkoutSection = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.lastTimeSecs) +
         FfiConverterOptionalInt32.allocationSize(value.daysSinceLast) +
         FfiConverterOptionalInt32.allocationSize(value.prDaysAgo) +
-        FfiConverterString.allocationSize(value.trend)
+        FfiConverterOptionalInt8.allocationSize(value.trend)
       );
     }
   }
@@ -12280,7 +12131,7 @@ export interface SectionManagerLike {
   getActivitySectionEncounters(
     activityId: string,
   ) /*throws*/ : Array<FfiSectionEncounter>;
-  getAll() /*throws*/ : Array<FfiFrequentSection>;
+  getAll() /*throws*/ : Array<FfiSection>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
@@ -12288,7 +12139,7 @@ export interface SectionManagerLike {
   getAllSummariesIncludingHidden(
     sportType: string | undefined,
   ) /*throws*/ : Array<SectionSummary>;
-  getById(sectionId: string) /*throws*/ : FfiFrequentSection | undefined;
+  getById(sectionId: string) /*throws*/ : FfiSection | undefined;
   getByType(sectionType: string | undefined) /*throws*/ : Array<FfiSection>;
   getCalendarSummary(
     sectionId: string,
@@ -12340,7 +12191,7 @@ export interface SectionManagerLike {
   getFiltered(
     sportType: string | undefined,
     minVisits: /*u32*/ number | undefined,
-  ) /*throws*/ : Array<FfiFrequentSection>;
+  ) /*throws*/ : Array<FfiSection>;
   /**
    * Filtered + sorted section summaries. Pushes the visit-count threshold
    * and sort key into Rust so TS stops re-iterating the summaries list.
@@ -12778,8 +12629,8 @@ export class SectionManager
     );
   }
 
-  getAll(): Array<FfiFrequentSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiFrequentSection.lift(
+  getAll(): Array<FfiSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiSection.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -12835,8 +12686,8 @@ export class SectionManager
     );
   }
 
-  getById(sectionId: string): FfiFrequentSection | undefined /*throws*/ {
-    return FfiConverterOptionalTypeFfiFrequentSection.lift(
+  getById(sectionId: string): FfiSection | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiSection.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -13095,8 +12946,8 @@ export class SectionManager
   getFiltered(
     sportType: string | undefined,
     minVisits: /*u32*/ number | undefined,
-  ): Array<FfiFrequentSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiFrequentSection.lift(
+  ): Array<FfiSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiSection.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -16311,11 +16162,6 @@ const FfiConverterOptionalTypeFfiEfficiencyTrend = new FfiConverterOptional(
   FfiConverterTypeFfiEfficiencyTrend,
 );
 
-// FfiConverter for FfiFrequentSection | undefined
-const FfiConverterOptionalTypeFfiFrequentSection = new FfiConverterOptional(
-  FfiConverterTypeFfiFrequentSection,
-);
-
 // FfiConverter for FfiHrvTrend | undefined
 const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
   FfiConverterTypeFfiHrvTrend,
@@ -16329,6 +16175,11 @@ const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
 // FfiConverter for FfiRoutePerformance | undefined
 const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
   FfiConverterTypeFfiRoutePerformance,
+);
+
+// FfiConverter for FfiSection | undefined
+const FfiConverterOptionalTypeFfiSection = new FfiConverterOptional(
+  FfiConverterTypeFfiSection,
 );
 
 // FfiConverter for FfiSectionPerformanceRecord | undefined
@@ -16440,11 +16291,6 @@ const FfiConverterArrayTypeFfiExerciseSet = new FfiConverterArray(
 // FfiConverter for Array<FfiExerciseSummary>
 const FfiConverterArrayTypeFfiExerciseSummary = new FfiConverterArray(
   FfiConverterTypeFfiExerciseSummary,
-);
-
-// FfiConverter for Array<FfiFrequentSection>
-const FfiConverterArrayTypeFfiFrequentSection = new FfiConverterArray(
-  FfiConverterTypeFfiFrequentSection,
 );
 
 // FfiConverter for Array<FfiGpsPoint>
@@ -17696,7 +17542,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all() !==
-    47704
+    33228
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_all",
@@ -17720,7 +17566,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id() !==
-    13662
+    637
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_by_id",
@@ -17816,7 +17662,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered() !==
-    31731
+    4908
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered",
@@ -18592,7 +18438,6 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseContribution,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
-    FfiConverterTypeFfiFrequentSection,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSummariesResult,

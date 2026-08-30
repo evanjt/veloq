@@ -24,9 +24,8 @@ import type {
   FfiGpsPoint,
   FfiMapScreenData,
   FfiRouteGroup,
-  FfiFrequentSection,
-  FfiNamedCorridor,
   FfiSection,
+  FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
@@ -366,9 +365,9 @@ class RouteEngineClient implements DelegateHost {
 
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
-  getSections = (): FfiFrequentSection[] => sectionDelegates.getSections(this);
+  getSections = (): FfiSection[] => sectionDelegates.getSections(this);
 
-  getSectionsFiltered = (sportType?: string, minVisits?: number): FfiFrequentSection[] =>
+  getSectionsFiltered = (sportType?: string, minVisits?: number): FfiSection[] =>
     sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
 
   getSectionsForActivity = (activityId: string): FfiSection[] =>
@@ -395,7 +394,7 @@ class RouteEngineClient implements DelegateHost {
   ): { totalCount: number; summaries: GroupSummary[] } =>
     routeDelegates.getFilteredGroupSummaries(this, minActivities, sortKey);
 
-  getSectionById = (sectionId: string): FfiFrequentSection | null =>
+  getSectionById = (sectionId: string): FfiSection | null =>
     sectionDelegates.getSectionById(this, sectionId);
 
   getGroupById = (groupId: string): FfiRouteGroup | null =>

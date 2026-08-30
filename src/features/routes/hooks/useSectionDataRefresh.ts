@@ -4,7 +4,7 @@ import { decodeCoords } from 'veloqrs';
 import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import type { FrequentSection as NativeFrequentSection } from 'veloqrs';
+import type { Section as NativeSection } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -14,7 +14,7 @@ import type { FrequentSection } from '@/types';
  */
 export function useSectionDataRefresh(
   id: string | undefined,
-  preComputedSection?: NativeFrequentSection
+  preComputedSection?: NativeSection
 ) {
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);

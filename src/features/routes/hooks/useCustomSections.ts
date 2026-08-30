@@ -80,7 +80,6 @@ function findSupersededSections(
 
 /** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
 function toAppSections(sections: NativeSection[]): Section[] {
-  // Note: FfiSection doesn't have activityPortions - it's optional in the app type
   return sections.map((s) => ({
     ...s,
     polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
@@ -89,7 +88,6 @@ function toAppSections(sections: NativeSection[]): Section[] {
     })),
     sectionType: 'custom' as const,
     createdAt: s.createdAt || new Date().toISOString(),
-    activityPortions: undefined,
   })) as Section[];
 }
 

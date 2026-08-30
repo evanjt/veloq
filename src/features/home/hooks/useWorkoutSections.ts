@@ -41,7 +41,7 @@ export function useWorkoutSections(sportType: string | undefined): {
       lastTimeSecs: row.lastTimeSecs ?? null,
       daysSinceLast: row.daysSinceLast ?? null,
       prDaysAgo: row.prDaysAgo ?? null,
-      trend: trendFromString(row.trend),
+      trend: trendLabel(row.trend),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sportType, trigger]);
@@ -49,7 +49,10 @@ export function useWorkoutSections(sportType: string | undefined): {
   return { sections };
 }
 
-function trendFromString(trend: string): WorkoutSection['trend'] {
-  if (trend === 'improving' || trend === 'declining' || trend === 'stable') return trend;
-  return null;
+/** The engine's three-way verdict, as the label this list renders. */
+function trendLabel(trend: number | undefined): WorkoutSection['trend'] {
+  if (trend == null) return null;
+  if (trend > 0) return 'improving';
+  if (trend < 0) return 'declining';
+  return 'stable';
 }
