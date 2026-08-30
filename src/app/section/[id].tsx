@@ -113,8 +113,6 @@ export default function SectionDetailScreen() {
     setHighlightedActivityId,
     highlightedActivityPoints,
     setHighlightedActivityPoints,
-    isScrubbing,
-    setIsScrubbing,
     mapReady,
     setMapReady,
     mergeTarget,
@@ -241,13 +239,6 @@ export default function SectionDetailScreen() {
       setHighlightedActivityPoints(activityPoints);
     },
     [setHighlightedActivityId, setHighlightedActivityPoints]
-  );
-
-  const handleScrubChange = useCallback(
-    (scrubbing: boolean) => {
-      setIsScrubbing(scrubbing);
-    },
-    [setIsScrubbing]
   );
 
   const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
@@ -398,7 +389,6 @@ export default function SectionDetailScreen() {
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
-            isScrubbing={isScrubbing}
             nearbyPolylines={nearbyPolylines}
             onNearbyPress={
               isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
@@ -486,7 +476,6 @@ export default function SectionDetailScreen() {
               excludedActivityIds={excludedActivityIds}
               sectionTimeRange={sectionTimeRange}
               onActivitySelect={handleActivitySelect}
-              onScrubChange={handleScrubChange}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
               onSetAsReference={handleSetAsReference}
