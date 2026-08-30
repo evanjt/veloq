@@ -18,6 +18,12 @@ const EM_DASH = String.fromCharCode(0x2014);
 const ALLOWED = [
   // The guard's own fixtures have to hold the character it looks for.
   'src/__tests__/bugs/emDashLintExitCode.test.ts',
+  // Migration SQL is hashed byte for byte by veloqrs/tests/migration_checksums.rs.
+  // rusqlite_migration records only a count, so a device that ran the old bytes
+  // never runs the new ones, and every edit costs a hand-deleted golden line.
+  // A style sweep must not be the thing that spends that, so write a migration
+  // without the character rather than clearing one afterwards.
+  'modules/veloqrs/rust/veloqrs/src/migrations/',
 ];
 
 const rootFlag = process.argv.indexOf('--root');
