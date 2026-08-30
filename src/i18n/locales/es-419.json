@@ -1660,7 +1660,6 @@
     "redetectSections": "Detectar secciones",
     "redetectSectionsHint": "Ejecutar la detección de secciones en todas las actividades. Puede tardar 1-2 minutos.",
     "sectionDetection": "Detección de secciones",
-    "detectionSensitivity": "Sensibilidad de detección",
     "detectionRelaxed": "Permisiva",
     "detectionStrict": "Estricta",
     "matchThreshold": "Coincidencia: {{pct}} %",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "Trazas mín. corredor: {{count}}",
     "sectionJaccard": "Solapamiento celdas: {{value}}",
     "sectionMinCellVisits": "Visitas mín. celda: {{count}}",
-    "sectionDivergence": "Divergencia: {{value}}",
     "general": "General",
     "data": "Datos",
     "notificationsAndStorage": "Notificaciones y almacenamiento",
@@ -1720,8 +1718,7 @@
     "previewKeep": "Conservar",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "¿Aplicar esta configuración?",
-    "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar.",
-    "advanced": "Avanzado"
+    "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar."
   },
   "stats": {
     "activities": "Actividades",

@@ -1660,7 +1660,6 @@
     "redetectSections": "Abschnitte neu erkennen",
     "redetectSectionsHint": "Abschnittserkennung über alle Aktivitäten erneut ausführen. Kann 1-2 Minuten dauern.",
     "sectionDetection": "Abschnittserkennung",
-    "detectionSensitivity": "Erkennungsempfindlichkeit",
     "detectionRelaxed": "Locker",
     "detectionStrict": "Streng",
     "matchThreshold": "Übereinstimmung: {{pct}}%",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. Korridor-Tracks: {{count}}",
     "sectionJaccard": "Zellüberlappung: {{value}}",
     "sectionMinCellVisits": "Min. Zellbesuche: {{count}}",
-    "sectionDivergence": "Divergenz: {{value}}",
     "general": "Allgemein",
     "data": "Daten",
     "notificationsAndStorage": "Benachrichtigungen & Speicher",
@@ -1720,8 +1718,7 @@
     "previewKeep": "Behalten",
     "previewDiscard": "Verwerfen",
     "previewKeepTitle": "Diese Einstellungen anwenden?",
-    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
-    "advanced": "Erweitert"
+    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern."
   },
   "stats": {
     "activities": "Aktivitäten",

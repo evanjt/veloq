@@ -1660,7 +1660,6 @@
     "redetectSections": "セクションを再検出",
     "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。",
     "sectionDetection": "セクション検出",
-    "detectionSensitivity": "検出感度",
     "detectionRelaxed": "緩め",
     "detectionStrict": "厳しめ",
     "matchThreshold": "一致率: {{pct}}%",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "最小コリドートラック: {{count}}",
     "sectionJaccard": "セル重なり: {{value}}",
     "sectionMinCellVisits": "最小セル訪問数: {{count}}",
-    "sectionDivergence": "分岐閾値: {{value}}",
     "general": "一般",
     "data": "データ",
     "notificationsAndStorage": "通知とストレージ",
@@ -1720,8 +1718,7 @@
     "previewKeep": "適用",
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
-    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
-    "advanced": "詳細設定"
+    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。"
   },
   "stats": {
     "activities": "アクティビティ",

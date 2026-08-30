@@ -1660,7 +1660,6 @@
     "redetectSections": "Secties opnieuw detecteren",
     "redetectSectionsHint": "Sectie-detectie opnieuw uitvoeren op alle activiteiten. Kan 1-2 minuten duren.",
     "sectionDetection": "Sectiedetectie",
-    "detectionSensitivity": "Detectiegevoeligheid",
     "detectionRelaxed": "Soepel",
     "detectionStrict": "Strikt",
     "matchThreshold": "Overeenkomst: {{pct}}%",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. corridor-tracks: {{count}}",
     "sectionJaccard": "Celoverlap: {{value}}",
     "sectionMinCellVisits": "Min. celbezoeken: {{count}}",
-    "sectionDivergence": "Divergentie: {{value}}",
     "general": "Algemeen",
     "data": "Gegevens",
     "notificationsAndStorage": "Meldingen en opslag",
@@ -1720,8 +1718,7 @@
     "previewKeep": "Behouden",
     "previewDiscard": "Verwerpen",
     "previewKeepTitle": "Deze instellingen toepassen?",
-    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
-    "advanced": "Geavanceerd"
+    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen."
   },
   "stats": {
     "activities": "Activiteiten",

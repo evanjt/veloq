@@ -1660,7 +1660,6 @@
     "redetectSections": "Re-detetar secções",
     "redetectSectionsHint": "Executar a deteção de secções em todas as atividades. Pode demorar 1-2 minutos.",
     "sectionDetection": "Deteção de troços",
-    "detectionSensitivity": "Sensibilidade da deteção",
     "detectionRelaxed": "Permissiva",
     "detectionStrict": "Rigorosa",
     "matchThreshold": "Correspondência: {{pct}}%",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "Trilhas mín. corredor: {{count}}",
     "sectionJaccard": "Sobreposição de células: {{value}}",
     "sectionMinCellVisits": "Visitas mín. célula: {{count}}",
-    "sectionDivergence": "Divergência: {{value}}",
     "general": "Geral",
     "data": "Dados",
     "notificationsAndStorage": "Notificações e armazenamento",
@@ -1720,8 +1718,7 @@
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas definições?",
-    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar.",
-    "advanced": "Avançado"
+    "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar."
   },
   "stats": {
     "activities": "Atividades",

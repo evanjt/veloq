@@ -1660,7 +1660,6 @@
     "redetectSections": "Abschnitte nöi erchenne",
     "redetectSectionsHint": "Abschnittserchennig über alli Aktivitäte nomal laufe lah. Cha 1-2 Minuute dure.",
     "sectionDetection": "Abschnittserkennig",
-    "detectionSensitivity": "Erkennigsempfindlichkeit",
     "detectionRelaxed": "Locker",
     "detectionStrict": "Striikt",
     "matchThreshold": "Übriistimmig: {{pct}}%",
@@ -1681,7 +1680,6 @@
     "sectionMinCorridorTracks": "Min. Korridor-Tracks: {{count}}",
     "sectionJaccard": "Zellüberlappung: {{value}}",
     "sectionMinCellVisits": "Min. Zellbesuche: {{count}}",
-    "sectionDivergence": "Divergenz: {{value}}",
     "general": "Allgemein",
     "data": "Date",
     "notificationsAndStorage": "Benachrichtigunge & Speicher",
@@ -1720,8 +1718,7 @@
     "previewKeep": "Bhalte",
     "previewDiscard": "Verwerfe",
     "previewKeepTitle": "Die Iistellige aawände?",
-    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
-    "advanced": "Erweitert"
+    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere."
   },
   "stats": {
     "activities": "Aktivitäte",

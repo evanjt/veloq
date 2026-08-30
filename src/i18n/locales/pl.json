@@ -1662,7 +1662,6 @@
     "redetectSections": "Wykryj sekcje ponownie",
     "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty.",
     "sectionDetection": "Wykrywanie sekcji",
-    "detectionSensitivity": "Czułość wykrywania",
     "detectionRelaxed": "Łagodne",
     "detectionStrict": "Surowe",
     "matchThreshold": "Dopasowanie: {{pct}}%",
@@ -1683,7 +1682,6 @@
     "sectionMinCorridorTracks": "Min. śladów korytarza: {{count}}",
     "sectionJaccard": "Nakładanie komórek: {{value}}",
     "sectionMinCellVisits": "Min. wizyt komórki: {{count}}",
-    "sectionDivergence": "Dywergencja: {{value}}",
     "general": "Ogólne",
     "data": "Dane",
     "notificationsAndStorage": "Powiadomienia i pamięć",
@@ -1722,8 +1720,7 @@
     "previewKeep": "Zachowaj",
     "previewDiscard": "Odrzuć",
     "previewKeepTitle": "Zastosować te ustawienia?",
-    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
-    "advanced": "Zaawansowane"
+    "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić."
   },
   "stats": {
     "activities": "Aktywności",
