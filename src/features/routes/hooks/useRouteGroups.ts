@@ -136,34 +136,3 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   return result;
 }
-
-/**
- * Get all route display names.
- * Names are now stored persistently in Rust (user-set or auto-generated on creation).
- * Used for uniqueness validation when renaming routes.
- * Returns a map of routeId -> displayName for all routes.
- */
-export function getAllRouteDisplayNames(): Record<string, string> {
-  const engine = getRouteEngine();
-  if (!engine) return {};
-
-  // Use lightweight summaries - names are stored in customName field
-  const { summaries } = engine.getGroupSummaries();
-
-  const result: Record<string, string> = {};
-  for (const summary of summaries) {
-    // Names are stored in Rust (user-set or auto-generated on creation/migration)
-    result[summary.groupId] = summary.customName ?? summary.groupId;
-  }
-
-  return result;
-}
-
-/**
- * Get the display name for a specific route by ID.
- * Computes the index based on sorted position within sport type.
- */
-export function getRouteDisplayName(routeId: string): string | null {
-  const allNames = getAllRouteDisplayNames();
-  return allNames[routeId] ?? null;
-}
