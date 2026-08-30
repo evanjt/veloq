@@ -9645,8 +9645,10 @@ export interface ActivityManagerLike {
   getMetricsForIds(ids: Array<string>) /*throws*/ : Array<FfiActivityMetrics>;
   getMissingTimeStreams(activityIds: Array<string>) /*throws*/ : Array<string>;
   /**
-   * A stored stream payload for an activity and series selection, or
-   * `None` when it has not been fetched or has aged out of the cache.
+   * A stream payload for an activity and series selection: the cached
+   * server body, or one rebuilt from the points and times the ingest
+   * already stored. `None` when neither can answer the selection, which is
+   * what makes the caller fetch.
    */
   getStreamBody(
     activityId: string,
@@ -9942,8 +9944,10 @@ export class ActivityManager
   }
 
   /**
-   * A stored stream payload for an activity and series selection, or
-   * `None` when it has not been fetched or has aged out of the cache.
+   * A stream payload for an activity and series selection: the cached
+   * server body, or one rebuilt from the points and times the ingest
+   * already stored. `None` when neither can answer the selection, which is
+   * what makes the caller fetch.
    */
   getStreamBody(
     activityId: string,
@@ -11382,10 +11386,6 @@ export interface HeatmapManagerLike {
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
-   * Get tile generation progress as a single 0–100 percent.
-   */
-  getPercent() /*throws*/ : /*u32*/ number;
-  /**
    * Get tile generation progress: (processed, total). Returns (0, 0) if idle.
    */
   getProgress() /*throws*/ : Array</*u32*/ number>;
@@ -11479,26 +11479,6 @@ export class HeatmapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Get tile generation progress as a single 0–100 percent.
-   */
-  getPercent(): /*u32*/ number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
-            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -11983,7 +11963,6 @@ export interface RouteManagerLike {
     userLat: /*f64*/ number,
     userLng: /*f64*/ number,
   ) /*throws*/ : FfiRoutesScreenData;
-  getSummaries() /*throws*/ : Array<GroupSummary>;
   getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
@@ -12274,23 +12253,6 @@ export class RouteManager
             FfiConverterBool.lower(prioritizeNearestSections),
             FfiConverterFloat64.lower(userLat),
             FfiConverterFloat64.lower(userLng),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getSummaries(): Array<GroupSummary> /*throws*/ {
-    return FfiConverterArrayTypeGroupSummary.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
-            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -12656,9 +12618,6 @@ export interface SectionManagerLike {
   getRecentChanges(days: /*u32*/ number) /*throws*/ : Array<FfiSectionChange>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
-  getSummaries(
-    sportType: string | undefined,
-  ) /*throws*/ : Array<SectionSummary>;
   getSummariesWithCount(
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionSummariesResult;
@@ -12701,19 +12660,6 @@ export interface SectionManagerLike {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
-  /**
-   * Tier 5.5: re-derive a section's consensus polyline from its
-   * current activity traces. Useful for a "refine this section" UI
-   * without triggering a full corpus-wide detection. Returns the new
-   * polyline shape (point count + distance) so the caller can confirm
-   * the refinement landed; None when the section doesn't exist, is
-   * user-defined, or has no activities to learn from. The full polyline
-   * is persisted via the standard save path so subsequent
-   * get_sections() reads pick up the change.
-   */
-  recalculatePolyline(
-    sectionId: string,
-  ) /*throws*/ : FfiSectionRecalcResult | undefined;
   /**
    * Recompute all activity indicators (PRs and trends).
    * Call after sync, section detection, route grouping, or exclude/include changes.
@@ -13845,26 +13791,6 @@ export class SectionManager
     );
   }
 
-  getSummaries(
-    sportType: string | undefined,
-  ): Array<SectionSummary> /*throws*/ {
-    return FfiConverterArrayTypeSectionSummary.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportType),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
   getSummariesWithCount(
     sportType: string | undefined,
   ): FfiSectionSummariesResult /*throws*/ {
@@ -14070,36 +13996,6 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Tier 5.5: re-derive a section's consensus polyline from its
-   * current activity traces. Useful for a "refine this section" UI
-   * without triggering a full corpus-wide detection. Returns the new
-   * polyline shape (point count + distance) so the caller can confirm
-   * the refinement landed; None when the section doesn't exist, is
-   * user-defined, or has no activities to learn from. The full polyline
-   * is persisted via the standard save path so subsequent
-   * get_sections() reads pick up the change.
-   */
-  recalculatePolyline(
-    sectionId: string,
-  ): FfiSectionRecalcResult | undefined /*throws*/ {
-    return FfiConverterOptionalTypeFfiSectionRecalcResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(sectionId),
             callStatus,
           );
         },
@@ -16947,11 +16843,6 @@ const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
 
-// FfiConverter for FfiSectionRecalcResult | undefined
-const FfiConverterOptionalTypeFfiSectionRecalcResult = new FfiConverterOptional(
-  FfiConverterTypeFfiSectionRecalcResult,
-);
-
 // FfiConverter for FfiStrengthInsightSeries | undefined
 const FfiConverterOptionalTypeFfiStrengthInsightSeries =
   new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
@@ -17528,7 +17419,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body() !==
-    23303
+    19961
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_stream_body",
@@ -18255,14 +18146,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries() !==
-    53536
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_summaries",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count() !==
     9928
   ) {
@@ -18703,14 +18586,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries() !==
-    37530
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_summaries",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count() !==
     49447
   ) {
@@ -18788,14 +18663,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline() !==
-    38621
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline",
     );
   }
   if (
@@ -19244,14 +19111,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent() !==
-    64372
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_heatmapmanager_get_percent",
     );
   }
   if (

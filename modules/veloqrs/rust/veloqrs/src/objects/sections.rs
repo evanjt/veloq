@@ -92,16 +92,6 @@ impl SectionManager {
         })
     }
 
-    fn get_summaries(
-        &self,
-        sport_type: Option<String>,
-    ) -> Result<Vec<crate::SectionSummary>, VeloqError> {
-        with_engine(|e| match sport_type {
-            Some(ref sport) => e.get_section_summaries_for_sport(sport),
-            None => e.get_section_summaries(),
-        })
-    }
-
     fn get_ranked(
         &self,
         sport_type: String,
@@ -235,21 +225,6 @@ impl SectionManager {
                 })
                 .collect()
         })
-    }
-
-    /// Tier 5.5: re-derive a section's consensus polyline from its
-    /// current activity traces. Useful for a "refine this section" UI
-    /// without triggering a full corpus-wide detection. Returns the new
-    /// polyline shape (point count + distance) so the caller can confirm
-    /// the refinement landed; None when the section doesn't exist, is
-    /// user-defined, or has no activities to learn from. The full polyline
-    /// is persisted via the standard save path so subsequent
-    /// get_sections() reads pick up the change.
-    fn recalculate_polyline(
-        &self,
-        section_id: String,
-    ) -> Result<Option<crate::FfiSectionRecalcResult>, VeloqError> {
-        with_engine(|e| e.recalculate_section_polyline(&section_id))
     }
 
     fn get_excluded_performances(

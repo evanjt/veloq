@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 15 standalone `#[uniffi::export]` functions plus
- * 241 methods inside `#[uniffi::export] impl` blocks across
+ * 237 methods inside `#[uniffi::export] impl` blocks across
  * 12 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 256 exports (15 standalone + 241 methods)
+ * Total: 252 exports (15 standalone + 237 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -256,7 +256,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_stream_body",
     "camelName": "getStreamBody",
     "file": "objects/activities.rs",
-    "line": 213,
+    "line": 215,
     "paramCount": 2,
     "returnType": "Result<Option<String>, VeloqError>",
     "object": "ActivityManager"
@@ -265,7 +265,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_time_streams",
     "camelName": "setTimeStreams",
     "file": "objects/activities.rs",
-    "line": 226,
+    "line": 228,
     "paramCount": 3,
     "returnType": "Result<(), VeloqError>",
     "object": "ActivityManager"
@@ -274,7 +274,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_missing_time_streams",
     "camelName": "getMissingTimeStreams",
     "file": "objects/activities.rs",
-    "line": 237,
+    "line": 239,
     "paramCount": 1,
     "returnType": "Result<Vec<String>, VeloqError>",
     "object": "ActivityManager"
@@ -283,7 +283,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_gps_track",
     "camelName": "getGpsTrack",
     "file": "objects/activities.rs",
-    "line": 244,
+    "line": 246,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiGpsPoint>, VeloqError>",
     "object": "ActivityManager"
@@ -292,7 +292,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "remove",
     "camelName": "remove",
     "file": "objects/activities.rs",
-    "line": 252,
+    "line": 254,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "ActivityManager"
@@ -301,7 +301,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "debug_clone",
     "camelName": "debugClone",
     "file": "objects/activities.rs",
-    "line": 267,
+    "line": 269,
     "paramCount": 2,
     "returnType": "Result<u32, VeloqError>",
     "object": "ActivityManager"
@@ -310,7 +310,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_highlights_bundle",
     "camelName": "getHighlightsBundle",
     "file": "objects/activities.rs",
-    "line": 274,
+    "line": 276,
     "paramCount": 1,
     "returnType": "Result<crate::FfiActivityHighlightsBundle, VeloqError>",
     "object": "ActivityManager"
@@ -319,7 +319,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_detail_data",
     "camelName": "getDetailData",
     "file": "objects/activities.rs",
-    "line": 291,
+    "line": 293,
     "paramCount": 2,
     "returnType": "Result<crate::FfiActivityDetailData, VeloqError>",
     "object": "ActivityManager"
@@ -1027,19 +1027,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "object": "RouteManager"
   },
   {
-    "name": "get_summaries",
-    "camelName": "getSummaries",
-    "file": "objects/routes.rs",
-    "line": 30,
-    "paramCount": 0,
-    "returnType": "Result<Vec<crate::GroupSummary>, VeloqError>",
-    "object": "RouteManager"
-  },
-  {
     "name": "get_summaries_with_count",
     "camelName": "getSummariesWithCount",
     "file": "objects/routes.rs",
-    "line": 34,
+    "line": 30,
     "paramCount": 0,
     "returnType": "Result<crate::FfiGroupSummariesResult, VeloqError>",
     "object": "RouteManager"
@@ -1048,7 +1039,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_filtered_summaries",
     "camelName": "getFilteredSummaries",
     "file": "objects/routes.rs",
-    "line": 44,
+    "line": 40,
     "paramCount": 2,
     "returnType": "Result<crate::FfiGroupSummariesResult, VeloqError>",
     "object": "RouteManager"
@@ -1057,7 +1048,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_consensus_route",
     "camelName": "getConsensusRoute",
     "file": "objects/routes.rs",
-    "line": 64,
+    "line": 60,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiGpsPoint>, VeloqError>",
     "object": "RouteManager"
@@ -1066,7 +1057,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_performances",
     "camelName": "getPerformances",
     "file": "objects/routes.rs",
-    "line": 78,
+    "line": 74,
     "paramCount": 3,
     "returnType": "Result<crate::FfiRoutePerformanceResult, VeloqError>",
     "object": "RouteManager"
@@ -1075,7 +1066,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_screen_data",
     "camelName": "getScreenData",
     "file": "objects/routes.rs",
-    "line": 94,
+    "line": 90,
     "paramCount": 9,
     "returnType": "Result<crate::FfiRoutesScreenData, VeloqError>",
     "object": "RouteManager"
@@ -1084,7 +1075,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_name",
     "camelName": "setName",
     "file": "objects/routes.rs",
-    "line": 121,
+    "line": 117,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "RouteManager"
@@ -1093,7 +1084,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_all_names",
     "camelName": "getAllNames",
     "file": "objects/routes.rs",
-    "line": 135,
+    "line": 131,
     "paramCount": 0,
     "returnType": "Result<std::collections::HashMap<String, String>, VeloqError>",
     "object": "RouteManager"
@@ -1102,7 +1093,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "exclude_activity",
     "camelName": "excludeActivity",
     "file": "objects/routes.rs",
-    "line": 139,
+    "line": 135,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "RouteManager"
@@ -1111,7 +1102,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "include_activity",
     "camelName": "includeActivity",
     "file": "objects/routes.rs",
-    "line": 153,
+    "line": 149,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "RouteManager"
@@ -1120,7 +1111,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_excluded_activities",
     "camelName": "getExcludedActivities",
     "file": "objects/routes.rs",
-    "line": 167,
+    "line": 163,
     "paramCount": 1,
     "returnType": "Result<Vec<String>, VeloqError>",
     "object": "RouteManager"
@@ -1129,7 +1120,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_excluded_performances",
     "camelName": "getExcludedPerformances",
     "file": "objects/routes.rs",
-    "line": 171,
+    "line": 167,
     "paramCount": 2,
     "returnType": "Result<crate::FfiRoutePerformanceResult, VeloqError>",
     "object": "RouteManager"
@@ -1138,7 +1129,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_activity_route_highlights",
     "camelName": "getActivityRouteHighlights",
     "file": "objects/routes.rs",
-    "line": 184,
+    "line": 180,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError>",
     "object": "RouteManager"
@@ -1147,7 +1138,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_detail_data",
     "camelName": "getDetailData",
     "file": "objects/routes.rs",
-    "line": 194,
+    "line": 190,
     "paramCount": 3,
     "returnType": "Result<crate::FfiRouteDetailData, VeloqError>",
     "object": "RouteManager"
@@ -1156,7 +1147,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_representative",
     "camelName": "setRepresentative",
     "file": "objects/routes.rs",
-    "line": 209,
+    "line": 205,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "RouteManager"
@@ -1216,19 +1207,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "object": "SectionManager"
   },
   {
-    "name": "get_summaries",
-    "camelName": "getSummaries",
-    "file": "objects/sections.rs",
-    "line": 95,
-    "paramCount": 1,
-    "returnType": "Result<Vec<crate::SectionSummary>, VeloqError>",
-    "object": "SectionManager"
-  },
-  {
     "name": "get_ranked",
     "camelName": "getRanked",
     "file": "objects/sections.rs",
-    "line": 105,
+    "line": 95,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiRankedSection>, VeloqError>",
     "object": "SectionManager"
@@ -1237,7 +1219,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_ranked_batch",
     "camelName": "getRankedBatch",
     "file": "objects/sections.rs",
-    "line": 115,
+    "line": 105,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiRankedSectionsBySport>, VeloqError>",
     "object": "SectionManager"
@@ -1246,7 +1228,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_count",
     "camelName": "getCount",
     "file": "objects/sections.rs",
-    "line": 136,
+    "line": 126,
     "paramCount": 0,
     "returnType": "Result<u32, VeloqError>",
     "object": "SectionManager"
@@ -1255,7 +1237,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_summaries_with_count",
     "camelName": "getSummariesWithCount",
     "file": "objects/sections.rs",
-    "line": 140,
+    "line": 130,
     "paramCount": 1,
     "returnType": "Result<crate::FfiSectionSummariesResult, VeloqError>",
     "object": "SectionManager"
@@ -1264,7 +1246,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_filtered_summaries",
     "camelName": "getFilteredSummaries",
     "file": "objects/sections.rs",
-    "line": 161,
+    "line": 151,
     "paramCount": 3,
     "returnType": "Result<crate::FfiSectionSummariesResult, VeloqError>",
     "object": "SectionManager"
@@ -1273,7 +1255,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_polyline",
     "camelName": "getPolyline",
     "file": "objects/sections.rs",
-    "line": 192,
+    "line": 182,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiGpsPoint>, VeloqError>",
     "object": "SectionManager"
@@ -1282,7 +1264,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_performances",
     "camelName": "getPerformances",
     "file": "objects/sections.rs",
-    "line": 205,
+    "line": 195,
     "paramCount": 2,
     "returnType": "Result<crate::FfiSectionPerformanceResult, VeloqError>",
     "object": "SectionManager"
@@ -1291,25 +1273,16 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_performances_batch",
     "camelName": "getPerformancesBatch",
     "file": "objects/sections.rs",
-    "line": 221,
+    "line": 211,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiSectionPerformanceBatchEntry>, VeloqError>",
-    "object": "SectionManager"
-  },
-  {
-    "name": "recalculate_polyline",
-    "camelName": "recalculatePolyline",
-    "file": "objects/sections.rs",
-    "line": 248,
-    "paramCount": 1,
-    "returnType": "Result<Option<crate::FfiSectionRecalcResult>, VeloqError>",
     "object": "SectionManager"
   },
   {
     "name": "get_excluded_performances",
     "camelName": "getExcludedPerformances",
     "file": "objects/sections.rs",
-    "line": 255,
+    "line": 230,
     "paramCount": 1,
     "returnType": "Result<crate::FfiSectionPerformanceResult, VeloqError>",
     "object": "SectionManager"
@@ -1318,7 +1291,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_calendar_summary",
     "camelName": "getCalendarSummary",
     "file": "objects/sections.rs",
-    "line": 272,
+    "line": 247,
     "paramCount": 1,
     "returnType": "Result<Option<crate::FfiCalendarSummary>, VeloqError>",
     "object": "SectionManager"
@@ -1327,7 +1300,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_reference_info",
     "camelName": "getReferenceInfo",
     "file": "objects/sections.rs",
-    "line": 282,
+    "line": 257,
     "paramCount": 1,
     "returnType": "Result<crate::FfiSectionReferenceInfo, VeloqError>",
     "object": "SectionManager"
@@ -1336,7 +1309,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_reference",
     "camelName": "setReference",
     "file": "objects/sections.rs",
-    "line": 299,
+    "line": 274,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1345,7 +1318,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "reset_reference",
     "camelName": "resetReference",
     "file": "objects/sections.rs",
-    "line": 306,
+    "line": 281,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1354,7 +1327,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "accept",
     "camelName": "accept",
     "file": "objects/sections.rs",
-    "line": 313,
+    "line": 288,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1363,7 +1336,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "accept_all",
     "camelName": "acceptAll",
     "file": "objects/sections.rs",
-    "line": 322,
+    "line": 297,
     "paramCount": 0,
     "returnType": "Result<u32, VeloqError>",
     "object": "SectionManager"
@@ -1372,7 +1345,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_name",
     "camelName": "setName",
     "file": "objects/sections.rs",
-    "line": 330,
+    "line": 305,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1381,7 +1354,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_named_corridors",
     "camelName": "getNamedCorridors",
     "file": "objects/sections.rs",
-    "line": 344,
+    "line": 319,
     "paramCount": 0,
     "returnType": "Result<Vec<crate::FfiNamedCorridor>, VeloqError>",
     "object": "SectionManager"
@@ -1390,7 +1363,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "remove_named_corridor",
     "camelName": "removeNamedCorridor",
     "file": "objects/sections.rs",
-    "line": 353,
+    "line": 328,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1399,7 +1372,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_all_names",
     "camelName": "getAllNames",
     "file": "objects/sections.rs",
-    "line": 362,
+    "line": 337,
     "paramCount": 0,
     "returnType": "Result<std::collections::HashMap<String, String>, VeloqError>",
     "object": "SectionManager"
@@ -1408,7 +1381,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "create",
     "camelName": "create",
     "file": "objects/sections.rs",
-    "line": 366,
+    "line": 341,
     "paramCount": 7,
     "returnType": "Result<String, VeloqError>",
     "object": "SectionManager"
@@ -1417,7 +1390,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "exclude_activity",
     "camelName": "excludeActivity",
     "file": "objects/sections.rs",
-    "line": 399,
+    "line": 374,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1426,7 +1399,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "include_activity",
     "camelName": "includeActivity",
     "file": "objects/sections.rs",
-    "line": 414,
+    "line": 389,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1435,7 +1408,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_excluded_activities",
     "camelName": "getExcludedActivities",
     "file": "objects/sections.rs",
-    "line": 429,
+    "line": 404,
     "paramCount": 1,
     "returnType": "Result<Vec<String>, VeloqError>",
     "object": "SectionManager"
@@ -1444,7 +1417,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "exclude_lap",
     "camelName": "excludeLap",
     "file": "objects/sections.rs",
-    "line": 433,
+    "line": 408,
     "paramCount": 3,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1453,7 +1426,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "include_lap",
     "camelName": "includeLap",
     "file": "objects/sections.rs",
-    "line": 452,
+    "line": 427,
     "paramCount": 3,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1462,7 +1435,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_history",
     "camelName": "getHistory",
     "file": "objects/sections.rs",
-    "line": 471,
+    "line": 446,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError>",
     "object": "SectionManager"
@@ -1471,7 +1444,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_geometry_versions",
     "camelName": "getGeometryVersions",
     "file": "objects/sections.rs",
-    "line": 489,
+    "line": 464,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiSectionGeometryVersion>, VeloqError>",
     "object": "SectionManager"
@@ -1480,7 +1453,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_geometry_version_coords",
     "camelName": "getGeometryVersionCoords",
     "file": "objects/sections.rs",
-    "line": 508,
+    "line": 483,
     "paramCount": 2,
     "returnType": "Result<Vec<u8>, VeloqError>",
     "object": "SectionManager"
@@ -1489,7 +1462,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "revert_to_version",
     "camelName": "revertToVersion",
     "file": "objects/sections.rs",
-    "line": 520,
+    "line": 495,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1498,7 +1471,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "unpin",
     "camelName": "unpin",
     "file": "objects/sections.rs",
-    "line": 527,
+    "line": 502,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1507,7 +1480,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_pinned_version",
     "camelName": "getPinnedVersion",
     "file": "objects/sections.rs",
-    "line": 536,
+    "line": 511,
     "paramCount": 1,
     "returnType": "Result<Option<i64>, VeloqError>",
     "object": "SectionManager"
@@ -1516,7 +1489,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_retired",
     "camelName": "getRetired",
     "file": "objects/sections.rs",
-    "line": 540,
+    "line": 515,
     "paramCount": 0,
     "returnType": "Result<Vec<crate::FfiRetiredSection>, VeloqError>",
     "object": "SectionManager"
@@ -1525,7 +1498,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_recent_changes",
     "camelName": "getRecentChanges",
     "file": "objects/sections.rs",
-    "line": 555,
+    "line": 530,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiSectionChange>, VeloqError>",
     "object": "SectionManager"
@@ -1534,7 +1507,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_lineages",
     "camelName": "getLineages",
     "file": "objects/sections.rs",
-    "line": 568,
+    "line": 543,
     "paramCount": 0,
     "returnType": "Result<Vec<crate::FfiSectionLineage>, VeloqError>",
     "object": "SectionManager"
@@ -1543,7 +1516,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_excluded_laps",
     "camelName": "getExcludedLaps",
     "file": "objects/sections.rs",
-    "line": 581,
+    "line": 556,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiExcludedLap>, VeloqError>",
     "object": "SectionManager"
@@ -1552,7 +1525,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "delete",
     "camelName": "delete",
     "file": "objects/sections.rs",
-    "line": 596,
+    "line": 571,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1561,7 +1534,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "extract_trace",
     "camelName": "extractTrace",
     "file": "objects/sections.rs",
-    "line": 603,
+    "line": 578,
     "paramCount": 2,
     "returnType": "Result<Vec<u8>, VeloqError>",
     "object": "SectionManager"
@@ -1570,7 +1543,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "trim",
     "camelName": "trim",
     "file": "objects/sections.rs",
-    "line": 639,
+    "line": 614,
     "paramCount": 3,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1579,7 +1552,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "reset_bounds",
     "camelName": "resetBounds",
     "file": "objects/sections.rs",
-    "line": 646,
+    "line": 621,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1588,7 +1561,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "has_original_bounds",
     "camelName": "hasOriginalBounds",
     "file": "objects/sections.rs",
-    "line": 653,
+    "line": 628,
     "paramCount": 1,
     "returnType": "Result<bool, VeloqError>",
     "object": "SectionManager"
@@ -1597,7 +1570,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_extension_track",
     "camelName": "getExtensionTrack",
     "file": "objects/sections.rs",
-    "line": 657,
+    "line": 632,
     "paramCount": 1,
     "returnType": "Result<crate::FfiSectionExtensionTrack, VeloqError>",
     "object": "SectionManager"
@@ -1606,7 +1579,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "expand_bounds",
     "camelName": "expandBounds",
     "file": "objects/sections.rs",
-    "line": 673,
+    "line": 648,
     "paramCount": 4,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1615,7 +1588,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_efficiency_trend",
     "camelName": "getEfficiencyTrend",
     "file": "objects/sections.rs",
-    "line": 686,
+    "line": 661,
     "paramCount": 1,
     "returnType": "Result<Option<crate::FfiEfficiencyTrend>, VeloqError>",
     "object": "SectionManager"
@@ -1624,7 +1597,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "disable",
     "camelName": "disable",
     "file": "objects/sections.rs",
-    "line": 693,
+    "line": 668,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1633,7 +1606,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "enable",
     "camelName": "enable",
     "file": "objects/sections.rs",
-    "line": 700,
+    "line": 675,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1642,7 +1615,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_superseded",
     "camelName": "setSuperseded",
     "file": "objects/sections.rs",
-    "line": 707,
+    "line": 682,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1651,7 +1624,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "clear_superseded",
     "camelName": "clearSuperseded",
     "file": "objects/sections.rs",
-    "line": 718,
+    "line": 693,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1660,7 +1633,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "import_disabled_ids",
     "camelName": "importDisabledIds",
     "file": "objects/sections.rs",
-    "line": 725,
+    "line": 700,
     "paramCount": 1,
     "returnType": "Result<u32, VeloqError>",
     "object": "SectionManager"
@@ -1669,7 +1642,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "import_superseded_map",
     "camelName": "importSupersededMap",
     "file": "objects/sections.rs",
-    "line": 732,
+    "line": 707,
     "paramCount": 1,
     "returnType": "Result<u32, VeloqError>",
     "object": "SectionManager"
@@ -1678,7 +1651,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_all_summaries_including_hidden",
     "camelName": "getAllSummariesIncludingHidden",
     "file": "objects/sections.rs",
-    "line": 747,
+    "line": 722,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::SectionSummary>, VeloqError>",
     "object": "SectionManager"
@@ -1687,7 +1660,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "extract_traces_batch",
     "camelName": "extractTracesBatch",
     "file": "objects/sections.rs",
-    "line": 765,
+    "line": 740,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiBatchTrace>, VeloqError>",
     "object": "SectionManager"
@@ -1696,7 +1669,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "match_activity_to_sections",
     "camelName": "matchActivityToSections",
     "file": "objects/sections.rs",
-    "line": 806,
+    "line": 781,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiSectionMatch>, VeloqError>",
     "object": "SectionManager"
@@ -1705,7 +1678,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "index_new_activity",
     "camelName": "indexNewActivity",
     "file": "objects/sections.rs",
-    "line": 852,
+    "line": 827,
     "paramCount": 1,
     "returnType": "Result<crate::FfiIndexActivitySummary, VeloqError>",
     "object": "SectionManager"
@@ -1714,7 +1687,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "rematch_activity_to_section",
     "camelName": "rematchActivityToSection",
     "file": "objects/sections.rs",
-    "line": 866,
+    "line": 841,
     "paramCount": 2,
     "returnType": "Result<bool, VeloqError>",
     "object": "SectionManager"
@@ -1723,7 +1696,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_nearby_sections",
     "camelName": "getNearbySections",
     "file": "objects/sections.rs",
-    "line": 883,
+    "line": 858,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiNearbySectionSummary>, VeloqError>",
     "object": "SectionManager"
@@ -1732,7 +1705,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_merge_candidates",
     "camelName": "getMergeCandidates",
     "file": "objects/sections.rs",
-    "line": 893,
+    "line": 868,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiMergeCandidate>, VeloqError>",
     "object": "SectionManager"
@@ -1741,7 +1714,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "merge_sections",
     "camelName": "mergeSections",
     "file": "objects/sections.rs",
-    "line": 902,
+    "line": 877,
     "paramCount": 2,
     "returnType": "Result<String, VeloqError>",
     "object": "SectionManager"
@@ -1750,7 +1723,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_activity_section_highlights",
     "camelName": "getActivitySectionHighlights",
     "file": "objects/sections.rs",
-    "line": 917,
+    "line": 892,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiActivitySectionHighlight>, VeloqError>",
     "object": "SectionManager"
@@ -1759,7 +1732,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_activity_indicators",
     "camelName": "getActivityIndicators",
     "file": "objects/sections.rs",
-    "line": 927,
+    "line": 902,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiActivityIndicator>, VeloqError>",
     "object": "SectionManager"
@@ -1768,7 +1741,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_indicators_for_activity",
     "camelName": "getIndicatorsForActivity",
     "file": "objects/sections.rs",
-    "line": 935,
+    "line": 910,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiActivityIndicator>, VeloqError>",
     "object": "SectionManager"
@@ -1777,7 +1750,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_activity_section_encounters",
     "camelName": "getActivitySectionEncounters",
     "file": "objects/sections.rs",
-    "line": 944,
+    "line": 919,
     "paramCount": 1,
     "returnType": "Result<Vec<crate::FfiSectionEncounter>, VeloqError>",
     "object": "SectionManager"
@@ -1786,7 +1759,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "recompute_indicators",
     "camelName": "recomputeIndicators",
     "file": "objects/sections.rs",
-    "line": 953,
+    "line": 928,
     "paramCount": 0,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionManager"
@@ -1795,7 +1768,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_activity_pr_sections",
     "camelName": "getActivityPrSections",
     "file": "objects/sections.rs",
-    "line": 965,
+    "line": 940,
     "paramCount": 2,
     "returnType": "Result<Vec<String>, VeloqError>",
     "object": "SectionManager"
@@ -1804,7 +1777,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_workout_sections",
     "camelName": "getWorkoutSections",
     "file": "objects/sections.rs",
-    "line": 987,
+    "line": 962,
     "paramCount": 2,
     "returnType": "Result<Vec<crate::FfiWorkoutSection>, VeloqError>",
     "object": "SectionManager"
@@ -1813,7 +1786,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_chart_data",
     "camelName": "getChartData",
     "file": "objects/sections.rs",
-    "line": 998,
+    "line": 973,
     "paramCount": 3,
     "returnType": "Result<crate::FfiSectionChartData, VeloqError>",
     "object": "SectionManager"
@@ -1822,7 +1795,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_detail_data",
     "camelName": "getDetailData",
     "file": "objects/sections.rs",
-    "line": 1013,
+    "line": 988,
     "paramCount": 2,
     "returnType": "Result<crate::FfiSectionDetailData, VeloqError>",
     "object": "SectionManager"
@@ -1831,7 +1804,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_detail_performance",
     "camelName": "getDetailPerformance",
     "file": "objects/sections.rs",
-    "line": 1024,
+    "line": 999,
     "paramCount": 3,
     "returnType": "Result<crate::FfiSectionPerformanceData, VeloqError>",
     "object": "SectionManager"
@@ -2305,15 +2278,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "object": "HeatmapManager"
   },
   {
-    "name": "get_percent",
-    "camelName": "getPercent",
-    "file": "objects/tiles.rs",
-    "line": 106,
-    "paramCount": 0,
-    "returnType": "Result<u32, VeloqError>",
-    "object": "HeatmapManager"
-  },
-  {
     "name": "compute_polyline_overlap",
     "camelName": "computePolylineOverlap",
     "file": "persistence/mod.rs",
@@ -2439,7 +2403,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'new',
   'getAll',
   'getById',
-  'getSummaries',
   'getSummariesWithCount',
   'getFilteredSummaries',
   'getConsensusRoute',
@@ -2460,7 +2423,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getByType',
   'getForActivity',
   'getById',
-  'getSummaries',
   'getRanked',
   'getRankedBatch',
   'getCount',
@@ -2469,7 +2431,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getPolyline',
   'getPerformances',
   'getPerformancesBatch',
-  'recalculatePolyline',
   'getExcludedPerformances',
   'getCalendarSummary',
   'getReferenceInfo',
@@ -2581,7 +2542,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getCacheSize',
   'poll',
   'getProgress',
-  'getPercent',
   'computePolylineOverlap',
 ]);
 
@@ -2697,7 +2657,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   'cancel': 'cancel',
   'get_all': 'getAll',
   'get_by_id': 'getById',
-  'get_summaries': 'getSummaries',
   'get_summaries_with_count': 'getSummariesWithCount',
   'get_filtered_summaries': 'getFilteredSummaries',
   'get_consensus_route': 'getConsensusRoute',
@@ -2716,7 +2675,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   'get_ranked_batch': 'getRankedBatch',
   'get_polyline': 'getPolyline',
   'get_performances_batch': 'getPerformancesBatch',
-  'recalculate_polyline': 'recalculatePolyline',
   'get_calendar_summary': 'getCalendarSummary',
   'get_reference_info': 'getReferenceInfo',
   'set_reference': 'setReference',
@@ -2813,7 +2771,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   'clear_tiles_path': 'clearTilesPath',
   'clear_tiles': 'clearTiles',
   'get_cache_size': 'getCacheSize',
-  'get_percent': 'getPercent',
   'compute_polyline_overlap': 'computePolylineOverlap',
 };
 
