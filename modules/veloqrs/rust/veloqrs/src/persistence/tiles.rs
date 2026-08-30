@@ -206,25 +206,6 @@ impl PersistentRouteEngine {
         }
         count
     }
-
-    /// Delete heatmap tiles within a geographic bounding box across all zoom levels.
-    /// Used when activities are removed to prevent stale heatmap traces.
-    pub fn invalidate_tiles_for_bounds(&self, bounds: &Bounds) -> u32 {
-        if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let config = tiles::HeatmapConfig::default();
-            tiles::invalidate_tiles_in_bounds(
-                Path::new(tiles_path),
-                bounds.min_lat,
-                bounds.max_lat,
-                bounds.min_lng,
-                bounds.max_lng,
-                config.min_zoom,
-                config.max_zoom,
-            )
-        } else {
-            0
-        }
-    }
 }
 
 /// Ids whose track did not decode on the last run. An absent or unreadable
