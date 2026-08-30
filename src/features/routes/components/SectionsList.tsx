@@ -31,7 +31,10 @@ import {
   useUnifiedSections,
   generateSectionName,
 } from '@/features/routes/hooks/useUnifiedSections';
-import { signatureScore } from '@/features/routes/lib/sectionRanking';
+import {
+  sortSections,
+  type SectionsSortOption,
+} from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -83,7 +86,7 @@ type HiddenFilters = {
   unaccepted: boolean;
 };
 
-export type SectionsSortOption = 'signature' | 'visits' | 'distance' | 'name' | 'nearby';
+export type { SectionsSortOption };
 
 /**
  * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
@@ -371,18 +374,8 @@ export const SectionsList = memo(function SectionsList({
       }
     }
 
-    if (sortOption === 'signature') {
-      regular.sort((a, b) => signatureScore(b, !!sportType) - signatureScore(a, !!sportType));
-    } else if (sortOption === 'visits') {
-      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
-    } else if (sortOption === 'distance') {
-      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
-    } else if (sortOption === 'name') {
-      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    }
-
     return {
-      regularSections: regular,
+      regularSections: sortSections(regular, sortOption, !!sportType),
       unacceptedAutoCount: unaccepted,
       acceptedAutoCount: accepted,
     };
