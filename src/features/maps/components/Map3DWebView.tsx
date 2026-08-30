@@ -17,6 +17,7 @@ import {
   buildMap3DHtml,
   buildUpdateLayersScript,
   resolveStyleExpression,
+  TERRAIN_STYLE_OPTIONS,
 } from '@/features/maps/lib/htmlBuilders';
 import type { MapStyleType } from './mapStyles';
 import { TERRAIN_3D_CONFIG } from './mapStyles';
@@ -274,7 +275,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Vector tiles stay on their TileJSON URL here: rewriting them to
       // cached-vector:// after a setStyle left features blank until the cache
       // warmed, which is only tolerable on a cold page load.
-      const { styleJSON: styleConfig, url: lightStyleUrl } = resolveStyleExpression(mapStyle);
+      const { styleJSON: styleConfig, url: lightStyleUrl } = resolveStyleExpression(
+        mapStyle,
+        TERRAIN_STYLE_OPTIONS
+      );
 
       // Serialize shared terrain config for injection
       const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
