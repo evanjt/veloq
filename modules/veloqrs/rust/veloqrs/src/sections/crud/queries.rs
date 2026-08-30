@@ -186,23 +186,6 @@ impl PersistentRouteEngine {
             .unwrap_or(0)
     }
 
-    /// Get visible section count by type (excludes disabled/superseded).
-    pub fn get_section_count_by_type(&self, section_type: Option<SectionType>) -> u32 {
-        let query = match section_type {
-            Some(st) => format!(
-                "SELECT COUNT(*) FROM sections WHERE section_type = '{}' AND {}",
-                st.as_str(),
-                Self::VISIBLE_FILTER
-            ),
-            None => format!(
-                "SELECT COUNT(*) FROM sections WHERE {}",
-                Self::VISIBLE_FILTER
-            ),
-        };
-
-        self.db.query_row(&query, [], |row| row.get(0)).unwrap_or(0)
-    }
-
     /// Get visible section summaries by type (lightweight, no polylines).
     /// Excludes disabled and superseded sections.
     pub fn get_section_summaries_by_type(

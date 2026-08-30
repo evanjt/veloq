@@ -934,14 +934,6 @@ impl PersistentRouteEngine {
     // Configuration
     // ========================================================================
 
-    /// Set match configuration (invalidates computed groups).
-    pub fn set_match_config(&mut self, config: MatchConfig) {
-        self.match_config = config;
-        self.signature_cache.clear(); // Signatures depend on config
-        self.groups_dirty = true;
-        self.sections_dirty = true;
-    }
-
     /// Read-only access to the active `match_config.min_match_percentage`.
     /// Exposed so integration tests can verify persisted strictness without
     /// needing crate-private access to the whole `MatchConfig`.
@@ -1500,14 +1492,6 @@ where
             None
         }
     }
-}
-
-/// Alias for `with_persistent_engine` - explicit write semantics.
-pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
-where
-    F: FnOnce(&mut PersistentRouteEngine) -> R,
-{
-    with_persistent_engine(f)
 }
 
 /// Acquire the **read** lock on the global persistent engine.

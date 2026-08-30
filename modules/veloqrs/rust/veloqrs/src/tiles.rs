@@ -5,7 +5,6 @@
 //! LUT to produce heatmap tiles with additive intensity.
 
 use image::{ImageBuffer, Rgba, RgbaImage};
-use rayon::prelude::*;
 use std::f64::consts::PI;
 use std::io::Cursor;
 use std::path::Path;
@@ -248,20 +247,6 @@ pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option
     } else {
         None
     }
-}
-
-/// Determine which tiles a GPS track intersects at a given zoom level
-pub fn tiles_for_track(points: &[GpsPoint], zoom: u8) -> Vec<(u32, u32)> {
-    let mut tiles = std::collections::HashSet::new();
-    for point in points {
-        if !point.is_valid() {
-            continue;
-        }
-        let tx = lon_to_tile_x(point.longitude, zoom).floor() as u32;
-        let ty = lat_to_tile_y(point.latitude, zoom).floor() as u32;
-        tiles.insert((tx, ty));
-    }
-    tiles.into_iter().collect()
 }
 
 /// Sweep the polyline through tile space at a given zoom, returning every
@@ -632,21 +617,6 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
         .expect("PNG encoding failed");
 
     Some(png_data)
-}
-
-/// Generate heatmap tiles for a set of tile coordinates.
-/// Returns vec of (z, x, y, png_bytes) for non-empty tiles.
-pub fn generate_tiles_parallel<T>(
-    tile_coords: &[(u8, u32, u32)],
-    tracks: &[T],
-) -> Vec<(u8, u32, u32, Vec<u8>)>
-where
-    T: AsRef<[GpsPoint]> + Sync,
-{
-    tile_coords
-        .par_iter()
-        .filter_map(|&(z, x, y)| generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png)))
-        .collect()
 }
 
 /// Save a tile PNG to disk at the standard z/x/y.png path

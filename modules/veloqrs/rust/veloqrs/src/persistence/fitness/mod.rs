@@ -204,11 +204,6 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get activity metrics for a specific activity.
-    pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
-        self.activity_metrics.get(activity_id)
-    }
-
     // =========================================================================
     // Athlete Profile & Sport Settings Cache
     // =========================================================================

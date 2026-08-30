@@ -1296,36 +1296,6 @@ impl PersistentRouteEngine {
         self.track(id).into_option("get_gps_track", id)
     }
 
-    /// Get all GPS tracks from database for tile generation.
-    /// Returns a vector of track point arrays, suitable for heatmap rendering.
-    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
-        let mut tracks: Vec<Vec<GpsPoint>> = Vec::new();
-        let mut total_points = 0usize;
-        let walk = self.for_each_track(|_, points| {
-            if points.is_empty() {
-                return;
-            }
-            total_points += points.len();
-            tracks.push(points.to_vec());
-        });
-        if walk.corrupt > 0 || walk.is_incomplete() {
-            log::warn!(
-                "[get_all_tracks] {} tracks, {} total points, {} corrupt, {} unreadable rows: the result is incomplete",
-                tracks.len(),
-                total_points,
-                walk.corrupt,
-                walk.failed
-            );
-        } else {
-            log::info!(
-                "[get_all_tracks] {} tracks, {} total points",
-                tracks.len(),
-                total_points
-            );
-        }
-        tracks
-    }
-
     /// Load original GPS track from database (separate function to avoid borrow issues)
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
         self.track(activity_id)
@@ -1451,23 +1421,6 @@ impl PersistentRouteEngine {
             .filter(|id| !cached_in_sqlite.contains(*id))
             .cloned()
             .collect()
-    }
-
-    /// Check if a specific activity has a time stream (in memory or SQLite).
-    pub fn has_time_stream(&self, activity_id: &str) -> bool {
-        // First check memory cache
-        if self.time_streams.contains(activity_id) {
-            return true;
-        }
-        // Then check SQLite
-        let mut stmt = match self
-            .db
-            .prepare("SELECT 1 FROM time_streams WHERE activity_id = ? LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        stmt.exists(params![activity_id]).unwrap_or(false)
     }
 
     /// Ensure time stream is loaded into memory (from SQLite if needed).

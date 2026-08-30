@@ -1816,14 +1816,6 @@ pub struct FfiMapScreenData {
 // Helper functions
 // ============================================================================
 
-/// Get default scale presets
-pub fn default_scale_presets() -> Vec<FfiScalePreset> {
-    tracematch::ScalePreset::default_presets()
-        .into_iter()
-        .map(FfiScalePreset::from)
-        .collect()
-}
-
 // ============================================================================
 // Aerobic Efficiency Types
 // ============================================================================
