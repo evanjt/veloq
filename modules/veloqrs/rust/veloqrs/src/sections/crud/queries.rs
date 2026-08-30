@@ -5,6 +5,7 @@
 //! reads - they never mutate section state.
 
 use super::super::{Section, SectionSummary, SectionType};
+use crate::persistence::sections::geometry;
 use crate::persistence::{PersistentEngine, codec};
 use rusqlite::params;
 use tracematch::GpsPoint;
@@ -19,7 +20,8 @@ impl PersistentEngine {
          source_activity_id, start_index, end_index, created_at, updated_at,
          disabled, superseded_by, polyline_blob, point_density_blob,
          elevation_gain_m, avg_grade_percent,
-         elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score";
+         elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score,
+         rep_start_index, rep_end_index";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(crate) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
@@ -52,6 +54,9 @@ impl PersistentEngine {
             let point_density_json: Option<String> = row.get(10)?;
             let polyline_blob: Option<Vec<u8>> = row.get(22)?;
             let point_density_blob: Option<Vec<u8>> = row.get(23)?;
+            let representative_activity_id: Option<String> = row.get(6)?;
+            let rep_start: Option<u32> = row.get(33)?;
+            let rep_end: Option<u32> = row.get(34)?;
 
             // Get activity IDs from junction table
             let activity_ids = self.get_section_activity_ids(&id);
@@ -61,13 +66,15 @@ impl PersistentEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: codec::decode_polyline_row(
+                polyline: geometry::line(
+                    &self.db,
                     polyline_blob.as_deref(),
                     polyline_json.as_deref(),
+                    geometry::reference(representative_activity_id.as_deref(), rep_start, rep_end),
                 )
                 .unwrap_or_default(),
                 distance_meters: row.get(5)?,
-                representative_activity_id: row.get(6)?,
+                representative_activity_id,
                 activity_ids,
                 visit_count: 0, // Set below via get_section_visit_count()
                 confidence: row.get(7)?,
@@ -405,6 +412,9 @@ impl PersistentEngine {
             let point_density_json: Option<String> = row.get(10)?;
             let polyline_blob: Option<Vec<u8>> = row.get(22)?;
             let point_density_blob: Option<Vec<u8>> = row.get(23)?;
+            let representative_activity_id: Option<String> = row.get(6)?;
+            let rep_start: Option<u32> = row.get(33)?;
+            let rep_end: Option<u32> = row.get(34)?;
 
             let activity_ids = self.get_section_activity_ids(&id);
             let visit_count = self.get_section_visit_count(&id);
@@ -414,13 +424,15 @@ impl PersistentEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: codec::decode_polyline_row(
+                polyline: geometry::line(
+                    &self.db,
                     polyline_blob.as_deref(),
                     polyline_json.as_deref(),
+                    geometry::reference(representative_activity_id.as_deref(), rep_start, rep_end),
                 )
                 .unwrap_or_default(),
                 distance_meters: row.get(5)?,
-                representative_activity_id: row.get(6)?,
+                representative_activity_id,
                 activity_ids: activity_ids.clone(),
                 visit_count,
                 confidence: row.get(7)?,
@@ -461,15 +473,7 @@ impl PersistentEngine {
         &self,
         section_id: &str,
     ) -> Result<Vec<GpsPoint>, String> {
-        let (blob, json): (Option<Vec<u8>>, Option<String>) = self
-            .db
-            .query_row(
-                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .map_err(|_| format!("Section not found: {}", section_id))?;
-        codec::decode_polyline_row(blob.as_deref(), json.as_deref())
+        geometry::stored_line(&self.db, section_id)
     }
 
     /// Check if a section has original (pre-trim) bounds that can be restored.

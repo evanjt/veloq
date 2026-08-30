@@ -130,6 +130,10 @@ name = "section_sport_membership"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_blob_is_droppable"
+required-features = ["synthetic"]
+
+[[test]]
 name = "section_geometry_reference"
 required-features = ["synthetic"]
 

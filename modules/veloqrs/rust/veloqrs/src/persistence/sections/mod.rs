@@ -2,6 +2,7 @@
 
 pub mod conditioning;
 mod detection;
+pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
@@ -344,9 +345,18 @@ impl PersistentEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = codec::decode_polyline_row(
+                    // Both columns or neither: a half-range indexes nothing.
+                    let rep_start: Option<u32> = row.get(22)?;
+                    let rep_end: Option<u32> = row.get(23)?;
+                    let polyline: Vec<GpsPoint> = geometry::line(
+                        &self.db,
                         polyline_blob.as_deref(),
                         polyline_json.as_deref(),
+                        geometry::reference(
+                            representative_activity_id.as_deref(),
+                            rep_start,
+                            rep_end,
+                        ),
                     )
                     .unwrap_or_else(|e| {
                         log::error!(
@@ -373,9 +383,6 @@ impl PersistentEngine {
                         .collect();
                     let visit_count = portions.len() as u32;
 
-                    // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
                     let representative_range = rep_start.zip(rep_end);
 
                     Ok(FrequentSection {
@@ -934,10 +941,17 @@ impl PersistentEngine {
                 .unwrap_or_default()
         };
 
-        // Decode polyline (blob authoritative, JSON fallback for legacy rows)
-        let polyline: Vec<GpsPoint> = match codec::decode_polyline_row(
+        // The cached blob first, then the reference triple, so a refresh after a
+        // cleared cache reads the same line the load does.
+        let polyline: Vec<GpsPoint> = match geometry::line(
+            &self.db,
             polyline_blob.as_deref(),
             polyline_json.as_deref(),
+            geometry::reference(
+                representative_activity_id.as_deref(),
+                rep_start_index,
+                rep_end_index,
+            ),
         ) {
             Ok(p) => p,
             Err(e) => {
@@ -1368,36 +1382,16 @@ impl PersistentEngine {
     /// Get section polyline only (flat coordinates for map rendering).
     /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
     pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
-        let result: Option<Vec<f64>> = self
-            .db
-            .query_row(
-                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| {
-                    let blob: Option<Vec<u8>> = row.get(0)?;
-                    let json: Option<String> = row.get(1)?;
-                    match codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
-                        Ok(points) => Ok(Some(
-                            points
-                                .iter()
-                                .flat_map(|p| [p.latitude, p.longitude])
-                                .collect(),
-                        )),
-                        Err(e) => {
-                            log::error!(
-                                "veloqrs: get_section_polyline decode error for {}: {}",
-                                section_id,
-                                e
-                            );
-                            Ok(None)
-                        }
-                    }
-                },
-            )
-            .ok()
-            .flatten();
-
-        result.unwrap_or_default()
+        match geometry::stored_line(&self.db, section_id) {
+            Ok(points) => points
+                .iter()
+                .flat_map(|p| [p.latitude, p.longitude])
+                .collect(),
+            Err(e) => {
+                log::error!("veloqrs: get_section_polyline decode error for {section_id}: {e}");
+                Vec::new()
+            }
+        }
     }
 
     /// Batch-load section polylines for multiple section IDs in a single query.
@@ -1412,7 +1406,9 @@ impl PersistentEngine {
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_blob, polyline_json FROM sections WHERE id IN ({})",
+            "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                    rep_start_index, rep_end_index
+             FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
 
@@ -1437,9 +1433,16 @@ impl PersistentEngine {
                 let section_id: String = row.get(0)?;
                 let polyline_blob: Option<Vec<u8>> = row.get(1)?;
                 let polyline_json: Option<String> = row.get(2)?;
-                let points =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .unwrap_or_default();
+                let rep: Option<String> = row.get(3)?;
+                let rep_start: Option<u32> = row.get(4)?;
+                let rep_end: Option<u32> = row.get(5)?;
+                let points = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .unwrap_or_default();
                 Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
@@ -1532,7 +1535,8 @@ impl PersistentEngine {
                     s.visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
-                    s.polyline_json, s.polyline_blob
+                    s.polyline_json, s.polyline_blob,
+                    s.representative_activity_id, s.rep_start_index, s.rep_end_index
              FROM sections s
              WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
                AND s.bounds_min_lat IS NOT NULL",
@@ -1554,6 +1558,9 @@ impl PersistentEngine {
                     row.get::<_, f64>(7)?,             // center_lng
                     row.get::<_, Option<String>>(8)?,  // polyline_json
                     row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
+                    row.get::<_, Option<String>>(10)?, // representative_activity_id
+                    row.get::<_, Option<u32>>(11)?,    // rep_start_index
+                    row.get::<_, Option<u32>>(12)?,    // rep_end_index
                 ))
             })
             .ok();
@@ -1573,16 +1580,23 @@ impl PersistentEngine {
                     lng,
                     polyline_json,
                     polyline_blob,
+                    rep,
+                    rep_start,
+                    rep_end,
                 ) = row;
                 let dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if dist > radius_meters {
                     continue;
                 }
 
-                let encoded_polyline =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .map(|points| crate::coords::encode(&points))
-                        .unwrap_or_default();
+                let encoded_polyline = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .map(|points| crate::coords::encode(&points))
+                .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
                     id,
