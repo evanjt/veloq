@@ -1,54 +1,27 @@
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from "react-native";
-import { useRouter, usePathname } from "expo-router";
-import { useMapPreferences } from "@/features/maps/stores/MapPreferencesContext";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
-import { colors, darkColors, spacing, layout, shadows } from "@/theme";
-import { getActivityTypeConfig } from "./ActivityTypeFilter";
-import { Map3DWebView, type Map3DWebViewRef } from "./Map3DWebView";
-import { ComponentErrorBoundary } from "@/shared/ui";
-import {
-  type MapStyleType,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-} from "./mapStyles";
-import {
-  MapSurface,
-  type MapCameraState,
-  type MapSurfaceRef,
-} from "./MapSurface";
-import { computeAttribution } from "@/features/maps/lib/computeAttribution";
-import type { ActivityBoundsItem, FrequentSection } from "@/types";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { useRouter, usePathname } from 'expo-router';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { getActivityTypeConfig } from './ActivityTypeFilter';
+import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { ComponentErrorBoundary } from '@/shared/ui';
+import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import {
   useEngineSections,
   useEngineSectionCount,
   useRouteSignatures,
-} from "@/features/routes/hooks";
-import {
-  useSectionAutoToggle,
-  useVisibilityToggles,
-} from "@/features/maps/hooks";
-import {
-  TRACE_ZOOM_THRESHOLD,
-  VIEWPORT_CULLING_THRESHOLD,
-} from "@/features/maps/lib/mapBudgets";
-import { buildSpiderGeoJSON } from "@/features/maps/lib/buildSpiderGeoJSON";
-import { isHeatmapEnabled } from "@/features/routes/stores/RouteSettingsStore";
+} from '@/features/routes/hooks';
+import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
+import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
+import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
+import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import {
   ActivityPopup,
   SectionPopup,
@@ -60,14 +33,14 @@ import {
   useMapGeoJSON,
   type SelectedActivity,
   type SpiderState,
-} from "./regional";
+} from './regional';
 import {
   buildRegionalLayers,
   buildRegionalSources,
   HEATMAP_ROUTE_COLOR,
   REGIONAL_INTERACTIVE_LAYERS,
-} from "./regional/regionalMapLayerSpecs";
-import { EMPTY_FEATURE_COLLECTION } from "../lib/coordinates";
+} from './regional/regionalMapLayerSpecs';
+import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 
 /** World view until the camera hook fits the activities it finds. */
 const WORLD_CAMERA = { center: [0, 0] as [number, number], zoom: 2 };
@@ -113,8 +86,7 @@ export function RegionalMapView({
   const router = useRouter();
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
   const insets = useSafeAreaInsets();
-  const [mapStyle, setMapStyleLocal] =
-    useState<MapStyleType>(getGlobalMapStyle());
+  const [mapStyle, setMapStyleLocal] = useState<MapStyleType>(getGlobalMapStyle());
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const {
     showActivities,
@@ -127,21 +99,17 @@ export function RegionalMapView({
     toggleHeatmap,
     toggle3D,
   } = useVisibilityToggles();
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(
-    null,
-  );
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [visibleActivityIds, setVisibleActivityIds] =
-    useState<Set<string> | null>(null);
-  const [selectedSection, setSelectedSection] =
-    useState<FrequentSection | null>(null);
+  const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
+  const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // Only load route signatures when the map tab is focused
   // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
   const pathname = usePathname();
-  const isMapFocused = pathname === "/map" || pathname.endsWith("/map");
+  const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
   const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Cheap section count (SQL COUNT, no polylines) drives the toggle button's
@@ -162,13 +130,8 @@ export function RegionalMapView({
   });
 
   // Camera, bounds, and pre-computed activity centers
-  const {
-    activityCenters,
-    mapCenter,
-    currentZoomRef,
-    currentCenterRef,
-    markUserInteracted,
-  } = useMapCamera({ activities, routeSignatures, surfaceRef });
+  const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
+    useMapCamera({ activities, routeSignatures, surfaceRef });
 
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
@@ -206,14 +169,11 @@ export function RegionalMapView({
   // Stable callback for camera settle notifications (uses ref to avoid dep changes)
   const mapStyleRef = useRef(mapStyle);
   mapStyleRef.current = mapStyle;
-  const handleCameraSettled = useCallback(
-    (center: [number, number], zoom: number) => {
-      if (mapStyleRef.current === "satellite") {
-        setCameraForAttribution({ center, zoom });
-      }
-    },
-    [],
-  );
+  const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
+    if (mapStyleRef.current === 'satellite') {
+      setCameraForAttribution({ center, zoom });
+    }
+  }, []);
 
   // Dynamic attribution based on visible satellite sources at current location.
   // Shared with ActivityMapView via `computeAttribution` so both maps stay in sync
@@ -226,7 +186,7 @@ export function RegionalMapView({
         center: cameraForAttribution?.center ?? null,
         zoom: cameraForAttribution?.zoom ?? 0,
       }),
-    [mapStyle, cameraForAttribution, is3DMode],
+    [mapStyle, cameraForAttribution, is3DMode]
   );
 
   // Notify parent when attribution changes
@@ -317,15 +277,13 @@ export function RegionalMapView({
 
   // Auto-show sections when zoomed in to neighborhood level, auto-hide when zoomed out.
   // Manual toggles (via the control button) take precedence and disable auto-behavior.
-  const {
-    handleRegionDidChange: autoToggleHandleRegionDidChange,
-    toggleSections,
-  } = useSectionAutoToggle({
-    showSections,
-    setShowSections,
-    baseHandleRegionDidChange,
-    baseToggleSections,
-  });
+  const { handleRegionDidChange: autoToggleHandleRegionDidChange, toggleSections } =
+    useSectionAutoToggle({
+      showSections,
+      setShowSections,
+      baseHandleRegionDidChange,
+      baseToggleSections,
+    });
 
   // Wrap the region-change handler to also refresh the cluster-count overlay.
   // The map draws cluster counts as glyphs inside the WebView canvas, which no
@@ -336,7 +294,7 @@ export function RegionalMapView({
       autoToggleHandleRegionDidChange(state);
       clusterOverlayRef.current?.refresh();
     },
-    [autoToggleHandleRegionDidChange],
+    [autoToggleHandleRegionDidChange]
   );
 
   // Clear selections when their corresponding group visibility is turned off.
@@ -372,7 +330,7 @@ export function RegionalMapView({
         setSelectedSection(section);
       }
     },
-    [sections],
+    [sections]
   );
 
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
@@ -404,10 +362,7 @@ export function RegionalMapView({
         spiderLinesGeoJSON: EMPTY_FEATURE_COLLECTION,
       };
     }
-    const { points, lines } = buildSpiderGeoJSON(
-      spider,
-      currentZoomRef.current,
-    );
+    const { points, lines } = buildSpiderGeoJSON(spider, currentZoomRef.current);
     return { spiderPointsGeoJSON: points, spiderLinesGeoJSON: lines };
   }, [spider, currentZoomRef]);
 
@@ -441,7 +396,7 @@ export function RegionalMapView({
       spiderPointsGeoJSON,
       spiderLinesGeoJSON,
       heatmapEnabled,
-    ],
+    ]
   );
 
   // Sport colours wash out against the teal heatmap, so the selected route
@@ -481,7 +436,7 @@ export function RegionalMapView({
       selectedActivityId,
       selectedSection,
       selectedRouteColor,
-    ],
+    ]
   );
 
   return (
@@ -496,11 +451,7 @@ export function RegionalMapView({
             ref={map3DRef}
             coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}
             mapStyle={mapStyle}
-            routeColor={
-              selected
-                ? getActivityTypeConfig(selected.activity.type).color
-                : undefined
-            }
+            routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
             initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
             initialZoom={currentZoomRef.current}
             // Pass an empty FeatureCollection (not undefined) when toggled off
@@ -516,9 +467,7 @@ export function RegionalMapView({
             // activity locations come through pointMarkersGeoJSON below as
             // colored circles per sport (no polylines).
             tracesGeoJSON={EMPTY_FEATURE_COLLECTION}
-            pointMarkersGeoJSON={
-              showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION
-            }
+            pointMarkersGeoJSON={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             showHeatmap={showHeatmap}
             onSectionClick={handle3DSectionClick}
             onActivityClick={(activityId) => {
@@ -545,16 +494,14 @@ export function RegionalMapView({
 
       {/* Accessibility and test handle for cluster counts. Invisible to users -
           the map draws the glyphs itself, inside a canvas nothing else can see. */}
-      {!show3D && (
-        <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />
-      )}
+      {!show3D && <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />}
 
       {/* Same idea for the sections layer: something outside the canvas that
           says whether sections are currently drawn. */}
       {!show3D && showSections && (
         <View
           testID="regional-map-sections-overlay"
-          accessibilityLabel={t("maps.showSections")}
+          accessibilityLabel={t('maps.showSections')}
           style={styles.layerMarker}
           pointerEvents="none"
         />
@@ -570,7 +517,7 @@ export function RegionalMapView({
         ]}
         onPress={toggleStyle}
         activeOpacity={0.8}
-        accessibilityLabel={t("maps.toggleStyle")}
+        accessibilityLabel={t('maps.toggleStyle')}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
@@ -605,12 +552,7 @@ export function RegionalMapView({
       />
       {/* Attribution */}
       {showAttribution && (
-        <View
-          style={[
-            styles.attribution,
-            { bottom: insets.bottom + attributionBottomOffset },
-          ]}
-        >
+        <View style={[styles.attribution, { bottom: insets.bottom + attributionBottomOffset }]}>
           <Text style={styles.attributionText}>{attributionText}</Text>
         </View>
       )}
@@ -652,13 +594,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    position: "absolute",
+    position: 'absolute',
     width: layout.minTapTarget,
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.mapOverlay,
   },
   buttonDark: {
@@ -668,16 +610,16 @@ const styles = StyleSheet.create({
     right: spacing.md,
   },
   layerMarker: {
-    position: "absolute",
+    position: 'absolute',
     width: 1,
     height: 1,
     opacity: 0,
   },
   attribution: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderTopLeftRadius: spacing.sm,

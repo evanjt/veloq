@@ -7,20 +7,16 @@
  * Visibility is controlled via layer opacity, not feature presence.
  */
 
-import { useMemo } from "react";
-import type { TFunction } from "i18next";
+import { useMemo } from 'react';
+import type { TFunction } from 'i18next';
 
-import { convertLatLngTuples } from "@/shared/geo/polyline";
-import type {
-  ActivityBoundsItem,
-  FrequentSection,
-  ActivityType,
-} from "@/types";
-import { getSectionStyle, getRouteStyle } from "@/features/routes/constants";
-import type { RouteSignature } from "@/features/routes/hooks";
-import { getActivityTypeConfig } from "../ActivityTypeFilter";
-import type { SelectedActivity } from "./ActivityPopup";
-import { EMPTY_FEATURE_COLLECTION } from "../../lib/coordinates";
+import { convertLatLngTuples } from '@/shared/geo/polyline';
+import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
+import type { RouteSignature } from '@/features/routes/hooks';
+import { getActivityTypeConfig } from '../ActivityTypeFilter';
+import type { SelectedActivity } from './ActivityPopup';
+import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
 
 /** Minimum route group fields needed for GeoJSON building */
 interface RouteGroupMinimal {
@@ -116,7 +112,7 @@ export function useMapGeoJSON({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[useMapGeoJSON] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`,
+              `[useMapGeoJSON] INVALID MARKER: activity=${activity.id} center=${JSON.stringify(center)}`
             );
           }
           return null;
@@ -128,7 +124,7 @@ export function useMapGeoJSON({
         const age = Math.min(ageMs / (365 * 24 * 60 * 60 * 1000), 1);
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           // No top-level `id` - string IDs break MapLibre Supercluster clustering.
           // Use properties.id for tap handlers and selection expressions.
           properties: {
@@ -139,7 +135,7 @@ export function useMapGeoJSON({
             age: Math.round(age * 100) / 100, // 2 decimal places
           },
           geometry: {
-            type: "Point" as const,
+            type: 'Point' as const,
             coordinates: center,
           },
         };
@@ -148,12 +144,12 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] markersGeoJSON: skipped ${skippedCount}/${allActivities.length} activities with invalid centers`,
+        `[useMapGeoJSON] markersGeoJSON: skipped ${skippedCount}/${allActivities.length} activities with invalid centers`
       );
     }
 
     return {
-      type: "FeatureCollection" as const,
+      type: 'FeatureCollection' as const,
       features: features as GeoJSON.Feature[],
     };
   }, [allActivities, activityCenters]);
@@ -191,21 +187,21 @@ export function useMapGeoJSON({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[useMapGeoJSON] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`,
+              `[useMapGeoJSON] INVALID TRACE: activity=${activity.id} originalPoints=${originalCount} validPoints=${coordinates.length}`
             );
           }
           return null;
         }
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           id: `trace-${activity.id}`,
           properties: {
             id: activity.id,
             color: config.color,
           },
           geometry: {
-            type: "LineString" as const,
+            type: 'LineString' as const,
             coordinates,
           },
         };
@@ -214,13 +210,13 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`,
+        `[useMapGeoJSON] tracesGeoJSON: skipped ${skippedCount} traces with insufficient coordinates`
       );
     }
 
     if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
 
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]);
 
   // ===========================================
@@ -234,22 +230,18 @@ export function useMapGeoJSON({
       .map((activity) => {
         const signature = routeSignatures[activity.id];
         const startPt = signature.points[0];
-        if (
-          !startPt ||
-          !Number.isFinite(startPt.lng) ||
-          !Number.isFinite(startPt.lat)
-        ) {
+        if (!startPt || !Number.isFinite(startPt.lng) || !Number.isFinite(startPt.lat)) {
           return null;
         }
         const config = getActivityTypeConfig(activity.type);
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           properties: {
             id: activity.id,
             color: config.color,
           },
           geometry: {
-            type: "Point" as const,
+            type: 'Point' as const,
             coordinates: [startPt.lng, startPt.lat],
           },
         };
@@ -257,7 +249,7 @@ export function useMapGeoJSON({
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
     if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]);
 
   // ===========================================
@@ -273,13 +265,11 @@ export function useMapGeoJSON({
         // Filter out NaN coordinates and validate polyline has at least 2 points
         // GeoJSON LineString requires minimum 2 coordinates to be valid
         const originalCount = section.polyline.length;
-        const validPoints = section.polyline.filter(
-          (pt) => !isNaN(pt.lat) && !isNaN(pt.lng),
-        );
+        const validPoints = section.polyline.filter((pt) => !isNaN(pt.lat) && !isNaN(pt.lng));
 
         // Also filter Infinity values
         const finitePoints = validPoints.filter(
-          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng),
+          (pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lng)
         );
 
         // Skip sections with insufficient valid coordinates
@@ -287,7 +277,7 @@ export function useMapGeoJSON({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[useMapGeoJSON] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`,
+              `[useMapGeoJSON] INVALID SECTION: id=${section.id} name="${section.name}" originalPoints=${originalCount} validPoints=${validPoints.length} finitePoints=${finitePoints.length}`
             );
           }
           return null;
@@ -298,13 +288,11 @@ export function useMapGeoJSON({
         const sectionStyle = getSectionStyle(idx);
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           id: section.id,
           properties: {
             id: section.id,
-            name:
-              section.name ||
-              t("sections.defaultName", { number: section.id.slice(-6) }),
+            name: section.name || t('sections.defaultName', { number: section.id.slice(-6) }),
             sportType: section.sportType,
             visitCount: section.visitCount,
             distanceMeters: section.distanceMeters,
@@ -312,7 +300,7 @@ export function useMapGeoJSON({
             patternIndex: sectionStyle.patternIndex,
           },
           geometry: {
-            type: "LineString" as const,
+            type: 'LineString' as const,
             coordinates,
           },
         };
@@ -321,11 +309,11 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`,
+        `[useMapGeoJSON] sectionsGeoJSON: skipped ${skippedCount}/${sections.length} sections with invalid polylines`
       );
     }
 
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [sections, t]);
 
   // ===========================================
@@ -333,8 +321,7 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0)
-      return EMPTY_FEATURE_COLLECTION;
+    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     let skippedCount = 0;
     let validIdx = 0;
@@ -355,7 +342,7 @@ export function useMapGeoJSON({
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[useMapGeoJSON] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`,
+              `[useMapGeoJSON] INVALID ROUTE: groupId=${group.id} name="${group.name}" originalPoints=${originalCount} validPoints=${coordinates.length}`
             );
           }
           return null;
@@ -365,7 +352,7 @@ export function useMapGeoJSON({
         const routeStyle = getRouteStyle(validIdx++);
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           id: group.id,
           properties: {
             id: group.id,
@@ -377,7 +364,7 @@ export function useMapGeoJSON({
             color: routeStyle.color,
           },
           geometry: {
-            type: "LineString" as const,
+            type: 'LineString' as const,
             coordinates,
           },
         };
@@ -386,11 +373,11 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`,
+        `[useMapGeoJSON] routesGeoJSON: skipped ${skippedCount}/${routeGroups.length} routes with invalid polylines`
       );
     }
 
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // ===========================================
@@ -398,8 +385,7 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0)
-      return EMPTY_FEATURE_COLLECTION;
+    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -409,22 +395,18 @@ export function useMapGeoJSON({
         const startPoint = signature.points[0];
 
         // Skip if no start point or invalid coordinates
-        if (
-          !startPoint ||
-          !Number.isFinite(startPoint.lng) ||
-          !Number.isFinite(startPoint.lat)
-        ) {
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
           skippedCount++;
           if (__DEV__) {
             console.warn(
-              `[useMapGeoJSON] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`,
+              `[useMapGeoJSON] INVALID ROUTE MARKER: groupId=${group.id} startPoint=${JSON.stringify(startPoint)}`
             );
           }
           return null;
         }
 
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           id: `marker-${group.id}`,
           properties: {
             id: group.id,
@@ -432,7 +414,7 @@ export function useMapGeoJSON({
             activityCount: group.activityCount,
           },
           geometry: {
-            type: "Point" as const,
+            type: 'Point' as const,
             coordinates: [startPoint.lng, startPoint.lat],
           },
         };
@@ -441,11 +423,11 @@ export function useMapGeoJSON({
 
     if (__DEV__ && skippedCount > 0) {
       console.warn(
-        `[useMapGeoJSON] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`,
+        `[useMapGeoJSON] routeMarkersGeoJSON: skipped ${skippedCount} route markers with invalid start points`
       );
     }
 
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [showRoutes, routeGroups, routeSignatures]);
 
   // ===========================================
@@ -460,17 +442,13 @@ export function useMapGeoJSON({
       .map((section) => {
         // Get first point of section polyline
         const startPoint = section.polyline[0];
-        if (
-          !startPoint ||
-          !Number.isFinite(startPoint.lng) ||
-          !Number.isFinite(startPoint.lat)
-        ) {
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
           return null;
         }
 
         return {
           id: section.id,
-          name: section.name ?? "",
+          name: section.name ?? '',
           coordinate: [startPoint.lng, startPoint.lat] as [number, number],
           sportType: section.sportType,
           visitCount: section.visitCount,
@@ -492,11 +470,7 @@ export function useMapGeoJSON({
       .map((group) => {
         const signature = routeSignatures[group.representativeId];
         const startPoint = signature.points[0];
-        if (
-          !startPoint ||
-          !Number.isFinite(startPoint.lng) ||
-          !Number.isFinite(startPoint.lat)
-        ) {
+        if (!startPoint || !Number.isFinite(startPoint.lng) || !Number.isFinite(startPoint.lat)) {
           return null;
         }
 
@@ -522,13 +496,13 @@ export function useMapGeoJSON({
       return EMPTY_FEATURE_COLLECTION;
     }
     return {
-      type: "FeatureCollection",
+      type: 'FeatureCollection',
       features: [
         {
-          type: "Feature",
+          type: 'Feature',
           properties: { hasLocation: true },
           geometry: {
-            type: "Point",
+            type: 'Point',
             coordinates: userLocation,
           },
         },
@@ -541,16 +515,14 @@ export function useMapGeoJSON({
   // ===========================================
   // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
-  const routeGeoJSON = useMemo(():
-    | GeoJSON.FeatureCollection
-    | GeoJSON.Feature => {
+  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
     if (selected?.routeCoords && selected.routeCoords.length >= 2) {
       return {
-        type: "Feature" as const,
+        type: 'Feature' as const,
         properties: {},
         geometry: {
-          type: "LineString" as const,
+          type: 'LineString' as const,
           coordinates: selected.routeCoords,
         },
       };
@@ -560,14 +532,12 @@ export function useMapGeoJSON({
     if (!selected?.mapData?.latlngs) return EMPTY_FEATURE_COLLECTION;
 
     // Filter out null values first
-    const nonNullCoords = selected.mapData.latlngs.filter(
-      (c): c is [number, number] => c !== null,
-    );
+    const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
 
     if (nonNullCoords.length === 0) {
       if (__DEV__) {
         console.warn(
-          `[useMapGeoJSON] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`,
+          `[useMapGeoJSON] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
         );
       }
       return EMPTY_FEATURE_COLLECTION;
@@ -583,24 +553,24 @@ export function useMapGeoJSON({
           Number.isFinite(c.latitude) &&
           Number.isFinite(c.longitude) &&
           !isNaN(c.latitude) &&
-          !isNaN(c.longitude),
+          !isNaN(c.longitude)
       )
       .map((c) => [c.longitude, c.latitude]);
 
     if (validCoords.length < 2) {
       if (__DEV__) {
         console.warn(
-          `[useMapGeoJSON] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`,
+          `[useMapGeoJSON] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
         );
       }
       return EMPTY_FEATURE_COLLECTION;
     }
 
     return {
-      type: "Feature" as const,
+      type: 'Feature' as const,
       properties: {},
       geometry: {
-        type: "LineString" as const,
+        type: 'LineString' as const,
         coordinates: validCoords,
       },
     };
@@ -608,9 +578,8 @@ export function useMapGeoJSON({
 
   // Helper to check if routeGeoJSON has data
   const routeHasData =
-    routeGeoJSON.type === "Feature" ||
-    (routeGeoJSON.type === "FeatureCollection" &&
-      routeGeoJSON.features.length > 0);
+    routeGeoJSON.type === 'Feature' ||
+    (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
 
   return {
     markersGeoJSON,

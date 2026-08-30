@@ -1,8 +1,8 @@
-import { useMemo } from "react";
-import { decodeCoords } from "veloqrs";
+import { useMemo } from 'react';
+import { decodeCoords } from 'veloqrs';
 
-import type { FrequentSection, RoutePoint } from "@/types";
-import { EMPTY_FEATURE_COLLECTION } from "@/features/maps/lib/coordinates";
+import type { FrequentSection, RoutePoint } from '@/types';
+import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 
 type FeatureOrCollection = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
@@ -47,13 +47,13 @@ function isFinitePoint(p: RoutePoint): boolean {
 
 function lineFeature(
   points: RoutePoint[],
-  properties: GeoJSON.GeoJsonProperties = {},
+  properties: GeoJSON.GeoJsonProperties = {}
 ): GeoJSON.Feature {
   return {
-    type: "Feature",
+    type: 'Feature',
     properties,
     geometry: {
-      type: "LineString",
+      type: 'LineString',
       coordinates: points.map((p) => [p.lng, p.lat]),
     },
   };
@@ -83,9 +83,7 @@ export function useSectionMapLayers({
   const trimmedGeoJSON = useMemo<FeatureOrCollection>(() => {
     if (!trimRange) return EMPTY_FEATURE_COLLECTION;
     const sourcePoints =
-      extensionTrack && extensionTrack.length > 0
-        ? extensionTrack
-        : displayPoints;
+      extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
     if (sourcePoints.length < 2) return EMPTY_FEATURE_COLLECTION;
     const validPoints = sourcePoints
       .slice(trimRange.start, trimRange.end + 1)
@@ -97,49 +95,45 @@ export function useSectionMapLayers({
   const shadowGeoJSON = useMemo<FeatureOrCollection>(() => {
     if (!shadowTrack || shadowTrack.length < 2) return EMPTY_FEATURE_COLLECTION;
     const validCoords = shadowTrack.filter(
-      ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng),
+      ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
     );
     if (validCoords.length < 2) return EMPTY_FEATURE_COLLECTION;
     return {
-      type: "Feature",
+      type: 'Feature',
       properties: {},
       geometry: {
-        type: "LineString",
+        type: 'LineString',
         coordinates: validCoords.map(([lat, lng]) => [lng, lat]),
       },
     };
   }, [shadowTrack]);
 
   const extensionGeoJSON = useMemo<FeatureOrCollection>(() => {
-    if (!extensionTrack || extensionTrack.length < 2)
-      return EMPTY_FEATURE_COLLECTION;
+    if (!extensionTrack || extensionTrack.length < 2) return EMPTY_FEATURE_COLLECTION;
     const validCoords = extensionTrack.filter(isFinitePoint);
     if (validCoords.length < 2) return EMPTY_FEATURE_COLLECTION;
     return lineFeature(validCoords);
   }, [extensionTrack]);
 
   const nearbyGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0)
-      return EMPTY_FEATURE_COLLECTION;
+    if (!nearbyPolylines || nearbyPolylines.length === 0) return EMPTY_FEATURE_COLLECTION;
     const features = nearbyPolylines
       .map((entry) => {
         if (!entry.encodedPolyline) return null;
         const decoded = decodeCoords(entry.encodedPolyline);
         if (decoded.length < 2) return null;
         const coordinates: [number, number][] = decoded
-          .filter(
-            (p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude),
-          )
+          .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
           .map((p) => [p.longitude, p.latitude]);
         if (coordinates.length < 2) return null;
         return {
-          type: "Feature" as const,
+          type: 'Feature' as const,
           properties: { sectionId: entry.id },
-          geometry: { type: "LineString" as const, coordinates },
+          geometry: { type: 'LineString' as const, coordinates },
         };
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [nearbyPolylines]);
 
   const allTracesFeatureCollection = useMemo<GeoJSON.FeatureCollection>(() => {
@@ -153,14 +147,14 @@ export function useSectionMapLayers({
         return lineFeature(validPoints, { activityId });
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
-    return { type: "FeatureCollection", features };
+    return { type: 'FeatureCollection', features };
   }, [allActivityTraces]);
 
   const hasAllTraces = allTracesFeatureCollection.features.length > 0;
 
   const highlightedTraceFilter = useMemo<unknown[] | undefined>(() => {
     if (!highlightedActivityId || !hasAllTraces) return undefined;
-    return ["==", ["get", "activityId"], highlightedActivityId];
+    return ['==', ['get', 'activityId'], highlightedActivityId];
   }, [highlightedActivityId, hasAllTraces]);
 
   // Fallback trace when allActivityTraces is not provided. Lap points win, then
@@ -171,7 +165,7 @@ export function useSectionMapLayers({
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
       const validPoints = highlightedLapPoints.filter(isFinitePoint);
       if (validPoints.length < 2) return EMPTY_FEATURE_COLLECTION;
-      return lineFeature(validPoints, { id: "highlighted-lap" });
+      return lineFeature(validPoints, { id: 'highlighted-lap' });
     }
 
     if (highlightedActivityId && section.activityTraces) {
@@ -184,19 +178,13 @@ export function useSectionMapLayers({
     }
 
     return EMPTY_FEATURE_COLLECTION;
-  }, [
-    highlightedActivityId,
-    highlightedLapPoints,
-    section.activityTraces,
-    hasAllTraces,
-  ]);
+  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces, hasAllTraces]);
 
   const highlightedLapGeoJSON = useMemo<FeatureOrCollection>(() => {
-    if (!highlightedLapPoints || highlightedLapPoints.length < 2)
-      return EMPTY_FEATURE_COLLECTION;
+    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return EMPTY_FEATURE_COLLECTION;
     const validPoints = highlightedLapPoints.filter(isFinitePoint);
     if (validPoints.length < 2) return EMPTY_FEATURE_COLLECTION;
-    return lineFeature(validPoints, { id: "highlighted-lap" });
+    return lineFeature(validPoints, { id: 'highlighted-lap' });
   }, [highlightedLapPoints]);
 
   return {
