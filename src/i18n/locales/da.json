@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Hvorfor denne anbefaling?",
     "aboutBody": "Træningsmålinger er estimater baseret på publicerede sportsvidenskabelige modeller. Individuelle reaktioner varierer betydeligt. Disse indsigter er kun informative, ikke medicinsk rådgivning eller træningsrådgivning.",
     "efficiencyTrend": {
+      "seriesLabel": "Puls per tempoenhed, ældste forsøg til nyeste",
       "title": "HR faldende på {{name}}",
       "subtitle": "{{hrChange}} bpm lavere over {{efforts}} bestræbelser",
       "body": "Over {{efforts}} bestræbelser på {{name}} er din puls ved samme tempo faldet med {{hrChange}} bpm."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Stryg for at rulle • Hold for at skrubbe",
     "sectionNamePlaceholder": "Sektionsnavn",
     "sectionNotFound": "Sektion ikke fundet",
+    "aerobicEfficiency": "Aerob effektivitet",
+    "aerobicEfficiencyDetail": "{{efforts}} matchede forsøg, puls {{hrChange}} bpm ved samme tempo",
+    "aerobicEfficiencyCaption": "Puls per tempoenhed, ældste forsøg til nyeste",
     "setAsReference": "Angiv som reference",
     "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",

@@ -728,6 +728,7 @@
     "whyThisRecommendation": "なぜこの提案ですか？",
     "aboutBody": "トレーニング指標は公開された運動科学モデルに基づく推定値です。個人差が大きく生じます。これらのインサイトは情報提供のみを目的としており、医療やコーチングのアドバイスではありません。",
     "efficiencyTrend": {
+      "seriesLabel": "ペース当たりの心拍数、古い走行から新しい走行へ",
       "title": "{{name}}で心拍数が低下傾向",
       "subtitle": "{{efforts}}回で{{hrChange}}bpm低下",
       "body": "{{name}}での{{efforts}}回の走行で、同じペースでの心拍数が{{hrChange}}bpm低下しました。"
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "スワイプでスクロール - 長押しでスクラブ",
     "sectionNamePlaceholder": "区間名",
     "sectionNotFound": "区間が見つかりません",
+    "aerobicEfficiency": "有酸素効率",
+    "aerobicEfficiencyDetail": "比較可能な走行 {{efforts}} 回、同じペースで心拍数 {{hrChange}} bpm",
+    "aerobicEfficiencyCaption": "ペース当たりの心拍数、古い走行から新しい走行へ",
     "setAsReference": "基準に設定",
     "setAsReferenceConfirm": "このアクティビティを基準として使用しますか？\n\nこの区間はすべてのアクティビティと再照合されます。これにより、この区間のアクティビティが追加または削除される場合があります。",
     "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",

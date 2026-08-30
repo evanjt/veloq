@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Porquê esta recomendação?",
     "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Estes insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
     "efficiencyTrend": {
+      "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
       "title": "FC em queda em {{name}}",
       "subtitle": "{{hrChange}} bpm menos em {{efforts}} esforços",
       "body": "Em {{efforts}} esforços em {{name}}, a sua frequência cardíaca ao mesmo ritmo desceu {{hrChange}} bpm."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Deslize para navegar - Mantenha premido para percorrer",
     "sectionNamePlaceholder": "Nome do troco",
     "sectionNotFound": "Troco nao encontrado",
+    "aerobicEfficiency": "Eficiência aeróbia",
+    "aerobicEfficiencyDetail": "{{efforts}} passagens comparáveis, frequência cardíaca {{hrChange}} bpm ao mesmo ritmo",
+    "aerobicEfficiencyCaption": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
     "setAsReference": "Definir como referência",
     "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO troco será novamente comparado com todas as suas atividades. Isto pode adicionar ou remover atividades deste troco.",
     "setReferenceError": "Falha ao definir referência. O troço ou atividade pode ter mudado. Por favor, tente novamente.",

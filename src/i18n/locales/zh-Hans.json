@@ -728,6 +728,7 @@
     "whyThisRecommendation": "为什么有此建议？",
     "aboutBody": "训练指标是基于已发表的运动科学模型的估算值。个体反应差异显著。这些洞察仅供参考，非医疗或教练建议。",
     "efficiencyTrend": {
+      "seriesLabel": "单位配速的心率，从最早一次到最新一次",
       "title": "{{name}}上心率呈下降趋势",
       "subtitle": "{{efforts}}次中降低{{hrChange}}bpm",
       "body": "在{{name}}的{{efforts}}次中，相同配速下心率降低了{{hrChange}}bpm。"
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "滑动滚动 • 长按拖动",
     "sectionNamePlaceholder": "路段名称",
     "sectionNotFound": "未找到路段",
+    "aerobicEfficiency": "有氧效率",
+    "aerobicEfficiencyDetail": "{{efforts}} 次可比较的通过，同等配速下心率 {{hrChange}} bpm",
+    "aerobicEfficiencyCaption": "单位配速的心率，从最早一次到最新一次",
     "setAsReference": "设为参考",
     "setAsReferenceConfirm": "将此活动用作参考？\n\n该路段将与您的所有活动重新匹配。这可能会从该路段中添加或删除活动。",
     "setReferenceError": "设置参考失败。路段或活动可能已更改。请重试。",

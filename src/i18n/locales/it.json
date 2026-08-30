@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Perché questa indicazione?",
     "aboutBody": "Le metriche di allenamento sono stime basate su modelli pubblicati di scienza dello sport. Le risposte individuali variano significativamente. Questi approfondimenti sono solo informativi, non costituiscono consiglio medico o di allenamento.",
     "efficiencyTrend": {
+      "seriesLabel": "Frequenza cardiaca per unità di passo, dal passaggio più vecchio al più recente",
       "title": "FC in calo su {{name}}",
       "subtitle": "{{hrChange}} bpm in meno su {{efforts}} sforzi",
       "body": "Su {{efforts}} sforzi su {{name}}, la tua frequenza cardiaca allo stesso ritmo è scesa di {{hrChange}} bpm."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Scorri per navigare - Tieni premuto per scorrere",
     "sectionNamePlaceholder": "Nome sezione",
     "sectionNotFound": "Sezione non trovata",
+    "aerobicEfficiency": "Efficienza aerobica",
+    "aerobicEfficiencyDetail": "{{efforts}} passaggi confrontabili, frequenza cardiaca {{hrChange}} bpm allo stesso passo",
+    "aerobicEfficiencyCaption": "Frequenza cardiaca per unità di passo, dal passaggio più vecchio al più recente",
     "setAsReference": "Imposta come riferimento",
     "setAsReferenceConfirm": "Usare questa attività come riferimento?\n\nLa sezione verrà riconfrontata con tutte le tue attività. Questo potrebbe aggiungere o rimuovere attività da questa sezione.",
     "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",

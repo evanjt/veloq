@@ -10,6 +10,7 @@ export {
   type SectionLap,
   type SectionPerformanceRecord,
 } from './useSectionPerformances';
+export { useSectionEfficiencyTrend } from './useSectionEfficiencyTrend';
 export { useCustomSections } from './useCustomSections';
 export { useUnifiedSections } from './useUnifiedSections';
 export { useRouteDataSync } from './useRouteDataSync';

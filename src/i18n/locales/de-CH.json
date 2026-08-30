@@ -728,6 +728,7 @@
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetrike sind Schätzige basierend uf publizierte sportwüsseschaftliche Modäll. Individuelli Reaktione variiere. Die Einblicke sind nur informativ, kei medizinische oder Coaching-Raat.",
     "efficiencyTrend": {
+      "seriesLabel": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
       "title": "HF sinkt uf {{name}}",
       "subtitle": "{{hrChange}} bpm tüüfer über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} isch dini Härzfrequänz bim gliiche Tempo um {{hrChange}} bpm gsunke."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Wüsche zum Scrolle • Halte zum Blättre",
     "sectionNamePlaceholder": "Abschnittsname",
     "sectionNotFound": "Abschnitt nöd gfunde",
+    "aerobicEfficiency": "Aerobi Effizienz",
+    "aerobicEfficiencyDetail": "{{efforts}} verglichbari Versüech, Härzfrequänz {{hrChange}} bpm bim gliiche Tämpo",
+    "aerobicEfficiencyCaption": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
     "setAsReference": "Als Referänz setze",
     "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
     "setReferenceError": "Referänz hät nöd chöne gsetzt wärde. De Abschnitt oder d Aktivität hät sich villicht gänderet. Probiers nomol!",

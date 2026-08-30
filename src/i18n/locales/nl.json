@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Waarom deze aanbeveling?",
     "aboutBody": "Trainingsmetrieken zijn schattingen op basis van gepubliceerde sportwetenschappelijke modellen. Individuele reacties variëren aanzienlijk. Deze inzichten zijn alleen informatief, geen medisch of coachingadvies.",
     "efficiencyTrend": {
+      "seriesLabel": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
       "title": "HF dalend op {{name}}",
       "subtitle": "{{hrChange}} bpm lager over {{efforts}} pogingen",
       "body": "Over {{efforts}} pogingen op {{name}} is je hartslag bij hetzelfde tempo met {{hrChange}} bpm gedaald."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Veeg om te scrollen • Houd vast om te bladeren",
     "sectionNamePlaceholder": "Sectienaam",
     "sectionNotFound": "Sectie niet gevonden",
+    "aerobicEfficiency": "Aerobe efficiëntie",
+    "aerobicEfficiencyDetail": "{{efforts}} vergelijkbare pogingen, hartslag {{hrChange}} bpm bij hetzelfde tempo",
+    "aerobicEfficiencyCaption": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
     "setAsReference": "Als referentie instellen",
     "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
     "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
