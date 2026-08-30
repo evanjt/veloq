@@ -287,21 +287,6 @@ export interface Section {
   supersededBy?: string | null;
 }
 
-/**
- * A potential section detected from limited activity overlaps.
- * These are suggestions that users can promote to full sections.
- */
-export interface PotentialSection {
-  id: string;
-  sportType: string;
-  polyline: RoutePoint[];
-  activityIds: string[];
-  visitCount: number;
-  distanceMeters: number;
-  confidence: number;
-  scale: string;
-}
-
 /** Backward compatibility aliases */
 export type FrequentSection = Section;
 export type CustomSection = Section;
@@ -350,9 +335,6 @@ export interface ActivitySectionRecord {
   /** Direction relative to representative: "same" or "reverse" */
   direction: 'same' | 'reverse';
 }
-
-/** Backward compatibility alias */
-export type SectionPortion = ActivitySectionRecord;
 
 /** Parameters for creating a section */
 export interface CreateSectionParams {

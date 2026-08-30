@@ -49,17 +49,6 @@ export function lngLatFromLatLngTuples(points: readonly (readonly [number, numbe
   return out;
 }
 
-/** Read `{ latitude, longitude }` objects. */
-export function lngLatFromLatLng(points: readonly LatLngObject[]): LngLat[] {
-  const out: LngLat[] = [];
-  for (const point of points) {
-    if (point && isFinitePair(point.longitude, point.latitude)) {
-      out.push([point.longitude, point.latitude]);
-    }
-  }
-  return out;
-}
-
 /** Read `{ lat, lng }` objects. */
 export function lngLatFromShort(points: readonly LatLngShort[]): LngLat[] {
   const out: LngLat[] = [];

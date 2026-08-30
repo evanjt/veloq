@@ -8,7 +8,7 @@
 # not clickable".
 #
 # This flow covers BOTH places the same tips appear:
-#   1. Settings → Support card (always visible)
+#   1. Settings → Support card (always visible, inline on the settings screen)
 #   2. Home feed → "Enjoying Veloq?" SupportCard (time-gated; we use the
 #      developer dashboard to set lastActionDate to 31 days ago to force
 #      it to appear).
@@ -28,9 +28,9 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# ---- Surface 1: Support settings page ----
+# ---- Surface 1: Support card on the settings screen ----
 
-- openLink: "veloq://support-settings"
+- openLink: "veloq://settings"
 - runFlow:
     when:
       visible: "Open"
@@ -39,15 +39,25 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "support-section"
+      id: "settings-screen"
     timeout: 10000
-    optional: true
+
+# Prime the scroll container before scrollUntilVisible, as the version-text
+# scroll further down does.
+- scroll
+
+- scrollUntilVisible:
+    element:
+      id: "support-section"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
 
 - assertVisible:
     id: "support-section"
     optional: true
 
-- takeScreenshot: "support-settings-section"
+- takeScreenshot: "settings-support-section"
 
 # These exact strings are what the App Store reviewer screenshotted.
 # They must NEVER appear in the Support section after the fallback removal.

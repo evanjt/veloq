@@ -1,21 +1,12 @@
 /**
- * Tests for storage utilities (bounds cache, route names, checkpoint).
- * GPS track storage functions were removed - GPS data is now in Rust SQLite.
+ * Tests for the FileSystem cleanup helpers. GPS data itself lives in Rust SQLite.
  */
 
 // In-memory file system for testing - prefixed with "mock" for jest.mock scope rules
 import {
   clearAllGpsTracks,
+  clearBoundsCache,
   deleteGpsTracks,
-  storeOldestDate,
-  loadOldestDate,
-  storeCheckpoint,
-  loadCheckpoint,
-  storeBoundsCache,
-  loadBoundsCache,
-  getRouteDisplayName,
-  saveCustomRouteName,
-  loadCustomRouteNames,
 } from '@/shared/storage/gpsStorage';
 
 const mockFileStore = new Map<string, string>();
@@ -67,67 +58,6 @@ beforeEach(() => {
   mockDirStore.clear();
 });
 
-describe('oldest date storage', () => {
-  it('stores and loads oldest date', async () => {
-    await storeOldestDate('2020-01-15');
-    const result = await loadOldestDate();
-    expect(result).toBe('2020-01-15');
-  });
-
-  it('returns null when no date stored', async () => {
-    const result = await loadOldestDate();
-    expect(result).toBeNull();
-  });
-});
-
-describe('checkpoint storage', () => {
-  it('stores and loads checkpoint', async () => {
-    const checkpoint = { cursor: 'abc', page: 5 };
-    await storeCheckpoint(checkpoint);
-    const result = await loadCheckpoint();
-    expect(result).toEqual(checkpoint);
-  });
-
-  it('returns null when no checkpoint exists', async () => {
-    const result = await loadCheckpoint();
-    expect(result).toBeNull();
-  });
-});
-
-describe('bounds cache storage', () => {
-  it('stores and loads bounds cache', async () => {
-    const cache = { act1: { bounds: [1, 2, 3, 4] } };
-    await storeBoundsCache(cache);
-    const result = await loadBoundsCache();
-    expect(result).toEqual(cache);
-  });
-});
-
-describe('custom route names', () => {
-  it('saves and loads custom route name', async () => {
-    await saveCustomRouteName('route1', 'My Favorite Route');
-    const names = await loadCustomRouteNames();
-    expect(names['route1']).toBe('My Favorite Route');
-  });
-});
-
-describe('getRouteDisplayName', () => {
-  it('returns custom name when available', () => {
-    const name = getRouteDisplayName({ id: 'r1', name: 'Auto Name' }, { r1: 'Custom' });
-    expect(name).toBe('Custom');
-  });
-
-  it('returns route.name when no custom name', () => {
-    const name = getRouteDisplayName({ id: 'r1', name: 'Auto Name' }, {});
-    expect(name).toBe('Auto Name');
-  });
-
-  it('returns fallback when no names at all', () => {
-    const name = getRouteDisplayName({ id: 'r1' }, {});
-    expect(name).toBe('Unnamed Route');
-  });
-});
-
 describe('clearAllGpsTracks', () => {
   it('clears legacy GPS directory', async () => {
     mockDirStore.add('/mock/docs/gps_tracks/');
@@ -152,5 +82,18 @@ describe('deleteGpsTracks', () => {
 
   it('handles empty array', async () => {
     await expect(deleteGpsTracks([])).resolves.not.toThrow();
+  });
+});
+
+describe('clearBoundsCache', () => {
+  it('removes the bounds file', async () => {
+    mockDirStore.add('/mock/docs/bounds_cache/');
+    mockFileStore.set('/mock/docs/bounds_cache/bounds.json', '{}');
+    await clearBoundsCache();
+    expect(mockFileStore.has('/mock/docs/bounds_cache/bounds.json')).toBe(false);
+  });
+
+  it('does not throw when the file is absent', async () => {
+    await expect(clearBoundsCache()).resolves.not.toThrow();
   });
 });

@@ -58,9 +58,6 @@ export interface SummaryCardProps {
 
   // Supporting metrics (max 4)
   supportingMetrics: SupportingMetric[];
-
-  // Optional insight line rendered right-aligned in top row
-  insightLine?: React.ReactNode;
 }
 
 /**
@@ -95,7 +92,6 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparkline,
   showSparklineLabels = false,
   supportingMetrics,
-  insightLine,
 }: SummaryCardProps) {
   if (__DEV__) {
     const start = performance.now();
@@ -268,8 +264,6 @@ export const SummaryCard = React.memo(function SummaryCard({
             </View>
           )}
         </TouchableOpacity>
-
-        {insightLine && <View style={styles.insightSlot}>{insightLine}</View>}
       </View>
 
       {/* Sparkline row - fitness or HRV depending on hero metric */}
@@ -445,12 +439,6 @@ const styles = StyleSheet.create({
   heroSubText: {
     fontSize: 11,
     fontWeight: '500',
-  },
-  // Insight slot - fills remaining space in topRow, right-aligned
-  insightSlot: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
   },
   heroValue: {
     fontSize: 24,

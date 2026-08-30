@@ -83,6 +83,15 @@ export function generateEfficiencyTrendInsights(
         },
       },
       supportingData: {
+        // The engine already ships one HR/pace ratio per matched effort, so
+        // the sheet plots the efforts the claim rests on. Two is the least
+        // that draws a line.
+        ...(trend.points.length >= 2
+          ? {
+              sparklineData: trend.points.map((p) => p.hrPaceRatio),
+              sparklineLabel: t('insights.efficiencyTrend.seriesLabel'),
+            }
+          : {}),
         dataPoints: [
           {
             label: t('insights.data.hrChange'),

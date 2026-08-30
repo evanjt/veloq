@@ -3,7 +3,6 @@ export {
   type SummaryCardProps,
   SummaryCardSparkline,
   SummaryCardHRVSparkline,
-  InsightLine,
   NotificationOptInCard,
   SupportCard,
 } from './components';

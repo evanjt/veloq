@@ -12,7 +12,8 @@
  * transient network failure was a relaunch.
  *
  * The same transition announces the settled edge, because the sync holds an
- * exclusive slot while it runs and refuses everything else that asks for one.
+ * exclusive slot while it runs and refuses everything else that asks for one,
+ * and pushes a fresh snapshot to the home-screen widget.
  *
  * Demo mode holds no credential, so it skips the sync entirely and reads the
  * rows `seedDemoEngine` wrote.
@@ -22,6 +23,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
+
+import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
 import { getRouteEngine } from './routeEngine';
 import { useSyncStatus } from './useSyncStatus';
@@ -68,6 +71,11 @@ export function useEngineSync(): void {
     // The exclusive slot is free again. Anything the sync refused while it held
     // it gets its one chance to ask now.
     emitSyncSettled();
+    // The widget's other writers are backgrounding and the silent-push task, so
+    // without this a foreground sync leaves the home screen on yesterday's
+    // numbers. A sync that failed part-way still wrote what it did fetch, so the
+    // error path refreshes too.
+    updateWidgetSnapshot();
   }, [state, status?.lastError]);
 
   const retry = () => setRetryNonce((nonce) => nonce + 1);

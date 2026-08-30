@@ -22,6 +22,7 @@ import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
+import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
 import { FooterSection, SupportSection } from '@/features/settings/components';
 import { settingsStyles } from '@/features/settings/components/settingsStyles';
 
@@ -165,7 +166,10 @@ export default function SettingsScreen() {
     const d = new Date(oldest);
     return t('settings.sinceDateSubtitle', {
       defaultValue: `Since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
-      date: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+      date: d.toLocaleDateString(undefined, {
+        month: 'short',
+        year: 'numeric',
+      }),
     });
   }, [oldest, t]);
 
@@ -312,6 +316,8 @@ export default function SettingsScreen() {
               testID="settings-nav-cache"
             />
           </View>
+
+          <RecordingPermissionSection />
 
           {/* Support inline */}
           <SupportSection />

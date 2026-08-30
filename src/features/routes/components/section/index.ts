@@ -9,6 +9,8 @@ export { SectionScatterChart } from './SectionScatterChart';
 export type { SectionScatterChartProps } from './SectionScatterChart';
 export { SectionInfoCard } from './SectionInfoCard';
 export type { SectionInfoCardProps } from './SectionInfoCard';
+export { SectionEfficiencyCard } from './SectionEfficiencyCard';
+export type { SectionEfficiencyCardProps } from './SectionEfficiencyCard';
 export { MergeConfirmDialog } from './MergeConfirmDialog';
 export { MergeCandidatesModal } from './MergeCandidatesModal';
 export { SectionActionRow } from './SectionActionRow';

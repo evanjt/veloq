@@ -22,7 +22,7 @@ import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
-import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -373,9 +373,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <View style={{ flex: 1 }}>{children}</View>;
 }
 
-// Set to true when capturing screenshots (hides status bar)
-const SCREENSHOT_MODE = __DEV__ && false;
-
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -402,7 +399,7 @@ export default function RootLayout() {
           initializeRouteSettings(),
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
-          initializeTileCacheStore(),
+          migrateTileCacheSettings(),
           initializeWhatsNewStore(),
           initializeInsightsStore(),
           initializeRecordingPreferences(),
@@ -520,7 +517,6 @@ export default function RootLayout() {
                 <PaperProvider theme={theme}>
                   <StatusBar
                     style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    hidden={SCREENSHOT_MODE}
                     animated
                   />
                   <AuthGate>

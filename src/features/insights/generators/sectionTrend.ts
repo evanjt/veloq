@@ -1,12 +1,8 @@
-import { formatDuration } from "@/shared/format/format";
-import type { Insight, SectionTrendData, TFunc } from "../types";
-import { makeInsight } from "../lib/insightBuilder";
-import {
-  INSIGHTS_CONFIG,
-  maxAgeDaysFor,
-  maxPerCategoryFor,
-} from "../lib/config";
-import { insightIcon } from "@/theme";
+import { formatDuration } from '@/shared/format/format';
+import type { Insight, SectionTrendData, TFunc } from '../types';
+import { makeInsight } from '../lib/insightBuilder';
+import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 const DAY_MS = 86_400_000;
 
@@ -32,12 +28,12 @@ export function generateSectionTrendInsights(
   sectionTrends: SectionTrendData[],
   existingInsightIds: Set<string>,
   now: number,
-  t: TFunc,
+  t: TFunc
 ): Insight[] {
   if (!sectionTrends || sectionTrends.length === 0) return [];
 
   const minTraversals = INSIGHTS_CONFIG.repetition.section_trend_min;
-  const maxAgeDays = maxAgeDaysFor("section_trend");
+  const maxAgeDays = maxAgeDaysFor('section_trend');
   const eligible = sectionTrends.filter((s) => {
     if (s.traversalCount < minTraversals) return false;
     if (s.trend === 0) return false;
@@ -61,7 +57,7 @@ export function generateSectionTrendInsights(
     return b.traversalCount - a.traversalCount;
   });
 
-  const cap = maxPerCategoryFor("section_trend");
+  const cap = maxPerCategoryFor('section_trend');
   const insights: Insight[] = [];
   for (const section of sorted) {
     if (insights.length >= cap) break;
@@ -81,20 +77,20 @@ export function generateSectionTrendInsights(
     insights.push(
       makeInsight({
         id: `section_trend-${section.sectionId}`,
-        category: "section_trend",
+        category: 'section_trend',
         priority: priority as 2 | 3,
-        icon: isImproving ? "trending-up" : "trending-down",
+        icon: isImproving ? 'trending-up' : 'trending-down',
         iconColor: isImproving ? insightIcon.positive : insightIcon.caution,
         title: isImproving
-          ? t("insights.sectionImproving", { name: section.sectionName })
-          : t("insights.sectionDeclining", { name: section.sectionName }),
+          ? t('insights.sectionImproving', { name: section.sectionName })
+          : t('insights.sectionDeclining', { name: section.sectionName }),
         body: isImproving
-          ? t("insights.sectionImprovingBody", {
+          ? t('insights.sectionImprovingBody', {
               median: formatDuration(section.medianRecentSecs),
               best: formatDuration(section.bestTimeSecs),
               count: section.traversalCount,
             })
-          : t("insights.sectionDecliningBody", {
+          : t('insights.sectionDecliningBody', {
               median: formatDuration(section.medianRecentSecs),
               best: formatDuration(section.bestTimeSecs),
               count: section.traversalCount,
@@ -104,7 +100,7 @@ export function generateSectionTrendInsights(
         confidence: Math.min(1, section.traversalCount / 10),
         meta: {
           sourceTimestamp,
-          comparisonKind: "self",
+          comparisonKind: 'self',
           repetitionCount: section.traversalCount,
           specificity: {
             hasNumber: Number.isFinite(section.medianRecentSecs),
@@ -128,38 +124,38 @@ export function generateSectionTrendInsights(
           ],
           dataPoints: [
             {
-              label: t("insights.data.recentMedian"),
+              label: t('insights.data.recentMedian'),
               value: formatDuration(section.medianRecentSecs),
             },
             {
-              label: t("insights.data.bestTime"),
+              label: t('insights.data.bestTime'),
               value: formatDuration(section.bestTimeSecs),
-              context: "good" as const,
+              context: 'good' as const,
             },
             {
-              label: t("insights.data.efforts"),
+              label: t('insights.data.efforts'),
               value: section.traversalCount,
             },
             ...(section.ranking
               ? [
                   {
-                    label: t("insights.data.relevance"),
+                    label: t('insights.data.relevance'),
                     value: asPercent(section.ranking.relevance),
                   },
                   {
-                    label: t("insights.data.recency"),
+                    label: t('insights.data.recency'),
                     value: asPercent(section.ranking.recency),
                   },
                   {
-                    label: t("insights.data.improvementSignal"),
+                    label: t('insights.data.improvementSignal'),
                     value: asPercent(section.ranking.improvement),
                   },
                   {
-                    label: t("insights.data.anomaly"),
+                    label: t('insights.data.anomaly'),
                     value: asPercent(section.ranking.anomaly),
                   },
                   {
-                    label: t("insights.data.engagement"),
+                    label: t('insights.data.engagement'),
                     value: asPercent(section.ranking.engagement),
                   },
                 ]
@@ -167,10 +163,10 @@ export function generateSectionTrendInsights(
           ],
         },
         methodology: {
-          name: t("insights.methodology.sectionTrendName"),
-          description: t("insights.methodology.sectionTrend"),
+          name: t('insights.methodology.sectionTrendName'),
+          description: t('insights.methodology.sectionTrend'),
         },
-      }),
+      })
     );
   }
 

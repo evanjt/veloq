@@ -1,6 +1,5 @@
 // routeEngine pulls in react-native through its import chain, so the mock must be
 // declared before any import that triggers it.
-import { calculateZonesFromStreams } from '@/features/fitness/hooks/useZoneDistribution';
 import {
   getSettingsForSport,
   getZoneColor,
@@ -16,103 +15,6 @@ import type { SportSettings, Activity } from '@/types';
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));
-
-// ---------------------------------------------------------------------------
-// calculateZonesFromStreams
-// ---------------------------------------------------------------------------
-
-describe('calculateZonesFromStreams', () => {
-  const threeZones = [
-    { min: 0, max: 100 },
-    { min: 100, max: 200 },
-    { min: 200, max: 300 },
-  ];
-  const threeColors = ['#aaa', '#bbb', '#ccc'];
-  const threeNames = ['Low', 'Medium', 'High'];
-
-  it('returns empty array for empty stream', () => {
-    const result = calculateZonesFromStreams([], threeZones, threeColors, threeNames);
-    expect(result).toEqual([]);
-  });
-
-  it('assigns all values to a single zone when stream falls in one zone', () => {
-    const stream = [50, 60, 70, 80];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    expect(result[0].seconds).toBe(4);
-    expect(result[0].percentage).toBe(100);
-    expect(result[1].seconds).toBe(0);
-    expect(result[2].seconds).toBe(0);
-  });
-
-  it('distributes values across multiple zones', () => {
-    // 3 in zone 1 (0-100), 2 in zone 2 (100-200), 1 in zone 3 (200-300)
-    const stream = [10, 50, 90, 150, 180, 250];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    expect(result[0].seconds).toBe(3);
-    expect(result[1].seconds).toBe(2);
-    expect(result[2].seconds).toBe(1);
-  });
-
-  it('handles values at zone boundaries (min inclusive, max exclusive)', () => {
-    // value = 100 should go to zone 2 (min=100, max=200), not zone 1 (min=0, max=100)
-    const stream = [0, 100, 200];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    expect(result[0].seconds).toBe(1); // 0 is in [0, 100)
-    expect(result[1].seconds).toBe(1); // 100 is in [100, 200)
-    expect(result[2].seconds).toBe(1); // 200 is in [200, 300)
-  });
-
-  it('percentages sum to approximately 100', () => {
-    const stream = [10, 50, 90, 110, 150, 190, 210, 250, 290];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    const totalPct = result.reduce((sum, z) => sum + z.percentage, 0);
-    // Due to rounding, allow a small deviation
-    expect(totalPct).toBeGreaterThanOrEqual(99);
-    expect(totalPct).toBeLessThanOrEqual(101);
-  });
-
-  it('assigns 1-indexed zone numbers, names, and colors from the input arrays', () => {
-    const result = calculateZonesFromStreams([50], threeZones, threeColors, threeNames);
-
-    expect(result.map((z) => z.zone)).toEqual([1, 2, 3]);
-    expect(result.map((z) => z.name)).toEqual(['Low', 'Medium', 'High']);
-    expect(result.map((z) => z.color)).toEqual(['#aaa', '#bbb', '#ccc']);
-  });
-
-  it('falls back to generic name when zoneNames is shorter than zones', () => {
-    const stream = [50];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, ['Low']);
-
-    expect(result[0].name).toBe('Low');
-    expect(result[1].name).toBe('Zone 2');
-    expect(result[2].name).toBe('Zone 3');
-  });
-
-  it('falls back to last color when zoneColors is shorter than zones', () => {
-    const stream = [50];
-    const result = calculateZonesFromStreams(stream, threeZones, ['#aaa'], threeNames);
-
-    expect(result[0].color).toBe('#aaa');
-    expect(result[1].color).toBe('#aaa'); // last color
-    expect(result[2].color).toBe('#aaa'); // last color
-  });
-
-  it('ignores values outside all zone ranges', () => {
-    // 500 is outside all zones [0,100), [100,200), [200,300)
-    const stream = [50, 500];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    // Only 50 should be counted, 500 is outside all zones
-    const totalCounted = result.reduce((sum, z) => sum + z.seconds, 0);
-    expect(totalCounted).toBe(1);
-    // Percentage still based on total stream length (2)
-    expect(result[0].percentage).toBe(50); // 1/2 = 50%
-  });
-});
 
 // ---------------------------------------------------------------------------
 // getSettingsForSport

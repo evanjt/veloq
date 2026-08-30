@@ -14,16 +14,6 @@ pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,hea
 /// forms so `parse_streams` can prefer the corrected one.
 pub const TRACK_STREAM_TYPES: &str = "latlng,fixed_altitude,altitude";
 
-/// `GET /athlete/{id}` - full athlete profile.
-pub async fn fetch_athlete(
-    t: &Transport,
-    athlete_id: &str,
-    lane: Lane,
-) -> Result<AthleteRecord, NetError> {
-    t.get_json(&format!("/athlete/{}", athlete_id), &[], lane)
-        .await
-}
-
 /// `GET /athlete/{id}` as the untyped body. `AthleteRecord` models three
 /// fields; the profile screens read unit preferences beyond them, so the body
 /// is what gets persisted.
@@ -96,28 +86,6 @@ pub async fn fetch_current_athlete(t: &Transport, lane: Lane) -> Result<AthleteR
     t.get_json("/athlete/me", &[], lane).await
 }
 
-/// `GET /athlete/{id}/activities` with the app's field selection.
-pub async fn fetch_activities(
-    t: &Transport,
-    athlete_id: &str,
-    oldest: &str,
-    newest: &str,
-    include_stats: bool,
-    lane: Lane,
-) -> Result<Vec<ActivityRecord>, NetError> {
-    let fields = if include_stats {
-        format!("{},{}", ACTIVITY_FIELDS, ACTIVITY_STATS_EXTRA)
-    } else {
-        ACTIVITY_FIELDS.to_string()
-    };
-    t.get_json(
-        &format!("/athlete/{}/activities", athlete_id),
-        &[("oldest", oldest), ("newest", newest), ("fields", &fields)],
-        lane,
-    )
-    .await
-}
-
 /// `GET /athlete/{id}/activities` returning each activity both typed and as
 /// its own body. Rust aggregates on the typed values; the feed and detail
 /// screens read fields the record does not model.
@@ -152,16 +120,6 @@ pub async fn fetch_activities_with_bodies(
         out.push((record, body));
     }
     Ok(out)
-}
-
-/// `GET /activity/{id}` - full activity detail.
-pub async fn fetch_activity(
-    t: &Transport,
-    activity_id: &str,
-    lane: Lane,
-) -> Result<ActivityRecord, NetError> {
-    t.get_json(&format!("/activity/{}", activity_id), &[], lane)
-        .await
 }
 
 /// Oldest activity date across the whole history (cheap two-field pull + reduce).
@@ -272,90 +230,6 @@ pub async fn fetch_time_stream(
     Ok(parsed.time.into_iter().map(|v| v.max(0) as u32).collect())
 }
 
-/// `GET /activity/{id}/intervals` - work/recovery intervals.
-pub async fn fetch_intervals(
-    t: &Transport,
-    activity_id: &str,
-    lane: Lane,
-) -> Result<IntervalsRecord, NetError> {
-    t.get_json(&format!("/activity/{}/intervals", activity_id), &[], lane)
-        .await
-}
-
-/// `GET /athlete/{id}/wellness` over a date window.
-pub async fn fetch_wellness(
-    t: &Transport,
-    athlete_id: &str,
-    oldest: &str,
-    newest: &str,
-    lane: Lane,
-) -> Result<Vec<WellnessRecord>, NetError> {
-    t.get_json(
-        &format!("/athlete/{}/wellness", athlete_id),
-        &[("oldest", oldest), ("newest", newest)],
-        lane,
-    )
-    .await
-}
-
-/// `GET /athlete/{id}/sport-settings`.
-pub async fn fetch_sport_settings(
-    t: &Transport,
-    athlete_id: &str,
-    lane: Lane,
-) -> Result<Vec<SportSettingsRecord>, NetError> {
-    t.get_json(
-        &format!("/athlete/{}/sport-settings", athlete_id),
-        &[],
-        lane,
-    )
-    .await
-}
-
-/// `GET /athlete/{id}/power-curves.json` → curve with `values` renamed to watts.
-pub async fn fetch_power_curve(
-    t: &Transport,
-    athlete_id: &str,
-    sport: &str,
-    curves: &str,
-    lane: Lane,
-) -> Result<PowerCurve, NetError> {
-    let body = t
-        .get_bytes(
-            &format!("/athlete/{}/power-curves.json", athlete_id),
-            &[("type", sport), ("curves", curves)],
-            lane,
-        )
-        .await?;
-    parse_power_curve(&body).map_err(|e| NetError::Decode(e.to_string()))
-}
-
-/// `GET /athlete/{id}/pace-curves.json` → curve with pace computed as distance/time.
-///
-/// `gap` asks for gradient-adjusted pace. intervals.icu only offers it for
-/// running, so it is dropped for any other sport rather than sent and ignored.
-pub async fn fetch_pace_curve(
-    t: &Transport,
-    athlete_id: &str,
-    sport: &str,
-    curves: &str,
-    gap: bool,
-    lane: Lane,
-) -> Result<PaceCurve, NetError> {
-    let mut query: Vec<(&str, &str)> = vec![("type", sport), ("curves", curves)];
-    if gap && sport == "Run" {
-        query.push(("gap", "true"));
-    }
-    let body = t
-        .get_bytes(
-            &format!("/athlete/{}/pace-curves.json", athlete_id),
-            &query,
-            lane,
-        )
-        .await?;
-    parse_pace_curve(&body).map_err(|e| NetError::Decode(e.to_string()))
-}
-
 /// `GET /athlete/{id}/events` - calendar events (planned workouts, notes,
 /// targets) over a date window, as untyped bodies. `resolve=true` expands the
 /// workout document the planner screens render.
@@ -454,16 +328,6 @@ pub async fn fetch_intervals_body(
         .get_bytes(&format!("/activity/{}/intervals", activity_id), &[], lane)
         .await?;
     decode_body(bytes)
-}
-
-/// `GET /activity/{id}/file` - raw FIT bytes (for strength exercise-set parsing).
-pub async fn fetch_fit_file(
-    t: &Transport,
-    activity_id: &str,
-    lane: Lane,
-) -> Result<Vec<u8>, NetError> {
-    t.get_bytes(&format!("/activity/{}/file", activity_id), &[], lane)
-        .await
 }
 
 /// The multipart field holding the activity file. Taken from the upload path
@@ -570,7 +434,7 @@ mod tests {
                 .json_body(json!([{"id": "a1", "type": "Ride", "distance": 1000.0}]));
         });
         let t = fast_transport(server.base_url());
-        let acts = crate::runtime::block_on(fetch_activities(
+        let acts = crate::runtime::block_on(fetch_activities_with_bodies(
             &t,
             "i1",
             "2026-01-01",
@@ -581,7 +445,7 @@ mod tests {
         .unwrap();
         mock.assert();
         assert_eq!(acts.len(), 1);
-        assert_eq!(acts[0].id, "a1");
+        assert_eq!(acts[0].0.id, "a1");
     }
 
     #[test]
@@ -604,7 +468,7 @@ mod tests {
             then.status(200).json_body(json!([]));
         });
         let t = fast_transport(server.base_url());
-        let _ = crate::runtime::block_on(fetch_activities(
+        let _ = crate::runtime::block_on(fetch_activities_with_bodies(
             &t,
             "i1",
             "2026-01-01",
@@ -688,42 +552,17 @@ mod tests {
     }
 
     #[test]
-    fn power_curve_endpoint_renames_values() {
+    fn pace_curve_endpoint_sends_sport_and_curve_window() {
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET)
-                .path("/athlete/i1/power-curves.json")
-                .query_param("type", "Ride");
-            then.status(200).json_body(json!({
-                "list": [{"secs": [1, 5], "values": [900, 800], "activity_id": ["x", "y"]}]
-            }));
-        });
-        let t = fast_transport(server.base_url());
-        let pc =
-            crate::runtime::block_on(fetch_power_curve(&t, "i1", "Ride", "42d", Lane::Backfill))
-                .unwrap();
-        assert_eq!(pc.watts, vec![900.0, 800.0]);
-    }
-
-    #[test]
-    fn pace_curve_endpoint_sends_params_and_computes_pace() {
-        let server = MockServer::start();
-        server.mock(|when, then| {
+        let mock = server.mock(|when, then| {
             when.method(GET)
                 .path("/athlete/i1/pace-curves.json")
                 .query_param("type", "Run")
                 .query_param("curves", "42d");
-            then.status(200).json_body(json!({
-                "list": [{
-                    "distance": [100.0, 0.0],
-                    "values": [20.0, 0.0],
-                    "paceModels": [{"type": "CS", "criticalSpeed": 2.85,
-                        "dPrime": 250.6, "r2": 0.999}]
-                }]
-            }));
+            then.status(200).json_body(json!({ "list": [] }));
         });
         let t = fast_transport(server.base_url());
-        let pc = crate::runtime::block_on(fetch_pace_curve(
+        crate::runtime::block_on(fetch_pace_curve_body(
             &t,
             "i1",
             "Run",
@@ -732,9 +571,7 @@ mod tests {
             Lane::Backfill,
         ))
         .unwrap();
-        assert_eq!(pc.pace[0], 5.0); // 100 m / 20 s
-        assert_eq!(pc.pace[1], 0.0); // div-by-zero guard
-        assert_eq!(pc.critical_speed, Some(2.85));
+        mock.assert();
     }
 
     #[test]
@@ -748,7 +585,7 @@ mod tests {
             then.status(200).json_body(json!({"list": []}));
         });
         let t = fast_transport(server.base_url());
-        crate::runtime::block_on(fetch_pace_curve(
+        crate::runtime::block_on(fetch_pace_curve_body(
             &t,
             "i1",
             "Run",
@@ -775,7 +612,7 @@ mod tests {
             then.status(200).json_body(json!({"list": []}));
         });
         let t = fast_transport(server.base_url());
-        crate::runtime::block_on(fetch_pace_curve(
+        crate::runtime::block_on(fetch_pace_curve_body(
             &t,
             "i1",
             "Swim",
@@ -800,7 +637,7 @@ mod tests {
             ]));
         });
         let t = fast_transport(server.base_url());
-        let w = crate::runtime::block_on(fetch_wellness(
+        let w = crate::runtime::block_on(fetch_wellness_with_bodies(
             &t,
             "i1",
             "2026-05-01",
@@ -810,28 +647,7 @@ mod tests {
         .unwrap();
         mock.assert();
         assert_eq!(w.len(), 1);
-        assert_eq!(w[0].resting_hr, Some(48.0));
-    }
-
-    #[test]
-    fn intervals_endpoint_parses_icu_intervals() {
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/activity/55/intervals");
-            then.status(200).json_body(json!({
-                "analyzed": true, "id": "55", "icu_groups": [],
-                "icu_intervals": [
-                    {"id": 1, "type": "WORK", "zone": 4, "label": null},
-                    {"id": 2, "type": "RECOVERY", "zone": 1}
-                ]
-            }));
-        });
-        let t = fast_transport(server.base_url());
-        let rec = crate::runtime::block_on(fetch_intervals(&t, "55", Lane::Interactive)).unwrap();
-        mock.assert();
-        assert_eq!(rec.icu_intervals.len(), 2);
-        assert_eq!(rec.icu_intervals[0].interval_type.as_deref(), Some("WORK"));
-        assert_eq!(rec.icu_intervals[1].zone, Some(1));
+        assert_eq!(w[0].0.resting_hr, Some(48.0));
     }
 
     /// A FIT file on disk, plus the handle keeping it alive for the test.
