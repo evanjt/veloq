@@ -76,6 +76,67 @@ pub fn cutover_phase() -> &'static str {
     *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Moves the phase and times each one on the way past.
+///
+/// A cutover is a run the user waits through at launch, and a field report of a
+/// slow one names no phase. Timing rides on the transition rather than on a
+/// wrapper around each step so a phase added later is timed by construction,
+/// and the drop closes the open phase when a run fails partway, which is the
+/// run whose duration matters most.
+struct PhaseClock {
+    phase: &'static str,
+    started: std::time::Instant,
+    run_started: std::time::Instant,
+}
+
+impl PhaseClock {
+    fn new() -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            phase: PHASE_IDLE,
+            started: now,
+            run_started: now,
+        }
+    }
+
+    /// Close the phase in progress and open `next`.
+    fn enter(&mut self, next: &'static str) {
+        self.close();
+        self.phase = next;
+        self.started = std::time::Instant::now();
+        set_phase(next);
+    }
+
+    /// Close the phase in progress and settle on a terminal phase, which has no
+    /// duration of its own.
+    fn finish(mut self, terminal: &'static str) {
+        self.close();
+        self.phase = PHASE_IDLE;
+        set_phase(terminal);
+    }
+
+    fn close(&mut self) {
+        if self.phase == PHASE_IDLE {
+            return;
+        }
+        info!(
+            "tracematch: [cutover] Phase {} took {}ms",
+            self.phase,
+            crate::elapsed_ms(self.started)
+        );
+    }
+
+    fn run_ms(&self) -> u64 {
+        crate::elapsed_ms(self.run_started)
+    }
+}
+
+impl Drop for PhaseClock {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
 /// What a run did. `NotOwed` is a success with nothing to do, which a bare
 /// string return cannot express: the caller needs to tell it apart from a
 /// completed migration and from a failure.
@@ -630,6 +691,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // A failure anywhere below leaves the phase saying so, because every
     // success path overwrites it before returning.
     set_phase(PHASE_FAILED);
+    let mut clock = PhaseClock::new();
 
     // Check whether the cutover is actually owed.
     let owed = with_persistent_engine(|e| e.cutover_is_owed()).ok_or("no engine")?;
@@ -647,13 +709,13 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // its Corridor catalogue after the cutover has finished, over a config
     // and a token that both say Unified. Drive it to its end first; the
     // suspension keeps the slot empty once it drains.
-    set_phase(PHASE_DRAINING);
+    clock.enter(PHASE_DRAINING);
     drain_detection_slot()?;
 
     // Step 1: archive. Additive and idempotent per token, so a crash here
     // leaves the user on Corridor with an intact catalogue and the cutover
     // still owed.
-    set_phase(PHASE_ARCHIVING);
+    clock.enter(PHASE_ARCHIVING);
     let archived = with_persistent_engine(|e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
@@ -668,7 +730,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
 
     // Step 3: cold detect through the unchecked path, since the guard we hold
     // would otherwise refuse our own run.
-    set_phase(PHASE_DETECTING);
+    clock.enter(PHASE_DETECTING);
     // The pool as it stood when the detect was spawned. A sync running
     // alongside a multi-minute cut adds activities the detect never saw, and
     // the apply below clears `sections_dirty` for all of them.
@@ -699,7 +761,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // Step 4: diff, then promote the token. The promotion is last, so any
     // failure above leaves the token in flight and the whole run is retried
     // from the top on the next launch.
-    set_phase(PHASE_DIFFING);
+    clock.enter(PHASE_DIFFING);
     let diff = with_persistent_engine(|e| e.build_cutover_diff())
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
@@ -708,8 +770,9 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
         .ok_or("no engine")?
         .map_err(|e| format!("token promotion failed: {}", e))?;
 
-    set_phase(PHASE_COMPLETE);
-    info!("tracematch: [cutover] Cutover complete");
+    let run_ms = clock.run_ms();
+    clock.finish(PHASE_COMPLETE);
+    info!("tracematch: [cutover] Cutover complete in {}ms", run_ms);
     Ok(CutoverOutcome::Completed(diff))
 }
 
