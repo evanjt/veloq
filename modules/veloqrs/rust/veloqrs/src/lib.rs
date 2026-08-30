@@ -33,7 +33,7 @@ pub mod net;
 
 // HTTP client for activity fetching
 pub mod http;
-pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};
+pub use http::{ActivityFetcher, ActivityMapResult};
 
 // FFI bindings for mobile platforms
 pub mod ffi;

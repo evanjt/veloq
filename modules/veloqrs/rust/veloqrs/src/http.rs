@@ -85,7 +85,6 @@ const MAX_CONCURRENCY: usize = 50; // Network latency ~200-400ms per activity
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityMapResult {
     pub activity_id: String,
-    pub bounds: Option<MapBounds>,
     pub latlngs: Option<Vec<[f64; 2]>>,
     /// Same length and same index space as `latlngs`, or `None` when the
     /// response carried no usable altitude. A sample with no altitude, or a
@@ -96,33 +95,6 @@ pub struct ActivityMapResult {
     pub body_bytes: u32,
     pub success: bool,
     pub error: Option<String>,
-}
-
-/// Map bounds for an activity
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MapBounds {
-    pub ne: [f64; 2], // [lat, lng]
-    pub sw: [f64; 2], // [lat, lng]
-}
-
-/// Corner-to-corner extent of a coordinate list. `None` for an empty list.
-use crate::net::types::is_storable;
-
-fn bounds_of(latlngs: &[[f64; 2]]) -> Option<MapBounds> {
-    let mut kept = latlngs.iter().filter(|p| is_storable(p[0], p[1]));
-    let first = kept.next()?;
-    let (mut min_lat, mut max_lat) = (first[0], first[0]);
-    let (mut min_lng, mut max_lng) = (first[1], first[1]);
-    for p in kept {
-        min_lat = min_lat.min(p[0]);
-        max_lat = max_lat.max(p[0]);
-        min_lng = min_lng.min(p[1]);
-        max_lng = max_lng.max(p[1]);
-    }
-    Some(MapBounds {
-        ne: [max_lat, max_lng],
-        sw: [min_lat, min_lng],
-    })
 }
 
 /// Progress callback type
@@ -306,7 +278,6 @@ impl ActivityFetcher {
 
         let failed = |error: String| ActivityMapResult {
             activity_id: activity_id.to_string(),
-            bounds: None,
             latlngs: None,
             elevations: None,
             body_bytes: 0,
@@ -379,7 +350,6 @@ impl ActivityFetcher {
 
         ActivityMapResult {
             activity_id: activity_id.to_string(),
-            bounds: bounds_of(&parsed.latlng),
             latlngs: Some(parsed.latlng),
             elevations,
             body_bytes: body_size as u32,
@@ -446,9 +416,6 @@ mod tests {
             r.latlngs.as_ref().unwrap(),
             &vec![[46.941, 7.441], [46.942, 7.442]]
         );
-        let bounds = r.bounds.as_ref().unwrap();
-        assert_eq!(bounds.ne, [46.942, 7.442]);
-        assert_eq!(bounds.sw, [46.941, 7.441]);
         assert!(r.body_bytes > 0);
     }
 
