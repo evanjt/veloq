@@ -5,6 +5,8 @@
 //! Run:
 //!   cargo test -p veloqrs --features synthetic --test accepted_bounds_dedup
 
+#![cfg(feature = "synthetic")]
+
 use tempfile::TempDir;
 use tracematch::{Direction, FrequentSection, GpsPoint, SectionPortion};
 use veloqrs::PersistentRouteEngine;

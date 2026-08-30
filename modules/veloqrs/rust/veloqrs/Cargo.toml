@@ -86,6 +86,10 @@ httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
 [[test]]
+name = "accepted_bounds_dedup"
+required-features = ["synthetic"]
+
+[[test]]
 name = "clear_resets_identity"
 required-features = ["synthetic"]
 
