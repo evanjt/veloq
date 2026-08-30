@@ -21,12 +21,12 @@ use rusqlite::{Connection, params};
 use std::collections::HashMap;
 use std::path::Path;
 use tempfile::TempDir;
-use veloqrs::{FfiSection, FfiSectionPerformanceResult, PersistentRouteEngine};
+use veloqrs::{FfiSection, FfiSectionPerformanceResult, PersistentEngine};
 
 /// Open the current engine, which runs every pending migration plus the
 /// post-migration Rust hooks, then load in-memory caches.
-fn open_current_engine(path: &Path) -> PersistentRouteEngine {
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+fn open_current_engine(path: &Path) -> PersistentEngine {
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     engine.load().expect("load engine state");
     engine
 }
@@ -41,7 +41,7 @@ fn upgrade_in_place(path: &Path) {
 /// correct behaviour but not the migration's, so the matrix stops at the schema
 /// step to keep the two apart.
 fn migrate_only(path: &Path) {
-    drop(PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine"));
+    drop(PersistentEngine::new(path.to_str().unwrap()).expect("open engine"));
 }
 
 // ----------------------------------------------------------------------------
@@ -1176,7 +1176,7 @@ fn ffi_survives_orphan_and_null_edge_cases() {
 /// The B4 core script, taken from the production list so a renumber cannot leave
 /// this test pointed at the wrong file.
 fn b4_core_script() -> &'static str {
-    let scripts = PersistentRouteEngine::migration_scripts();
+    let scripts = PersistentEngine::migration_scripts();
     scripts
         .into_iter()
         .find(|s| s.contains("section_activities_rebuild"))

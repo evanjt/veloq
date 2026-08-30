@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const SURVIVORS: [&str; 2] = ["settings", "schema_info"];
 
@@ -134,7 +134,7 @@ fn seed(conn: &Connection, table: &str) {
 fn clear_wipes_every_table() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("clear.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     let conn = Connection::open(&path).expect("second connection");
     conn.execute_batch("PRAGMA foreign_keys = OFF;")

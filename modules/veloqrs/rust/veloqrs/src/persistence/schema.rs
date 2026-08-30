@@ -5,9 +5,9 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, codec, sections};
+use super::{PersistentEngine, codec, sections};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.

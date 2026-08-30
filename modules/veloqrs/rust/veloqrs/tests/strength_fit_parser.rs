@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::fit::{FitExerciseSet, parse_fit_strength_sets};
-use veloqrs::{FitOutcome, PersistentRouteEngine};
+use veloqrs::{FitOutcome, PersistentEngine};
 
 #[test]
 fn parse_empty_bytes_reports_empty_error() {
@@ -39,7 +39,7 @@ fn store_and_read_back_exercise_sets() {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
     let path_str = path.to_str().unwrap().to_string();
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
 
     let activity_id = "test-activity-1";
     let sets = vec![
@@ -113,7 +113,7 @@ fn store_and_read_back_exercise_sets() {
 fn only_a_recorded_outcome_leaves_the_retry_queue() {
     let dir = tempfile::tempdir().expect("tempdir");
     let db = dir.path().join("fit_queue.db");
-    let engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("engine");
+    let engine = PersistentEngine::new(db.to_str().unwrap()).expect("engine");
 
     let ids = vec![
         "settled_with_sets".to_string(),

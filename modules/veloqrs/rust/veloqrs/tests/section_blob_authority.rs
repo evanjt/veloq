@@ -12,11 +12,11 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use tracematch::sections::SectionPortion;
 use tracematch::{Direction, GpsPoint};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
     db_path: String,
@@ -27,7 +27,7 @@ fn setup() -> Setup {
     let path: PathBuf = tmp.path().join("test.db");
     let db_path = path.to_str().unwrap().to_string();
 
-    let engine = PersistentRouteEngine::new(&db_path).expect("engine new");
+    let engine = PersistentEngine::new(&db_path).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {
@@ -118,7 +118,7 @@ fn detection_save_writes_blob_as_authority() {
     let polyline = sample_polyline();
 
     {
-        let mut engine = PersistentRouteEngine::new(db_path).unwrap();
+        let mut engine = PersistentEngine::new(db_path).unwrap();
         // SB6 keeps an auto section only while one of its portions belongs to a
         // pooled activity, so the ride the section was cut from has to be in
         // the pool or the save never sees the row this test reads back.
@@ -194,7 +194,7 @@ fn detection_save_writes_blob_as_authority() {
     assert_eq!(density_shape.0, None, "density JSON must not be written");
     assert!(density_shape.1, "density blob must be written");
 
-    let mut engine2 = PersistentRouteEngine::new(db_path).unwrap();
+    let mut engine2 = PersistentEngine::new(db_path).unwrap();
     engine2.load().unwrap();
     let sections = engine2.get_sections();
     let reloaded = sections
@@ -223,7 +223,7 @@ fn legacy_json_only_row_still_decodes() {
 
     // Full engine reload path (load_sections) must also fall back to JSON.
     drop(s.engine);
-    let mut engine2 = PersistentRouteEngine::new(&s.db_path).unwrap();
+    let mut engine2 = PersistentEngine::new(&s.db_path).unwrap();
     engine2.load().unwrap();
     let reloaded = engine2
         .get_sections()
@@ -251,7 +251,7 @@ fn unreadable_row_does_not_abort_the_catalogue_load() {
         .expect("blank the geometry");
 
     drop(s.engine);
-    let mut engine = PersistentRouteEngine::new(&s.db_path).unwrap();
+    let mut engine = PersistentEngine::new(&s.db_path).unwrap();
     engine
         .load()
         .expect("load must succeed despite the bad row");

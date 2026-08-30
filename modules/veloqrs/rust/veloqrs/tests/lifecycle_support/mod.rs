@@ -23,7 +23,7 @@ use std::time::Instant;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// The one engine the suites drive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -245,7 +245,7 @@ pub fn lends_ground(fp: &SectionFingerprint, track: &[GpsPoint]) -> bool {
 /// detection result and never reloads from DB, so the cache and the visible
 /// view can diverge (the seam B4 must close). The suite measures what the user
 /// experiences, so it reads the visible view.
-pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
+pub fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections_by_type(None);
     SectionSnapshot {
         sections: sections
@@ -279,7 +279,7 @@ pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
 /// freshness gates read this raw view, comparing the damped view there would
 /// score a legitimate hysteresis lag as a detection desync. B2 identity/stability
 /// gates keep reading `snapshot` (the visible view the app renders).
-pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
+pub fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
     SectionSnapshot {
         sections: engine
             .raw_detection_catalogue()
@@ -309,16 +309,16 @@ pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
 // ============================================================================
 
 /// A fresh temp-DB engine.
-pub fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
+pub fn fresh_engine() -> (PersistentEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
 }
 
 /// A fresh temp-DB engine on the given arm.
-pub fn fresh_engine_for(_arm: Arm) -> (PersistentRouteEngine, TempDir) {
+pub fn fresh_engine_for(_arm: Arm) -> (PersistentEngine, TempDir) {
     fresh_engine()
 }
 
@@ -363,7 +363,7 @@ impl StepMeasurement {
 /// (Today a resync after `accept_section` fails here with a UNIQUE
 /// `sections.id` violation, a positional-id collision.)
 pub fn try_ingest_step(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     label: &str,
     activities: &[&LifecycleActivity],
 ) -> Result<StepMeasurement, String> {
@@ -418,7 +418,7 @@ pub fn try_ingest_step(
 /// growth scenarios). Use `try_ingest_step` when a test must assert the step
 /// does not crash.
 pub fn ingest_step(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     label: &str,
     activities: &[&LifecycleActivity],
 ) -> StepMeasurement {

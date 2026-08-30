@@ -12,7 +12,7 @@ mod lifecycle_support;
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Small enough to detect quickly in debug, large enough to form corridors.
 const COLD_N: usize = 24;
@@ -29,7 +29,7 @@ fn cold_corpus(bucket_a_count: usize) -> LifecycleCorpus {
 
 /// Rows the first apply must have written, so an all-empty fingerprint can
 /// never pass this test by comparing nothing with nothing.
-fn stored_row_count(engine: &mut PersistentRouteEngine) -> usize {
+fn stored_row_count(engine: &mut PersistentEngine) -> usize {
     let snap = snapshot(engine);
     snap.ids()
         .into_iter()
@@ -39,7 +39,7 @@ fn stored_row_count(engine: &mut PersistentRouteEngine) -> usize {
 
 /// Everything a repeated apply could disturb: the visible catalogue, the stored
 /// geometry versions, and the event timeline.
-fn storage_fingerprint(engine: &mut PersistentRouteEngine) -> String {
+fn storage_fingerprint(engine: &mut PersistentEngine) -> String {
     let snap = snapshot(engine);
     let mut out = snap.catalogue_signature();
     for id in snap.ids() {

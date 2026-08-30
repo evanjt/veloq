@@ -12,7 +12,7 @@ use std::cell::Cell;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::codec::{TrackRead, encode_polyline};
 
 // ------------------------------------------------------------ allocator
@@ -138,7 +138,7 @@ fn rmp_blob(points: &[GpsPoint]) -> Vec<u8> {
 // ------------------------------------------------------------ setup
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     path: PathBuf,
     _tmp: TempDir,
@@ -147,7 +147,7 @@ struct Setup {
 fn setup() -> Setup {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine new");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
     Setup {
         engine,
@@ -192,8 +192,8 @@ impl Setup {
 
     /// A second engine over the same file, with empty caches, so a read comes
     /// from the stored bytes.
-    fn reopen(&self) -> PersistentRouteEngine {
-        PersistentRouteEngine::new(self.path.to_str().unwrap()).expect("engine reopen")
+    fn reopen(&self) -> PersistentEngine {
+        PersistentEngine::new(self.path.to_str().unwrap()).expect("engine reopen")
     }
 
     fn set_signature_blob(&self, id: &str, bytes: &[u8]) {

@@ -32,7 +32,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Rounds of detect over the unchanged pool.
 const ROUNDS: usize = 12;
@@ -66,8 +66,8 @@ fn corpus() -> LifecycleCorpus {
 /// An engine on the Unified arm holding the whole pool, undetected.
 /// Unified is explicit: the shipped default is still Corridor, whose damped
 /// view never settles.
-fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> PersistentRouteEngine {
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> PersistentEngine {
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     engine.set_section_config(SectionConfig {
         ..SectionConfig::default()
     });
@@ -84,7 +84,7 @@ fn loaded_engine(path: &std::path::Path, corpus: &LifecycleCorpus) -> Persistent
 
 /// Detect, then run the hot half of the production apply: the cache-aware save
 /// followed by the processed-id save, in that order and under one lock.
-fn detect_and_save(engine: &mut PersistentRouteEngine) {
+fn detect_and_save(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (main, cache_update) = handle.recv_with_cache();
     let (sections, processed_ids) = main.unwrap_or_default();
@@ -95,7 +95,7 @@ fn detect_and_save(engine: &mut PersistentRouteEngine) {
 }
 
 /// One detect+apply round, both halves.
-fn redetect(engine: &mut PersistentRouteEngine) {
+fn redetect(engine: &mut PersistentEngine) {
     detect_and_save(engine);
     engine.apply_sections_finalize();
 }
@@ -103,7 +103,7 @@ fn redetect(engine: &mut PersistentRouteEngine) {
 /// One detect+apply round with the two apply halves split, as production runs
 /// them across separate engine locks. Returns the catalogue the save committed
 /// and the catalogue the deferred tail left behind.
-fn redetect_split(engine: &mut PersistentRouteEngine) -> (String, String) {
+fn redetect_split(engine: &mut PersistentEngine) -> (String, String) {
     detect_and_save(engine);
     let saved = snapshot(engine).catalogue_signature();
     engine.apply_sections_finalize();
@@ -123,7 +123,7 @@ fn settle_round(signatures: &[String]) -> Option<usize> {
 }
 
 /// The sports the visible catalogue is carrying.
-fn sports(engine: &mut PersistentRouteEngine) -> BTreeSet<String> {
+fn sports(engine: &mut PersistentEngine) -> BTreeSet<String> {
     snapshot(engine)
         .sections
         .values()
@@ -132,7 +132,7 @@ fn sports(engine: &mut PersistentRouteEngine) -> BTreeSet<String> {
 }
 
 /// Two auto sections to fuse, the busier one first.
-fn fusable_pair(engine: &mut PersistentRouteEngine) -> Option<(String, String)> {
+fn fusable_pair(engine: &mut PersistentEngine) -> Option<(String, String)> {
     let snap = snapshot(engine);
     let mut rows: Vec<(u32, String)> = snap
         .sections

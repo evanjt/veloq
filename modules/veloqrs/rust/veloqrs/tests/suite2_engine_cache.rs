@@ -1,7 +1,7 @@
 //! Suite #2, engine-side evidence-cache coherence (B1 Phase 2).
 //!
 //! Phase 2 makes the engine USE tracematch's cached cluster-recompute
-//! incremental: `PersistentRouteEngine` holds a per-(sport, cluster) evidence
+//! incremental: `PersistentEngine` holds a per-(sport, cluster) evidence
 //! cache in memory and folds only the activities a sync newly sees, recomputing
 //! just the touched cluster(s). tracematch proves the cached fold equals the
 //! batch; THIS suite proves the ENGINE never desyncs that cache from the DB it
@@ -232,7 +232,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
     // Production restart: new() + load() hydrates the catalogue from the DB but
     // comes up with an EMPTY evidence cache.
     let path = dir.path().join("lifecycle.db");
-    let mut e2 = veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut e2 = veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     e2.load().expect("load after reopen");
     assert_eq!(
         snapshot(&mut e2).catalogue_signature(),

@@ -35,7 +35,7 @@ use rusqlite::{Connection, Result as SqlResult};
 
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use tracematch::RouteGroup;
 
@@ -157,7 +157,7 @@ pub(crate) fn write_identity(conn: &Connection, state: &RouteIdentity) -> SqlRes
     Ok(())
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Test-only fingerprint of the route registry state (first_seen + ordinal),
     /// for asserting a restart restores it exactly. Behind `synthetic`.
     #[cfg(feature = "synthetic")]
@@ -407,7 +407,7 @@ fn better_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::PersistentRouteEngine;
+    use crate::persistence::PersistentEngine;
 
     fn group(id: &str, members: &[&str]) -> RouteGroup {
         RouteGroup {
@@ -430,7 +430,7 @@ mod tests {
     /// the next mint would re-issue `r_5` and collide with a live group PK.
     #[test]
     fn restore_reconciles_ordinal_past_saved_groups() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // A group `r_5` survived the crash (in memory here it stands for the
         // committed route_groups row load() would have read before restore runs).
@@ -479,7 +479,7 @@ mod tests {
     /// reconcile only lifts, never rewinds, so live seniority is preserved.
     #[test]
     fn restore_keeps_counter_when_blob_leads_groups() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_3", &["a1"])];
         engine.route_identity = RouteIdentity {
             first_seen: [("r_3".to_string(), 3u64)].into_iter().collect(),

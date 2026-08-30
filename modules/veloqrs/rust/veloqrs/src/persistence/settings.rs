@@ -5,7 +5,7 @@
 
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// Reserved setting keys owned by Rust internals. The double-underscore
 /// prefix distinguishes them from user-facing preferences set via
@@ -34,7 +34,7 @@ pub mod settings_keys {
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
         self.db
@@ -88,7 +88,7 @@ impl PersistentRouteEngine {
 
     /// Mirror of `load_match_strictness_from_settings` for `section_config`.
     /// Missing or unparseable values fall back to the default SectionConfig
-    /// fields already in place (set during `PersistentRouteEngine::new`).
+    /// fields already in place (set during `PersistentEngine::new`).
     pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
         // Prefer the whole-config blob: it restores EVERY field, so the TS launch
         // re-apply of the same preset compares equal and no-ops (no re-detect, no

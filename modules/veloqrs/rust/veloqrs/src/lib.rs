@@ -19,7 +19,7 @@ pub use ffi_types::*;
 pub mod persistence;
 pub use persistence::{
     CacheUpdate, FitOutcome, GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats,
-    PersistentRouteEngine, SectionDetectionHandle, with_persistent_engine,
+    PersistentEngine, SectionDetectionHandle, with_persistent_engine,
 };
 
 // Shared process-wide async runtime for all outbound network work

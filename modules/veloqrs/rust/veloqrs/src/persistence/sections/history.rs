@@ -16,7 +16,7 @@
 
 use rusqlite::{OptionalExtension, params};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use tracematch::GpsPoint;
 
@@ -645,7 +645,7 @@ pub(super) fn append_superseded_pair_on(
     Ok((old_event, new_event))
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The generation the stored catalogue was cut under, when it disagrees
     /// with the live config. None on a catalogue nothing has saved yet, and
     /// None while the two agree.

@@ -27,7 +27,7 @@ use std::time::Instant;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 // ============================================================================
 // Snapshot types, what we record per step
@@ -52,7 +52,7 @@ impl SectionSnapshot {
     }
 }
 
-fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
+fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections();
     SectionSnapshot {
         sections: sections
@@ -105,7 +105,7 @@ impl StepMeasurement {
 // Engine helpers
 // ============================================================================
 
-fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
+fn fresh_engine() -> (PersistentEngine, TempDir) {
     // RUST_LOG=info on the test command line activates the timing
     // breakdown log lines from tracematch + veloqrs (no-op when unset
     // because the global init is gated). is_test=true keeps the output
@@ -113,12 +113,12 @@ fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
 }
 
 fn ingest_step(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     label: &str,
     activities: &[&LifecycleActivity],
 ) -> StepMeasurement {
@@ -520,7 +520,7 @@ fn scenario_d_small_batch_stable() {
 /// Every member a section lost across a step is explained by a lifecycle
 /// event the ledger fired for that section during the step.
 fn assert_losses_are_fired_events(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     before: &SectionSnapshot,
     after: &SectionSnapshot,
     events_before: &BTreeMap<String, usize>,

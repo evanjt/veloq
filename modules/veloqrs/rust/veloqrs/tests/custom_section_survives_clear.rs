@@ -5,7 +5,7 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 fn corpus() -> LifecycleCorpus {
@@ -22,7 +22,7 @@ fn corpus() -> LifecycleCorpus {
 fn clearing_routes_keeps_the_sections_the_athlete_drew() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("clear.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     let corpus = corpus();
     for a in corpus.through_a() {
@@ -73,7 +73,7 @@ fn member_count(db_path: &str, section_id: &str) -> i64 {
 fn clearing_routes_keeps_a_disabled_section_and_its_members() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("clear-disabled.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     let corpus = corpus();
     for a in corpus.through_a() {

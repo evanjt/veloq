@@ -23,7 +23,7 @@ mod lifecycle_support;
 use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -157,7 +157,7 @@ fn geometry_differs(a: &[GpsPoint], b: &[GpsPoint]) -> bool {
 }
 
 /// The real DB ids the registry carries.
-fn carried_real_ids(engine: &PersistentRouteEngine) -> Vec<String> {
+fn carried_real_ids(engine: &PersistentEngine) -> Vec<String> {
     engine
         .section_identity_mirror_rows()
         .into_iter()
@@ -167,7 +167,7 @@ fn carried_real_ids(engine: &PersistentRouteEngine) -> Vec<String> {
 
 /// Detect and apply with no new activities, the way a settings change
 /// triggers a re-analysis.
-fn redetect(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
+fn redetect(engine: &mut PersistentEngine) -> SectionSnapshot {
     ingest_step(engine, "redetect", &[]).snapshot
 }
 
@@ -220,7 +220,7 @@ fn a_reseeded_registry_survives_a_restart() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut reopened = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen engine");
+    let mut reopened = PersistentEngine::new(path.to_str().unwrap()).expect("reopen engine");
     reopened.load().expect("load on reopen");
     assert_eq!(
         reopened.section_identity_visible_len(),
@@ -253,7 +253,7 @@ fn a_relinquish_is_durable_without_a_save() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut reopened = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen engine");
+    let mut reopened = PersistentEngine::new(path.to_str().unwrap()).expect("reopen engine");
     reopened.load().expect("load on reopen");
     assert!(
         !carried_real_ids(&reopened).contains(&id),
@@ -270,7 +270,7 @@ fn a_relinquish_is_durable_without_a_save() {
 fn pinned_run(
     pin: bool,
 ) -> (
-    PersistentRouteEngine,
+    PersistentEngine,
     tempfile::TempDir,
     String,
     Vec<GpsPoint>,

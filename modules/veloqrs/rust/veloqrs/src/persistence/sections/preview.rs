@@ -16,7 +16,7 @@ use std::thread;
 use std::time::Instant;
 use tracematch::sections::{RECUT_AGREEMENT, Tunables, mutual_overlap, shares_ground};
 
-use super::super::{PersistentRouteEngine, SectionDetectionProgress};
+use super::super::{PersistentEngine, SectionDetectionProgress};
 
 /// Bin edge for the ~5 km centre grid, in degrees of latitude.
 const BIN_DEG: f64 = 0.045;
@@ -379,7 +379,7 @@ fn diff_catalogues(
     (counts, rows)
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Ranked riding areas at ~5 km. The sections substrate (bounds cache +
     /// visit counts) speaks for the catalogue when any auto section carries
     /// bounds; otherwise activity boxes stand in, with the (0, 0, 0, 0)

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
-use super::{ActivityBoundsEntry, ActivityMetadata, PersistentRouteEngine};
+use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
@@ -51,7 +51,7 @@ impl ElevationStateCounts {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -561,8 +561,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // Delete activities older than 90 days
     /// let deleted = engine.cleanup_old_activities(90).unwrap();
     /// println!("Deleted {} old activities", deleted);
@@ -626,8 +626,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // User expanded cache from 90 days to 1 year
     /// engine.mark_for_recomputation();
     /// // Next access to groups/sections will re-compute with improved data

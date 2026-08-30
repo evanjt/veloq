@@ -31,7 +31,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
+use super::{PersistentEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
@@ -241,7 +241,7 @@ fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
         self.sections.clear();
@@ -2080,7 +2080,7 @@ mod tests {
     /// left matching disk, and the clear is retried at the next detect.
     #[test]
     fn a_failed_processed_clear_drops_the_cache_and_is_retried() {
-        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
         engine
             .save_processed_activity_ids(&["a".to_string(), "b".to_string()])
             .unwrap();
@@ -2126,7 +2126,7 @@ mod tests {
 
     #[test]
     fn retry_is_a_no_op_when_no_clear_is_owed() {
-        let mut engine = crate::persistence::PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
         engine
             .save_processed_activity_ids(&["a".to_string()])
             .unwrap();

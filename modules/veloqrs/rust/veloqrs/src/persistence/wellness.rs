@@ -6,7 +6,7 @@
 
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// HRV has to move by this fraction between the two halves of the window
 /// before the trend is called, per Kiviniemi 2007.
@@ -79,7 +79,7 @@ fn synthesize_body(row: &WellnessRow) -> String {
     serde_json::Value::Object(obj).to_string()
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Upsert a batch of wellness rows in one transaction. Idempotent on
     /// `date`: re-syncing overwrites prior values.
     pub fn upsert_wellness(&mut self, rows: &[WellnessRow]) -> SqlResult<()> {
@@ -297,7 +297,7 @@ where
     out
 }
 
-/// The label and window average behind [`PersistentRouteEngine::compute_hrv_trend`],
+/// The label and window average behind [`PersistentEngine::compute_hrv_trend`],
 /// split out from the read so the rule itself can be tested without a database.
 /// `None` when the window is too short to say anything.
 fn hrv_verdict(values: &[f64]) -> Option<(&'static str, f64)> {

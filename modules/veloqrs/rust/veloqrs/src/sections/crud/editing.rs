@@ -5,7 +5,7 @@
 //! AsyncStorage → SQLite migration imports. The schema itself is owned by
 //! `migrations/`, never by this file.
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
@@ -35,7 +35,7 @@ fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<(u32, u32)>
     found
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The activity range a section's polyline is a slice of, when the section carries one.
     fn section_anchor(&self, section_id: &str) -> Option<(String, u32, u32)> {
         let (activity_id, start, end): (Option<String>, Option<u32>, Option<u32>) = self

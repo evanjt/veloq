@@ -22,7 +22,7 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 #[test]
 fn detection_save_reload_preserves_activity_portions() {
@@ -32,7 +32,7 @@ fn detection_save_reload_preserves_activity_portions() {
 
     // ---- Build & run detection -------------------------------------
     {
-        let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+        let mut engine = PersistentEngine::new(db_path_str).unwrap();
 
         // Lifecycle corpus produces tracks that overlap heavily on a
         // shared corridor, plus some parallel streets, exactly the
@@ -74,7 +74,7 @@ fn detection_save_reload_preserves_activity_portions() {
     }
 
     // ---- Reload from disk and inspect ------------------------------
-    let mut engine2 = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine2 = PersistentEngine::new(db_path_str).unwrap();
     engine2.load().unwrap();
     let sections = engine2.get_sections().to_vec();
 

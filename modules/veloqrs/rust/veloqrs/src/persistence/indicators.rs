@@ -6,7 +6,7 @@
 use rusqlite::{Result as SqlResult, params};
 use std::collections::HashMap;
 
-use super::{PersistentRouteEngine, codec};
+use super::{PersistentEngine, codec};
 
 /// A traversal has to beat, or miss, the running average by this fraction
 /// before the feed card calls it a move. Matches the section ranking deadband.
@@ -16,7 +16,7 @@ const TREND_DEADBAND: f64 = 0.02;
 /// On next read, a version mismatch triggers a full clean recompute.
 const INDICATOR_ALGORITHM_VERSION: i32 = 5;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
     ///
     /// Called after:

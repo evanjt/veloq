@@ -10,12 +10,12 @@
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn engine_with_sections() -> (PersistentRouteEngine, TempDir, std::path::PathBuf) {
+fn engine_with_sections() -> (PersistentEngine, TempDir, std::path::PathBuf) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("sb6.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     let cfg = LifecycleConfig {
         bucket_a_count: 60,

@@ -5,12 +5,12 @@
 //! reads - they never mutate section state.
 
 use super::super::{Section, SectionSummary, SectionType};
-use crate::persistence::{PersistentRouteEngine, codec};
+use crate::persistence::{PersistentEngine, codec};
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::sections::{build_rtree, find_all_track_portions};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Column list for full section queries.
     pub(super) const SECTION_COLUMNS: &'static str =
         "id, section_type, name, sport_type, polyline_json, distance_meters,

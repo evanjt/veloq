@@ -6,7 +6,7 @@
 
 use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use super::compute_section_portions;
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
 use rusqlite::params;
 use std::collections::HashMap;
@@ -24,7 +24,7 @@ pub(super) struct ExclusionSnapshot {
     pub(super) partial: Vec<(String, Vec<u32>)>,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Exclude an activity from a section's analysis.
     /// Sets the `excluded` flag to 1 on the junction table row(s).
     pub fn exclude_activity_from_section(
