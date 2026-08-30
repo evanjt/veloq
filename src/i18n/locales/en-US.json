@@ -452,7 +452,12 @@
       "expandInSettings": "Expand in Settings",
       "title": "You're offline"
     },
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "syncError": {
+      "title": "Sync isn't getting through",
+      "lastSynced": "Last synced {{when}}",
+      "neverSynced": "No sync has completed yet"
+    }
   },
   "engine": {
     "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable."

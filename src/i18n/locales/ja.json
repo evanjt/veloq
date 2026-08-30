@@ -464,7 +464,12 @@
       "expandInSettings": "設定で拡張",
       "title": "オフラインです"
     },
-    "refresh": "更新"
+    "refresh": "更新",
+    "syncError": {
+      "title": "同期が通っていません",
+      "lastSynced": "最終同期 {{when}}",
+      "neverSynced": "完了した同期はありません"
+    }
   },
   "engine": {
     "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。"

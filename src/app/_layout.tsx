@@ -46,7 +46,13 @@ import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
-import { ShaderWarmup, OfflineBanner, BottomTabBar, GlobalErrorBoundary } from '@/shared/ui';
+import {
+  ShaderWarmup,
+  OfflineBanner,
+  SyncErrorBanner,
+  BottomTabBar,
+  GlobalErrorBoundary,
+} from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
@@ -574,6 +580,7 @@ export default function RootLayout() {
                       </View>
                     ) : null}
                     <OfflineBanner />
+                    <SyncErrorBanner />
                     <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />

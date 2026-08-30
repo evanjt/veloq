@@ -464,7 +464,12 @@
       "expandInSettings": "In Einstellungen erweitern",
       "title": "Du bist offline"
     },
-    "refresh": "Aktualisieren"
+    "refresh": "Aktualisieren",
+    "syncError": {
+      "title": "Synchronisierung kommt nicht durch",
+      "lastSynced": "Zuletzt synchronisiert {{when}}",
+      "neverSynced": "Noch keine Synchronisierung abgeschlossen"
+    }
   },
   "engine": {
     "initFailed": "Die Routen-Engine konnte nicht gestartet werden. Routen und Abschnitte sind möglicherweise nicht verfügbar."

@@ -464,7 +464,12 @@
       "expandInSettings": "Expand in Settings",
       "title": "You've gone walkabout"
     },
-    "refresh": "Give it another go"
+    "refresh": "Give it another go",
+    "syncError": {
+      "title": "Sync isn't getting through",
+      "lastSynced": "Last grabbed {{when}}",
+      "neverSynced": "No sync has completed yet"
+    }
   },
   "engine": {
     "initFailed": "Route engine couldn't start up. Routes and sections might not be available."

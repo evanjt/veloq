@@ -464,7 +464,12 @@
       "expandInSettings": "Udvid i Indstillinger",
       "title": "Du er offline"
     },
-    "refresh": "Opdater"
+    "refresh": "Opdater",
+    "syncError": {
+      "title": "Synkronisering kommer ikke igennem",
+      "lastSynced": "Sidst synkroniseret {{when}}",
+      "neverSynced": "Ingen synkronisering er gennemfoert"
+    }
   },
   "engine": {
     "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige."

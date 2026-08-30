@@ -464,7 +464,12 @@
       "expandInSettings": "Étendre dans les paramètres",
       "title": "Vous êtes hors ligne"
     },
-    "refresh": "Actualiser"
+    "refresh": "Actualiser",
+    "syncError": {
+      "title": "La synchronisation n'aboutit pas",
+      "lastSynced": "Derniere synchronisation {{when}}",
+      "neverSynced": "Aucune synchronisation n'a abouti"
+    }
   },
   "engine": {
     "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles."

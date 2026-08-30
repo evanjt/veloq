@@ -464,7 +464,12 @@
       "expandInSettings": "Uitbreiden in Instellingen",
       "title": "Je bent offline"
     },
-    "refresh": "Vernieuwen"
+    "refresh": "Vernieuwen",
+    "syncError": {
+      "title": "Synchronisatie komt niet door",
+      "lastSynced": "Laatst gesynchroniseerd {{when}}",
+      "neverSynced": "Nog geen synchronisatie voltooid"
+    }
   },
   "engine": {
     "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar."

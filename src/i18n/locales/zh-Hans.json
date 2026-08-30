@@ -464,7 +464,12 @@
       "expandInSettings": "在设置中展开",
       "title": "您已离线"
     },
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "syncError": {
+      "title": "同步未能完成",
+      "lastSynced": "上次同步 {{when}}",
+      "neverSynced": "尚未完成任何同步"
+    }
   },
   "engine": {
     "initFailed": "路线引擎初始化失败。路线和区间可能不可用。"
