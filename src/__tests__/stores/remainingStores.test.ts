@@ -1,10 +1,9 @@
 /**
  * Remaining Zustand Store Tests
  *
- * Tests for 3 stores not covered by existing provider tests:
+ * Tests for two stores not covered by existing provider tests:
  * - DebugStore (unlock/enable debug mode, AsyncStorage persistence, sync helper)
  * - WhatsNewStore (version tracking, tour state machine)
- * - TileCacheStore (ambient cache settings, native pack info, migration)
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,9 +17,6 @@ import {
   initializeWhatsNewStore,
 } from '@/features/settings/stores/WhatsNewStore';
 
-// TileCacheStore
-import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
-
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
 jest.mock('veloqrs', () => ({
   RouteEngineClient: {
@@ -32,8 +28,8 @@ jest.mock('@/shared/debug/renderTimer', () => ({
   recordFFIMetric: jest.fn(),
 }));
 
-// TileCacheStore imports debug, whose chain pulls in routeEngine ->
-// expo-file-system. Mock the debug module so the chain stays out of node tests.
+// DebugStore imports debug, whose chain pulls in routeEngine -> expo-file-system.
+// Mock the debug module so the chain stays out of node tests.
 const noop = () => {};
 jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => noop },
@@ -42,7 +38,6 @@ jest.mock('@/shared/debug/debug', () => ({
 // Storage keys (must match store implementations)
 const DEBUG_MODE_KEY = 'veloq-debug-mode';
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
-const TILE_CACHE_KEY = 'veloq-tile-cache';
 
 // ================================================================
 // Declared defaults
@@ -82,12 +77,6 @@ describe('declared defaults', () => {
     const state = freshState('@/features/settings/stores/WhatsNewStore', 'useWhatsNewStore');
     expect(state.lastSeenVersion).toBeNull();
     expect(state.tourState).toBeNull();
-    expect(state.isLoaded).toBe(false);
-  });
-
-  it('TileCacheStore starts un-loaded', () => {
-    useTileCacheStore.setState({ isLoaded: true });
-    const state = freshState('@/features/maps/stores/TileCacheStore', 'useTileCacheStore');
     expect(state.isLoaded).toBe(false);
   });
 });
@@ -312,62 +301,3 @@ describe('WhatsNewStore', () => {
   });
 });
 
-// ================================================================
-// TileCacheStore
-// ================================================================
-
-describe('TileCacheStore', () => {
-  beforeEach(async () => {
-    useTileCacheStore.setState({ isLoaded: false });
-    await AsyncStorage.clear();
-    jest.clearAllMocks();
-  });
-
-  describe('initialize()', () => {
-    it('sets isLoaded when no stored data', async () => {
-      await initializeTileCacheStore();
-      expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-
-    it('sets isLoaded with existing ambient cache settings', async () => {
-      await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ cacheMode: 'ambient' }));
-      await initializeTileCacheStore();
-      expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-
-    it('migrates old proactive cache settings to ambient', async () => {
-      await AsyncStorage.setItem(
-        TILE_CACHE_KEY,
-        JSON.stringify({ cacheMode: 'proactive', maxSize: 500 })
-      );
-      await initializeTileCacheStore();
-      expect(useTileCacheStore.getState().isLoaded).toBe(true);
-      const stored = JSON.parse((await AsyncStorage.getItem(TILE_CACHE_KEY))!);
-      expect(stored.cacheMode).toBe('ambient');
-    });
-
-    it('does not overwrite already-ambient settings', async () => {
-      await AsyncStorage.setItem(
-        TILE_CACHE_KEY,
-        JSON.stringify({ cacheMode: 'ambient', extra: 'field' })
-      );
-      await initializeTileCacheStore();
-      // Should not call setItem since mode is already ambient
-      const stored = JSON.parse((await AsyncStorage.getItem(TILE_CACHE_KEY))!);
-      expect(stored.cacheMode).toBe('ambient');
-      expect(stored.extra).toBe('field');
-    });
-
-    it('handles corrupt JSON gracefully', async () => {
-      await AsyncStorage.setItem(TILE_CACHE_KEY, 'not valid json');
-      await initializeTileCacheStore();
-      expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-
-    it('sets isLoaded even when AsyncStorage throws', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      await initializeTileCacheStore();
-      expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-  });
-});

@@ -79,8 +79,8 @@ jest.mock('@/features/home/store', () => ({
 jest.mock('@/features/insights/store', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/maps/stores/TileCacheStore', () => ({
-  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
+jest.mock('@/features/maps/lib/storage/tileCacheSettings', () => ({
+  migrateTileCacheSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),

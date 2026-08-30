@@ -16,7 +16,7 @@ import { getSetting, setSetting } from '@/shared/storage';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
-import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
@@ -52,7 +52,7 @@ const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[]
   ['initializeRouteSettings', initializeRouteSettings],
   ['initializeDashboardPreferences', initializeDashboardPreferences],
   ['initializeDebugStore', initializeDebugStore],
-  ['initializeTileCacheStore', initializeTileCacheStore],
+  ['migrateTileCacheSettings', migrateTileCacheSettings],
   ['initializeWhatsNewStore', initializeWhatsNewStore],
   ['initializeInsightsStore', initializeInsightsStore],
   ['initializeRecordingPreferences', initializeRecordingPreferences],
