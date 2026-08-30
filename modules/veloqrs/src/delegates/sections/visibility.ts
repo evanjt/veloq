@@ -146,28 +146,3 @@ export function clearSuperseded(host: DelegateHost, customSectionId: string): bo
     return false;
   }
 }
-
-export function importDisabledIds(host: DelegateHost, ids: string[]): number {
-  if (!host.ready || ids.length === 0) return 0;
-  try {
-    return host.engine.sections().importDisabledIds(ids);
-  } catch (e) {
-    console.error('[RouteEngine] importDisabledIds failed:', e);
-    return 0;
-  }
-}
-
-export function importSupersededMap(host: DelegateHost, map: Record<string, string[]>): number {
-  if (!host.ready) return 0;
-  const entries = Object.entries(map).map(([customSectionId, autoSectionIds]) => ({
-    customSectionId,
-    autoSectionIds,
-  }));
-  if (entries.length === 0) return 0;
-  try {
-    return host.engine.sections().importSupersededMap(entries);
-  } catch (e) {
-    console.error('[RouteEngine] importSupersededMap failed:', e);
-    return 0;
-  }
-}

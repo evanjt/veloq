@@ -100,8 +100,9 @@ impl SectionManager {
         with_engine(|e| e.get_ranked_sections(&sport_type, limit))
     }
 
-    /// Ranked sections for multiple sports in a single engine lock. Collapses
-    /// the per-sport `getRankedSections` loop in `computeInsightsData.ts`.
+    /// Ranked sections for multiple sports in a single engine lock. The only
+    /// way TypeScript reads rankings: `computeInsightsData.ts` walks the
+    /// per-sport groups this returns rather than asking once per sport.
     fn get_ranked_batch(
         &self,
         sport_types: Vec<String>,

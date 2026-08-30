@@ -250,8 +250,9 @@ impl StrengthManager {
     }
 
     /// Bundled strength payload for insights: one monthly summary + N weekly
-    /// summaries, computed in a single lock. Collapses the 5× FFI loop in
-    /// `computeInsightsData.ts` into one call.
+    /// summaries, computed in a single lock. Superseded by the insights
+    /// bundle, which builds the same series through
+    /// `PersistentRouteEngine::strength_insight_series` without crossing FFI.
     fn get_strength_insight_series(
         &self,
         monthly: FfiTimestampRange,
