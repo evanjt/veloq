@@ -7,13 +7,13 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
-fn engine_with_sections() -> (PersistentRouteEngine, TempDir) {
+fn engine_with_sections() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("count.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 30,
