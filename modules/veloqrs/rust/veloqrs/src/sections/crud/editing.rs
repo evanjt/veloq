@@ -1,8 +1,9 @@
-//! Bounds editing, visibility state, imports, and schema initialisation.
+//! Bounds editing, visibility state, and imports.
 //!
 //! This submodule covers everything that changes a section's geometry
-//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus
-//! the one-off schema setup and the AsyncStorage → SQLite migration imports.
+//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus the
+//! AsyncStorage → SQLite migration imports. The schema itself is owned by
+//! `migrations/`, never by this file.
 
 use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
@@ -35,72 +36,6 @@ fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<(u32, u32)>
 }
 
 impl PersistentRouteEngine {
-    /// Initialize the unified sections schema.
-    /// Call this during database initialization.
-    pub fn init_sections_schema(&self) -> Result<(), String> {
-        self.db
-            .execute_batch(
-                r#"
-                CREATE TABLE IF NOT EXISTS sections (
-                    id TEXT PRIMARY KEY,
-                    section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
-                    name TEXT,
-                    sport_type TEXT NOT NULL,
-                    polyline_json TEXT,
-                    distance_meters REAL NOT NULL,
-                    representative_activity_id TEXT,
-
-                    -- Auto-specific fields (nullable for custom)
-                    confidence REAL,
-                    observation_count INTEGER,
-                    average_spread REAL,
-                    point_density_json TEXT,
-                    scale TEXT,
-                    version INTEGER DEFAULT 1,
-                    is_user_defined INTEGER DEFAULT 0,
-                    stability REAL,
-
-                    -- Custom-specific fields (nullable for auto)
-                    source_activity_id TEXT,
-                    start_index INTEGER,
-                    end_index INTEGER,
-
-                    -- Timestamps
-                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at TEXT,
-
-                    -- Bounds (for map viewport filtering)
-                    bounds_min_lat REAL,
-                    bounds_max_lat REAL,
-                    bounds_min_lng REAL,
-                    bounds_max_lng REAL
-                );
-
-                -- Junction table for section-activity relationships (with portion details)
-                CREATE TABLE IF NOT EXISTS section_activities (
-                    section_id TEXT NOT NULL,
-                    activity_id TEXT NOT NULL,
-                    direction TEXT NOT NULL DEFAULT 'same',
-                    start_index INTEGER NOT NULL DEFAULT 0,
-                    end_index INTEGER NOT NULL DEFAULT 0,
-                    distance_meters REAL NOT NULL DEFAULT 0,
-                    PRIMARY KEY (section_id, activity_id, start_index),
-                    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_section_activities_activity
-                ON section_activities(activity_id);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_type
-                ON sections(section_type);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_sport
-                ON sections(sport_type);
-                "#,
-            )
-            .map_err(|e| format!("Failed to create sections schema: {}", e))
-    }
-
     /// The activity range a section's polyline is a slice of, when the section carries one.
     fn section_anchor(&self, section_id: &str) -> Option<(String, u32, u32)> {
         let (activity_id, start, end): (Option<String>, Option<u32>, Option<u32>) = self
