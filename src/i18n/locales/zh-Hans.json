@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "纪录已按当前范围重算",
     "kind_baseline": "来自旧版应用的记录",
     "kind_algorithm_changed": "由新检测器重新分析"
+  },
+  "namedCorridors": {
+    "title": "你起的名字",
+    "link": "你起的名字",
+    "empty": "你还没有为任何路段命名",
+    "created": "命名于 {{date}}",
+    "dormant": "目前没有路段覆盖这段路",
+    "onSection": "在 {{name}} · 覆盖 {{percent}}%",
+    "secondary": "另一个名字也覆盖这段路",
+    "delete": "删除名字",
+    "deleteTitle": "删除名字",
+    "deleteConfirm": "删除“{{name}}”？该路段将恢复自动生成的名称。"
   }
 }

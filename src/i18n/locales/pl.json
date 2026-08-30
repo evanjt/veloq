@@ -2073,5 +2073,17 @@
     "kind_pr_rebased": "Rekord przeliczony na bieżący zakres",
     "kind_baseline": "Zapisany z wcześniejszej wersji aplikacji",
     "kind_algorithm_changed": "Przeanalizowany ponownie przez nowszy detektor"
+  },
+  "namedCorridors": {
+    "title": "Nadane nazwy",
+    "link": "Nadane nazwy",
+    "empty": "Nie nazwano jeszcze żadnego odcinka",
+    "created": "Nazwano {{date}}",
+    "dormant": "Żaden odcinek nie pokrywa teraz tego terenu",
+    "onSection": "Na {{name}} · {{percent}}% pokrycia",
+    "secondary": "Inna nazwa też pokrywa ten teren",
+    "delete": "Usuń nazwę",
+    "deleteTitle": "Usuń nazwę",
+    "deleteConfirm": "Usunąć \"{{name}}\"? Odcinek wróci do nazwy wygenerowanej."
   }
 }

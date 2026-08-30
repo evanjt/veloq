@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "Record recalculé sur l'étendue actuelle",
     "kind_baseline": "Enregistré depuis une version antérieure de l'app",
     "kind_algorithm_changed": "Réanalysé par un détecteur plus récent"
+  },
+  "namedCorridors": {
+    "title": "Les noms que tu as donnés",
+    "link": "Les noms que tu as donnés",
+    "empty": "Tu n'as encore nommé aucun tronçon",
+    "created": "Nommé le {{date}}",
+    "dormant": "Aucun tronçon ne couvre ce terrain pour l'instant",
+    "onSection": "Sur {{name}} · {{percent}}% couvert",
+    "secondary": "Un autre nom couvre aussi ce terrain",
+    "delete": "Supprimer le nom",
+    "deleteTitle": "Supprimer le nom",
+    "deleteConfirm": "Supprimer \"{{name}}\" ? Le tronçon reprend son nom généré."
   }
 }

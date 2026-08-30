@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
     "kind_baseline": "Registrado de uma versão anterior do app",
     "kind_algorithm_changed": "Reanalisado por um detector mais recente"
+  },
+  "namedCorridors": {
+    "title": "Nomes que você deu",
+    "link": "Nomes que você deu",
+    "empty": "Você ainda não nomeou nenhum trecho",
+    "created": "Nomeado em {{date}}",
+    "dormant": "Nenhum trecho cobre este terreno agora",
+    "onSection": "Em {{name}} · {{percent}}% coberto",
+    "secondary": "Outro nome também cobre este terreno",
+    "delete": "Excluir nome",
+    "deleteTitle": "Excluir nome",
+    "deleteConfirm": "Excluir \"{{name}}\"? O trecho volta ao nome gerado."
   }
 }

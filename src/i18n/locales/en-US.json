@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "Record re-based against the current extent",
     "kind_baseline": "Recorded from an earlier version of the app",
     "kind_algorithm_changed": "Re-analysed by a newer detector"
+  },
+  "namedCorridors": {
+    "title": "Names you gave",
+    "link": "Names you gave",
+    "empty": "You have not named a section yet",
+    "created": "Named {{date}}",
+    "dormant": "No section covers this ground right now",
+    "onSection": "On {{name}} · {{percent}}% covered",
+    "secondary": "Another name also covers this ground",
+    "delete": "Delete name",
+    "deleteTitle": "Delete name",
+    "deleteConfirm": "Delete \"{{name}}\"? The section goes back to its generated name."
   }
 }

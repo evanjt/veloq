@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "Record herberekend op het huidige bereik",
     "kind_baseline": "Vastgelegd uit een eerdere versie van de app",
     "kind_algorithm_changed": "Opnieuw geanalyseerd door een nieuwere detector"
+  },
+  "namedCorridors": {
+    "title": "Namen die je gaf",
+    "link": "Namen die je gaf",
+    "empty": "Je hebt nog geen stuk een naam gegeven",
+    "created": "Benoemd op {{date}}",
+    "dormant": "Geen stuk dekt dit terrein op dit moment",
+    "onSection": "Op {{name}} · {{percent}}% gedekt",
+    "secondary": "Een andere naam dekt dit terrein ook",
+    "delete": "Naam verwijderen",
+    "deleteTitle": "Naam verwijderen",
+    "deleteConfirm": "\"{{name}}\" verwijderen? Het stuk krijgt zijn gegenereerde naam terug."
   }
 }

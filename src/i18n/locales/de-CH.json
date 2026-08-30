@@ -2071,5 +2071,17 @@
     "kind_pr_rebased": "Rekord auf die aktuelle Ausdehnung bezogen",
     "kind_baseline": "Aus einer früheren App-Version übernommen",
     "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert"
+  },
+  "namedCorridors": {
+    "title": "Von dir vergebene Namen",
+    "link": "Von dir vergebene Namen",
+    "empty": "Du hast noch keinen Abschnitt benannt",
+    "created": "Benannt am {{date}}",
+    "dormant": "Derzeit deckt kein Abschnitt dieses Gebiet ab",
+    "onSection": "Auf {{name}} · {{percent}}% abgedeckt",
+    "secondary": "Ein weiterer Name deckt dieses Gebiet ebenfalls ab",
+    "delete": "Namen löschen",
+    "deleteTitle": "Namen löschen",
+    "deleteConfirm": "\"{{name}}\" löschen? Der Abschnitt erhält wieder seinen generierten Namen."
   }
 }
