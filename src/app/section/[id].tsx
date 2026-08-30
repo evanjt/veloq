@@ -438,7 +438,6 @@ export default function SectionDetailScreen() {
               originalDistance={section.distanceMeters}
               isSaving={isTrimSaving}
               canReset={canResetBounds}
-              initiallyExpanded={!canResetBounds}
               isExpandMode={isExpandMode}
               sectionStartInWindow={sectionStartInWindow}
               sectionEndInWindow={sectionEndInWindow}

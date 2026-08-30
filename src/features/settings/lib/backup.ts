@@ -43,7 +43,7 @@ const log = debug.create('Backup');
 // Shared helpers
 // ============================================================================
 
-const STORE_INITIALISERS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[] = [
   ['initializeTheme', initializeTheme],
   ['initializeLanguage', initializeLanguage],
   ['initializeSportPreference', initializeSportPreference],

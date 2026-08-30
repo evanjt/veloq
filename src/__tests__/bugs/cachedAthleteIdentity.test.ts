@@ -8,6 +8,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  rememberCachedAthleteId,
+  forgetCachedAthleteId,
+  readCachedAthleteIdMirror,
+} from '@/shared/storage/cachedAthleteId';
+import { getCachedAthleteId } from '@/features/auth/lib/accountChange';
+
 const mockEngine = {
   getAthleteProfile: jest.fn(),
   getSetting: jest.fn(),
@@ -17,13 +24,6 @@ let mockEngineReady = true;
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => (mockEngineReady ? mockEngine : null),
 }));
-
-import {
-  rememberCachedAthleteId,
-  forgetCachedAthleteId,
-  readCachedAthleteIdMirror,
-} from '@/shared/storage/cachedAthleteId';
-import { getCachedAthleteId } from '@/features/auth/lib/accountChange';
 
 describe('getCachedAthleteId', () => {
   beforeEach(async () => {

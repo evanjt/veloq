@@ -88,7 +88,6 @@ describe('e2e gate suite runs', () => {
     expect(script).toContain('.maestro/run-suite.sh');
     const runner = path.join(REPO_ROOT, '.maestro/run-suite.sh');
     expect(fs.existsSync(runner)).toBe(true);
-    // eslint-disable-next-line no-bitwise
     expect(fs.statSync(runner).mode & 0o111).toBeGreaterThan(0);
   });
 });

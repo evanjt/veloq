@@ -48,7 +48,7 @@ type Posted = { type: string; [key: string]: unknown };
 
 interface FakeMap {
   fire: (event: string, payload?: unknown) => void;
-  handlers: Record<string, Array<(payload?: unknown) => void>>;
+  handlers: Record<string, ((payload?: unknown) => void)[]>;
 }
 
 interface RunResult {
@@ -72,7 +72,7 @@ function runPage(
 
   const makeMap = (): FakeMap => {
     if (mapFactory) return mapFactory();
-    const handlers: Record<string, Array<(payload?: unknown) => void>> = {};
+    const handlers: Record<string, ((payload?: unknown) => void)[]> = {};
     const register = (event: string, fn: (payload?: unknown) => void) => {
       (handlers[event] ??= []).push(fn);
     };
