@@ -22,7 +22,7 @@ impl PersistentEngine {
          elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score";
 
     /// Visibility filter: exclude disabled and superseded sections.
-    pub(super) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
+    pub(crate) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
 
     /// Get sections with optional type filter (excludes disabled/superseded).
     pub fn get_sections_by_type(&self, section_type: Option<SectionType>) -> Vec<Section> {
