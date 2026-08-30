@@ -27,16 +27,20 @@ const metadata = {
   timestamp: '2026-08-29T10:00:00.000Z',
   sizeBytes: 1024,
   activityCount: 12,
+  athleteId: 'i12345',
+  appVersion: '0.4.0',
+  schemaVersion: 19,
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
   files = new Set<string>();
 
-  fs.getInfoAsync.mockImplementation(async (uri: string) => ({
-    exists: uri === DIR || files.has(uri),
-    uri,
-  }));
+  fs.getInfoAsync.mockImplementation(async (uri: string) =>
+    uri === DIR || files.has(uri)
+      ? { exists: true, uri, size: 0, isDirectory: uri === DIR, modificationTime: 0 }
+      : { exists: false, uri, isDirectory: false }
+  );
   fs.readDirectoryAsync.mockImplementation(async () =>
     [...files].filter((f) => f.startsWith(DIR)).map((f) => f.slice(DIR.length))
   );
