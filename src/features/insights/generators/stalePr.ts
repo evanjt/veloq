@@ -224,7 +224,7 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
 
 /**
  * Convert a StalePROpportunity into an Insight object suitable for the
- * insights panel and InsightLine rotation.
+ * insights panel.
  */
 export function stalePROpportunityToInsight(
   opportunity: StalePROpportunity,
