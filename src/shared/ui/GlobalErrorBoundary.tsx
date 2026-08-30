@@ -34,7 +34,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         stack: error?.stack ? String(error.stack) : errorInfo?.componentStack || undefined,
         fatal: true,
       });
-    } catch {}
+    } catch {
+      // Recording the crash must never mask the crash itself.
+    }
     if (__DEV__) {
       console.error('[GlobalErrorBoundary] Uncaught error:', error, errorInfo);
     }

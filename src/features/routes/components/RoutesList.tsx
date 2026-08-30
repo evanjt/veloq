@@ -41,10 +41,6 @@ interface RoutesListProps {
   onRefresh?: () => void;
   /** Whether refresh is in progress */
   isRefreshing?: boolean;
-  /** Filter by start date (only show routes with activities after this date) */
-  startDate?: Date;
-  /** Filter by end date (only show routes with activities before this date) */
-  endDate?: Date;
   /** Pre-loaded groups with consensus polylines from batch FFI call */
   batchGroups: GroupWithPolyline[];
   /** Callback to load more groups (pagination) */
