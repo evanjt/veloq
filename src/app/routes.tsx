@@ -9,7 +9,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { replaceTo } from '@/shared/app/navigation';
 
 export default function RoutesRedirectScreen() {
-  const params = useLocalSearchParams<Record<string, string | undefined>>();
+  const params = useLocalSearchParams() as Record<string, string | undefined>;
   const sent = useRef(false);
 
   useEffect(() => {
