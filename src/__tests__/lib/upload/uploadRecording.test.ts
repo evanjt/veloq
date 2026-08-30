@@ -17,7 +17,9 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { routeEngine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
@@ -26,6 +28,7 @@ jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   recordingFitExists: jest.fn(),
+  readRecordingFit: jest.fn(),
   markRecordingUploading: jest.fn().mockResolvedValue(undefined),
   markRecordingUploaded: jest.fn().mockResolvedValue(undefined),
   markRecordingUploadFailed: jest.fn().mockResolvedValue(undefined),
@@ -33,8 +36,14 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('veloqrs', () => ({
+  routeEngine: { importSetsFromFit: jest.fn() },
+}));
+
 const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;
+const mockReadFit = readRecordingFit as jest.Mock;
+const mockImportSets = routeEngine.importSetsFromFit as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
@@ -47,6 +56,15 @@ const ENTRY: RecordingLibraryEntry = {
   createdAt: Date.parse('2026-03-08T07:30:00Z'),
   uploadStatus: 'pending',
   retryCount: 0,
+};
+
+const STRENGTH_ENTRY: RecordingLibraryEntry = {
+  ...ENTRY,
+  id: 'rec-strength',
+  activityType: 'WeightTraining',
+  name: 'Lower body',
+  fitPath: 'file:///recordings/rec-strength.fit',
+  distanceMeters: 0,
 };
 
 /**
@@ -63,6 +81,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockExists.mockResolvedValue(true);
   mockUpload.mockResolvedValue('i999');
+  mockReadFit.mockResolvedValue(new Uint8Array([0x0e, 0x10, 0x2e, 0x46]).buffer);
+  mockImportSets.mockReturnValue(3);
 });
 
 describe('uploadRecording', () => {
@@ -75,7 +95,7 @@ describe('uploadRecording', () => {
       pairedEventId: undefined,
     });
     expect(markRecordingUploading).toHaveBeenCalledWith('rec-1');
-    expect(markRecordingUploaded).toHaveBeenCalledWith('rec-1');
+    expect(markRecordingUploaded).toHaveBeenCalledWith('rec-1', 'i999');
   });
 
   it('forwards a paired calendar event', async () => {
@@ -221,5 +241,59 @@ describe('uploadRecording', () => {
     await uploadRecording(ENTRY);
 
     expect(markRecordingUploading).toHaveBeenCalledWith('rec-1');
+  });
+});
+
+describe('strength sets from a recorded session', () => {
+  it('imports the sets out of the FIT the upload just accepted', async () => {
+    const result = await uploadRecording(STRENGTH_ENTRY);
+
+    expect(result).toEqual({ outcome: 'uploaded' });
+    expect(mockReadFit).toHaveBeenCalledWith(STRENGTH_ENTRY);
+    expect(mockImportSets).toHaveBeenCalledWith('i999', expect.any(Uint8Array));
+  });
+
+  it('leaves a ride alone, which has no sets to import', async () => {
+    await uploadRecording(ENTRY);
+
+    expect(mockImportSets).not.toHaveBeenCalled();
+    expect(mockReadFit).not.toHaveBeenCalled();
+  });
+
+  it('skips the import when the server named no activity to key the sets to', async () => {
+    mockUpload.mockResolvedValue(undefined);
+
+    const result = await uploadRecording(STRENGTH_ENTRY);
+
+    expect(result).toEqual({ outcome: 'uploaded' });
+    expect(mockImportSets).not.toHaveBeenCalled();
+  });
+
+  it('skips the import when the FIT can no longer be read', async () => {
+    mockReadFit.mockResolvedValue(null);
+
+    const result = await uploadRecording(STRENGTH_ENTRY);
+
+    expect(result).toEqual({ outcome: 'uploaded' });
+    expect(mockImportSets).not.toHaveBeenCalled();
+  });
+
+  it('keeps the upload successful when the import throws', async () => {
+    mockImportSets.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+
+    const result = await uploadRecording(STRENGTH_ENTRY);
+
+    expect(result).toEqual({ outcome: 'uploaded' });
+    expect(markRecordingUploaded).toHaveBeenCalledWith('rec-strength', 'i999');
+  });
+
+  it('does not import for a failed upload', async () => {
+    mockUpload.mockRejectedValue(refused('http', 500, 'server error'));
+
+    await uploadRecording(STRENGTH_ENTRY);
+
+    expect(mockImportSets).not.toHaveBeenCalled();
   });
 });
