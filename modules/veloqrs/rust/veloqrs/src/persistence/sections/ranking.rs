@@ -258,7 +258,7 @@ impl PersistentRouteEngine {
                 };
 
                 let latest_is_pr = if let Some(&latest) = data.times.last() {
-                    best_time_secs.is_finite() && (latest - best_time_secs).abs() < 0.01
+                    crate::persistence::records::is_personal_record(latest, best_time_secs)
                 } else {
                     false
                 };
