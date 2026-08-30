@@ -18,6 +18,10 @@ const EM_DASH = String.fromCharCode(0x2014);
 const ALLOWED = [
   // The guard's own fixtures have to hold the character it looks for.
   'src/__tests__/bugs/emDashLintExitCode.test.ts',
+  // Migration bytes are checksummed, not prose. Editing a comment inside one
+  // changes its sha and splits the installed base, which is what
+  // `migration_checksums.rs` refuses. Style never outranks that.
+  'modules/veloqrs/rust/veloqrs/src/migrations/',
 ];
 
 const rootFlag = process.argv.indexOf('--root');
