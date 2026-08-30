@@ -27,10 +27,6 @@ impl RouteManager {
         with_engine(|e| e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from))
     }
 
-    fn get_summaries(&self) -> Result<Vec<crate::GroupSummary>, VeloqError> {
-        with_engine(|e| e.get_group_summaries())
-    }
-
     fn get_summaries_with_count(&self) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
         with_engine(|e| crate::FfiGroupSummariesResult {
             total_count: e.get_group_count(),
