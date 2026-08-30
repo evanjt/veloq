@@ -9,7 +9,7 @@ private let kSnapshotFile = "widget-snapshot.json"
 
 /// Bridges the JS snapshot pipeline to WidgetKit: writes the pre-formatted JSON into
 /// the App Group container the widget extension reads, then asks WidgetKit to redraw.
-/// The widget itself never computes — it only renders this file.
+/// The widget itself never computes, it only renders this file.
 public final class VeloqWidgetModule: Module {
   public func definition() -> ModuleDefinition {
     Name("VeloqWidget")

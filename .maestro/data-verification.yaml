@@ -60,7 +60,7 @@ tags:
     text: "undefined"
 
 # Navigate to Routes tab (deep link with tab=routes to skip insights default)
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"

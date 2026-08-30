@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { recordCrash } from '@/shared/debug/crashLog';
+import { errorScreen } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -75,7 +76,7 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: errorScreen.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -83,20 +84,20 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    color: '#FFFFFF',
+    color: errorScreen.title,
     fontSize: 22,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
   },
   body: {
-    color: '#999999',
+    color: errorScreen.detail,
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 22,
   },
   devError: {
-    color: '#FF6B6B',
+    color: errorScreen.message,
     fontSize: 13,
     textAlign: 'center',
     marginTop: 24,
@@ -108,10 +109,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#0D9488',
+    borderColor: errorScreen.action,
   },
   reloadText: {
-    color: '#0D9488',
+    color: errorScreen.action,
     fontSize: 16,
     fontWeight: '600',
   },

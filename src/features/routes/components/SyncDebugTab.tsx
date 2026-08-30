@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, ink } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
@@ -118,12 +118,12 @@ export function SyncDebugTab() {
 
   // Traffic light color
   const alignmentColor = useMemo(() => {
-    if (alignment.apiCount === 0 && alignment.engineCount === 0) return '#9ca3af'; // gray
+    if (alignment.apiCount === 0 && alignment.engineCount === 0) return colors.iconNeutral;
     if (alignment.missingFromEngine.length === 0 && alignment.extraInEngine.length === 0) {
-      return '#22c55e'; // green
+      return colors.success;
     }
-    if (alignment.missingFromEngine.length <= 3) return '#f59e0b'; // yellow
-    return '#ef4444'; // red
+    if (alignment.missingFromEngine.length <= 3) return colors.warning;
+    return colors.error;
   }, [alignment]);
 
   // State for "Remove N Activities" stepper
@@ -429,7 +429,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={isRemoving || !apiActivities?.length}
           >
-            <MaterialCommunityIcons name="delete-outline" size={18} color="#fff" />
+            <MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>
               {isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
             </Text>
@@ -443,7 +443,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={!engine}
           >
-            <MaterialCommunityIcons name="nuke" size={18} color="#fff" />
+            <MaterialCommunityIcons name="nuke" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>Hard Re-sync</Text>
           </TouchableOpacity>
           <Text style={[styles.hintText, { color: mutedColor }]}>
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
     borderRadius: 8,
   },
   dangerButtonDisabled: {
@@ -650,6 +650,6 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
 });

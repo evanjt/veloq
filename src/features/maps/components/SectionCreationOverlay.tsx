@@ -74,8 +74,8 @@ interface SectionCreationOverlayProps {
 function getSectionSizeColor(pointCount: number | null): string {
   if (pointCount === null) return colors.primary;
   if (pointCount < 2000) return colors.success;
-  if (pointCount < 5000) return '#FFC107';
-  if (pointCount < 7000) return '#FF9800';
+  if (pointCount < 5000) return colors.cautionYellow;
+  if (pointCount < 7000) return colors.cautionOrange;
   return colors.error;
 }
 

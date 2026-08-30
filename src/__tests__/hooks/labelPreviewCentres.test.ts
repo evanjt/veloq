@@ -93,7 +93,9 @@ describe('labelPreviewCentres', () => {
 
   it('keeps counting around the point when the bin key does not parse', () => {
     const centres = [centre({ binKey: 'not-a-bin', lat: 46.936, lng: 7.447 })];
-    const activities = [{ locality: 'Edgeville', startLatLng: [46.896, 7.447] as [number, number] }];
+    const activities = [
+      { locality: 'Edgeville', startLatLng: [46.896, 7.447] as [number, number] },
+    ];
 
     const [label] = labelPreviewCentres(centres, activities);
     expect(label.label).toBe('Edgeville');

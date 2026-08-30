@@ -69,7 +69,7 @@ onFlowComplete:
 - tapOn:
     id: "record-type-WeightTraining"
 
-# Wait for manual entry form to load — verify key form fields
+# Wait for manual entry form to load, verify key form fields
 - extendedWaitUntil:
     visible:
       id: "manual-entry-name"

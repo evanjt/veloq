@@ -15,7 +15,7 @@
 //!
 //! Caveat: this test wraps a `PersistentRouteEngine` in
 //! `Arc<RwLock<PersistentRouteEngine>>` directly rather than going through
-//! the global `PERSISTENT_ENGINE` singleton — the lock primitive is
+//! the global `PERSISTENT_ENGINE` singleton, the lock primitive is
 //! identical, so the contention semantics are too. Going through the FFI
 //! init path would require process-global state setup that doesn't compose
 //! with `cargo test`'s parallel-test default.

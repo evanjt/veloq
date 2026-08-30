@@ -1,4 +1,4 @@
-//! Tier 0.4 — idempotence guard for heatmap tile generation.
+//! Tier 0.4, idempotence guard for heatmap tile generation.
 //!
 //! Run a full cycle, re-run without adding activities, and assert that the
 //! second pass is a near-no-op: every tile already on disk gets skipped and
@@ -66,7 +66,7 @@ fn second_pass_generates_nothing_new() {
     let start = Instant::now();
     let handle = engine
         .generate_tiles_background()
-        .expect("background should still spawn — the function is unconditional");
+        .expect("background should still spawn, the function is unconditional");
     let warm_generated = handle.recv_blocking().expect("warm run should complete");
     let warm_elapsed = start.elapsed();
 
@@ -80,7 +80,7 @@ fn second_pass_generates_nothing_new() {
     let bound = (cold_elapsed / 2).max(Duration::from_millis(250));
     assert!(
         warm_elapsed < bound,
-        "warm pass took {}ms against a cold pass of {}ms — skip-if-exists may be rendering before checking",
+        "warm pass took {}ms against a cold pass of {}ms, skip-if-exists may be rendering before checking",
         warm_elapsed.as_millis(),
         cold_elapsed.as_millis()
     );

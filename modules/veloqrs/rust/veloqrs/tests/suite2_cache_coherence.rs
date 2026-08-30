@@ -1,11 +1,11 @@
-//! Suite #2 — edit-teardown / cache coherence + custom-section lifecycle.
+//! Suite #2, edit-teardown / cache coherence + custom-section lifecycle.
 //!
 //! The B4 invalidation spec: after a mutation, the caches a section spans must
 //! agree.
-//!   PERF     — lap_time/lap_pace served by get_section_performances
-//!   SEAM     — in-memory get_sections() vs the DB get_sections_by_type(None) view
-//!   JUNCTION — section_activities membership (phantom / orphan rows)
-//!   BACKUP   — original_polyline_json (left set when it should be cleared)
+//!   PERF    , lap_time/lap_pace served by get_section_performances
+//!   SEAM    , in-memory get_sections() vs the DB get_sections_by_type(None) view
+//!   JUNCTION, section_activities membership (phantom / orphan rows)
+//!   BACKUP  , original_polyline_json (left set when it should be cleared)
 //!
 //! reset_section_bounds is the known-good template: it restores geometry, clears
 //! the backup, keeps the seam consistent, and (being deletable again) survives
@@ -187,7 +187,7 @@ fn delete_section_cascade_is_enforced() {
     let ghost = engine.add_section_activity("ghost_section_xyz", "ghost_activity");
     assert!(
         ghost.is_err(),
-        "a junction row was inserted for a non-existent section — FK not enforced, delete leaves orphans"
+        "a junction row was inserted for a non-existent section. FK not enforced, delete leaves orphans"
     );
 }
 

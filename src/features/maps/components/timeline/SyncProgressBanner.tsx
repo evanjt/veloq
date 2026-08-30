@@ -21,7 +21,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
 } from '@/features/routes/lib/syncProgressFormat';
-import { colors } from '@/theme';
+import { colors, ink } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -118,7 +118,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
         <MaterialCommunityIcons
           name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
           size={16}
-          color="#FFFFFF"
+          color={ink.white}
         />
         <Text style={styles.text} testID="sync-progress-message">
           {displayInfo.text}

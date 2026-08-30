@@ -17,7 +17,7 @@ interface InsightsPanelProps {
   /**
    * If set, opens the matching insight's detail sheet on mount. Used by deep
    * links from the home screen's rotating insight chip
-   * (`/(tabs)/routes?insightId=...`). Calls `onInsightOpened` once the sheet
+   * (`/(tabs)/insights?insightId=...`). Calls `onInsightOpened` once the sheet
    * has been triggered so the parent can clear the URL param.
    */
   initialInsightId?: string;

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, layout, typography } from '@/theme';
+import { colors, ink, spacing, layout, typography } from '@/theme';
 
 const SIZE_LABELS: Record<string, string> = {
   tip_small: 'support.tipSmall',
@@ -89,12 +89,12 @@ const styles = StyleSheet.create({
   tipPrice: {
     ...typography.bodySmall,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: ink.white,
   },
   tipPriceSmall: {
     ...typography.caption,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: ink.white,
   },
   tipLabel: {
     ...typography.caption,
@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
   },
   tipTextDark: {
-    color: '#FFFFFF',
+    color: ink.white,
   },
 });

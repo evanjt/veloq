@@ -3,4 +3,4 @@ v0.3.7
 • Section detection got a rebuild: three methods to pick from (Corridor, Density Grid, Flow Graph)
 • Each method has its own sliders and a live preview of how it finds sections
 • Reanalyse button lights up when you've changed something
-• Sorted the empty section pages — matched activities and effort history are back
+• Sorted the empty section pages, matched activities and effort history are back

@@ -29,7 +29,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Migrating {} sections without names",
+            "veloqrs: [PersistentEngine] Migrating {} sections without names",
             sections_without_names.len()
         );
 
@@ -94,7 +94,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Generated names for {} sections",
+            "veloqrs: [PersistentEngine] Generated names for {} sections",
             sections_without_names.len()
         );
 
@@ -206,7 +206,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Stripped sport prefixes from {} section names",
+            "veloqrs: [PersistentEngine] Stripped sport prefixes from {} section names",
             renames.len()
         );
 

@@ -120,7 +120,7 @@ impl PhaseClock {
             return;
         }
         info!(
-            "tracematch: [cutover] Phase {} took {}ms",
+            "veloqrs: [cutover] Phase {} took {}ms",
             self.phase,
             crate::elapsed_ms(self.started)
         );
@@ -169,7 +169,7 @@ pub fn start_cutover() -> bool {
         // taking it again.
         let outcome = run_cutover_claimed();
         if let Err(ref e) = outcome {
-            log::warn!("tracematch: [cutover] Run failed: {}", e);
+            log::warn!("veloqrs: [cutover] Run failed: {}", e);
         }
     });
     true
@@ -214,7 +214,7 @@ impl PersistentRouteEngine {
     /// a missing settings table (which returns None).
     pub(super) fn check_cutover_state(&self) {
         if self.cutover_is_owed() {
-            info!("tracematch: [cutover] Cutover to Unified is owed");
+            info!("veloqrs: [cutover] Cutover to Unified is owed");
         }
     }
 
@@ -315,7 +315,7 @@ impl PersistentRouteEngine {
                 params![CUTOVER_ID],
                 |row| row.get(0),
             )?;
-            info!("tracematch: [cutover] Reusing archive of {} sections", kept);
+            info!("veloqrs: [cutover] Reusing archive of {} sections", kept);
             return Ok(kept);
         }
 
@@ -356,7 +356,7 @@ impl PersistentRouteEngine {
 
         tx.commit()?;
         info!(
-            "tracematch: [cutover] Archived {} auto sections and {} members under token '{}'",
+            "veloqrs: [cutover] Archived {} auto sections and {} members under token '{}'",
             count, members, CUTOVER_ID
         );
         Ok(count as u32)
@@ -403,7 +403,7 @@ impl PersistentRouteEngine {
         // reference alive under a Unified label. Ids still carry; the first
         // Unified batch is simply believed.
         self.section_identity_reseed_decisive();
-        info!("tracematch: [cutover] Committed switch to Unified, token in flight");
+        info!("veloqrs: [cutover] Committed switch to Unified, token in flight");
         Ok(())
     }
 
@@ -414,7 +414,7 @@ impl PersistentRouteEngine {
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![CUTOVER_KEY, CUTOVER_ID],
         )?;
-        info!("tracematch: [cutover] Token promoted to '{}'", CUTOVER_ID);
+        info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
 
@@ -448,11 +448,11 @@ impl PersistentRouteEngine {
 
         self.set_setting(CUTOVER_DIFF_KEY, &json)
             .unwrap_or_else(|e| {
-                log::warn!("tracematch: [cutover] Failed to persist diff: {}", e);
+                log::warn!("veloqrs: [cutover] Failed to persist diff: {}", e);
             });
 
         info!(
-            "tracematch: [cutover] Diff stored: {} current, {} new, {} changed, {} gone",
+            "veloqrs: [cutover] Diff stored: {} current, {} new, {} changed, {} gone",
             counts.current, counts.new, counts.changed, counts.gone
         );
         Ok(json)
@@ -623,13 +623,13 @@ impl PersistentRouteEngine {
         // Reload so in-memory state sees the restored, pinned sections.
         if let Err(e) = self.load_sections() {
             log::warn!(
-                "tracematch: [cutover] Failed to reload sections after restore: {}",
+                "veloqrs: [cutover] Failed to reload sections after restore: {}",
                 e
             );
         }
 
         info!(
-            "tracematch: [cutover] Restored {} sections and {} members from archive, config unchanged",
+            "veloqrs: [cutover] Restored {} sections and {} members from archive, config unchanged",
             restored, restored_members
         );
         Ok(restored)
@@ -720,7 +720,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     let archived = with_persistent_engine(|e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
-    info!("tracematch: [cutover] Archived {} sections", archived);
+    info!("veloqrs: [cutover] Archived {} sections", archived);
 
     // Step 2: commit the switch. Config, in-flight token and the cleared
     // processed set land together, so a crash after this point resumes rather
@@ -773,7 +773,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
 
     let run_ms = clock.run_ms();
     clock.finish(PHASE_COMPLETE);
-    info!("tracematch: [cutover] Cutover complete in {}ms", run_ms);
+    info!("veloqrs: [cutover] Cutover complete in {}ms", run_ms);
     Ok(CutoverOutcome::Completed(diff))
 }
 

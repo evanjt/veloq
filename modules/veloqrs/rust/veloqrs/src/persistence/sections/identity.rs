@@ -373,7 +373,7 @@ impl PersistentRouteEngine {
             return false;
         };
         let Some(body) = codec::untag_blob(SECTION_IDENTITY_BLOB_VERSION, &bytes) else {
-            log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
+            log::warn!("veloqrs: [section_identity_restore] blob version mismatch, reseeding");
             return false;
         };
         match codec::deserialize_gps_composite::<SectionIdentity>(body) {
@@ -389,7 +389,7 @@ impl PersistentRouteEngine {
                 true
             }
             Err(e) => {
-                log::warn!("tracematch: [section_identity_restore] decode failed, reseeding: {e}");
+                log::warn!("veloqrs: [section_identity_restore] decode failed, reseeding: {e}");
                 false
             }
         }
@@ -406,7 +406,7 @@ impl PersistentRouteEngine {
     /// next apply's ground remap heals.
     pub(crate) fn section_identity_persist(&self) {
         let Some(blob) = self.section_identity_blob() else {
-            log::warn!("tracematch: [section_identity_persist] serialisation failed");
+            log::warn!("veloqrs: [section_identity_persist] serialisation failed");
             return;
         };
         if let Err(e) = self.db.execute(
@@ -415,7 +415,7 @@ impl PersistentRouteEngine {
              ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
             rusqlite::params![SECTION_IDENTITY_KEY, blob],
         ) {
-            log::warn!("tracematch: [section_identity_persist] {e}");
+            log::warn!("veloqrs: [section_identity_persist] {e}");
         }
     }
 
@@ -1100,7 +1100,7 @@ impl PersistentRouteEngine {
                 created_at = excluded.created_at",
             rusqlite::params![section_id, kind, polyline_json],
         ) {
-            log::warn!("tracematch: [record_section_intent] {section_id} ({kind}): {e}");
+            log::warn!("veloqrs: [record_section_intent] {section_id} ({kind}): {e}");
         }
     }
 
@@ -1112,7 +1112,7 @@ impl PersistentRouteEngine {
             "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
             rusqlite::params![section_id],
         ) {
-            log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
+            log::warn!("veloqrs: [clear_section_intent] {section_id}: {e}");
         }
     }
 

@@ -74,7 +74,7 @@ pub(crate) fn load_tracks_chunked(
             }
             Err(e) => {
                 log::warn!(
-                    "tracematch: [TrackPool] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
+                    "veloqrs: [TrackPool] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
                     chunk.len(),
                     e
                 );

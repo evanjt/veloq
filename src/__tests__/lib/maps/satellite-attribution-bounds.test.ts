@@ -2,9 +2,10 @@
  * Scenario: satellite attribution must name the imagery MapLibre actually draws.
  *
  * Expected behaviour: attribution follows each source's `bounds`, which is the
- * same rectangle MapLibre clips the raster to. Hand-transcribed border polygons
- * previously decided this, and they placed Geneva outside Switzerland, so the
- * app drew swisstopo tiles while crediting IGN.
+ * same rectangle MapLibre clips the raster to. Anything that decides it from a
+ * separate border polygon can disagree with what was drawn: Geneva falls
+ * outside a transcribed Swiss border, so the credit reads IGN over swisstopo
+ * tiles.
  */
 import { getCombinedSatelliteAttribution } from '@/features/maps/components/mapStyles';
 

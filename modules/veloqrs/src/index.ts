@@ -15,7 +15,6 @@ import {
   type FfiActivityMetrics,
   type FfiGpsPoint,
   type FfiRouteGroup,
-  type FfiFrequentSection,
   type FfiSection,
   type FfiSectionConfig,
   type FfiSectionPerformanceResult,
@@ -109,7 +108,6 @@ export type { RouteDetailData } from './delegates/routes';
 export type ActivityMetrics = FfiActivityMetrics;
 export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
-export type FrequentSection = FfiFrequentSection;
 export type Section = FfiSection;
 export type SectionConfig = FfiSectionConfig;
 export type SectionPerformanceResult = FfiSectionPerformanceResult;

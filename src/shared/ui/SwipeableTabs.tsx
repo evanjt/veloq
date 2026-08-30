@@ -12,7 +12,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, spacing } from '@/theme';
+import { brand, colors, darkColors, spacing } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -335,13 +335,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   tabBadgePr: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: brand.gold,
   },
   tabBadgePositive: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   tabBadgeNegative: {
-    backgroundColor: '#71717A',
+    backgroundColor: colors.textMuted,
   },
   tabBadgeText: {
     fontSize: 11,

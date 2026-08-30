@@ -575,7 +575,7 @@ impl PersistentRouteEngine {
         // If retention_days is 0, keep all activities
         if retention_days == 0 {
             log::info!(
-                "tracematch: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
+                "veloqrs: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
             );
             return Ok(0);
         }
@@ -609,7 +609,7 @@ impl PersistentRouteEngine {
             self.sections_dirty = true;
 
             log::info!(
-                "tracematch: [PersistentEngine] Cleaned up {} activities older than {} days",
+                "veloqrs: [PersistentEngine] Cleaned up {} activities older than {} days",
                 deleted,
                 retention_days
             );
@@ -637,7 +637,7 @@ impl PersistentRouteEngine {
         if !self.groups_dirty && !self.sections_dirty {
             self.groups_dirty = true;
             self.sections_dirty = true;
-            log::info!("tracematch: [PersistentEngine] Marked for re-computation (cache expanded)");
+            log::info!("veloqrs: [PersistentEngine] Marked for re-computation (cache expanded)");
         }
     }
 

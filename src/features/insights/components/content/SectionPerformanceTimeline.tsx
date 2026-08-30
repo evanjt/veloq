@@ -11,7 +11,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, ink } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -190,20 +190,20 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={7}
-                    color="#FFB300"
+                    color={colors.chartFtp}
                     opacity={0.3}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={5}
-                    color="#FFB300"
+                    color={colors.chartFtp}
                   />
                   <Circle
                     cx={pointPositions[bestPointIdx].x}
                     cy={pointPositions[bestPointIdx].y}
                     r={2.5}
-                    color="#FFFFFF"
+                    color={ink.white}
                   />
                 </>
               )}

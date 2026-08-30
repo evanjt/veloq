@@ -112,7 +112,7 @@ fn ground_pieces(snap: &SectionSnapshot, ground: &[GpsPoint]) -> Vec<(String, f6
 /// been through the sections table's JSON read path, whose float parse is up
 /// to one ULP off (serde_json without `float_roundtrip`). So counterpart
 /// matching requires the same point count with every coordinate within
-/// ~0.1 mm — still orders of magnitude tighter than any genuine geometry
+/// ~0.1 mm, still orders of magnitude tighter than any genuine geometry
 /// change, which moves whole points and extents.
 fn exact_counterpart<'a>(snap: &'a SectionSnapshot, poly: &[GpsPoint]) -> Option<&'a String> {
     const ULP_TOL_DEG: f64 = 1.0e-9;
@@ -138,7 +138,7 @@ fn created_at_of(engine: &mut PersistentRouteEngine, id: &str) -> Option<String>
 // later wave clusters a few metres east of their centre, so the medoid of the
 // grown set re-picks to a wave ride and the reference polyline moves by
 // metres while the extent stays put (mutual overlap ~1.0, far above the 0.85
-// agreement threshold — adopts with no debounce). The junction corpus
+// agreement threshold, adopts with no debounce). The junction corpus
 // produces a MATERIAL re-cut: branches peeling at 45% and 60% split the
 // trunk into pieces (mutual overlap of any piece against the full trunk is
 // well below 0.85), so the pure layer debounces and fires at k = 3.

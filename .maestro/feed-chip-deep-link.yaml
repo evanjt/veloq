@@ -17,7 +17,7 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
-# Section chip path — deep-linked to verify the routing contract directly.
+# Section chip path, deep-linked to verify the routing contract directly.
 # Visual-chip tap is a separate test; here we prove the query param is honored.
 - openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:

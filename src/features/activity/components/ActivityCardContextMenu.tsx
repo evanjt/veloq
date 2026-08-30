@@ -9,7 +9,15 @@ import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { isLikelyInterestingTerrain } from '@/features/maps/lib/cameraAngle';
-import { colors, darkColors, spacing, brand, shadows, mapStyleSwatch } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  brand,
+  shadows,
+  mapStyleSwatch,
+  mapStyleSwatchIcon,
+} from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
@@ -153,7 +161,7 @@ export function ActivityCardContextMenu({
                       <MaterialCommunityIcons
                         name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
                         size={22}
-                        color={key === 'light' ? '#6B7280' : '#FFFFFF'}
+                        color={key === 'light' ? mapStyleSwatchIcon.light : mapStyleSwatchIcon.dark}
                       />
                     </View>
                     <Text

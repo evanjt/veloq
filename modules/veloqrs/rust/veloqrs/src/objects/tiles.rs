@@ -81,7 +81,7 @@ impl HeatmapManager {
                 // Worker died without sending. Clear the handle so the next
                 // generation attempt can start instead of blocking forever.
                 *handle_guard = None;
-                log::error!("tracematch: [TileManager] Tile generation thread died");
+                log::error!("veloqrs: [TileManager] Tile generation thread died");
                 Ok("error".to_string())
             }
         }

@@ -13,17 +13,18 @@ import type { RoutePoint } from '../../conversions';
 import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
-  FfiFrequentSection,
+  FfiSection,
   FfiGpsPoint,
   FfiNamedCorridor,
   FfiRankedSection,
-  FfiSection,
   FfiSectionDetailData,
   FfiSectionLineage,
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
+  FfiWorkoutSection,
   SectionSummary,
- FfiSectionChartData } from '../../generated/veloqrs';
+  FfiSectionChartData,
+} from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import type {
   FfiActivityIndicator,
@@ -34,7 +35,6 @@ import type {
   SectionEncounter,
 } from '../shared-types';
 
-
 const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   records: [],
   bestRecord: undefined,
@@ -44,7 +44,7 @@ const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   reverseStats: undefined,
 };
 
-export function getSections(host: DelegateHost): FfiFrequentSection[] {
+export function getSections(host: DelegateHost): FfiSection[] {
   if (!host.ready) return [];
   return host.timed('getSections', () => host.engine.sections().getAll());
 }
@@ -53,7 +53,7 @@ export function getSectionsFiltered(
   host: DelegateHost,
   sportType?: string,
   minVisits?: number
-): FfiFrequentSection[] {
+): FfiSection[] {
   if (!host.ready) return [];
   // FfiConverterOptional* accepts undefined for "absent" but throws on null -
   // forward optional args as-is, do NOT coalesce to null.
@@ -123,7 +123,7 @@ export interface RankedSectionsBySport {
   sections: FfiRankedSection[];
 }
 
-export function getSectionById(host: DelegateHost, sectionId: string): FfiFrequentSection | null {
+export function getSectionById(host: DelegateHost, sectionId: string): FfiSection | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   return host.timed('getSectionById', () => host.engine.sections().getById(sectionId)) ?? null;
@@ -199,17 +199,7 @@ export function getActivityPrSections(
   );
 }
 
-export interface FfiWorkoutSection {
-  id: string;
-  name: string;
-  prTimeSecs?: number;
-  previousBestTimeSecs?: number;
-  lastTimeSecs?: number;
-  daysSinceLast?: number;
-  prDaysAgo?: number;
-  /** "improving" | "stable" | "declining" | "" */
-  trend: string;
-}
+export type { FfiWorkoutSection } from '../../generated/veloqrs';
 
 export function getWorkoutSections(
   host: DelegateHost,

@@ -20,7 +20,7 @@
 #      in Maestro's sandboxed JS runtime).
 #
 # For now this flow exercises the adjacent, testable code paths:
-#   - Pull-to-refresh on the feed (demo mode uses fixtures — no network call).
+#   - Pull-to-refresh on the feed (demo mode uses fixtures, no network call).
 #   - Offline banner assertion (offline-banner testID from OfflineBanner.tsx).
 #   - Repeated refresh to catch sync-queue regressions (duplicate requests,
 #     stale loading state, NaN propagation on retry).
@@ -51,7 +51,7 @@ tags:
 - assertNotVisible:
     id: "offline-banner"
 
-# First pull-to-refresh — the sync queue path runs even in demo mode
+# First pull-to-refresh, the sync queue path runs even in demo mode
 - swipe:
     start: 50%, 25%
     end: 50%, 75%
@@ -69,7 +69,7 @@ tags:
 - assertNotVisible:
     text: "NaN"
 
-# Second pull-to-refresh — catches double-tap / stale-loading regressions
+# Second pull-to-refresh, catches double-tap / stale-loading regressions
 - swipe:
     start: 50%, 25%
     end: 50%, 75%
@@ -86,7 +86,7 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-# Navigate to fitness tab and pull-to-refresh there too — fitness uses a
+# Navigate to fitness tab and pull-to-refresh there too, fitness uses a
 # different data path (getFitnessData vs getFeedData) and has historically
 # been the most NaN-prone screen on reload
 - runFlow:

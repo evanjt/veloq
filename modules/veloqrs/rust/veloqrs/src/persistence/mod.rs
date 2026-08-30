@@ -528,7 +528,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
         Ok(s) => s,
         Err(e) => {
             log::warn!(
-                "tracematch: [load_groups_from_db] Failed to prepare statement: {:?}",
+                "veloqrs: [load_groups_from_db] Failed to prepare statement: {:?}",
                 e
             );
             return Vec::new();
@@ -832,7 +832,7 @@ impl PersistentRouteEngine {
         for (name, result) in outcomes {
             if let Err(e) = result {
                 log::error!(
-                    "tracematch: [PersistentEngine] load: {} failed: {}",
+                    "veloqrs: [PersistentEngine] load: {} failed: {}",
                     name,
                     e
                 );
@@ -905,7 +905,7 @@ impl PersistentRouteEngine {
             .unwrap_or(0);
         if backfilled > 0 {
             log::info!(
-                "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
+                "veloqrs: [PersistentEngine] Backfilled duration_secs for {} activities",
                 backfilled
             );
         }
@@ -914,7 +914,7 @@ impl PersistentRouteEngine {
         // mark sections as dirty so re-detection runs with the updated algorithm.
         if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] {} activities but no processed IDs - marking sections dirty for re-detection",
+                "veloqrs: [PersistentEngine] {} activities but no processed IDs - marking sections dirty for re-detection",
                 self.activity_metadata.len()
             );
             self.sections_dirty = true;
@@ -988,7 +988,7 @@ impl PersistentRouteEngine {
             &config.proximity_threshold.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist proximity_threshold: {}",
+                "veloqrs: [set_section_config] failed to persist proximity_threshold: {}",
                 e
             );
         }
@@ -997,7 +997,7 @@ impl PersistentRouteEngine {
             &config.min_section_length.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist min_section_length: {}",
+                "veloqrs: [set_section_config] failed to persist min_section_length: {}",
                 e
             );
         }
@@ -1006,7 +1006,7 @@ impl PersistentRouteEngine {
             &config.min_activities.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist min_activities: {}",
+                "veloqrs: [set_section_config] failed to persist min_activities: {}",
                 e
             );
         }
@@ -1017,13 +1017,13 @@ impl PersistentRouteEngine {
             Ok(json) => {
                 if let Err(e) = self.set_setting(settings_keys::SECTION_CONFIG_JSON, &json) {
                     log::warn!(
-                        "tracematch: [set_section_config] failed to persist config blob: {}",
+                        "veloqrs: [set_section_config] failed to persist config blob: {}",
                         e
                     );
                 }
             }
             Err(e) => log::warn!(
-                "tracematch: [set_section_config] failed to serialise config blob: {}",
+                "veloqrs: [set_section_config] failed to serialise config blob: {}",
                 e
             ),
         }
@@ -1084,7 +1084,7 @@ impl PersistentRouteEngine {
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
             })
             .unwrap_or_else(|e| {
-                log::warn!("tracematch: debug_clone_activity section query failed: {e:?}");
+                log::warn!("veloqrs: debug_clone_activity section query failed: {e:?}");
                 Vec::new()
             });
 
@@ -1116,7 +1116,7 @@ impl PersistentRouteEngine {
                     source_meta.bounds.max_lng,
                 ],
             ) {
-                log::warn!("tracematch: debug_clone_activity activity insert failed: {e:?}");
+                log::warn!("veloqrs: debug_clone_activity activity insert failed: {e:?}");
                 continue;
             }
 
@@ -1140,7 +1140,7 @@ impl PersistentRouteEngine {
                         metrics.sport_type,
                     ],
                 ) {
-                    log::warn!("tracematch: debug_clone_activity metrics insert failed: {e:?}");
+                    log::warn!("veloqrs: debug_clone_activity metrics insert failed: {e:?}");
                 }
 
                 // Add to in-memory metrics
@@ -1169,7 +1169,7 @@ impl PersistentRouteEngine {
                         lap_pace
                     ],
                 ) {
-                    log::warn!("tracematch: debug_clone_activity section insert failed: {e:?}");
+                    log::warn!("veloqrs: debug_clone_activity section insert failed: {e:?}");
                 }
             }
 
@@ -1590,7 +1590,7 @@ pub mod persistent_engine_ffi {
         crate::init_logging();
         install_panic_hook(&db_path);
         info!(
-            "tracematch: [PersistentEngine] Initializing with db: {}",
+            "veloqrs: [PersistentEngine] Initializing with db: {}",
             db_path
         );
 
@@ -1598,14 +1598,14 @@ pub mod persistent_engine_ffi {
             if !parent.exists() {
                 if let Err(e) = std::fs::create_dir_all(parent) {
                     log::error!(
-                        "tracematch: [PersistentEngine] Failed to create directory {:?}: {}",
+                        "veloqrs: [PersistentEngine] Failed to create directory {:?}: {}",
                         parent,
                         e
                     );
                     return false;
                 }
                 info!(
-                    "tracematch: [PersistentEngine] Created parent directory: {:?}",
+                    "veloqrs: [PersistentEngine] Created parent directory: {:?}",
                     parent
                 );
             }
@@ -1615,7 +1615,7 @@ pub mod persistent_engine_ffi {
             Ok(engine) => engine,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to open database '{}': {:?}",
+                    "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
                     db_path,
                     e
                 );
@@ -1638,7 +1638,7 @@ pub mod persistent_engine_ffi {
         if let Err(e) = engine.load() {
             if is_corruption_error(&e) {
                 log::error!(
-                    "tracematch: [PersistentEngine] Corruption while loading '{}': {:?}",
+                    "veloqrs: [PersistentEngine] Corruption while loading '{}': {:?}",
                     db_path,
                     e
                 );
@@ -1650,7 +1650,7 @@ pub mod persistent_engine_ffi {
                 };
             } else {
                 info!(
-                    "tracematch: [PersistentEngine] Warning: Failed to load existing data: {:?}",
+                    "veloqrs: [PersistentEngine] Warning: Failed to load existing data: {:?}",
                     e
                 );
             }
@@ -1658,7 +1658,7 @@ pub mod persistent_engine_ffi {
 
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
-        info!("tracematch: [PersistentEngine] Initialized successfully");
+        info!("veloqrs: [PersistentEngine] Initialized successfully");
 
         true
     }
@@ -1715,7 +1715,7 @@ pub mod persistent_engine_ffi {
                     // only when both fail is the failover abandoned.
                     if suffix.is_empty() || std::fs::remove_file(&src).is_err() {
                         log::error!(
-                            "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
+                            "veloqrs: [PersistentEngine] Could not quarantine '{}': {}",
                             src,
                             e
                         );
@@ -1725,7 +1725,7 @@ pub mod persistent_engine_ffi {
             }
         }
         log::warn!(
-            "tracematch: [PersistentEngine] Quarantined unusable database to '{}.corrupt-{}', starting fresh",
+            "veloqrs: [PersistentEngine] Quarantined unusable database to '{}.corrupt-{}', starting fresh",
             db_path,
             ts
         );
@@ -1737,7 +1737,7 @@ pub mod persistent_engine_ffi {
                 // yields comes across.
                 let salvaged = engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
                 log::warn!(
-                    "tracematch: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
+                    "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
                     salvaged.history,
                     salvaged.geometry,
                     salvaged.pins,
@@ -1748,7 +1748,7 @@ pub mod persistent_engine_ffi {
             }
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
+                    "veloqrs: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
                     e
                 );
                 None

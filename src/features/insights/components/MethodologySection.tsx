@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   referenceTappable: {
-    color: '#009688',
+    color: colors.linkTeal,
     textDecorationLine: 'underline',
   },
   legacyReferenceContainer: {

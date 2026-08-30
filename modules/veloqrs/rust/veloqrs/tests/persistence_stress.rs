@@ -258,7 +258,7 @@ fn test_long_section_70km() {
         "Expected sections from 70km corridor with 60% overlap"
     );
 
-    // Check section lengths — at least one should be substantial
+    // Check section lengths, at least one should be substantial
     let sections = engine.get_sections();
     let max_length = sections
         .iter()

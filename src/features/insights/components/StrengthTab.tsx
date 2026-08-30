@@ -19,7 +19,7 @@ import {
   StrengthBalanceView,
 } from '@/features/strength';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity, layout, bodyDiagram } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
@@ -60,7 +60,9 @@ export const StrengthTab = React.memo(function StrengthTab() {
       return {
         slug: v.slug as ExtendedBodyPart['slug'],
         intensity,
-        ...(v.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
+        ...(v.slug === selectedMuscle
+          ? { styles: { stroke: bodyDiagram.selectedStroke, strokeWidth: 2.5 } }
+          : {}),
       };
     });
   }, [summary, selectedMuscle]);

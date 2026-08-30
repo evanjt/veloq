@@ -1,4 +1,4 @@
-//! Suite #2 — multi-geography + multi-sport pooled detection (invariant 2).
+//! Suite #2, multi-geography + multi-sport pooled detection (invariant 2).
 //!
 //! Invariant 2: a trace is a trace. Detection sees every sport together, sport
 //! belongs to the comparison layer, and `section.sport_type` is a derived
@@ -102,7 +102,7 @@ fn reversed_clone(src: &LifecycleActivity, new_id: String) -> LifecycleActivity 
 
 /// Relabel a slice of a source pool into one sport under a prefix. Starts
 /// are respaced three days apart so a handful of traversals always spans
-/// past the occasion floor's one-stay window — these scenarios exercise
+/// past the occasion floor's one-stay window, these scenarios exercise
 /// sport identity, not occasion support.
 fn labelled(
     src: &[LifecycleActivity],
@@ -162,7 +162,7 @@ fn is_reverse_pair(a: &SectionFingerprint, b: &SectionFingerprint) -> bool {
 /// bends, one pass per outing, braided by a per-outing perpendicular
 /// wobble. The corpus generator's random-walk corridors coil back within
 /// the fold radius of themselves, so no single clean pass exists and the
-/// detector honestly refuses to render them — these suites test SPORT
+/// detector honestly refuses to render them, these suites test SPORT
 /// identity, and need ground a road could actually take. `corridor_idx`
 /// offsets the road south so distinct indices are distinct ground.
 fn corridor_source(
@@ -234,7 +234,7 @@ fn corridor_source(
 }
 
 // ============================================================================
-// Curiosity 1 — SPATIAL PERTURBATION (identity across space)
+// Curiosity 1. SPATIAL PERTURBATION (identity across space)
 // ============================================================================
 //
 // A second, distant city is added to a detected library. Emission still orders
@@ -273,7 +273,7 @@ fn geo_scenario(
 
 /// Gate (positional ids): a distant, unrelated geography must not perturb the
 /// identity of an existing one. Asserts `identity_retention >= 0.85` for
-/// geography 1 when geography 2 is added to the SOUTH, the harder direction —
+/// geography 1 when geography 2 is added to the SOUTH, the harder direction,
 /// its clusters sort ahead of geography 1's, so a counter numbered by south-west
 /// corner would renumber geography 1 wholesale. Identity is assigned once and
 /// carried with the ground (B2), independent of what else the catalogue holds.
@@ -287,12 +287,12 @@ fn distant_geography_must_not_reshuffle_ids() {
         retention >= 0.85,
         "adding a distant southern geography reshuffled geography 1: \
          identity_retention={retention:.2} (want >= 0.85) while ground_survival={ground:.2} \
-         (its ground is all still present — the ids just moved off it)"
+         (its ground is all still present, the ids just moved off it)"
     );
 }
 
 // ============================================================================
-// Curiosity 2 — SPORT DERIVATION ON A SHARED CORRIDOR
+// Curiosity 2. SPORT DERIVATION ON A SHARED CORRIDOR
 // ============================================================================
 //
 // Corridor 2 in the corpus is travelled by both Ride and Run (ground-truth
@@ -335,7 +335,7 @@ fn cross_order_snapshot(
     (snap, ground)
 }
 
-/// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
+/// Gate (invariant 2, sport is derived, not partitioned): a corridor travelled
 /// by both sports yields ONE section on that ground, headed by the sport most
 /// of its members do, whichever sport arrived first. Every apply re-derives
 /// the heading from the members, so a carried row never keeps the label of
@@ -375,13 +375,13 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
 }
 
 // ============================================================================
-// Curiosity 3 — ADD-A-SECOND-SPORT IDENTITY
+// Curiosity 3. ADD-A-SECOND-SPORT IDENTITY
 // ============================================================================
 //
 // A Ride-only corridor exists, then Run passes of the SAME ground arrive. Under
 // invariant 2 the section is the ground: it keeps its id, and the second sport
 // is absorbed. The Run batch here is >= 50% new, so it takes the FULL re-detect
-// path — the harder case, where the whole pool is re-cut and the id has to be
+// path, the harder case, where the whole pool is re-cut and the id has to be
 // handed to the surviving candidate rather than re-minted.
 
 /// Gate (invariant 2, id survives a sport addition): adding a second sport on
@@ -426,7 +426,7 @@ fn section_id_survives_sport_addition() {
 }
 
 // ============================================================================
-// Curiosity 4 — REVERSE DIRECTION
+// Curiosity 4. REVERSE DIRECTION
 // ============================================================================
 //
 // A corridor travelled both ways is one corridor. The unified detector rasters
@@ -447,7 +447,7 @@ fn reverse_mix_snapshot(arm: Arm, n: usize, prefix: &str) -> (SectionSnapshot, V
     (snap, ground)
 }
 
-/// Gate (invariant 2 — one corridor, both directions): a reverse pass reuses the
+/// Gate (invariant 2, one corridor, both directions): a reverse pass reuses the
 /// forward section, never spawning a mirror on the same ground. Battery arm. The
 /// unified detector rasters into a direction-blind coverage grid, so both
 /// directions land in one section. A red is a direction-sensitive change

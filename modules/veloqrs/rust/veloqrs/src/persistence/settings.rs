@@ -101,7 +101,7 @@ impl PersistentRouteEngine {
                     return Ok(());
                 }
                 Err(e) => log::warn!(
-                    "tracematch: [load_section_config] config blob unparseable, falling back to slider keys: {}",
+                    "veloqrs: [load_section_config] config blob unparseable, falling back to slider keys: {}",
                     e
                 ),
             }

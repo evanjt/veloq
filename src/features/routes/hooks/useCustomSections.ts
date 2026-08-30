@@ -80,7 +80,6 @@ function findSupersededSections(
 
 /** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
 function toAppSections(sections: NativeSection[]): Section[] {
-  // Note: FfiSection doesn't have activityPortions - it's optional in the app type
   return sections.map((s) => ({
     ...s,
     polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
@@ -89,7 +88,6 @@ function toAppSections(sections: NativeSection[]): Section[] {
     })),
     sectionType: 'custom' as const,
     createdAt: s.createdAt || new Date().toISOString(),
-    activityPortions: undefined,
   })) as Section[];
 }
 
@@ -101,6 +99,11 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
 
+  // A caller that already read the sections owns the answer. Seeding the query
+  // was not enough: a cache another screen primed wins over `initialData`, so
+  // the bundle's list was dropped and the engine read anyway.
+  const skipOwnFfiCall = preComputedSections !== undefined;
+
   // Load custom sections from unified sections table
   const {
     data: rawSections,
@@ -109,7 +112,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refetch,
   } = useQuery<Section[]>({
     queryKey: queryKeys.sections.custom,
-    enabled,
+    enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
       const engine = getRouteEngine();
       if (!engine) {
@@ -119,13 +122,17 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       // Get custom sections from unified table
       return toAppSections(engine.getSectionsByType('custom'));
     },
-    initialData: preComputedSections ? () => toAppSections(preComputedSections) : undefined,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const preComputed = useMemo(
+    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
+    [preComputedSections]
+  );
+
   // Filter and sort sections
   const sections = useMemo(() => {
-    let filtered = rawSections || [];
+    let filtered = preComputed ?? rawSections ?? [];
 
     // Filter by sport type if specified
     if (sportType) {
@@ -138,7 +145,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     );
 
     return filtered;
-  }, [rawSections, sportType]);
+  }, [preComputed, rawSections, sportType]);
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {

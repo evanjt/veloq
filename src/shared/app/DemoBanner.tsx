@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTheme } from '@/shared/app';
-import { colors, brand } from '@/theme';
+import { colors, brand, ink } from '@/theme';
 import { clearDemoData } from '@/shared/storage';
 
 export function DemoBanner() {
@@ -55,7 +55,7 @@ export function DemoBanner() {
           <MaterialCommunityIcons
             name="information"
             size={18}
-            color="#FFFFFF"
+            color={ink.white}
             style={styles.icon}
           />
           <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
@@ -65,7 +65,7 @@ export function DemoBanner() {
           <MaterialCommunityIcons
             name="chevron-right"
             size={18}
-            color="#FFFFFF"
+            color={ink.white}
             style={styles.chevron}
           />
         </View>

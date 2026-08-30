@@ -42,7 +42,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             // abort). Clear the handle so the next start() can run,
             // otherwise detection is blocked for the rest of the session.
             *handle_guard = None;
-            log::error!("tracematch: [DetectionManager] Detection thread died without a result");
+            log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
             Ok(DetectionPoll::Died)
         }
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
@@ -88,7 +88,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
                     // success" so it's distinguishable from the fatal
                     // apply_sections_save case above.
                     log::warn!(
-                        "tracematch: [DetectionManager] poll: detection apply partially \
+                        "veloqrs: [DetectionManager] poll: detection apply partially \
                          succeeded - sections saved but save_processed_activity_ids \
                          failed ({} ids): {}. Next sync will re-process these activities.",
                         detection_activity_ids.len(),
@@ -109,7 +109,7 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
                 Ok(())
             })??;
 
-            info!("tracematch: [DetectionManager] Section detection complete");
+            info!("veloqrs: [DetectionManager] Section detection complete");
             Ok(DetectionPoll::Applied)
         }
         crate::persistence::WorkerPoll::Running => {
@@ -145,7 +145,7 @@ fn cancel_running_preview() {
         .unwrap_or_else(|e| e.into_inner());
     if let Some(handle) = slot.as_ref() {
         handle.request_cancel();
-        info!("tracematch: [DetectionManager] Cancelled the running preview");
+        info!("veloqrs: [DetectionManager] Cancelled the running preview");
     }
 }
 
@@ -161,14 +161,14 @@ impl DetectionManager {
         // handle would occupy the slot with a dead run and block the
         // backfill's final re-cut behind it.
         if crate::persistence::detection_suspended() {
-            info!("tracematch: [DetectionManager] Start refused: detection is suspended");
+            info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
             return Ok(false);
         }
         // A cheap refusal before the cancel below, so a start that is going to
         // lose does not cost a running preview its answer. The decision that
         // counts is made under the guard held further down.
         if detection_running() {
-            info!("tracematch: [DetectionManager] Section detection already running");
+            info!("veloqrs: [DetectionManager] Section detection already running");
             return Ok(false);
         }
 
@@ -187,7 +187,7 @@ impl DetectionManager {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
-            info!("tracematch: [DetectionManager] Section detection already running");
+            info!("veloqrs: [DetectionManager] Section detection already running");
             return Ok(false);
         }
 
@@ -196,12 +196,12 @@ impl DetectionManager {
         // suspension between the check above and here. Installing it would
         // occupy the slot with a run that never happened.
         if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
-            info!("tracematch: [DetectionManager] Start refused: detection is suspended");
+            info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
             return Ok(false);
         }
 
         *handle_guard = Some(handle);
-        info!("tracematch: [DetectionManager] Section detection started");
+        info!("veloqrs: [DetectionManager] Section detection started");
         Ok(true)
     }
 
@@ -239,12 +239,12 @@ impl DetectionManager {
         // cost the evidence cache, and must not park a dead handle in the
         // slot the backfill's final re-cut needs.
         if crate::persistence::detection_suspended() {
-            info!("tracematch: [DetectionManager] Force redetect refused: detection is suspended");
+            info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
             return Ok(false);
         }
         if detection_running() {
             info!(
-                "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+                "veloqrs: [DetectionManager] Cannot force redetect: detection already running"
             );
             return Ok(false);
         }
@@ -260,7 +260,7 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!(
-                "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+                "veloqrs: [DetectionManager] Cannot force redetect: detection already running"
             );
             return Ok(false);
         }
@@ -272,12 +272,12 @@ impl DetectionManager {
 
         let handle = with_engine(|e| e.detect_sections_background())?;
         if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
-            info!("tracematch: [DetectionManager] Force redetect refused: detection is suspended");
+            info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
             return Ok(false);
         }
 
         *handle_guard = Some(handle);
-        info!("tracematch: [DetectionManager] Forced full section re-detection started");
+        info!("veloqrs: [DetectionManager] Forced full section re-detection started");
         Ok(true)
     }
 

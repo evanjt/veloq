@@ -339,7 +339,7 @@ fn unpinned_corridor_never_loses_visits_as_it_grows() {
 
 /// Invariant 7 / B2 hysteresis: an unpinned section keeps its identity as its
 /// extent evolves. Asserts `identity_retention >= 0.85` across both the big
-/// expand (a->b) and the single add (b->c) — B2's assign-once identity layer
+/// expand (a->b) and the single add (b->c). B2's assign-once identity layer
 /// carries the id with the corridor, so a growing set adds sections instead of
 /// reshuffling ids off their ground.
 #[test]

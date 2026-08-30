@@ -272,8 +272,8 @@ impl ActivityManager {
     /// indicator highlights, this activity's portion of each section it
     /// traverses, and the sections where it holds the record.
     ///
-    /// `min_route_activities` filters the returned route groups the same way
-    /// the screen used to filter them after the fact.
+    /// `min_route_activities` filters the returned route groups here, so the
+    /// screen does not filter them after the fact.
     fn get_detail_data(
         &self,
         activity_id: String,

@@ -261,11 +261,9 @@ if (checkMode) {
   // in RUST_TO_TS_NAME) don't get captured as a `name:` field, which would
   // pull the camelCase value into the set and falsely flag it as removed.
   const existingNames = new Set(
-    [
-      ...existingContent.matchAll(
-        /(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g
-      ),
-    ].map((m) => m[1])
+    [...existingContent.matchAll(/(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g)].map(
+      (m) => m[1]
+    )
   );
 
   const missingInManifest: string[] = [];
@@ -300,16 +298,25 @@ if (checkMode) {
   // a parameter or return-type change in Rust fails the check even when the name
   // and export count are unchanged. Keyed by object::name (not file:line) so an
   // unrelated code move does not trip a false positive.
-  const sigKey = (e: { object?: string; name: string }) => `${e.object ?? '<standalone>'}::${e.name}`;
-  const manifestArray = existingContent.match(/FFI_EXPORTS:\s*FfiExportInfo\[\]\s*=\s*(\[[\s\S]*?\n\]);/);
-  if (manifestArray) {
-    let manifestEntries: { name: string; object?: string; paramCount?: number; returnType?: string }[] =
-      [];
-    try {
-      manifestEntries = JSON.parse(manifestArray[1]);
-    } catch {
-      manifestEntries = [];
-    }
+  const sigKey = (e: { object?: string; name: string }) =>
+    `${e.object ?? '<standalone>'}::${e.name}`;
+  // Read the array the manifest exports rather than parsing its source text.
+  // Scraping it out and JSON.parsing worked only while the file stayed
+  // double-quoted: one Prettier pass turned every real drift into a silent pass.
+  let manifestEntries: {
+    name: string;
+    object?: string;
+    paramCount?: number;
+    returnType?: string;
+  }[] = [];
+  try {
+    manifestEntries = require(tsOutput).FFI_EXPORTS;
+  } catch (err) {
+    console.error('ERROR: could not read FFI_EXPORTS from the manifest:', err);
+    console.error('Run: npm run ffi:manifest');
+    process.exit(1);
+  }
+  {
     const manifestSig = new Map(manifestEntries.map((e) => [sigKey(e), e]));
     const drift: string[] = [];
     for (const exp of exports) {
@@ -452,6 +459,17 @@ ${uniffiObjects.map((o) => `  '${o}',`).join('\n')}
 ] as const;
 `;
 
-  fs.writeFileSync(tsOutput, tsContent);
-  console.log(`\nGenerated: ${tsOutput}`);
+  // Write what Prettier would write, so `npm run format:check` stays green
+  // straight after a regeneration and the pre-commit hook never reformats
+  // this file underneath an unrelated change.
+  const prettier = require('prettier');
+  const prettierConfig = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../config/.prettierrc'), 'utf8')
+  );
+  void prettier
+    .format(tsContent, { ...prettierConfig, parser: 'typescript' })
+    .then((formatted: string) => {
+      fs.writeFileSync(tsOutput, formatted);
+      console.log(`\nGenerated: ${tsOutput}`);
+    });
 }

@@ -1,6 +1,6 @@
-# Regional Map — Layer Toggles
+# Regional Map. Layer Toggles
 # US-R1: heatmap / routes / activities are independent controls (sections toggle
-#        conditional on global section presence — absent in fresh demo mode)
+#        conditional on global section presence, absent in fresh demo mode)
 # US-R2: toggling layers is reflected in map state
 
 appId: com.veloq.app.dev
@@ -28,11 +28,11 @@ tags:
     id: "map-toggle-3d"
 
 # Routes toggle is data-conditional (routeCount > 0). Sections toggle likewise.
-# Take a screenshot of initial state — hardcoded assertion of presence is
+# Take a screenshot of initial state, hardcoded assertion of presence is
 # fragile because demo mode may or may not detect routes by the time this runs.
 - takeScreenshot: "regional-map-default"
 
-# Activate heatmap and screenshot — trace colour should shift when selecting
+# Activate heatmap and screenshot, trace colour should shift when selecting
 # an activity (covered separately; here we verify the toggle fires).
 - tapOn:
     id: "map-toggle-heatmap"
@@ -43,7 +43,7 @@ tags:
     id: "map-toggle-heatmap"
 - takeScreenshot: "regional-map-heatmap-off"
 
-# Activities toggle — off should hide traces.
+# Activities toggle, off should hide traces.
 - tapOn:
     id: "map-toggle-activities"
 - takeScreenshot: "regional-map-activities-off"
@@ -51,7 +51,7 @@ tags:
     id: "map-toggle-activities"
 - takeScreenshot: "regional-map-activities-on"
 
-# Routes toggle (conditional — only present if routeCount > 0). Flow must not
+# Routes toggle (conditional, only present if routeCount > 0). Flow must not
 # fail if the toggle isn't rendered.
 - runFlow:
     when:
@@ -62,7 +62,7 @@ tags:
           id: "map-toggle-routes"
       - takeScreenshot: "regional-map-routes-toggled"
 
-# Sections toggle (conditional — only present if sections.length > 0)
+# Sections toggle (conditional, only present if sections.length > 0)
 - runFlow:
     when:
       visible:

@@ -1,11 +1,11 @@
-//! Suite #2 — `set_section_config` no-op stability (the launch-renumber guard).
+//! Suite #2, `set_section_config` no-op stability (the launch-renumber guard).
 //!
 //! Since B2, `set_section_config` resets the identity registry, because a genuine
 //! config change invalidates the identity basis (the stable ids were assigned to
 //! ground the old params found). But the TS init path re-sends the PERSISTED
 //! config on every launch (GlobalDataSync applies the strictness preset whenever
 //! `detectionStrictness != 60`), so an UNCHANGED config must be a no-op or every
-//! section renumbers on each open for any user who has moved the slider — B2
+//! section renumbers on each open for any user who has moved the slider. B2
 //! defeated at startup for exactly the engaged users. The guard is a
 //! top-of-function early-return when `config == self.section_config`, gating the
 //! whole tail (settings persist, processed-set clear, dirty flag, registry reset).
@@ -42,7 +42,7 @@ fn ids(snap: &SectionSnapshot) -> BTreeSet<String> {
 
 /// Re-sending the identical config must not disturb the catalogue: no re-detect,
 /// no registry reset, so a later detect carries the SAME section ids. Red without
-/// the guard — `set_section_config` cleared the processed set and reset the
+/// the guard, `set_section_config` cleared the processed set and reset the
 /// registry unconditionally, so the next detect re-minted every id (a full
 /// renumber on every launch for any user past the default strictness).
 #[test]
@@ -62,14 +62,14 @@ fn unchanged_config_keeps_section_ids() {
     let after = ids(&ingest_step(&mut engine, "post-noop", &[]).snapshot);
     assert_eq!(
         after, before,
-        "re-sending the active config renumbered sections — the registry was reset on a no-op config set"
+        "re-sending the active config renumbered sections, the registry was reset on a no-op config set"
     );
 }
 
 /// The guard must not over-suppress: a GENUINE config change still clears the
 /// processed set and resets the registry, re-analysing under the new params. A
 /// stricter `min_activities` can only reduce the qualifying sections, so the
-/// catalogue count must drop — proving the invalidation tail still fires.
+/// catalogue count must drop, proving the invalidation tail still fires.
 #[test]
 fn changed_config_reanalyses() {
     let corpus = corpus();
@@ -93,7 +93,7 @@ fn changed_config_reanalyses() {
 
 /// The REAL launch scenario, end to end. A config carrying preset-only fields the
 /// four slider keys never persisted (`preserve_hierarchy`, `min_corridor_tracks`)
-/// is set, the engine is RESTARTED, and the SAME config is re-applied — exactly
+/// is set, the engine is RESTARTED, and the SAME config is re-applied, exactly
 /// what GlobalDataSync does on mount. The whole-config blob restores those fields,
 /// so the loaded config equals the re-applied one, the guard no-ops, and the
 /// section ids survive the relaunch. Red with only the slider keys persisted:
@@ -124,13 +124,13 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     // Restart: reopen the same DB, hydrate from settings.
     let mut e2 = PersistentRouteEngine::new(ps).expect("reopen");
     e2.load().expect("load");
-    // The launch re-apply of the identical config — must be a no-op now.
+    // The launch re-apply of the identical config, must be a no-op now.
     e2.set_section_config(cfg.clone());
     ingest_step(&mut e2, "post-relaunch", &[]);
     let after = ids(&snapshot(&mut e2));
 
     assert_eq!(
         after, before,
-        "relaunch re-apply of the persisted config renumbered sections — the config blob did not restore the preset-only fields"
+        "relaunch re-apply of the persisted config renumbered sections, the config blob did not restore the preset-only fields"
     );
 }

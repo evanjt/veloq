@@ -8,7 +8,7 @@ export {
   type RouteMarker,
 } from './useMapGeoJSON';
 export { useMapHandlers, type SpiderState } from './useMapHandlers';
-export { useMapCamera } from './useMapCamera';
+export { useRegionalMapCamera } from './useRegionalMapCamera';
 export { ClusterCountOverlay, type ClusterCountOverlayRef } from './ClusterCountOverlay';
 export {
   buildRegionalSources,

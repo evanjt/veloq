@@ -1,4 +1,4 @@
-//! Tier 0.5 — `apply_sections` atomicity + the B2 identity remap.
+//! Tier 0.5, `apply_sections` atomicity + the B2 identity remap.
 //!
 //! Originally this locked in the rollback contract by handing `apply_sections`
 //! a section vec with DUPLICATE ids to force a `UNIQUE constraint failed:
@@ -90,7 +90,7 @@ fn apply_sections_remaps_duplicate_input_ids() {
     // Duplicate the first section's id into the second slot. Pre-B2 this hit the
     // UNIQUE PK and rolled the apply back; under the identity registry the input
     // ids are thrown away, so the two DISTINCT grounds simply carry their own
-    // stable ids and the apply succeeds — the R2 collision cannot occur.
+    // stable ids and the apply succeeds, the R2 collision cannot occur.
     let mut broken: Vec<_> = engine.get_sections().to_vec();
     assert!(
         broken.len() >= 2,
@@ -138,7 +138,7 @@ fn apply_sections_preserves_db_after_failure_then_succeeds_on_retry() {
     broken[1].id = dup_id;
     let _ = engine.apply_sections(broken);
 
-    // Now re-run a real detection and apply — the engine must still be
+    // Now re-run a real detection and apply, the engine must still be
     // healthy enough to do this. If save_sections left the DB in a
     // partial state, this would error.
     let handle = engine.detect_sections_background();

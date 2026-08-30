@@ -48,7 +48,21 @@ tags:
     timeout: 10000
 - takeScreenshot: "navigation-deep-links-map"
 
-# Test routes deep link
+# Test insights deep link
+- openLink: "veloq://insights"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+- takeScreenshot: "navigation-deep-links-insights"
+
+# The pre-rename path still lands on the tab, notifications scheduled before
+# the rename carry it.
 - openLink: "veloq://routes"
 - runFlow:
     when:
@@ -59,7 +73,7 @@ tags:
     visible:
       id: "routes-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-routes"
+- takeScreenshot: "navigation-deep-links-routes-legacy"
 
 # Test settings deep link
 - openLink: "veloq://settings"

@@ -22,10 +22,10 @@ Flows are organized into tiers via tags. CI runs different tiers based on the ev
 
 | Tier | Tag | When | Purpose |
 |------|-----|------|---------|
-| **tier0** | `tier0` | Every push | Smoke test — app launches |
-| **tier1** | `tier1` | Every push | Critical path — auth, navigation |
-| **tier2** | `tier2` | PRs to main | Feature coverage — all screens |
-| **tier3** | `tier3` | Nightly / manual | Stress tests — rapid interactions |
+| **tier0** | `tier0` | Every push | Smoke test, app launches |
+| **tier1** | `tier1` | Every push | Critical path, auth, navigation |
+| **tier2** | `tier2` | PRs to main | Feature coverage, all screens |
+| **tier3** | `tier3` | Nightly / manual | Stress tests, rapid interactions |
 | **tier4** | `tier4` | Manual only | Marketing screenshots |
 
 ## Running Tests
@@ -199,12 +199,12 @@ tags:
 ### Conventions
 
 1. **Always use a helper** for setup and navigation
-2. **Always add a tier tag** — no untagged flows
+2. **Always add a tier tag**, no untagged flows
 3. **Use testID** over text matching when possible
 4. **Set generous timeouts** for React Native boot (30s) and data loading (15s)
 5. **Handle system dialogs** with conditional flows in the setup helper
 6. **Take screenshots** at the end of each flow for debugging
-7. **Keep flows focused** — one feature per flow
+7. **Keep flows focused**, one feature per flow
 
 ## Screenshots
 

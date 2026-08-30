@@ -38,7 +38,7 @@ function StorageBreakdownBar({
       result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
     }
     if (heatmapCacheSize > 0) {
-      result.push({ label: 'Heatmap', bytes: heatmapCacheSize, color: '#FF9800' });
+      result.push({ label: 'Heatmap', bytes: heatmapCacheSize, color: colors.cautionOrange });
     }
     if (tileCacheStats?.satellite?.totalBytes) {
       result.push({
@@ -178,7 +178,7 @@ export function StorageStatsPanel({
         <View style={styles.statDivider} />
         <TouchableOpacity
           style={styles.statItem}
-          onPress={() => navigateTo('/routes?tab=routes')}
+          onPress={() => navigateTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >
@@ -197,7 +197,7 @@ export function StorageStatsPanel({
         <View style={styles.statDivider} />
         <TouchableOpacity
           style={styles.statItem}
-          onPress={() => navigateTo('/routes?tab=sections')}
+          onPress={() => navigateTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >

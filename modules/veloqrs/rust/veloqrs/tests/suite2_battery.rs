@@ -1,4 +1,4 @@
-//! Suite #2 — Battery.
+//! Suite #2. Battery.
 //!
 //! The new base (`DetectionMethod::Unified`) driven through the same journeys
 //! as the Control baseline (Suite #1), over the shared harness. Every check
@@ -64,7 +64,7 @@ fn expand_window_discontinuity_is_measured() {
     }
 }
 
-/// Invariant 4 — order-free catalogue. A single cold batch must yield the same
+/// Invariant 4, order-free catalogue. A single cold batch must yield the same
 /// catalogue no matter the ingest order. This is the property that makes
 /// incremental == batch and lets an expand ADD rather than reshuffle, so it is
 /// the foundation the whole redesign stands on. Battery (unified) is order-free
@@ -88,7 +88,7 @@ fn order_free_cold_batch() {
             if same {
                 "YES"
             } else {
-                "NO — order-dependent"
+                "NO, order-dependent"
             },
             s1.count(),
             s2.count(),
@@ -103,7 +103,7 @@ fn order_free_cold_batch() {
 }
 
 /// Invariant (B2 identity layer): the Battery keeps section identity across an
-/// expand — most cold-catalogue ids still address the same ground afterwards.
+/// expand, most cold-catalogue ids still address the same ground afterwards.
 /// The assign-once identity layer carries the id with the corridor, so widening
 /// the sync window adds sections instead of renumbering them.
 #[test]

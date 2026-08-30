@@ -27,14 +27,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import {
-  useUnifiedSections,
-  generateSectionName,
-} from '@/features/routes/hooks/useUnifiedSections';
-import {
-  sortSections,
-  type SectionsSortOption,
-} from '@/features/routes/lib/sectionRanking';
+import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
+import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -44,7 +38,7 @@ import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import type { UnifiedSection, FrequentSection } from '@/types';
+import type { FrequentSection } from '@/types';
 import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 
@@ -55,7 +49,7 @@ interface SectionsListProps {
   sportType?: string;
   /** Pre-fetched data from parent to avoid duplicate FFI calls */
   prefetchedData?: {
-    sections: UnifiedSection[];
+    sections: FrequentSection[];
     count: number;
     autoCount: number;
     customCount: number;
@@ -89,7 +83,7 @@ type HiddenFilters = {
 export type { SectionsSortOption };
 
 /**
- * Convert batch SectionWithPolyline to FrequentSection for useUnifiedSections.
+ * Convert batch SectionWithPolyline to FrequentSection for useSections.
  * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
  */
 function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
@@ -152,14 +146,14 @@ function SectionRowSkeleton() {
 
 interface SectionListItemProps {
   index: number;
-  item: UnifiedSection;
+  item: FrequentSection;
   isDark: boolean;
   isDisabled: boolean;
   distanceFromUser?: number;
   onPress: (id: string) => void;
   onSwipeableOpen: (id: string) => void;
-  onDelete: (item: UnifiedSection) => void;
-  onToggleHide: (item: UnifiedSection) => void;
+  onDelete: (item: FrequentSection) => void;
+  onToggleHide: (item: FrequentSection) => void;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
   t: (key: string) => string;
 }
@@ -300,7 +294,7 @@ export const SectionsList = memo(function SectionsList({
   });
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Convert batch sections to FrequentSection[] for preloading into useUnifiedSections
+  // Convert batch sections to FrequentSection[] for preloading into useSections
   const preloadedEngineSections = useMemo(() => {
     if (!batchSections) return undefined;
     return batchSections.map(batchSectionToFrequentSection);
@@ -308,7 +302,7 @@ export const SectionsList = memo(function SectionsList({
 
   // Only call hook if data not pre-fetched from parent
   // When batch sections are available, skip engine FFI calls but keep custom loading
-  const hookData = useUnifiedSections({
+  const hookData = useSections({
     sportType,
     includeCustom: true,
     enabled: !prefetchedData,
@@ -339,7 +333,7 @@ export const SectionsList = memo(function SectionsList({
 
   // Apply filter, search, and sort
   const { regularSections, unacceptedAutoCount, acceptedAutoCount } = useMemo(() => {
-    const regular: UnifiedSection[] = [];
+    const regular: FrequentSection[] = [];
     let unaccepted = 0;
     let accepted = 0;
     const query = searchQuery.toLowerCase();
@@ -527,7 +521,7 @@ export const SectionsList = memo(function SectionsList({
 
   // Handle remove/restore action for auto sections
   const handleToggleHide = useCallback(
-    (item: UnifiedSection) => {
+    (item: FrequentSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
@@ -549,7 +543,7 @@ export const SectionsList = memo(function SectionsList({
 
   // Handle delete action for custom sections
   const handleDelete = useCallback(
-    (item: UnifiedSection) => {
+    (item: FrequentSection) => {
       const swipeable = swipeableRefs.current.get(item.id);
       swipeable?.close();
 
@@ -572,7 +566,7 @@ export const SectionsList = memo(function SectionsList({
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: UnifiedSection; index: number }) => (
+    ({ item, index }: { item: FrequentSection; index: number }) => (
       <SectionListItem
         item={item}
         index={index}

@@ -19,7 +19,7 @@ import {
   formatTSS,
   formatCalories,
 } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows, layout, brand, ink } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityMapPreview } from './ActivityMapPreview';
@@ -69,7 +69,7 @@ interface ActivityCardProps {
 
 // White text theme (used on any dark/satellite map, or dark theme + light map)
 const WHITE_TEXT = {
-  text: '#FFFFFF',
+  text: ink.white,
   textMuted: 'rgba(255,255,255,0.85)',
   dot: 'rgba(255,255,255,0.5)',
   divider: 'rgba(255,255,255,0.15)',
@@ -470,7 +470,11 @@ export const ActivityCard = React.memo(
                       ]}
                     >
                       {routeHighlight.isPr ? (
-                        <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
+                        <MaterialCommunityIcons
+                          name="trophy"
+                          size={14}
+                          color={colors.textOnPrimary}
+                        />
                       ) : (
                         <RNText style={styles.routeTrendBadgeText}>
                           PR+
@@ -553,8 +557,14 @@ export const ActivityCard = React.memo(
                                     isDark ? styles.prPillDark : styles.prPillLight,
                                   ]}
                                 >
-                                  <MaterialCommunityIcons name="trophy" size={12} color="#18181B" />
-                                  <RNText style={[styles.trendCount, { color: '#18181B' }]}>
+                                  <MaterialCommunityIcons
+                                    name="trophy"
+                                    size={12}
+                                    color={colors.textOnPrimary}
+                                  />
+                                  <RNText
+                                    style={[styles.trendCount, { color: colors.textOnPrimary }]}
+                                  >
                                     {prCount}
                                   </RNText>
                                 </View>
@@ -570,9 +580,9 @@ export const ActivityCard = React.memo(
                                   <MaterialCommunityIcons
                                     name="trending-up"
                                     size={13}
-                                    color="#FFFFFF"
+                                    color={ink.white}
                                   />
-                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
+                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
                                     {improving}
                                   </RNText>
                                 </View>
@@ -588,9 +598,9 @@ export const ActivityCard = React.memo(
                                   <MaterialCommunityIcons
                                     name="trending-down"
                                     size={13}
-                                    color="#FFFFFF"
+                                    color={ink.white}
                                   />
-                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
+                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
                                     {declining}
                                   </RNText>
                                 </View>
@@ -721,13 +731,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 3,
-    shadowColor: '#000',
+    shadowColor: colors.shadowBlack,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 2,
   },
   routeTrendBadgePr: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: brand.gold,
   },
   routeTrendBadgeDelta: {
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -735,7 +745,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   routeTrendBadgeText: {
-    color: '#FFFFFF',
+    color: ink.white,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -791,30 +801,30 @@ const styles = StyleSheet.create({
   },
   // PR pill - solid gold, high contrast
   prPillLight: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#B8942F',
+    backgroundColor: brand.gold,
+    borderColor: brand.goldDark,
   },
   prPillDark: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#E8C96E',
+    backgroundColor: brand.gold,
+    borderColor: brand.goldLight,
   },
   // Improving pill - solid green
   improvingPillLight: {
-    backgroundColor: '#22C55E',
-    borderColor: '#16A34A',
+    backgroundColor: colors.success,
+    borderColor: colors.successDark,
   },
   improvingPillDark: {
-    backgroundColor: '#22C55E',
-    borderColor: '#4ADE80',
+    backgroundColor: colors.success,
+    borderColor: colors.successLight,
   },
   // Declining pill - solid muted
   decliningPillLight: {
-    backgroundColor: '#A1A1AA',
-    borderColor: '#71717A',
+    backgroundColor: colors.textDisabled,
+    borderColor: colors.textMuted,
   },
   decliningPillDark: {
-    backgroundColor: '#52525B',
-    borderColor: '#71717A',
+    backgroundColor: colors.gray600,
+    borderColor: colors.textMuted,
   },
   trendCount: {
     fontSize: 13,

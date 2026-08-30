@@ -20,6 +20,7 @@ import {
   typography,
   shadows,
   mapPreviewColors,
+  ink,
 } from '@/theme';
 import {
   getActivityColor,
@@ -132,7 +133,7 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
       <Polyline
         points={pointsString}
         fill="none"
-        stroke="#000000"
+        stroke={ink.black}
         strokeWidth={3}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -152,11 +153,11 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
 
       {/* Start marker (green) */}
       <Circle cx={startPoint.x} cy={startPoint.y} r={3} fill={colors.success} />
-      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill="#FFFFFF" />
+      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill={ink.white} />
 
       {/* End marker (red) */}
       <Circle cx={endPoint.x} cy={endPoint.y} r={3} fill={colors.error} />
-      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill="#FFFFFF" />
+      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill={ink.white} />
     </Svg>
   );
 });

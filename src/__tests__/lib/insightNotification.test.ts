@@ -64,7 +64,7 @@ describe('insight notifications', () => {
     const translate = (key: string) => key;
     const content = formatInsightNotification(createInsight('stale', 'stale_pr', 2), translate);
 
-    expect(content.data.route).toBe('/routes?tab=sections');
+    expect(content.data.route).toBe('/insights?tab=sections');
   });
 
   it('suppresses strength insight notifications until preference coverage exists', () => {

@@ -6,7 +6,7 @@ import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, ink } from '@/theme';
 import { DataPointRow } from './DataPointRow';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   sectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ink.white,
     borderRadius: 10,
     padding: spacing.sm,
     borderWidth: 1,

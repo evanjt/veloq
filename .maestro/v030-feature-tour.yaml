@@ -2,7 +2,7 @@
 # Walks every major surface affected by the 0.2.2 → 0.3.0 work and takes a
 # screenshot at each checkpoint. Intended as a fast visual-regression baseline.
 #
-# Assertions are intentionally light — each screenshot is the primary artifact.
+# Assertions are intentionally light, each screenshot is the primary artifact.
 # This flow is the ground-truth "does the app even render the new surfaces"
 # check; narrower flows verify specific user stories.
 
@@ -43,7 +43,7 @@ tags:
 - takeScreenshot: "tour-02-feed-scrolled"
 
 # ====================================================================
-# ACTIVITY DETAIL — Charts tab (default)
+# ACTIVITY DETAIL. Charts tab (default)
 # ====================================================================
 - openLink: "veloq://activity/demo-test-0"
 - runFlow:
@@ -58,7 +58,7 @@ tags:
 - takeScreenshot: "tour-03-activity-charts-default"
 
 # ====================================================================
-# ACTIVITY DETAIL — Sections tab (encounters refactor)
+# ACTIVITY DETAIL. Sections tab (encounters refactor)
 # ====================================================================
 - tapOn:
     text: "Sections"
@@ -73,7 +73,7 @@ tags:
     text: "NaN"
 
 # ====================================================================
-# ACTIVITY DETAIL — Routes tab
+# ACTIVITY DETAIL. Routes tab
 # ====================================================================
 - tapOn:
     text: "Route"
@@ -178,7 +178,7 @@ tags:
 - takeScreenshot: "tour-15-health"
 
 # ====================================================================
-# SETTINGS — Storage stats and backup
+# SETTINGS. Storage stats and backup
 # ====================================================================
 - runFlow:
     file: helpers/navigate-to-settings.yaml

@@ -16,7 +16,7 @@ import { useEngineMapActivities } from '@/features/maps/hooks';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, ink, spacing, typography } from '@/theme';
 import {
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: ink.white,
   },
   chipTextInactive: {
     color: colors.textSecondary,

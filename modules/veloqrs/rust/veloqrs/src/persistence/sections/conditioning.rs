@@ -75,7 +75,7 @@ impl Drop for DetectionSuspendGuard {
 /// overlapping backfills both have to finish before detection resumes.
 pub fn suspend_detection() -> DetectionSuspendGuard {
     DETECTION_SUSPENSIONS.fetch_add(1, Ordering::SeqCst);
-    log::info!("tracematch: [conditioning] detection suspended");
+    log::info!("veloqrs: [conditioning] detection suspended");
     DetectionSuspendGuard { _private: () }
 }
 
@@ -208,7 +208,7 @@ pub fn try_start_conditioning() -> bool {
     drop(guard);
 
     spawn_conditioning_driver();
-    log::info!("tracematch: [conditioning] backfill run started");
+    log::info!("veloqrs: [conditioning] backfill run started");
     true
 }
 
@@ -222,7 +222,7 @@ fn spawn_conditioning_driver() {
             match poll_detection_once() {
                 Ok(DetectionPoll::Running) => continue,
                 Ok(DetectionPoll::Applied) => {
-                    log::info!("tracematch: [conditioning] run applied");
+                    log::info!("veloqrs: [conditioning] run applied");
                     // Adds that landed during the run get their run now,
                     // threshold or not: a flush this run refused was kept
                     // for exactly this moment.
@@ -233,7 +233,7 @@ fn spawn_conditioning_driver() {
                 }
                 Ok(DetectionPoll::Idle) | Ok(DetectionPoll::Died) => break,
                 Err(e) => {
-                    log::warn!("tracematch: [conditioning] driver poll failed: {}", e);
+                    log::warn!("veloqrs: [conditioning] driver poll failed: {}", e);
                     break;
                 }
             }

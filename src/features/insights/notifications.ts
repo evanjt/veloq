@@ -83,7 +83,7 @@ export function filterInsightsForNotificationPreferences(
  * Pure function - no React dependencies, safe for background task use.
  */
 export function formatInsightNotification(insight: Insight, t: TFunc): NotificationContent {
-  const route = insight.navigationTarget ?? '/routes';
+  const route = insight.navigationTarget ?? '/insights';
 
   switch (insight.category) {
     case 'section_pr':
@@ -91,7 +91,7 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
         title: t('notifications.sectionPr.title'),
         body: insight.title,
         data: {
-          route: '/routes',
+          route: '/insights',
           insightId: insight.id,
           sectionId: insight.supportingData?.sections?.[0]?.sectionId,
         },
@@ -108,7 +108,7 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
       return {
         title: t('notifications.periodComparison.title'),
         body: insight.title,
-        data: { route: '/routes?tab=routes', insightId: insight.id },
+        data: { route: '/insights?tab=routes', insightId: insight.id },
       };
 
     case 'hrv_trend':
@@ -122,14 +122,14 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
       return {
         title: t('notifications.stalePr.title'),
         body: insight.title,
-        data: { route: '/routes?tab=sections', insightId: insight.id },
+        data: { route: '/insights?tab=sections', insightId: insight.id },
       };
 
     case 'efficiency_trend':
       return {
         title: t('notifications.efficiencyTrend.title'),
         body: insight.title,
-        data: { route: '/routes?tab=sections', insightId: insight.id },
+        data: { route: '/insights?tab=sections', insightId: insight.id },
       };
 
     default:

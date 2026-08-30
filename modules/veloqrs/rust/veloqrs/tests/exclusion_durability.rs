@@ -1,7 +1,7 @@
 //! An exclusion is a user decision on a junction row. Every editing path
 //! that rebuilds a section's junction rows must carry the flag across, and
 //! every read that serves cached results must drop them when the flag
-//! moves — or exclude quietly stops meaning anything.
+//! moves, or exclude quietly stops meaning anything.
 
 #![cfg(feature = "synthetic")]
 

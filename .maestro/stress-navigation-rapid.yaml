@@ -54,7 +54,7 @@ tags:
             visible: "Open"
           commands:
             - tapOn: "Open"
-      - openLink: "veloq://routes"
+      - openLink: "veloq://insights"
       - runFlow:
           when:
             visible: "Open"

@@ -10,7 +10,7 @@
     "intervalsTerms": "intervals.icu Terms of Service",
     "mapAttribution": "Map tiles are provided by the legends at OpenStreetMap under the Open Database License. Map data © OpenStreetMap contributors.",
     "mapData": "Map stuff",
-    "openSource": "License",
+    "openSource": "Open Source Licence (Apache 2.0)",
     "sourceCode": "Check out the code",
     "thirdPartyLicenses": "Third-Party Licences",
     "title": "About & Legal bits",
@@ -620,7 +620,7 @@
     "sectionMapsGraphics": "Maps & Graphics",
     "sectionNativeEngine": "Native Engine (tracematch)",
     "sectionNetworkingUtilities": "Networking & Utilities",
-    "sectionSpecialLicenses": "Special Licenses",
+    "sectionSpecialLicenses": "Special Licences",
     "sectionStateManagement": "State Management",
     "sectionUIComponents": "UI Components",
     "title": "Third-Party Licences"

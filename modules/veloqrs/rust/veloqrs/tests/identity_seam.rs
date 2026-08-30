@@ -80,7 +80,7 @@ fn act(id: String, day: i64, pts: Vec<GpsPoint>) -> LifecycleActivity {
     }
 }
 
-/// `count` laterally jittered rides of one corridor, every second day —
+/// `count` laterally jittered rides of one corridor, every second day,
 /// wide enough that even a short corpus spans past the occasion floor's
 /// one-stay window (these scenarios exercise durable ownership, not
 /// occasion support).

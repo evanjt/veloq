@@ -29,7 +29,7 @@ import {
   ClusterCountOverlay,
   type ClusterCountOverlayRef,
   useMapHandlers,
-  useMapCamera,
+  useRegionalMapCamera,
   useMapGeoJSON,
   type SelectedActivity,
   type SpiderState,
@@ -55,7 +55,7 @@ const NOOP = () => {};
  *
  * Three things keep pan and zoom smooth with thousands of points:
  *
- * 1. Activity centres are computed once in useMapCamera, from the Rust-side
+ * 1. Activity centres are computed once in useRegionalMapCamera, from the Rust-side
  *    RouteSignature where one exists, so no format detection runs per frame.
  *
  * 2. The marker and trace collections never depend on selection. Selection is
@@ -131,7 +131,7 @@ export function RegionalMapView({
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
-    useMapCamera({ activities, routeSignatures, surfaceRef });
+    useRegionalMapCamera({ activities, routeSignatures, surfaceRef });
 
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);

@@ -7,15 +7,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand, strengthRamp } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, strengthRamp, bodyDiagram } from '@/theme';
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
 const BODY_COLORS: readonly string[] = strengthRamp;
-const BODY_FILL_LIGHT = '#3f3f3f';
-const BODY_FILL_DARK = '#555555';
+const BODY_FILL_LIGHT = bodyDiagram.fillLight;
+const BODY_FILL_DARK = bodyDiagram.fillDark;
 
 interface StrengthBodyDiagramProps {
   bodyData: ExtendedBodyPart[];

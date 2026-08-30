@@ -238,14 +238,14 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Request a basemap snapshot for every card with coordinates - the 3D
   // terrain drape when the activity qualifies, a flat top-down basemap
-  // otherwise. FlatList windowing is the throttle (only near-viewport cards
-  // mount), so there is no index gate.
+  // otherwise. FlatList windowing is the throttle: only near-viewport cards
+  // mount.
   // Deferred until the feed screen is focused - avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
     if (validCoordinates.length < 2) return;
-    // The priority flag used to bypass the removed index gate; still clear it
-    // so background-ingested IDs don't accumulate in the priority set.
+    // Clear the priority flag so background-ingested IDs don't accumulate in
+    // the priority set.
     if (isPrioritySnapshot(activity.id)) clearPrioritySnapshot(activity.id);
 
     // If dirty (style/3D changed in detail view), delete old preview first

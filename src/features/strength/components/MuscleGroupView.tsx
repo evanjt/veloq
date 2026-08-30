@@ -11,7 +11,7 @@ import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, brand } from '@/theme';
+import { colors, darkColors, spacing, typography, brand, bodyDiagram, loupeChrome } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
 import { useMuscleGroups } from '../hooks/useExerciseSets';
@@ -66,7 +66,9 @@ export function MuscleGroupView({
       (muscleGroups ?? []).map((g) => ({
         slug: g.slug as ExtendedBodyPart['slug'],
         intensity: g.intensity,
-        ...(g.slug === selectedMuscle ? { styles: { stroke: '#1A1A1A', strokeWidth: 2.5 } } : {}),
+        ...(g.slug === selectedMuscle
+          ? { styles: { stroke: bodyDiagram.selectedStroke, strokeWidth: 2.5 } }
+          : {}),
       })),
     [muscleGroups, selectedMuscle]
   );
@@ -232,10 +234,10 @@ export function MuscleGroupView({
 const styles = StyleSheet.create({
   hero: {
     position: 'relative',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: loupeChrome.bgLight,
   },
   heroDark: {
-    backgroundColor: '#111',
+    backgroundColor: loupeChrome.bgDark,
   },
   floatingHeader: {
     position: 'absolute',

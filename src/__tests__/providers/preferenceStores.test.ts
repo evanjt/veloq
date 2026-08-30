@@ -14,10 +14,10 @@
  * - MapPreferencesContext (React Context, style resolution, batch updates)
  */
 
-import React from "react";
-import { renderHook, act, waitFor } from "@testing-library/react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { eachCorruptPayloadRecovers } from "../__shared__/storeCorruptionHelper";
+import React from 'react';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { eachCorruptPayloadRecovers } from '../__shared__/storeCorruptionHelper';
 
 // UnitPreferenceStore
 import {
@@ -25,21 +25,21 @@ import {
   resolveIsMetric,
   getIntervalsPreferenceLabel,
   initializeUnitPreference,
-} from "@/shared/app/UnitPreferenceStore";
+} from '@/shared/app/UnitPreferenceStore';
 
 // RouteSettingsStore
 import {
   useRouteSettings,
   isRouteMatchingEnabled,
   initializeRouteSettings,
-} from "@/features/routes/stores/RouteSettingsStore";
+} from '@/features/routes/stores/RouteSettingsStore';
 
 // SportPreferenceStore
 import {
   useSportPreference,
   getPrimarySport,
   initializeSportPreference,
-} from "@/features/fitness/stores/SportPreferenceStore";
+} from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -51,29 +51,29 @@ import {
   type MetricId,
   type MetricPreference,
   type SummaryCardPreferences,
-} from "@/features/home/store";
+} from '@/features/home/store';
 
 // HRZonesStore
 import {
   useHRZones,
   DEFAULT_HR_ZONES,
   initializeHRZones,
-} from "@/features/fitness/stores/HRZonesStore";
+} from '@/features/fitness/stores/HRZonesStore';
 
 // MapPreferencesContext
 import {
   MapPreferencesProvider,
   useMapPreferences,
-} from "@/features/maps/stores/MapPreferencesContext";
+} from '@/features/maps/stores/MapPreferencesContext';
 
 // Storage keys
-const UNIT_PREFERENCE_KEY = "veloq-unit-preference";
-const ROUTE_SETTINGS_KEY = "veloq-route-settings";
-const SPORT_PREFERENCE_KEY = "veloq-primary-sport";
-const DASHBOARD_STORAGE_KEY = "dashboard_preferences";
-const SUMMARY_CARD_STORAGE_KEY = "dashboard_summary_card";
-const HR_ZONES_KEY = "veloq-hr-zones";
-const MAP_PREFS_KEY = "veloq-map-preferences";
+const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
+const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
+const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
+const DASHBOARD_STORAGE_KEY = 'dashboard_preferences';
+const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
+const HR_ZONES_KEY = 'veloq-hr-zones';
+const MAP_PREFS_KEY = 'veloq-map-preferences';
 
 const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
@@ -84,19 +84,17 @@ const DEFAULT_ROUTE_SETTINGS = {
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
   enabled: true,
-  heroMetric: "fitness",
+  heroMetric: 'fitness',
   showSparkline: true,
-  supportingMetrics: ["fitness", "ftp", "weekHours", "weight"],
+  supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
 };
 
 function createFreshCyclingDefaults(): MetricPreference[] {
-  const defaultIds: MetricId[] = ["fitness", "ftp", "weekHours", "weight"];
+  const defaultIds: MetricId[] = ['fitness', 'ftp', 'weekHours', 'weight'];
   return AVAILABLE_METRICS.map((metric, index) => ({
     id: metric.id,
     enabled: defaultIds.includes(metric.id),
-    order: defaultIds.includes(metric.id)
-      ? defaultIds.indexOf(metric.id)
-      : index + 100,
+    order: defaultIds.includes(metric.id) ? defaultIds.indexOf(metric.id) : index + 100,
   }));
 }
 
@@ -104,21 +102,21 @@ function createFreshCyclingDefaults(): MetricPreference[] {
 // ThemeProvider
 // ================================================================
 
-describe("ThemeProvider", () => {
+describe('ThemeProvider', () => {
   let getThemePreference: () => Promise<string>;
-  const THEME_KEY = "veloq-theme-preference";
+  const THEME_KEY = 'veloq-theme-preference';
 
   beforeAll(() => {
-    jest.doMock("react-native", () => ({
+    jest.doMock('react-native', () => ({
       Appearance: { setColorScheme: jest.fn() },
     }));
 
-    const tp = require("@/shared/app/ThemeProvider");
+    const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
 
   afterAll(() => {
-    jest.dontMock("react-native");
+    jest.dontMock('react-native');
   });
 
   beforeEach(async () => {
@@ -127,15 +125,15 @@ describe("ThemeProvider", () => {
   });
 
   it('returns "system" when nothing stored', async () => {
-    expect(await getThemePreference()).toBe("system");
+    expect(await getThemePreference()).toBe('system');
   });
 
-  it("returns stored valid values", async () => {
-    await AsyncStorage.setItem(THEME_KEY, "light");
-    expect(await getThemePreference()).toBe("light");
+  it('returns stored valid values', async () => {
+    await AsyncStorage.setItem(THEME_KEY, 'light');
+    expect(await getThemePreference()).toBe('light');
 
-    await AsyncStorage.setItem(THEME_KEY, "dark");
-    expect(await getThemePreference()).toBe("dark");
+    await AsyncStorage.setItem(THEME_KEY, 'dark');
+    expect(await getThemePreference()).toBe('dark');
   });
 });
 
@@ -143,10 +141,10 @@ describe("ThemeProvider", () => {
 // UnitPreferenceStore
 // ================================================================
 
-describe("UnitPreferenceStore", () => {
+describe('UnitPreferenceStore', () => {
   beforeEach(async () => {
     useUnitPreference.setState({
-      unitPreference: "auto",
+      unitPreference: 'auto',
       intervalsPreferences: null,
       isLoaded: false,
     });
@@ -154,70 +152,70 @@ describe("UnitPreferenceStore", () => {
     jest.clearAllMocks();
   });
 
-  describe("initialize()", () => {
-    it("defaults to auto when nothing stored", async () => {
+  describe('initialize()', () => {
+    it('defaults to auto when nothing stored', async () => {
       await initializeUnitPreference();
-      expect(useUnitPreference.getState().unitPreference).toBe("auto");
+      expect(useUnitPreference.getState().unitPreference).toBe('auto');
     });
 
-    it("restores valid values from storage", async () => {
-      await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, "imperial");
+    it('restores valid values from storage', async () => {
+      await AsyncStorage.setItem(UNIT_PREFERENCE_KEY, 'imperial');
       await useUnitPreference.getState().initialize();
-      expect(useUnitPreference.getState().unitPreference).toBe("imperial");
+      expect(useUnitPreference.getState().unitPreference).toBe('imperial');
     });
   });
 
-  describe("resolveIsMetric() - Three-tier fallback", () => {
-    it("returns true for metric, false for imperial", async () => {
-      await useUnitPreference.getState().setUnitPreference("metric");
+  describe('resolveIsMetric() - Three-tier fallback', () => {
+    it('returns true for metric, false for imperial', async () => {
+      await useUnitPreference.getState().setUnitPreference('metric');
       expect(resolveIsMetric()).toBe(true);
 
-      await useUnitPreference.getState().setUnitPreference("imperial");
+      await useUnitPreference.getState().setUnitPreference('imperial');
       expect(resolveIsMetric()).toBe(false);
     });
 
-    it("uses intervals.icu preferences when auto", () => {
-      useUnitPreference.setState({ unitPreference: "auto" });
+    it('uses intervals.icu preferences when auto', () => {
+      useUnitPreference.setState({ unitPreference: 'auto' });
       useUnitPreference.getState().setIntervalsPreferences({
-        measurementPreference: "feet",
+        measurementPreference: 'feet',
         fahrenheit: true,
-        windSpeed: "MPH",
+        windSpeed: 'MPH',
       });
       expect(resolveIsMetric()).toBe(false);
 
       useUnitPreference.getState().setIntervalsPreferences({
-        measurementPreference: "meters",
+        measurementPreference: 'meters',
         fahrenheit: false,
-        windSpeed: "KMH",
+        windSpeed: 'KMH',
       });
       expect(resolveIsMetric()).toBe(true);
     });
 
-    it("falls back to locale when auto + no profile", () => {
+    it('falls back to locale when auto + no profile', () => {
       useUnitPreference.setState({
-        unitPreference: "auto",
+        unitPreference: 'auto',
         intervalsPreferences: null,
       });
-      expect(typeof resolveIsMetric()).toBe("boolean");
+      expect(typeof resolveIsMetric()).toBe('boolean');
     });
   });
 
-  describe("getIntervalsPreferenceLabel()", () => {
-    it("returns correct labels", () => {
+  describe('getIntervalsPreferenceLabel()', () => {
+    it('returns correct labels', () => {
       expect(
         getIntervalsPreferenceLabel({
-          measurementPreference: "meters",
+          measurementPreference: 'meters',
           fahrenheit: false,
-          windSpeed: "KMH",
-        }),
-      ).toBe("Metric");
+          windSpeed: 'KMH',
+        })
+      ).toBe('Metric');
       expect(
         getIntervalsPreferenceLabel({
-          measurementPreference: "feet",
+          measurementPreference: 'feet',
           fahrenheit: true,
-          windSpeed: "MPH",
-        }),
-      ).toBe("Imperial");
+          windSpeed: 'MPH',
+        })
+      ).toBe('Imperial');
       expect(getIntervalsPreferenceLabel(null)).toBeNull();
     });
   });
@@ -227,7 +225,7 @@ describe("UnitPreferenceStore", () => {
 // RouteSettingsStore - Most thorough (representative for persistence patterns)
 // ================================================================
 
-describe("RouteSettingsStore", () => {
+describe('RouteSettingsStore', () => {
   beforeEach(async () => {
     useRouteSettings.setState({
       settings: { ...DEFAULT_ROUTE_SETTINGS },
@@ -237,51 +235,49 @@ describe("RouteSettingsStore", () => {
     jest.clearAllMocks();
   });
 
-  describe("setRetentionDays() - Clamping Logic", () => {
+  describe('setRetentionDays() - Clamping Logic', () => {
     it('preserves 0 as special "keep all" value', async () => {
       await useRouteSettings.getState().setRetentionDays(0);
       expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
     });
 
-    it("clamps values below 30 to minimum of 30", async () => {
+    it('clamps values below 30 to minimum of 30', async () => {
       for (const val of [1, 15, 29, -1, -100]) {
         await useRouteSettings.getState().setRetentionDays(val);
         expect(useRouteSettings.getState().settings.retentionDays).toBe(30);
       }
     });
 
-    it("clamps values above 365 to maximum of 365", async () => {
+    it('clamps values above 365 to maximum of 365', async () => {
       for (const val of [366, 500, 1000]) {
         await useRouteSettings.getState().setRetentionDays(val);
         expect(useRouteSettings.getState().settings.retentionDays).toBe(365);
       }
     });
 
-    it("passes through valid range values unchanged", async () => {
+    it('passes through valid range values unchanged', async () => {
       for (const val of [30, 60, 90, 180, 270, 365]) {
         await useRouteSettings.getState().setRetentionDays(val);
         expect(useRouteSettings.getState().settings.retentionDays).toBe(val);
       }
     });
 
-    it("persists validated (clamped) value", async () => {
+    it('persists validated (clamped) value', async () => {
       await useRouteSettings.getState().setRetentionDays(15);
-      const stored = JSON.parse(
-        (await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!,
-      );
+      const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
       expect(stored.retentionDays).toBe(30);
     });
   });
 
-  describe("initialize() - Corruption Recovery", () => {
-    it("loads valid settings", async () => {
+  describe('initialize() - Corruption Recovery', () => {
+    it('loads valid settings', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
         JSON.stringify({
           enabled: false,
           retentionDays: 90,
           autoCleanupEnabled: true,
-        }),
+        })
       );
       await initializeRouteSettings();
       const state = useRouteSettings.getState();
@@ -291,42 +287,28 @@ describe("RouteSettingsStore", () => {
     });
 
     // typeof [] === 'object', so the array case verifies the type guard rejects arrays too.
-    it("falls back to defaults for invalid JSON, wrong types, and arrays", async () => {
+    it('falls back to defaults for invalid JSON, wrong types, and arrays', async () => {
       await eachCorruptPayloadRecovers(
         ROUTE_SETTINGS_KEY,
         initializeRouteSettings,
-        [
-          "not valid json",
-          JSON.stringify({ enabled: "not a boolean" }),
-          "[1, 2, 3]",
-        ],
+        ['not valid json', JSON.stringify({ enabled: 'not a boolean' }), '[1, 2, 3]'],
         () => {
-          expect(useRouteSettings.getState().settings).toEqual(
-            DEFAULT_ROUTE_SETTINGS,
-          );
+          expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
           expect(
-            (
-              useRouteSettings.getState().settings as unknown as Record<
-                string,
-                unknown
-              >
-            )["0"],
+            (useRouteSettings.getState().settings as unknown as Record<string, unknown>)['0']
           ).toBeUndefined();
-        },
+        }
       );
     });
 
-    it("merges partial settings with defaults", async () => {
-      await AsyncStorage.setItem(
-        ROUTE_SETTINGS_KEY,
-        JSON.stringify({ enabled: false }),
-      );
+    it('merges partial settings with defaults', async () => {
+      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: false }));
       await initializeRouteSettings();
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
       expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
     });
 
-    it("drops the retired detectionStrictness key from a stored payload", async () => {
+    it('drops the retired detectionStrictness key from a stored payload', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
         JSON.stringify({
@@ -335,31 +317,25 @@ describe("RouteSettingsStore", () => {
           autoCleanupEnabled: false,
           heatmapEnabled: true,
           detectionStrictness: 90,
-        }),
+        })
       );
       await initializeRouteSettings();
-      expect(useRouteSettings.getState().settings).toEqual(
-        DEFAULT_ROUTE_SETTINGS,
-      );
+      expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
 
       await useRouteSettings.getState().setHeatmapEnabled(false);
-      const stored = JSON.parse(
-        (await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!,
-      );
-      expect(stored).not.toHaveProperty("detectionStrictness");
+      const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
+      expect(stored).not.toHaveProperty('detectionStrictness');
     });
 
-    it("sets isLoaded even when AsyncStorage throws", async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(
-        new Error("fail"),
-      );
+    it('sets isLoaded even when AsyncStorage throws', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
       await initializeRouteSettings();
       expect(useRouteSettings.getState().isLoaded).toBe(true);
     });
   });
 
-  describe("Setter Isolation", () => {
-    it("each setter only affects its own field", async () => {
+  describe('Setter Isolation', () => {
+    it('each setter only affects its own field', async () => {
       useRouteSettings.setState({
         settings: {
           enabled: true,
@@ -372,23 +348,17 @@ describe("RouteSettingsStore", () => {
 
       await useRouteSettings.getState().setEnabled(false);
       expect(useRouteSettings.getState().settings.retentionDays).toBe(90);
-      expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(
-        true,
-      );
+      expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
 
       await useRouteSettings.getState().setRetentionDays(180);
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
-      expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(
-        true,
-      );
+      expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
     });
   });
 
-  describe("Optimistic Updates", () => {
-    it("state changes even if write fails", async () => {
-      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(
-        new Error("Write failed"),
-      );
+  describe('Optimistic Updates', () => {
+    it('state changes even if write fails', async () => {
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(new Error('Write failed'));
       useRouteSettings.setState({
         settings: { ...DEFAULT_ROUTE_SETTINGS },
         isLoaded: true,
@@ -399,8 +369,8 @@ describe("RouteSettingsStore", () => {
     });
   });
 
-  describe("Concurrent Operations", () => {
-    it("parallel updates preserve all changes", async () => {
+  describe('Concurrent Operations', () => {
+    it('parallel updates preserve all changes', async () => {
       const store = useRouteSettings.getState();
       await Promise.all([
         store.setEnabled(false),
@@ -414,8 +384,8 @@ describe("RouteSettingsStore", () => {
     });
   });
 
-  describe("Synchronous Helpers", () => {
-    it("isRouteMatchingEnabled reflects state", () => {
+  describe('Synchronous Helpers', () => {
+    it('isRouteMatchingEnabled reflects state', () => {
       useRouteSettings.setState({
         settings: {
           enabled: false,
@@ -428,7 +398,7 @@ describe("RouteSettingsStore", () => {
       expect(isRouteMatchingEnabled()).toBe(false);
     });
 
-    it("helpers work before initialization", () => {
+    it('helpers work before initialization', () => {
       useRouteSettings.setState({
         settings: DEFAULT_ROUTE_SETTINGS,
         isLoaded: false,
@@ -442,34 +412,34 @@ describe("RouteSettingsStore", () => {
 // SportPreferenceStore
 // ================================================================
 
-describe("SportPreferenceStore", () => {
+describe('SportPreferenceStore', () => {
   beforeEach(async () => {
-    useSportPreference.setState({ primarySport: "Cycling", isLoaded: false });
+    useSportPreference.setState({ primarySport: 'Cycling', isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
   });
 
-  describe("initialize()", () => {
-    it("rejects invalid sport - falls back to default", async () => {
-      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, "Skiing");
+  describe('initialize()', () => {
+    it('rejects invalid sport - falls back to default', async () => {
+      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
       await useSportPreference.getState().initialize();
-      expect(useSportPreference.getState().primarySport).toBe("Cycling");
+      expect(useSportPreference.getState().primarySport).toBe('Cycling');
     });
   });
 
-  describe("setPrimarySport()", () => {
-    it("updates and persists", async () => {
-      await useSportPreference.getState().setPrimarySport("Swimming");
-      expect(useSportPreference.getState().primarySport).toBe("Swimming");
-      expect(await AsyncStorage.getItem(SPORT_PREFERENCE_KEY)).toBe("Swimming");
+  describe('setPrimarySport()', () => {
+    it('updates and persists', async () => {
+      await useSportPreference.getState().setPrimarySport('Swimming');
+      expect(useSportPreference.getState().primarySport).toBe('Swimming');
+      expect(await AsyncStorage.getItem(SPORT_PREFERENCE_KEY)).toBe('Swimming');
     });
   });
 
-  it("getPrimarySport() returns current sport", () => {
-    expect(getPrimarySport()).toBe("Cycling");
+  it('getPrimarySport() returns current sport', () => {
+    expect(getPrimarySport()).toBe('Cycling');
   });
 
-  it("initializeSportPreference() delegates to store", async () => {
+  it('initializeSportPreference() delegates to store', async () => {
     await initializeSportPreference();
     expect(useSportPreference.getState().isLoaded).toBe(true);
   });
@@ -479,7 +449,7 @@ describe("SportPreferenceStore", () => {
 // DashboardPreferencesStore
 // ================================================================
 
-describe("DashboardPreferencesStore", () => {
+describe('DashboardPreferencesStore', () => {
   beforeEach(async () => {
     useDashboardPreferences.setState({
       metrics: createFreshCyclingDefaults(),
@@ -490,8 +460,8 @@ describe("DashboardPreferencesStore", () => {
     jest.clearAllMocks();
   });
 
-  describe("reorderMetrics() - Bounds Checking", () => {
-    it("reorders correctly and produces sequential order values", () => {
+  describe('reorderMetrics() - Bounds Checking', () => {
+    it('reorders correctly and produces sequential order values', () => {
       useDashboardPreferences.getState().reorderMetrics(0, 3);
       const enabled = useDashboardPreferences.getState().getEnabledMetrics();
       enabled.forEach((metric, index) => {
@@ -499,7 +469,7 @@ describe("DashboardPreferencesStore", () => {
       });
     });
 
-    it("same index is a no-op", () => {
+    it('same index is a no-op', () => {
       const before = useDashboardPreferences
         .getState()
         .getEnabledMetrics()
@@ -512,7 +482,7 @@ describe("DashboardPreferencesStore", () => {
       expect(after).toEqual(before);
     });
 
-    it("disabled metrics retain high order values after reorder", () => {
+    it('disabled metrics retain high order values after reorder', () => {
       useDashboardPreferences.getState().reorderMetrics(0, 2);
       const { metrics } = useDashboardPreferences.getState();
       const disabledMetrics = metrics.filter((m) => !m.enabled);
@@ -522,29 +492,29 @@ describe("DashboardPreferencesStore", () => {
     });
   });
 
-  describe("setMetricEnabled() - State Consistency", () => {
-    it("disabling removes from enabled, re-enabling adds back", () => {
-      useDashboardPreferences.getState().setMetricEnabled("ftp", false);
+  describe('setMetricEnabled() - State Consistency', () => {
+    it('disabling removes from enabled, re-enabling adds back', () => {
+      useDashboardPreferences.getState().setMetricEnabled('ftp', false);
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).not.toContain("ftp");
+          .map((m) => m.id)
+      ).not.toContain('ftp');
 
-      useDashboardPreferences.getState().setMetricEnabled("ftp", true);
+      useDashboardPreferences.getState().setMetricEnabled('ftp', true);
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).toContain("ftp");
+          .map((m) => m.id)
+      ).toContain('ftp');
     });
 
-    it("disable → reorder → re-enable produces sequential order values", () => {
-      useDashboardPreferences.getState().setMetricEnabled("ftp", false);
+    it('disable → reorder → re-enable produces sequential order values', () => {
+      useDashboardPreferences.getState().setMetricEnabled('ftp', false);
       useDashboardPreferences.getState().reorderMetrics(0, 2);
-      useDashboardPreferences.getState().setMetricEnabled("ftp", true);
+      useDashboardPreferences.getState().setMetricEnabled('ftp', true);
 
       const enabled = useDashboardPreferences.getState().getEnabledMetrics();
       const orders = enabled.map((m) => m.order).sort((a, b) => a - b);
@@ -554,188 +524,171 @@ describe("DashboardPreferencesStore", () => {
     });
   });
 
-  describe("resetToDefaults() - Sport Handling", () => {
-    it("Cycling enables FTP, Running enables thresholdPace, Swimming enables css", () => {
-      useDashboardPreferences.getState().resetToDefaults("Cycling");
+  describe('resetToDefaults() - Sport Handling', () => {
+    it('Cycling enables FTP, Running enables thresholdPace, Swimming enables css', () => {
+      useDashboardPreferences.getState().resetToDefaults('Cycling');
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).toContain("ftp");
+          .map((m) => m.id)
+      ).toContain('ftp');
 
-      useDashboardPreferences.getState().resetToDefaults("Running");
+      useDashboardPreferences.getState().resetToDefaults('Running');
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).toContain("thresholdPace");
+          .map((m) => m.id)
+      ).toContain('thresholdPace');
 
-      useDashboardPreferences.getState().resetToDefaults("Swimming");
+      useDashboardPreferences.getState().resetToDefaults('Swimming');
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).toContain("css");
+          .map((m) => m.id)
+      ).toContain('css');
     });
 
-    it("unknown sport falls back to Other defaults", () => {
-      useDashboardPreferences.getState().resetToDefaults("UnknownSport");
+    it('unknown sport falls back to Other defaults', () => {
+      useDashboardPreferences.getState().resetToDefaults('UnknownSport');
       const ids = useDashboardPreferences
         .getState()
         .getEnabledMetrics()
         .map((m) => m.id);
-      expect(ids).toContain("hrv");
-      expect(ids).not.toContain("ftp");
+      expect(ids).toContain('hrv');
+      expect(ids).not.toContain('ftp');
     });
 
-    it("reset after custom reorder restores default order", () => {
+    it('reset after custom reorder restores default order', () => {
       useDashboardPreferences.getState().reorderMetrics(0, 3);
-      useDashboardPreferences.getState().resetToDefaults("Cycling");
+      useDashboardPreferences.getState().resetToDefaults('Cycling');
 
       const enabled = useDashboardPreferences.getState().getEnabledMetrics();
-      expect(enabled[0].id).toBe("fitness");
-      expect(enabled[1].id).toBe("ftp");
-      expect(enabled[2].id).toBe("weekHours");
-      expect(enabled[3].id).toBe("weight");
+      expect(enabled[0].id).toBe('fitness');
+      expect(enabled[1].id).toBe('ftp');
+      expect(enabled[2].id).toBe('weekHours');
+      expect(enabled[3].id).toBe('weight');
     });
   });
 
-  describe("getMetricDefinition()", () => {
-    it("resolves every id in AVAILABLE_METRICS and rejects unknown ids", () => {
+  describe('getMetricDefinition()', () => {
+    it('resolves every id in AVAILABLE_METRICS and rejects unknown ids', () => {
       for (const metric of AVAILABLE_METRICS) {
         expect(getMetricDefinition(metric.id)?.id).toBe(metric.id);
       }
-      expect(getMetricDefinition("notAMetric" as MetricId)).toBeUndefined();
+      expect(getMetricDefinition('notAMetric' as MetricId)).toBeUndefined();
     });
   });
 
-  describe("setSummaryCardPreferences()", () => {
-    it("partial update preserves other fields", () => {
+  describe('setSummaryCardPreferences()', () => {
+    it('partial update preserves other fields', () => {
       const original = { ...useDashboardPreferences.getState().summaryCard };
-      useDashboardPreferences
-        .getState()
-        .setSummaryCardPreferences({ showSparkline: false });
-      expect(useDashboardPreferences.getState().summaryCard.showSparkline).toBe(
-        false,
-      );
-      expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe(
-        original.heroMetric,
-      );
+      useDashboardPreferences.getState().setSummaryCardPreferences({ showSparkline: false });
+      expect(useDashboardPreferences.getState().summaryCard.showSparkline).toBe(false);
+      expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe(original.heroMetric);
     });
   });
 
-  describe("initialization", () => {
-    it("recovers from invalid JSON", async () => {
-      await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, "not valid json");
-      await initializeDashboardPreferences("Cycling");
+  describe('initialization', () => {
+    it('recovers from invalid JSON', async () => {
+      await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, 'not valid json');
+      await initializeDashboardPreferences('Cycling');
       expect(useDashboardPreferences.getState().isInitialized).toBe(true);
     });
 
-    it("uses sport-specific defaults when no stored preferences", async () => {
-      await initializeDashboardPreferences("Running");
+    it('uses sport-specific defaults when no stored preferences', async () => {
+      await initializeDashboardPreferences('Running');
       expect(
         useDashboardPreferences
           .getState()
           .getEnabledMetrics()
-          .map((m) => m.id),
-      ).toContain("thresholdPace");
+          .map((m) => m.id)
+      ).toContain('thresholdPace');
     });
 
-    it("restores a stored value that matches the current shape", async () => {
+    it('restores a stored value that matches the current shape', async () => {
       const stored: MetricPreference[] = [
-        { id: "hrv", enabled: true, order: 0 },
-        { id: "weight", enabled: false, order: 100 },
+        { id: 'hrv', enabled: true, order: 0 },
+        { id: 'weight', enabled: false, order: 100 },
       ];
       await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify(stored));
-      await initializeDashboardPreferences("Cycling");
+      await initializeDashboardPreferences('Cycling');
       expect(useDashboardPreferences.getState().metrics).toEqual(stored);
     });
 
-    it("falls back to sport defaults for stored shapes and garbage", async () => {
+    it('falls back to sport defaults for stored shapes and garbage', async () => {
       // A 0.3.x value is a bare id list, and anything unparseable is garbage.
       const payloads = [
-        JSON.stringify(["fitness", "ftp", "weekHours"]),
-        JSON.stringify([{ id: "ftp", visible: true }]),
-        JSON.stringify([{ id: "notAMetric", enabled: true, order: 0 }]),
+        JSON.stringify(['fitness', 'ftp', 'weekHours']),
+        JSON.stringify([{ id: 'ftp', visible: true }]),
+        JSON.stringify([{ id: 'notAMetric', enabled: true, order: 0 }]),
         JSON.stringify({ metrics: [] }),
         JSON.stringify([]),
-        "not valid json",
+        'not valid json',
       ];
       for (const payload of payloads) {
         await AsyncStorage.clear();
         await AsyncStorage.setItem(DASHBOARD_STORAGE_KEY, payload);
         useDashboardPreferences.setState({ isInitialized: false });
-        await initializeDashboardPreferences("Running");
+        await initializeDashboardPreferences('Running');
 
         const { metrics } = useDashboardPreferences.getState();
         expect(metrics).toHaveLength(AVAILABLE_METRICS.length);
-        expect(metrics.every((m) => typeof m.enabled === "boolean")).toBe(true);
+        expect(metrics.every((m) => typeof m.enabled === 'boolean')).toBe(true);
         expect(
           useDashboardPreferences
             .getState()
             .getEnabledMetrics()
-            .map((m) => m.id),
-        ).toContain("thresholdPace");
+            .map((m) => m.id)
+        ).toContain('thresholdPace');
       }
     });
 
-    it("falls back to summary card defaults on a mismatched stored value", async () => {
+    it('falls back to summary card defaults on a mismatched stored value', async () => {
       const payloads = [
-        JSON.stringify({ heroMetric: "notAMetric" }),
-        JSON.stringify({ supportingMetrics: "ftp" }),
-        JSON.stringify({ enabled: "yes" }),
-        JSON.stringify(["fitness"]),
-        "not valid json",
+        JSON.stringify({ heroMetric: 'notAMetric' }),
+        JSON.stringify({ supportingMetrics: 'ftp' }),
+        JSON.stringify({ enabled: 'yes' }),
+        JSON.stringify(['fitness']),
+        'not valid json',
       ];
       for (const payload of payloads) {
         await AsyncStorage.clear();
         await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, payload);
         useDashboardPreferences.setState({ isInitialized: false });
-        await initializeDashboardPreferences("Cycling");
-        expect(useDashboardPreferences.getState().summaryCard).toEqual(
-          DEFAULT_SUMMARY_CARD,
-        );
+        await initializeDashboardPreferences('Cycling');
+        expect(useDashboardPreferences.getState().summaryCard).toEqual(DEFAULT_SUMMARY_CARD);
       }
     });
 
-    it("keeps a stored summary card that matches the current shape", async () => {
+    it('keeps a stored summary card that matches the current shape', async () => {
       const stored: SummaryCardPreferences = {
         enabled: false,
-        heroMetric: "hrv",
+        heroMetric: 'hrv',
         showSparkline: false,
-        supportingMetrics: ["hrv", "rhr"],
+        supportingMetrics: ['hrv', 'rhr'],
       };
-      await AsyncStorage.setItem(
-        SUMMARY_CARD_STORAGE_KEY,
-        JSON.stringify(stored),
-      );
-      await initializeDashboardPreferences("Cycling");
+      await AsyncStorage.setItem(SUMMARY_CARD_STORAGE_KEY, JSON.stringify(stored));
+      await initializeDashboardPreferences('Cycling');
       expect(useDashboardPreferences.getState().summaryCard).toEqual(stored);
     });
   });
 
-  describe("getMetricsForSport()", () => {
-    it("excludes sport-specific metrics for wrong sport", () => {
-      const filtered = getMetricsForSport(
-        createFreshCyclingDefaults(),
-        "Running",
-      );
+  describe('getMetricsForSport()', () => {
+    it('excludes sport-specific metrics for wrong sport', () => {
+      const filtered = getMetricsForSport(createFreshCyclingDefaults(), 'Running');
       const ids = filtered.map((m) => m.id);
-      expect(ids).not.toContain("ftp");
-      expect(ids).toContain("thresholdPace");
+      expect(ids).not.toContain('ftp');
+      expect(ids).toContain('thresholdPace');
     });
 
-    it("includes non-sport-specific metrics for any sport", () => {
-      const filtered = getMetricsForSport(
-        createFreshCyclingDefaults(),
-        "Cycling",
-      );
+    it('includes non-sport-specific metrics for any sport', () => {
+      const filtered = getMetricsForSport(createFreshCyclingDefaults(), 'Cycling');
       const ids = filtered.map((m) => m.id);
-      expect(ids).toContain("hrv");
-      expect(ids).toContain("rhr");
+      expect(ids).toContain('hrv');
+      expect(ids).toContain('rhr');
     });
   });
 });
@@ -744,7 +697,7 @@ describe("DashboardPreferencesStore", () => {
 // HRZonesStore
 // ================================================================
 
-describe("HRZonesStore", () => {
+describe('HRZonesStore', () => {
   beforeEach(async () => {
     useHRZones.setState({
       maxHR: 190,
@@ -755,8 +708,8 @@ describe("HRZonesStore", () => {
     jest.clearAllMocks();
   });
 
-  describe("defaults", () => {
-    it("starts with 5 zones covering 50%-100%, sequential IDs", () => {
+  describe('defaults', () => {
+    it('starts with 5 zones covering 50%-100%, sequential IDs', () => {
       const zones = useHRZones.getState().zones;
       expect(zones).toHaveLength(5);
       expect(zones[0].min).toBe(0.5);
@@ -765,9 +718,9 @@ describe("HRZonesStore", () => {
     });
   });
 
-  describe("initialize()", () => {
-    it("handles corrupt JSON and invalid schema", async () => {
-      await AsyncStorage.setItem(HR_ZONES_KEY, "not json");
+  describe('initialize()', () => {
+    it('handles corrupt JSON and invalid schema', async () => {
+      await AsyncStorage.setItem(HR_ZONES_KEY, 'not json');
       await useHRZones.getState().initialize();
       expect(useHRZones.getState().maxHR).toBe(190);
 
@@ -778,8 +731,8 @@ describe("HRZonesStore", () => {
     });
   });
 
-  describe("setMaxHR()", () => {
-    it("updates and persists without altering zones", async () => {
+  describe('setMaxHR()', () => {
+    it('updates and persists without altering zones', async () => {
       const zonesBefore = useHRZones.getState().zones;
       await useHRZones.getState().setMaxHR(200);
       expect(useHRZones.getState().maxHR).toBe(200);
@@ -789,8 +742,8 @@ describe("HRZonesStore", () => {
     });
   });
 
-  describe("setZoneThreshold()", () => {
-    it("updates specific zone without modifying others", async () => {
+  describe('setZoneThreshold()', () => {
+    it('updates specific zone without modifying others', async () => {
       const zone2Before = { ...useHRZones.getState().zones[1] };
       await useHRZones.getState().setZoneThreshold(1, 0.4, 0.55);
       expect(useHRZones.getState().zones[0].min).toBe(0.4);
@@ -798,8 +751,8 @@ describe("HRZonesStore", () => {
     });
   });
 
-  describe("resetToDefaults()", () => {
-    it("restores and clears storage", async () => {
+  describe('resetToDefaults()', () => {
+    it('restores and clears storage', async () => {
       await useHRZones.getState().setMaxHR(200);
       await useHRZones.getState().resetToDefaults();
       expect(useHRZones.getState().maxHR).toBe(190);
@@ -809,19 +762,16 @@ describe("HRZonesStore", () => {
   });
 
   // Validation that only inspects the first zone would let the corrupt third one through.
-  it("rejects stored HR zones where a non-first zone is malformed", async () => {
+  it('rejects stored HR zones where a non-first zone is malformed', async () => {
     const validZone = {
       id: 1,
-      name: "Recovery",
+      name: 'Recovery',
       min: 0.5,
       max: 0.6,
-      color: "#94A3B8",
+      color: '#94A3B8',
     };
     const badZones = [validZone, validZone, { id: 3 }]; // missing min/max on third zone
-    await AsyncStorage.setItem(
-      HR_ZONES_KEY,
-      JSON.stringify({ maxHR: 190, zones: badZones }),
-    );
+    await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify({ maxHR: 190, zones: badZones }));
     await initializeHRZones();
     expect(useHRZones.getState().zones).toEqual(DEFAULT_HR_ZONES); // should fall back to defaults
   });
@@ -834,47 +784,43 @@ describe("HRZonesStore", () => {
 const mapWrapper = ({ children }: { children: React.ReactNode }) =>
   React.createElement(MapPreferencesProvider, null, children);
 
-describe("MapPreferencesContext", () => {
+describe('MapPreferencesContext', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
   });
 
-  it("throws when used outside provider", () => {
-    const consoleSpy = jest
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+  it('throws when used outside provider', () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => {
       renderHook(() => useMapPreferences());
-    }).toThrow(
-      "useMapPreferences must be used within a MapPreferencesProvider",
-    );
+    }).toThrow('useMapPreferences must be used within a MapPreferencesProvider');
     consoleSpy.mockRestore();
   });
 
-  describe("Style Resolution", () => {
-    it("returns default when no override, override when set", async () => {
+  describe('Style Resolution', () => {
+    it('returns default when no override, override when set', async () => {
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
-      expect(result.current.getStyleForActivity("Ride")).toBe("light");
+      expect(result.current.getStyleForActivity('Ride')).toBe('light');
 
       await act(async () => {
-        await result.current.setActivityTypeStyle("Ride", "satellite");
+        await result.current.setActivityTypeStyle('Ride', 'satellite');
       });
-      expect(result.current.getStyleForActivity("Ride")).toBe("satellite");
-      expect(result.current.getStyleForActivity("Run")).toBe("light");
+      expect(result.current.getStyleForActivity('Ride')).toBe('satellite');
+      expect(result.current.getStyleForActivity('Run')).toBe('light');
     });
 
-    it("removes override when style is null", async () => {
+    it('removes override when style is null', async () => {
       await AsyncStorage.setItem(
         MAP_PREFS_KEY,
         JSON.stringify({
-          defaultStyle: "light",
-          activityTypeStyles: { Ride: "dark" },
-        }),
+          defaultStyle: 'light',
+          activityTypeStyles: { Ride: 'dark' },
+        })
       );
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
@@ -882,96 +828,82 @@ describe("MapPreferencesContext", () => {
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityTypeStyle("Ride", null);
+        await result.current.setActivityTypeStyle('Ride', null);
       });
-      expect(result.current.getStyleForActivity("Ride")).toBe("light");
+      expect(result.current.getStyleForActivity('Ride')).toBe('light');
     });
   });
 
-  describe("setDefaultStyle()", () => {
-    it("updates default without affecting overrides", async () => {
+  describe('setDefaultStyle()', () => {
+    it('updates default without affecting overrides', async () => {
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityTypeStyle("Ride", "dark");
+        await result.current.setActivityTypeStyle('Ride', 'dark');
       });
       await act(async () => {
-        await result.current.setDefaultStyle("satellite");
+        await result.current.setDefaultStyle('satellite');
       });
 
-      expect(result.current.getStyleForActivity("Ride")).toBe("dark");
-      expect(result.current.preferences.defaultStyle).toBe("satellite");
+      expect(result.current.getStyleForActivity('Ride')).toBe('dark');
+      expect(result.current.preferences.defaultStyle).toBe('satellite');
     });
   });
 
-  describe("setActivityGroupStyle() - Batch Updates", () => {
-    it("updates multiple activity types at once", async () => {
+  describe('setActivityGroupStyle() - Batch Updates', () => {
+    it('updates multiple activity types at once', async () => {
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityGroupStyle(
-          ["Ride", "VirtualRide", "GravelRide"],
-          "dark",
-        );
+        await result.current.setActivityGroupStyle(['Ride', 'VirtualRide', 'GravelRide'], 'dark');
       });
-      expect(result.current.preferences.activityTypeStyles.Ride).toBe("dark");
-      expect(result.current.preferences.activityTypeStyles.VirtualRide).toBe(
-        "dark",
-      );
-      expect(result.current.preferences.activityTypeStyles.GravelRide).toBe(
-        "dark",
-      );
+      expect(result.current.preferences.activityTypeStyles.Ride).toBe('dark');
+      expect(result.current.preferences.activityTypeStyles.VirtualRide).toBe('dark');
+      expect(result.current.preferences.activityTypeStyles.GravelRide).toBe('dark');
     });
 
-    it("removes multiple overrides when null", async () => {
+    it('removes multiple overrides when null', async () => {
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       await act(async () => {
-        await result.current.setActivityGroupStyle(
-          ["Ride", "Run", "Swim"],
-          "dark",
-        );
+        await result.current.setActivityGroupStyle(['Ride', 'Run', 'Swim'], 'dark');
       });
       await act(async () => {
-        await result.current.setActivityGroupStyle(["Ride", "Run"], null);
+        await result.current.setActivityGroupStyle(['Ride', 'Run'], null);
       });
 
-      expect(
-        result.current.preferences.activityTypeStyles.Ride,
-      ).toBeUndefined();
+      expect(result.current.preferences.activityTypeStyles.Ride).toBeUndefined();
       expect(result.current.preferences.activityTypeStyles.Run).toBeUndefined();
-      expect(result.current.preferences.activityTypeStyles.Swim).toBe("dark");
+      expect(result.current.preferences.activityTypeStyles.Swim).toBe('dark');
     });
   });
 
-  describe("Persistence Validation", () => {
-    it("rejects invalid JSON and uses defaults", async () => {
-      await AsyncStorage.setItem(MAP_PREFS_KEY, "not valid json");
+  describe('Persistence Validation', () => {
+    it('rejects invalid JSON and uses defaults', async () => {
+      await AsyncStorage.setItem(MAP_PREFS_KEY, 'not valid json');
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
-      expect(result.current.preferences.defaultStyle).toBe("light");
+      expect(result.current.preferences.defaultStyle).toBe('light');
     });
 
-    it("handles AsyncStorage read failure", async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(
-        new Error("fail"),
-      );
+    it('handles AsyncStorage read failure', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
       const { result } = renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
-      expect(result.current.preferences.defaultStyle).toBe("light");
+      expect(result.current.preferences.defaultStyle).toBe('light');
     });
   });
 });

@@ -1,7 +1,7 @@
 # Navigate to routes tab via deep link
 appId: com.veloq.app.dev
 ---
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"

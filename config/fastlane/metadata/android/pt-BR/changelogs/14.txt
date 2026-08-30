@@ -1,5 +1,5 @@
 v0.1.4 (Feb 16, 2026)
 
-• Corrigido o card de estatísticas que exibia 0 até o download do GPS ser concluído — as estatísticas semanais agora aparecem imediatamente após a sincronização das atividades
+• Corrigido o card de estatísticas que exibia 0 até o download do GPS ser concluído, as estatísticas semanais agora aparecem imediatamente após a sincronização das atividades
 
 Full details: https://github.com/evanjt/veloq/releases/tag/v0.1.4

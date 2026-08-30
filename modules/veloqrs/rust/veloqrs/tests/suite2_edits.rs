@@ -1,4 +1,4 @@
-//! Suite #2 — user-edit survival.
+//! Suite #2, user-edit survival.
 //!
 //! The believability core: what the user does to a section must be honoured
 //! across later resyncs. Pins/accepts freeze; hides stay hidden; everything

@@ -26,7 +26,7 @@ import {
   testWebdavConnection,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
-import { brand, colors, colorWithOpacity, darkColors, spacing, layout } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, layout, ink } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
 const BACKEND_LABELS = {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
   backendValue: {
     fontSize: 14,
@@ -740,16 +740,16 @@ const styles = StyleSheet.create({
   testButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
   connectionSuccess: {
     fontSize: 13,
-    color: colors.success ?? '#10B981',
+    color: colors.success ?? colors.run,
     marginTop: spacing.xs,
   },
   connectionError: {
     fontSize: 13,
-    color: colors.error ?? '#EF4444',
+    color: colors.error ?? colors.chartRed,
     marginTop: spacing.xs,
   },
   warningRow: {

@@ -1,7 +1,7 @@
 # Insights Panel (v0.3.0)
 # Verifies the /routes Insights sub-tab renders the panel, and that the panel
 # always resolves to exactly one of its two bodies: the card list or the empty
-# state. Neither-branch is the failure this guards — a regression in the
+# state. Neither-branch is the failure this guards, a regression in the
 # insights ternary (or a throw inside the card map) leaves the panel blank
 # while every screenshot-only check still passes.
 
@@ -15,7 +15,7 @@ tags:
 
 # navigate-to-routes helper forces ?tab=routes; use a direct deep link so we
 # land on the Insights sub-tab explicitly.
-- openLink: "veloq://routes?tab=insights"
+- openLink: "veloq://insights?tab=insights"
 - runFlow:
     when:
       visible: "Open"

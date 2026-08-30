@@ -81,7 +81,7 @@ tags:
 
 - takeScreenshot: "licenses-screen"
 
-# Navigate back to about (deep link — back button unreliable on iOS)
+# Navigate back to about (deep link, back button unreliable on iOS)
 - openLink: "veloq://about"
 - runFlow:
     when:

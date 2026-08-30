@@ -185,7 +185,7 @@ impl PersistentRouteEngine {
         // requiring an app restart.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [create_section] indicator recompute failed: {}",
+                "veloqrs: [create_section] indicator recompute failed: {}",
                 e
             );
         }
@@ -403,7 +403,7 @@ impl PersistentRouteEngine {
             let new_distance = calculate_route_distance(&new_polyline);
 
             log::info!(
-                "tracematch: [set_section_reference] section={} activity={} \
+                "veloqrs: [set_section_reference] section={} activity={} \
                  track_points={} portion_points={} current_distance={:.0}m new_distance={:.0}m",
                 section_id,
                 activity_id,
@@ -419,7 +419,7 @@ impl PersistentRouteEngine {
             let max_allowed_distance = current_distance * 3.0;
             if new_distance > max_allowed_distance {
                 log::warn!(
-                    "tracematch: [set_section_reference] Extracted portion ({:.0}m) exceeds 3x \
+                    "veloqrs: [set_section_reference] Extracted portion ({:.0}m) exceeds 3x \
                      original section length ({:.0}m). Keeping original polyline, only updating \
                      representative_activity_id.",
                     new_distance,
@@ -767,14 +767,14 @@ impl PersistentRouteEngine {
             match self.recompute_activity_indicators() {
                 Ok(()) => summary.indicators_recomputed = true,
                 Err(e) => log::warn!(
-                    "tracematch: [index_new_activity] indicator recompute failed: {}",
+                    "veloqrs: [index_new_activity] indicator recompute failed: {}",
                     e
                 ),
             }
         }
 
         log::info!(
-            "tracematch: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
+            "veloqrs: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
             activity_id,
             summary.matched_sections,
             summary.inserted_portions,
@@ -867,7 +867,7 @@ impl PersistentRouteEngine {
         match self.attach_activity_junctions(activity_id) {
             Ok(counts) => counts,
             Err(e) => {
-                log::warn!("tracematch: [attach] {} failed: {}", activity_id, e);
+                log::warn!("veloqrs: [attach] {} failed: {}", activity_id, e);
                 (0, 0)
             }
         }
@@ -884,7 +884,7 @@ impl PersistentRouteEngine {
             match self.recompute_activity_indicators() {
                 Ok(()) => (false, true),
                 Err(e) => {
-                    log::warn!("tracematch: [attach] indicator recompute failed: {}", e);
+                    log::warn!("veloqrs: [attach] indicator recompute failed: {}", e);
                     (false, false)
                 }
             }
@@ -912,7 +912,7 @@ impl PersistentRouteEngine {
         summary.indicators_recomputed = indicators;
 
         log::info!(
-            "tracematch: [attach] {}/{} activities attached ({} portions, regrouped={})",
+            "veloqrs: [attach] {}/{} activities attached ({} portions, regrouped={})",
             summary.attached_activities,
             activity_ids.len(),
             summary.inserted_portions,
@@ -945,7 +945,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
+            "veloqrs: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
             activity_ids.len(),
             section_id,
             sport_type
@@ -974,7 +974,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Found {} matching activities for section {}",
+            "veloqrs: [match_activities_to_section] Found {} matching activities for section {}",
             match_count,
             section_id
         );
@@ -1043,7 +1043,7 @@ impl PersistentRouteEngine {
         // for a section the user just removed.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [delete_section] indicator recompute failed: {}",
+                "veloqrs: [delete_section] indicator recompute failed: {}",
                 e
             );
         }

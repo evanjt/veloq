@@ -1,5 +1,5 @@
 # Dark Mode Contrast Sweep
-# US-DK1: all v0.3.0 surfaces must render with correct contrast in dark mode —
+# US-DK1: all v0.3.0 surfaces must render with correct contrast in dark mode,
 # sparklines, trophy pills, section number badges, chevrons, summary cards.
 #
 # Fix from previous attempt: don't re-launch the app after toggling the theme
@@ -56,7 +56,7 @@ tags:
 - takeScreenshot: "dark-mode-feed"
 
 # ====================================================================
-# Activity detail Sections tab — where most v0.3.0 dark-mode fixes apply
+# Activity detail Sections tab, where most v0.3.0 dark-mode fixes apply
 # ====================================================================
 - openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:
@@ -81,7 +81,7 @@ tags:
 - takeScreenshot: "dark-mode-sections-tab"
 
 # ====================================================================
-# Section detail in dark mode — sparklines + trophy + summary card
+# Section detail in dark mode, sparklines + trophy + summary card
 # ====================================================================
 - back
 - runFlow:

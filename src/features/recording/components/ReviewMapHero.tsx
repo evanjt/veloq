@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing } from '@/theme';
+import { spacing, ink } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
 
@@ -49,7 +49,7 @@ function ReviewMapHeroInner({
         style={[styles.mapBackButton, { top: topInset + spacing.sm }]}
         disabled={disabled}
       >
-        <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+        <MaterialCommunityIcons name="arrow-left" size={24} color={ink.white} />
       </TouchableOpacity>
 
       {/* Trim slider overlaid at bottom of map */}

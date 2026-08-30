@@ -45,7 +45,7 @@ tags:
             id: "login-screen"
           timeout: 15000
 
-# Now on login screen — expand API key section
+# Now on login screen, expand API key section
 - tapOn:
     id: "login-apikey-section"
 

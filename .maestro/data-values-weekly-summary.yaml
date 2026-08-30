@@ -43,7 +43,7 @@ tags:
     timeout: 10000
     speed: 40
 
-# Verify component rendered (stats or empty state — both are valid)
+# Verify component rendered (stats or empty state, both are valid)
 # Longer timeout for the year range to compute from demo data
 - extendedWaitUntil:
     visible:

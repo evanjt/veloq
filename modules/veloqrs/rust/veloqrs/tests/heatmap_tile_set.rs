@@ -1,4 +1,4 @@
-//! Tier 0.3 — tile-set snapshot across lifecycle checkpoints.
+//! Tier 0.3, tile-set snapshot across lifecycle checkpoints.
 //!
 //! Complements `heatmap_parity` (which checks per-tile pixel output) by
 //! snapshotting the *set* of (z,x,y) tile files written at two lifecycle
@@ -94,7 +94,7 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
         }
         std::fs::write(&path, joined).expect("write fixture");
         panic!(
-            "fixture was missing — wrote it to {}. Review, then commit.",
+            "fixture was missing, wrote it to {}. Review, then commit.",
             path.display()
         );
     }

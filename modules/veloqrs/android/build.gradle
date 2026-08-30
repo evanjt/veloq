@@ -156,7 +156,7 @@ if (isNewArchitectureEnabled()) {
 // Locally, rebuild architectures whose .so is missing OR older than any
 // `.rs` source under rust/. Previously the task short-circuited as long as
 // the .so existed at all, so a submodule bump silently kept the stale
-// binary in the APK — and the user saw "old algorithm" behavior after
+// binary in the APK, and the user saw "old algorithm" behavior after
 // `npx expo run:android` reported success.
 task buildRustLibrary {
   def jniLibsDir = file("${projectDir}/src/main/jniLibs")
@@ -170,7 +170,7 @@ task buildRustLibrary {
   }
   // The .so depends on Rust *content*, not file mtime. A git checkout, branch
   // switch, or submodule update changes content while leaving mtimes that fool
-  // both Cargo and Gradle's timestamp checks — the cause of stale .so shipping
+  // both Cargo and Gradle's timestamp checks, the cause of stale .so shipping
   // in the APK. So always run the action and gate on a content hash of the
   // Rust tree; Cargo's own incremental cache makes a no-op invocation fast.
   outputs.upToDateWhen { false }

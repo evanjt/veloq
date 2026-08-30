@@ -515,10 +515,7 @@ export default function RootLayout() {
             <TopSafeAreaProvider>
               <MapPreferencesProvider>
                 <PaperProvider theme={theme}>
-                  <StatusBar
-                    style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    animated
-                  />
+                  <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} animated />
                   <AuthGate>
                     {startupError ? (
                       <View
@@ -541,7 +538,7 @@ export default function RootLayout() {
                             gap: 8,
                           }}
                         >
-                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <ActivityIndicator size="small" color={amberBanner.light.border} />
                           <Text
                             style={{
                               flex: 1,

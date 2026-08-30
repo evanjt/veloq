@@ -274,7 +274,7 @@ fn trunk_pieces(snap: &SectionSnapshot, trunk: &[GpsPoint]) -> Vec<(String, f64)
 }
 
 // ============================================================================
-// GUARDS — green before D1, load-bearing after it. Never ignored.
+// GUARDS, green before D1, load-bearing after it. Never ignored.
 // ============================================================================
 
 #[test]
@@ -362,7 +362,7 @@ fn restore_list_names_a_disabled_corridor() {
 
 /// The suppression-trap regression. After D1 a name becomes a
 /// `section_intents` row, and `durable_intent_rows` treats every intent row
-/// as a suppression ground unless it filters by kind — under which bug this
+/// as a suppression ground unless it filters by kind, under which bug this
 /// corridor would never re-emerge. Green today because naming writes no
 /// intent; must stay green forever.
 #[test]
@@ -512,7 +512,7 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
         engine.remove_activity(aid).expect("remove_activity");
     }
     // The debounced dissolve needs a few steps to retire the visible row.
-    // Drain only with activities that lend the footprint no ground —
+    // Drain only with activities that lend the footprint no ground,
     // orphaned ground re-queues, so any lingering passes over the
     // corridor are an honest low-visit section and it would never
     // dissolve. Empty steps keep the re-detect cadence.
@@ -542,7 +542,7 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
 }
 
 // ============================================================================
-// Durability contracts — the reason names are intents, not row data.
+// Durability contracts, the reason names are intents, not row data.
 // ============================================================================
 
 /// A full cache clear plus re-detect loses every auto row and its name today.
@@ -1085,7 +1085,7 @@ fn accepting_a_named_section_keeps_the_name() {
 
 /// Generated-shaped names ("Section 7") are the engine's own labels, not
 /// user data: writing one to an auto section stays row-local and must never
-/// mint a durable intent — a backup restore replays every generated name
+/// mint a durable intent, a backup restore replays every generated name
 /// through this path.
 #[test]
 fn generated_shaped_names_stay_row_local() {

@@ -3,4 +3,4 @@ v0.3.7
 • Redesigned section detection settings with three methods to pick: Corridor, Density Grid, and Flow Graph
 • Each method has its own tuning sliders and a live preview of how it finds sections
 • Reanalyze button highlights when settings change
-• Fixed empty section pages — matched activities and effort history show up again
+• Fixed empty section pages, matched activities and effort history show up again

@@ -13,13 +13,13 @@ Rutesporing
 Registrer automatisk gentagne ruter og sektioner i din aktivitetshistorik. Sammenlign præstationer over tid for at se dine fremskridt på favoritstiger og -strækninger.
 
 Diagrammer og analyse
-Puls, power, tempo, højde og kadence — alt synkroniseret med kortet. Se zonefordelinger, TSS, intensitetsfaktor og rundedetaljer.
+Puls, power, tempo, højde og kadence, alt synkroniseret med kortet. Se zonefordelinger, TSS, intensitetsfaktor og rundedetaljer.
 
 Fitness
 Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepuls, søvn og velvære. Se power- og tempokurver efter sportsgren.
 
 Privatliv
-Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb — ingen personlige data opbevares. Open source under Apache 2.0.
+Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb, ingen personlige data opbevares. Open source under Apache 2.0.
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 

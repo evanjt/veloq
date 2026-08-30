@@ -16,14 +16,14 @@
 import {
   computeInsightsFromData,
   type WellnessInput,
-} from "@/features/insights/lib/computeInsightsData";
-import type { InsightsData, SummaryCardData } from "veloqrs";
-import { getRouteEngine } from "@/shared/native/routeEngine";
+} from '@/features/insights/lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
-jest.mock("@/shared/native/routeEngine", () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-jest.mock("@/features/routes/stores/RouteSettingsStore", () => ({
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
 }));
 
@@ -32,12 +32,7 @@ const t = (key: string, params?: Record<string, string | number>) => {
   return `${key}:${JSON.stringify(params)}`;
 };
 
-function makePeriod(
-  count: number,
-  durationSecs: number,
-  distanceM: number,
-  tss: number,
-) {
+function makePeriod(count: number, durationSecs: number, distanceM: number, tss: number) {
   return {
     count,
     totalDuration: BigInt(Math.round(durationSecs)),
@@ -52,13 +47,13 @@ function makePattern(
   confidence: number,
   avgDurationSecs: number,
   activityCount: number,
-  commonSections: InsightsData["allPatterns"][0]["commonSections"],
-): InsightsData["allPatterns"][0] {
+  commonSections: InsightsData['allPatterns'][0]['commonSections']
+): InsightsData['allPatterns'][0] {
   return {
     sportType,
     clusterId: 0,
     primaryDay,
-    seasonLabel: "all",
+    seasonLabel: 'all',
     activityCount,
     avgDurationSecs,
     avgTss: 80,
@@ -142,10 +137,10 @@ function buildFfiData(): InsightsData {
       previousDate: BigInt(1_700_000_000),
     },
     allPatterns: [
-      makePattern("Ride", 6, 0.9, 3 * 3600, 12, [
+      makePattern('Ride', 6, 0.9, 3 * 3600, 12, [
         {
-          sectionId: "sec-ride-climb-A",
-          sectionName: "Sunday Climb",
+          sectionId: 'sec-ride-climb-A',
+          sectionName: 'Sunday Climb',
           appearanceRate: 0.8,
           trend: -0.05,
           medianRecentSecs: 720,
@@ -153,22 +148,22 @@ function buildFfiData(): InsightsData {
           traversalCount: 14,
         },
       ]),
-      makePattern("Run", 2, 0.8, 45 * 60, 9, []),
+      makePattern('Run', 2, 0.8, 45 * 60, 9, []),
     ],
     todayPattern: undefined,
     recentPrs: [
       {
-        sectionId: "sec-ride-climb-A",
-        sectionName: "Sunday Climb",
+        sectionId: 'sec-ride-climb-A',
+        sectionName: 'Sunday Climb',
         bestTime: 690,
         daysAgo: 3,
       },
     ],
     sectionCount: 42,
-    sportTypes: ["Ride", "Run"],
+    sportTypes: ['Ride', 'Run'],
     rankedSections: [
-      { sportType: "Ride", sections: makeRankedSections("Ride") },
-      { sportType: "Run", sections: makeRankedSections("Run") },
+      { sportType: 'Ride', sections: makeRankedSections('Ride') },
+      { sportType: 'Run', sections: makeRankedSections('Run') },
     ],
     efficiencyTrends: [],
     hasStrengthData: false,
@@ -203,7 +198,7 @@ function buildSummaryCardData(): SummaryCardData {
 
 function buildWellness(): WellnessInput[] {
   // 14 days of slowly rising CTL, ATL just under, TSB slightly positive.
-  const today = new Date("2026-04-19T08:00:00Z");
+  const today = new Date('2026-04-19T08:00:00Z');
   return Array.from({ length: 14 }).map((_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - (13 - i));
@@ -228,7 +223,7 @@ function buildMockEngine(): unknown {
   // returns over the trailing seven days of `buildWellness`.
   return {
     computeHrvTrend: () => ({
-      label: "trendingDown",
+      label: 'trendingDown',
       avg: 470 / 7,
       latest: 68,
       dataPoints: 7,
@@ -237,17 +232,17 @@ function buildMockEngine(): unknown {
   };
 }
 
-describe("Tier 0.6 contract: computeInsightsFromData", () => {
+describe('Tier 0.6 contract: computeInsightsFromData', () => {
   beforeEach(() => {
     (getRouteEngine as jest.Mock).mockReturnValue(buildMockEngine());
   });
 
-  it("produces a stable, ranked insight list given fixture FFI data", () => {
+  it('produces a stable, ranked insight list given fixture FFI data', () => {
     const insights = computeInsightsFromData(
       buildFfiData(),
       buildWellness(),
       t,
-      buildSummaryCardData(),
+      buildSummaryCardData()
     );
 
     // Snapshot the structural shape of the output. Each entry's id /
@@ -257,9 +252,8 @@ describe("Tier 0.6 contract: computeInsightsFromData", () => {
       id: i.id,
       category: i.category,
       priority: i.priority,
-      hasNavigationTarget: typeof i.navigationTarget === "string",
-      sectionRefIds:
-        i.supportingData?.sections?.map((s) => s.sectionId) ?? null,
+      hasNavigationTarget: typeof i.navigationTarget === 'string',
+      sectionRefIds: i.supportingData?.sections?.map((s) => s.sectionId) ?? null,
     }));
 
     // The snapshot IS the contract: whatever shape today's code produces
@@ -277,45 +271,37 @@ describe("Tier 0.6 contract: computeInsightsFromData", () => {
     for (const ins of insights) {
       expect(ins.priority).toBeGreaterThanOrEqual(1);
       expect(ins.priority).toBeLessThanOrEqual(3);
-      expect(typeof ins.title).toBe("string");
+      expect(typeof ins.title).toBe('string');
       expect(ins.title.length).toBeGreaterThan(0);
     }
   });
 
-  it("returns [] when ffiData is null", () => {
+  it('returns [] when ffiData is null', () => {
     const insights = computeInsightsFromData(null, buildWellness(), t, null);
     expect(insights).toEqual([]);
   });
 
-  it("does not crash when wellness is empty (rest-day framing path)", () => {
-    const insights = computeInsightsFromData(
-      buildFfiData(),
-      [],
-      t,
-      buildSummaryCardData(),
-    );
+  it('does not crash when wellness is empty (rest-day framing path)', () => {
+    const insights = computeInsightsFromData(buildFfiData(), [], t, buildSummaryCardData());
     // Should still produce at least the section-pattern insights derived
     // from FFI data alone.
     expect(Array.isArray(insights)).toBe(true);
   });
 
-  it("carries the engine ranking breakdown onto section-trend insights", () => {
+  it('carries the engine ranking breakdown onto section-trend insights', () => {
     const insights = computeInsightsFromData(
       buildFfiData(),
       buildWellness(),
       t,
-      buildSummaryCardData(),
+      buildSummaryCardData()
     );
 
-    const trend = insights.find((i) => i.id.startsWith("section_trend-"));
-    if (!trend) throw new Error("expected a section-trend insight");
+    const trend = insights.find((i) => i.id.startsWith('section_trend-'));
+    if (!trend) throw new Error('expected a section-trend insight');
 
     const section = trend.supportingData?.sections?.[0];
-    const source = makeRankedSections("Ride").find(
-      (r) => r.sectionId === section?.sectionId,
-    );
-    if (!source)
-      throw new Error("expected a ranked section behind the insight");
+    const source = makeRankedSections('Ride').find((r) => r.sectionId === section?.sectionId);
+    if (!source) throw new Error('expected a ranked section behind the insight');
     expect(section?.ranking).toEqual({
       relevance: source.relevanceScore,
       recency: source.recencyScore,
@@ -325,19 +311,19 @@ describe("Tier 0.6 contract: computeInsightsFromData", () => {
     });
   });
 
-  it("section-derived insights only reference sections present in the FFI ranked-batch", () => {
+  it('section-derived insights only reference sections present in the FFI ranked-batch', () => {
     const insights = computeInsightsFromData(
       buildFfiData(),
       buildWellness(),
       t,
-      buildSummaryCardData(),
+      buildSummaryCardData()
     );
 
     const allowedSectionIds = new Set([
-      "sec-ride-climb-A",
-      "sec-ride-flat-B",
-      "sec-run-climb-A",
-      "sec-run-flat-B",
+      'sec-ride-climb-A',
+      'sec-ride-flat-B',
+      'sec-run-climb-A',
+      'sec-run-flat-B',
     ]);
 
     for (const ins of insights) {

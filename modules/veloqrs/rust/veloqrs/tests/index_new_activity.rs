@@ -4,7 +4,7 @@
 //! arrives over the same corridor (the background push handler path).
 //! Expected behaviour: index_new_activity attaches the activity to the
 //! existing sections via junction rows, regroups incrementally, and is
-//! idempotent on re-delivery — all without a full re-detection.
+//! idempotent on re-delivery, all without a full re-detection.
 
 #![cfg(feature = "synthetic")]
 

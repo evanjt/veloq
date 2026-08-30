@@ -1,6 +1,6 @@
-# Activity Sections — Long-press Scrub Smoke
+# Activity Sections. Long-press Scrub Smoke
 # Long-press on each section row triggers the scrub Pan gesture
-# (activateAfterLongPress). This flow is a crash-smoke + screenshot record —
+# (activateAfterLongPress). This flow is a crash-smoke + screenshot record,
 # the per-row correctness of the hit test (right row highlights, no dual
 # highlight when two rows share a sectionId) is unit-tested in
 # src/__tests__/components/activity/scrubHitTest.test.ts. Maestro releases
@@ -48,7 +48,7 @@ tags:
 # Long-press each rendered row. activateAfterLongPress fires the Pan gesture
 # at LONG_PRESS_DURATION (500ms), and the Rust-side haptic + row highlight
 # confirm the scrub started. If the gesture failed to activate on any row,
-# the app would either freeze or throw — both would fail this flow.
+# the app would either freeze or throw, both would fail this flow.
 - runFlow:
     when:
       visible:

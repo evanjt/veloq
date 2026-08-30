@@ -23,6 +23,18 @@ export function colorWithOpacity(hex: string, opacity: number): string {
 }
 
 // =============================================================================
+// FIXED INK
+// =============================================================================
+
+// White and black, for surfaces that are not the theme's: text on a coloured
+// chip, a casing under a map line, a gradient built from one at an opacity.
+// Reach for a semantic token first; this is the escape hatch, not the default.
+export const ink = {
+  white: '#FFFFFF',
+  black: '#000000',
+} as const;
+
+// =============================================================================
 // BRAND SIGNATURE COLORS
 // =============================================================================
 
@@ -213,11 +225,16 @@ export const colors = {
   // Semantic
   success: '#22C55E',
   successLight: '#4ADE80',
+  successDark: '#16A34A',
   error: '#EF4444',
   errorLight: '#F87171',
   errorDark: '#DC2626',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
+  // Capacity ladder, between warning and error: a section's point budget and
+  // the storage bar's cache segments.
+  cautionYellow: '#FFC107',
+  cautionOrange: '#FF9800',
   info: brand.blue,
   infoLight: brand.blueLight,
 
@@ -333,6 +350,9 @@ export const colors = {
   warningBannerBg: '#451A03',
   warningBannerText: '#FDE68A',
 
+  // Tappable reference link inside an insight's methodology note
+  linkTeal: '#009688',
+
   // Compass
   compassNorth: '#E53935',
 } as const;
@@ -403,6 +423,70 @@ export const statusBadge = {
 export const amberBanner = {
   light: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', subtext: '#B45309' },
   dark: { bg: '#3F2A17', border: '#92400E', text: '#FDE68A', subtext: '#FCD34D' },
+} as const;
+
+// Error-banner counterpart to amberBanner: red surfaces for a failure notice.
+export const redBanner = {
+  bg: '#FEE2E2',
+  border: '#EF4444',
+  text: '#991B1B',
+} as const;
+
+// GitHub-style contribution ramp for the activity heatmap grid: five steps
+// from "no activity" upward, one set per mode.
+export const contributionRamp = {
+  dark: ['#161B22', '#0E4429', '#006D32', '#26A641', '#39D353'],
+  light: ['#EBEDF0', '#9BE9A8', '#40C463', '#30A14E', '#216E39'],
+} as const;
+
+// The crash screen paints itself before any theme provider is mounted, so it
+// carries its own dark chrome rather than reading one.
+export const errorScreen = {
+  bg: '#1A1A1A',
+  title: '#FFFFFF',
+  detail: '#999999',
+  message: '#FF6B6B',
+  action: '#0D9488',
+} as const;
+
+// Muscle body diagram: the base fill under the volume ramp, one per mode, and
+// the outline on the selected group.
+export const bodyDiagram = {
+  fillLight: '#3F3F3F',
+  fillDark: '#555555',
+  selectedStroke: '#1A1A1A',
+} as const;
+
+// The one-frame Skia warmup surface. Primaries on purpose: it compiles the
+// shaders and is never seen.
+export const shaderWarmup = {
+  gradientStart: '#FF0000',
+  gradientEnd: '#00FF00',
+  line: '#888888',
+  rect: '#333333',
+  shadow: '#000000',
+} as const;
+
+// Switch track when the switch is off, one per mode. Heavier than inputTrack:
+// a switch reads as a control, a progress rail does not.
+export const switchTrackOff = {
+  light: '#DDDDDD',
+  dark: '#444444',
+} as const;
+
+// The QR scanner covers the screen with the camera feed, so its chrome is
+// fixed against the preview rather than following the theme.
+export const cameraOverlay = {
+  bg: '#000000',
+  text: '#FFFFFF',
+  hint: '#999999',
+} as const;
+
+// Icon drawn over a mapStyleSwatch chip: dark on the light swatch, white on
+// the other two.
+export const mapStyleSwatchIcon = {
+  light: '#6B7280',
+  dark: '#FFFFFF',
 } as const;
 
 // Loupe magnifier chrome (strength body diagram). The clip background follows

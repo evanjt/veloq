@@ -276,7 +276,7 @@ impl PersistentRouteEngine {
         self.section_identity_relinquish(secondary_id);
 
         log::info!(
-            "tracematch: [merge] Merged section {} into {} ({} activities)",
+            "veloqrs: [merge] Merged section {} into {} ({} activities)",
             secondary_id,
             primary_id,
             merged_outings

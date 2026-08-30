@@ -141,7 +141,7 @@ fn merge_rejects_missing_section() {
 
 #[test]
 fn merge_preserves_unique_activity_mappings() {
-    // Both sections already contain a1 — merging should not blow up and
+    // Both sections already contain a1, merging should not blow up and
     // the primary should end up with a single row for a1.
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);

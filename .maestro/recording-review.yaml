@@ -117,7 +117,7 @@ onFlowComplete:
 
 - takeScreenshot: "recording-review-name-entered"
 
-# Tap save — in demo mode this succeeds and navigates home
+# Tap save, in demo mode this succeeds and navigates home
 - tapOn:
     id: "review-save-button"
 
