@@ -4,8 +4,14 @@
  * Rust stores the intervals.icu response body untouched and `parseStreams`
  * stays the single transform, so what the charts render is what they rendered
  * when the fetch lived in axios. Streams are the largest payloads the API
- * returns, so the engine keeps a bounded cache rather than a full mirror: a
- * body that has aged out simply reads as absent and is re-requested.
+ * returns, so the engine keeps a bounded cache rather than a full mirror.
+ *
+ * A miss is not the end of the read. Rust rebuilds latlng, altitude and time
+ * from the points and times the activity ingest already stored, so a map
+ * preview costs nothing over the wire however long ago the body aged out. A
+ * selection it cannot serve whole, the detail set among them, still reads as
+ * absent and is re-requested: a partial body would look stocked and cost the
+ * athlete their power and heart rate.
  */
 
 import { parseStreams } from '@/features/activity/lib/streams';

@@ -144,6 +144,10 @@ impl PersistentRouteEngine {
     }
 }
 
+/// Series a stored track and time stream can serve without a fetch. Anything
+/// outside this set only ever arrives as a body from intervals.icu.
+const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "time"];
+
 /// How many stream payloads to keep. Streams are 100-500KB each, so this is a
 /// cache with a ceiling, not a mirror of the athlete's history.
 const MAX_STREAM_BODIES: i64 = 50;
@@ -167,6 +171,89 @@ impl PersistentRouteEngine {
             params![MAX_STREAM_BODIES],
         )?;
         Ok(())
+    }
+
+    /// The read order for a series selection: the cached server body first,
+    /// then a reconstruction from the points and times the ingest already
+    /// stored. `None` means nothing on device can answer it, which is what
+    /// makes the caller fetch.
+    ///
+    /// The reconstruction is not a second cache. It is the same data in the
+    /// shape the charts read, so it is rebuilt per call and never written
+    /// back: storing it would evict a real body to hold a copy of the track.
+    pub fn read_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<Option<String>> {
+        if let Some(cached) = self.get_stream_body(activity_id, types)? {
+            return Ok(Some(cached));
+        }
+        Ok(self.reconstruct_stream_body(activity_id, types))
+    }
+
+    /// Rebuild a stream body from `gps_tracks` and `time_streams`, or `None`
+    /// when the selection asks for a series neither holds.
+    ///
+    /// Answering a selection only in part would be worse than answering none
+    /// of it: the detail screen treats any body as "stocked" and stops
+    /// fetching, so an athlete would lose their power and heart rate to a
+    /// reconstruction that never had them. A selection is served whole or not
+    /// at all.
+    fn reconstruct_stream_body(&self, activity_id: &str, types: &str) -> Option<String> {
+        let wanted: Vec<&str> = types.split(',').filter(|t| !t.is_empty()).collect();
+        if wanted.is_empty() || !wanted.iter().all(|t| RECONSTRUCTABLE.contains(t)) {
+            return None;
+        }
+
+        // Both series ride the `latlng` mask the ingest applied, so the stored
+        // points are the index space every other series is addressed in.
+        let points = match self.track(activity_id) {
+            crate::persistence::codec::TrackRead::Present(points) if !points.is_empty() => points,
+            _ => return None,
+        };
+
+        let mut items: Vec<crate::net::types::StreamDto> = Vec::with_capacity(wanted.len());
+
+        if wanted.contains(&"latlng") {
+            items.push(crate::net::types::StreamDto {
+                kind: "latlng".to_string(),
+                data: points.iter().map(|p| Some(p.latitude)).collect(),
+                data2: Some(points.iter().map(|p| Some(p.longitude)).collect()),
+            });
+        }
+
+        // The ingest asked for both altitude forms and stored whichever
+        // `parse_streams` preferred, so a point carries one elevation and no
+        // record of which form it came from. It goes back as `altitude`:
+        // naming it `fixed_altitude` would claim a correction the stored point
+        // cannot evidence, and nothing downstream reads the distinction.
+        //
+        // An ingest that could not trust the altitude kept the track and
+        // dropped it, so a track with no elevation anywhere has no profile to
+        // serve. Emitting zeroes would draw a ride at sea level.
+        if (wanted.contains(&"altitude") || wanted.contains(&"fixed_altitude"))
+            && points.iter().any(|p| p.elevation.is_some())
+        {
+            items.push(crate::net::types::StreamDto {
+                kind: "altitude".to_string(),
+                data: points.iter().map(|p| p.elevation).collect(),
+                data2: None,
+            });
+        }
+
+        // A time stream is fetched separately, so its length is evidence
+        // rather than a guarantee. One that disagrees with the points is not
+        // in this index space, and a scrubber on the wrong index space moves
+        // the cursor to the wrong place on the map.
+        if wanted.contains(&"time")
+            && let Some(times) = self.load_time_stream(activity_id)
+            && times.len() == points.len()
+        {
+            items.push(crate::net::types::StreamDto {
+                kind: "time".to_string(),
+                data: times.iter().map(|t| Some(f64::from(*t))).collect(),
+                data2: None,
+            });
+        }
+
+        serde_json::to_string(&items).ok()
     }
 
     /// A stored stream payload, or `None` when this activity and series
@@ -491,5 +578,214 @@ mod tests {
                 .unwrap(),
             vec!["kept".to_string()]
         );
+    }
+
+    // Reconstruction from `gps_tracks` and `time_streams`. Every ingested
+    // activity already has its points on device, so a preview that misses the
+    // body cache has no reason to pay for the same bytes twice.
+
+    fn elevated_track(n: usize) -> Vec<crate::GpsPoint> {
+        (0..n)
+            .map(|i| {
+                crate::GpsPoint::with_elevation(
+                    46.2 + i as f64 * 0.001,
+                    7.35 + i as f64 * 0.001,
+                    100.0 + i as f64,
+                )
+            })
+            .collect()
+    }
+
+    fn series<'a>(
+        items: &'a [crate::net::types::StreamDto],
+        kind: &str,
+    ) -> Option<&'a crate::net::types::StreamDto> {
+        items.iter().find(|s| s.kind == kind)
+    }
+
+    fn parse_body(raw: &str) -> Vec<crate::net::types::StreamDto> {
+        serde_json::from_str(raw).expect("reconstruction is an intervals.icu stream array")
+    }
+
+    #[test]
+    fn a_preview_reads_from_the_stored_track_when_no_body_was_cached() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+
+        let raw = engine
+            .read_stream_body("a1", "altitude,latlng")
+            .unwrap()
+            .expect("an ingested track can serve its own preview");
+        let items = parse_body(&raw);
+
+        let source = elevated_track(4);
+        let latlng = series(&items, "latlng").expect("latlng");
+        let lngs = latlng
+            .data2
+            .as_deref()
+            .expect("latlng carries lng in data2");
+        assert_eq!(latlng.data.len(), source.len());
+        assert_eq!(lngs.len(), source.len());
+
+        // The track codec quantises to 1e-6 deg and 0.1 m, so the guarantee is
+        // that a revert restores the line a rider followed, not the stored f64.
+        let altitude = series(&items, "altitude").expect("altitude");
+        for (i, p) in source.iter().enumerate() {
+            assert!((latlng.data[i].unwrap() - p.latitude).abs() <= 1e-6);
+            assert!((lngs[i].unwrap() - p.longitude).abs() <= 1e-6);
+            assert!((altitude.data[i].unwrap() - p.elevation.unwrap()).abs() <= 0.05);
+        }
+    }
+
+    #[test]
+    fn a_cached_body_wins_over_the_reconstruction() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine
+            .set_stream_body("a1", "altitude,latlng", "what-the-server-sent")
+            .unwrap();
+
+        // The server body carries samples the track dropped, so it outranks a
+        // reconstruction even though both answer the same selection.
+        assert_eq!(
+            engine
+                .read_stream_body("a1", "altitude,latlng")
+                .unwrap()
+                .as_deref(),
+            Some("what-the-server-sent")
+        );
+    }
+
+    #[test]
+    fn a_selection_the_track_cannot_serve_reads_as_absent() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+
+        // `DETAIL_STREAM_TYPES` as `streamTypesKey` sorts it. Power and heart
+        // rate are not in the track, and serving a partial body would tell the
+        // detail screen it is stocked and stop the fetch, so the whole
+        // selection reads as absent instead.
+        assert!(
+            engine
+                .read_stream_body(
+                    "a1",
+                    "altitude,cadence,distance,fixed_altitude,ga_velocity,grade_smooth,\
+                     heartrate,latlng,temp,time,velocity_smooth,w_bal,watts"
+                )
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn the_reconstruction_carries_time_when_it_indexes_the_same_samples() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine.set_time_streams_flat(&["a1".to_string()], &[0, 5, 10, 15], &[0]);
+
+        let raw = engine
+            .read_stream_body("a1", "latlng,time")
+            .unwrap()
+            .unwrap();
+        let items = parse_body(&raw);
+        assert_eq!(
+            series(&items, "time").expect("time").data,
+            vec![Some(0.0), Some(5.0), Some(10.0), Some(15.0)]
+        );
+    }
+
+    #[test]
+    fn a_time_stream_of_the_wrong_length_is_dropped_rather_than_misaligned() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine.set_time_streams_flat(&["a1".to_string()], &[0, 5], &[0]);
+
+        let raw = engine
+            .read_stream_body("a1", "latlng,time")
+            .unwrap()
+            .unwrap();
+        let items = parse_body(&raw);
+        // A scrubber on the wrong index space is worse than no scrubber, but
+        // the line still draws.
+        assert!(series(&items, "time").is_none());
+        assert!(series(&items, "latlng").is_some());
+    }
+
+    #[test]
+    fn a_track_with_no_elevation_serves_the_line_without_a_profile() {
+        let (_dir, mut engine) = engine();
+        let flat: Vec<crate::GpsPoint> = (0..4)
+            .map(|i| crate::GpsPoint::new(46.2 + i as f64 * 0.001, 7.35))
+            .collect();
+        engine
+            .add_activity("a1".to_string(), flat, "cycling".to_string())
+            .unwrap();
+
+        let raw = engine
+            .read_stream_body("a1", "altitude,latlng")
+            .unwrap()
+            .unwrap();
+        let items = parse_body(&raw);
+        assert!(series(&items, "latlng").is_some());
+        // The ingest drops an elevation it cannot trust and keeps the track.
+        // An empty profile would read as sea level all the way.
+        assert!(series(&items, "altitude").is_none());
+    }
+
+    #[test]
+    fn a_corrected_altitude_selection_is_served_as_plain_altitude() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+
+        let raw = engine
+            .read_stream_body("a1", "fixed_altitude,latlng")
+            .unwrap()
+            .unwrap();
+        let items = parse_body(&raw);
+        // The stored point cannot say which form its elevation came from, so
+        // the profile is served under the name that claims nothing.
+        assert!(series(&items, "fixed_altitude").is_none());
+        assert_eq!(series(&items, "altitude").expect("altitude").data.len(), 4);
+    }
+
+    #[test]
+    fn an_activity_with_no_stored_track_has_nothing_to_reconstruct() {
+        let (_dir, engine) = engine();
+        assert!(
+            engine
+                .read_stream_body("never-ingested", "altitude,latlng")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn the_reconstruction_does_not_displace_the_cache_ceiling() {
+        let (_dir, mut engine) = engine();
+        engine
+            .add_activity("a1".to_string(), elevated_track(4), "cycling".to_string())
+            .unwrap();
+        engine.read_stream_body("a1", "altitude,latlng").unwrap();
+        engine.read_stream_body("a1", "altitude,latlng").unwrap();
+
+        // Reconstruction is free to recompute, so writing it back would evict
+        // a real server body to store something already on disk.
+        let rows: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM stream_bodies", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
     }
 }

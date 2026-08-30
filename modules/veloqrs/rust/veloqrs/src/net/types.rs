@@ -85,13 +85,18 @@ pub const ACTIVITY_STATS_EXTRA: &str =
 
 /// One raw stream object from `streams.json`. `latlng` carries lat in `data`
 /// and lng in `data2`; numeric gaps come through as JSON null.
-#[derive(Debug, Clone, Deserialize)]
+///
+/// Serialised as well as deserialised, because a body rebuilt from the stored
+/// track is handed to the same `parseStreams` a live response goes through.
+/// `data2` is skipped when absent so a reconstruction is byte-shaped like a
+/// server response rather than carrying a null the wire never sends.
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StreamDto {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(default)]
     pub data: Vec<Option<f64>>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data2: Option<Vec<Option<f64>>>,
 }
 
