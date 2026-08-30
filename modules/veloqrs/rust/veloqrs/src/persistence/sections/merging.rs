@@ -219,7 +219,7 @@ impl PersistentEngine {
         }
 
         // A merge is durable user intent: mark the primary user-defined so the
-        // detection wipe spares it and B2 suppression keeps auto detection from
+        // detection wipe spares it and suppression keeps auto detection from
         // re-emitting (and colliding on) its ground on the next resync.
         tx.execute(
             "UPDATE sections SET is_user_defined = 1 WHERE id = ?",

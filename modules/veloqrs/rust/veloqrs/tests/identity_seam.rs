@@ -546,7 +546,7 @@ where
     let filler = filler_act(label, 90);
     let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
         panic!(
-            "{label}: the first resync after promotion failed (the R2 UNIQUE-collision class): {e}"
+            "{label}: the first resync after promotion failed (the UNIQUE-collision class): {e}"
         )
     });
 
@@ -653,7 +653,7 @@ fn merge_relinquishes_both_identities() {
 
     let filler = filler_act("merge", 90);
     let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-        panic!("the first resync after merge failed (the R2 UNIQUE-collision class): {e}")
+        panic!("the first resync after merge failed (the UNIQUE-collision class): {e}")
     });
 
     let snap = step.snapshot;
@@ -782,7 +782,7 @@ fn mirror_rows_equal_pure_grounds() {
 
 /// Scenario: one engine simultaneously holds an accepted row, a trimmed row, a
 /// custom row, and a disabled row on distinct corridors, plus one live auto
-/// corridor, then runs two full detect+apply cycles (the R2 crash class: the
+/// corridor, then runs two full detect+apply cycles (the crash class: the
 /// ownership predicates drifting apart).
 /// Expected behaviour: no UNIQUE collision, every durable row and its junction
 /// rows byte-unchanged, custom and accepted still on the read path, the
@@ -849,7 +849,7 @@ fn durable_rows_never_collide() {
         let filler = filler_act("durable", 90 + pass);
         let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
             panic!(
-                "resync {pass} with all durable kinds failed (the R2 UNIQUE-collision class): {e}"
+                "resync {pass} with all durable kinds failed (the UNIQUE-collision class): {e}"
             )
         });
         assert_eq!(

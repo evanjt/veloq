@@ -619,13 +619,14 @@ pub struct PersistentEngine {
     /// Tier 2: LRU cached groups for single-item lookups (100 max = ~1MB)
     group_cache: LruCache<String, RouteGroup>,
 
-    /// Cached route groups (loaded from DB). Since B2 their `group_id` is a stable
+    /// Cached route groups (loaded from DB). Their `group_id` is a stable
     /// assign-once id carried by `route_identity`, not the churning Union-Find root.
     groups: Vec<RouteGroup>,
 
-    /// Assign-once route identity registry (B2 step 3). Owns the stable route id
-    /// over time and carries it (plus the representative) onto the recomputed
-    /// group by member overlap. In-memory pre-B4; reseeded from the DB on open.
+    /// Assign-once route identity registry. Owns the stable route id over time
+    /// and carries it (plus the representative) onto the recomputed group by
+    /// member overlap. Restored from its persisted blob on open, or reseeded
+    /// from the loaded groups when there is none.
     route_identity: route_identity::RouteIdentity,
 
     /// Per-activity match info: route_id -> Vec<ActivityMatchInfo>
@@ -640,7 +641,7 @@ pub struct PersistentEngine {
     /// from the `time_streams` SQLite table.
     time_streams: LruCache<String, Vec<u32>>,
 
-    /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
+    /// Cached sections (loaded from DB). This is the identity-stable,
     /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
     /// batch, `sections::SectionIdentity` remaps ids and debounces churn between
     /// the worker's raw catalogue and this field.
@@ -663,13 +664,14 @@ pub struct PersistentEngine {
     pub(crate) named_overlay: std::sync::RwLock<sections::NamedOverlay>,
     pub(crate) named_overlay_stamp: std::sync::atomic::AtomicI64,
 
-    /// Assign-once section identity registry + hysteresis debounce (B2). Owns the
+    /// Assign-once section identity registry + hysteresis debounce. Owns the
     /// stable opaque id over time and damps the non-monotone batch into the
-    /// visible `sections` above. In-memory pre-B4; reseeded from the DB on open.
+    /// visible `sections` above. Restored from its persisted blob on open, or
+    /// reseeded from the loaded sections when there is none.
     identity: sections::SectionIdentity,
 
     /// The last RAW detection catalogue applied, before the identity + hysteresis
-    /// remap. `sections` is the DAMPED view the app renders; this is the B1
+    /// remap. `sections` is the DAMPED view the app renders; this is the
     /// convergence truth (order-free, tracks the batch every step) the parity
     /// gates compare against. The two DIFFER by design: the damped view can hold a
     /// section a debounced dissolve has not yet retired, so it lags the raw batch
@@ -859,15 +861,14 @@ impl PersistentEngine {
         // Read the cutover token and set the pending flag. Nothing slow.
         self.check_cutover_state();
 
-        // B2: seed the identity registry from the sections just loaded so an
-        // existing install adopts its current ids as stable seeds. The evidence
-        // cache stays cold (the next detect cold-rebatches), but identity is
-        // preserved: a resync carries the seeded ids onto their surviving ground
-        // rather than re-deriving them. Must run after both `sections` and
-        // `metadata` load so it sees the managed catalogue and the activity set.
-        // B4: prefer the persisted registry blob (exact debounce + tombstone
-        // state) and fall back to reseeding from the DB rows for a fresh or
-        // pre-B4 install.
+        // Prefer the persisted registry blob (exact debounce + tombstone
+        // state). Failing that, seed the identity registry from the sections
+        // just loaded so an existing install adopts its current ids as stable
+        // seeds. The evidence cache stays cold (the next detect cold-rebatches),
+        // but identity is preserved: a resync carries the seeded ids onto their
+        // surviving ground rather than re-deriving them. Must run after both
+        // `sections` and `metadata` load so it sees the managed catalogue and
+        // the activity set.
         // A reseed off a truncated `sections` (a loader error this function
         // deliberately continues past) stays in memory, so the next open reseeds
         // from the whole catalogue instead of restoring the truncation.
@@ -878,9 +879,9 @@ impl PersistentEngine {
             }
         }
 
-        // B2 step 3 + B4: same for routes, restore the persisted registry
-        // (mint counter + seniority), else adopt the loaded group_ids as stable
-        // seeds. Must run after `groups` load.
+        // Same for routes: restore the persisted registry (mint counter +
+        // seniority), else adopt the loaded group_ids as stable seeds. Must run
+        // after `groups` load.
         if !self.route_identity_restore() {
             self.route_identity_reseed();
         }
@@ -1029,7 +1030,7 @@ impl PersistentEngine {
         }
 
         self.section_config = config;
-        // R6 freshness: a config change alters what detection would find, so the
+        // A config change alters what detection would find, so the
         // whole library must be re-analysed. The processed set is insert-only and
         // would otherwise short-circuit the next detect on the seen activities;
         // clearing it forces a full re-detect under the new config.

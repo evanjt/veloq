@@ -337,7 +337,7 @@ fn recompute_and_save_groups(
     };
     let group_ms = group_start.elapsed().as_millis();
 
-    // SB5: the same assign-once remap the foreground writer runs. Without it this
+    // The same assign-once remap the foreground writer runs. Without it this
     // path persists the raw Union-Find roots, re-keying the catalogue behind the
     // stable ids `route_names` and `activity_matches` are keyed on, and the user's
     // route names are orphaned by whichever writer happened to run last.
@@ -1000,14 +1000,14 @@ impl PersistentEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        // B2: remap the raw detection batch through the assign-once identity +
+        // Remap the raw detection batch through the assign-once identity +
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
         let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
-        // SB6: a section whose every portion belongs to an activity the pool no
+        // A section whose every portion belongs to an activity the pool no
         // longer holds gets zero junction rows, so no trigger fires and it renders
         // as "0 visits" over an empty detail screen. Keep it out of the visible
         // catalogue. The registry row stays, so the hysteresis still dissolves the
@@ -1040,7 +1040,7 @@ impl PersistentEngine {
         }
         let old_sections = std::mem::replace(&mut self.sections, visible);
         // Make the trial registry live BEFORE the save: `save_sections` writes its
-        // blob (B4) inside the same transaction as the catalogue, so the two
+        // blob inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
@@ -1407,7 +1407,7 @@ mod tests {
         rows.filter_map(|r| r.ok()).collect()
     }
 
-    /// SB5. The background writer is handed the same catalogue back under fresh
+    /// The background writer is handed the same catalogue back under fresh
     /// Union-Find root ids, which is what the grouping emits. It must carry the
     /// stable ids, so the user's route name stays attached, rather than persist
     /// the roots raw and orphan it.

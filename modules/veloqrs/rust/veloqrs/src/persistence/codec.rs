@@ -62,7 +62,7 @@ pub fn deserialize<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
 /// Prefix a serialised body with a one-byte version tag. postcard is positional,
 /// not self-describing, so a struct shape change would misparse an old blob;
 /// the tag lets a reader detect the mismatch and heal (reseed) instead. Used for
-/// the persisted identity-registry blobs (B4 migration 013).
+/// the persisted identity-registry blobs.
 pub fn tag_blob(version: u8, mut body: Vec<u8>) -> Vec<u8> {
     body.insert(0, version);
     body

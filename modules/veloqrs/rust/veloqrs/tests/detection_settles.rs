@@ -32,8 +32,8 @@ fn corpus() -> LifecycleCorpus {
 }
 
 /// An engine on the Unified arm holding a detected catalogue over `corpus`.
-/// Unified is explicit: the shipped default is still Corridor until the B3
-/// flip, and Corridor's damped view does not settle.
+/// Unified is explicit: the shipped default is still Corridor, and Corridor's
+/// damped view does not settle.
 fn detected_engine(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEngine {
     let path = dir.path().join("settles.db");
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();

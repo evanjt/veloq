@@ -12,7 +12,7 @@
 //! what that has to deliver: a deterministic byte-stable catalogue, an opaque id
 //! that survives a resync, and a chosen representative, custom name, and
 //! membership that survive with it. The one remaining red is the in-memory
-//! custom name (`#[ignore]`d, B4 owes the re-hydrate).
+//! custom name (`#[ignore]`d, the re-hydrate on recompute is still owed).
 //!
 //! Method-agnostic persistence behaviour, run on the fast Control arm.
 //!
@@ -158,8 +158,9 @@ fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
 /// Gate (determinism): the WHOLE route catalogue, group ids and representatives
 /// included, is byte-stable across two fresh engines over the same set. Unlike
 /// sections (whose signature is id-free), the route snapshot's signature carries
-/// the id, so identity has to be deterministic, not merely stable: B2 mints an
-/// ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into the id) and
+/// the id, so identity has to be deterministic, not merely stable: the registry
+/// mints an ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into
+/// the id) and
 /// a cold group's representative is already the sorted-min member, so the two
 /// catalogues match to the byte. A red is a seed-dependent value (the Union-Find
 /// root) leaking back into the id.
@@ -195,8 +196,9 @@ fn corpus_activity<'a>(corpus: &'a LifecycleCorpus, id: &str) -> &'a LifecycleAc
 // ============================================================================
 
 /// A multi-member route has a STABLE, OPAQUE identity across a resync, an id
-/// that does not move with its membership. B2 mints an ordinal `r_<n>` rather
-/// than reusing the Union-Find root, so the id is never the group's MIN member
+/// that does not move with its membership. The registry mints an ordinal
+/// `r_<n>` rather than reusing the Union-Find root, so the id is never the
+/// group's MIN member
 /// id. A positional id would be re-keyed whenever a lower-id member joins,
 /// orphaning everything stored against it (the representative and name below).
 #[test]
@@ -272,7 +274,7 @@ fn route_representative_survives_resync() {
 /// The `route_names` row survives a resync under the SAME id, and that id still
 /// addresses the route by membership. This is the durable half of route naming:
 /// the name is keyed by group_id, so a re-keyed group would orphan the row and
-/// lose the name from every surface. Stable identity (B2) is what keeps the two
+/// lose the name from every surface. Stable identity is what keeps the two
 /// lookups agreeing. The in-memory surface is gated separately below.
 #[test]
 fn route_name_row_survives_resync_under_the_stable_id() {

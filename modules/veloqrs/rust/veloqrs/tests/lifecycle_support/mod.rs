@@ -12,8 +12,8 @@
 //! The two arms differ by exactly one engine setting, so any difference in
 //! output is attributable to the detector, not the harness. Identity,
 //! incremental persistence, hysteresis, and concurrency assertions live as
-//! `#[ignore]` target gates in the Battery suite until B1/B2/B4 ship; this
-//! module carries the fingerprint and survival machinery they assert against.
+//! target gates in the Battery suite; this module carries the fingerprint and
+//! survival machinery they assert against.
 
 #![allow(dead_code)] // shared across test binaries; not every suite uses every helper
 
@@ -51,8 +51,8 @@ pub struct SectionFingerprint {
     /// GROUND (overlap), not by id. String ids lie in both directions: rank
     /// ids (Corridor) reshuffle on every set change, and emission ids
     /// (Unified, `sec_ride_0`) persist trivially onto different ground. Ground
-    /// overlap is the honest identity signal, and it is what B2's IoU layer
-    /// will use.
+    /// overlap is the honest identity signal, and it is what the registry's IoU
+    /// layer uses.
     pub polyline: Vec<GpsPoint>,
     pub sport_type: String,
     /// Interestingness percentile and class, None before a rank has run.
@@ -243,7 +243,7 @@ pub fn lends_ground(fp: &SectionFingerprint, track: &[GpsPoint]) -> bool {
 /// includes custom sections. Deliberately NOT the in-memory `get_sections()`
 /// detection cache: `apply_sections_save` sets that cache to the fresh
 /// detection result and never reloads from DB, so the cache and the visible
-/// view can diverge (the seam B4 must close). The suite measures what the user
+/// view can diverge. The suite measures what the user
 /// experiences, so it reads the visible view.
 pub fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections_by_type(None);
@@ -271,13 +271,13 @@ pub fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
 }
 
 /// Snapshot the RAW detection catalogue (pre-identity, pre-hysteresis) instead of
-/// the DAMPED visible view `snapshot` reads. Since B2 the two DIFFER on purpose:
+/// the DAMPED visible view `snapshot` reads. The two DIFFER on purpose:
 /// the damped view carries stable ids and can hold a section a debounced dissolve
 /// has not yet retired (or a member an append-only fold has not dropped), so it
 /// lags the raw batch by up to `k` steps. DETECTION itself stays order-free and
-/// tracks the batch every step, so the B1 convergence / order-invariance /
+/// tracks the batch every step, so the convergence / order-invariance /
 /// freshness gates read this raw view, comparing the damped view there would
-/// score a legitimate hysteresis lag as a detection desync. B2 identity/stability
+/// score a legitimate hysteresis lag as a detection desync. Identity/stability
 /// gates keep reading `snapshot` (the visible view the app renders).
 pub fn raw_snapshot(engine: &PersistentEngine) -> SectionSnapshot {
     SectionSnapshot {
@@ -476,7 +476,7 @@ pub fn ground_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64
 /// somewhere in `after`, the fraction that survive under the SAME id. It
 /// ignores string-id coincidence (a positional `sec_ride_0` always exists) and
 /// asks the real question, did the id follow its ground? Low today (ids are
-/// positional and renumber); B2's assign-once identity layer is what drives it
+/// positional and renumber); the assign-once identity layer is what drives it
 /// up. This is what the identity gate asserts on, never raw id survival.
 ///
 /// No survivors scores 0.0. That case is a wiped catalogue, and scoring it a

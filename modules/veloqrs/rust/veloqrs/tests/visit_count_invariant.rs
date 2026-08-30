@@ -1,8 +1,8 @@
 //! The denormalised `sections.visit_count` column must agree with the junction
 //! table after every mutation path, not just the ones the triggers can see.
 //!
-//! `get_section_summaries` reads the column instead of counting rows (B4 phase
-//! 3), so a path that moves or removes junction rows without recomputing shows
+//! `get_section_summaries` reads the column instead of counting rows, so a
+//! path that moves or removes junction rows without recomputing shows
 //! the user a stale visit count until some unrelated write repairs it.
 //!
 //! Run: `cargo test --test visit_count_invariant -p veloqrs`

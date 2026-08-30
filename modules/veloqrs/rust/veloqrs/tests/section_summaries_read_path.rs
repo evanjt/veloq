@@ -1,4 +1,4 @@
-//! Read-path benchmark for `get_summaries_with_count` (B4 Phase 3).
+//! Read-path benchmark for `get_summaries_with_count`.
 //!
 //! The Routes list calls `get_summaries_with_count` on every open, so it must
 //! be a cheap, pure column read (<=30ms). The FFI object method needs the

@@ -1173,14 +1173,14 @@ fn ffi_survives_orphan_and_null_edge_cases() {
 // Migration 017 on the upgrade path.
 // ----------------------------------------------------------------------------
 
-/// The B4 core script, taken from the production list so a renumber cannot leave
-/// this test pointed at the wrong file.
-fn b4_core_script() -> &'static str {
+/// The migration 017 script, taken from the production list so a renumber
+/// cannot leave this test pointed at the wrong file.
+fn migration_017_script() -> &'static str {
     let scripts = PersistentEngine::migration_scripts();
     scripts
         .into_iter()
         .find(|s| s.contains("section_activities_rebuild"))
-        .expect("the B4 core migration must still be in the shipped list")
+        .expect("migration 017 must still be in the shipped list")
 }
 
 #[test]
@@ -1271,7 +1271,7 @@ fn migration_017_is_rerunnable() {
     upgrade_in_place(&path);
 
     let conn = Connection::open(&path).expect("reopen");
-    let sql = b4_core_script();
+    let sql = migration_017_script();
     conn.execute_batch(sql).expect("second run must not error");
     conn.execute_batch(sql).expect("third run must not error");
 
@@ -1304,8 +1304,8 @@ fn migration_017_is_rerunnable() {
 // ----------------------------------------------------------------------------
 // Renumbering guard.
 //
-// A database reporting `user_version = 13` from a build where B4 core held that
-// number is offered 014 onward, so it never sees 013's
+// A database reporting `user_version = 13` from a build where migration 017
+// held that number is offered 014 onward, so it never sees 013's
 // `ALTER TABLE wellness ADD COLUMN raw`. Every other migration in the range is
 // CREATE ... IF NOT EXISTS and recovers on its own. That one needs the hook.
 // ----------------------------------------------------------------------------
@@ -1315,8 +1315,8 @@ fn seed_db_stranded_at_old_013(path: &Path) {
     drop(conn);
 
     let conn = Connection::open(path).expect("open seed");
-    conn.execute_batch(b4_core_script())
-        .expect("B4 core applies under its old number");
+    conn.execute_batch(migration_017_script())
+        .expect("migration 017 applies under its old number");
     conn.pragma_update(None, "user_version", 13i64)
         .expect("stamp the number the old build wrote");
 
@@ -1366,8 +1366,8 @@ fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
         "the remaining migrations must still apply"
     );
 
-    // B4 core ran under the old number, so its tables must survive the second
-    // pass 017 makes over them rather than being rebuilt empty.
+    // Migration 017 ran under the old number, so its tables must survive the
+    // second pass 017 makes over them rather than being rebuilt empty.
     let tables = tables_at(&conn);
     for table in ["identity_state", "section_history", "section_geometry"] {
         assert!(
@@ -1377,7 +1377,7 @@ fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
     }
 }
 
-/// SB7. A failed FIT download used to be recorded as a settled `has_sets = 0`,
+/// A failed FIT download used to be recorded as a settled `has_sets = 0`,
 /// which excluded the activity from every retry path for good. The upgrade drops
 /// those rows so a poisoned install re-queues its strength activities.
 #[test]

@@ -292,7 +292,7 @@ fn reset_bounds_disarms_the_resync_crash() {
 
 /// A user-edited (here: trimmed) section survives a later resync with its
 /// trimmed extent intact. The edit promotes the row to user-defined, sparing it
-/// from the wipe, and stable identity (B2) stops fresh detection re-minting the
+/// from the wipe, and stable identity stops fresh detection re-minting the
 /// same id for other ground, so `apply_sections` neither collides nor snaps the
 /// extent back.
 #[test]

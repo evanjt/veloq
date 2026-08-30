@@ -1,10 +1,10 @@
-//! Section history, versioned geometry, and pins: the D4 storage layer.
+//! Section history, versioned geometry, and pins: the storage layer.
 //!
 //! Three tables keyed on the durable real section id with no foreign key to
 //! the wipe-managed `sections` table, so events outlive every catalogue
 //! rebuild. `section_history` holds one row per lifecycle event, kept
 //! forever; the event vocabulary and `details` payload shape belong to the
-//! emitter (D5), which is the only writer of event rows. `section_geometry`
+//! lifecycle emitter, which is the only writer of event rows. `section_geometry`
 //! holds independently-decodable polyline versions (codec `encode_polyline`,
 //! corpus-measured ~3 B/point); `section_pins` freezes a section at a stored
 //! version (revert = pin at version).

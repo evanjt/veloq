@@ -1,9 +1,9 @@
-//! Contract suite for the D4 storage layer: section history events, versioned
+//! Contract suite for the storage layer: section history events, versioned
 //! geometry, and pins. The tables key on the durable real section id with no
 //! foreign key to the wipe-managed `sections` table, versions decode
 //! independently (no delta chains), and retention keeps the birth geometry,
-//! milestones, the pinned version, and the newest three. The D5 emitter is
-//! the writer; these contracts pin the storage semantics it will lean on.
+//! milestones, the pinned version, and the newest three. The lifecycle emitter
+//! is the writer; these contracts pin the storage semantics it will lean on.
 
 mod lifecycle_support;
 

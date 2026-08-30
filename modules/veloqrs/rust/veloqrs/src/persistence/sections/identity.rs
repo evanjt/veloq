@@ -1,7 +1,7 @@
-//! Assign-once section identity: the stateful half of B2.
+//! Assign-once section identity: the stateful half of the identity layer.
 //!
 //! tracematch emits GROUND (sections with throwaway positional ids that
-//! renumber on every detect, root R2). This layer owns the id over time: an
+//! renumber on every detect). This layer owns the id over time: an
 //! opaque `s_<ts>__<rand>` id assigned once and carried forward with its ground,
 //! plus the hysteresis debounce that stops a single add flipping the visible
 //! catalogue while it still converges to the batch. It generalises the one thing
@@ -27,9 +27,9 @@
 //!   batch re-clustering dropped whose track still matches the new geometry.
 //!   A mint/restore takes the fresh batch payload under the same identity rule.
 //!
-//! INTENT SUPPRESSION generalises the custom-section rule that already dodges the
-//! R2 crash: before the plan runs, any candidate whose ground is owned by a
-//! durable-intent DB row (accepted / trimmed / renamed / set-ref / merged /
+//! INTENT SUPPRESSION generalises the custom-section rule that already dodges
+//! the id collision: before the plan runs, any candidate whose ground is owned
+//! by a durable-intent DB row (accepted / trimmed / renamed / set-ref / merged /
 //! custom, the rows the detection wipe spares) is dropped, and any registry row
 //! whose id has passed to such a durable row is relinquished. So auto detection
 //! never re-emits, and never collides on `UNIQUE sections.id` with, a section the
@@ -51,7 +51,7 @@ use tracematch::{
     SectionConfig, shares_ground,
 };
 
-/// `identity_state.key` for the section registry blob (B4 migration 013).
+/// `identity_state.key` for the section registry blob.
 pub(crate) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Write what was around a change into an event's details: `around` is the
@@ -136,7 +136,7 @@ pub(crate) struct SectionLifecycleEvent {
 /// reseed, dropping graves, tombstones, and debounce streaks on every
 /// restart. rmp's length-prefixed arrays recover a skipped trailing field
 /// through its serde default. Version 3 reshaped the hysteresis debounce
-/// record (the D5 streak ledger holds both directions' streaks in place of
+/// record (the streak ledger holds both directions' streaks in place of
 /// one kind + one streak), which rmp encodes positionally, so a v2 blob
 /// reseeds rather than misreading a kind byte as a streak.
 pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
@@ -172,11 +172,12 @@ pub(crate) struct IdentityRow {
 }
 
 /// The engine-held section identity registry: the pure churn brain plus the
-/// veloqrs payloads it carries. In-memory pre-B4 (reseeded from the DB on open);
-/// B4 persists the whole blob so a debounce survives an app kill. Serde-derived
-/// now so that migration is a straight `serde` of this type. `Default` is hand
-/// written (below) so the hysteresis tunables, the merge floor especially, are
-/// an explicit knob at the one construction site, not a buried derive.
+/// veloqrs payloads it carries. The whole blob is persisted so a debounce
+/// survives an app kill, and it reseeds from the DB rows when there is none.
+/// Serde-derived so that migration is a straight `serde` of this type.
+/// `Default` is hand written (below) so the hysteresis tunables, the merge
+/// floor especially, are an explicit knob at the one construction site, not a
+/// buried derive.
 ///
 /// `#[serde(default)]` so a field added in a later version deserialises from an
 /// older blob (paired with the version tag on the persisted bytes, which reseeds
@@ -263,9 +264,9 @@ impl PersistentEngine {
     }
 
     /// The last RAW detection catalogue applied, before the identity/hysteresis
-    /// remap. This is the B1 convergence truth, order-free and tracking the
+    /// remap. This is the convergence truth, order-free and tracking the
     /// batch every step, as opposed to the DAMPED `get_sections()` view, which
-    /// can lag it by up to `k` steps while a dissolve debounces. The B1 parity
+    /// can lag it by up to `k` steps while a dissolve debounces. The parity
     /// gates compare this so a legitimate hysteresis lag is not read as a
     /// detection desync.
     pub fn raw_detection_catalogue(&self) -> &[FrequentSection] {
@@ -353,8 +354,8 @@ impl PersistentEngine {
     }
 
     /// Restore the section registry from its persisted blob. Returns false, so
-    /// the caller reseeds from the DB rows, when there is no blob (fresh or
-    /// pre-B4 install), the version byte does not match, or it fails to decode.
+    /// the caller reseeds from the DB rows, when there is no blob (a fresh
+    /// install), the version byte does not match, or it fails to decode.
     /// Treating an UNREADABLE blob exactly like a missing one is crash-consistency
     /// healing, not just the migration path: a torn or stale blob self-heals to a
     /// reseed, never a failed load. On a clean restore the exact debounce +
@@ -503,8 +504,9 @@ impl PersistentEngine {
         let config = self.section_config.clone();
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
-        // ground must not be re-emitted (that is the UNIQUE-id collision the R2
-        // crash rides), and any registry id that has passed to one is relinquished.
+        // ground must not be re-emitted (that is the UNIQUE-id collision that
+        // crashes the save), and any registry id that has passed to one is
+        // relinquished.
         let (intent_grounds, intent_ids) = self.durable_intent_rows();
         let accepted_bounds = self.accepted_section_bounds();
 
@@ -1069,7 +1071,7 @@ impl PersistentEngine {
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
     /// section's current ground so the emitter never re-detects it (invariant 6).
     /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
-    /// failure logs rather than propagates, the worst case is the pre-B4
+    /// failure logs rather than propagates, the worst case is the older
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
     /// call this BEFORE the row is gone.
     pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
