@@ -89,7 +89,14 @@ export default function DetectionPreviewScreen() {
           const config = client?.getSectionConfig();
           if (!client || !config) return;
           client.setSectionConfig({ ...config, ...params });
-          client.forceRedetectSections();
+          // The engine refuses a re-cut while a detect runs or the elevation
+          // backfill holds detection. The config above is already written and
+          // the evidence cache already cleared, so closing here would report a
+          // change that never ran. Stay, say why, and let Keep be pressed again.
+          if (!client.forceRedetectSections()) {
+            Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
+            return;
+          }
           router.back();
         },
       },

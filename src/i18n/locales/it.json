@@ -1718,7 +1718,9 @@
     "previewKeep": "Mantieni",
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
-    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare."
+    "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
+    "previewKeepRefusedTitle": "La nuova analisi non è partita",
+    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento."
   },
   "stats": {
     "activities": "Attività",

@@ -1718,7 +1718,9 @@
     "previewKeep": "Behouden",
     "previewDiscard": "Verwerpen",
     "previewKeepTitle": "Deze instellingen toepassen?",
-    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen."
+    "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
+    "previewKeepRefusedTitle": "Heranalyse is niet gestart",
+    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw."
   },
   "stats": {
     "activities": "Activiteiten",

@@ -1718,7 +1718,9 @@
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas configurações?",
-    "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar."
+    "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar.",
+    "previewKeepRefusedTitle": "A nova análise não começou",
+    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes."
   },
   "stats": {
     "activities": "Atividades",

@@ -1718,7 +1718,9 @@
     "previewKeep": "Behalten",
     "previewDiscard": "Verwerfen",
     "previewKeepTitle": "Diese Einstellungen anwenden?",
-    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern."
+    "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
+    "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
   },
   "stats": {
     "activities": "Aktivitäten",

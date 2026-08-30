@@ -1718,7 +1718,9 @@
     "previewKeep": "適用",
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
-    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。"
+    "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
+    "previewKeepRefusedTitle": "再解析が開始されませんでした",
+    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。"
   },
   "stats": {
     "activities": "アクティビティ",

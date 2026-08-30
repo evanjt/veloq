@@ -1718,7 +1718,9 @@
     "previewKeep": "保留",
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
-    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。"
+    "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
+    "previewKeepRefusedTitle": "未开始重新分析",
+    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。"
   },
   "stats": {
     "activities": "活动",

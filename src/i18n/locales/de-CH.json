@@ -1718,7 +1718,9 @@
     "previewKeep": "Bhalte",
     "previewDiscard": "Verwerfe",
     "previewKeepTitle": "Die Iistellige aawände?",
-    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere."
+    "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
+    "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
   },
   "stats": {
     "activities": "Aktivitäte",
