@@ -11,6 +11,7 @@ import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { brand, colorWithOpacity, spacing } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
@@ -45,6 +46,8 @@ function BottomTabBarComponent() {
 
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  // Demo mode counts as a session, `enterDemoMode` sets `isAuthenticated`.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { isDark } = useTheme();
   const { t } = useTranslation();
   // Colors with proper contrast for accessibility
@@ -92,11 +95,20 @@ function BottomTabBarComponent() {
     [pathname]
   );
 
+  // The bar is mounted at the layout root, above the Stack, so a signed-out
+  // user would otherwise see five destinations none of them can reach, painted
+  // over the login card's footer line.
+  if (!isAuthenticated) return null;
+
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 
   return (
     <>
-      <View style={[styles.container, { height: totalHeight }]} pointerEvents="box-none">
+      <View
+        testID="bottom-tab-bar"
+        style={[styles.container, { height: totalHeight }]}
+        pointerEvents="box-none"
+      >
         {/* Smooth gradient fade */}
         <LinearGradient
           colors={gradientColors}

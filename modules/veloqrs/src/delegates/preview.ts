@@ -85,6 +85,7 @@ export type PreviewPollStatus =
  */
 export interface PreviewClient {
   getPreviewCentres(limit: number): PreviewCentre[];
+  getPreviewCurrentSections(lat: number, lng: number): PreviewSection[];
   startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
@@ -150,20 +151,37 @@ export function parsePreviewResult(json: string): PreviewResult | null {
       divergenceThreshold: raw.config.divergence_threshold,
     },
     counts: raw.counts,
-    sections: raw.sections.map((s) => ({
-      id: s.id,
-      liveId: s.live_id,
-      status: s.status,
-      name: s.name,
-      sport: s.sport,
-      polylineBase64: s.polyline,
-      visits: s.visits,
-      distanceM: s.distance_m,
-      elevationGainM: s.elevation_gain_m,
-      avgGradePercent: s.avg_grade_percent,
-      pinned: s.pinned,
-    })),
+    sections: raw.sections.map(toPreviewSection),
   };
+}
+
+/** Map one snake_case section row to the camelCase shape. */
+function toPreviewSection(s: RawPreviewSection): PreviewSection {
+  return {
+    id: s.id,
+    liveId: s.live_id,
+    status: s.status,
+    name: s.name,
+    sport: s.sport,
+    polylineBase64: s.polyline,
+    visits: s.visits,
+    distanceM: s.distance_m,
+    elevationGainM: s.elevation_gain_m,
+    avgGradePercent: s.avg_grade_percent,
+    pinned: s.pinned,
+  };
+}
+
+/** Map the engine's snake_case JSON array of live sections. */
+export function parsePreviewSections(json: string): PreviewSection[] {
+  let raw: RawPreviewSection[];
+  try {
+    raw = JSON.parse(json) as RawPreviewSection[];
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map(toPreviewSection);
 }
 
 let previewObject: SectionPreviewLike | null = null;
@@ -192,6 +210,26 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
     );
   } catch (e) {
     console.error('[RouteEngine] getPreviewCentres threw:', e);
+    return [];
+  }
+}
+
+/**
+ * The live catalogue for the riding area containing (lat, lng). Empty when no
+ * activity covers the point, so the screen opens on an empty map rather than a
+ * failure.
+ */
+export function getPreviewCurrentSections(
+  host: DelegateHost,
+  lat: number,
+  lng: number
+): PreviewSection[] {
+  if (!host.ready) return [];
+  try {
+    const json = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
+    return json ? parsePreviewSections(json) : [];
+  } catch (e) {
+    console.error('[RouteEngine] getPreviewCurrentSections threw:', e);
     return [];
   }
 }

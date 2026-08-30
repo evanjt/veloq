@@ -98,6 +98,9 @@ interface ActivityMapViewProps {
   onStyleChange?: (style: MapStyleType) => void;
   /** Called when attribution text changes (due to style or viewport change) */
   onAttributionChange?: (attribution: string) => void;
+  /** Measured height the attribution pill claims, so a parent drawing in the
+   *  same corner can pad itself clear of however many rows it wraps to. */
+  onAttributionClearanceChange?: (clearance: number) => void;
   /** Enable section creation mode */
   creationMode?: boolean;
   /** Current section creation state (parent-controlled) */
@@ -154,6 +157,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   on3DModeChange,
   onStyleChange,
   onAttributionChange,
+  onAttributionClearanceChange,
   creationMode = false,
   creationState: externalCreationState,
   creationError,
@@ -699,6 +703,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
+            onClearanceChange={onAttributionClearanceChange}
           />
         )}
       </View>

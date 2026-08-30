@@ -14409,6 +14409,17 @@ export interface SectionPreviewLike {
    * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
    */
   centres(limit: /*u32*/ number) /*throws*/ : Array<FfiPreviewCentre>;
+  /**
+   * The live auto catalogue for the riding area containing (lat, lng), as
+   * a JSON array in the same section shape a run's payload carries. Scoped
+   * by the same component the run uses, so the screen opens on exactly the
+   * catalogue the next run will diff against. None when no activity covers
+   * the point.
+   */
+  current(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+  ) /*throws*/ : string | undefined;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   /**
    * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
@@ -14492,6 +14503,35 @@ export class SectionPreview
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_centres(
             uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(limit),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The live auto catalogue for the riding area containing (lat, lng), as
+   * a JSON array in the same section shape a run's payload carries. Scoped
+   * by the same component the run uses, so the screen opens on exactly the
+   * catalogue the next run will diff against. None when no activity covers
+   * the point.
+   */
+  current(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+  ): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_current(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(lat),
+            FfiConverterFloat64.lower(lng),
             callStatus,
           );
         },
@@ -15623,6 +15663,14 @@ const FfiConverterTypeStrengthManager = new FfiConverterObject(
  */
 export interface SyncManagerLike {
   /**
+   * How many on-demand bodies have landed in SQLite this session.
+   *
+   * An on-demand fetch settles on a Rust thread with no way to reach the
+   * TypeScript listener map, so a reader waiting on a body watches this and
+   * fans a change out over the engine channel when it moves.
+   */
+  bodiesStored(): /*u64*/ bigint;
+  /**
    * Soft-cancel the running sync.
    */
   cancel(): void;
@@ -15749,6 +15797,27 @@ export class SyncManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSyncManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * How many on-demand bodies have landed in SQLite this session.
+   *
+   * An on-demand fetch settles on a Rust thread with no way to reach the
+   * TypeScript listener map, so a reader waiting on a body watches this and
+   * fans a change out over the engine channel when it moves.
+   */
+  bodiesStored(): /*u64*/ bigint {
+    return FfiConverterUInt64.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_bodies_stored(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   /**
@@ -18050,6 +18119,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current() !==
+    3028
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_current",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
     62565
   ) {
@@ -19007,6 +19084,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored() !==
+    23413
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_bodies_stored",
     );
   }
   if (

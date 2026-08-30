@@ -509,9 +509,10 @@ impl PersistentRouteEngine {
         rows.collect()
     }
 
-    /// Restore the archived catalogue as pinned (accepted) sections and
-    /// switch the config back to Corridor. The token becomes `reverted` so
-    /// the cutover does not re-fire.
+    /// Restore the archived catalogue as pinned (accepted) sections. The
+    /// config is left as `commit_switch` wrote it, pooled sports and all:
+    /// there is no other detector to go back to. The token becomes
+    /// `reverted` so the cutover does not re-fire.
     pub fn restore_from_archive(&mut self) -> rusqlite::Result<u32> {
         let archived = self.load_archived_sections(CUTOVER_ID)?;
 
@@ -628,7 +629,7 @@ impl PersistentRouteEngine {
         }
 
         info!(
-            "tracematch: [cutover] Restored {} sections and {} members from archive, config back to Corridor",
+            "tracematch: [cutover] Restored {} sections and {} members from archive, config unchanged",
             restored, restored_members
         );
         Ok(restored)

@@ -22,9 +22,8 @@ export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
     .getQueryCache()
     .findAll({ queryKey: queryKeys.activities.infinite.all })
     .some((query) => {
-      const pageParams = (
-        query.state.data as { pageParams?: Array<{ newest?: string }> } | undefined
-      )?.pageParams;
+      const pageParams = (query.state.data as { pageParams?: { newest?: string }[] } | undefined)
+        ?.pageParams;
       const firstNewest = pageParams?.[0]?.newest;
       return typeof firstNewest === 'string' && firstNewest !== today;
     });

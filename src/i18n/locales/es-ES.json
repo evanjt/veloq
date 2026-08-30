@@ -685,7 +685,12 @@
       "hrChange": "Cambio FC",
       "efforts": "Esfuerzos",
       "trendSlope": "Pendiente de tendencia",
-      "recentMedian": "Mediana reciente"
+      "recentMedian": "Mediana reciente",
+      "relevance": "Relevancia",
+      "recency": "Actualidad",
+      "improvementSignal": "Señal de mejora",
+      "anomaly": "Anomalía",
+      "engagement": "Constancia"
     },
     "hrvTrend": {
       "trendingUp": "Recuperación mejorando",
@@ -1936,13 +1941,13 @@
       "rowEveryDevice": "Tramos idénticos en todos los dispositivos",
       "recutRunning": "Analizando de nuevo tus tramos",
       "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
-      "phaseDraining": "terminando el trabajo en curso",
-      "phaseArchiving": "archivando el catálogo anterior",
+      "phasePreparing": "preparando el catálogo",
       "phaseDetecting": "cortando tramos nuevos",
       "phaseDiffing": "comparando los dos catálogos",
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
-      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios."
+      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios.",
+      "recutFailed": "El nuevo análisis no terminó. Tus tramos siguen igual y se ejecuta de nuevo al abrir la app."
     }
   },
   "strength": {

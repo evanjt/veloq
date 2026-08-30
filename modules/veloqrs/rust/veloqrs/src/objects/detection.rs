@@ -329,7 +329,6 @@ impl DetectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::persistent_engine_ffi::persistent_engine_init;
     use crate::persistence::sections::detection_workers_started;
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
     use crate::test_globals::{
@@ -340,13 +339,7 @@ mod tests {
     use tempfile::TempDir;
 
     fn init_global_engine() -> TempDir {
-        let tmp = TempDir::new().expect("tempdir");
-        let db_path = tmp.path().join("poison.db");
-        assert!(
-            persistent_engine_init(db_path.to_string_lossy().into_owned()),
-            "the fixture database must open"
-        );
-        tmp
+        crate::test_globals::init_global_engine("poison.db")
     }
 
     /// Panic under a lock, swallowing the unwind and the hook's output.

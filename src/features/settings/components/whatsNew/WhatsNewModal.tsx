@@ -185,7 +185,6 @@ export function WhatsNewModal() {
   if (!showModal || slideCount === 0) return null;
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
@@ -254,7 +253,6 @@ export function WhatsNewModal() {
           onSkip={dismiss}
           onNext={handleNext}
           onShowMe={handleShowMe}
-          textColor={textColor}
           mutedColor={mutedColor}
           primaryColor={primaryColor}
           skipLabel={t('whatsNew.skipButton')}
@@ -307,7 +305,6 @@ function NavigationButtons({
   onSkip: () => void;
   onNext: () => void;
   onShowMe: () => void;
-  textColor: string;
   mutedColor: string;
   primaryColor: string;
   skipLabel: string;

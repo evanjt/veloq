@@ -3,15 +3,19 @@
  *
  * A centre is a ~5 km riding-area bin. The label is the most common locality
  * among cached activities starting within the bin's radius, read from data
- * already on the device, never a network call. Centres with no locality get a
+ * already on the device, never a network call. The radius is measured from the
+ * bin's centre, the same box the camera frames, so the name and the map agree.
+ * The engine's reported point is the mean of the bin's members and can sit near
+ * an edge. Centres with no locality get a
  * numbered fallback, numbered in binKey order so the numbering is stable
  * across renders and limits.
  */
 
 import { haversineDistance } from '@/shared/geo/distance';
+import { previewAreaAnchor } from './previewMapCamera';
 import type { PreviewCentre } from '../../../../modules/veloqrs/src/delegates/preview';
 
-/** Half the ~5 km bin edge plus slack for starts near a bin border. */
+/** Half the bin diagonal plus slack for starts just outside a bin border. */
 const CENTRE_RADIUS_M = 5000;
 
 export interface CentreActivity {
@@ -35,12 +39,15 @@ export function labelPreviewCentres(
   const numberByBin = new Map(ordered.map((c, i) => [c.binKey, i + 1]));
 
   return centres.map((centre) => {
+    const anchor = previewAreaAnchor(centre);
     const counts = new Map<string, number>();
     for (const activity of activities) {
       if (!activity.locality || !activity.startLatLng) continue;
       const [lat, lng] = activity.startLatLng;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const metres = haversineDistance({ lat, lng }, { lat: centre.lat, lng: centre.lng });
+      const metres = anchor
+        ? haversineDistance({ lat, lng }, { lat: anchor[1], lng: anchor[0] })
+        : Number.POSITIVE_INFINITY;
       if (metres > CENTRE_RADIUS_M) continue;
       counts.set(activity.locality, (counts.get(activity.locality) ?? 0) + 1);
     }

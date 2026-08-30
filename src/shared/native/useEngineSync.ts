@@ -11,6 +11,9 @@
  * return from the background then retries it. Without that the only cure for a
  * transient network failure was a relaunch.
  *
+ * The same transition announces the settled edge, because the sync holds an
+ * exclusive slot while it runs and refuses everything else that asks for one.
+ *
  * Demo mode holds no credential, so it skips the sync entirely and reads the
  * rows `seedDemoEngine` wrote.
  */
@@ -18,7 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
+import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
 
 import { getRouteEngine } from './routeEngine';
 import { useSyncStatus } from './useSyncStatus';
@@ -62,6 +65,9 @@ export function useEngineSync(): void {
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
     getRouteEngine()?.triggerRefresh('activities');
+    // The exclusive slot is free again. Anything the sync refused while it held
+    // it gets its one chance to ask now.
+    emitSyncSettled();
   }, [state, status?.lastError]);
 
   const retry = () => setRetryNonce((nonce) => nonce + 1);

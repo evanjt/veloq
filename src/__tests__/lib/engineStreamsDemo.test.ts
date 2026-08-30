@@ -75,7 +75,7 @@ describe('readStreams in demo mode', () => {
     requestStreams('live-id', DETAIL_STREAM_TYPES);
     expect(engine.syncActivityStreams).toHaveBeenCalledWith(
       'live-id',
-      DETAIL_STREAM_TYPES.join(',')
+      [...DETAIL_STREAM_TYPES].sort().join(',')
     );
   });
 });

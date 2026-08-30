@@ -4,8 +4,14 @@
  * Rust stores the intervals.icu response body untouched and `parseStreams`
  * stays the single transform, so what the charts render is what they rendered
  * when the fetch lived in axios. Streams are the largest payloads the API
- * returns, so the engine keeps a bounded cache rather than a full mirror: a
- * body that has aged out simply reads as absent and is re-requested.
+ * returns, so the engine keeps a bounded cache rather than a full mirror.
+ *
+ * A miss is not the end of the read. Rust rebuilds latlng, altitude and time
+ * from the points and times the activity ingest already stored, so a map
+ * preview costs nothing over the wire however long ago the body aged out. A
+ * selection it cannot serve whole, the detail set among them, still reads as
+ * absent and is re-requested: a partial body would look stocked and cost the
+ * athlete their power and heart rate.
  */
 
 import { parseStreams } from '@/features/activity/lib/streams';
@@ -35,10 +41,13 @@ export const PREVIEW_STREAM_TYPES = ['latlng', 'altitude'] as const;
 
 /**
  * The cache key for a series selection. Rust keys the stored body on this
- * exact string, so the read and the request have to agree on it.
+ * exact string, so the read and the request have to agree on it. Sorting
+ * makes it canonical, which is what `stream_bodies.types` documents: two call
+ * sites naming the same series in a different order must not each pay for a
+ * 100-500KB download and then evict one another.
  */
 export function streamTypesKey(types: readonly string[]): string {
-  return types.join(',');
+  return [...types].sort().join(',');
 }
 
 /** Streams parsed from the stored body, or null when nothing is stored. */

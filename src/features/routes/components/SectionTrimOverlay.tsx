@@ -31,7 +31,6 @@ interface SectionTrimOverlayProps {
   originalDistance: number;
   isSaving: boolean;
   canReset: boolean;
-  initiallyExpanded?: boolean;
   isExpandMode: boolean;
   sectionStartInWindow?: number;
   sectionEndInWindow?: number;

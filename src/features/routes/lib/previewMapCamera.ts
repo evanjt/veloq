@@ -105,3 +105,15 @@ export function previewCameraBounds(
     ne: [clamp(maxLng, area.sw[0], area.ne[0]), clamp(maxLat, area.sw[1], area.ne[1])],
   };
 }
+
+/**
+ * The point that stands for the area, being the centre of the box the camera
+ * frames. The engine reports the mean of the bin's members, which can sit near
+ * a bin edge, so anything drawn around that point describes ground the map
+ * never shows. Null when the centre is missing or not drawable.
+ */
+export function previewAreaAnchor(centre: PreviewAreaCentre | null): LngLat | null {
+  const area = previewAreaBounds(centre);
+  if (!area) return null;
+  return [(area.sw[0] + area.ne[0]) / 2, (area.sw[1] + area.ne[1]) / 2];
+}

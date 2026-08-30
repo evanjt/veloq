@@ -88,13 +88,6 @@ function stripNoise(src) {
   return out.join('');
 }
 
-function lineOf(src, index) {
-  let line = 1;
-  for (let i = 0; i < index && i < src.length; i++) {
-    if (src[i] === '\n') line++;
-  }
-  return line;
-}
 
 // Per-line brace depth, computed on noise-stripped source.
 function braceDepths(clean) {

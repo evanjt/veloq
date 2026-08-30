@@ -21,14 +21,19 @@
 //   - anything named by require(), dynamic import(), jest.mock(), app.json,
 //     app.config.js or a prebuild plugin.
 //   - .d.ts declarations, which are not modules.
-// Modules reached only from src/__tests__/** are reported separately as
-// test-only. That is a different judgement and does not fail the audit.
+// Modules reached only from a test are reported separately as test-only. That is a different judgement and does not fail the audit.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// `--root` points the audit at another tree, so the rules themselves can be
+// exercised against a fixture. Nothing but the tests passes it.
+const rootArg = process.argv.indexOf('--root');
+const ROOT =
+  rootArg === -1
+    ? join(dirname(fileURLToPath(import.meta.url)), '..')
+    : resolve(process.argv[rootArg + 1]);
 const SRC = join(ROOT, 'src');
 
 const rel = (p) => relative(ROOT, p);
@@ -64,7 +69,11 @@ function walk(dir, out = []) {
   return out;
 }
 
-const isTest = (p) => rel(p).startsWith('src/__tests__/');
+// Both shapes the repo uses: the central src/__tests__ tree and a __tests__
+// directory sitting next to the code it covers. A colocated test file has no
+// importer by design, so counting it as a module reports every one of them as
+// dead and fails the run on a clean tree.
+const isTest = (p) => /(?:^|\/)__tests__\//.test(rel(p)) || /\.(?:test|spec)\.tsx?$/.test(p);
 const isRoute = (p) => rel(p).startsWith('src/app/');
 // An index.tsx under src/app/ is a route, not a barrel: Expo Router maps it to
 // the directory's own path and it imports like any other real file.
@@ -358,7 +367,7 @@ function main() {
   testOnly.sort();
 
   if (testOnly.length > 0) {
-    console.log('Test-only modules (reached from src/__tests__ but from no real code):');
+    console.log('Test-only modules (reached from tests but from no real code):');
     for (const f of testOnly) console.log(`  ${f}`);
     console.log('');
   }

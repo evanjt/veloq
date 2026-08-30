@@ -76,4 +76,26 @@ describe('labelPreviewCentres', () => {
     expect(labels[0]).toMatchObject({ binKey: 'b', label: null, fallbackNumber: 2 });
     expect(labels[1]).toMatchObject({ binKey: 'a', label: 'Northtown', fallbackNumber: 1 });
   });
+
+  it('names the bin the camera frames, not the ground around a mean near its edge', () => {
+    // floor(46.936 / 0.045) = 1043, floor(7.447 / 0.045) = 165. The mean sits
+    // 2.4 km south of the bin centre, close to the bin's southern edge.
+    const centres = [centre({ binKey: '1043:165', lat: 46.936, lng: 7.447 })];
+    const activities = [
+      { locality: 'Binville', startLatLng: [46.9575, 7.4475] as [number, number] },
+      { locality: 'Edgeville', startLatLng: [46.896, 7.447] as [number, number] },
+      { locality: 'Edgeville', startLatLng: [46.897, 7.448] as [number, number] },
+    ];
+
+    const [label] = labelPreviewCentres(centres, activities);
+    expect(label.label).toBe('Binville');
+  });
+
+  it('keeps counting around the point when the bin key does not parse', () => {
+    const centres = [centre({ binKey: 'not-a-bin', lat: 46.936, lng: 7.447 })];
+    const activities = [{ locality: 'Edgeville', startLatLng: [46.896, 7.447] as [number, number] }];
+
+    const [label] = labelPreviewCentres(centres, activities);
+    expect(label.label).toBe('Edgeville');
+  });
 });

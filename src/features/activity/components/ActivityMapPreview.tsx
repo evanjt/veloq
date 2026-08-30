@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { Canvas, Path, Circle, Skia, type SkPath } from '@shopify/react-native-skia';
@@ -32,6 +32,11 @@ import {
   isLikelyInterestingTerrain,
 } from '@/features/maps/lib/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
+import {
+  AttributionOverlay,
+  type AttributionOverlayRef,
+} from '@/features/maps/components/AttributionOverlay';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
@@ -197,6 +202,40 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     terrain3DMode === 'always' ||
     (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
+  const lngLatCoords = useMemo(
+    () => validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]),
+    [validCoordinates]
+  );
+
+  const flat = !show3D || !terrainCameraResult;
+
+  // The camera the snapshot is taken with, and the one the credit line is
+  // derived from: satellite sources are regional, so the text has to name the
+  // imagery actually baked into the image.
+  const snapshotCamera = useMemo(
+    () => (flat ? calculateFlatCamera(lngLatCoords) : terrainCameraResult.camera),
+    [flat, lngLatCoords, terrainCameraResult]
+  );
+
+  // The snapshot generator sets `attributionControl: false`, so nothing is
+  // drawn into the image. Attribution is a licence condition, so the card
+  // overlays it over the result.
+  const attribution = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: !flat,
+        center: snapshotCamera.center,
+        zoom: snapshotCamera.zoom,
+      }),
+    [mapStyle, flat, snapshotCamera]
+  );
+
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  useEffect(() => {
+    attributionRef.current?.setAttribution(attribution);
+  }, [attribution]);
+
   // Request a basemap snapshot for every card with coordinates - the 3D
   // terrain drape when the activity qualifies, a flat top-down basemap
   // otherwise. FlatList windowing is the throttle (only near-viewport cards
@@ -224,23 +263,20 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     // and the effect re-runs when snapshotReady changes
     if (!snapshotRef?.current) return;
 
-    const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
-    const flat = !show3D || !terrainCameraResult;
-    const camera = flat ? calculateFlatCamera(lngLatCoords) : terrainCameraResult.camera;
-
     log.log(`Requesting ${flat ? 'flat' : '3D'} snapshot for ${activity.id}`);
     snapshotRef.current.requestSnapshot({
       activityId: activity.id,
       coordinates: lngLatCoords,
-      camera,
+      camera: snapshotCamera,
       mapStyle,
       routeColor: activityColor,
       flat,
     });
   }, [
     screenFocused,
-    show3D,
-    terrainCameraResult,
+    flat,
+    snapshotCamera,
+    lngLatCoords,
     validCoordinates,
     activity.id,
     mapStyle,
@@ -317,6 +353,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
           </View>
         )}
+        <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       </View>
     );
   }

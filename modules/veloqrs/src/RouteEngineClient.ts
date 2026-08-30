@@ -60,7 +60,12 @@ import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
 import * as previewDelegates from './delegates/preview';
-import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
+import type {
+  PreviewCentre,
+  PreviewPollStatus,
+  PreviewResult,
+  PreviewSection,
+} from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
@@ -281,6 +286,9 @@ class RouteEngineClient implements DelegateHost {
   getPreviewCentres = (limit: number): PreviewCentre[] =>
     previewDelegates.getPreviewCentres(this, limit);
 
+  getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] =>
+    previewDelegates.getPreviewCurrentSections(this, lat, lng);
+
   startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
     previewDelegates.startPreviewDetect(this, lat, lng, config);
 
@@ -360,6 +368,8 @@ class RouteEngineClient implements DelegateHost {
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
+
+  getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
 
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
@@ -552,8 +562,7 @@ class RouteEngineClient implements DelegateHost {
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
   getRetiredSections = () => sectionDelegates.getRetiredSections(this);
-  getRecentSectionChanges = (days: number) =>
-    sectionDelegates.getRecentSectionChanges(this, days);
+  getRecentSectionChanges = (days: number) => sectionDelegates.getRecentSectionChanges(this, days);
 
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);
@@ -935,7 +944,6 @@ class RouteEngineClient implements DelegateHost {
   getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
     sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
-
   extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
     sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
 
@@ -1053,9 +1061,8 @@ class RouteEngineClient implements DelegateHost {
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  getStrengthSummaryBatch = (
-    ranges: { startTs: number; endTs: number }[]
-  ): FfiStrengthSummary[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthSummaryBatch = (ranges: { startTs: number; endTs: number }[]): FfiStrengthSummary[] =>
+    strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (
     activityId: string,
@@ -1105,7 +1112,6 @@ class RouteEngineClient implements DelegateHost {
   acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
-
 
   getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
     sectionDelegates.getActivitySectionHighlights(this, activityIds);

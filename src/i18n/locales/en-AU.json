@@ -712,7 +712,12 @@
       "hrChange": "HR change",
       "efforts": "Efforts",
       "trendSlope": "Trend slope",
-      "recentMedian": "Recent median"
+      "recentMedian": "Recent median",
+      "relevance": "Relevance",
+      "recency": "Recency",
+      "improvementSignal": "Improvement signal",
+      "anomaly": "Anomaly",
+      "engagement": "Engagement"
     },
     "disclaimer": "Training metrics are estimates based on published exercise science. Individual responses vary. Not medical or coaching advice.",
     "aboutInsights": "About Insights",
@@ -1936,13 +1941,13 @@
       "rowEveryDevice": "Identical sections on every device",
       "recutRunning": "Re-analysing your sections",
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
-      "phaseDraining": "finishing the work in flight",
-      "phaseArchiving": "archiving the old catalogue",
+      "phasePreparing": "preparing the catalogue",
       "phaseDetecting": "cutting new sections",
       "phaseDiffing": "comparing the two catalogues",
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
-      "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged."
+      "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged.",
+      "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch."
     }
   },
   "strength": {

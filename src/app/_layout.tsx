@@ -61,8 +61,7 @@ import { RecordingReturnPill } from '@/features/recording/components/RecordingRe
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
-import { rememberCachedAthleteId } from '@/shared/storage';
-import { migrateSettingsToSqlite } from '@/shared/storage';
+import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
   onAppForeground,
@@ -76,8 +75,7 @@ import {
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
 
-// Register background insight task at module scope (required by TaskManager)
-import '@/features/insights/backgroundInsightTask';
+// Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
 enableFreeze(true);
 if (!__DEV__) {

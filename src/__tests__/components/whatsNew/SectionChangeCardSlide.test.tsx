@@ -24,7 +24,9 @@ const ALL_BUT_DEVICE = {
 
 describe('SectionChangeCardSlide', () => {
   it('shows one row per supported claim and never the cross-device row', () => {
-    (getRouteEngine as jest.Mock).mockReturnValue({ getChangeCardSupport: () => ALL_BUT_DEVICE });
+    (getRouteEngine as jest.Mock).mockReturnValue({
+      getChangeCardSupport: () => ALL_BUT_DEVICE,
+    });
     const { getByTestId, queryByTestId, getAllByText } = render(<SectionChangeCardSlide />);
     for (const flag of [
       'deterministic',
@@ -42,7 +44,11 @@ describe('SectionChangeCardSlide', () => {
 
   it('hides a row whose flag is false and the card when nothing is supported', () => {
     (getRouteEngine as jest.Mock).mockReturnValue({
-      getChangeCardSupport: () => ({ ...ALL_BUT_DEVICE, deterministic: false, revert: false }),
+      getChangeCardSupport: () => ({
+        ...ALL_BUT_DEVICE,
+        deterministic: false,
+        revert: false,
+      }),
     });
     const { queryByTestId } = render(<SectionChangeCardSlide />);
     expect(queryByTestId('change-card-row-deterministic')).toBeNull();
@@ -113,7 +119,16 @@ describe('SectionChangeCardSlide', () => {
     it('reads a catalogue that came through untouched as unchanged', () => {
       engineWith(
         { phase: 'complete', running: false },
-        { counts: { ...COUNTS, proposed: 40, unchanged: 40, changed: 0, new: 0, gone: 0 } }
+        {
+          counts: {
+            ...COUNTS,
+            proposed: 40,
+            unchanged: 40,
+            changed: 0,
+            new: 0,
+            gone: 0,
+          },
+        }
       );
       const line = render(<SectionChangeCardSlide />).getByTestId('change-card-counts');
       expect(line).toHaveTextContent(/diffUnchanged/);
@@ -152,6 +167,30 @@ describe('SectionChangeCardSlide', () => {
         getCutoverDiff: () => ({ counts: COUNTS }),
       });
       expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
+    });
+
+    it('says the re-cut failed, and shows no counts from the run before it', () => {
+      engineWith({ phase: 'failed', running: false }, { counts: COUNTS });
+      const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
+      expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailed/);
+      expect(queryByTestId('change-card-counts')).toBeNull();
+      expect(queryByTestId('change-card-progress')).toBeNull();
+    });
+
+    it('keeps the claim rows under a failure', () => {
+      engineWith({ phase: 'failed', running: false }, null);
+      const { getByTestId } = render(<SectionChangeCardSlide />);
+      expect(getByTestId('change-card-failed')).toBeTruthy();
+      expect(getByTestId('change-card-row-ledger')).toBeTruthy();
+    });
+
+    it('reads draining and archiving as the one preparing line', () => {
+      for (const phase of ['draining', 'archiving']) {
+        engineWith({ phase, running: true }, null);
+        const line = render(<SectionChangeCardSlide />).getByTestId('change-card-progress');
+        expect(line).toHaveTextContent(/phasePreparing/);
+        expect(line).not.toHaveTextContent(new RegExp(phase, 'i'));
+      }
     });
   });
 });
