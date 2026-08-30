@@ -19,7 +19,7 @@ tags:
 # PHASE 1: Ensure section detection has run (prerequisite for all section tests)
 # ============================================================================
 
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -261,7 +261,7 @@ tags:
 # ============================================================================
 
 # Navigate to section detail via sections list
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -362,7 +362,7 @@ tags:
 # ============================================================================
 
 # Navigate to routes list
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"

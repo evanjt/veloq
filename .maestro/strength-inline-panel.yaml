@@ -15,7 +15,7 @@ tags:
 
 # The Strength tab lives inside the Insights screen; ?tab=strength selects
 # it on mount (handled by the screen's useLocalSearchParams).
-- openLink: "veloq://routes?tab=strength"
+- openLink: "veloq://insights?tab=strength"
 - runFlow:
     when:
       visible: "Open"

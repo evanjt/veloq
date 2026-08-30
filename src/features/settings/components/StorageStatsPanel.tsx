@@ -178,7 +178,7 @@ export function StorageStatsPanel({
         <View style={styles.statDivider} />
         <TouchableOpacity
           style={styles.statItem}
-          onPress={() => navigateTo('/routes?tab=routes')}
+          onPress={() => navigateTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >
@@ -197,7 +197,7 @@ export function StorageStatsPanel({
         <View style={styles.statDivider} />
         <TouchableOpacity
           style={styles.statItem}
-          onPress={() => navigateTo('/routes?tab=sections')}
+          onPress={() => navigateTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
           activeOpacity={0.7}
         >

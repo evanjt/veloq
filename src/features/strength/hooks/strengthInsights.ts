@@ -38,7 +38,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     body,
     icon: 'scale-balance',
     iconColor: pair.status === 'watch' ? colors.warning : colors.error,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
@@ -126,7 +126,7 @@ function buildStrengthProgressionInsight(
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
     iconColor: progression.trend === 'up' ? colors.success : colors.warning,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {
@@ -221,7 +221,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
     }),
     icon: 'dumbbell',
     iconColor: colors.gray500,
-    navigationTarget: '/routes?tab=strength',
+    navigationTarget: '/insights?tab=strength',
     timestamp: now,
     isNew: false,
     meta: {

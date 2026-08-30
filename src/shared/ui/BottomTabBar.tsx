@@ -21,7 +21,7 @@ const MENU_ITEMS = [
   { key: 'feed', icon: 'home-outline', route: '/' },
   { key: 'fitness', icon: 'chart-line', route: '/fitness' },
   { key: 'map', icon: 'map-outline', route: '/map' },
-  { key: 'insights', icon: 'lightbulb-outline', route: '/routes' },
+  { key: 'insights', icon: 'lightbulb-outline', route: '/insights' },
   { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
 

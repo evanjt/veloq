@@ -122,9 +122,9 @@ function RouteTabEngineState({
   );
 }
 
-export default function RoutesScreen() {
+export default function InsightsScreen() {
   const perfEndRef = useRef<(() => void) | null>(null);
-  perfEndRef.current = logScreenRender('RoutesScreen');
+  perfEndRef.current = logScreenRender('InsightsScreen');
   useEffect(() => {
     perfEndRef.current?.();
   });

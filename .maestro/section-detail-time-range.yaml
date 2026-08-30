@@ -17,7 +17,7 @@ tags:
 
 # Deep-link directly to sections tab (tapOn: text: "Sections" is unreliable
 # on iOS where the Material Top Tab text isn't individually accessible)
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"

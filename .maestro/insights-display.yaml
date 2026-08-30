@@ -10,7 +10,7 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate to routes/insights tab
-- openLink: "veloq://routes"
+- openLink: "veloq://insights"
 - runFlow:
     when:
       visible: "Open"

@@ -24,7 +24,7 @@ tags:
 # regularSections.length > 0 (empty list renders as `sections-list-empty`).
 # This ensures the engine has actually detected sections before we check
 # the regional map, rather than passing vacuously on an empty FlatList.
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
