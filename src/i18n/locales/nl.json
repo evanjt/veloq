@@ -685,7 +685,12 @@
       "hrChange": "HF-verandering",
       "efforts": "Pogingen",
       "trendSlope": "Trendhelling",
-      "recentMedian": "Recente mediaan"
+      "recentMedian": "Recente mediaan",
+      "relevance": "Relevantie",
+      "recency": "Actualiteit",
+      "improvementSignal": "Verbeteringssignaal",
+      "anomaly": "Afwijking",
+      "engagement": "Betrokkenheid"
     },
     "hrvTrend": {
       "trendingUp": "Herstel verbetert",

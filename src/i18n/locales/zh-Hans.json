@@ -685,7 +685,12 @@
       "hrChange": "心率变化",
       "efforts": "次数",
       "trendSlope": "趋势斜率",
-      "recentMedian": "近期中位数"
+      "recentMedian": "近期中位数",
+      "relevance": "相关度",
+      "recency": "近期度",
+      "improvementSignal": "进步信号",
+      "anomaly": "异常度",
+      "engagement": "参与度"
     },
     "hrvTrend": {
       "trendingUp": "恢复改善中",

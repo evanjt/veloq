@@ -685,7 +685,12 @@
       "hrChange": "心拍数変化",
       "efforts": "回数",
       "trendSlope": "トレンド傾き",
-      "recentMedian": "最近の中央値"
+      "recentMedian": "最近の中央値",
+      "relevance": "関連度",
+      "recency": "直近度",
+      "improvementSignal": "改善シグナル",
+      "anomaly": "異常度",
+      "engagement": "利用頻度"
     },
     "hrvTrend": {
       "trendingUp": "回復が改善中",

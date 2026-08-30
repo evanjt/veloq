@@ -685,7 +685,12 @@
       "hrChange": "Zmiana HR",
       "efforts": "Powtórzenia",
       "trendSlope": "Nachylenie trendu",
-      "recentMedian": "Ostatnia mediana"
+      "recentMedian": "Ostatnia mediana",
+      "relevance": "Trafność",
+      "recency": "Aktualność",
+      "improvementSignal": "Sygnał poprawy",
+      "anomaly": "Anomalia",
+      "engagement": "Zaangażowanie"
     },
     "hrvTrend": {
       "trendingUp": "Regeneracja się poprawia",

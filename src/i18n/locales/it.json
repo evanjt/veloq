@@ -685,7 +685,12 @@
       "hrChange": "Variazione FC",
       "efforts": "Sforzi",
       "trendSlope": "Pendenza tendenza",
-      "recentMedian": "Mediana recente"
+      "recentMedian": "Mediana recente",
+      "relevance": "Rilevanza",
+      "recency": "Recenza",
+      "improvementSignal": "Segnale di miglioramento",
+      "anomaly": "Anomalia",
+      "engagement": "Costanza"
     },
     "hrvTrend": {
       "trendingUp": "Recupero in miglioramento",
