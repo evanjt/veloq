@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { zoneColors } from '@/theme/colors';
 import type { SportSettings, Zone } from '@/types';
 
 function readSportSettings(): SportSettings[] {
@@ -43,25 +44,22 @@ export function getSettingsForSport(
   return settings.find((s) => s.types.includes(sportType));
 }
 
-// Default power zone colors (intervals.icu website palette)
-export const POWER_ZONE_COLORS = [
-  '#009E80', // Z1 - Recovery (Teal)
-  '#009E00', // Z2 - Endurance (Green)
-  '#FFCB0E', // Z3 - Tempo (Yellow)
-  '#FF7F0E', // Z4 - Threshold (Orange)
-  '#DD0447', // Z5 - VO2max (Red-pink)
-  '#6633CC', // Z6 - Anaerobic (Purple)
-  '#1A1A1A', // Z7 - Neuromuscular (Near-black)
+/**
+ * The intervals.icu zone ramp, seven steps: recovery, endurance, tempo,
+ * threshold, VO2max, anaerobic, neuromuscular. Power uses all of it.
+ */
+export const POWER_ZONE_COLORS: string[] = [
+  zoneColors.zone1,
+  zoneColors.zone2,
+  zoneColors.zone3,
+  zoneColors.zone4,
+  zoneColors.zone5,
+  zoneColors.zone6,
+  zoneColors.zone7,
 ];
 
-// Default HR zone colors (intervals.icu website palette)
-export const HR_ZONE_COLORS = [
-  '#009E80', // Z1 - Recovery (Teal)
-  '#009E00', // Z2 - Endurance (Green)
-  '#FFCB0E', // Z3 - Tempo (Yellow)
-  '#FF7F0E', // Z4 - Threshold (Orange)
-  '#DD0447', // Z5 - Max (Red-pink)
-];
+/** Heart rate has five zones, so it takes the ramp's first five steps. */
+export const HR_ZONE_COLORS: string[] = POWER_ZONE_COLORS.slice(0, 5);
 
 // Default zone names if not provided
 export const DEFAULT_POWER_ZONES: Zone[] = [
