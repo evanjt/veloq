@@ -46,6 +46,7 @@ pub mod cutover;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
+pub(crate) mod records;
 mod route_identity;
 mod routes;
 mod schema;

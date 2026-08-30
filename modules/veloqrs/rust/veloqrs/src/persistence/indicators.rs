@@ -201,7 +201,7 @@ impl PersistentRouteEngine {
             let mut count = 0u32;
 
             for (activity_id, lap_time) in &traversals {
-                let is_pr = (*lap_time - best_time).abs() < 0.001; // float epsilon
+                let is_pr = crate::persistence::records::is_personal_record(*lap_time, best_time);
 
                 let trend: i8 = if count == 0 {
                     0

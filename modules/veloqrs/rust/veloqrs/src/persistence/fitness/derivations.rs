@@ -816,8 +816,10 @@ impl PersistentRouteEngine {
                 group_cache.get(&cache_key)
             {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
-                let is_pr =
-                    moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
+                let is_pr = crate::persistence::records::is_personal_record(
+                    moving_time as f64,
+                    *best_moving_time as f64,
+                );
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {
@@ -944,11 +946,8 @@ impl PersistentRouteEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // PR tolerance: 0.5% relative - matches route PR detection behavior
-            // and adapts to section length (5s sprint vs 30min climb).
-            let is_pr = trav.lap_time > 0.0
-                && best_time < f64::MAX
-                && ((trav.lap_time - best_time) / best_time).abs() < 0.005;
+            let is_pr =
+                crate::persistence::records::matches_personal_record(trav.lap_time, best_time);
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
