@@ -41,6 +41,8 @@ function engine(progress: () => Progress | null, diff: () => { counts: Counts } 
   } as unknown as ReturnType<typeof getRouteEngine>;
 }
 
+const POLL_TICKS = 6;
+
 describe('useCutoverSummary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -161,6 +163,40 @@ describe('useCutoverSummary', () => {
     );
     const { result: thrown } = renderHook(() => useCutoverSummary());
     expect(thrown.current).toEqual({ phase: 'idle', isRunning: false, counts: null });
+  });
+
+  it('parses the diff once while idle rather than on every poll', () => {
+    // The diff parser walks every section, so polling it twice a second while
+    // the card sits open is work the settled numbers never need repeated.
+    const getDiff = jest.fn(() => ({ counts: counts({ current: 4, proposed: 6 }) }));
+    mockGetRouteEngine.mockReturnValue(engine(() => ({ phase: 'idle', running: false }), getDiff));
+
+    renderHook(() => useCutoverSummary());
+    const afterMount = getDiff.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(POLL_TICKS * 500);
+    });
+
+    expect(getDiff.mock.calls.length).toBe(afterMount);
+  });
+
+  it('re-reads the diff when a run gives up the slot', () => {
+    const getDiff = jest.fn(() => ({ counts: counts({ current: 4, proposed: 6 }) }));
+    let running = true;
+    mockGetRouteEngine.mockReturnValue(
+      engine(() => ({ phase: running ? 'detecting' : 'idle', running }), getDiff)
+    );
+
+    renderHook(() => useCutoverSummary());
+    const whileRunning = getDiff.mock.calls.length;
+
+    running = false;
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(getDiff.mock.calls.length).toBeGreaterThan(whileRunning);
   });
 
   it('stops polling once unmounted', () => {

@@ -38,7 +38,12 @@ function narrowPhase(phase: string): CutoverPhase {
   return PHASES.includes(phase as CutoverPhase) ? (phase as CutoverPhase) : 'idle';
 }
 
-function read(): CutoverSummary {
+/**
+ * `needDiff` is what keeps the parser off the poll. Parsing walks every section,
+ * and a settled diff does not change until the next run, so it is read once per
+ * settle and carried after that. The caller re-arms it when a run takes the slot.
+ */
+function read(previous: CutoverSummary, needDiff: boolean): CutoverSummary {
   const engine = getRouteEngine();
   if (!engine) return IDLE;
   try {
@@ -46,6 +51,7 @@ function read(): CutoverSummary {
     if (!progress) return IDLE;
     const phase = narrowPhase(progress.phase);
     if (progress.running) return { phase, isRunning: true, counts: null };
+    if (!needDiff) return { phase, isRunning: false, counts: previous.counts };
     return { phase, isRunning: false, counts: engine.getCutoverDiff?.()?.counts ?? null };
   } catch {
     return IDLE;
@@ -66,13 +72,17 @@ function same(a: CutoverSummary, b: CutoverSummary): boolean {
 }
 
 export function useCutoverSummary(): CutoverSummary {
-  const [state, setState] = useState<CutoverSummary>(read);
+  const [state, setState] = useState<CutoverSummary>(() => read(IDLE, true));
   const stateRef = useRef(state);
   stateRef.current = state;
+  const needDiffRef = useRef(false);
 
   useEffect(() => {
     const tick = () => {
-      const next = read();
+      const next = read(stateRef.current, needDiffRef.current);
+      // Arm the next settle's read while the run still holds the slot, so the
+      // numbers it produces are picked up on the edge and only then.
+      needDiffRef.current = next.isRunning;
       if (!same(stateRef.current, next)) {
         stateRef.current = next;
         setState(next);
