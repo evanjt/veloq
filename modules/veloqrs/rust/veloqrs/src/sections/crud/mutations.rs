@@ -8,7 +8,7 @@ use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary
 use super::compute_section_portions;
 use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
@@ -112,7 +112,6 @@ impl PersistentEngine {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let rand_suffix: u32 = (ts % 100000) as u32;
 
         // Determine section type based on whether source_activity_id is provided
         let (section_type, id_prefix) = if params.source_activity_id.is_some() {
@@ -121,7 +120,35 @@ impl PersistentEngine {
             (SectionType::Auto, "auto")
         };
 
-        let id = format!("{}_{}__{:05}", id_prefix, ts, rand_suffix);
+        // The trailing number disambiguates draws that share a millisecond. It
+        // was `ts % 100000`, a second reading of the same clock, so it carried no
+        // information and two calls inside one millisecond minted the same id.
+        // The `custom_` prefix is load-bearing in five places, so the shape stays
+        // and only the number is earned, the way `content_id_for` earns its own.
+        let mut id = String::new();
+        for n in 0..100_000u32 {
+            let candidate = format!("{}_{}__{:05}", id_prefix, ts, n);
+            let taken: bool = self
+                .db
+                .query_row(
+                    "SELECT 1 FROM sections WHERE id = ?",
+                    params![candidate],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(|e| format!("Failed to check section id: {}", e))?
+                .is_some();
+            if !taken {
+                id = candidate;
+                break;
+            }
+        }
+        if id.is_empty() {
+            return Err(format!(
+                "Failed to create section: every id for millisecond {} is taken",
+                ts
+            ));
+        }
         let created_at = chrono::Utc::now().to_rfc3339();
         let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
             .map_err(|e| format!("Failed to encode polyline: {}", e))?;
