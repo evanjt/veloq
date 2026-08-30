@@ -298,19 +298,19 @@ describe("Tier 0.6 contract: computeInsightsFromData", () => {
     );
 
     const trend = insights.find((i) => i.id.startsWith("section_trend-"));
-    expect(trend).toBeDefined();
+    if (!trend) throw new Error("expected a section-trend insight");
 
-    const section = trend!.supportingData?.sections?.[0];
+    const section = trend.supportingData?.sections?.[0];
     const source = makeRankedSections("Ride").find(
       (r) => r.sectionId === section?.sectionId,
     );
-    expect(source).toBeDefined();
+    if (!source) throw new Error("expected a ranked section behind the insight");
     expect(section?.ranking).toEqual({
-      relevance: source!.relevanceScore,
-      recency: source!.recencyScore,
-      improvement: source!.improvementScore,
-      anomaly: source!.anomalyScore,
-      engagement: source!.engagementScore,
+      relevance: source.relevanceScore,
+      recency: source.recencyScore,
+      improvement: source.improvementScore,
+      anomaly: source.anomalyScore,
+      engagement: source.engagementScore,
     });
   });
 
