@@ -16,6 +16,7 @@ import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,
+  accountChangeAction,
   confirmAccountChange,
   getCachedAthleteId,
   DEMO_ATHLETE_ID,
@@ -71,7 +72,7 @@ export default function LoginScreen() {
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
     const cachedId = await getCachedAthleteId();
-    if (cachedId && cachedId !== DEMO_ATHLETE_ID) {
+    if (cachedId && accountChangeAction(cachedId, DEMO_ATHLETE_ID) === 'confirm-then-wipe') {
       const proceed = await confirmAccountChange({
         cachedAthleteId: cachedId,
         incomingKind: 'demo',

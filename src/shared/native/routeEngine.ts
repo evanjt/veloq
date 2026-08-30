@@ -27,6 +27,18 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   return mod?.routeEngine ?? null;
 }
 
+/**
+ * Whether the engine is open, not merely whether a handle exists.
+ *
+ * `getRouteEngine` hands back a singleton created on the first require, so a
+ * null check there answers "did the native module load", never "can it answer
+ * a question". Before `initWithPath` every read returns its empty default, so
+ * a caller that branches on the handle reads those defaults as facts.
+ */
+export function isRouteEngineReady(): boolean {
+  return getRouteEngine()?.ready ?? false;
+}
+
 export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
 /**

@@ -5,7 +5,11 @@ import { routeEngine } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import {
+  accountChangeAction,
+  confirmAccountChange,
+  getCachedAthleteId,
+} from '@/features/auth/lib/accountChange';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -47,7 +51,8 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // previous user's avatar can't bleed through.
         const incomingId = check.id;
         const cachedId = await getCachedAthleteId();
-        if (cachedId && cachedId !== incomingId) {
+        const action = accountChangeAction(cachedId, incomingId);
+        if (cachedId && action === 'confirm-then-wipe') {
           const proceed = await confirmAccountChange({
             cachedAthleteId: cachedId,
             incomingKind: 'login',
@@ -56,9 +61,11 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
             setIsApiKeyLoading(false);
             return;
           }
-          await clearAccountData(queryClient);
-        } else {
+        }
+        if (action === 'keep') {
           await clearAuthOnly(queryClient);
+        } else {
+          await clearAccountData(queryClient);
         }
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);

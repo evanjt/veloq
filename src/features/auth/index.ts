@@ -22,6 +22,7 @@ export {
 } from './lib/oauth';
 
 export {
+  accountChangeAction,
   confirmAccountChange,
   getCachedAthleteId,
   type AccountChangeKind,
