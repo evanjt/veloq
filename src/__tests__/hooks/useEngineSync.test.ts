@@ -16,6 +16,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncSettled } from '@/shared/app/useRetryTriggers';
+import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import type { SyncStatus } from 'veloqrs';
 
 jest.mock('@/shared/native/routeEngine', () => ({
@@ -45,7 +46,14 @@ jest.mock('@/shared/app/useRetryTriggers', () => {
   };
 });
 
+jest.mock('@/features/home/lib/widgetBridge', () => ({
+  updateWidgetSnapshot: jest.fn(),
+}));
+
 const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockUpdateWidgetSnapshot = updateWidgetSnapshot as jest.MockedFunction<
+  typeof updateWidgetSnapshot
+>;
 
 function engineWith(syncNow: jest.Mock) {
   return { syncNow, triggerRefresh: jest.fn() } as unknown as ReturnType<typeof getRouteEngine>;
@@ -197,5 +205,62 @@ describe('useEngineSync', () => {
     act(() => foregroundCallback?.());
 
     expect(syncNow).toHaveBeenCalledTimes(1);
+  });
+  it('refreshes the widget when a sync settles, not while it runs', () => {
+    // The widget only had two writers, backgrounding and the silent-push task,
+    // so a foreground sync left yesterday's numbers on the home screen until
+    // the app was backgrounded.
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    expect(mockUpdateWidgetSnapshot).not.toHaveBeenCalled();
+
+    mockStatus = settled();
+    act(() => rerender(undefined));
+
+    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the widget after a sync that settled with an error', () => {
+    // A sync that failed part-way still wrote the activities it did fetch, so
+    // the widget is stale rather than correct if the error skips it.
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: 'syncing', inFlight: 1, completed: 3, total: 9 };
+    act(() => rerender(undefined));
+    mockStatus = settled('connection reset');
+    act(() => rerender(undefined));
+
+    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the widget alone when no sync ever ran', () => {
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = settled();
+    act(() => rerender(undefined));
+
+    expect(mockUpdateWidgetSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the widget once per sync, not once per settled render', () => {
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    mockStatus = settled();
+    act(() => rerender(undefined));
+    act(() => rerender(undefined));
+
+    expect(mockUpdateWidgetSnapshot).toHaveBeenCalledTimes(1);
   });
 });
