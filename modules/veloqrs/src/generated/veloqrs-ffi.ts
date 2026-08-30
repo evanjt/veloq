@@ -1239,6 +1239,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_bodies_stored(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1771,6 +1775,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(): number;

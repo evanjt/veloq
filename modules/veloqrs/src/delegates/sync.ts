@@ -209,6 +209,19 @@ export function cancelSync(host: DelegateHost): void {
   host.notify('sync');
 }
 
+/**
+ * How many on-demand bodies Rust has stored this session.
+ *
+ * An on-demand fetch settles on a Rust thread, which cannot reach the
+ * TypeScript listener map, so a reader waiting on a body watches this count and
+ * fans a change out over the engine channel when it moves. Zero before the
+ * engine is ready, which reads as "nothing has landed yet".
+ */
+export function getBodiesStored(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  return Number(host.timed('getBodiesStored', () => host.engine.sync().bodiesStored()));
+}
+
 /** Current status snapshot (null before the engine is ready). */
 export function getSyncStatus(host: DelegateHost): SyncStatus | null {
   if (!host.ready) return null;

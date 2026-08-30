@@ -361,6 +361,8 @@ class RouteEngineClient implements DelegateHost {
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
 
+  getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
+
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
   getSections = (): FfiFrequentSection[] => sectionDelegates.getSections(this);
@@ -552,8 +554,7 @@ class RouteEngineClient implements DelegateHost {
   getPinnedSectionVersion = (sectionId: string) =>
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
   getRetiredSections = () => sectionDelegates.getRetiredSections(this);
-  getRecentSectionChanges = (days: number) =>
-    sectionDelegates.getRecentSectionChanges(this, days);
+  getRecentSectionChanges = (days: number) => sectionDelegates.getRecentSectionChanges(this, days);
 
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);
@@ -935,7 +936,6 @@ class RouteEngineClient implements DelegateHost {
   getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
     sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
-
   extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
     sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
 
@@ -1053,9 +1053,8 @@ class RouteEngineClient implements DelegateHost {
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  getStrengthSummaryBatch = (
-    ranges: { startTs: number; endTs: number }[]
-  ): FfiStrengthSummary[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthSummaryBatch = (ranges: { startTs: number; endTs: number }[]): FfiStrengthSummary[] =>
+    strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (
     activityId: string,
@@ -1105,7 +1104,6 @@ class RouteEngineClient implements DelegateHost {
   acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
-
 
   getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
     sectionDelegates.getActivitySectionHighlights(this, activityIds);
