@@ -5,6 +5,14 @@ use std::collections::HashMap;
 
 use super::super::PersistentRouteEngine;
 
+/// A ranked section's median has to move by this fraction before the chip
+/// calls it improving or declining. Matches the feed card deadband.
+const TREND_DEADBAND: f64 = 0.02;
+
+/// The workout screen asks for a larger move before it labels a section,
+/// because it compares five-effort medians rather than three.
+const WORKOUT_TREND_DEADBAND: f64 = 0.03;
+
 impl PersistentRouteEngine {
     /// Get sections ranked by ML-driven composite relevance score.
     ///
@@ -220,39 +228,12 @@ impl PersistentRouteEngine {
                     let mut previous: Vec<f64> = data.times[n - 6..n - 3].to_vec();
                     recent.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     previous.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    let median_recent = recent[1];
-                    let median_previous = previous[1];
-                    let pct = if median_previous > 0.0 {
-                        (median_previous - median_recent) / median_previous
-                    } else {
-                        0.0
-                    };
-                    if pct > 0.02 {
-                        1
-                    }
-                    // >2% faster = improving
-                    else if pct < -0.02 {
-                        -1
-                    }
-                    // >2% slower = declining
-                    else {
-                        0
-                    } // within 2% = stable
+                    crate::trend::classify_time(previous[1], recent[1], TREND_DEADBAND).unwrap_or(0)
+                        as i32
                 } else if data.times.len() >= 2 {
                     let first = data.times[0];
                     let last = *data.times.last().unwrap();
-                    let pct = if first > 0.0 {
-                        (first - last) / first
-                    } else {
-                        0.0
-                    };
-                    if pct > 0.02 {
-                        1
-                    } else if pct < -0.02 {
-                        -1
-                    } else {
-                        0
-                    }
+                    crate::trend::classify_time(first, last, TREND_DEADBAND).unwrap_or(0) as i32
                 } else {
                     0
                 };
@@ -448,17 +429,13 @@ fn enrich_from_summary(
         if previous.len() >= 5 {
             let recent_median = median_of(&recent);
             let previous_median = median_of(&previous);
-            if previous_median > 0.0 {
-                let change = (previous_median - recent_median) / previous_median;
-                if change >= 0.03 {
-                    String::from("improving")
-                } else if change <= -0.03 {
-                    String::from("declining")
-                } else {
-                    String::from("stable")
-                }
-            } else {
-                String::new()
+            match crate::trend::classify_time(
+                previous_median,
+                recent_median,
+                WORKOUT_TREND_DEADBAND,
+            ) {
+                Some(verdict) => trend_label(verdict as i32),
+                None => String::new(),
             }
         } else {
             String::new()
