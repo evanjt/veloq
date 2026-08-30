@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Tratti identici su ogni dispositivo",
       "recutRunning": "Nuova analisi dei tuoi tratti",
       "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
-      "phaseDraining": "completamento del lavoro in corso",
-      "phaseArchiving": "archiviazione del vecchio catalogo",
+      "phasePreparing": "preparazione del catalogo",
       "phaseDetecting": "taglio dei nuovi tratti",
       "phaseDiffing": "confronto dei due cataloghi",
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
-      "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi."
+      "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi.",
+      "recutFailed": "La nuova analisi non è arrivata in fondo. I tuoi tratti sono invariati e riparte al prossimo avvio."
     }
   },
   "strength": {

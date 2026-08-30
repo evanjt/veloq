@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Des tronçons identiques sur chaque appareil",
       "recutRunning": "Nouvelle analyse de tes tronçons",
       "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
-      "phaseDraining": "fin du travail en cours",
-      "phaseArchiving": "archivage de l'ancien catalogue",
+      "phasePreparing": "préparation du catalogue",
       "phaseDetecting": "découpe des nouveaux tronçons",
       "phaseDiffing": "comparaison des deux catalogues",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
-      "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse."
+      "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse.",
+      "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement."
     }
   },
   "strength": {

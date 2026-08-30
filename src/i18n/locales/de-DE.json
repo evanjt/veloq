@@ -1936,13 +1936,13 @@
       "rowEveryDevice": "Identische Abschnitte auf jedem Gerät",
       "recutRunning": "Deine Abschnitte werden neu analysiert",
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
-      "phaseDraining": "laufende Arbeit wird abgeschlossen",
-      "phaseArchiving": "der alte Katalog wird archiviert",
+      "phasePreparing": "der Katalog wird vorbereitet",
       "phaseDetecting": "neue Abschnitte werden geschnitten",
       "phaseDiffing": "die beiden Kataloge werden verglichen",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
-      "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert."
+      "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
+      "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut."
     }
   },
   "strength": {
