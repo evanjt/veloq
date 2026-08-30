@@ -245,13 +245,12 @@ fn spawn_conditioning_driver() {
 mod tests {
     use super::*;
 
-    /// Suspension and the cadence counter are process-wide, so the tests that
-    /// touch them run one at a time.
-    static SERIAL: Mutex<()> = Mutex::new(());
-
-    fn serial() -> std::sync::MutexGuard<'static, ()> {
-        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
-    }
+    use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+    use crate::persistence::with_persistent_engine;
+    use crate::test_globals::{
+        clear_detection_handle, drain_detection, seeded_global_engine,
+        serial_global_state as serial,
+    };
 
     #[test]
     fn batch_fires_at_threshold_and_resets() {
@@ -352,20 +351,40 @@ mod tests {
     #[test]
     fn a_batch_end_flushes_whatever_is_pending_and_nothing_else() {
         let _serial = serial();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let pending_now = || {
+            CONDITIONER
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .adds_pending
+        };
         {
             let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
             c.adds_pending = 0;
         }
         assert!(!condition_pending(), "nothing pending, nothing to flush");
-        note_stored(3);
-        // No engine in a unit test, so the start is refused; the pending
-        // count survives for the flush that follows the active run.
-        assert!(!condition_pending());
-        let pending = CONDITIONER
+
+        // A run already in the slot refuses the start. The pending count has
+        // to survive that refusal, because the driver flushes it when the
+        // active run applies.
+        let running =
+            with_persistent_engine(|engine| engine.detect_sections_background()).expect("engine");
+        *SECTION_DETECTION_HANDLE
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending;
-        assert_eq!(pending, 3);
+            .unwrap_or_else(|e| e.into_inner()) = Some(running);
+
+        note_stored(3);
+        assert!(!condition_pending(), "a refused flush starts nothing");
+        assert_eq!(pending_now(), 3, "a refused flush keeps its count");
+
+        drain_detection();
+
+        assert!(condition_pending(), "the flush fires once the slot frees");
+        assert_eq!(pending_now(), 0, "a flush that started zeroes its count");
+
+        drain_detection();
+        assert!(!condition_pending(), "nothing left to flush");
     }
 
     #[test]
