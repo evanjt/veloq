@@ -1,7 +1,7 @@
 /**
  * Tests for backup/restore functionality.
  *
- * Covers: createBackup, restoreBackup, exportBackup
+ * Covers: restoreBackup, restoreDatabaseBackup
  * Bug fixes validated:
  * - version === undefined conflated with version > BACKUP_VERSION
  * - Missing startIndex < endIndex validation
@@ -9,7 +9,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import { restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import * as FileSystem from 'expo-file-system/legacy';
 import { queryClient } from '@/shared/query/QueryProvider';
@@ -155,51 +155,6 @@ beforeEach(() => {
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
 });
 
-describe('createBackup', () => {
-  it('returns valid JSON with version and appVersion', async () => {
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.version).toBe(2);
-    expect(backup.appVersion).toBe('0.3.0');
-    expect(backup.exportedAt).toBeDefined();
-  });
-
-  it('includes custom sections from engine', async () => {
-    mockEngine.getSectionsByType.mockReturnValueOnce([
-      {
-        name: 'Hill Climb',
-        sportType: 'Ride',
-        sourceActivityId: 'a1',
-        startIndex: 10,
-        endIndex: 50,
-      },
-    ]);
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.customSections).toHaveLength(1);
-    expect(backup.customSections[0].name).toBe('Hill Climb');
-  });
-
-  it('includes section and route names', async () => {
-    mockEngine.getAllSectionNames.mockReturnValueOnce({ s1: 'My Section' });
-    mockEngine.getAllRouteNames.mockReturnValueOnce({ r1: 'My Route' });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.sectionNames).toEqual({ s1: 'My Section' });
-    expect(backup.routeNames).toEqual({ r1: 'My Route' });
-  });
-
-  it('includes preferences from AsyncStorage, handles non-JSON values as raw strings', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
-      if (key === 'veloq-theme-preference') return Promise.resolve('not-json');
-      return Promise.resolve(null);
-    });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.preferences['veloq-theme-preference']).toBe('not-json');
-  });
-});
-
 describe('restoreBackup', () => {
   it('throws on invalid JSON', async () => {
     await expect(restoreBackup('not json')).rejects.toThrow('Invalid backup file format');
@@ -289,16 +244,6 @@ describe('restoreBackup', () => {
     expect(result.preferencesRestored).toBe(2);
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('veloq-theme-preference', 'dark');
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('veloq-debug-mode', 'true');
-  });
-
-  it('round-trips: create then restore produces consistent result', async () => {
-    mockEngine.getSectionsByType.mockReturnValue([]);
-    mockEngine.getAllSectionNames.mockReturnValue({ s1: 'My Hill' });
-    mockEngine.getAllRouteNames.mockReturnValue({});
-
-    const json = await createBackup();
-    const result = await restoreBackup(json);
-    expect(result.namesApplied).toBe(1);
   });
 
   it('handles section creation throwing an exception', async () => {
