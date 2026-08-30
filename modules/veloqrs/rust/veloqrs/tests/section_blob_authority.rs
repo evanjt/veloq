@@ -10,7 +10,8 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tracematch::GpsPoint;
+use tracematch::sections::SectionPortion;
+use tracematch::{Direction, GpsPoint};
 use veloqrs::PersistentRouteEngine;
 use veloqrs::sections::CreateSectionParams;
 
@@ -118,17 +119,33 @@ fn detection_save_writes_blob_as_authority() {
 
     {
         let mut engine = PersistentRouteEngine::new(db_path).unwrap();
+        // SB6 keeps an auto section only while one of its portions belongs to a
+        // pooled activity, so the ride the section was cut from has to be in
+        // the pool or the save never sees the row this test reads back.
+        engine
+            .add_activity("act_blob".to_string(), polyline.clone(), "Ride".to_string())
+            .expect("add_activity");
+        engine
+            .update_activity_metadata("act_blob", Some(1_700_000_000), None, None, None)
+            .expect("update_activity_metadata");
+        let last = (polyline.len() - 1) as u32;
         let section = tracematch::sections::FrequentSection {
             id: "auto_blob_1".to_string(),
             name: None,
             sport_type: "Ride".to_string(),
             polyline: polyline.clone(),
-            representative_activity_id: String::new(),
+            representative_activity_id: "act_blob".to_string(),
             representative_range: None,
-            activity_ids: vec![],
-            activity_portions: vec![],
+            activity_ids: vec!["act_blob".to_string()],
+            activity_portions: vec![SectionPortion {
+                activity_id: "act_blob".to_string(),
+                start_index: 0,
+                end_index: last,
+                distance_meters: tracematch::matching::calculate_route_distance(&polyline),
+                direction: Direction::Same,
+            }],
             route_ids: vec![],
-            visit_count: 0,
+            visit_count: 1,
             distance_meters: tracematch::matching::calculate_route_distance(&polyline),
             activity_traces: std::collections::HashMap::new(),
             confidence: 0.9,
