@@ -1,7 +1,7 @@
 /**
- * The two edges that should make a failed network operation try again.
+ * The three edges that should make a failed network operation try again.
  *
- * Both take the network state as a value. An effect keyed on a ref object runs
+ * The first two take the network state as a value. An effect keyed on a ref object runs
  * at mount and never again, because a ref's identity never changes, which is
  * how the route-sync reconnect path went quiet.
  */
@@ -23,6 +23,35 @@ export function useReconnect(onReconnect: () => void): void {
     if (isOnline && !wasOnlineRef.current) callbackRef.current();
     wasOnlineRef.current = isOnline;
   }, [isOnline]);
+}
+
+/**
+ * The end of a sync is the third edge, and the only one the user cannot cause.
+ * A window the engine refused while the launch sync held the exclusive slot is
+ * not a network failure, so neither a reconnect nor a foreground ever arrives
+ * to retry it. The sync releasing the slot is the moment worth re-asking on.
+ */
+const settledListeners = new Set<() => void>();
+
+/** Announce that a sync reached a terminal state and freed the slot. */
+export function emitSyncSettled(): void {
+  for (const listener of [...settledListeners]) listener();
+}
+
+/** Run `onSettled` whenever a sync finishes, whatever its outcome. */
+export function useSyncSettled(onSettled: () => void): void {
+  const callbackRef = useRef(onSettled);
+  useEffect(() => {
+    callbackRef.current = onSettled;
+  });
+
+  useEffect(() => {
+    const listener = () => callbackRef.current();
+    settledListeners.add(listener);
+    return () => {
+      settledListeners.delete(listener);
+    };
+  }, []);
 }
 
 /**

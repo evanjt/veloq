@@ -14,7 +14,7 @@ import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useReconnect } from '@/shared/app/useRetryTriggers';
+import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 
 /**
  * Read stored activities over a date window, newest first. A body that will
@@ -129,6 +129,13 @@ export function useActivities(options: UseActivitiesOptions = {}) {
     askForWindow();
   });
 
+  // The launch sync holds the exclusive slot for minutes and refuses every
+  // window opened while it runs. Nothing else observes it letting go, so a
+  // window asked for at launch would otherwise stay blank until the user went
+  // offline and back. An accepted window is already recorded, so this is a
+  // no-op for it.
+  useSyncSettled(askForWindow);
+
   return useQuery<Activity[]>({
     queryKey: queryKeys.activities.list(
       athleteId ?? 'anon',
@@ -207,6 +214,13 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
   // point where a window that came back empty is worth asking for again.
   useReconnect(() => {
     resetActivityWindowRequests();
+    void query.refetch();
+  });
+
+  // The launch sync refuses any page opened while it runs. Refetching replays
+  // every loaded page through the queryFn, which re-asks only the windows that
+  // were refused, so no reset is wanted here.
+  useSyncSettled(() => {
     void query.refetch();
   });
 

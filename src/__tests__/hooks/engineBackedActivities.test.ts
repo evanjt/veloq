@@ -14,6 +14,7 @@ import {
   useInfiniteActivities,
   resetActivityWindowRequests,
 } from '@/features/activity/hooks/useActivities';
+import { emitSyncSettled } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
@@ -151,6 +152,44 @@ describe('useActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
+  it('asks again when the launch sync releases the exclusive slot', async () => {
+    // The ordinary refusal is the launch sync holding the slot, not an offline
+    // failure, and that ends without the user touching anything.
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    act(() => emitSyncSettled());
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+    expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-01-01', '2024-06-01');
+  });
+
+  it('does not re-ask a window the engine already accepted', async () => {
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    act(() => emitSyncSettled());
+    act(() => emitSyncSettled());
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops asking once the hook is gone', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    const { unmount } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+    unmount();
+
+    act(() => emitSyncSettled());
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+  });
+
   it('reads a window as end-of-day inclusive', async () => {
     renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), { wrapper });
 
@@ -189,6 +228,17 @@ describe('useOldestActivityDate', () => {
 });
 
 describe('useInfiniteActivities', () => {
+  it('re-asks for the feed pages when the launch sync releases the slot', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    act(() => emitSyncSettled());
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
   it('re-asks for the feed window on the reconnect edge', async () => {
     const { rerender } = renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
