@@ -1,7 +1,7 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { resolveStyleExpression } from './styleResolution';
+import { resolveStyleExpression, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 
 export interface SnapshotRequest {
   activityId: string;
@@ -29,7 +29,10 @@ export function buildRenderSnapshotScript(
 
   // Satellite and dark are inline objects; light is fetched from its URL so
   // MapLibre resolves the TileJSON itself, the same as the detail 3D view.
-  const { styleJSON: styleConfig, url } = resolveStyleExpression(request.mapStyle);
+  const { styleJSON: styleConfig, url } = resolveStyleExpression(
+    request.mapStyle,
+    TERRAIN_STYLE_OPTIONS
+  );
   const lightStyleUrl = url ?? '';
 
   const coordsJSON = JSON.stringify(request.coordinates);

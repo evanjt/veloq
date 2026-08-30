@@ -46,8 +46,6 @@ import {
   SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
-
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
 const OVERLAY_IMAGES = [TROPHY_ICON];
 
 /** Section overlay for map visualization */
@@ -628,7 +626,6 @@ export const ActivityMapView = memo(function ActivityMapView({
             <MapSurface
               ref={surfaceRef}
               mapStyle={mapStyle}
-              styleOptions={SURFACE_STYLE_OPTIONS}
               initialCamera={{ bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }}
               sources={sources}
               layers={layers}
