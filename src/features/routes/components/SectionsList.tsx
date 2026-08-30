@@ -624,6 +624,17 @@ export const SectionsList = memo(function SectionsList({
             {t('sectionHistory.seeRetired')}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          testID="sections-named-corridors-link"
+          style={styles.retiredLink}
+          onPress={() => router.push('/named-corridors' as Href)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="tag-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.retiredLinkText, isDark && styles.textMuted]}>
+            {t('namedCorridors.link')}
+          </Text>
+        </TouchableOpacity>
         <DataRangeFooter days={cacheDays} isDark={isDark} />
       </View>
     );

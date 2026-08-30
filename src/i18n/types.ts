@@ -1160,6 +1160,18 @@ export interface TranslationResource {
     kind_baseline: string;
     kind_algorithm_changed: string;
   };
+  namedCorridors: {
+    title: string;
+    link: string;
+    empty: string;
+    created: string;
+    dormant: string;
+    onSection: string;
+    secondary: string;
+    delete: string;
+    deleteTitle: string;
+    deleteConfirm: string;
+  };
   sections: {
     acceptSection: string;
     acceptAllSections: string;

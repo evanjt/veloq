@@ -2059,5 +2059,17 @@
     "kind_pr_rebased": "現在の範囲で記録を再計算",
     "kind_baseline": "以前のアプリ版から記録",
     "kind_algorithm_changed": "新しい検出器で再解析"
+  },
+  "namedCorridors": {
+    "title": "つけた名前",
+    "link": "つけた名前",
+    "empty": "まだ区間に名前をつけていません",
+    "created": "{{date}} に命名",
+    "dormant": "現在この場所を覆う区間はありません",
+    "onSection": "{{name}} · {{percent}}% 一致",
+    "secondary": "別の名前も同じ場所を指しています",
+    "delete": "名前を削除",
+    "deleteTitle": "名前を削除",
+    "deleteConfirm": "「{{name}}」を削除しますか？区間は自動生成の名前に戻ります。"
   }
 }

@@ -2059,5 +2059,17 @@
     "kind_pr_rebased": "Record ricalcolato sull'estensione attuale",
     "kind_baseline": "Registrato da una versione precedente dell'app",
     "kind_algorithm_changed": "Rianalizzato da un rilevatore più recente"
+  },
+  "namedCorridors": {
+    "title": "Nomi che hai dato",
+    "link": "Nomi che hai dato",
+    "empty": "Non hai ancora dato un nome a nessun tratto",
+    "created": "Nominato il {{date}}",
+    "dormant": "Nessun tratto copre questo terreno al momento",
+    "onSection": "Su {{name}} · {{percent}}% coperto",
+    "secondary": "Un altro nome copre lo stesso terreno",
+    "delete": "Elimina nome",
+    "deleteTitle": "Elimina nome",
+    "deleteConfirm": "Eliminare \"{{name}}\"? Il tratto torna al suo nome generato."
   }
 }

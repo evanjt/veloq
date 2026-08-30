@@ -2059,5 +2059,17 @@
     "kind_pr_rebased": "Rekord genberegnet mod den nuværende udstrækning",
     "kind_baseline": "Registreret fra en tidligere version af appen",
     "kind_algorithm_changed": "Analyseret igen af en nyere detektor"
+  },
+  "namedCorridors": {
+    "title": "Navne du har givet",
+    "link": "Navne du har givet",
+    "empty": "Du har endnu ikke navngivet en strækning",
+    "created": "Navngivet {{date}}",
+    "dormant": "Ingen strækning dækker dette område lige nu",
+    "onSection": "På {{name}} · {{percent}}% dækket",
+    "secondary": "Et andet navn dækker også dette område",
+    "delete": "Slet navn",
+    "deleteTitle": "Slet navn",
+    "deleteConfirm": "Slet \"{{name}}\"? Strækningen får sit genererede navn tilbage."
   }
 }
