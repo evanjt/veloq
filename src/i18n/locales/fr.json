@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Pourquoi cette recommandation ?",
     "aboutBody": "Les métriques d'entraînement sont des estimations basées sur des modèles publiés en science du sport. Les réponses individuelles varient considérablement. Ces aperçus sont purement informatifs, ils ne constituent pas un avis médical ou d'entraînement.",
     "efficiencyTrend": {
+      "seriesLabel": "Fréquence cardiaque par unité d'allure, du passage le plus ancien au plus récent",
       "title": "FC en baisse sur {{name}}",
       "subtitle": "{{hrChange}} bpm de moins sur {{efforts}} efforts",
       "body": "Sur {{efforts}} efforts sur {{name}}, votre fréquence cardiaque au même rythme a baissé de {{hrChange}} bpm."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Glissez pour défiler • Maintenez pour naviguer",
     "sectionNamePlaceholder": "Nom de la section",
     "sectionNotFound": "Section introuvable",
+    "aerobicEfficiency": "Efficacité aérobie",
+    "aerobicEfficiencyDetail": "{{efforts}} passages comparables, fréquence cardiaque {{hrChange}} bpm à allure égale",
+    "aerobicEfficiencyCaption": "Fréquence cardiaque par unité d'allure, du passage le plus ancien au plus récent",
     "setAsReference": "Définir comme référence",
     "setAsReferenceConfirm": "Utiliser cette activité comme référence ?\n\nLa section sera re-comparée avec toutes vos activités. Cela peut ajouter ou supprimer des activités de cette section.",
     "setReferenceError": "Échec de la définition de la référence. La section ou l'activité a peut-être changé. Veuillez réessayer.",

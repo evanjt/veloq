@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Por que essa recomendação?",
     "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Esses insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
     "efficiencyTrend": {
+      "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
       "title": "FC caindo em {{name}}",
       "subtitle": "{{hrChange}} bpm a menos em {{efforts}} esforços",
       "body": "Em {{efforts}} esforços em {{name}}, sua frequência cardíaca no mesmo ritmo caiu {{hrChange}} bpm."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Deslize para navegar - Segure para percorrer",
     "sectionNamePlaceholder": "Nome do trecho",
     "sectionNotFound": "Trecho nao encontrado",
+    "aerobicEfficiency": "Eficiência aeróbica",
+    "aerobicEfficiencyDetail": "{{efforts}} passagens comparáveis, frequência cardíaca {{hrChange}} bpm no mesmo ritmo",
+    "aerobicEfficiencyCaption": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
     "setAsReference": "Definir como referencia",
     "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO trecho será novamente comparado com todas as suas atividades. Isso pode adicionar ou remover atividades deste trecho.",
     "setReferenceError": "Falha ao definir referência. A seção ou atividade pode ter mudado. Por favor, tente novamente.",

@@ -1215,6 +1215,9 @@ export interface TranslationResource {
     bestSpeed: string;
     date: string;
     sectionNotFound: string;
+    aerobicEfficiency: string;
+    aerobicEfficiencyDetail: string;
+    aerobicEfficiencyCaption: string;
     traversals: string;
     routesCount: string;
     routesCountLabel: string;

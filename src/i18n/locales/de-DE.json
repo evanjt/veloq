@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Warum diese Empfehlung?",
     "aboutBody": "Trainingsmetriken sind Schätzungen basierend auf veröffentlichten sportwissenschaftlichen Modellen. Individuelle Reaktionen variieren erheblich. Diese Einblicke dienen nur zur Information, keine medizinische oder Trainingsberatung.",
     "efficiencyTrend": {
+      "seriesLabel": "Herzfrequenz pro Tempoeinheit, ältester bis neuester Versuch",
       "title": "HF sinkend auf {{name}}",
       "subtitle": "{{hrChange}} bpm niedriger über {{efforts}} Versuche",
       "body": "Über {{efforts}} Versuche auf {{name}} ist deine Herzfrequenz bei gleichem Tempo um {{hrChange}} bpm gesunken."
@@ -1452,6 +1453,9 @@
     "scrubHintScrollable": "Wischen zum Scrollen • Halten zum Durchblättern",
     "sectionNamePlaceholder": "Abschnittsname",
     "sectionNotFound": "Abschnitt nicht gefunden",
+    "aerobicEfficiency": "Aerobe Effizienz",
+    "aerobicEfficiencyDetail": "{{efforts}} vergleichbare Versuche, Herzfrequenz {{hrChange}} bpm bei gleichem Tempo",
+    "aerobicEfficiencyCaption": "Herzfrequenz pro Tempoeinheit, ältester bis neuester Versuch",
     "setAsReference": "Als Referenz festlegen",
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuche es erneut.",

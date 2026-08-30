@@ -728,6 +728,7 @@
     "whyThisRecommendation": "Dlaczego ta rekomendacja?",
     "aboutBody": "Metryki treningowe to szacunki oparte na opublikowanych modelach nauk o sporcie. Indywidualne reakcje mogą się znacznie różnić. Te analizy mają charakter wyłącznie informacyjny, nie stanowią porady medycznej ani trenerskiej.",
     "efficiencyTrend": {
+      "seriesLabel": "Tętno na jednostkę tempa, od najstarszego przejazdu do najnowszego",
       "title": "HR spada na {{name}}",
       "subtitle": "{{hrChange}} bpm mniej w {{efforts}} powtórzeniach",
       "body": "W {{efforts}} powtórzeniach na {{name}} tętno przy tym samym tempie spadło o {{hrChange}} bpm."
@@ -1454,6 +1455,9 @@
     "scrubHintScrollable": "Przesuń, aby przewinąć, lub przytrzymaj",
     "sectionNamePlaceholder": "Nazwa odcinka",
     "sectionNotFound": "Nie znaleziono odcinka",
+    "aerobicEfficiency": "Wydolność tlenowa",
+    "aerobicEfficiencyDetail": "{{efforts}} porównywalnych przejazdów, tętno {{hrChange}} bpm przy tym samym tempie",
+    "aerobicEfficiencyCaption": "Tętno na jednostkę tempa, od najstarszego przejazdu do najnowszego",
     "setAsReference": "Ustaw jako odniesienie",
     "setAsReferenceConfirm": "Użyć tej aktywności jako odniesienia?\n\nOdcinek zostanie ponownie dopasowany do wszystkich Twoich aktywności. Może to dodać lub usunąć aktywności z tego odcinka.",
     "setReferenceError": "Nie udało się ustawić odniesienia. Sekcja lub aktywność mogła się zmienić. Spróbuj ponownie.",

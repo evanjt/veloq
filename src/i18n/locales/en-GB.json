@@ -727,6 +727,7 @@
     "whyThisRecommendation": "Why this recommendation?",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
     "efficiencyTrend": {
+      "seriesLabel": "Heart rate per unit of pace, oldest effort to newest",
       "title": "HR trending down on {{name}}",
       "subtitle": "{{hrChange}} bpm lower over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, your heart rate at the same pace has dropped by {{hrChange}} bpm."
@@ -1460,6 +1461,9 @@
     "scrubHintScrollable": "Swipe to scroll • Hold to scrub",
     "sectionNamePlaceholder": "Section name",
     "sectionNotFound": "Section not found",
+    "aerobicEfficiency": "Aerobic efficiency",
+    "aerobicEfficiencyDetail": "{{efforts}} matched efforts, heart rate {{hrChange}} bpm at the same pace",
+    "aerobicEfficiencyCaption": "Heart rate per unit of pace, oldest effort to newest",
     "setAsReference": "Set as Reference",
     "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
