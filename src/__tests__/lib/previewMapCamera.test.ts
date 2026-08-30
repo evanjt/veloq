@@ -10,6 +10,7 @@ import {
   PREVIEW_AREA_BOUNDS_PADDING,
   PREVIEW_BIN_DEG,
   PREVIEW_MIN_EXTENT_DEG,
+  previewAreaAnchor,
   previewAreaBounds,
   previewCameraBounds,
 } from '@/features/routes/lib/previewMapCamera';
@@ -176,5 +177,26 @@ describe('preview camera bounds', () => {
   it('pads by a fraction of the framed extent, not a fixed degree count', () => {
     expect(PREVIEW_AREA_BOUNDS_PADDING).toBeGreaterThan(0);
     expect(PREVIEW_AREA_BOUNDS_PADDING).toBeLessThan(1);
+  });
+});
+
+describe('preview area anchor', () => {
+  it('is the centre of the bin box, not the mean the engine reports', () => {
+    const anchor = previewAreaAnchor({ binKey: '1043:165', lat: 46.936, lng: 7.447 })!;
+
+    expect(anchor[0]).toBeCloseTo(165.5 * PREVIEW_BIN_DEG, 9);
+    expect(anchor[1]).toBeCloseTo(1043.5 * PREVIEW_BIN_DEG, 9);
+  });
+
+  it('is the point itself when the key is unusable', () => {
+    const anchor = previewAreaAnchor({ binKey: 'not-a-bin', lat: 46.948, lng: 7.447 })!;
+
+    expect(anchor[0]).toBeCloseTo(7.447, 9);
+    expect(anchor[1]).toBeCloseTo(46.948, 9);
+  });
+
+  it('is null for a centre that is not drawable', () => {
+    expect(previewAreaAnchor(null)).toBeNull();
+    expect(previewAreaAnchor({ binKey: null, lat: Number.NaN, lng: 7.447 })).toBeNull();
   });
 });
