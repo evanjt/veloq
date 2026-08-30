@@ -27,10 +27,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import {
-  useSections,
-  generateSectionName,
-} from '@/features/routes/hooks/useSections';
+import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
 import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';

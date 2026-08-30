@@ -46,9 +46,7 @@ export interface UseSectionsResult {
 /**
  * Hook for unified sections combining all section types.
  */
-export function useSections(
-  options: UseSectionsOptions = {}
-): UseSectionsResult {
+export function useSections(options: UseSectionsOptions = {}): UseSectionsResult {
   const { sportType, includeCustom = true, enabled = true, preloadedEngineSections } = options;
 
   // Load ALL engine sections including disabled/superseded (for sections list restore UI).
