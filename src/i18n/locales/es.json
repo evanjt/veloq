@@ -1928,7 +1928,16 @@
       "rowRevert": "Restaura una versión anterior de un tramo y fíjala",
       "rowRetired": "Los tramos que salieron del catálogo siguen listados",
       "rowPinned": "Los tramos aceptados sobreviven a cada reanálisis",
-      "rowEveryDevice": "Tramos idénticos en todos los dispositivos"
+      "rowEveryDevice": "Tramos idénticos en todos los dispositivos",
+      "recutRunning": "Analizando de nuevo tus tramos",
+      "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
+      "phaseDraining": "terminando el trabajo en curso",
+      "phaseArchiving": "archivando el catálogo anterior",
+      "phaseDetecting": "cortando tramos nuevos",
+      "phaseDiffing": "comparando los dos catálogos",
+      "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
+      "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
+      "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios."
     }
   },
   "strength": {

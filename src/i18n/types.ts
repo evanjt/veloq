@@ -904,6 +904,15 @@ export interface TranslationResource {
       rowRetired: string;
       rowPinned: string;
       rowEveryDevice: string;
+      recutRunning: string;
+      recutRunningPhase: string;
+      phaseDraining: string;
+      phaseArchiving: string;
+      phaseDetecting: string;
+      phaseDiffing: string;
+      diffTotals: string;
+      diffBreakdown: string;
+      diffUnchanged: string;
     };
     v030: {
       insightsTitle: string;

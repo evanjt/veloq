@@ -1928,7 +1928,16 @@
       "rowRevert": "Repor uma versão anterior de um troço e fixá-la",
       "rowRetired": "Os troços que saíram do catálogo continuam listados",
       "rowPinned": "Os troços aceites sobrevivem a cada nova análise",
-      "rowEveryDevice": "Troços idênticos em todos os dispositivos"
+      "rowEveryDevice": "Troços idênticos em todos os dispositivos",
+      "recutRunning": "A analisar de novo os teus troços",
+      "recutRunningPhase": "A analisar de novo os teus troços: {{phase}}",
+      "phaseDraining": "a terminar o trabalho em curso",
+      "phaseArchiving": "a arquivar o catálogo antigo",
+      "phaseDetecting": "a cortar troços novos",
+      "phaseDiffing": "a comparar os dois catálogos",
+      "diffTotals": "{{current}} troços passaram a {{proposed}}.",
+      "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
+      "diffUnchanged": "Os {{sections}} troços saíram da nova análise sem alterações."
     }
   },
   "strength": {
