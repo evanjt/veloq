@@ -180,7 +180,7 @@ impl PersistentEngine {
         // get_sections() reflects it without a reload.
         self.refresh_section_in_memory(&id);
 
-        // Refresh the materialized activity_indicators table so feed cards
+        // Refresh the materialised activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
         if let Err(e) = self.recompute_activity_indicators() {
@@ -1039,7 +1039,7 @@ impl PersistentEngine {
         self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the
-        // materialized indicators table so feed cards stop showing chips
+        // materialised indicators table so feed cards stop showing chips
         // for a section the user just removed.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(

@@ -118,7 +118,7 @@ impl PersistentEngine {
 
         let now_secs = Utc::now().timestamp();
 
-        // Find max traversal count for engagement normalization
+        // Find max traversal count for engagement normalisation
         let max_traversal_count = sections
             .values()
             .map(|s| s.times.len())
@@ -148,7 +148,7 @@ impl PersistentEngine {
                     let median_previous = previous[1];
                     if median_previous > 0.0 {
                         // Negative change = faster = improving (for time-based metrics)
-                        // Normalize: cap at +/- 100% change, then map to 0..1
+                        // Normalise: cap at +/- 100% change, then map to 0..1
                         let pct_change = (median_previous - median_recent) / median_previous;
                         (pct_change.clamp(-1.0, 1.0) + 1.0) / 2.0
                     } else {
@@ -178,7 +178,7 @@ impl PersistentEngine {
                     if std_dev > 0.0 {
                         let latest = *data.times.last().unwrap();
                         let z = ((latest - mean) / std_dev).abs();
-                        // Normalize: z of 0 = 0, z of 3+ = 1.0
+                        // Normalise: z of 0 = 0, z of 3+ = 1.0
                         (z / 3.0).min(1.0)
                     } else {
                         0.0

@@ -902,7 +902,7 @@ impl PersistentEngine {
                     match_percentage,
                 });
 
-                // Collect metrics for inline return (Issue C optimization)
+                // Collect metrics for inline return (Issue C optimisation)
                 metrics_list.push(metrics.clone());
             }
         }

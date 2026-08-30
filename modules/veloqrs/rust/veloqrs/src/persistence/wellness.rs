@@ -211,7 +211,7 @@ impl PersistentEngine {
 
     /// Sparkline arrays for the summary card: fitness/fatigue/form/hrv/rhr
     /// over the trailing `days` window. Null/missing values are forward-filled
-    /// so sparkline renderers get continuous lines (matches prior TS behavior).
+    /// so sparkline renderers get continuous lines (matches prior TS behaviour).
     /// Returns `None` when no wellness data has been synced yet.
     pub fn get_wellness_sparklines(
         &self,
@@ -276,7 +276,7 @@ impl PersistentEngine {
 }
 
 /// Forward-fill an iterator of optional floats into rounded i32s. Returns
-/// an empty Vec when every value is None/zero (TS behavior).
+/// an empty Vec when every value is None/zero (TS behaviour).
 fn forward_fill_round<I>(iter: I) -> Vec<i32>
 where
     I: Iterator<Item = Option<f64>>,

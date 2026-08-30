@@ -270,7 +270,7 @@ impl PersistentEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Route N" - still recognize for numbering
+                // Old pattern: "{Sport} Route N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -498,7 +498,7 @@ impl PersistentEngine {
         let use_incremental =
             !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
-        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
             let new_sigs: Vec<RouteSignature> = arc_sigs
@@ -604,7 +604,7 @@ impl PersistentEngine {
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
-        // Recompute materialized PR/trend indicators with updated route groups
+        // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
                 "veloqrs: [recompute_groups] Indicator recomputation failed: {}",
@@ -675,8 +675,8 @@ impl PersistentEngine {
 
         // Second pass: recalculate match percentages using AMD
         // PERF: CPU bound - O(n*m) distance calculations per pair
-        // OPTIMIZATION 1: Skip self-comparisons (activity == representative)
-        // OPTIMIZATION 2: Parallelize with rayon
+        // OPTIMISATION 1: Skip self-comparisons (activity == representative)
+        // OPTIMISATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
         let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =

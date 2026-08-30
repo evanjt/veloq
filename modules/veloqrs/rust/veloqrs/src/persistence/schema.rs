@@ -60,7 +60,7 @@ impl PersistentEngine {
         ]
     }
 
-    /// Initialize the database schema using migrations.
+    /// Initialise the database schema using migrations.
     pub(super) fn init_schema(conn: &mut Connection) -> SqlResult<()> {
         // Create schema_info table if not exists (for app-level version tracking)
         conn.execute(

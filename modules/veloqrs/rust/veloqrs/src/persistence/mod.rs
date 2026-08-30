@@ -757,7 +757,7 @@ impl PersistentEngine {
     }
 
     // ========================================================================
-    // Initialization
+    // Initialisation
     // ========================================================================
 
     /// Create a new persistent engine with the given database path.
@@ -1584,13 +1584,13 @@ pub mod persistent_engine_ffi {
         });
     }
 
-    /// Initialize the persistent engine with a database path.
+    /// Initialise the persistent engine with a database path.
     /// Called by VeloqEngine::create() - not exported via FFI directly.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
         install_panic_hook(&db_path);
         info!(
-            "veloqrs: [PersistentEngine] Initializing with db: {}",
+            "veloqrs: [PersistentEngine] Initialising with db: {}",
             db_path
         );
 
@@ -1658,7 +1658,7 @@ pub mod persistent_engine_ffi {
 
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
-        info!("veloqrs: [PersistentEngine] Initialized successfully");
+        info!("veloqrs: [PersistentEngine] Initialised successfully");
 
         true
     }

@@ -20,7 +20,7 @@ impl VeloqEngine {
             .is_some();
 
         if !already {
-            info!("[VeloqEngine] Initializing at {}", db_path);
+            info!("[VeloqEngine] Initialising at {}", db_path);
             crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path);
         }
 
@@ -68,7 +68,7 @@ impl VeloqEngine {
     }
 
     /// Drop the persistent engine entirely, closing the SQLite connection.
-    /// The next call to `create()` will re-initialize from scratch.
+    /// The next call to `create()` will re-initialise from scratch.
     fn destroy(&self) {
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         info!("[VeloqEngine] Destroying persistent engine");

@@ -276,7 +276,7 @@ fn clear_dirty_marker(tiles_path: &str) {
 ///
 /// Strictly better than the old per-tile loop: GPS tracks are deserialized
 /// once instead of once-per-tile, empty bbox tiles are never enumerated, and
-/// the slow rasterization+PNG encode parallelises across cores.
+/// the slow rasterisation+PNG encode parallelises across cores.
 fn background_generate_tiles(
     db_path: &str,
     tiles_path: &str,
@@ -426,7 +426,7 @@ fn background_generate_tiles(
         plan_ms,
     );
 
-    // --- Phase 4: parallel rasterize + save ---------------------------------
+    // --- Phase 4: parallel rasterise + save ---------------------------------
     // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
     // deep-clone tracks across threads. No SQLite connection inside workers.
     let generated = AtomicU32::new(0);
