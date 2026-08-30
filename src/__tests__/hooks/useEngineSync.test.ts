@@ -15,6 +15,7 @@ import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSync } from '@/shared/native/useEngineSync';
+import { useSyncSettled } from '@/shared/app/useRetryTriggers';
 import type { SyncStatus } from 'veloqrs';
 
 jest.mock('@/shared/native/routeEngine', () => ({
@@ -36,6 +37,8 @@ jest.mock('@/shared/app/useRetryTriggers', () => {
   const actual = jest.requireActual('@/shared/app/useRetryTriggers');
   return {
     useReconnect: actual.useReconnect,
+    useSyncSettled: actual.useSyncSettled,
+    emitSyncSettled: actual.emitSyncSettled,
     useForeground: (callback: () => void) => {
       foregroundCallback = callback;
     },
@@ -145,6 +148,40 @@ describe('useEngineSync', () => {
     act(() => foregroundCallback?.());
 
     expect(syncNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the settled edge when a sync leaves the exclusive slot', () => {
+    // A window refused while the launch sync held the slot has nothing else to
+    // tell it the slot is free again.
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+    const settledListener = jest.fn();
+    renderHook(() => useSyncSettled(settledListener));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    expect(settledListener).not.toHaveBeenCalled();
+
+    mockStatus = settled();
+    act(() => rerender(undefined));
+
+    expect(settledListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the settled edge for a sync that failed, which frees the slot too', () => {
+    const syncNow = jest.fn().mockReturnValue(true);
+    mockGetRouteEngine.mockReturnValue(engineWith(syncNow));
+    const settledListener = jest.fn();
+    renderHook(() => useSyncSettled(settledListener));
+
+    const { rerender } = renderHook(() => useEngineSync());
+    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    act(() => rerender(undefined));
+    mockStatus = settled('timed out');
+    act(() => rerender(undefined));
+
+    expect(settledListener).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry an expired credential, which no amount of network fixes', () => {
