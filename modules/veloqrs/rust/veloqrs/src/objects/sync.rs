@@ -1630,23 +1630,14 @@ mod start_date_parity_tests {
 #[cfg(test)]
 mod body_count_tests {
     use super::*;
-    use crate::persistence::persistent_engine_ffi::persistent_engine_init;
+    use crate::test_globals::serial_global_state;
     use httpmock::prelude::*;
     use serde_json::json;
     use std::time::{Duration, Instant};
     use tempfile::TempDir;
 
-    /// The engine, the credential and the base URL are all process-wide.
-    static SERIAL: Mutex<()> = Mutex::new(());
-
     fn init_global_engine() -> TempDir {
-        let tmp = TempDir::new().expect("tempdir");
-        let db_path = tmp.path().join("bodies.db");
-        assert!(
-            persistent_engine_init(db_path.to_string_lossy().into_owned()),
-            "the fixture database must open"
-        );
-        tmp
+        crate::test_globals::init_global_engine("bodies.db")
     }
 
     /// Point the process-wide service at the mock server with a usable
@@ -1695,7 +1686,7 @@ mod body_count_tests {
 
     #[test]
     fn an_intervals_body_that_lands_moves_the_count() {
-        let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let _dir = init_global_engine();
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1717,7 +1708,7 @@ mod body_count_tests {
 
     #[test]
     fn a_fetch_that_never_lands_leaves_the_count_alone() {
-        let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let _dir = init_global_engine();
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1739,7 +1730,7 @@ mod body_count_tests {
     fn an_empty_calendar_window_still_counts_as_a_landing() {
         // Replacing a window with no events is a change: an event cancelled
         // upstream disappears here, and the screen showing it has to be told.
-        let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let _dir = init_global_engine();
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1761,7 +1752,7 @@ mod body_count_tests {
     fn a_second_body_moves_the_count_again() {
         // One wake per landing. A count that only ever moves once leaves the
         // second screen on an empty chart.
-        let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let _dir = init_global_engine();
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1785,7 +1776,7 @@ mod body_count_tests {
 
     #[test]
     fn a_write_that_fails_does_not_count() {
-        let _guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let _dir = init_global_engine();
 
         let before = bodies_stored();

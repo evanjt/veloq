@@ -68,6 +68,7 @@ pub(crate) mod test_globals {
     use crate::persistence::persistent_engine_ffi::persistent_engine_init;
     use crate::persistence::with_persistent_engine;
     use std::sync::{Arc, Barrier, Mutex, MutexGuard};
+    use std::thread::{ThreadId, current};
     use std::time::{Duration, Instant};
     use tempfile::TempDir;
     use tracematch::GpsPoint;
@@ -76,11 +77,56 @@ pub(crate) mod test_globals {
     /// overwrites more than once.
     pub(crate) const RACERS: usize = 4;
 
+    /// Who holds the crate lock, so a fixture can refuse to swap the engine
+    /// out from under whoever does. A second private lock in another test
+    /// module let two tests own `PERSISTENT_ENGINE` at once, and the one that
+    /// finished first deleted its TempDir under the other's detection worker.
+    static SERIAL_HOLDER: Mutex<Option<ThreadId>> = Mutex::new(None);
+
+    /// The crate lock plus the record of who holds it.
+    pub(crate) struct SerialGuard(#[allow(dead_code)] MutexGuard<'static, ()>);
+
+    impl Drop for SerialGuard {
+        fn drop(&mut self) {
+            *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+    }
+
     /// One lock for the whole crate: the engine, the detection handle and the
     /// suspension counter are process-wide, so these tests run one at a time.
-    pub(crate) fn serial_global_state() -> MutexGuard<'static, ()> {
+    /// Every test that points `PERSISTENT_ENGINE` at its own database takes
+    /// this one, never a private mutex of its own.
+    pub(crate) fn serial_global_state() -> SerialGuard {
         static SERIAL: Mutex<()> = Mutex::new(());
-        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+        let guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(current().id());
+        SerialGuard(guard)
+    }
+
+    fn assert_serial_held() {
+        let holder = *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(
+            holder,
+            Some(current().id()),
+            "a fixture pointed the process-wide engine at a new database without \
+             holding serial_global_state(). Another test's engine, detection handle \
+             and TempDir are live while this one runs, and whichever finishes first \
+             deletes the database the other is still writing to."
+        );
+    }
+
+    /// Point the process-wide engine at an empty database in a fresh TempDir.
+    /// The directory lives as long as the returned handle, so the caller has
+    /// to hold it for the whole test.
+    pub(crate) fn init_global_engine(file_name: &str) -> TempDir {
+        assert_serial_held();
+        let tmp = TempDir::new().expect("tempdir");
+        let db_path = tmp.path().join(file_name);
+        assert!(
+            persistent_engine_init(db_path.to_string_lossy().into_owned()),
+            "the fixture database must open"
+        );
+        tmp
     }
 
     fn track(seed: f64) -> Vec<GpsPoint> {
@@ -92,12 +138,7 @@ pub(crate) mod test_globals {
     /// A global engine holding unprocessed activities, so a start reaches the
     /// spawn rather than the no-new-activities short circuit.
     pub(crate) fn seeded_global_engine() -> TempDir {
-        let tmp = TempDir::new().expect("tempdir");
-        let db_path = tmp.path().join("detection.db");
-        assert!(
-            persistent_engine_init(db_path.to_string_lossy().into_owned()),
-            "the fixture database must open"
-        );
+        let tmp = init_global_engine("detection.db");
         with_persistent_engine(|engine| {
             for i in 0..6 {
                 let id = format!("a{}", i);
