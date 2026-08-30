@@ -363,36 +363,6 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Read pre-computed indicators for a single activity.
-    pub fn get_indicators_for_activity(
-        &self,
-        activity_id: &str,
-    ) -> Vec<crate::FfiActivityIndicator> {
-        let mut stmt = match self.db.prepare(
-            "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
-             FROM activity_indicators
-             WHERE activity_id = ?",
-        ) {
-            Ok(s) => s,
-            Err(_) => return vec![],
-        };
-
-        match stmt.query_map([activity_id], |row| {
-            Ok(crate::FfiActivityIndicator {
-                activity_id: row.get(0)?,
-                indicator_type: row.get(1)?,
-                target_id: row.get(2)?,
-                target_name: row.get(3)?,
-                direction: row.get(4)?,
-                lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                trend: row.get(6)?,
-            })
-        }) {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(_) => vec![],
-        }
-    }
-
     /// Backfill NULL lap_time values in section_activities from time_streams.
     /// Time streams store cumulative timestamps at each GPS point index, so
     /// lap_time = times[end_index] - times[start_index].

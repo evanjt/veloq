@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
-use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+use super::{ActivityBoundsEntry, ActivityMetadata, PersistentRouteEngine};
 
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
@@ -843,82 +843,6 @@ impl PersistentRouteEngine {
             .locate_in_envelope_intersecting(&search_bounds)
             .map(|b| b.activity_id.clone())
             .collect()
-    }
-
-    /// Get all activities with complete metadata for map display.
-    /// Queries the database for metadata fields (date, name, distance, duration).
-    /// Get activities filtered by date range and sport types.
-    /// - start_ts: Unix timestamp (seconds) for start of range
-    /// - end_ts: Unix timestamp (seconds) for end of range
-    /// - sport_types: Optional list of sport types to include (empty = all)
-    pub fn get_map_activities_filtered(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-        sport_types: &[String],
-    ) -> Vec<MapActivityComplete> {
-        // Build query based on filters
-        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                                 COALESCE(start_date, 0) as start_date,
-                                 COALESCE(name, '') as name,
-                                 COALESCE(distance_meters, 0.0) as distance_meters,
-                                 COALESCE(duration_secs, 0) as duration_secs
-                          FROM activities
-                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
-
-        let query = if sport_types.is_empty() {
-            base_query.to_string()
-        } else {
-            let placeholders = sport_types
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("{} AND sport_type IN ({})", base_query, placeholders)
-        };
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
-                return Vec::new();
-            }
-        };
-
-        // Build params
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start_ts), Box::new(end_ts)];
-        for sport in sport_types {
-            params.push(Box::new(sport.clone()));
-        }
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-        let results = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(MapActivityComplete {
-                activity_id: row.get(0)?,
-                sport_type: row.get(1)?,
-                bounds: crate::FfiBounds {
-                    min_lat: row.get(2)?,
-                    max_lat: row.get(3)?,
-                    min_lng: row.get(4)?,
-                    max_lng: row.get(5)?,
-                },
-                date: row.get(6)?,
-                name: row.get(7)?,
-                distance: row.get(8)?,
-                duration: row.get(9)?,
-            })
-        });
-
-        match results {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!(
-                    "[PersistentEngine] Failed to query filtered activities: {}",
-                    e
-                );
-                Vec::new()
-            }
-        }
     }
 
     /// Get a signature, loading from DB if not cached.
