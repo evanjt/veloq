@@ -290,7 +290,6 @@ export interface Section {
 /** Backward compatibility aliases */
 export type FrequentSection = Section;
 export type CustomSection = Section;
-export type UnifiedSection = Section;
 
 /**
  * Lightweight section summary (no polyline).
