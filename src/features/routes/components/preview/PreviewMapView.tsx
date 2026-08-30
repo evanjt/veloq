@@ -1,10 +1,11 @@
 /**
  * Two-catalogue overlay map for the detection preview.
  *
- * Current sections draw dashed underneath, proposed sections solid on top,
- * removed sections dashed in the error colour. Both catalogues toggle through
- * legend chips by swapping source data; the sources and layers themselves
- * never unmount.
+ * Before a run there is one catalogue, the live one, and it draws as current.
+ * After a run, current sections draw dashed underneath, proposed sections
+ * solid on top, removed sections dashed in the error colour. Both catalogues
+ * toggle through legend chips by swapping source data; the sources and layers
+ * themselves never unmount.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -61,6 +62,8 @@ function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature
 
 interface PreviewMapViewProps {
   result: PreviewResult | null;
+  /** The live catalogue for the area, drawn until a run supersedes it. */
+  currentSections: PreviewSection[];
   /** Fallback camera centre before a run completes. */
   centre: { lat: number; lng: number } | null;
   selectedId: string | null;
@@ -73,6 +76,7 @@ interface PreviewMapViewProps {
 
 export function PreviewMapView({
   result,
+  currentSections,
   centre,
   selectedId,
   showCurrent,
@@ -86,31 +90,41 @@ export function PreviewMapView({
   const { getGlobalMapStyle } = useMapPreferences();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
+  // A finished run supersedes the live catalogue: its rows already carry the
+  // current sections, as matched rows and as gone ones.
+  const sections = useMemo(() => result?.sections ?? currentSections, [result, currentSections]);
+
   const decoded = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
-    for (const section of result?.sections ?? []) {
+    for (const section of sections) {
       byId.set(section.id, decodePolyline(section.polylineBase64));
     }
     return byId;
-  }, [result]);
+  }, [sections]);
 
   const features = useMemo(() => {
     const current: GeoJSON.Feature[] = [];
     const proposed: GeoJSON.Feature[] = [];
     const gone: GeoJSON.Feature[] = [];
-    for (const section of result?.sections ?? []) {
+    for (const section of sections) {
       const coords = decoded.get(section.id) ?? [];
       if (coords.length < 2) continue;
       const feature = lineFeature(section, coords);
+      // Nothing is proposed until a run finishes, so the live catalogue draws
+      // as current alone.
+      if (!result) {
+        current.push(feature);
+        continue;
+      }
       if (section.status === 'gone') gone.push(feature);
       else proposed.push(feature);
       if (section.liveId !== null) current.push(feature);
     }
     return { current, proposed, gone };
-  }, [result, decoded]);
+  }, [result, sections, decoded]);
 
   const sources = useMemo(() => {
-    const selectedSection = result?.sections.find((s) => s.id === selectedId) ?? null;
+    const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
     return buildPreviewSources({
       current: showCurrent
@@ -132,7 +146,7 @@ export function PreviewMapView({
             }
           : EMPTY_FEATURE_COLLECTION,
     });
-  }, [result, decoded, features, selectedId, showCurrent, showProposed]);
+  }, [sections, decoded, features, selectedId, showCurrent, showProposed]);
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 
@@ -165,10 +179,10 @@ export function PreviewMapView({
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
       const id = event.feature?.properties?.id;
-      const section = result?.sections.find((s) => s.id === id) ?? null;
+      const section = sections.find((s) => s.id === id) ?? null;
       onSelect(section);
     },
-    [result, onSelect]
+    [sections, onSelect]
   );
 
   const chipBg = isDark ? darkColors.surface : colors.surface;

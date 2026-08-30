@@ -1,8 +1,10 @@
 /**
  * Detection preview: test new section settings on one riding area before
- * applying them everywhere. The five sliders are pure local state; nothing
- * touches the engine until the Preview button runs a sandboxed detect, and
- * only Keep writes the config and re-analyses the library.
+ * applying them everywhere. The screen opens on the live catalogue for the
+ * chosen area, so the map shows what the detector holds today. The five
+ * sliders are pure local state; nothing is cut until the Preview button runs a
+ * sandboxed detect against that catalogue, and only Keep writes the config and
+ * re-analyses the library.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -25,6 +27,7 @@ import { ScreenSafeAreaView } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
+import { usePreviewCurrentSections } from '@/features/routes/hooks/usePreviewCurrentSections';
 import {
   PreviewCentrePicker,
   PreviewDiffStrip,
@@ -72,6 +75,7 @@ export default function DetectionPreviewScreen() {
   const danger = isDark ? darkColors.error : colors.error;
 
   const selectedCentre = centre ?? centres[0] ?? null;
+  const currentSections = usePreviewCurrentSections(client, selectedCentre);
   const running = status === 'running';
 
   const handlePreview = useCallback(() => {
@@ -124,6 +128,7 @@ export default function DetectionPreviewScreen() {
       <View style={styles.map}>
         <PreviewMapView
           result={result}
+          currentSections={currentSections}
           centre={selectedCentre}
           selectedId={selected?.id ?? null}
           showCurrent={showCurrent}

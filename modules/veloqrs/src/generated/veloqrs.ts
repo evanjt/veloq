@@ -14405,9 +14405,20 @@ export interface SectionPreviewLike {
    * ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
    */
   centres(limit: /*u32*/ number) /*throws*/ : Array<FfiPreviewCentre>;
+  /**
+   * The live auto catalogue for the riding area containing (lat, lng), as
+   * a JSON array in the same section shape a run's payload carries. Scoped
+   * by the same component the run uses, so the screen opens on exactly the
+   * catalogue the next run will diff against. None when no activity covers
+   * the point.
+   */
+  current(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+  ) /*throws*/ : string | undefined;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "error"
+   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
    */
   poll() /*throws*/ : string;
   /**
@@ -14496,6 +14507,35 @@ export class SectionPreview
     );
   }
 
+  /**
+   * The live auto catalogue for the riding area containing (lat, lng), as
+   * a JSON array in the same section shape a run's payload carries. Scoped
+   * by the same component the run uses, so the screen opens on exactly the
+   * catalogue the next run will diff against. None when no activity covers
+   * the point.
+   */
+  current(
+    lat: /*f64*/ number,
+    lng: /*f64*/ number,
+  ): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionpreview_current(
+            uniffiTypeSectionPreviewObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(lat),
+            FfiConverterFloat64.lower(lng),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   getProgress(): FfiDetectionProgress | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiDetectionProgress.lift(
       uniffiCaller.rustCallWithError(
@@ -14514,7 +14554,7 @@ export class SectionPreview
   }
 
   /**
-   * "idle" | "running" | "complete" | "cancelled" | "error"
+   * "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
    */
   poll(): string /*throws*/ {
     return FfiConverterString.lift(
@@ -18046,6 +18086,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current() !==
+    3028
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionpreview_current",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_get_progress() !==
     62565
   ) {
@@ -18055,7 +18103,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_poll() !==
-    23284
+    49176
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_poll",

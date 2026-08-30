@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 15 standalone `#[uniffi::export]` functions plus
- * 239 methods inside `#[uniffi::export] impl` blocks across
+ * 240 methods inside `#[uniffi::export] impl` blocks across
  * 12 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 254 exports (15 standalone + 239 methods)
+ * Total: 255 exports (15 standalone + 240 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -328,7 +328,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "new",
     "camelName": "new",
     "file": "objects/detection.rs",
-    "line": 139,
+    "line": 146,
     "paramCount": 0,
     "returnType": "Arc<Self>",
     "object": "DetectionManager"
@@ -337,7 +337,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "start",
     "camelName": "start",
     "file": "objects/detection.rs",
-    "line": 143,
+    "line": 150,
     "paramCount": 0,
     "returnType": "Result<bool, VeloqError>",
     "object": "DetectionManager"
@@ -346,7 +346,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "poll",
     "camelName": "poll",
     "file": "objects/detection.rs",
-    "line": 183,
+    "line": 190,
     "paramCount": 0,
     "returnType": "Result<String, VeloqError>",
     "object": "DetectionManager"
@@ -355,7 +355,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_progress",
     "camelName": "getProgress",
     "file": "objects/detection.rs",
-    "line": 192,
+    "line": 199,
     "paramCount": 0,
     "returnType": "Result<Option<crate::FfiDetectionProgress>, VeloqError>",
     "object": "DetectionManager"
@@ -364,7 +364,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "force_redetect",
     "camelName": "forceRedetect",
     "file": "objects/detection.rs",
-    "line": 212,
+    "line": 219,
     "paramCount": 0,
     "returnType": "Result<bool, VeloqError>",
     "object": "DetectionManager"
@@ -373,7 +373,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_config",
     "camelName": "setConfig",
     "file": "objects/detection.rs",
-    "line": 253,
+    "line": 260,
     "paramCount": 1,
     "returnType": "Result<(), VeloqError>",
     "object": "DetectionManager"
@@ -382,7 +382,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_config",
     "camelName": "getConfig",
     "file": "objects/detection.rs",
-    "line": 259,
+    "line": 266,
     "paramCount": 0,
     "returnType": "Result<crate::FfiSectionConfig, VeloqError>",
     "object": "DetectionManager"
@@ -391,7 +391,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_match_strictness",
     "camelName": "setMatchStrictness",
     "file": "objects/detection.rs",
-    "line": 263,
+    "line": 270,
     "paramCount": 2,
     "returnType": "Result<(), VeloqError>",
     "object": "DetectionManager"
@@ -400,7 +400,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_match_strictness",
     "camelName": "getMatchStrictness",
     "file": "objects/detection.rs",
-    "line": 290,
+    "line": 297,
     "paramCount": 0,
     "returnType": "Result<crate::FfiMatchStrictness, VeloqError>",
     "object": "DetectionManager"
@@ -946,10 +946,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "object": "SectionPreview"
   },
   {
+    "name": "current",
+    "camelName": "current",
+    "file": "objects/preview.rs",
+    "line": 60,
+    "paramCount": 2,
+    "returnType": "Result<Option<String>, VeloqError>",
+    "object": "SectionPreview"
+  },
+  {
     "name": "start",
     "camelName": "start",
     "file": "objects/preview.rs",
-    "line": 60,
+    "line": 71,
     "paramCount": 3,
     "returnType": "Result<bool, VeloqError>",
     "object": "SectionPreview"
@@ -958,7 +967,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "poll",
     "camelName": "poll",
     "file": "objects/preview.rs",
-    "line": 130,
+    "line": 144,
     "paramCount": 0,
     "returnType": "Result<String, VeloqError>",
     "object": "SectionPreview"
@@ -967,7 +976,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_progress",
     "camelName": "getProgress",
     "file": "objects/preview.rs",
-    "line": 154,
+    "line": 175,
     "paramCount": 0,
     "returnType": "Result<Option<crate::FfiDetectionProgress>, VeloqError>",
     "object": "SectionPreview"
@@ -976,7 +985,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "take_result",
     "camelName": "takeResult",
     "file": "objects/preview.rs",
-    "line": 173,
+    "line": 194,
     "paramCount": 0,
     "returnType": "Result<Option<String>, VeloqError>",
     "object": "SectionPreview"
@@ -985,7 +994,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "cancel",
     "camelName": "cancel",
     "file": "objects/preview.rs",
-    "line": 191,
+    "line": 212,
     "paramCount": 0,
     "returnType": "Result<(), VeloqError>",
     "object": "SectionPreview"
@@ -2074,7 +2083,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "new",
     "camelName": "new",
     "file": "objects/sync.rs",
-    "line": 753,
+    "line": 762,
     "paramCount": 0,
     "returnType": "Arc<Self>",
     "object": "SyncManager"
@@ -2083,7 +2092,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "set_credentials",
     "camelName": "setCredentials",
     "file": "objects/sync.rs",
-    "line": 758,
+    "line": 767,
     "paramCount": 3,
     "returnType": "Result<(), VeloqError>",
     "object": "SyncManager"
@@ -2092,7 +2101,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "clear_credentials",
     "camelName": "clearCredentials",
     "file": "objects/sync.rs",
-    "line": 772,
+    "line": 781,
     "paramCount": 0,
     "returnType": "void",
     "object": "SyncManager"
@@ -2101,7 +2110,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_now",
     "camelName": "syncNow",
     "file": "objects/sync.rs",
-    "line": 779,
+    "line": 788,
     "paramCount": 0,
     "returnType": "Result<bool, VeloqError>",
     "object": "SyncManager"
@@ -2110,7 +2119,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_activities_window",
     "camelName": "syncActivitiesWindow",
     "file": "objects/sync.rs",
-    "line": 801,
+    "line": 810,
     "paramCount": 2,
     "returnType": "Result<bool, VeloqError>",
     "object": "SyncManager"
@@ -2119,7 +2128,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_power_curve",
     "camelName": "syncPowerCurve",
     "file": "objects/sync.rs",
-    "line": 834,
+    "line": 843,
     "paramCount": 2,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2128,7 +2137,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_pace_curve",
     "camelName": "syncPaceCurve",
     "file": "objects/sync.rs",
-    "line": 860,
+    "line": 870,
     "paramCount": 3,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2137,7 +2146,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_activity_intervals",
     "camelName": "syncActivityIntervals",
     "file": "objects/sync.rs",
-    "line": 885,
+    "line": 896,
     "paramCount": 1,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2146,7 +2155,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_calendar_events",
     "camelName": "syncCalendarEvents",
     "file": "objects/sync.rs",
-    "line": 904,
+    "line": 916,
     "paramCount": 2,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2155,7 +2164,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_activity_streams",
     "camelName": "syncActivityStreams",
     "file": "objects/sync.rs",
-    "line": 940,
+    "line": 953,
     "paramCount": 2,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2164,7 +2173,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_activity_detail",
     "camelName": "syncActivityDetail",
     "file": "objects/sync.rs",
-    "line": 963,
+    "line": 977,
     "paramCount": 1,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2173,7 +2182,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "sync_time_streams",
     "camelName": "syncTimeStreams",
     "file": "objects/sync.rs",
-    "line": 995,
+    "line": 1010,
     "paramCount": 1,
     "returnType": "bool",
     "object": "SyncManager"
@@ -2182,7 +2191,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "upload_activity",
     "camelName": "uploadActivity",
     "file": "objects/sync.rs",
-    "line": 1029,
+    "line": 1046,
     "paramCount": 4,
     "returnType": "FfiCallOutcome",
     "object": "SyncManager"
@@ -2191,7 +2200,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "create_manual_activity",
     "camelName": "createManualActivity",
     "file": "objects/sync.rs",
-    "line": 1052,
+    "line": 1069,
     "paramCount": 1,
     "returnType": "FfiCallOutcome",
     "object": "SyncManager"
@@ -2200,7 +2209,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "validate_credentials",
     "camelName": "validateCredentials",
     "file": "objects/sync.rs",
-    "line": 1068,
+    "line": 1085,
     "paramCount": 2,
     "returnType": "FfiCallOutcome",
     "object": "SyncManager"
@@ -2209,7 +2218,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "cancel",
     "camelName": "cancel",
     "file": "objects/sync.rs",
-    "line": 1096,
+    "line": 1113,
     "paramCount": 0,
     "returnType": "void",
     "object": "SyncManager"
@@ -2218,7 +2227,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "get_sync_status",
     "camelName": "getSyncStatus",
     "file": "objects/sync.rs",
-    "line": 1101,
+    "line": 1118,
     "paramCount": 0,
     "returnType": "FfiSyncStatus",
     "object": "SyncManager"
@@ -2299,7 +2308,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     "name": "compute_polyline_overlap",
     "camelName": "computePolylineOverlap",
     "file": "persistence/mod.rs",
-    "line": 1752,
+    "line": 1788,
     "paramCount": 3,
     "returnType": "f64"
   }
@@ -2412,6 +2421,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getSignaturesForIds',
   'new',
   'centres',
+  'current',
   'start',
   'poll',
   'getProgress',
@@ -2672,6 +2682,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   'get_all_signatures': 'getAllSignatures',
   'get_signatures_for_ids': 'getSignaturesForIds',
   'centres': 'centres',
+  'current': 'current',
   'take_result': 'takeResult',
   'cancel': 'cancel',
   'get_all': 'getAll',
