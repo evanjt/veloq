@@ -252,7 +252,7 @@ impl PersistentRouteEngine {
             .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
             .unwrap_or(0);
         log::info!(
-            "tracematch: [PersistentEngine] Loading sections: {} rows in DB",
+            "veloqrs: [PersistentEngine] Loading sections: {} rows in DB",
             count
         );
 
@@ -295,7 +295,7 @@ impl PersistentRouteEngine {
                     Ok(r) => r,
                     Err(e) => {
                         log::warn!(
-                            "tracematch: [PersistentEngine] Skipping malformed section_activities row during loading: {:?}",
+                            "veloqrs: [PersistentEngine] Skipping malformed section_activities row during loading: {:?}",
                             e
                         );
                         continue;
@@ -336,7 +336,7 @@ impl PersistentRouteEngine {
                             Ok(acc) => Some(acc),
                             Err(e) => {
                                 log::warn!(
-                                    "tracematch: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
+                                    "veloqrs: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
                                     id, e
                                 );
                                 None
@@ -419,7 +419,7 @@ impl PersistentRouteEngine {
                 .filter_map(|r| match r {
                     Ok(v) => Some(v),
                     Err(e) => {
-                        log::warn!("tracematch: [PersistentEngine] Skipping malformed section row during loading: {:?}", e);
+                        log::warn!("veloqrs: [PersistentEngine] Skipping malformed section row during loading: {:?}", e);
                         None
                     }
                 })
@@ -428,7 +428,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Loaded {} sections into memory (from {} in DB)",
+            "veloqrs: [PersistentEngine] Loaded {} sections into memory (from {} in DB)",
             self.sections.len(),
             count
         );
@@ -442,7 +442,7 @@ impl PersistentRouteEngine {
                 .map(|s| s.id.as_str())
                 .collect();
             log::info!(
-                "tracematch: [PersistentEngine] First {} section IDs: {:?}",
+                "veloqrs: [PersistentEngine] First {} section IDs: {:?}",
                 section_ids.len(),
                 section_ids
             );
@@ -475,7 +475,7 @@ impl PersistentRouteEngine {
             self.processed_activity_ids.insert(row);
         }
         log::info!(
-            "tracematch: [PersistentEngine] Loaded {} processed activity IDs",
+            "veloqrs: [PersistentEngine] Loaded {} processed activity IDs",
             self.processed_activity_ids.len()
         );
         Ok(())
@@ -518,7 +518,7 @@ impl PersistentRouteEngine {
             self.sections[idx] = section;
             if !unchanged && let Err(err) = self.save_sections() {
                 log::warn!(
-                    "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                    "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
                     err
                 );
             }
@@ -561,7 +561,7 @@ impl PersistentRouteEngine {
         self.sections[idx] = updated;
         if let Err(err) = self.save_sections() {
             log::warn!(
-                "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
                 err
             );
         }
@@ -598,7 +598,7 @@ impl PersistentRouteEngine {
                 self.processed_activity_ids.clear();
                 self.pending_processed_clear = false;
                 log::info!(
-                    "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
+                    "veloqrs: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
                 );
             }
             Err(e) => {
@@ -606,7 +606,7 @@ impl PersistentRouteEngine {
                 // every activity it holds, under a config that no longer matches
                 // them. Flag it so the next detect retries before it reads.
                 self.pending_processed_clear = true;
-                log::warn!("tracematch: failed to clear processed activity IDs: {e:?}");
+                log::warn!("veloqrs: failed to clear processed activity IDs: {e:?}");
             }
         }
     }
@@ -624,7 +624,7 @@ impl PersistentRouteEngine {
         if !self.pending_processed_clear {
             return;
         }
-        log::info!("tracematch: retrying the processed-activity clear owed from a failed DELETE");
+        log::info!("veloqrs: retrying the processed-activity clear owed from a failed DELETE");
         self.clear_processed_activity_ids();
     }
 
@@ -641,7 +641,7 @@ impl PersistentRouteEngine {
         let tx = match self.db.unchecked_transaction() {
             Ok(tx) => tx,
             Err(e) => {
-                log::warn!("tracematch: processed-id eviction begin failed: {e:?}");
+                log::warn!("veloqrs: processed-id eviction begin failed: {e:?}");
                 return;
             }
         };
@@ -666,7 +666,7 @@ impl PersistentRouteEngine {
             // cache; the next detect cold-rebatches the correct pool.
             self.invalidate_evidence_cache();
         } else {
-            log::warn!("tracematch: processed-id eviction failed; in-memory set left intact");
+            log::warn!("veloqrs: processed-id eviction failed; in-memory set left intact");
         }
     }
 
@@ -942,7 +942,7 @@ impl PersistentRouteEngine {
             Ok(p) => p,
             Err(e) => {
                 log::error!(
-                    "tracematch: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
+                    "veloqrs: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
                     section_id,
                     e
                 );
@@ -991,7 +991,7 @@ impl PersistentRouteEngine {
                 Ok(v) => Some(v),
                 Err(_) => {
                     log::warn!(
-                        "tracematch: [refresh_section_in_memory] Failed to parse scale '{}' for {}",
+                        "veloqrs: [refresh_section_in_memory] Failed to parse scale '{}' for {}",
                         s,
                         section_id
                     );
@@ -1014,13 +1014,13 @@ impl PersistentRouteEngine {
         if let Some(existing) = self.sections.iter_mut().find(|s| s.id == section_id) {
             *existing = updated_section;
             log::debug!(
-                "tracematch: [refresh_section_in_memory] Updated section {} in memory",
+                "veloqrs: [refresh_section_in_memory] Updated section {} in memory",
                 section_id
             );
         } else {
             self.sections.push(updated_section);
             log::debug!(
-                "tracematch: [refresh_section_in_memory] Added section {} to memory",
+                "veloqrs: [refresh_section_in_memory] Added section {} to memory",
                 section_id
             );
         }
@@ -1032,7 +1032,7 @@ impl PersistentRouteEngine {
         self.sections.retain(|s| s.id != section_id);
         self.invalidate_perf_cache();
         log::debug!(
-            "tracematch: [remove_section_from_memory] Removed section {} from memory",
+            "veloqrs: [remove_section_from_memory] Removed section {} from memory",
             section_id
         );
     }
@@ -1068,7 +1068,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare section summaries query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare section summaries query: {}",
                     e
                 );
                 return Vec::new();
@@ -1144,7 +1144,7 @@ impl PersistentRouteEngine {
                 iter.filter_map(|r| {
                     r.map_err(|e| {
                     log::error!(
-                        "tracematch: [PersistentEngine] get_section_summaries row parse error: {}",
+                        "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
                         e
                     );
                     e
@@ -1165,7 +1165,7 @@ impl PersistentRouteEngine {
             .count();
         let custom_count = results.len() - auto_count;
         log::info!(
-            "tracematch: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
+            "veloqrs: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
             results.len(),
             auto_count,
             custom_count
@@ -1173,7 +1173,7 @@ impl PersistentRouteEngine {
         if custom_count > 0 {
             for s in results.iter().filter(|s| s.id.starts_with("custom_")) {
                 log::info!(
-                    "tracematch: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
+                    "veloqrs: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
                     s.id,
                     s.name,
                     s.visit_count,
@@ -1213,7 +1213,7 @@ impl PersistentRouteEngine {
         let cached = self.section_cache.get(&section_id.to_string()).cloned();
         if let Some(mut section) = cached {
             log::debug!(
-                "tracematch: [PersistentEngine] get_section_by_id cache hit for {}",
+                "veloqrs: [PersistentEngine] get_section_by_id cache hit for {}",
                 section_id
             );
             self.apply_named_overlay_to_frequent(&mut section);
@@ -1225,7 +1225,7 @@ impl PersistentRouteEngine {
             Some(s) => s,
             None => {
                 log::info!(
-                    "tracematch: [PersistentEngine] get_section_by_id: section {} not found in DB",
+                    "veloqrs: [PersistentEngine] get_section_by_id: section {} not found in DB",
                     section_id
                 );
                 return None;
@@ -1285,7 +1285,7 @@ impl PersistentRouteEngine {
         self.section_cache
             .put(section_id.to_string(), frequent.clone());
         log::info!(
-            "tracematch: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
+            "veloqrs: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
             section_id,
             frequent.is_user_defined
         );
@@ -1306,7 +1306,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] get_section_portions query failed for {}: {}",
+                    "veloqrs: [PersistentEngine] get_section_portions query failed for {}: {}",
                     section_id,
                     e
                 );
@@ -1371,7 +1371,7 @@ impl PersistentRouteEngine {
                         )),
                         Err(e) => {
                             log::error!(
-                                "tracematch: get_section_polyline decode error for {}: {}",
+                                "veloqrs: get_section_polyline decode error for {}: {}",
                                 section_id,
                                 e
                             );
@@ -1406,7 +1406,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare batch section polyline query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare batch section polyline query: {}",
                     e
                 );
                 return HashMap::new();
@@ -1794,7 +1794,7 @@ impl PersistentRouteEngine {
                 .collect();
             if surviving.is_empty() {
                 log::warn!(
-                    "tracematch: [save_sections] skipping section {} - {} activity_ids, {} \
+                    "veloqrs: [save_sections] skipping section {} - {} activity_ids, {} \
                      portions, none of them pooled",
                     section.id,
                     section.activity_ids.len(),

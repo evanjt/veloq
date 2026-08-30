@@ -112,13 +112,13 @@ pub(crate) fn restore_identity(conn: &Connection) -> Option<RouteIdentity> {
         )
         .ok()?;
     let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
-        log::warn!("tracematch: [restore_identity] blob version mismatch, reseeding");
+        log::warn!("veloqrs: [restore_identity] blob version mismatch, reseeding");
         return None;
     };
     match codec::deserialize::<RouteIdentity>(body) {
         Ok(state) => Some(state),
         Err(e) => {
-            log::warn!("tracematch: [restore_identity] decode failed, reseeding: {e}");
+            log::warn!("veloqrs: [restore_identity] decode failed, reseeding: {e}");
             None
         }
     }

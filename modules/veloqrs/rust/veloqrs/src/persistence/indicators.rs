@@ -42,7 +42,7 @@ impl PersistentRouteEngine {
         let backfilled = self.backfill_null_lap_times()?;
         if backfilled > 0 {
             log::info!(
-                "tracematch: [indicators] Backfilled lap_time for {} section portions from time streams",
+                "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
                 backfilled
             );
         }
@@ -63,7 +63,7 @@ impl PersistentRouteEngine {
         tx.commit()?;
 
         log::info!(
-            "tracematch: [indicators] Recomputed {} section indicators (v{})",
+            "veloqrs: [indicators] Recomputed {} section indicators (v{})",
             section_count,
             INDICATOR_ALGORITHM_VERSION
         );
@@ -308,12 +308,12 @@ impl PersistentRouteEngine {
 
         if stored_version < INDICATOR_ALGORITHM_VERSION {
             log::info!(
-                "tracematch: [indicators] Version mismatch (stored={}, current={}) - recomputing",
+                "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
                 stored_version,
                 INDICATOR_ALGORITHM_VERSION
             );
             if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("tracematch: [indicators] Recomputation failed: {}", e);
+                log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
             }
         }
 
@@ -332,7 +332,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(&sql) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("tracematch: [indicators] read failed: {}", e);
+                log::warn!("veloqrs: [indicators] read failed: {}", e);
                 return vec![];
             }
         };
@@ -355,7 +355,7 @@ impl PersistentRouteEngine {
         }) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                log::warn!("tracematch: [indicators] query failed: {}", e);
+                log::warn!("veloqrs: [indicators] query failed: {}", e);
                 vec![]
             }
         }

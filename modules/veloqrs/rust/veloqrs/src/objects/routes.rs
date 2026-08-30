@@ -138,7 +138,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -152,7 +152,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }

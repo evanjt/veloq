@@ -102,7 +102,7 @@ pub fn compute_activity_patterns(
         }
 
         log::info!(
-            "tracematch: [Patterns] Sport '{}': {} activities -> k={} clusters",
+            "veloqrs: [Patterns] Sport '{}': {} activities -> k={} clusters",
             sport_type,
             indices.len(),
             best_k

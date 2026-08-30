@@ -41,7 +41,7 @@ impl PersistentRouteEngine {
             self.time_streams.put(activity_id.clone(), times);
         }
         log::debug!(
-            "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
+            "veloqrs: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
             activity_ids.len(),
             persisted_count
         );
@@ -99,7 +99,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
+            "veloqrs: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
             null_portions.len()
         );
 
@@ -144,7 +144,7 @@ impl PersistentRouteEngine {
 
         if populated > 0 {
             log::info!(
-                "tracematch: [Backfill] Populated {}/{} NULL lap_time entries",
+                "veloqrs: [Backfill] Populated {}/{} NULL lap_time entries",
                 populated,
                 null_portions.len()
             );
@@ -827,7 +827,7 @@ impl PersistentRouteEngine {
             Some(g) => g,
             None => {
                 log::debug!(
-                    "tracematch: get_route_performances: group {} not found",
+                    "veloqrs: get_route_performances: group {} not found",
                     route_group_id
                 );
                 return RoutePerformanceResult {
@@ -846,7 +846,7 @@ impl PersistentRouteEngine {
         // Get match info for this route
         let match_info = self.activity_matches.get(route_group_id);
         log::debug!(
-            "tracematch: get_route_performances: group {} has {} activities, match_info: {}",
+            "veloqrs: get_route_performances: group {} has {} activities, match_info: {}",
             route_group_id,
             group.activity_ids.len(),
             match_info.map(|m| m.len()).unwrap_or(0)
