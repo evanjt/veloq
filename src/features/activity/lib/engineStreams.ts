@@ -35,10 +35,13 @@ export const PREVIEW_STREAM_TYPES = ['latlng', 'altitude'] as const;
 
 /**
  * The cache key for a series selection. Rust keys the stored body on this
- * exact string, so the read and the request have to agree on it.
+ * exact string, so the read and the request have to agree on it. Sorting
+ * makes it canonical, which is what `stream_bodies.types` documents: two call
+ * sites naming the same series in a different order must not each pay for a
+ * 100-500KB download and then evict one another.
  */
 export function streamTypesKey(types: readonly string[]): string {
-  return types.join(',');
+  return [...types].sort().join(',');
 }
 
 /** Streams parsed from the stored body, or null when nothing is stored. */

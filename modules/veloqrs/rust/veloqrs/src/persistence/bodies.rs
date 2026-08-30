@@ -150,7 +150,7 @@ const MAX_STREAM_BODIES: i64 = 50;
 
 impl PersistentRouteEngine {
     /// Store a stream payload for an activity and series selection, then drop
-    /// the least recently stored ones beyond the cache ceiling.
+    /// the least recently used ones beyond the cache ceiling.
     pub fn set_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
         self.db.execute(
             "INSERT INTO stream_bodies (activity_id, types, raw, updated_at)
@@ -171,8 +171,14 @@ impl PersistentRouteEngine {
 
     /// A stored stream payload, or `None` when this activity and series
     /// selection has not been fetched or has aged out of the cache.
+    ///
+    /// A hit stamps `updated_at`, which is what makes the ceiling an LRU: an
+    /// activity the athlete keeps opening outlives one fetched once and never
+    /// looked at again. Without the stamp the order is write order, so the
+    /// activity on screen is evicted while a stale neighbour survives.
     pub fn get_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<Option<String>> {
-        self.db
+        let hit: Option<String> = self
+            .db
             .query_row(
                 "SELECT raw FROM stream_bodies WHERE activity_id = ? AND types = ?",
                 params![activity_id, types],
@@ -182,7 +188,15 @@ impl PersistentRouteEngine {
             .or_else(|e| match e {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
-            })
+            })?;
+        if hit.is_some() {
+            self.db.execute(
+                "UPDATE stream_bodies SET updated_at = strftime('%s', 'now')
+                 WHERE activity_id = ? AND types = ?",
+                params![activity_id, types],
+            )?;
+        }
+        Ok(hit)
     }
 }
 
@@ -309,6 +323,98 @@ mod tests {
                 .unwrap()
                 .is_some()
         );
+    }
+
+    /// Backdate every stored stream to a distinct second so eviction order is
+    /// the read order rather than a tie broken by rowid.
+    fn age_streams(engine: &PersistentRouteEngine) {
+        engine
+            .db
+            .execute(
+                "UPDATE stream_bodies SET updated_at = 1600000000 + rowid",
+                [],
+            )
+            .unwrap();
+    }
+
+    fn stored_ids(engine: &PersistentRouteEngine) -> Vec<String> {
+        let mut stmt = engine
+            .db
+            .prepare("SELECT activity_id FROM stream_bodies ORDER BY activity_id")
+            .unwrap();
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .collect::<SqlResult<Vec<_>>>()
+            .unwrap();
+        rows
+    }
+
+    #[test]
+    fn reading_a_stream_body_saves_it_from_eviction() {
+        let (_dir, engine) = engine();
+        for i in 0..MAX_STREAM_BODIES {
+            engine
+                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .unwrap();
+        }
+        age_streams(&engine);
+
+        // The oldest write is read, which is what makes a cache an LRU: the
+        // athlete just opened that activity, so it is the last thing to drop.
+        assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
+
+        engine.set_stream_body("new", "time", "payload").unwrap();
+
+        let ids = stored_ids(&engine);
+        assert_eq!(ids.len() as i64, MAX_STREAM_BODIES);
+        assert!(ids.contains(&"a0".to_string()), "the read row must survive");
+        assert!(
+            !ids.contains(&"a1".to_string()),
+            "the least recently read row is the one that goes"
+        );
+    }
+
+    #[test]
+    fn a_second_read_keeps_the_row_at_the_head() {
+        let (_dir, engine) = engine();
+        for i in 0..MAX_STREAM_BODIES {
+            engine
+                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .unwrap();
+        }
+        age_streams(&engine);
+
+        engine.get_stream_body("a0", "time").unwrap();
+        engine.get_stream_body("a0", "time").unwrap();
+        engine.set_stream_body("new", "time", "payload").unwrap();
+
+        assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
+    }
+
+    #[test]
+    fn a_missed_read_stores_nothing() {
+        let (_dir, engine) = engine();
+        engine.set_stream_body("a1", "time", "payload").unwrap();
+
+        assert!(engine.get_stream_body("absent", "time").unwrap().is_none());
+        assert!(engine.get_stream_body("a1", "watts").unwrap().is_none());
+
+        // A miss must not mint a row, or the cache fills with empty keys and
+        // evicts the payloads it was built to hold.
+        assert_eq!(stored_ids(&engine), vec!["a1".to_string()]);
+    }
+
+    #[test]
+    fn the_ceiling_is_reached_without_evicting() {
+        let (_dir, engine) = engine();
+        for i in 0..MAX_STREAM_BODIES {
+            engine
+                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .unwrap();
+        }
+        assert_eq!(stored_ids(&engine).len() as i64, MAX_STREAM_BODIES);
+        assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
     }
 
     #[test]
