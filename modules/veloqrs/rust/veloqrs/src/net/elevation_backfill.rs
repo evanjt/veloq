@@ -525,6 +525,18 @@ fn start_final_detect() -> bool {
         }
     }
 
+    // Held across check, spawn and install. Releasing it to spawn lets a loser
+    // start a second worker that rewrites `route_groups` on its own connection
+    // beside the winner, with both track pools resident.
+    let mut guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_some() {
+        // Something took the slot between the drain and here. The winning run
+        // covers the same pool.
+        return false;
+    }
+
     let handle = with_persistent_engine(|engine| {
         engine.clear_processed_activity_ids();
         engine.detect_sections_background_unchecked()
@@ -534,16 +546,8 @@ fn start_final_detect() -> bool {
         return false;
     };
 
-    {
-        let mut guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            // Lost the start race. The winning run covers the same pool.
-            return false;
-        }
-        *guard = Some(handle);
-    }
+    *guard = Some(handle);
+    drop(guard);
 
     std::thread::spawn(|| {
         loop {
@@ -593,6 +597,64 @@ pub fn start_elevation_backfill() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::sections::detection_workers_started;
+    use crate::test_globals::{
+        clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
+    };
+
+    /// Scenario: the backfill's final re-cut is normally the only arm running,
+    /// but nothing in the function itself enforces that. Several starting
+    /// together must spawn exactly as many workers as claimed the slot: each
+    /// worker opens its own connection and rewrites `route_groups` with the
+    /// whole pool resident, so one that nobody holds a handle to is loose in
+    /// the database with no way to stop or apply it.
+    ///
+    /// The re-cut drains the slot before it cuts, so the losers here go on to
+    /// take their turn rather than refuse. That is the design. What must never
+    /// happen is a spawn whose handle is thrown away.
+    #[test]
+    fn a_final_detect_never_spawns_a_worker_it_drops() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        let won = race(start_final_detect);
+
+        assert!(won > 0, "at least one final re-cut has to start");
+        assert_eq!(
+            detection_workers_started() - before,
+            won as u64,
+            "every worker spawned must belong to a run that claimed the slot"
+        );
+
+        drain_detection();
+    }
+
+    /// Expected behaviour: a re-cut that finds the slot still held drains it
+    /// first, so the cold cut it needs is the one that lands.
+    #[test]
+    fn a_final_detect_drains_a_run_it_finds_in_the_slot() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let earlier = with_persistent_engine(|engine| engine.detect_sections_background())
+            .expect("the earlier run starts");
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(earlier);
+
+        let before = detection_workers_started();
+        assert!(start_final_detect(), "the re-cut starts after the drain");
+        assert_eq!(
+            detection_workers_started() - before,
+            1,
+            "the re-cut spawns its own worker and nothing else"
+        );
+
+        drain_detection();
+    }
 
     #[test]
     fn an_empty_queue_reads_as_finished_not_as_zero() {
