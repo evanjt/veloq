@@ -9,12 +9,12 @@ import { useCustomSections } from './useCustomSections';
 import { useEngineSubscription } from './useRouteEngine';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
+import type { FrequentSection, RoutePoint } from '@/types';
 
 // Re-export for backwards compatibility
 export { generateSectionName } from '@/features/routes/lib/sectionNaming';
 
-export interface UseUnifiedSectionsOptions {
+export interface UseSectionsOptions {
   /** Filter by sport type */
   sportType?: string;
   /** Include custom sections (default: true) */
@@ -25,9 +25,9 @@ export interface UseUnifiedSectionsOptions {
   preloadedEngineSections?: FrequentSection[];
 }
 
-export interface UseUnifiedSectionsResult {
+export interface UseSectionsResult {
   /** All sections combined */
-  sections: UnifiedSection[];
+  sections: FrequentSection[];
   /** Total section count */
   count: number;
   /** Auto-detected section count */
@@ -46,9 +46,9 @@ export interface UseUnifiedSectionsResult {
 /**
  * Hook for unified sections combining all section types.
  */
-export function useUnifiedSections(
-  options: UseUnifiedSectionsOptions = {}
-): UseUnifiedSectionsResult {
+export function useSections(
+  options: UseSectionsOptions = {}
+): UseSectionsResult {
   const { sportType, includeCustom = true, enabled = true, preloadedEngineSections } = options;
 
   // Load ALL engine sections including disabled/superseded (for sections list restore UI).
@@ -92,7 +92,7 @@ export function useUnifiedSections(
   // NOTE: Overlap calculation for auto vs custom sections is pre-computed and stored
   // in SupersededSectionsStore when custom sections are created.
   const unified = useMemo(() => {
-    const result: UnifiedSection[] = [];
+    const result: FrequentSection[] = [];
     const seenIds = new Set<string>(); // Track IDs to prevent duplicates
 
     // Add custom sections first (user-created take priority)

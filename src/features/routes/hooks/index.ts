@@ -12,7 +12,7 @@ export {
 } from './useSectionPerformances';
 export { useSectionEfficiencyTrend } from './useSectionEfficiencyTrend';
 export { useCustomSections } from './useCustomSections';
-export { useUnifiedSections } from './useUnifiedSections';
+export { useSections } from './useSections';
 export { useRouteDataSync } from './useRouteDataSync';
 export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';
