@@ -21,7 +21,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
@@ -141,7 +141,10 @@ export default function DetectionPreviewScreen() {
 
       <ScrollView
         style={styles.panel}
-        contentContainerStyle={[styles.panelContent, { paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[
+          styles.panelContent,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.intro, { color: textSecondary }]}>{t('settings.previewIntro')}</Text>
