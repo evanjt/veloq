@@ -1,71 +1,80 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text } from 'react-native-paper';
-import { useTheme } from '@/shared/app';
-import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuthStore } from '@/shared/app/AuthStore';
-import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import React from "react";
+import { View, StyleSheet } from "react-native";
+import { Text } from "react-native-paper";
+import { useTranslation } from "react-i18next";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { useTheme } from "@/shared/app";
+import { useAuthStore } from "@/shared/app/AuthStore";
+import { useUploadPermissionStore } from "@/features/recording/stores/UploadPermissionStore";
+import { usePermissionUpgrade } from "@/features/recording/hooks/usePermissionUpgrade";
+import { GrantAccessButton } from "@/features/recording/components/GrantAccessButton";
+import { colors, darkColors, spacing, typography } from "@/theme";
+import { settingsStyles } from "./settingsStyles";
+
+/**
+ * The permanent home for the write-permission upgrade. The recordings-library
+ * banner can be dismissed, so this is the only affordance that survives it.
+ * API-key sign-ins carry every permission, and a demo athlete never uploads.
+ */
 export function RecordingPermissionSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
-  const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
+  const hasWritePermission = useUploadPermissionStore(
+    (s) => s.hasWritePermission,
+  );
   const { upgradePermissions, isUpgrading, error } = usePermissionUpgrade();
 
-  // Only show for OAuth users without confirmed write permission
-  // API key users always have full permissions, demo users don't upload
-  if (authMethod === 'demo' || authMethod === 'apiKey') return null;
-  // Don't show if write permission is confirmed
-  if (hasWritePermission === true) return null;
-
-  const hasPermission = false;
+  if (authMethod !== "oauth" || hasWritePermission === true) return null;
 
   return (
     <>
-      <Text style={[styles.sectionLabel, isDark && styles.textMuted]}>
-        {t('settings.recording', 'Recording').toUpperCase()}
+      <Text
+        style={[
+          settingsStyles.sectionLabel,
+          isDark && settingsStyles.textMuted,
+        ]}
+      >
+        {t("settings.recording", "Recording").toUpperCase()}
       </Text>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View
+        style={[
+          settingsStyles.sectionCard,
+          isDark && settingsStyles.sectionCardDark,
+          styles.card,
+        ]}
+      >
         <View style={styles.row}>
           <MaterialCommunityIcons
-            name={hasPermission ? 'check-circle-outline' : 'shield-alert-outline'}
+            name="shield-alert-outline"
             size={22}
-            color={hasPermission ? '#22C55E' : '#F59E0B'}
+            color={isDark ? darkColors.warning : colors.warning}
           />
           <View style={styles.textContainer}>
-            <Text style={[styles.statusText, isDark && styles.textLight]}>
-              {hasPermission
-                ? t('recording.writePermissionActive', 'Write permission active')
-                : t('recording.writePermissionNotGranted', 'Write permission not granted')}
-            </Text>
-            {!hasPermission && (
-              <Text style={[styles.description, isDark && styles.textMuted]}>
-                {t(
-                  'recording.writePermissionDescription',
-                  "Your API key doesn't include write permission. Grant OAuth access to enable recording and uploads."
-                )}
-              </Text>
-            )}
-          </View>
-          {!hasPermission && (
-            <TouchableOpacity
-              testID="settings-grant-access"
-              style={styles.button}
-              onPress={upgradePermissions}
-              disabled={isUpgrading}
-              activeOpacity={0.7}
+            <Text
+              style={[styles.statusText, isDark && settingsStyles.textLight]}
             >
-              {isUpgrading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.buttonText}>{t('recording.grantAccess', 'Grant Access')}</Text>
+              {t(
+                "recording.writePermissionNotGranted",
+                "Write permission not granted",
               )}
-            </TouchableOpacity>
-          )}
+            </Text>
+            <Text
+              style={[styles.description, isDark && settingsStyles.textMuted]}
+            >
+              {t(
+                "recording.writePermissionDescription",
+                "Recording requires write permission. Tap below to grant access.",
+              )}
+            </Text>
+          </View>
+          <GrantAccessButton
+            testID="settings-grant-access"
+            onPress={upgradePermissions}
+            loading={isUpgrading}
+            small
+          />
         </View>
         {error ? (
           <Text style={styles.errorText} numberOfLines={2}>
@@ -78,29 +87,13 @@ export function RecordingPermissionSection() {
 }
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: layout.screenPadding,
-    letterSpacing: 0.5,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
-    overflow: 'hidden',
+  card: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   textContainer: {
@@ -108,38 +101,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statusText: {
-    fontSize: 15,
-    fontWeight: '500',
+    ...typography.body,
     color: colors.textPrimary,
   },
   description: {
-    fontSize: 13,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  button: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#F59E0B',
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
   },
   errorText: {
-    fontSize: 12,
-    color: '#DC2626',
+    ...typography.caption,
+    color: colors.error,
     marginTop: spacing.xs,
     marginLeft: 22 + spacing.sm,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
   },
 });

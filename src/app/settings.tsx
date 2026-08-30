@@ -1,29 +1,50 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { logScreenRender } from '@/shared/debug/renderTimer';
-import { router } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { useAthlete } from '@/shared/app/useAthlete';
-import { useAuthStore } from '@/shared/app/AuthStore';
-import { useDashboardPreferences } from '@/features/home/store';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
-import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
-import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { navigateTo } from '@/shared/app/navigation';
-import { formatFileSize } from '@/shared/format/format';
-import { getAppStorageSize } from '@/shared/storage/gpsStorage';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
-import { FooterSection, SupportSection } from '@/features/settings/components';
-import { settingsStyles } from '@/features/settings/components/settingsStyles';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+} from "react-native";
+import {
+  ScreenSafeAreaView,
+  ScreenErrorBoundary,
+  TAB_BAR_SAFE_PADDING,
+} from "@/shared/ui";
+import { logScreenRender } from "@/shared/debug/renderTimer";
+import { router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useTheme } from "@/shared/app";
+import { useAthlete } from "@/shared/app/useAthlete";
+import { useAuthStore } from "@/shared/app/AuthStore";
+import { useDashboardPreferences } from "@/features/home/store";
+import { useMapPreferences } from "@/features/maps/stores/MapPreferencesContext";
+import { useRouteSettings } from "@/features/routes/stores/RouteSettingsStore";
+import { useSyncDateRange } from "@/shared/app/SyncDateRangeStore";
+import { useNotificationPreferences } from "@/features/settings/stores/NotificationPreferencesStore";
+import {
+  useLanguageStore,
+  getAvailableLanguages,
+} from "@/shared/app/LanguageStore";
+import { useThemePreferenceStore } from "@/shared/app/ThemeProvider";
+import { useUnitPreference } from "@/shared/app/UnitPreferenceStore";
+import { navigateTo } from "@/shared/app/navigation";
+import { formatFileSize } from "@/shared/format/format";
+import { getAppStorageSize } from "@/shared/storage/gpsStorage";
+import { getLastBackupTimestamp } from "@/features/settings/lib/autobackup";
+import { colors, darkColors, spacing, layout, typography } from "@/theme";
+import { SettingsNavRow } from "@/features/settings/components/SettingsNavRow";
+import { RecordingPermissionSection } from "@/features/settings/components/RecordingPermissionSection";
+import { FooterSection, SupportSection } from "@/features/settings/components";
+import { settingsStyles } from "@/features/settings/components/settingsStyles";
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string };
@@ -43,10 +64,16 @@ function AccountRow({
   const { t } = useTranslation();
   const profileUrl = athlete?.profile_medium || athlete?.profile;
   const hasValidProfileUrl =
-    profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
+    profileUrl &&
+    typeof profileUrl === "string" &&
+    profileUrl.startsWith("http");
 
   const badgeLabel =
-    authMethod === 'oauth' ? 'OAuth' : authMethod === 'apiKey' ? 'API key' : 'Demo';
+    authMethod === "oauth"
+      ? "OAuth"
+      : authMethod === "apiKey"
+        ? "API key"
+        : "Demo";
 
   return (
     <View
@@ -59,7 +86,7 @@ function AccountRow({
       <TouchableOpacity
         testID="settings-account-row"
         style={styles.accountRow}
-        onPress={() => navigateTo('/account')}
+        onPress={() => navigateTo("/account")}
         activeOpacity={0.7}
       >
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
@@ -79,10 +106,15 @@ function AccountRow({
           )}
         </View>
         <View style={styles.accountInfo}>
-          <Text style={[styles.accountName, isDark && settingsStyles.textLight]} numberOfLines={1}>
-            {athlete?.name || t('settings.account')}
+          <Text
+            style={[styles.accountName, isDark && settingsStyles.textLight]}
+            numberOfLines={1}
+          >
+            {athlete?.name || t("settings.account")}
           </Text>
-          <Text style={[styles.accountBadge, isDark && settingsStyles.textMuted]}>
+          <Text
+            style={[styles.accountBadge, isDark && settingsStyles.textMuted]}
+          >
             {badgeLabel}
           </Text>
         </View>
@@ -97,12 +129,19 @@ function AccountRow({
 }
 
 function RowDivider({ isDark }: { isDark: boolean }) {
-  return <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />;
+  return (
+    <View
+      style={[
+        settingsStyles.rowDivider,
+        isDark && settingsStyles.rowDividerDark,
+      ]}
+    />
+  );
 }
 
 export default function SettingsScreen() {
   const perfEndRef = useRef<(() => void) | null>(null);
-  perfEndRef.current = logScreenRender('SettingsScreen');
+  perfEndRef.current = logScreenRender("SettingsScreen");
   useEffect(() => {
     perfEndRef.current?.();
   });
@@ -130,21 +169,21 @@ export default function SettingsScreen() {
         }
       }
     }
-    return language ?? 'English';
+    return language ?? "English";
   }, [language]);
 
   const unitLabel =
-    unitPreference === 'auto'
-      ? t('settings.unitsAuto')
-      : unitPreference === 'metric'
-        ? t('settings.unitsMetric')
-        : t('settings.unitsImperial');
+    unitPreference === "auto"
+      ? t("settings.unitsAuto")
+      : unitPreference === "metric"
+        ? t("settings.unitsMetric")
+        : t("settings.unitsImperial");
   const displaySubtitle = useMemo(
     () =>
       [t(`settings.${themePreference}` as never), unitLabel, languageLabel]
         .filter(Boolean)
-        .join(', '),
-    [t, themePreference, unitLabel, languageLabel]
+        .join(", "),
+    [t, themePreference, unitLabel, languageLabel],
   );
 
   // Subtitle: Maps
@@ -152,28 +191,33 @@ export default function SettingsScreen() {
   const mapsSubtitle = useMemo(
     () =>
       `${t(`settings.${mapPreferences.defaultStyle}` as never)}, 3D: ${t(`settings.terrain3D${mapPreferences.terrain3DMode.charAt(0).toUpperCase()}${mapPreferences.terrain3DMode.slice(1)}` as never)}`,
-    [t, mapPreferences.defaultStyle, mapPreferences.terrain3DMode]
+    [t, mapPreferences.defaultStyle, mapPreferences.terrain3DMode],
   );
 
   // Subtitle: Summary Card
-  const summaryCardEnabled = useDashboardPreferences((s) => s.summaryCard.enabled);
+  const summaryCardEnabled = useDashboardPreferences(
+    (s) => s.summaryCard.enabled,
+  );
 
   // Subtitle: Local Data Range
   const oldest = useSyncDateRange((s) => s.oldest);
   const syncSubtitle = useMemo(() => {
-    if (!oldest) return '';
+    if (!oldest) return "";
     const d = new Date(oldest);
-    return t('settings.sinceDateSubtitle', {
-      defaultValue: `Since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
-      date: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+    return t("settings.sinceDateSubtitle", {
+      defaultValue: `Since ${d.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`,
+      date: d.toLocaleDateString(undefined, {
+        month: "short",
+        year: "numeric",
+      }),
     });
   }, [oldest, t]);
 
   // Subtitle: Routes & Sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const detectionSubtitle = useMemo(
-    () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
-    [routeMatchingEnabled, t]
+    () => (routeMatchingEnabled ? t("common.on") : t("common.off")),
+    [routeMatchingEnabled, t],
   );
 
   // Subtitle: Notifications
@@ -182,7 +226,7 @@ export default function SettingsScreen() {
   // Subtitle: Backup
   const lastBackupText = useMemo(() => {
     const ts = getLastBackupTimestamp();
-    if (!ts) return t('backup.lastBackupNever');
+    if (!ts) return t("backup.lastBackupNever");
     return new Date(ts).toLocaleDateString();
   }, [t]);
 
@@ -200,14 +244,17 @@ export default function SettingsScreen() {
         testID="settings-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
+        <ScrollView
+          testID="settings-scrollview"
+          contentContainerStyle={styles.content}
+        >
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               testID="nav-back-button"
               onPress={() => router.back()}
               style={styles.backButton}
-              accessibilityLabel={t('common.back')}
+              accessibilityLabel={t("common.back")}
               accessibilityRole="button"
             >
               <MaterialCommunityIcons
@@ -217,7 +264,7 @@ export default function SettingsScreen() {
               />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('settings.title')}
+              {t("settings.title")}
             </Text>
             <View style={styles.headerSpacer} />
           </View>
@@ -232,86 +279,121 @@ export default function SettingsScreen() {
           />
 
           {/* General */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.general', 'GENERAL').toUpperCase()}
+          <Text
+            style={[
+              settingsStyles.sectionLabel,
+              isDark && settingsStyles.textMuted,
+            ]}
+          >
+            {t("settings.general", "GENERAL").toUpperCase()}
           </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <View
+            style={[
+              settingsStyles.sectionCard,
+              isDark && settingsStyles.sectionCardDark,
+            ]}
+          >
             <SettingsNavRow
               icon="palette-outline"
-              title={t('settings.display')}
+              title={t("settings.display")}
               subtitle={displaySubtitle}
-              onPress={nav('/display-settings')}
+              onPress={nav("/display-settings")}
               testID="settings-nav-display"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
               icon="map"
-              title={t('settings.maps')}
+              title={t("settings.maps")}
               subtitle={mapsSubtitle}
-              onPress={nav('/map-settings')}
+              onPress={nav("/map-settings")}
               testID="settings-nav-maps"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
               icon="card-text-outline"
-              title={t('settings.summaryCard')}
-              subtitle={summaryCardEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/summary-card-settings')}
+              title={t("settings.summaryCard")}
+              subtitle={summaryCardEnabled ? t("common.on") : t("common.off")}
+              onPress={nav("/summary-card-settings")}
               testID="settings-nav-summary-card"
             />
           </View>
 
           {/* Data */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.data', 'DATA').toUpperCase()}
+          <Text
+            style={[
+              settingsStyles.sectionLabel,
+              isDark && settingsStyles.textMuted,
+            ]}
+          >
+            {t("settings.data", "DATA").toUpperCase()}
           </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <View
+            style={[
+              settingsStyles.sectionCard,
+              isDark && settingsStyles.sectionCardDark,
+            ]}
+          >
             <SettingsNavRow
               icon="sync"
-              title={t('settings.localDataRange', 'Local Data Range')}
+              title={t("settings.localDataRange", "Local Data Range")}
               subtitle={syncSubtitle}
-              onPress={nav('/sync-settings')}
+              onPress={nav("/sync-settings")}
               testID="settings-nav-sync"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
               icon="map-marker-path"
-              title={t('settings.routesAndSections', 'Routes & Sections')}
+              title={t("settings.routesAndSections", "Routes & Sections")}
               subtitle={detectionSubtitle}
-              onPress={nav('/detection-settings')}
+              onPress={nav("/detection-settings")}
               testID="settings-nav-detection"
             />
           </View>
 
           {/* Notifications & Storage */}
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.notificationsAndStorage', 'NOTIFICATIONS & STORAGE').toUpperCase()}
+          <Text
+            style={[
+              settingsStyles.sectionLabel,
+              isDark && settingsStyles.textMuted,
+            ]}
+          >
+            {t(
+              "settings.notificationsAndStorage",
+              "NOTIFICATIONS & STORAGE",
+            ).toUpperCase()}
           </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+          <View
+            style={[
+              settingsStyles.sectionCard,
+              isDark && settingsStyles.sectionCardDark,
+            ]}
+          >
             <SettingsNavRow
               icon="bell-outline"
-              title={t('notifications.settings.title')}
-              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
-              onPress={nav('/notification-settings')}
+              title={t("notifications.settings.title")}
+              subtitle={notificationsEnabled ? t("common.on") : t("common.off")}
+              onPress={nav("/notification-settings")}
               testID="settings-nav-notifications"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
               icon="cloud-sync-outline"
-              title={t('backup.autoBackup')}
+              title={t("backup.autoBackup")}
               subtitle={lastBackupText}
-              onPress={nav('/backup-settings')}
+              onPress={nav("/backup-settings")}
               testID="settings-nav-backup"
             />
             <RowDivider isDark={isDark} />
             <SettingsNavRow
               icon="database-outline"
-              title={t('settings.cacheAndDatabase', 'Cache & Storage')}
+              title={t("settings.cacheAndDatabase", "Cache & Storage")}
               subtitle={formatFileSize(totalCacheSize)}
-              onPress={nav('/cache-settings')}
+              onPress={nav("/cache-settings")}
               testID="settings-nav-cache"
             />
           </View>
+
+          <RecordingPermissionSection />
 
           {/* Support inline */}
           <SupportSection />
@@ -320,8 +402,8 @@ export default function SettingsScreen() {
           <View style={styles.footerArea}>
             <SettingsNavRow
               icon="link-variant"
-              title={t('settings.dataSources')}
-              onPress={nav('/data-sources-settings')}
+              title={t("settings.dataSources")}
+              onPress={nav("/data-sources-settings")}
               testID="settings-nav-data-sources"
             />
           </View>
@@ -345,9 +427,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: layout.screenPadding,
     paddingVertical: spacing.md,
   },
@@ -357,7 +439,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   headerSpacer: {
@@ -371,8 +453,8 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.screenPadding,
   },
   accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: spacing.md,
     gap: spacing.sm,
     minHeight: layout.minTapTarget,
@@ -382,9 +464,9 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   accountPhotoDark: {
     backgroundColor: darkColors.surfaceElevated,
@@ -394,7 +476,7 @@ const styles = StyleSheet.create({
   },
   accountName: {
     ...typography.body,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   accountBadge: {
