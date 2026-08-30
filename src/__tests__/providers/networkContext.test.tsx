@@ -13,6 +13,8 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react-native';
 
+import { onlineManager } from '@tanstack/react-query';
+
 import { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
 
 // Mock expo-network so we can drive addNetworkStateListener and getNetworkStateAsync.
@@ -326,6 +328,35 @@ describe('NetworkContext', () => {
         });
         await Promise.resolve();
       });
+    });
+  });
+
+  describe('TanStack onlineManager', () => {
+    it('mirrors the provider state, so refetchOnReconnect is not dead', () => {
+      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        jest.advanceTimersByTime(3000);
+      });
+      expect(onlineManager.isOnline()).toBe(false);
+
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
+      expect(onlineManager.isOnline()).toBe(true);
+    });
+
+    it('leaves the manager online once the provider unmounts', () => {
+      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        jest.advanceTimersByTime(3000);
+      });
+      unmount();
+
+      expect(onlineManager.isOnline()).toBe(true);
     });
   });
 

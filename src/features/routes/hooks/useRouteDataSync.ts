@@ -38,7 +38,7 @@
  * Original file backed up as `useRouteDataSync.ts.backup`
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
@@ -48,6 +48,7 @@ import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -486,18 +487,10 @@ export function useRouteDataSync(
   // Counter to force re-sync after engine reset or reconnection
   const [syncTrigger, setSyncTrigger] = useState(0);
 
-  // Track previous online state to detect reconnection
-  const wasOnlineRef = useRef(isOnlineRef.current);
-
-  // Trigger resync when coming back online
-  useEffect(() => {
-    const isOnline = isOnlineRef.current;
-    if (isOnline && !wasOnlineRef.current) {
-      // Just came back online - increment trigger to resync
-      setSyncTrigger((prev) => prev + 1);
-    }
-    wasOnlineRef.current = isOnline;
-  }, [isOnlineRef]);
+  // Trigger resync when coming back online. This has to key on the network
+  // value: an effect keyed on `isOnlineRef` ran at mount and never again,
+  // because a ref object's identity never changes.
+  useReconnect(() => setSyncTrigger((prev) => prev + 1));
 
   // Listen for engine reset (cache clear) and force a resync
   useEffect(() => {
