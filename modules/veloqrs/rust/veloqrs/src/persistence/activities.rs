@@ -217,7 +217,7 @@ impl PersistentEngine {
             return Ok(());
         }
 
-        // R6 freshness: an add that REPLACES a previously-synced activity with a
+        // An add that REPLACES a previously-synced activity with a
         // DIFFERENT track is a GPS mutation the catalogue must re-derive. Detect
         // it here, before the store overwrites the old track, so the ids can be
         // evicted from the processed set after commit (below). A verbatim
@@ -391,7 +391,7 @@ impl PersistentEngine {
         // aborting the whole apply on a foreign-key violation.
         self.section_identity_purge_activity(id);
 
-        // R6 freshness: the removed activity may have contributed to any section,
+        // The removed activity may have contributed to any section,
         // so the next detect must re-derive the catalogue without it. Its id is
         // now gone from `activity_metadata`, so it can never re-enter
         // `new_activity_ids`, a targeted eviction can't defeat the

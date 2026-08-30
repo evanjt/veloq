@@ -1,4 +1,4 @@
-//! The D5 emitter: the identity apply turns fired lifecycle changes into
+//! The lifecycle emitter: the identity apply turns fired changes into
 //! `section_history` and `section_geometry` rows, written inside the same
 //! transaction as the catalogue save. Contracts:
 //! - a mint writes one `formed` event with the birth geometry as version 1,

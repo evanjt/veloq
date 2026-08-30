@@ -347,11 +347,11 @@ fn scenario_b_expand_to_1y_baseline() {
     assert_sport_types_stable(&step_a.snapshot, &step_b.snapshot);
 }
 
-// B1's order-free batch is non-monotone (a full re-detect on the expand can
-// reshuffle raw sections), so this was #[ignore] after B1. B2's hysteresis damps
-// that: the visible catalogue `get_sections()` reads carries stable ids, holds a
-// debounced dissolve, and only ever appends members on an add, so the expand no
-// longer removes an activity or regresses the count. Green as a B2 headline gate.
+// The order-free batch is non-monotone (a full re-detect on the expand can
+// reshuffle raw sections). Hysteresis damps that: the visible catalogue
+// `get_sections()` reads carries stable ids, holds a debounced dissolve, and
+// only ever appends members on an add, so the expand no longer removes an
+// activity or regresses the count.
 #[test]
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
@@ -415,11 +415,11 @@ fn scenario_c_single_add_baseline() {
 }
 
 // The single add re-runs full order-free detection, whose raw batch is
-// non-monotone (an add can dissolve a section). B2's hysteresis is exactly what
+// non-monotone (an add can dissolve a section). Hysteresis is exactly what
 // makes the VISIBLE view stable across that: a debounce (streak 1 < k=3) never
 // dissolves on one add, and the append-only fold only adds the new activity to
 // the corridors it traverses. `assert_single_add_stability` holds on the damped
-// `get_sections()` view. Green as a B2 headline gate.
+// `get_sections()` view.
 #[test]
 fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {

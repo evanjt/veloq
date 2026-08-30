@@ -1,6 +1,6 @@
 //! Suite #2, edit-teardown / cache coherence + custom-section lifecycle.
 //!
-//! The B4 invalidation spec: after a mutation, the caches a section spans must
+//! The invalidation spec: after a mutation, the caches a section spans must
 //! agree.
 //!   PERF    , lap_time/lap_pace served by get_section_performances
 //!   SEAM    , in-memory get_sections() vs the DB get_sections_by_type(None) view
@@ -143,7 +143,7 @@ fn create_custom(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) -> Str
 /// A custom section survives resync with its geometry and membership intact. Its
 /// timestamp id never collides with a detected id and section_type='custom' is
 /// never wiped, so the wipe-rebuild cannot touch it. This is the behaviour stable
-/// identity (B2) gives every user-honoured section.
+/// identity gives every user-honoured section.
 #[test]
 fn custom_section_survives_resync_intact() {
     let corpus = corpus();

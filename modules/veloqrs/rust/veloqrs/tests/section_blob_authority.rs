@@ -119,9 +119,10 @@ fn detection_save_writes_blob_as_authority() {
 
     {
         let mut engine = PersistentEngine::new(db_path).unwrap();
-        // SB6 keeps an auto section only while one of its portions belongs to a
-        // pooled activity, so the ride the section was cut from has to be in
-        // the pool or the save never sees the row this test reads back.
+        // The apply keeps an auto section only while one of its portions
+        // belongs to a pooled activity, so the ride the section was cut from
+        // has to be in the pool or the save never sees the row this test
+        // reads back.
         engine
             .add_activity("act_blob".to_string(), polyline.clone(), "Ride".to_string())
             .expect("add_activity");

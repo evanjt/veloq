@@ -3,7 +3,8 @@
 //! The new base (`DetectionMethod::Unified`) driven through the same journeys
 //! as the Control baseline (Suite #1), over the shared harness. Every check
 //! here is live: the identity, order-freedom, and incremental-persistence
-//! invariants B1/B2 deliver are asserted, not printed.
+//! invariants the detection and identity layers deliver are asserted, not
+//! printed.
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_battery`
 
@@ -102,7 +103,7 @@ fn order_free_cold_batch() {
     }
 }
 
-/// Invariant (B2 identity layer): the Battery keeps section identity across an
+/// Invariant (identity layer): the Battery keeps section identity across an
 /// expand, most cold-catalogue ids still address the same ground afterwards.
 /// The assign-once identity layer carries the id with the corridor, so widening
 /// the sync window adds sections instead of renumbering them.

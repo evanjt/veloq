@@ -473,7 +473,7 @@ impl PersistentEngine {
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
         // ~10× less work, and the full path dominates the wall clock
-        // without it (4s of 9s on scenario E).
+        // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
         let already_grouped: std::collections::HashSet<&str> = self
@@ -539,7 +539,7 @@ impl PersistentEngine {
             group_ms
         );
 
-        // B2: remap the freshly-grouped catalogue onto stable assign-once ids. The
+        // Remap the freshly-grouped catalogue onto stable assign-once ids. The
         // grouping assigned each group the Union-Find root as its id (which the
         // full and incremental paths pick differently, re-keying to the min member
         // on a resync); the registry carries the prior stable id and the user's
@@ -596,7 +596,7 @@ impl PersistentEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
-        // B4: `save_groups` writes the route registry blob in its own transaction
+        // `save_groups` writes the route registry blob in its own transaction
         // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
             log::error!("veloqrs: Failed to save groups to database: {}", e);
@@ -1023,7 +1023,7 @@ impl PersistentEngine {
                 }
             }
 
-            // B4: write the route registry blob in THIS transaction so it commits
+            // Write the route registry blob in THIS transaction so it commits
             // atomically with the groups.
             if let Some(blob) = self.route_identity_blob() {
                 self.db.execute(

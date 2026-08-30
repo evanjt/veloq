@@ -1,14 +1,15 @@
 //! Suite #2, `set_section_config` no-op stability (the launch-renumber guard).
 //!
-//! Since B2, `set_section_config` resets the identity registry, because a genuine
+//! `set_section_config` resets the identity registry, because a genuine
 //! config change invalidates the identity basis (the stable ids were assigned to
 //! ground the old params found). But the TS init path re-sends the PERSISTED
 //! config on every launch (GlobalDataSync applies the strictness preset whenever
 //! `detectionStrictness != 60`), so an UNCHANGED config must be a no-op or every
-//! section renumbers on each open for any user who has moved the slider. B2
-//! defeated at startup for exactly the engaged users. The guard is a
-//! top-of-function early-return when `config == self.section_config`, gating the
-//! whole tail (settings persist, processed-set clear, dirty flag, registry reset).
+//! section renumbers on each open for any user who has moved the slider, which
+//! defeats stable identity at startup for exactly the engaged users. The guard
+//! is a top-of-function early-return when `config == self.section_config`,
+//! gating the whole tail (settings persist, processed-set clear, dirty flag,
+//! registry reset).
 //!
 //! These gates lock both halves: re-sending the active config leaves the
 //! catalogue and its ids untouched across a later detect, while a genuine change

@@ -20,7 +20,7 @@ impl PersistentEngine {
     /// M14: untyped activity bodies.
     /// M15: untyped curve, interval and calendar bodies.
     /// M16: bounded activity stream body cache.
-    /// M17: section history, geometry versions and pins (B4 core).
+    /// M17: section history, geometry versions and pins.
     /// M18: persisted evidence cache.
     /// M19: section enrichment and ranking columns.
     /// M20: settled FIT verdict, replacing the has_sets bit a failure poisoned.
@@ -115,7 +115,7 @@ impl PersistentEngine {
             Self::migrate_route_group_ids_to_blob(conn)?;
         }
 
-        // Phase 3 (B4): the visit_count denormalisation column and its recompute
+        // The visit_count denormalisation column and its recompute
         // triggers live here rather than in 017.sql because ADD COLUMN is not
         // idempotent under the raw repeated apply that migration_017_is_rerunnable
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
@@ -623,7 +623,7 @@ impl PersistentEngine {
         }
     }
 
-    /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the
+    /// Add the visit_count column, backfill it once, and create the
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
     /// on that first add (a fresh column is all-zero), and the triggers use

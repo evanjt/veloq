@@ -1,6 +1,6 @@
 //! Applying an unchanged catalogue twice must leave storage untouched.
 //!
-//! Since D4/D5 a catalogue save can also write a geometry version and a history
+//! A catalogue save can also write a geometry version and a history
 //! row. Those tables are kept forever, so a save path that wrote on every apply
 //! would grow the history of a section that never changed and fill the section's
 //! timeline with events the user never caused. Detection re-runs on every sync,

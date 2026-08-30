@@ -1,7 +1,7 @@
 //! Suite #2: concurrency and durability.
 //!
-//! The five other Suite #2 files probe identity, config, and edit survival
-//! (roots R1/R2/R3). None of them touch what happens across a process restart
+//! The five other Suite #2 files probe identity, config, and edit survival.
+//! None of them touch what happens across a process restart
 //! or when a second SQLite connection reads the file mid-write. That seam is
 //! this file: does a detected catalogue survive a fresh `PersistentEngine`
 //! open, does the in-memory detection cache agree with the DB view the app
@@ -165,7 +165,7 @@ fn restart_preserves_catalogue() {
     );
 }
 
-/// Gate (B4 durability): the identity REGISTRIES survive a restart intact, not
+/// Gate (durability): the identity REGISTRIES survive a restart intact, not
 /// just the ids (a reseed from the DB rows already adopts those) but the
 /// hysteresis debounce streaks and the tombstones a dissolved ground re-emerges
 /// under, which live only in the registry blob. A multi-step drip builds that
@@ -206,7 +206,7 @@ fn identity_registries_survive_restart() {
 }
 
 // ============================================================================
-// Curiosity 2: in-memory cache vs DB view seam (B4)
+// Curiosity 2: in-memory cache vs DB view seam
 //
 // `get_sections()` returns the in-memory `self.sections` cache;
 // `get_sections_by_type(None)` reads the DB. `apply_sections_save` re-assigns
@@ -238,7 +238,7 @@ fn apply_path_keeps_cache_coherent() {
     );
 }
 
-/// Gate (B4): the in-memory cache reflects a DB-only edit. Disabling a section
+/// Gate: the in-memory cache reflects a DB-only edit. Disabling a section
 /// drops it from the DB view the app renders, and the cache is kept in lockstep
 /// rather than left one section ahead. A red here is the seam reopening: an
 /// in-memory consumer acting on a section the user hid.

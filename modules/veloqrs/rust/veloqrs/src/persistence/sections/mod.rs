@@ -1795,7 +1795,7 @@ impl PersistentEngine {
         };
 
         for section in sorted_sections {
-            // SB6: the portions that will actually become junction rows. A
+            // The portions that will actually become junction rows. A
             // section with none of them takes zero rows, so no visit_count
             // trigger fires and the catalogue gains a "0 visits" card over an
             // empty detail screen. Skip the row entirely rather than persist it.
@@ -1973,7 +1973,7 @@ impl PersistentEngine {
         // back; a section that died has no rows and the updates are no-ops.
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
 
-        // B4: write the identity-registry blob in THIS transaction so the
+        // Write the identity-registry blob in THIS transaction so the
         // registry and the catalogue it describes commit (or roll back) together.
         if let Some(blob) = self.section_identity_blob() {
             tx.execute(
@@ -1984,7 +1984,7 @@ impl PersistentEngine {
             )?;
         }
 
-        // D5: the emitter's fired lifecycle events, durable with the
+        // The emitter's fired lifecycle events, durable with the
         // catalogue they narrate. A geometry-bearing event versions its
         // polyline first and the history row links the version.
         for event in events {
