@@ -24,12 +24,18 @@
 //! detection is never re-derived over a half-converted library. A pass that
 //! ends partial or failed leaves the flat-era catalogue standing and the next
 //! run finishes the job.
+//!
+//! On an install still owed the detector cutover that cut is the cutover
+//! itself, not a bare re-cut. The launch trigger declines while this queue is
+//! non-empty, so the drained pass is the only thing left holding the
+//! migration. See [`terminal_cut`].
 
 use crate::governor::Lane;
 use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_streams};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
 use crate::objects::detection::{DetectionPoll, poll_detection_once};
+use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
     ELEVATION_STATE_UNAVAILABLE, PersistentEngine, suspend_detection, with_persistent_engine,
@@ -380,13 +386,13 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
         BACKFILL_PHASE_PARTIAL
     });
 
-    // The re-cut fires on the pass that drains the queue, provided the library
-    // carries any elevation at all. `fetched > 0` rather than this pass's own
-    // count: an earlier pass may have elevated tracks and then died before its
-    // re-cut, and this pass has to make good on that even when everything it
-    // asked about itself turned out unavailable. The guard is still held here,
-    // so nothing else can claim the detection slot first.
-    if remaining == 0 && outcome.queued > 0 && fetched > 0 && start_final_detect() {
+    // The terminal cut fires on the pass that drains the queue, provided the
+    // library carries any elevation at all. `fetched > 0` rather than this
+    // pass's own count: an earlier pass may have elevated tracks and then died
+    // before its cut, and this pass has to make good on that even when
+    // everything it asked about itself turned out unavailable. The guard is
+    // still held here, so nothing else can claim the detection slot first.
+    if remaining == 0 && outcome.queued > 0 && fetched > 0 && terminal_cut() {
         outcome.detects_started = 1;
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
@@ -495,6 +501,40 @@ fn store_batch(to_store: &[(String, Vec<GpsPoint>, String)], states: &[(String, 
         stored
     })
     .unwrap_or(0)
+}
+
+/// The one cut a drained pass owes, handed to whoever owns it.
+///
+/// An upgrading install is owed the detector cutover, and the launch trigger
+/// that would normally run it declines while this queue is non-empty
+/// (`src/features/routes/lib/cutoverTrigger.ts`), so the pass that empties the
+/// queue is the only thing left that can hand it over. It has to hand over
+/// rather than re-cut: the cutover archives the flat-era catalogue, switches
+/// the config and then runs the same cold detect, so a bare re-cut here is
+/// both a duplicate pass and the thing that retires the migration before it
+/// has run. It stamps `DETECTOR_METHOD` on the catalogue, and
+/// `cutover_is_owed` reads false from that stamp forever after.
+///
+/// Run inline rather than spawned, so the suspension guard this is called
+/// under covers the migration too. Spawning would release it between the two
+/// and let an ordinary conditioning detect land a catalogue for the archive to
+/// snapshot instead of the flat-era one.
+fn terminal_cut() -> bool {
+    let owed = with_persistent_engine(|engine| engine.cutover_is_owed()).unwrap_or(false);
+    if !owed {
+        return start_final_detect();
+    }
+    match crate::persistence::cutover::run_cutover() {
+        Ok(CutoverOutcome::Completed(_)) => true,
+        // Owed a moment ago and not owed now, or a run already in flight:
+        // either way something else is doing the cold detect this pass would
+        // have started, so starting a second one duplicates it.
+        Ok(CutoverOutcome::NotOwed) => false,
+        Err(e) => {
+            log::warn!("[Elevation] cutover handover failed: {}", e);
+            false
+        }
+    }
 }
 
 /// Start the single re-cut and drive it to a durable catalogue. Called with
