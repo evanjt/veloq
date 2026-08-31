@@ -147,17 +147,32 @@ pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
 ///
 /// A non-zero floor was trialled to tame the synthetic marginal-capture
 /// pathology, a short senior prior with marginal one-sided overlap capturing or
-/// blocking a dominant candidate (`tracematch/tests/b2_inheritance_stress.rs`),
+/// blocking a dominant candidate (`tracematch/tests/inheritance_stress.rs`),
 /// which at defaults can mint a duplicate every detect on an unchanged catalogue.
 /// But 0.4 failed to generalise: on GeoLife dense-urban data (204 trajectories)
 /// it broke ~7 legitimate low-overlap carries into mints/merges and worsened
 /// churn, WITHOUT reducing the real duplication. Constants discipline: a value
 /// that fails generalisation does not ship. The duplication family, visible-
 /// catalogue inflation from the re-cut debounce holding stale covered geometry
-/// (see the seam note in `section_identity_apply_into`), is a FOLD-level fix in
-/// the pure layer (task pending), not a merge floor. Kept as an explicit knob so
-/// GATE-2 can revisit with a TARGETED trigger, not a blanket floor.
+/// (see the seam note in `section_identity_apply_into`), was a FOLD-level fix in
+/// the pure layer, landed, not a merge floor. Kept as an explicit knob so a
+/// revisit can carry a TARGETED trigger, not a blanket floor.
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
+
+/// Least share of a candidate's metres a CONTAINED prior must carry to stay its
+/// merge successor. SHIPS AT 0.0 (off): every contained prior keeps the tier and
+/// seniority decides, so a short senior can take a much longer candidate's
+/// ground and the section that described it retires into the short one, keeping
+/// its name, birth date and PR era over ground that is no longer the same.
+///
+/// The guard is a tier demotion, not a filter, which is what separates it from
+/// [`MERGE_MUTUAL_FLOOR`]: a dwarfed prior still competes, so it keeps its own
+/// ground wherever that ground is still detected. No value ships because none
+/// has survived a corpus pass, and for a contained prior the mutual overlap IS
+/// roughly the length ratio, so a ratio at R is close to a floor at 1/R and 0.4
+/// already failed to generalise on GeoLife. Sweep it in `unified_lab` with
+/// `--hyst-ratio` before moving this line.
+const MERGE_SIZE_RATIO: f64 = 0.0;
 
 /// One visible or tombstoned section the registry manages: the durable opaque id
 /// the DB carries, and the full payload persisted under it. Keyed elsewhere by
@@ -212,11 +227,13 @@ impl Default for SectionIdentity {
     fn default() -> Self {
         Self {
             // The one place the registry's hysteresis is tuned. k and the
-            // dissolve/re-cut thresholds ride the pure-layer defaults; the merge
-            // floor is stated EXPLICITLY at [`MERGE_MUTUAL_FLOOR`] (0.0 today) so
-            // a GATE-2 change is a one-line edit here, not a hunt through derives.
+            // dissolve/re-cut thresholds ride the pure-layer defaults. Both
+            // merge guards are stated EXPLICITLY, [`MERGE_MUTUAL_FLOOR`] and
+            // [`MERGE_SIZE_RATIO`], each 0.0 today, so changing one is a
+            // one-line edit here, not a hunt through derives.
             hysteresis: HysteresisState::new(HysteresisParams {
                 merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                merge_size_ratio: MERGE_SIZE_RATIO,
                 ..HysteresisParams::default()
             }),
             rows: BTreeMap::new(),
@@ -569,14 +586,19 @@ impl PersistentEngine {
         //
         // COMPETITION NOTE. A prior mid re-cut debounce competes in
         // `plan_identity` on the batch geometry it is re-cutting TO (its
-        // pending target), not its frozen footprint, the FOLD-level fix an
-        // older note here still called pending. Residual exposure, verified
-        // and deliberately open: the FIRST divergent step competes on the held
-        // footprint (the pending target only exists from the following step),
-        // a dissolve-pending prior competes on its stale ground and a foreign
-        // capture resets its dissolve streak, and a marginal one-sided senior
-        // capture needs no debounce at all, the merge floor is that clause's
-        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
+        // pending target), not its frozen footprint: the FOLD-level fix the
+        // [`MERGE_MUTUAL_FLOOR`] note points at. Two residual exposures, each
+        // re-checked against the pure layer on 2026-08-31. STILL OPEN: the
+        // FIRST divergent step competes on the held footprint, because a target
+        // is only written after the plan it would have fed, and a
+        // dissolve-pending prior with no re-cut behind it carries no target at
+        // all, so it competes on its stale ground. ACCEPTED: a marginal
+        // one-sided senior capture needs no debounce, the merge floor is its
+        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]). The
+        // streaks are NOT an exposure. Since the two-streak ledger, a re-cut
+        // debounce carries the dissolve streak through and a dissolve debounce
+        // carries the re-cut streak through, so no capture erases the absence
+        // evidence a rotation accumulated.
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
         let (out, resolutions) = identity.hysteresis.step_assign(&candidates);

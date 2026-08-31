@@ -682,12 +682,15 @@ impl PersistentEngine {
 
             progress_worker.set_phase("analyzing", pool.tracks.len() as u32);
 
-            // Seconds stay empty to mirror the real detect, which passes
-            // none; if that call ever carries real seconds this one must
-            // change with it or proposals stop matching what a Keep applies.
+            // The same seconds the real detect reads, loaded the same way.
+            // A preview that judged the lift veto on geometry alone would
+            // propose ground a Keep then refuses, or hide ground it cuts.
+            let seconds = super::track_pool::load_seconds_chunked(&conn, &pool.tracks);
+            let seconds_view = super::track_pool::seconds_view(&seconds);
+
             let detection = tracematch::detect_sections_unified_dated(
                 &pool.tracks,
-                &[],
+                &seconds_view,
                 &sport_map,
                 &start_epochs,
                 &effective_config,

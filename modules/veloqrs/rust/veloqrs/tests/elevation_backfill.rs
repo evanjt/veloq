@@ -688,3 +688,256 @@ fn a_finished_pass_leaves_nothing_not_fetched() {
     );
     drain_detection();
 }
+
+// ============================================================================
+// The handover to the detector cutover
+// ============================================================================
+
+/// A track that overlaps its neighbours closely enough for a section to form,
+/// and carries no elevation, so it also sits in the backfill queue.
+fn overlapping_flat_track(jitter: f64) -> Vec<GpsPoint> {
+    (0..200)
+        .map(|i| GpsPoint::new(46.0 + f64::from(i) * 0.0001, 7.0 + jitter))
+        .collect()
+}
+
+/// The same line with a steady grade on it, which is what upstream answers
+/// with once the tracks are asked about.
+fn overlapping_elevated_streams(jitter: f64) -> serde_json::Value {
+    let lats: Vec<f64> = (0..200).map(|i| 46.0 + f64::from(i) * 0.0001).collect();
+    let lngs: Vec<f64> = (0..200).map(|_| 7.0 + jitter).collect();
+    let alts: Vec<f64> = (0..200).map(|i| 1000.0 + f64::from(i) * 2.0).collect();
+    json!([
+        {"type": "latlng", "data": lats, "data2": lngs},
+        {"type": "fixed_altitude", "data": alts}
+    ])
+}
+
+/// A library an older build cut: a catalogue on disk, no detector recorded
+/// against it, and every track still flat. This is the shape a 0.3.x install
+/// arrives in, and the one `seeded_engine` cannot produce because it never
+/// detects.
+fn seeded_older_build_engine(ids: &[&str]) -> (TempDir, std::path::PathBuf) {
+    drain_detection();
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(
+        path.to_str().expect("utf-8 path").to_string()
+    ));
+    with_persistent_engine(|engine| {
+        let mut cfg = engine.get_section_config();
+        cfg.min_activities = 3;
+        engine.set_section_config(cfg);
+        for (i, id) in ids.iter().enumerate() {
+            engine
+                .add_activity(
+                    (*id).to_string(),
+                    overlapping_flat_track(i as f64 * 0.00002),
+                    "Ride".into(),
+                )
+                .expect("add activity");
+            engine
+                .update_activity_metadata(
+                    id,
+                    Some(1_700_000_000 - i as i64 * 14 * 86_400),
+                    Some("ride"),
+                    Some(12_345.0),
+                    Some(3_600),
+                )
+                .expect("metadata");
+        }
+    })
+    .expect("engine");
+
+    with_persistent_engine(|engine| {
+        let handle = engine.detect_sections_background();
+        let (main, cache_update) = handle.recv_with_cache();
+        let (sections, processed_ids) = main.expect("detect");
+        engine
+            .apply_sections_with_cache(sections, cache_update)
+            .expect("apply");
+        engine
+            .save_processed_activity_ids(&processed_ids)
+            .expect("save");
+    })
+    .expect("engine");
+
+    // What an older build left behind: a catalogue with no detector stamped
+    // against it. `seed_older_build_engine` in `tests/cutover.rs` strips the
+    // same key.
+    let db = rusqlite::Connection::open(&path).expect("open");
+    db.execute(
+        "DELETE FROM schema_info WHERE key = 'catalogue_detection_method'",
+        [],
+    )
+    .expect("strip the detector marker");
+
+    assert!(
+        with_persistent_engine(|e| e.get_sections().len()).expect("engine") > 0,
+        "the seed detect produced no catalogue to archive"
+    );
+    (dir, path)
+}
+
+fn archived_rows(path: &std::path::Path) -> i64 {
+    let conn = rusqlite::Connection::open(path).expect("reopen database");
+    conn.query_row("SELECT COUNT(*) FROM section_catalogue_archive", [], |r| {
+        r.get(0)
+    })
+    .expect("count the archive")
+}
+
+/// Scenario: a 0.3.x install upgrades. The launch fires the backfill and the
+/// cutover trigger together, and the trigger declines while the queue is
+/// non-empty, so the pass that drains the queue is the only thing that can
+/// hand the catalogue over.
+///
+/// Expected behaviour: that pass runs the migration rather than a bare re-cut,
+/// so the archive, the diff and the rollback all exist afterwards.
+#[test]
+fn a_drained_pass_hands_an_owed_catalogue_to_the_cutover() {
+    let _serial = serial();
+    let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+    let (_dir, path) = seeded_older_build_engine(&refs);
+
+    assert!(
+        veloqrs::ffi::is_cutover_pending(),
+        "the seed is not owed a cutover, so this proves nothing"
+    );
+    assert_eq!(archived_rows(&path), 0, "the seed already archived");
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate() {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{}/streams.json", id));
+            then.status(200)
+                .json_body(overlapping_elevated_streams(i as f64 * 0.00002));
+        });
+    }
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+    assert_eq!(outcome.elevated, 4, "the queue did not drain");
+    assert_eq!(
+        outcome.detects_started, 1,
+        "the drained pass still owes one terminal cut"
+    );
+
+    assert!(
+        archived_rows(&path) > 0,
+        "the flat-era catalogue was replaced without being archived, so the \
+         user has nothing to roll back to"
+    );
+    assert!(
+        with_persistent_engine(|e| e.cutover_diff())
+            .expect("engine")
+            .is_some(),
+        "no cutover diff was written, so the change card has no counts of the user's own"
+    );
+    assert!(
+        !veloqrs::ffi::is_cutover_pending(),
+        "the migration ran but did not finish"
+    );
+    drain_detection();
+}
+
+/// A pass that ends partial must leave the migration owed. Cutting a catalogue
+/// over a half-elevated library is the thing the backfill exists to prevent,
+/// and burning the one-shot token on it would make that permanent.
+#[test]
+fn a_partial_pass_leaves_the_cutover_owed() {
+    let _serial = serial();
+    let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+    let (_dir, path) = seeded_older_build_engine(&refs);
+    assert!(veloqrs::ffi::is_cutover_pending());
+
+    // Three answer, the fourth cannot be reached, so its row is untouched and
+    // the queue is still non-empty when the pass ends.
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate().take(3) {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{}/streams.json", id));
+            then.status(200)
+                .json_body(overlapping_elevated_streams(i as f64 * 0.00002));
+        });
+    }
+    server.mock(|when, then| {
+        when.path(format!("/activity/{}/streams.json", ids[3]));
+        then.status(500);
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+    assert_eq!(outcome.detects_started, 0, "a partial pass must not cut");
+
+    assert_eq!(
+        archived_rows(&path),
+        0,
+        "a partial pass archived a catalogue it had no business touching"
+    );
+    assert!(
+        veloqrs::ffi::is_cutover_pending(),
+        "a partial pass retired the migration"
+    );
+    drain_detection();
+}
+
+/// The second drained pass. A backfill that runs again after the migration has
+/// completed must not archive over the snapshot the restore reads from.
+#[test]
+fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
+    let _serial = serial();
+    let ids: Vec<String> = (0..4).map(|i| format!("ride_{i}")).collect();
+    let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+    let (_dir, path) = seeded_older_build_engine(&refs);
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate() {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{}/streams.json", id));
+            then.status(200)
+                .json_body(overlapping_elevated_streams(i as f64 * 0.00002));
+        });
+    }
+    let base = server.base_url();
+
+    run_elevation_backfill(&fast_transport(base.clone()));
+    let first = archived_rows(&path);
+    assert!(first > 0, "the first pass did not archive");
+    drain_detection();
+
+    // A later launch with fresh flat tracks: the queue refills, drains again,
+    // and the migration is no longer owed.
+    with_persistent_engine(|engine| {
+        engine
+            .add_activity(
+                "ride_4".to_string(),
+                overlapping_flat_track(4.0 * 0.00002),
+                "Ride".into(),
+            )
+            .expect("add activity");
+    })
+    .expect("engine");
+    server.mock(|when, then| {
+        when.path("/activity/ride_4/streams.json");
+        then.status(200)
+            .json_body(overlapping_elevated_streams(4.0 * 0.00002));
+    });
+
+    assert!(!veloqrs::ffi::is_cutover_pending());
+    run_elevation_backfill(&fast_transport(base));
+
+    assert_eq!(
+        archived_rows(&path),
+        first,
+        "the second pass re-archived, burying the snapshot the restore needs"
+    );
+    drain_detection();
+}

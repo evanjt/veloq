@@ -287,3 +287,79 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
          only ever knew the new config"
     );
 }
+
+/// A time stream reaches the engine after the points it belongs to: the ingest
+/// fetches streams in a second pass over the activities that landed, and an
+/// upgraded install backfills them later still. The cluster catalogues in the
+/// cache were cut with no stream to read, and a stream landing marks no
+/// cluster dirty, so a fold that kept them would reuse a cut the lift veto
+/// made blind to the times.
+#[test]
+fn a_time_stream_landing_late_drops_the_evidence_cut_without_it() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let mut engine = seeded(&dir);
+    assert!(
+        engine.evidence_cache_folded_count() > 0,
+        "the detect folded nothing, so the rest proves nothing"
+    );
+    assert!(cache_row(&dir).is_some(), "the apply wrote no evidence row");
+
+    let times: Vec<u32> = (0..pool[0].gps_points.len() as u32).collect();
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+
+    assert_eq!(
+        engine.evidence_cache_folded_count(),
+        0,
+        "the stream landed and the fold kept the evidence cut without it"
+    );
+    assert!(
+        cache_row(&dir).is_none(),
+        "the engine's cache went but the stored row stayed, so a restart \
+         picks the stale cut back up"
+    );
+}
+
+/// The other half of that rule. `set_time_streams` is an exported call and the
+/// sync reaches for it whenever a screen wants lap times, so a repeat write of
+/// a stream the engine already holds must cost nothing. Dropping the cache on
+/// every write would cold-rebatch the whole pool on a routine sync.
+#[test]
+fn rewriting_a_stream_the_engine_already_holds_keeps_the_evidence() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let mut engine = seeded(&dir);
+
+    let times: Vec<u32> = (0..pool[0].gps_points.len() as u32).collect();
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+    let folded = engine.evidence_cache_folded_count();
+    detect(&mut engine);
+    let refolded = engine.evidence_cache_folded_count();
+    assert!(
+        refolded > folded,
+        "the re-detect did not refill the cache, so the next assertion is vacuous"
+    );
+
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+
+    assert_eq!(
+        engine.evidence_cache_folded_count(),
+        refolded,
+        "an identical stream dropped the cache and cold-rebatched the pool"
+    );
+    assert!(cache_row(&dir).is_some(), "the stored row went with it");
+}
+
+/// An empty batch is the shape a sync takes when every activity already has
+/// its stream, and it must not be the shape that drops the cache.
+#[test]
+fn a_stream_batch_with_nothing_in_it_keeps_the_evidence() {
+    let dir = TempDir::new().unwrap();
+    let mut engine = seeded(&dir);
+    let folded = engine.evidence_cache_folded_count();
+
+    engine.set_time_streams_flat(&[], &[], &[]);
+
+    assert_eq!(engine.evidence_cache_folded_count(), folded);
+    assert!(cache_row(&dir).is_some());
+}

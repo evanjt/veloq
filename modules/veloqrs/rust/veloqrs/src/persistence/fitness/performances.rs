@@ -24,6 +24,24 @@ impl PersistentEngine {
         offsets: &[u32],
     ) {
         let mut persisted_count = 0;
+        // Activities whose stream actually moved. The section evidence cache
+        // holds each cluster's last cut and the lift veto reads the stream
+        // when it has one, so a stream that lands after the cut has to take
+        // that cut with it. Nothing else does: the points did not change, so
+        // no cluster is marked dirty and the fold would reuse the cut verbatim.
+        //
+        // Eviction and not a bare `invalidate_evidence_cache`. Dropping the
+        // cache alone leaves every id in `processed_activities`, and a detect
+        // with no new ids and no dirty cluster short-circuits and re-emits the
+        // last batch, so the cut the veto made blind would stand anyway.
+        //
+        // Compared rather than assumed, because this is an exported call the
+        // sync reaches for whenever a screen wants lap times, and evicting on
+        // every write would cold-rebatch the pool on a routine sync. It costs
+        // nothing in the ingest path either way: streams are fetched in the
+        // same pass that added the activities, before any detect has marked
+        // them processed.
+        let mut moved: Vec<String> = Vec::new();
         for (i, activity_id) in activity_ids.iter().enumerate() {
             let start = offsets[i] as usize;
             let end = offsets
@@ -31,6 +49,10 @@ impl PersistentEngine {
                 .map(|&o| o as usize)
                 .unwrap_or(all_times.len());
             let times = all_times[start..end].to_vec();
+
+            if self.load_time_stream(activity_id).as_deref() != Some(times.as_slice()) {
+                moved.push(activity_id.clone());
+            }
 
             // Persist to SQLite for offline access
             if self.store_time_stream(activity_id, &times).is_ok() {
@@ -45,6 +67,7 @@ impl PersistentEngine {
             activity_ids.len(),
             persisted_count
         );
+        self.evict_processed_activity_ids(&moved);
         self.invalidate_perf_cache();
         // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
         // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
