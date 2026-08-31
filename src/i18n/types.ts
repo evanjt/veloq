@@ -225,6 +225,9 @@ export interface TranslationResource {
     apiKeyNoNotifications: string;
     sessionExpired: string;
     sessionRevoked: string;
+    sessionDataKept: string;
+    sessionRestore: string;
+    sessionRestoreAthlete: string;
   };
 
   demo: {
