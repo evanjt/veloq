@@ -9,7 +9,6 @@
 
 import { validateId } from '../../conversions';
 import { decodeCoords } from '../../coords';
-import type { RoutePoint } from '../../conversions';
 import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
@@ -28,7 +27,6 @@ import type {
 import type { DelegateHost } from '../host';
 import type {
   FfiActivityIndicator,
-  FfiActivitySectionHighlight,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
   FfiSectionMatch,
