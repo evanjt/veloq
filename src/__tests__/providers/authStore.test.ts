@@ -11,6 +11,11 @@
 
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: jest.fn(),
+}));
 
 // Get mock functions with proper typing
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
@@ -22,6 +27,7 @@ const _mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
 const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<
   typeof SecureStore.deleteItemAsync
 >;
+const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
 
 // Storage keys (must match AuthStore.ts)
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
@@ -111,6 +117,79 @@ describe('AuthStore', () => {
       expect(state.isAuthenticated).toBe(false);
       expect(state.authMethod).toBeNull();
       expect(state.isLoading).toBe(false);
+    });
+  });
+
+  /**
+   * Scenario: a launch that finds no usable credential. Demo data left by a
+   * force quit is discarded by the athlete-id comparison in the root layout,
+   * so the store has no reason to wipe the database, and every signed-out
+   * launch takes this path.
+   *
+   * Expected behaviour: initialize never calls clear() on the engine.
+   */
+  describe('initialize() and the database', () => {
+    const clear = jest.fn();
+    const setSyncCredentials = jest.fn();
+    const clearSyncCredentials = jest.fn();
+
+    beforeEach(() => {
+      mockGetRouteEngine.mockReturnValue({
+        clear,
+        setSyncCredentials,
+        clearSyncCredentials,
+      } as unknown as ReturnType<typeof getRouteEngine>);
+    });
+
+    afterEach(() => {
+      mockGetRouteEngine.mockReset();
+    });
+
+    it('keeps the database when no credentials are stored', async () => {
+      mockGetItemAsync.mockResolvedValue(null);
+
+      await useAuthStore.getState().initialize();
+
+      expect(clear).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('keeps the database when the stored credentials are whitespace only', async () => {
+      mockGetItemAsync.mockResolvedValue('   ');
+
+      await useAuthStore.getState().initialize();
+
+      expect(clear).not.toHaveBeenCalled();
+    });
+
+    it('keeps the database when an athlete id is stored without a credential', async () => {
+      mockGetItemAsync.mockImplementation(async (key) => {
+        if (key === ATHLETE_ID_STORAGE_KEY) return 'i12345';
+        return null;
+      });
+
+      await useAuthStore.getState().initialize();
+
+      expect(clear).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('keeps the database across repeated credential-free launches', async () => {
+      mockGetItemAsync.mockResolvedValue(null);
+
+      await useAuthStore.getState().initialize();
+      await useAuthStore.getState().initialize();
+
+      expect(clear).not.toHaveBeenCalled();
+    });
+
+    it('keeps the database when SecureStore throws', async () => {
+      mockGetItemAsync.mockRejectedValue(new Error('keychain unavailable'));
+
+      await useAuthStore.getState().initialize();
+
+      expect(clear).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
   });
 
