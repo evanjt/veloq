@@ -24,7 +24,7 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL, BackfillRun,
-    backfill_progress, detect_runs_started, run_elevation_backfill,
+    MAX_CONSECUTIVE_FAILURES, backfill_progress, detect_runs_started, run_elevation_backfill,
 };
 use veloqrs::persistence::persistent_engine_ffi::{
     SECTION_DETECTION_HANDLE, persistent_engine_init,
@@ -940,4 +940,147 @@ fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
         "the second pass re-archived, burying the snapshot the restore needs"
     );
     drain_detection();
+}
+
+// ============================================================================
+// A pass with nothing to work with
+// ============================================================================
+
+/// The pass counts every queued track against a connection that is gone, one
+/// request at a time, and only then reports partial. On the captive-portal
+/// case each of those requests can cost four thirty-second attempts, so the
+/// bound has to come from the failures rather than from the queue.
+
+/// A queue longer than the threshold, so a pass that stops at the threshold
+/// is distinguishable from one that ran to the end.
+fn long_queue_ids() -> Vec<String> {
+    (0..MAX_CONSECUTIVE_FAILURES as u32 + 10)
+        .map(|i| format!("q{i}"))
+        .collect()
+}
+
+fn seeded_long_queue() -> (TempDir, Vec<String>) {
+    let ids = long_queue_ids();
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let (dir, _path) = seeded_engine(&refs);
+    (dir, ids)
+}
+
+/// Every activity in `ids` answers `status`. `Retry-After: 0` keeps a 429
+/// test fast while still taking the header path the transport honours.
+fn answer_all(server: &MockServer, ids: &[String], status: u16, retry_after: bool) {
+    for id in ids {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{id}/streams.json"));
+            let then = then.status(status).body("nothing to give");
+            if retry_after {
+                then.header("Retry-After", "0");
+            }
+        });
+    }
+}
+
+#[test]
+fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() {
+    let _serial = serial();
+    let (_dir, ids) = seeded_long_queue();
+
+    let server = MockServer::start();
+    answer_all(&server, &ids, 500, false);
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("a dead connection is not a failed pass, it is an unfinished one: {run:?}");
+    };
+
+    assert_eq!(outcome.queued, ids.len() as u32);
+    assert_eq!(
+        outcome.failed, MAX_CONSECUTIVE_FAILURES as u32,
+        "the pass spent the whole queue instead of stopping at the threshold"
+    );
+    assert_eq!(outcome.elevated, 0);
+    assert_eq!(
+        queue_ids().len(),
+        ids.len(),
+        "a failed fetch leaves its row untouched, so the queue is unchanged"
+    );
+    assert_eq!(
+        backfill_progress().phase,
+        BACKFILL_PHASE_PARTIAL,
+        "the next launch has to retry, so the pass is partial and not failed"
+    );
+}
+
+#[test]
+fn an_exhausted_budget_stops_the_pass_the_same_way() {
+    let _serial = serial();
+    let (_dir, ids) = seeded_long_queue();
+
+    let server = MockServer::start();
+    answer_all(&server, &ids, 429, true);
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("an exhausted budget is not a failed pass: {run:?}");
+    };
+
+    assert_eq!(outcome.failed, MAX_CONSECUTIVE_FAILURES as u32);
+    assert_eq!(queue_ids().len(), ids.len());
+    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+}
+
+/// Upstream answering about one activity is not the connection going away. A
+/// permanently 404-ing prefix would otherwise wedge the queue: every run
+/// re-derives the same order and would stop at the same place forever.
+#[test]
+fn an_answer_about_one_activity_does_not_stop_the_pass() {
+    let _serial = serial();
+    let (_dir, ids) = seeded_long_queue();
+
+    let server = MockServer::start();
+    answer_all(&server, &ids, 404, false);
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        outcome.failed,
+        ids.len() as u32,
+        "a 404 answers for its own activity, so the pass walks the whole queue"
+    );
+}
+
+/// The threshold counts consecutive failures, not the pass's total. A flaky
+/// connection landing work between the failures must run the queue out.
+#[test]
+fn work_landing_between_the_failures_keeps_the_pass_going() {
+    let _serial = serial();
+    let (_dir, ids) = seeded_long_queue();
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate() {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{id}/streams.json"));
+            if i % 2 == 0 {
+                then.status(500).body("upstream is down");
+            } else {
+                then.status(200)
+                    .json_body(elevated_streams(i as f64 * 0.05));
+            }
+        });
+    }
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        outcome.elevated + outcome.failed,
+        ids.len() as u32,
+        "the run of failures never reached the threshold, so nothing should have stopped"
+    );
+    assert!(outcome.elevated > 0);
 }
