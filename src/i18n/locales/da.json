@@ -662,6 +662,8 @@
     "expandRange": "Udvid interval"
   },
   "maps": {
+    "unavailableTitle": "Kort utilgængeligt",
+    "unavailableHint": "Kortet kunne ikke indlæses. Tjek din forbindelse, og åbn det igen.",
     "activitiesCount": "{{count}} aktiviteter",
     "activityTypes": {
       "gym": "Fitness",

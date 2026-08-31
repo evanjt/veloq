@@ -662,6 +662,8 @@
     "expandRange": "範囲を広げる"
   },
   "maps": {
+    "unavailableTitle": "地図を表示できません",
+    "unavailableHint": "地図を読み込めませんでした。接続を確認してもう一度開いてください。",
     "activitiesCount": "{{count}}件のアクティビティ",
     "activityTypes": {
       "gym": "ジム",

@@ -662,6 +662,8 @@
     "expandRange": "Étendre la plage"
   },
   "maps": {
+    "unavailableTitle": "Carte indisponible",
+    "unavailableHint": "La carte n'a pas pu se charger. Vérifie ta connexion et rouvre-la.",
     "activitiesCount": "{{count}} activités",
     "activityTypes": {
       "gym": "Salle",

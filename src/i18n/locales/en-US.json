@@ -688,6 +688,8 @@
     "loadingOlderActivities": "Loading older activities..."
   },
   "maps": {
+    "unavailableTitle": "Map unavailable",
+    "unavailableHint": "The map could not load. Check your connection and open it again.",
     "activitiesCount": "{{count}} activities",
     "activityTypes": {
       "gym": "Gym",

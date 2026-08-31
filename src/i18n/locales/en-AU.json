@@ -662,6 +662,8 @@
     "expandRange": "Expand range"
   },
   "maps": {
+    "unavailableTitle": "Map's a no-show",
+    "unavailableHint": "Couldn't load the map. Check your connection and have another crack.",
     "activitiesCount": "{{count}} activities",
     "activityTypes": {
       "gym": "Gym sesh",
