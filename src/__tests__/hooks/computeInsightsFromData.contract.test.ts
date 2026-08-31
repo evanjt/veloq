@@ -66,6 +66,12 @@ function makePattern(
   };
 }
 
+/**
+ * `trend` is the engine's three-way verdict, not a rate of change: -1
+ * declining, 0 stable, 1 improving. Climb A improves off a PR, which is the
+ * only path to a priority 2 section-trend card; Flat B declines; Neglected C
+ * is stable, so it is filtered out before the generator sees it.
+ */
 function makeRankedSections(sportType: string) {
   return [
     {
@@ -80,7 +86,7 @@ function makeRankedSections(sportType: string) {
       bestTimeSecs: 680,
       medianRecentSecs: 700,
       daysSinceLast: 4,
-      trend: -0.04,
+      trend: 1,
       latestIsPr: true,
     },
     {
@@ -95,7 +101,7 @@ function makeRankedSections(sportType: string) {
       bestTimeSecs: 305,
       medianRecentSecs: 320,
       daysSinceLast: 12,
-      trend: 0.02,
+      trend: -1,
       latestIsPr: false,
     },
     {
@@ -112,7 +118,7 @@ function makeRankedSections(sportType: string) {
       bestTimeSecs: 410,
       medianRecentSecs: 430,
       daysSinceLast: 65,
-      trend: 0.0,
+      trend: 0,
       latestIsPr: false,
     },
   ];
@@ -142,7 +148,7 @@ function buildFfiData(): InsightsData {
           sectionId: 'sec-ride-climb-A',
           sectionName: 'Sunday Climb',
           appearanceRate: 0.8,
-          trend: -0.05,
+          trend: -1,
           medianRecentSecs: 720,
           bestTimeSecs: 690,
           traversalCount: 14,
@@ -300,7 +306,9 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     if (!trend) throw new Error('expected a section-trend insight');
 
     const section = trend.supportingData?.sections?.[0];
-    const source = makeRankedSections('Ride').find((r) => r.sectionId === section?.sectionId);
+    const source = ['Ride', 'Run']
+      .flatMap((sport) => makeRankedSections(sport))
+      .find((r) => r.sectionId === section?.sectionId);
     if (!source) throw new Error('expected a ranked section behind the insight');
     expect(section?.ranking).toEqual({
       relevance: source.relevanceScore,
@@ -309,6 +317,38 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       anomaly: source.anomalyScore,
       engagement: source.engagementScore,
     });
+  });
+
+  it('feeds only trend verdicts the wire can carry', () => {
+    // `FfiRankedSection.trend` is an i8: -1 declining, 0 stable, 1 improving.
+    // A fraction is not a weaker version of that, it is a value no engine
+    // build can emit, and the generator reads anything but 1 as declining.
+    for (const sport of ['Ride', 'Run']) {
+      for (const section of makeRankedSections(sport)) {
+        expect([-1, 0, 1]).toContain(section.trend);
+      }
+    }
+  });
+
+  it('exercises both the improving and the declining section-trend branch', () => {
+    const insights = computeInsightsFromData(
+      buildFfiData(),
+      buildWellness(),
+      t,
+      buildSummaryCardData()
+    );
+
+    const trends = insights.filter((i) => i.category === 'section_trend');
+    expect(trends.map((i) => i.icon)).toEqual(
+      expect.arrayContaining(['trending-up', 'trending-down'])
+    );
+
+    // Improving on a section whose latest traversal is a PR is the only path
+    // to priority 2, so a fixture that never reaches it leaves the branch
+    // that decides ranking untested.
+    const improving = trends.find((i) => i.icon === 'trending-up');
+    expect(improving?.priority).toBe(2);
+    expect(trends.find((i) => i.icon === 'trending-down')?.priority).toBe(3);
   });
 
   it('section-derived insights only reference sections present in the FFI ranked-batch', () => {

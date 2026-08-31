@@ -142,6 +142,65 @@ interface NativeModuleInterface {
     rows: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_basemapmanager(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_basemapmanager(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+    ptr: bigint,
+    source: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+    ptr: bigint,
+    source: Uint8Array,
+    budgetBytes: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+    ptr: bigint,
+    source: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+    ptr: bigint,
+    source: Uint8Array,
+    z: number,
+    x: number,
+    y: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+    ptr: bigint,
+    source: Uint8Array,
+    z: number,
+    x: number,
+    y: number,
+    ext: Uint8Array,
+    bytes: Uint8Array,
+    pinned: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
+    ptr: bigint,
+    path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1471,6 +1530,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
@@ -1659,6 +1726,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
@@ -1672,6 +1740,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(): number;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

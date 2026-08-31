@@ -1,4 +1,5 @@
 pub mod activities;
+mod basemap;
 pub(crate) mod detection;
 mod engine;
 pub mod error;

@@ -37,6 +37,8 @@ interface UseMapCameraResult {
   surfaceRef: React.RefObject<MapSurfaceRef | null>;
   /** Whether the 2D map has finished loading and is ready for camera commands */
   mapReady: boolean;
+  /** Whether the surface reported it cannot draw a basemap at all */
+  mapFailed: boolean;
   /** Computed bounds for the activity track */
   bounds: MapBounds | null;
   /** Center of computed bounds ([lng, lat]) */
@@ -51,6 +53,8 @@ interface UseMapCameraResult {
   locationLoading: boolean;
   /** Called once the surface reports it is ready */
   handleMapReady: () => void;
+  /** Called when the surface reports it cannot render a basemap */
+  handleMapFailed: () => void;
   /** Called continuously during a gesture (bearing sync for compass) */
   handleRegionIsChanging: (state: MapCameraState) => void;
   /** Called once a gesture settles (viewport tracking) */
@@ -69,6 +73,7 @@ export function useMapCamera({
 }: UseMapCameraParams): UseMapCameraResult {
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const initialCameraAppliedRef = useRef(false);
@@ -96,6 +101,13 @@ export function useMapCamera({
 
   const handleMapReady = useCallback(() => {
     setMapReady(true);
+    setMapFailed(false);
+  }, []);
+
+  // A surface that can never draw still has to be revealed, otherwise the
+  // failure it is reporting is behind an invisible layer.
+  const handleMapFailed = useCallback(() => {
+    setMapFailed(true);
   }, []);
 
   // Fit the track once. Later bounds changes are the user's business.
@@ -155,6 +167,7 @@ export function useMapCamera({
   return {
     surfaceRef,
     mapReady,
+    mapFailed,
     bounds,
     boundsCenter,
     currentCenterRef,
@@ -162,6 +175,7 @@ export function useMapCamera({
     bearingAnim,
     locationLoading,
     handleMapReady,
+    handleMapFailed,
     handleRegionIsChanging,
     handleRegionDidChange,
     resetOrientation,

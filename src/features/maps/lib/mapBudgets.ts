@@ -37,3 +37,11 @@ export const TRACE_ZOOM_THRESHOLD = 11;
  * of leaving the hero on a spinner.
  */
 export const MAP_3D_READY_TIMEOUT_MS = 15000;
+
+/**
+ * How long a 2D map page may take to report itself ready before it is treated
+ * as failed. The page arms this before it touches maplibregl, so a renderer
+ * that never arrives from the CDN leaves a message rather than a blank
+ * rectangle.
+ */
+export const MAP_SURFACE_READY_TIMEOUT_MS = 15000;

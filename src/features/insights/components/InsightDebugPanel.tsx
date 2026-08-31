@@ -13,10 +13,13 @@ interface Props {
 }
 
 /**
- * Dev-only panel showing the last insight pipeline outcome: every candidate,
- * its gate result or score, and why it was dropped. Gated by __DEV__; no
- * production impact. Closes the "dev tooling" ask in the insights-curation
- * bug ticket.
+ * Dev-only panel showing the last insight pipeline outcome: what the screen
+ * ends up rendering, every candidate that did not get there, and why. Gated by
+ * __DEV__; no production impact.
+ *
+ * The on-screen list is the consolidated one. The pipeline's own `kept` is one
+ * stage short: consolidation drops on the section story cap and the
+ * duplicate-section rule after it, and reorders what is left.
  */
 export const InsightDebugPanel = React.memo(function InsightDebugPanel({
   visible,
@@ -30,7 +33,8 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
 
   if (!__DEV__) return null;
 
-  const capDroppedIds = new Set(outcome?.capDropped.map((d) => d.insight.id) ?? []);
+  const scoredById = new Map(outcome?.scored.map((s) => [s.insight.id, s]) ?? []);
+  const onScreen = outcome?.consolidated ?? outcome?.kept ?? [];
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -47,16 +51,38 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
           ) : (
             <>
               <Text style={[styles.section, { color: textColor }]}>
-                Kept ({outcome.kept.length})
+                {outcome.consolidated
+                  ? `On screen (${onScreen.length})`
+                  : `Kept, before consolidation (${onScreen.length})`}
               </Text>
-              {outcome.scored
-                .filter((s) => !capDroppedIds.has(s.insight.id))
-                .sort((a, b) => b.score - a.score)
-                .map((s) => (
-                  <Text key={s.insight.id} style={[styles.row, { color: textColor }]}>
-                    {`KEPT  ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})`}
+              {onScreen.map((insight, index) => {
+                const scored = scoredById.get(insight.id);
+                const breakdown = scored
+                  ? ` (cat=${scored.breakdown.category} spec=${scored.breakdown.specificity} self=${scored.breakdown.temporalSelf} sig=${scored.breakdown.signal})`
+                  : '';
+                return (
+                  <Text
+                    key={insight.id}
+                    testID="insight-debug-onscreen"
+                    style={[styles.row, { color: textColor }]}
+                  >
+                    {`${index + 1}. ${insight.category}/${insight.id} - score=${scored?.score.toFixed(0) ?? '-'}${breakdown}`}
                   </Text>
-                ))}
+                );
+              })}
+
+              <Text style={[styles.section, { color: textColor }]}>
+                Consolidated out ({outcome.consolidationDropped.length})
+              </Text>
+              {outcome.consolidationDropped.map((d) => (
+                <Text
+                  key={d.insight.id}
+                  testID="insight-debug-consolidated-out"
+                  style={[styles.row, { color: mutedColor }]}
+                >
+                  {`CONSOLIDATED OUT  ${d.insight.category}/${d.insight.id} - ${d.reason}`}
+                </Text>
+              ))}
 
               <Text style={[styles.section, { color: textColor }]}>
                 Cap-dropped ({outcome.capDropped.length})

@@ -114,17 +114,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
         authMethod = 'apiKey';
         isAuthenticated = true;
-      } else {
-        // No valid credentials found - clear any stale route engine data
-        // This handles the case where demo mode was active but app was restarted
-        // (demo mode doesn't persist, but SQLite cache does)
-        const engine = getRouteEngine();
-        if (engine) {
-          engine.clear();
-          if (__DEV__) {
-            console.log('[AuthStore] Cleared route engine - no persisted credentials');
-          }
-        }
       }
 
       set({

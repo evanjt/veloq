@@ -225,6 +225,9 @@ export interface TranslationResource {
     apiKeyNoNotifications: string;
     sessionExpired: string;
     sessionRevoked: string;
+    sessionDataKept: string;
+    sessionRestore: string;
+    sessionRestoreAthlete: string;
   };
 
   demo: {
@@ -1399,6 +1402,8 @@ export interface TranslationResource {
     zoomToActivity: string;
     closePopup: string;
     closeSectionPopup: string;
+    unavailableTitle: string;
+    unavailableHint: string;
     viewDetails: string;
     viewSectionDetails: string;
     allClear: string;

@@ -15,6 +15,7 @@ import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
+import { MAP_SURFACE_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 
 /** Padding for `fitBounds`, in pixels. A number applies to all four edges. */
 export type MapPadding = number | { top: number; right: number; bottom: number; left: number };
@@ -660,6 +661,41 @@ export function buildMapSurfaceHtml(config: MapSurfaceHtmlConfig): string {
   <div id="map"></div>
   <script>
 ${consoleBridgeScript()}
+
+    // The renderer is fetched from a CDN and nothing below runs without it, so
+    // the watchdog is armed before the first line that touches maplibregl.
+    var _mapReadySent = false;
+    var _mapFailedSent = false;
+
+    function _postToHost(message) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      }
+    }
+
+    function _sendMapFailed(reason) {
+      if (_mapReadySent || _mapFailedSent) return;
+      _mapFailedSent = true;
+      window._rn_log('sending mapFailed - ' + reason);
+      _postToHost({ type: 'mapFailed', reason: String(reason) });
+    }
+
+    // A load that lands after the watchdog fired still counts, so a slow page
+    // clears the unavailable state rather than staying stuck on it.
+    function _sendMapReady() {
+      if (_mapReadySent) return;
+      _mapReadySent = true;
+      _postToHost({ type: 'mapReady' });
+    }
+
+    if (window.addEventListener) {
+      window.addEventListener('error', function(e) {
+        _sendMapFailed('page error: ' + ((e && e.message) || 'unknown'));
+      });
+    }
+
+    setTimeout(function() { _sendMapFailed('ready timeout'); }, ${MAP_SURFACE_READY_TIMEOUT_MS});
+
 ${tileProtocolsScript()}
 
     var _bounds = ${boundsJSON};
@@ -728,10 +764,11 @@ ${surfaceRuntimeScript(config)}
         window._veloq.ready = true;
         window._veloq.attachEvents();
         window._veloq.drain();
-        window._veloq.post({ type: 'mapReady' });
+        _sendMapReady();
       });
     } catch (e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
+      _sendMapFailed('script error: ' + e.message);
     }
   </script>
 </body>

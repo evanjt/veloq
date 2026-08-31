@@ -8,7 +8,8 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
 
 import type { Insight, SectionRankingScores } from '../types';
-import { generateInsights } from './generateInsights';
+import { generateInsights, recordConsolidation } from './generateInsights';
+import type { ConsolidationDrop } from './generateInsights';
 import { buildInsightsParams } from './insightsParams';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -104,18 +105,32 @@ function getInsightSectionIds(insight: Insight): string[] {
 }
 
 export function consolidateInsights(insights: Insight[]): Insight[] {
-  if (insights.length <= 1) return insights;
+  if (insights.length <= 1) {
+    recordConsolidation(insights, []);
+    return insights;
+  }
 
-  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  // Every section a PR card covers, collected before anything is kept. Read
+  // in one pass, the drop below fired only when the PR happened to come first,
+  // which held because `section_pr` outranked `stale_pr` by priority and this
+  // function used to sort by priority. It arrives in score order now.
+  const prSectionIds = new Set<string>();
+  for (const insight of insights) {
+    if (insight.category === 'section_pr') {
+      getInsightSectionIds(insight).forEach((sectionId) => prSectionIds.add(sectionId));
+    }
+  }
 
   const kept: Insight[] = [];
-  const dropped: { id: string; category: string; reason: string }[] = [];
-  const seenSectionIds = new Set<string>();
+  const dropped: ConsolidationDrop[] = [];
+  // Grows as stories are kept, so two stories about one section still collapse
+  // to the first. That one is order-dependent on purpose: the order is the
+  // score order, so the stronger card is the one that stays.
+  const seenSectionIds = new Set<string>(prSectionIds);
   let keptSectionStories = 0;
 
-  for (const insight of sorted) {
+  for (const insight of insights) {
     if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
       kept.push(insight);
       continue;
     }
@@ -123,8 +138,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
         });
         continue;
@@ -133,8 +147,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
       const sectionIds = getInsightSectionIds(insight);
       if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: 'duplicate section (already covered by PR insight)',
         });
         continue;
@@ -149,10 +162,12 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     kept.push(insight);
   }
 
+  recordConsolidation(kept, dropped);
+
   if (__DEV__ && dropped.length > 0) {
     console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.category}/${d.id} - ${d.reason}`);
+      console.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
     }
   }
 

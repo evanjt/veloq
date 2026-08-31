@@ -62,6 +62,9 @@ pub mod fit;
 // Raster tile generation for activity heatmaps
 pub mod tiles;
 
+// The Rust-owned basemap tile store: one z/x/y tree per source on disk
+pub mod basemap;
+
 /// Fixtures for the process-wide engine, detection handle and suspension
 /// counter. They live at the crate root because tests in several modules race
 /// the same globals and have to take the same lock to stay honest.

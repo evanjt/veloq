@@ -28,6 +28,19 @@ export {
   type AccountChangeKind,
 } from './lib/accountChange';
 
-export { useApiKeyLogin, useOAuthLogin, useBackupRestore, type DetectedBackup } from './hooks';
+export {
+  useApiKeyLogin,
+  useOAuthLogin,
+  useBackupRestore,
+  useSessionExpiryNotice,
+  type DetectedBackup,
+  type SessionExpiryNotice,
+} from './hooks';
 
-export { LanguagePicker, OAuthLoginForm, ApiKeyLoginForm, BackupRestoreBanner } from './components';
+export {
+  LanguagePicker,
+  OAuthLoginForm,
+  ApiKeyLoginForm,
+  BackupRestoreBanner,
+  SessionExpiredNotice,
+} from './components';

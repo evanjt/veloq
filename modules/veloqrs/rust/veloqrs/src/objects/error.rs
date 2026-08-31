@@ -12,6 +12,8 @@ pub enum VeloqError {
     ParseError { msg: String },
     #[error("Reference activity: {msg}")]
     ReferenceActivity { msg: String },
+    #[error("Basemap tile store: {msg}")]
+    TileStore { msg: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.

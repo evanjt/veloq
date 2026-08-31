@@ -85,6 +85,11 @@ const uniffiIsDebug =
  *
  * Used for illustrations and previews. Takes JSON-encoded inputs and returns
  * JSON-encoded FrequentSection array.
+ *
+ * Untimed, unlike the real detect and the section preview, which both read
+ * the stored streams. Its only caller draws the synthetic detection
+ * illustration in settings, whose traces carry neither elevation nor time,
+ * so the lift veto takes its early exit whatever is passed here.
  */
 export function detectSectionsStandalone(
   tracksJson: string,
@@ -9110,6 +9115,7 @@ export enum VeloqError_Tags {
   NotFound = "NotFound",
   ParseError = "ParseError",
   ReferenceActivity = "ReferenceActivity",
+  TileStore = "TileStore",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -9314,6 +9320,41 @@ export const VeloqError = (() => {
     }
   }
 
+  type TileStore__interface = {
+    tag: VeloqError_Tags.TileStore;
+    inner: Readonly<{ msg: string }>;
+  };
+
+  class TileStore_ extends UniffiError implements TileStore__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.TileStore;
+    readonly inner: Readonly<{ msg: string }>;
+    constructor(inner: { msg: string }) {
+      super("VeloqError", "TileStore");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { msg: string }): TileStore_ {
+      return new TileStore_(inner);
+    }
+
+    static instanceOf(obj: any): obj is TileStore_ {
+      return obj.tag === VeloqError_Tags.TileStore;
+    }
+
+    static hasInner(obj: any): obj is TileStore_ {
+      return TileStore_.instanceOf(obj);
+    }
+
+    static getInner(obj: TileStore_): Readonly<{ msg: string }> {
+      return obj.inner;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -9326,6 +9367,7 @@ export const VeloqError = (() => {
     NotFound: NotFound_,
     ParseError: ParseError_,
     ReferenceActivity: ReferenceActivity_,
+    TileStore: TileStore_,
   });
 })();
 
@@ -9358,6 +9400,10 @@ const FfiConverterTypeVeloqError = (() => {
           });
         case 6:
           return new VeloqError.ReferenceActivity({
+            msg: FfiConverterString.read(from),
+          });
+        case 7:
+          return new VeloqError.TileStore({
             msg: FfiConverterString.read(from),
           });
         default:
@@ -9398,6 +9444,12 @@ const FfiConverterTypeVeloqError = (() => {
           FfiConverterString.write(inner.msg, into);
           return;
         }
+        case VeloqError_Tags.TileStore: {
+          ordinalConverter.write(7, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.msg, into);
+          return;
+        }
         default:
           // Throwing from here means that VeloqError_Tags hasn't matched an ordinal.
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -9432,6 +9484,12 @@ const FfiConverterTypeVeloqError = (() => {
         case VeloqError_Tags.ReferenceActivity: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(6);
+          size += FfiConverterString.allocationSize(inner.msg);
+          return size;
+        }
+        case VeloqError_Tags.TileStore: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(7);
           size += FfiConverterString.allocationSize(inner.msg);
           return size;
         }
@@ -9476,8 +9534,8 @@ export interface ActivityManagerLike {
    * indicator highlights, this activity's portion of each section it
    * traverses, and the sections where it holds the record.
    *
-   * `min_route_activities` filters the returned route groups the same way
-   * the screen used to filter them after the fact.
+   * `min_route_activities` filters the returned route groups here, so the
+   * screen does not filter them after the fact.
    */
   getDetailData(
     activityId: string,
@@ -9664,8 +9722,8 @@ export class ActivityManager
    * indicator highlights, this activity's portion of each section it
    * traverses, and the sections where it holds the record.
    *
-   * `min_route_activities` filters the returned route groups the same way
-   * the screen used to filter them after the fact.
+   * `min_route_activities` filters the returned route groups here, so the
+   * screen does not filter them after the fact.
    */
   getDetailData(
     activityId: string,
@@ -10049,6 +10107,370 @@ const FfiConverterTypeActivityManager = new FfiConverterObject(
   uniffiTypeActivityManagerObjectFactory,
 );
 
+/**
+ * The basemap tile store's FFI surface.
+ *
+ * Everything here answers from the filesystem, so none of it needs a live
+ * WebView, a network or the engine lock. The directory itself is the caller's
+ * to choose: a basemap tile cannot be redrawn from local data, so it must not
+ * be handed a path the OS purges.
+ */
+export interface BasemapManagerLike {
+  /**
+   * Drop every tile of one source.
+   */
+  clearSourceTiles(source: string) /*throws*/ : /*u32*/ number;
+  /**
+   * Drop every basemap tile, pinned pre-seed included.
+   */
+  clearTiles() /*throws*/ : /*u32*/ number;
+  /**
+   * Bring one source under a byte budget, least recently read first and the
+   * pinned pre-seed last.
+   */
+  evictTo(
+    source: string,
+    budgetBytes: /*u64*/ bigint,
+  ) /*throws*/ : /*u32*/ number;
+  /**
+   * Total bytes across every source, answered without a WebView.
+   */
+  getCacheSize(): /*u64*/ bigint;
+  /**
+   * Bytes held for one source.
+   */
+  getSourceSize(source: string): /*u64*/ bigint;
+  /**
+   * One tile's bytes, or none. A hit moves the tile to the back of the
+   * eviction queue.
+   */
+  getTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+  ): ArrayBuffer | undefined;
+  /**
+   * Store one tile. `pinned` marks the pre-seeded offline base, which
+   * eviction takes last.
+   */
+  putTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+    ext: string,
+    bytes: ArrayBuffer,
+    pinned: boolean,
+  ) /*throws*/ : void;
+  /**
+   * Set the filesystem path for the basemap tile tree. Called once at
+   * engine init from JS, the way `setTilesPath` hands over the heatmap path.
+   */
+  setPath(path: string): void;
+}
+/**
+ * @deprecated Use `BasemapManagerLike` instead.
+ */
+export type BasemapManagerInterface = BasemapManagerLike;
+
+/**
+ * The basemap tile store's FFI surface.
+ *
+ * Everything here answers from the filesystem, so none of it needs a live
+ * WebView, a network or the engine lock. The directory itself is the caller's
+ * to choose: a basemap tile cannot be redrawn from local data, so it must not
+ * be handed a path the OS purges.
+ */
+export class BasemapManager
+  extends UniffiAbstractObject
+  implements BasemapManagerLike
+{
+  readonly [uniffiTypeNameSymbol] = "BasemapManager";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeBasemapManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Drop every tile of one source.
+   */
+  clearSourceTiles(source: string): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(source),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Drop every basemap tile, pinned pre-seed included.
+   */
+  clearTiles(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Bring one source under a byte budget, least recently read first and the
+   * pinned pre-seed last.
+   */
+  evictTo(
+    source: string,
+    budgetBytes: /*u64*/ bigint,
+  ): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(source),
+            FfiConverterUInt64.lower(budgetBytes),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Total bytes across every source, answered without a WebView.
+   */
+  getCacheSize(): /*u64*/ bigint {
+    return FfiConverterUInt64.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Bytes held for one source.
+   */
+  getSourceSize(source: string): /*u64*/ bigint {
+    return FfiConverterUInt64.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(source),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * One tile's bytes, or none. A hit moves the tile to the back of the
+   * eviction queue.
+   */
+  getTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+  ): ArrayBuffer | undefined {
+    return FfiConverterOptionalArrayBuffer.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(source),
+            FfiConverterUInt8.lower(z),
+            FfiConverterUInt32.lower(x),
+            FfiConverterUInt32.lower(y),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Store one tile. `pinned` marks the pre-seeded offline base, which
+   * eviction takes last.
+   */
+  putTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+    ext: string,
+    bytes: ArrayBuffer,
+    pinned: boolean,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(source),
+          FfiConverterUInt8.lower(z),
+          FfiConverterUInt32.lower(x),
+          FfiConverterUInt32.lower(y),
+          FfiConverterString.lower(ext),
+          FfiConverterArrayBuffer.lower(bytes),
+          FfiConverterBool.lower(pinned),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Set the filesystem path for the basemap tile tree. Called once at
+   * engine init from JS, the way `setTilesPath` hands over the heatmap path.
+   */
+  setPath(path: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
+          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeBasemapManagerObjectFactory.pointer(this);
+      uniffiTypeBasemapManagerObjectFactory.freePointer(pointer);
+      uniffiTypeBasemapManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is BasemapManager {
+    return uniffiTypeBasemapManagerObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeBasemapManagerObjectFactory: UniffiObjectFactory<BasemapManagerLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): BasemapManagerLike {
+        const instance = Object.create(BasemapManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "BasemapManager";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: BasemapManagerLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: BasemapManagerLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_basemapmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_basemapmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is BasemapManagerLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "BasemapManager"
+        );
+      },
+    };
+  })();
+// FfiConverter for BasemapManagerLike
+const FfiConverterTypeBasemapManager = new FfiConverterObject(
+  uniffiTypeBasemapManagerObjectFactory,
+);
+
 export interface DetectionManagerLike {
   /**
    * Force full re-detection by clearing processed activity IDs first.
@@ -10377,8 +10799,8 @@ export interface FitnessManagerLike {
   ) /*throws*/ : Array<string>;
   /**
    * Batch insights data: combines period stats, trends, patterns, recent PRs
-   * and the section and strength tail the pipeline used to fetch one call at
-   * a time. Reduces the Insights hook to a single round-trip.
+   * and the section and strength tail. Reduces the Insights hook to a single
+   * round-trip.
    */
   getInsightsData(params: FfiInsightsParams) /*throws*/ : FfiInsightsData;
   /**
@@ -10672,8 +11094,8 @@ export class FitnessManager
 
   /**
    * Batch insights data: combines period stats, trends, patterns, recent PRs
-   * and the section and strength tail the pipeline used to fetch one call at
-   * a time. Reduces the Insights hook to a single round-trip.
+   * and the section and strength tail. Reduces the Insights hook to a single
+   * round-trip.
    */
   getInsightsData(params: FfiInsightsParams): FfiInsightsData /*throws*/ {
     return FfiConverterTypeFfiInsightsData.lift(
@@ -12110,7 +12532,7 @@ export interface SectionManagerLike {
   /**
    * Read pre-computed indicators for a batch of activity IDs.
    * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialized `activity_indicators` table.
+   * from the materialised `activity_indicators` table.
    */
   getActivityIndicators(
     activityIds: Array<string>,
@@ -12556,7 +12978,7 @@ export class SectionManager
   /**
    * Read pre-computed indicators for a batch of activity IDs.
    * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialized `activity_indicators` table.
+   * from the materialised `activity_indicators` table.
    */
   getActivityIndicators(
     activityIds: Array<string>,
@@ -15580,7 +16002,7 @@ export interface VeloqEngineLike {
   clearRoutesAndSections() /*throws*/ : void;
   /**
    * Drop the persistent engine entirely, closing the SQLite connection.
-   * The next call to `create()` will re-initialize from scratch.
+   * The next call to `create()` will re-initialise from scratch.
    */
   destroy(): void;
   detection(): DetectionManagerLike;
@@ -15755,7 +16177,7 @@ export class VeloqEngine
 
   /**
    * Drop the persistent engine entirely, closing the SQLite connection.
-   * The next call to `create()` will re-initialize from scratch.
+   * The next call to `create()` will re-initialise from scratch.
    */
   destroy(): void {
     uniffiCaller.rustCall(
@@ -16103,6 +16525,11 @@ const FfiConverterTypeVeloqEngine = new FfiConverterObject(
 
 // FfiConverter for boolean | undefined
 const FfiConverterOptionalBool = new FfiConverterOptional(FfiConverterBool);
+
+// FfiConverter for ArrayBuffer | undefined
+const FfiConverterOptionalArrayBuffer = new FfiConverterOptional(
+  FfiConverterArrayBuffer,
+);
 
 // FfiConverter for /*f64*/number | undefined
 const FfiConverterOptionalFloat64 = new FfiConverterOptional(
@@ -16542,7 +16969,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone() !==
-    31752
+    65257
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_detect_sections_standalone",
@@ -16694,7 +17121,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data() !==
-    44125
+    47946
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_detail_data",
@@ -16802,6 +17229,70 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles() !==
+    63068
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles() !==
+    53056
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to() !==
+    44266
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_evict_to",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size() !==
+    40845
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size() !==
+    24800
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_get_source_size",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile() !==
+    54110
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_get_tile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile() !==
+    10104
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_put_tile",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path() !==
+    2512
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_set_path",
     );
   }
   if (
@@ -16918,7 +17409,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy() !==
-    35201
+    60067
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_destroy",
@@ -17110,7 +17601,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !==
-    49373
+    8401
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
@@ -17518,7 +18009,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators() !==
-    35910
+    55003
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators",
@@ -18309,6 +18800,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new() !==
+    46809
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_basemapmanager_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new() !==
     63058
   ) {
@@ -18404,6 +18903,7 @@ export default Object.freeze({
     FfiConverterTypeActivityManager,
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
+    FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDetectionManager,
