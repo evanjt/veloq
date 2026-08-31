@@ -6,8 +6,8 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 15 standalone `#[uniffi::export]` functions plus
- * 217 methods inside `#[uniffi::export] impl` blocks across
- * 12 UniFFI Objects.
+ * 226 methods inside `#[uniffi::export] impl` blocks across
+ * 13 UniFFI Objects.
  */
 
 export interface FfiExportInfo {
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 232 exports (15 standalone + 217 methods)
+ * Total: 241 exports (15 standalone + 226 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -140,7 +140,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'detect_sections_standalone',
     camelName: 'detectSectionsStandalone',
     file: 'ffi.rs',
-    line: 652,
+    line: 657,
     paramCount: 3,
     returnType: 'Result<String, crate::VeloqError>',
   },
@@ -314,6 +314,87 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     paramCount: 2,
     returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
     object: 'ActivityManager',
+  },
+  {
+    name: 'new',
+    camelName: 'new',
+    file: 'objects/basemap.rs',
+    line: 19,
+    paramCount: 0,
+    returnType: 'Arc<Self>',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'set_path',
+    camelName: 'setPath',
+    file: 'objects/basemap.rs',
+    line: 25,
+    paramCount: 1,
+    returnType: 'void',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'get_tile',
+    camelName: 'getTile',
+    file: 'objects/basemap.rs',
+    line: 31,
+    paramCount: 4,
+    returnType: 'Option<Vec<u8>>',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'put_tile',
+    camelName: 'putTile',
+    file: 'objects/basemap.rs',
+    line: 37,
+    paramCount: 7,
+    returnType: 'Result<(), VeloqError>',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'get_cache_size',
+    camelName: 'getCacheSize',
+    file: 'objects/basemap.rs',
+    line: 53,
+    paramCount: 0,
+    returnType: 'u64',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'get_source_size',
+    camelName: 'getSourceSize',
+    file: 'objects/basemap.rs',
+    line: 58,
+    paramCount: 1,
+    returnType: 'u64',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'clear_tiles',
+    camelName: 'clearTiles',
+    file: 'objects/basemap.rs',
+    line: 63,
+    paramCount: 0,
+    returnType: 'Result<u32, VeloqError>',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'clear_source_tiles',
+    camelName: 'clearSourceTiles',
+    file: 'objects/basemap.rs',
+    line: 68,
+    paramCount: 1,
+    returnType: 'Result<u32, VeloqError>',
+    object: 'BasemapManager',
+  },
+  {
+    name: 'evict_to',
+    camelName: 'evictTo',
+    file: 'objects/basemap.rs',
+    line: 74,
+    paramCount: 2,
+    returnType: 'Result<u32, VeloqError>',
+    object: 'BasemapManager',
   },
   {
     name: 'new',
@@ -2101,7 +2182,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1774,
+    line: 1775,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2144,6 +2225,15 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'debugClone',
   'getHighlightsBundle',
   'getDetailData',
+  'new',
+  'setPath',
+  'getTile',
+  'putTile',
+  'getCacheSize',
+  'getSourceSize',
+  'clearTiles',
+  'clearSourceTiles',
+  'evictTo',
   'new',
   'start',
   'poll',
@@ -2386,6 +2476,14 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   debug_clone: 'debugClone',
   get_highlights_bundle: 'getHighlightsBundle',
   get_detail_data: 'getDetailData',
+  set_path: 'setPath',
+  get_tile: 'getTile',
+  put_tile: 'putTile',
+  get_cache_size: 'getCacheSize',
+  get_source_size: 'getSourceSize',
+  clear_tiles: 'clearTiles',
+  clear_source_tiles: 'clearSourceTiles',
+  evict_to: 'evictTo',
   start: 'start',
   poll: 'poll',
   get_progress: 'getProgress',
@@ -2550,8 +2648,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   bodies_stored: 'bodiesStored',
   set_tiles_path: 'setTilesPath',
   clear_tiles_path: 'clearTilesPath',
-  clear_tiles: 'clearTiles',
-  get_cache_size: 'getCacheSize',
   compute_polyline_overlap: 'computePolylineOverlap',
 };
 
@@ -2561,6 +2657,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
  */
 export const UNIFFI_OBJECTS = [
   'ActivityManager',
+  'BasemapManager',
   'DetectionManager',
   'VeloqEngine',
   'FitnessManager',
