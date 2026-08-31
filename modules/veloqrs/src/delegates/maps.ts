@@ -5,7 +5,7 @@
  * index. Date inputs are converted to Unix seconds before crossing the FFI.
  */
 
-import type { FfiBounds, FfiMapScreenData, MapActivityComplete } from '../generated/veloqrs';
+import type { FfiMapScreenData } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /**
