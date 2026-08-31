@@ -1,6 +1,7 @@
 import {
   generateInsights,
   formatDurationCompact,
+  getLastInsightOutcome,
   InsightInputData,
 } from '@/features/insights/lib/generateInsights';
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
@@ -1247,5 +1248,82 @@ describe('consolidateInsights', () => {
     ]);
 
     expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
+  });
+
+  // ============================================================
+  // What the debug panel reads
+  //
+  // Scenario: the panel rendered the pipeline's own output, so the one stage
+  // that can answer "why is that card not there" was invisible to it.
+  // Expected behaviour: the pipeline outcome carries the consolidated list in
+  // its final order and every consolidation drop with its reason.
+  // ============================================================
+
+  it('carries the consolidated list and its drops into the pipeline outcome', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    const kept = consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('stale-s2', 'stale_pr', 2, { sectionIds: ['s2'] }),
+    ]);
+
+    const outcome = getLastInsightOutcome();
+    expect(outcome?.consolidated?.map((insight) => insight.id)).toEqual(
+      kept.map((insight) => insight.id)
+    );
+    expect(outcome?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])).toEqual([
+      ['efficiency-s1', 'duplicate section (already covered by PR insight)'],
+    ]);
+  });
+
+  it('records the section story limit as the reason it dropped a card', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('efficiency', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency2', 'efficiency_trend', 1, { sectionIds: ['s2'] }),
+      createInsight('stale', 'stale_pr', 2, { sectionIds: ['s3'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['stale', 'section story limit (max 2)']]);
+  });
+
+  it('records the short-circuited single insight, which drops nothing', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([createInsight('only', 'fitness_milestone', 2)]);
+
+    expect(getLastInsightOutcome()?.consolidated?.map((insight) => insight.id)).toEqual(['only']);
+    expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
+  });
+
+  it('records an empty consolidation rather than leaving the previous run standing', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+    consolidateInsights([
+      createInsight('a', 'fitness_milestone', 2),
+      createInsight('b', 'fitness_milestone', 2),
+    ]);
+    expect(getLastInsightOutcome()?.consolidated).toHaveLength(2);
+
+    consolidateInsights([]);
+
+    expect(getLastInsightOutcome()?.consolidated).toEqual([]);
+  });
+
+  it('a fresh generation clears the consolidated list until consolidation runs again', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+    consolidateInsights([
+      createInsight('a', 'fitness_milestone', 2),
+      createInsight('b', 'fitness_milestone', 2),
+    ]);
+    expect(getLastInsightOutcome()?.consolidated).not.toBeNull();
+
+    generateInsights(EMPTY_INPUT, mockT);
+
+    expect(getLastInsightOutcome()?.consolidated).toBeNull();
+    expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
   });
 });

@@ -88,6 +88,19 @@ export interface PipelineOutcome {
   rejected: { insight: Insight; reason: GateReason }[];
   scored: ScoredInsight[];
   capDropped: DropRecord[];
+  /**
+   * What the screen actually renders, in the order it renders it.
+   * `kept` is the pipeline's output, and consolidation runs after it: it drops
+   * on the section story cap and the duplicate-section rule, and reorders what
+   * is left. Null until consolidation has run for this generation.
+   */
+  consolidated: Insight[] | null;
+  consolidationDropped: ConsolidationDrop[];
+}
+
+export interface ConsolidationDrop {
+  insight: Insight;
+  reason: string;
 }
 
 /**
@@ -99,6 +112,17 @@ let _lastOutcome: PipelineOutcome | null = null;
 
 export function getLastInsightOutcome(): PipelineOutcome | null {
   return _lastOutcome;
+}
+
+/**
+ * Record what consolidation did to the pipeline's output. Called by
+ * `consolidateInsights`, which runs downstream of generation, so the debug
+ * panel sees the list the screen shows rather than the one the pipeline
+ * handed on.
+ */
+export function recordConsolidation(kept: Insight[], dropped: ConsolidationDrop[]): void {
+  if (!_lastOutcome) return;
+  _lastOutcome = { ..._lastOutcome, consolidated: kept, consolidationDropped: dropped };
 }
 
 function logInsightGeneration(outcome: PipelineOutcome): void {
@@ -260,7 +284,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // 4. Diversity + surface cap (D9, D10)
   const { kept, dropped: capDropped } = applyMixAndCap(scored);
 
-  const outcome: PipelineOutcome = { kept, rejected, scored, capDropped };
+  const outcome: PipelineOutcome = {
+    kept,
+    rejected,
+    scored,
+    capDropped,
+    consolidated: null,
+    consolidationDropped: [],
+  };
   _lastOutcome = outcome;
   logInsightGeneration(outcome);
 

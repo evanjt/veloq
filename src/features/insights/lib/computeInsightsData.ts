@@ -8,7 +8,8 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
 
 import type { Insight, SectionRankingScores } from '../types';
-import { generateInsights } from './generateInsights';
+import { generateInsights, recordConsolidation } from './generateInsights';
+import type { ConsolidationDrop } from './generateInsights';
 import { buildInsightsParams } from './insightsParams';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -104,12 +105,15 @@ function getInsightSectionIds(insight: Insight): string[] {
 }
 
 export function consolidateInsights(insights: Insight[]): Insight[] {
-  if (insights.length <= 1) return insights;
+  if (insights.length <= 1) {
+    recordConsolidation(insights, []);
+    return insights;
+  }
 
   const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   const kept: Insight[] = [];
-  const dropped: { id: string; category: string; reason: string }[] = [];
+  const dropped: ConsolidationDrop[] = [];
   const seenSectionIds = new Set<string>();
   let keptSectionStories = 0;
 
@@ -123,8 +127,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
         });
         continue;
@@ -133,8 +136,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
       const sectionIds = getInsightSectionIds(insight);
       if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: 'duplicate section (already covered by PR insight)',
         });
         continue;
@@ -149,10 +151,12 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     kept.push(insight);
   }
 
+  recordConsolidation(kept, dropped);
+
   if (__DEV__ && dropped.length > 0) {
     console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.category}/${d.id} - ${d.reason}`);
+      console.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
     }
   }
 
