@@ -570,13 +570,18 @@ impl PersistentEngine {
         // COMPETITION NOTE. A prior mid re-cut debounce competes in
         // `plan_identity` on the batch geometry it is re-cutting TO (its
         // pending target), not its frozen footprint: the FOLD-level fix the
-        // [`MERGE_MUTUAL_FLOOR`] note points at. Residual exposure, verified
-        // and deliberately open: the FIRST divergent step competes on the held
-        // footprint (the pending target only exists from the following step),
-        // a dissolve-pending prior competes on its stale ground and a foreign
-        // capture resets its dissolve streak, and a marginal one-sided senior
-        // capture needs no debounce at all, the merge floor is that clause's
-        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
+        // [`MERGE_MUTUAL_FLOOR`] note points at. Two residual exposures, each
+        // re-checked against the pure layer on 2026-08-31. STILL OPEN: the
+        // FIRST divergent step competes on the held footprint, because a target
+        // is only written after the plan it would have fed, and a
+        // dissolve-pending prior with no re-cut behind it carries no target at
+        // all, so it competes on its stale ground. ACCEPTED: a marginal
+        // one-sided senior capture needs no debounce, the merge floor is its
+        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]). The
+        // streaks are NOT an exposure. Since the two-streak ledger, a re-cut
+        // debounce carries the dissolve streak through and a dissolve debounce
+        // carries the re-cut streak through, so no capture erases the absence
+        // evidence a rotation accumulated.
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
         let (out, resolutions) = identity.hysteresis.step_assign(&candidates);
