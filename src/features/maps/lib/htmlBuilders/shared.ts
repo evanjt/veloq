@@ -99,21 +99,37 @@ export function tileProtocolsScript(): string {
 
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
     var terrainHits = 0, terrainMisses = 0;
-    maplibregl.addProtocol('cached-terrain', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
+
+    // One path for the protocol handler and the zoom prefetch alike. A prefetch
+    // that fetches the tile any other way warms the platform HTTP cache, which
+    // no budget bounds and no handler reads.
+    function terrainTile(realUrl) {
       return caches.open(TERRAIN_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
           if (cached) {
             terrainHits++;
-            return cached.blob().then(demBlobToImage);
+            return cached;
           }
           terrainMisses++;
           return fetch(realUrl).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
-            return r.blob().then(demBlobToImage);
+            return r;
           });
         });
+      });
+    }
+
+    window._prefetchTerrainTile = function(realUrl) {
+      return terrainTile(realUrl).catch(function(err) {
+        window._rn_log('terrain prefetch failed: ' + err.message);
+      });
+    };
+
+    maplibregl.addProtocol('cached-terrain', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
+      return terrainTile(realUrl).then(function(r) {
+        return r.blob().then(demBlobToImage);
       }).catch(function(err) {
         window._rn_log('terrain protocol error: ' + err.message);
         throw err;

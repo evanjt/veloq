@@ -557,8 +557,9 @@ ${tileProtocolsScript()}
         }
       }, 4000);
 
-      // Preload adjacent DEM zoom levels after map settles - populates Cache API
-      // so zoom in/out has instant terrain. Uses cached-terrain:// protocol.
+      // Preload adjacent DEM zoom levels after map settles, through the same
+      // cache the cached-terrain protocol reads, so zoom in/out has terrain to
+      // hand and the bytes stay inside the eviction budget.
       map.once('idle', function() {
         setTimeout(function() {
           var z = Math.floor(map.getZoom());
@@ -572,7 +573,7 @@ ${tileProtocolsScript()}
             var yMax = lat2tile(b.getSouth(), zl);
             for (var x = xMin; x <= xMax; x++) {
               for (var y = yMin; y <= yMax; y++) {
-                new Image().src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png';
+                window._prefetchTerrainTile('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png');
               }
             }
           });
