@@ -246,10 +246,12 @@ impl PersistentEngine {
     /// How many tracks the backfill still has to ask about. Zero means a pass
     /// has nothing left to do, which is not the same as the library reading
     /// uniformly elevated.
-    pub fn elevation_backfill_remaining(&self) -> u64 {
-        self.tracks_missing_elevation()
-            .map(|q| q.len() as u64)
-            .unwrap_or(0)
+    ///
+    /// The query error is propagated rather than counted as zero. Both launch
+    /// triggers treat a zero as the definitive "nothing left", one of them by
+    /// stamping the app version, and a locked database at launch is ordinary.
+    pub fn elevation_backfill_remaining(&self) -> SqlResult<u64> {
+        self.tracks_missing_elevation().map(|q| q.len() as u64)
     }
 
     /// One track's elevation provenance, or `None` when no track is stored.
@@ -394,20 +396,24 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
         None => {}
     }
 
+    // An unreadable count is not a drained one: a pass that cannot see its own
+    // queue ends partial, so the next launch asks again rather than the run
+    // claiming a library it never checked.
     let (remaining, fetched) = with_persistent_engine(|engine| {
-        let remaining = engine.elevation_backfill_remaining();
+        let remaining = engine.elevation_backfill_remaining().ok();
         let fetched = engine
             .elevation_state_counts()
             .map(|c| c.fetched)
             .unwrap_or(0);
         (remaining, fetched)
     })
-    .unwrap_or((0, 0));
+    .unwrap_or((None, 0));
+    let drained = remaining == Some(0);
 
     // The terminal phase lands before the guard releases, so there is no
     // window in which the phase still reads "fetching" while detection has
     // already resumed.
-    set_phase(if remaining == 0 {
+    set_phase(if drained {
         BACKFILL_PHASE_COMPLETE
     } else {
         BACKFILL_PHASE_PARTIAL
@@ -419,7 +425,7 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
     // before its cut, and this pass has to make good on that even when
     // everything it asked about itself turned out unavailable. The guard is
     // still held here, so nothing else can claim the detection slot first.
-    if remaining == 0 && outcome.queued > 0 && fetched > 0 && terminal_cut() {
+    if drained && outcome.queued > 0 && fetched > 0 && terminal_cut() {
         outcome.detects_started = 1;
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
@@ -428,7 +434,7 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
         outcome.elevated,
         outcome.unavailable,
         outcome.failed,
-        remaining
+        remaining.map_or_else(|| "an unreadable number of".to_string(), |n| n.to_string())
     );
 
     BackfillRun::Finished(outcome)
@@ -681,9 +687,10 @@ fn start_final_detect() -> bool {
 /// or when the queue is already empty, so a caller can fire this at every
 /// launch and let it decide.
 pub fn start_elevation_backfill() -> bool {
-    let remaining =
-        with_persistent_engine(|engine| engine.elevation_backfill_remaining()).unwrap_or(0);
-    if remaining == 0 {
+    // A queue that cannot be read is not an empty one, but it is also not a
+    // queue a run could work, so this declines and the next launch asks again.
+    let remaining = with_persistent_engine(|engine| engine.elevation_backfill_remaining());
+    if !matches!(remaining, Some(Ok(n)) if n > 0) {
         return false;
     }
     if BACKFILL.running.load(Ordering::SeqCst) {
@@ -707,6 +714,7 @@ mod tests {
     use crate::test_globals::{
         clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
     };
+    use tempfile::TempDir;
 
     /// Scenario: the backfill's final re-cut is normally the only arm running,
     /// but nothing in the function itself enforces that. Several starting
@@ -835,5 +843,77 @@ mod tests {
             ..ParsedStreams::default()
         };
         assert!(matches!(reduce(parsed), Fetched::NoAltitude));
+    }
+
+    /// Scenario: the launch triggers read the remaining count as the one
+    /// definitive answer. `elevationBackfillTrigger` stamps the app version on
+    /// a zero and never asks again for that release, and `cutoverTrigger`
+    /// reads a zero as permission to cut a library over.
+    ///
+    /// Expected behaviour: an engine that is not there cannot answer, so the
+    /// export raises rather than reporting a finished library.
+    #[test]
+    fn an_engineless_remaining_call_raises_rather_than_reading_zero() {
+        let _serial = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        assert!(matches!(
+            crate::ffi::get_elevation_backfill_remaining(),
+            Err(crate::VeloqError::NotInitialized)
+        ));
+    }
+
+    /// A busy or locked database is exactly what launch looks like, since a
+    /// sync may hold the write lock, so the query failing has to be
+    /// distinguishable from a drained queue.
+    #[test]
+    fn a_failing_queue_query_is_an_error_rather_than_zero() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("broken.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        engine
+            .db
+            .execute("DROP TABLE activities", [])
+            .expect("the join's table goes away");
+
+        assert!(engine.elevation_backfill_remaining().is_err());
+    }
+
+    /// The same failure seen through the export, which is what the delegate's
+    /// catch turns into the null both triggers already handle.
+    #[test]
+    fn a_failing_queue_query_raises_through_the_export() {
+        let _serial = serial_global_state();
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("broken.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+        engine
+            .db
+            .execute("DROP TABLE activities", [])
+            .expect("the join's table goes away");
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = Some(engine);
+
+        let answer = crate::ffi::get_elevation_backfill_remaining();
+
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        assert!(matches!(answer, Err(crate::VeloqError::Database { .. })));
+    }
+
+    /// A drained queue still has to read as drained, or the backfill would
+    /// retry for ever and the cutover would never fire.
+    #[test]
+    fn a_drained_queue_still_reads_as_zero() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("empty.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
+
+        assert_eq!(engine.elevation_backfill_remaining().ok(), Some(0));
     }
 }
