@@ -1399,6 +1399,8 @@ export interface TranslationResource {
     zoomToActivity: string;
     closePopup: string;
     closeSectionPopup: string;
+    unavailableTitle: string;
+    unavailableHint: string;
     viewDetails: string;
     viewSectionDetails: string;
     allClear: string;
