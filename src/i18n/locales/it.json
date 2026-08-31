@@ -662,6 +662,8 @@
     "expandRange": "Estendi intervallo"
   },
   "maps": {
+    "unavailableTitle": "Mappa non disponibile",
+    "unavailableHint": "Impossibile caricare la mappa. Controlla la connessione e riaprila.",
     "activitiesCount": "{{count}} attività",
     "activityTypes": {
       "gym": "Palestra",

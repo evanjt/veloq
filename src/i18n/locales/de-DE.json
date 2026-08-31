@@ -662,6 +662,8 @@
     "expandRange": "Bereich erweitern"
   },
   "maps": {
+    "unavailableTitle": "Karte nicht verfügbar",
+    "unavailableHint": "Die Karte konnte nicht geladen werden. Prüfe deine Verbindung und öffne sie erneut.",
     "activitiesCount": "{{count}} Aktivitäten",
     "activityTypes": {
       "gym": "Fitnessstudio",

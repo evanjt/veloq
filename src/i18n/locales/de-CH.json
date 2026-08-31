@@ -662,6 +662,8 @@
     "expandRange": "Bereich erwiitere"
   },
   "maps": {
+    "unavailableTitle": "Charte gaht nöd",
+    "unavailableHint": "D Charte hät nöd chöne lade. Lueg dini Verbindig aa und probiers nomol.",
     "activitiesCount": "{{count}} Aktivitäte",
     "activityTypes": {
       "gym": "Fitnessbuude",

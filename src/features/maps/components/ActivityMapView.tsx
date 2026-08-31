@@ -48,6 +48,9 @@ import {
 import { styles } from './ActivityMapView.styles';
 const OVERLAY_IMAGES = [TROPHY_ICON];
 
+/** The 2D layer, held transparent until the surface reports one way or the other. */
+export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
+
 /** Section overlay for map visualization */
 export interface SectionOverlay {
   /** Unique section ID */
@@ -213,12 +216,14 @@ export const ActivityMapView = memo(function ActivityMapView({
   const {
     surfaceRef,
     mapReady,
+    mapFailed,
     bounds,
     currentCenterRef,
     currentZoomRef,
     bearingAnim,
     locationLoading,
     handleMapReady,
+    handleMapFailed,
     handleRegionIsChanging,
     handleRegionDidChange: handleCameraRegionDidChange,
     resetOrientation,
@@ -622,7 +627,10 @@ export const ActivityMapView = memo(function ActivityMapView({
             isFullscreen && styles.hiddenLayer,
           ]}
         >
-          <View style={[styles.map, { opacity: mapReady ? 1 : 0 }]}>
+          <View
+            style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
+            testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
+          >
             <MapSurface
               ref={surfaceRef}
               mapStyle={mapStyle}
@@ -632,6 +640,7 @@ export const ActivityMapView = memo(function ActivityMapView({
               images={OVERLAY_IMAGES}
               interactiveLayers={SECTION_MARKER_LAYER_IDS}
               onMapReady={handleMapReady}
+              onMapFailed={handleMapFailed}
               onPress={handleSurfacePress}
               onRegionIsChanging={handleRegionIsChanging}
               onRegionDidChange={handleRegionDidChange}

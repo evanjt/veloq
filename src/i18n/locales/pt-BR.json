@@ -662,6 +662,8 @@
     "expandRange": "Expandir intervalo"
   },
   "maps": {
+    "unavailableTitle": "Mapa indisponível",
+    "unavailableHint": "Não foi possível carregar o mapa. Verifique sua conexão e abra novamente.",
     "activitiesCount": "{{count}} atividades",
     "activityTypes": {
       "gym": "Academia",

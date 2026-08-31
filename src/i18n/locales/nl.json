@@ -662,6 +662,8 @@
     "expandRange": "Bereik uitbreiden"
   },
   "maps": {
+    "unavailableTitle": "Kaart niet beschikbaar",
+    "unavailableHint": "De kaart kon niet laden. Controleer je verbinding en open hem opnieuw.",
     "activitiesCount": "{{count}} activiteiten",
     "activityTypes": {
       "gym": "Sportschool",

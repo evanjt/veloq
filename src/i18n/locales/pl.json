@@ -664,6 +664,8 @@
     "expandRange": "Rozszerz zakres"
   },
   "maps": {
+    "unavailableTitle": "Mapa niedostępna",
+    "unavailableHint": "Nie udało się wczytać mapy. Sprawdź połączenie i otwórz ją ponownie.",
     "activitiesCount": "{{count}} aktywności",
     "activityTypes": {
       "gym": "Siłownia",

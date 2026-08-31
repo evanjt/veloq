@@ -662,6 +662,8 @@
     "expandRange": "扩展范围"
   },
   "maps": {
+    "unavailableTitle": "地图不可用",
+    "unavailableHint": "地图加载失败。请检查网络连接后重新打开。",
     "activitiesCount": "{{count}} 个活动",
     "activityTypes": {
       "gym": "健身房",

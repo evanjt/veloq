@@ -662,6 +662,8 @@
     "expandRange": "Ampliar rango"
   },
   "maps": {
+    "unavailableTitle": "Mapa no disponible",
+    "unavailableHint": "No se ha podido cargar el mapa. Revisa tu conexión y ábrelo de nuevo.",
     "activitiesCount": "{{count}} actividades",
     "activityTypes": {
       "gym": "Gimnasio",
