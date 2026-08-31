@@ -648,6 +648,11 @@ pub fn get_cutover_diff() -> Option<String> {
 ///
 /// Used for illustrations and previews. Takes JSON-encoded inputs and returns
 /// JSON-encoded FrequentSection array.
+///
+/// Untimed, unlike the real detect and the section preview, which both read
+/// the stored streams. Its only caller draws the synthetic detection
+/// illustration in settings, whose traces carry neither elevation nor time,
+/// so the lift veto takes its early exit whatever is passed here.
 #[uniffi::export]
 pub fn detect_sections_standalone(
     tracks_json: String,
