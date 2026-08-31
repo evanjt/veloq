@@ -151,6 +151,32 @@ void uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
     RustBuffer offsets, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
     /*handle*/ uint64_t ptr, RustBuffer rows, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_basemapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_basemapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_basemapmanager_new(
+    RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+    /*handle*/ uint64_t ptr, RustBuffer source, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+    /*handle*/ uint64_t ptr, RustBuffer source, uint64_t budget_bytes,
+    RustCallStatus *uniffi_out_err);
+uint64_t uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+uint64_t uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+    /*handle*/ uint64_t ptr, RustBuffer source, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+    /*handle*/ uint64_t ptr, RustBuffer source, uint8_t z, uint32_t x,
+    uint32_t y, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+    /*handle*/ uint64_t ptr, RustBuffer source, uint8_t z, uint32_t x,
+    uint32_t y, RustBuffer ext, RustBuffer bytes, int8_t pinned,
+    RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_basemapmanager_set_path(
+    /*handle*/ uint64_t ptr, RustBuffer path, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_detectionmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_detectionmanager(
@@ -909,6 +935,14 @@ uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_metrics();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_time_streams();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_evict_to();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_get_source_size();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_get_tile();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_put_tile();
+uint16_t uniffi_veloqrs_checksum_method_basemapmanager_set_path();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_force_redetect();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_get_config();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness();
@@ -1124,6 +1158,7 @@ uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_poll();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 uint16_t uniffi_veloqrs_checksum_constructor_activitymanager_new();
+uint16_t uniffi_veloqrs_checksum_constructor_basemapmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_detectionmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_veloqengine_create();
 uint16_t uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
@@ -2703,6 +2738,133 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_clone_basemapmanager"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_clone_basemapmanager"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_clone_basemapmanager(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_free_basemapmanager"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_free_basemapmanager"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_free_basemapmanager(rt, thisVal,
+                                                                   args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_constructor_basemapmanager_new"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_constructor_basemapmanager_new(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "basemapmanager_clear_source_tiles"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_evict_to"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile"),
+          5,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile"),
+          8,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_basemapmanager_set_path(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_detectionmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6416,6 +6578,107 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_"
+        "tiles"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "basemapmanager_clear_source_tiles"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_evict_to(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "basemapmanager_get_cache_size"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "basemapmanager_get_source_size"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_tile(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_basemapmanager_set_path(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8694,6 +8957,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_constructor_activitymanager_new(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_constructor_basemapmanager_new(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_constructor_detectionmanager_new"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8854,6 +9130,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_method_"
+                                        "basemapmanager_ffi__bless_pointer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer"] =
@@ -9066,6 +9354,21 @@ NativeVeloqrs::cpp_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
   auto static destructor = [](uint64_t p) {
     RustCallStatus status = {0};
     uniffi_veloqrs_fn_free_activitymanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_basemapmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_basemapmanager(p, &status);
   };
   auto ptrObj =
       std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
@@ -9571,6 +9874,178 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_basemapmanager(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_clone_basemapmanager(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_basemapmanager(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_free_basemapmanager(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_basemapmanager_new(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_constructor_basemapmanager_new(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_clear_tiles(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_evict_to(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_basemapmanager_get_tile(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<uint8_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_basemapmanager_put_tile(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<uint8_t>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[5]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[6]),
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[7]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_basemapmanager_set_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_basemapmanager_set_path(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
@@ -14050,6 +14525,71 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_evict_to(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_evict_to();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_get_source_size();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_get_tile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_get_tile();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_put_tile();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_basemapmanager_set_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_basemapmanager_set_path();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -15631,6 +16171,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_activitymanager_new(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_constructor_activitymanager_new();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_basemapmanager_new(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_constructor_basemapmanager_new();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

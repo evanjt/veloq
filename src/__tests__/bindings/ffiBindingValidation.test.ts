@@ -85,6 +85,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   DetectionManager: 'detection.rs',
   StrengthManager: 'strength.rs',
   HeatmapManager: 'tiles.rs',
+  BasemapManager: 'basemap.rs',
   SyncManager: 'sync.rs',
   SectionPreview: 'preview.rs',
 };
