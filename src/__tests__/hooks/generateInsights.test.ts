@@ -1233,7 +1233,9 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'stale-s2']);
   });
 
-  it('keeps only the two strongest non-PR section stories', () => {
+  // The two strongest, and strongest now means first: the list arrives in
+  // score order rather than priority order.
+  it('keeps only the first two non-PR section stories', () => {
     const result = consolidateInsights([
       createInsight('stale', 'stale_pr', 2, {
         sectionIds: ['s2'],
@@ -1247,7 +1249,92 @@ describe('consolidateInsights', () => {
       createInsight('fitness', 'fitness_milestone', 2),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
+    expect(result.map((insight) => insight.id)).toEqual(['stale', 'efficiency', 'fitness']);
+  });
+
+  // ============================================================
+  // Order and dedup
+  //
+  // Scenario: the pipeline scores every candidate and returns them in score
+  // order, and consolidation then re-sorted by priority, so the score decided
+  // only which cards survived the cap and never which one was first.
+  // Expected behaviour: consolidation keeps the order it was given, and its
+  // dedup does not depend on that order.
+  // ============================================================
+
+  it('keeps the order it was given rather than re-sorting by priority', () => {
+    const result = consolidateInsights([
+      createInsight('third-priority', 'fitness_milestone', 3),
+      createInsight('first-priority', 'period_comparison', 1),
+      createInsight('second-priority', 'hrv_trend', 2),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual([
+      'third-priority',
+      'first-priority',
+      'second-priority',
+    ]);
+  });
+
+  it('drops a section story its own PR covers even when the story comes first', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('drops an efficiency trend its own PR covers even when the trend comes first', () => {
+    const result = consolidateInsights([
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('drops a section story whose sections a later PR covers, whatever its priority', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 5, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('keeps a section story the PRs do not cover, whichever way round they arrive', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s2', 'stale_pr', 1, { sectionIds: ['s2'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['stale-s2', 'section-pr']);
+  });
+
+  it('spends the two section story slots in the order it was given', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s3', 'stale_pr', 3, { sectionIds: ['s3'] }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency-s2', 'efficiency_trend', 1, { sectionIds: ['s2'] }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['stale-s3', 'efficiency-s1']);
+  });
+
+  it('leaves insights of equal priority in the order they arrived', () => {
+    const result = consolidateInsights([
+      createInsight('second', 'fitness_milestone', 2),
+      createInsight('first', 'hrv_trend', 2),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['second', 'first']);
+  });
+
+  it('returns a single insight untouched', () => {
+    const result = consolidateInsights([createInsight('only', 'fitness_milestone', 3)]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['only']);
   });
 
   // ============================================================

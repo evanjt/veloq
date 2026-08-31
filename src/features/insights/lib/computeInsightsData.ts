@@ -110,16 +110,27 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     return insights;
   }
 
-  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  // Every section a PR card covers, collected before anything is kept. Read
+  // in one pass, the drop below fired only when the PR happened to come first,
+  // which held because `section_pr` outranked `stale_pr` by priority and this
+  // function used to sort by priority. It arrives in score order now.
+  const prSectionIds = new Set<string>();
+  for (const insight of insights) {
+    if (insight.category === 'section_pr') {
+      getInsightSectionIds(insight).forEach((sectionId) => prSectionIds.add(sectionId));
+    }
+  }
 
   const kept: Insight[] = [];
   const dropped: ConsolidationDrop[] = [];
-  const seenSectionIds = new Set<string>();
+  // Grows as stories are kept, so two stories about one section still collapse
+  // to the first. That one is order-dependent on purpose: the order is the
+  // score order, so the stronger card is the one that stays.
+  const seenSectionIds = new Set<string>(prSectionIds);
   let keptSectionStories = 0;
 
-  for (const insight of sorted) {
+  for (const insight of insights) {
     if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
       kept.push(insight);
       continue;
     }
