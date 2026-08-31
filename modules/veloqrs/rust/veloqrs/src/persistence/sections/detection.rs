@@ -876,6 +876,21 @@ impl PersistentEngine {
             // and a long large-corpus detection reads as a crash.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
 
+            // The per-point time offsets the lift veto reads. Held here so
+            // the borrowed view below outlives the fold, and positional to
+            // `tracks` so an activity with no stored stream, or one whose
+            // stream does not index its points, simply reads as untimed.
+            // Eight bytes a point against a `GpsPoint`'s twenty-four, on a
+            // resident set the loader already warns about above.
+            let seconds = super::track_pool::load_seconds_chunked(&conn, &tracks);
+            let timed = seconds.iter().filter(|s| !s.is_empty()).count();
+            let seconds_view = super::track_pool::seconds_view(&seconds);
+            log::info!(
+                "veloqrs: [SectionDetection] {} of {} pool tracks carry a time stream the veto can read",
+                timed,
+                tracks.len()
+            );
+
             {
                 // The order-free CACHED incremental. It folds only the
                 // activities not yet in the evidence cache and recomputes just the
@@ -891,10 +906,6 @@ impl PersistentEngine {
                 // on a warm cache it is just the genuinely new activities. This is
                 // what makes a restart self-heal (the DB holds the catalogue; the
                 // cache rebuilds) without ever double-routing an already-folded id.
-                // No seconds. They feed only the lift veto, whose ruling is
-                // still open: ingest now carries elevation, so the veto can
-                // raise candidates, and wiring seconds needs the lift-candidate
-                // memo re-keyed first.
                 let new_ids_for_cache: Vec<String> = tracks
                     .iter()
                     .map(|(id, _)| id.clone())
@@ -940,7 +951,7 @@ impl PersistentEngine {
                     &existing_sections,
                     &tracks,
                     &new_id_refs,
-                    &[],
+                    &seconds_view,
                     &sport_map,
                     &start_epochs,
                     &section_config,
