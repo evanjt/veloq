@@ -553,12 +553,18 @@ pub fn start_elevation_backfill() -> bool {
 /// How many stored tracks the backfill still has to ask upstream about.
 /// Zero means the library has been fully asked, so the launch trigger can
 /// stop attempting runs for this install.
+///
+/// Raises rather than answering zero when it cannot answer at all. The launch
+/// trigger stamps the app version on a zero and the cutover trigger reads one
+/// as permission to cut, so an absent engine or a locked database has to reach
+/// the caller as the null its delegate already handles.
 #[uniffi::export]
-pub fn get_elevation_backfill_remaining() -> u32 {
-    crate::persistence::with_persistent_engine(|e| e.elevation_backfill_remaining())
-        .unwrap_or(0)
-        .try_into()
-        .unwrap_or(u32::MAX)
+pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
+    let remaining = crate::objects::error::with_engine(|e| e.elevation_backfill_remaining())?
+        .map_err(|e| crate::VeloqError::Database {
+            msg: format!("{}", e),
+        })?;
+    Ok(remaining.try_into().unwrap_or(u32::MAX))
 }
 
 /// Read the elevation backfill's progress. Safe to poll at any time.

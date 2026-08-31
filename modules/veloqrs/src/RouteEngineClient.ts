@@ -13,7 +13,6 @@ import type {
   FfiActivityDetailData,
   FfiActivityMetrics,
   FfiActivityPattern,
-  FfiBounds,
   FfiCallOutcome,
   FfiManualActivity,
   FfiExerciseActivities,
@@ -31,11 +30,9 @@ import type {
   FfiSectionPerformanceResult,
   FfiCalendarSummary,
   FfiRoutePerformanceResult,
-  FfiRankedSection,
   FfiEfficiencyTrend,
   SectionSummary,
   GroupSummary,
-  MapActivityComplete,
   FfiPeriodStats,
   FfiFtpTrend,
   FfiPaceTrend,
@@ -49,7 +46,7 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
-import type { RoutePoint, SectionDetectionProgress } from './conversions';
+import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
@@ -76,7 +73,6 @@ import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type {
   FfiActivityIndicator,
   FfiActivityRouteHighlight,
-  FfiActivitySectionHighlight,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
   FfiSectionMatch,

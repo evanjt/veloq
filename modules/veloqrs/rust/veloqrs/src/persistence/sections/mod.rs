@@ -1653,17 +1653,40 @@ impl PersistentEngine {
         // detector change and has nothing to explain.
         if from_detect && let Some((from, to)) = self.detector_generation_change() {
             let mut stmt = tx.prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                        rep_start_index, rep_end_index
+                 FROM sections
                  WHERE section_type = 'auto' AND original_polyline_json IS NULL
                    AND is_user_defined = 0 AND disabled = 0",
             )?;
-            let priors: Vec<(String, Option<Vec<u8>>, Option<String>)> = stmt
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            type Prior = (
+                String,
+                Option<Vec<u8>>,
+                Option<String>,
+                Option<String>,
+                Option<u32>,
+                Option<u32>,
+            );
+            let priors: Vec<Prior> = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })?
                 .filter_map(|r| r.ok())
                 .collect();
             drop(stmt);
-            for (id, blob, json) in priors {
-                let prior = codec::decode_polyline_row(blob.as_deref(), json.as_deref())
+            for (id, blob, json, rep_id, start, end) in priors {
+                // The blob is a cache. The outgoing shape is the one thing the
+                // milestone exists to keep, so a cleared cache is rebuilt from
+                // the triple rather than milestoned as an empty line.
+                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                let prior = geometry::line(&tx, blob.as_deref(), json.as_deref(), reference)
                     .unwrap_or_default();
                 history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
             }

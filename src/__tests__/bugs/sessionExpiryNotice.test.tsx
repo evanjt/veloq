@@ -18,14 +18,16 @@ import { rememberCachedAthleteId, forgetCachedAthleteId } from '@/shared/storage
 jest.mock('react-i18next', () => {
   const en = jest.requireActual('@/i18n/locales/en-GB.json');
   const lookup = (key: string): unknown =>
-    key.split('.').reduce<unknown>((o, k) => (o == null ? o : (o as never)[k]), en);
+    key
+      .split('.')
+      .reduce<unknown>((o, k) => (o == null ? o : (o as Record<string, unknown>)[k]), en);
   return {
     useTranslation: () => ({
-      t: (key: string, opts?: unknown) => {
+      t: (key: string, opts?: string | Record<string, unknown>) => {
         const raw = lookup(key);
-        const options = typeof opts === 'object' && opts !== null ? (opts as never) : {};
-        const fallback = typeof opts === 'string' ? opts : options['defaultValue'];
-        let out: string = typeof raw === 'string' ? raw : ((fallback as string) ?? key);
+        const options = typeof opts === 'object' && opts !== null ? opts : {};
+        const fallback = typeof opts === 'string' ? opts : (options.defaultValue as string);
+        let out = typeof raw === 'string' ? raw : (fallback ?? key);
         for (const [name, value] of Object.entries(options)) {
           out = out.replace(`{{${name}}}`, String(value));
         }

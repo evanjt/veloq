@@ -795,17 +795,48 @@ impl PersistentEngine {
         if !has_columns {
             return Ok(());
         }
+        // The triple arrived later than the blob. A database old enough to
+        // reach here without it has nothing to rebuild from, so the read is
+        // the blob alone on that path and the resolver's on every other.
+        let has_reference = conn
+            .prepare("SELECT rep_start_index FROM sections LIMIT 0")
+            .is_ok();
 
         // Every clock-minted auto id with the line to anchor it, oldest
         // first so a shared cell resolves in first-seen order.
-        let mut stmt = conn.prepare(
-            "SELECT id, sport_type, polyline_blob, polyline_json FROM sections
+        type ClockMinted = (
+            String,
+            String,
+            Option<Vec<u8>>,
+            Option<String>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+        );
+        let mut stmt = conn.prepare(if has_reference {
+            "SELECT id, sport_type, polyline_blob, polyline_json,
+                    representative_activity_id, rep_start_index, rep_end_index
+             FROM sections
              WHERE id GLOB 's_[0-9]*__[0-9]*'
-             ORDER BY created_at, id",
-        )?;
-        let rows: Vec<(String, String, Option<Vec<u8>>, Option<String>)> = stmt
+             ORDER BY created_at, id"
+        } else {
+            "SELECT id, sport_type, polyline_blob, polyline_json,
+                    NULL, NULL, NULL
+             FROM sections
+             WHERE id GLOB 's_[0-9]*__[0-9]*'
+             ORDER BY created_at, id"
+        })?;
+        let rows: Vec<ClockMinted> = stmt
             .query_map([], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -817,8 +848,14 @@ impl PersistentEngine {
             .filter_map(|r| r.ok())
             .collect();
         let mut renames: Vec<(String, String)> = Vec::new();
-        for (old, sport, blob, json) in rows {
-            let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+        for (old, sport, blob, json, rep_id, start, end) in rows {
+            // The blob is a cache, and the new id is a function of the line.
+            // A cleared cache would leave the row on its clock-minted id for
+            // ever, which is the one id two devices can never agree on.
+            let reference = sections::geometry::reference(rep_id.as_deref(), start, end);
+            let Ok(polyline) =
+                sections::geometry::line(conn, blob.as_deref(), json.as_deref(), reference)
+            else {
                 continue;
             };
             let Some(new) = sections::content_id_for(&polyline, &sport, &taken) else {

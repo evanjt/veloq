@@ -10,12 +10,15 @@
 //!     TRACEMATCH_CORPUS=<dir> cargo test -p veloqrs --features real-corpus \
 //!         --test corpus_migration -- --nocapture
 //!
-//! No tag checkout is needed to reproduce the released era. Every old path is
-//! still compiled: `DetectionMethod::Corridor`, `detect_sections_multiscale`,
-//! and the `BATCH_CAP` batching that was already present at 0.3.8. Above the
-//! cap the configured method is bypassed entirely (`detection.rs`), so a large
-//! library's catalogue came from multiscale plus incremental whatever its
-//! settings said. Both classes are exercised below.
+//! What the seed reproduces is the state a 0.3.x install upgrades in, not the
+//! bytes its detector produced. `DetectionMethod`, `detect_sections_multiscale`
+//! and the track-count cap that bypassed the configured method were all deleted
+//! by `8d8df087`, so nothing reachable from this crate cuts a corridor
+//! catalogue any more and a tag checkout is the only thing that would. The
+//! migration's input is the marker, though, not the geometry: a released build
+//! never wrote `catalogue_detection_method`, so the seed cuts a catalogue and
+//! then strips the marker, exactly as `tests/cutover.rs` does. That is the
+//! shape `cutover_is_owed` reads, and it is faithful.
 //!
 //! The corpora are personal activity history and never enter the repository.
 //! Nothing here prints a coordinate, an activity id, a section name or a corpus
@@ -29,6 +32,7 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
+use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::with_persistent_engine;
 
 // Both tests drive the one process-wide engine and each runs a cutover, so a
@@ -40,9 +44,6 @@ fn serial() -> MutexGuard<'static, ()> {
 }
 
 const ENV: &str = "TRACEMATCH_CORPUS";
-
-/// Detection dispatch bypasses the configured method above this many tracks.
-const BATCH_CAP: usize = 500;
 
 fn corpus_root() -> PathBuf {
     match std::env::var(ENV) {
@@ -222,7 +223,8 @@ fn report(label: &str, s: &Shape) {
     );
 }
 
-/// Ingest a corpus and cut it the way the released build did.
+/// Ingest a corpus, cut it, and leave the catalogue in the state a 0.3.x
+/// install arrives in: provenance naming no detector, so a cutover is owed.
 fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
     assert!(
         veloqrs::persistence::persistent_engine_ffi::persistent_engine_init(
@@ -234,11 +236,6 @@ fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
     let paths = gpx_paths(dir);
     let mut ingested = 0usize;
     with_persistent_engine(|engine| {
-        let mut cfg = engine.get_section_config();
-        // What a released install persisted. Above BATCH_CAP the dispatch
-        // ignores it, which is the point.
-        engine.set_section_config(cfg);
-
         for (i, path) in paths.iter().enumerate() {
             let (points, time) = load_gpx(path);
             if points.len() < 2 {
@@ -271,6 +268,18 @@ fn released_era_catalogue(dir: &Path, db_path: &Path) -> usize {
     })
     .expect("engine");
 
+    // The apply above stamps this build's detector on the catalogue, the
+    // `from_detect` branch of `write_catalogue`. A released build wrote no such
+    // marker, and the marker is what `cutover_is_owed` reads, so strip it.
+    // Without this the seed arrives already migrated and everything below
+    // measures nothing.
+    let db = Connection::open(db_path).expect("open to strip the detector marker");
+    db.execute(
+        "DELETE FROM schema_info WHERE key = 'catalogue_detection_method'",
+        [],
+    )
+    .expect("strip the detector marker");
+
     ingested
 }
 
@@ -296,12 +305,7 @@ fn a_released_catalogue_migrates_onto_references() {
         let db_path = tmp.path().join("corpus.db");
 
         let ingested = released_era_catalogue(dir, &db_path);
-        let dispatch = if ingested > BATCH_CAP {
-            "batched (method bypassed)"
-        } else {
-            "single batch (method honoured)"
-        };
-        println!("\ncorpus of {file_count} files, {ingested} ingested, {dispatch}");
+        println!("\ncorpus of {file_count} files, {ingested} ingested");
 
         let db = Connection::open(&db_path).expect("open");
         let before = shape_of(&db);
@@ -312,9 +316,19 @@ fn a_released_catalogue_migrates_onto_references() {
             "the released-era cut produced no sections, so everything below is vacuous"
         );
         let owed = with_persistent_engine(|e| e.cutover_is_owed()).expect("engine");
-        assert!(owed, "a corridor-era catalogue is owed a migration");
+        assert!(
+            owed,
+            "a catalogue that names no detector is owed a migration"
+        );
 
-        veloqrs::persistence::cutover::run_cutover().expect("cutover");
+        // NotOwed is Ok, so an unasserted outcome measures nothing and reports
+        // the same green as a real run. This is the half that stayed silent
+        // when the seed stopped being released-era.
+        let outcome = veloqrs::persistence::cutover::run_cutover().expect("cutover");
+        assert!(
+            matches!(outcome, CutoverOutcome::Completed(_)),
+            "the cutover did not run: {outcome:?}"
+        );
 
         let after = shape_of(&db);
         report("after cutover", &after);
@@ -356,15 +370,17 @@ fn a_released_catalogue_migrates_onto_references() {
 /// Same corpus, same catalogue. If the migration is not a pure function of the
 /// library, nothing downstream of it can be trusted.
 ///
-/// Runs on the LARGEST corpus, because the only dispatch that can differ
-/// between two runs is the batched one above [`BATCH_CAP`], and a small corpus
-/// never reaches it. This is the slow test of the pair for that reason.
+/// Runs on the LARGEST corpus: a cut that wanders does it on volume, and a
+/// small corpus never reaches the incremental folding where two runs can
+/// diverge. This is the slow test of the pair for that reason.
 ///
-/// Both eras are asserted. The released one used to wander, six or seven
-/// sections and anywhere from 444 to 630 members over the same files, so it was
-/// measured and printed but left unasserted. It holds now: the retired detector
-/// shares the ordering primitives that were canonicalised for the unified path,
-/// so the fix reached it without anyone repairing it on its own account.
+/// Both eras are asserted. The seed's cut used to wander, six or seven sections
+/// and anywhere from 444 to 630 members over the same files, so it was measured
+/// and printed but left unasserted. It holds now, and for two reasons rather
+/// than one: the ordering primitives were canonicalised, and since `8d8df087`
+/// the seed cut is a unified cut like the migrated one. Measured 2026-08-31 on
+/// the 1201-file corpus, 393 sections and 6,591 members, identical on both
+/// runs and unchanged by the cutover.
 ///
 /// The migrated catalogue is the one that matters, and it converges either way,
 /// because the cut is re-derived from the activity pool.
@@ -385,7 +401,11 @@ fn the_migration_is_reproducible() {
         // Both eras, because a migration that is a pure function of a catalogue
         // that is not itself reproducible is only half an answer.
         let before = shape_of(&db);
-        veloqrs::persistence::cutover::run_cutover().expect("cutover");
+        let outcome = veloqrs::persistence::cutover::run_cutover().expect("cutover");
+        assert!(
+            matches!(outcome, CutoverOutcome::Completed(_)),
+            "the cutover did not run, so this run measures nothing: {outcome:?}"
+        );
         shapes.push((before, shape_of(&db)));
     }
 

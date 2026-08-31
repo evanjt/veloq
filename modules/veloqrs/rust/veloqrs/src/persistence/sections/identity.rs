@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
+use crate::persistence::sections::geometry;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
@@ -1180,7 +1181,9 @@ impl PersistentEngine {
         let mut ids = BTreeSet::new();
         {
             let mut stmt = match self.db.prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                        rep_start_index, rep_end_index
+                 FROM sections
                  WHERE section_type = 'custom'
                     OR original_polyline_json IS NOT NULL
                     OR is_user_defined = 1",
@@ -1188,20 +1191,33 @@ impl PersistentEngine {
                 Ok(s) => s,
                 Err(_) => return (grounds, ids),
             };
-            let rows = stmt.query_map([], |row| {
+            // Collected before resolving: the rebuild queries the same
+            // connection this statement is still walking.
+            let rows: Vec<_> = match stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, Option<Vec<u8>>>(1)?,
                     row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<u32>>(4)?,
+                    row.get::<_, Option<u32>>(5)?,
                 ))
-            });
-            if let Ok(iter) = rows {
-                for (id, blob, json) in iter.flatten() {
-                    ids.insert(id);
-                    if let Ok(pts) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
-                        if !pts.is_empty() {
-                            grounds.push(pts);
-                        }
+            }) {
+                Ok(iter) => iter.flatten().collect(),
+                Err(_) => return (grounds, ids),
+            };
+            drop(stmt);
+            for (id, blob, json, rep_id, start, end) in rows {
+                ids.insert(id);
+                // The blob is a cache. A cleared one still has to yield the
+                // ground, or the corridor the user shaped is re-emitted under
+                // a second id on the next detect.
+                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                if let Ok(pts) =
+                    geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
+                {
+                    if !pts.is_empty() {
+                        grounds.push(pts);
                     }
                 }
             }
@@ -1373,4 +1389,90 @@ fn mint_content_id(section: &FrequentSection, taken: &BTreeSet<String>, seq: &mu
     let id = format!("s_{}__{:06}", ts, *seq);
     *seq += 1;
     id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::codec;
+    use tempfile::TempDir;
+
+    fn track() -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.000_1,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// An engine holding one stored stream and one durable-intent row whose
+    /// line is a real slice of it.
+    fn engine_with_durable_row(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("intent.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .add_activity("a1".into(), track(), "Ride".into())
+            .expect("add_activity");
+        let line = track()[0..12].to_vec();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      original_polyline_json)
+                 VALUES ('s_trimmed', 'auto', 'Trimmed', 'Ride', NULL, ?, 1200.0,
+                         'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0, '[]')",
+                rusqlite::params![codec::serialize_points(&line).expect("encode")],
+            )
+            .expect("insert the durable row");
+        engine
+    }
+
+    /// Scenario: a trimmed section keeps its ground through a detect, and the
+    /// registry learns which ground that is by reading the row. A cleared
+    /// cache is what the read has to survive.
+    ///
+    /// Expected behaviour: the ground comes back rebuilt from the triple. An
+    /// empty one would let the detector re-emit the corridor the user already
+    /// shaped, under a second id.
+    #[test]
+    fn a_durable_intent_ground_rebuilds_after_the_cache_is_cleared() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_durable_row(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
+                [],
+            )
+            .expect("clear the cached geometry");
+
+        let (grounds, ids) = engine.durable_intent_rows();
+
+        assert!(ids.contains("s_trimmed"), "the id is read from the row");
+        assert_eq!(
+            grounds.iter().map(|g| g.len()).collect::<Vec<_>>(),
+            vec![12],
+            "the ground has to be rebuilt from the triple, not dropped"
+        );
+    }
+
+    /// The cached blob is still the first answer, so the ordinary read costs
+    /// no rebuild.
+    #[test]
+    fn a_durable_intent_ground_reads_the_cache_when_it_is_there() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_durable_row(&dir);
+
+        let (grounds, _) = engine.durable_intent_rows();
+
+        assert_eq!(
+            grounds.iter().map(|g| g.len()).collect::<Vec<_>>(),
+            vec![12]
+        );
+    }
 }

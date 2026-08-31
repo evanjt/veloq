@@ -198,10 +198,18 @@ export function getElevationBackfillProgress(): ElevationBackfillProgress {
  * How many stored tracks the backfill still has to ask upstream about.
  * Zero means the library has been fully asked, so the launch trigger can
  * stop attempting runs for this install.
+ *
+ * Raises rather than answering zero when it cannot answer at all. The launch
+ * trigger stamps the app version on a zero and the cutover trigger reads one
+ * as permission to cut, so an absent engine or a locked database has to reach
+ * the caller as the null its delegate already handles.
  */
-export function getElevationBackfillRemaining(): /*u32*/ number {
+export function getElevationBackfillRemaining(): /*u32*/ number /*throws*/ {
   return FfiConverterUInt32.lift(
-    uniffiCaller.rustCall(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
           callStatus,
@@ -17017,7 +17025,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
-    24524
+    22900
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",

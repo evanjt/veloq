@@ -6,6 +6,7 @@
  * 1. All app locales have corresponding store locale directories
  * 2. All required metadata files exist for each locale
  * 3. Changelog exists for current version code
+ * 4. Android changelogs fit Google Play's 500-character cap
  *
  * Usage:
  *   npx tsx scripts/validate-store-metadata.ts [--version-code <code>]
@@ -33,6 +34,10 @@ const ANDROID_REQUIRED_FILES = [
   'short_description.txt',
   'full_description.txt',
 ];
+
+// Google Play rejects a release note over 500 characters. The count is
+// characters, not bytes: ja-JP's note is 557 bytes and 187 characters.
+export const PLAY_CHANGELOG_MAX_CHARS = 500;
 
 const IOS_REQUIRED_FILES = [
   'name.txt',
@@ -77,8 +82,24 @@ const LOCALE_MAPPINGS: LocaleMapping[] = [
 // Validation
 // ============================================================================
 
+/**
+ * Characters in a changelog as Play counts them: code points, so a kanji
+ * is one and an emoji is one, and the trailing newline the file ends with
+ * counts. Fastlane uploads the file's bytes and we cannot see whether
+ * Play trims them, so the gate spends that character rather than risk a
+ * rejected submission.
+ */
+export function changelogCharCount(text: string): number {
+  return [...text].length;
+}
+
 interface ValidationError {
-  type: 'missing_locale' | 'missing_file' | 'missing_changelog' | 'empty_file';
+  type:
+    | 'missing_locale'
+    | 'missing_file'
+    | 'missing_changelog'
+    | 'empty_file'
+    | 'changelog_too_long';
   platform: 'android' | 'ios';
   locale: string;
   file?: string;
@@ -105,7 +126,7 @@ function getVersionCodeFromAppJson(): number | null {
   return appJson?.expo?.android?.versionCode || null;
 }
 
-function validateMetadata(versionCode?: number): ValidationError[] {
+export function validateMetadata(versionCode?: number): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Get current version code if not specified
@@ -177,14 +198,29 @@ function validateMetadata(versionCode?: number): ValidationError[] {
           file: `changelogs/${versionCode}.txt`,
           message: `Missing changelog: android/${locale}/changelogs/${versionCode}.txt`,
         });
-      } else if (fs.readFileSync(changelogPath, 'utf-8').trim() === '') {
-        errors.push({
-          type: 'empty_file',
-          platform: 'android',
-          locale,
-          file: `changelogs/${versionCode}.txt`,
-          message: `Empty changelog: android/${locale}/changelogs/${versionCode}.txt`,
-        });
+      } else {
+        const changelog = fs.readFileSync(changelogPath, 'utf-8');
+        const chars = changelogCharCount(changelog);
+        if (changelog.trim() === '') {
+          errors.push({
+            type: 'empty_file',
+            platform: 'android',
+            locale,
+            file: `changelogs/${versionCode}.txt`,
+            message: `Empty changelog: android/${locale}/changelogs/${versionCode}.txt`,
+          });
+        } else if (chars > PLAY_CHANGELOG_MAX_CHARS) {
+          errors.push({
+            type: 'changelog_too_long',
+            platform: 'android',
+            locale,
+            file: `changelogs/${versionCode}.txt`,
+            message:
+              `Too long: android/${locale}/changelogs/${versionCode}.txt is ` +
+              `${chars} characters, Play allows ${PLAY_CHANGELOG_MAX_CHARS} ` +
+              `(the trailing newline counts)`,
+          });
+        }
       }
     }
   }
@@ -234,61 +270,64 @@ function validateMetadata(versionCode?: number): ValidationError[] {
 // CLI
 // ============================================================================
 
-const args = process.argv.slice(2);
-let versionCode: number | undefined;
+// Importable for tests: only a direct run validates and exits.
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  let versionCode: number | undefined;
 
-const versionCodeIdx = args.indexOf('--version-code');
-if (versionCodeIdx !== -1 && args[versionCodeIdx + 1]) {
-  versionCode = parseInt(args[versionCodeIdx + 1], 10);
-}
-
-console.log('Validating store metadata...\n');
-
-const detectedVersionCode = versionCode || getVersionCodeFromAppJson();
-if (detectedVersionCode) {
-  console.log(`Version code: ${detectedVersionCode}\n`);
-}
-
-const errors = validateMetadata(versionCode);
-
-if (errors.length === 0) {
-  console.log('✓ All store metadata validations passed\n');
-
-  // Summary
-  const androidLocales = getUniqueStoreLocales('android');
-  const iosLocales = getUniqueStoreLocales('ios');
-  console.log(`Android: ${androidLocales.length} locales`);
-  console.log(`iOS: ${iosLocales.length} locales`);
-
-  process.exit(0);
-} else {
-  console.log(`✗ Found ${errors.length} validation error(s):\n`);
-
-  // Group by platform
-  const androidErrors = errors.filter((e) => e.platform === 'android');
-  const iosErrors = errors.filter((e) => e.platform === 'ios');
-
-  if (androidErrors.length > 0) {
-    console.log('Android:');
-    for (const err of androidErrors) {
-      console.log(`  - ${err.message}`);
-    }
-    console.log('');
+  const versionCodeIdx = args.indexOf('--version-code');
+  if (versionCodeIdx !== -1 && args[versionCodeIdx + 1]) {
+    versionCode = parseInt(args[versionCodeIdx + 1], 10);
   }
 
-  if (iosErrors.length > 0) {
-    console.log('iOS:');
-    for (const err of iosErrors) {
-      console.log(`  - ${err.message}`);
-    }
-    console.log('');
+  console.log('Validating store metadata...\n');
+
+  const detectedVersionCode = versionCode || getVersionCodeFromAppJson();
+  if (detectedVersionCode) {
+    console.log(`Version code: ${detectedVersionCode}\n`);
   }
 
-  console.log('Fix these issues before releasing.');
-  console.log('Run: npx tsx scripts/store-metadata.ts sync-metadata');
-  console.log(
-    `Run: npx tsx scripts/store-metadata.ts changelog ${detectedVersionCode || '<version>'}`
-  );
+  const errors = validateMetadata(versionCode);
 
-  process.exit(1);
+  if (errors.length === 0) {
+    console.log('✓ All store metadata validations passed\n');
+
+    // Summary
+    const androidLocales = getUniqueStoreLocales('android');
+    const iosLocales = getUniqueStoreLocales('ios');
+    console.log(`Android: ${androidLocales.length} locales`);
+    console.log(`iOS: ${iosLocales.length} locales`);
+
+    process.exit(0);
+  } else {
+    console.log(`✗ Found ${errors.length} validation error(s):\n`);
+
+    // Group by platform
+    const androidErrors = errors.filter((e) => e.platform === 'android');
+    const iosErrors = errors.filter((e) => e.platform === 'ios');
+
+    if (androidErrors.length > 0) {
+      console.log('Android:');
+      for (const err of androidErrors) {
+        console.log(`  - ${err.message}`);
+      }
+      console.log('');
+    }
+
+    if (iosErrors.length > 0) {
+      console.log('iOS:');
+      for (const err of iosErrors) {
+        console.log(`  - ${err.message}`);
+      }
+      console.log('');
+    }
+
+    console.log('Fix these issues before releasing.');
+    console.log('Run: npx tsx scripts/store-metadata.ts sync-metadata');
+    console.log(
+      `Run: npx tsx scripts/store-metadata.ts changelog ${detectedVersionCode || '<version>'}`
+    );
+
+    process.exit(1);
+  }
 }

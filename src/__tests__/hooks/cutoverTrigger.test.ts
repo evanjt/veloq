@@ -18,7 +18,7 @@ const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRoute
 interface EngineParts {
   pending?: boolean;
   running?: boolean;
-  remaining?: number;
+  remaining?: number | null;
   start?: jest.Mock;
 }
 
@@ -63,6 +63,14 @@ describe('startDetectorCutoverAfterUpdate', () => {
   it('waits for the elevation backfill rather than cutting a half-elevated library', async () => {
     const start = jest.fn(() => true);
     mockGetRouteEngine.mockReturnValue(engineWith({ remaining: 12, start }));
+
+    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('declines when the remaining count is unreadable rather than cutting', async () => {
+    const start = jest.fn(() => true);
+    mockGetRouteEngine.mockReturnValue(engineWith({ remaining: null, start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
     expect(start).not.toHaveBeenCalled();

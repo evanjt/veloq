@@ -37,7 +37,9 @@ export function startElevationBackfill(host: DelegateHost): boolean {
 /**
  * How many stored tracks the backfill still has to ask upstream about. Zero
  * is the definitive "nothing left to do" the launch trigger stamps on, so an
- * engine that is not ready answers null, never zero.
+ * engine that is not ready answers null, never zero. Rust raises rather than
+ * answering zero for the same reason, so a locked database lands in the catch
+ * below and reads as null too.
  */
 export function getElevationBackfillRemaining(host: DelegateHost): number | null {
   if (!host.ready) return null;
