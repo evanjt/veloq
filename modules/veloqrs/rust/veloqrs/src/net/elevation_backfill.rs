@@ -55,6 +55,20 @@ const BATCH: usize = 20;
 /// is the limiter, not this number.
 const FETCH_CONCURRENCY: usize = 6;
 
+/// Consecutive connectivity failures that end the pass.
+///
+/// A failed fetch leaves its row untouched, so without a stop the pass asks
+/// once per queued track and only then reports partial. The backfill lane has
+/// a 30 s per-attempt ceiling, no whole-request budget and three retries, so
+/// a connection that accepts and then goes quiet costs up to four of those
+/// per track. One thousand tracks at six in flight is hours of a detached
+/// thread achieving nothing, and it burns the governor's pace with it.
+///
+/// One batch, because the results inside a batch arrive unordered: reaching
+/// this count means a whole batch came back with nothing to work with, which
+/// no partial outage can produce.
+pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
+
 /// How often the final-detect driver polls the worker it started.
 const DRIVER_POLL: Duration = Duration::from_millis(250);
 
@@ -359,12 +373,25 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
 
     let _suspend = suspend_detection();
 
-    let (mut outcome, fatal) = drain_queue(transport, &queue);
+    let (mut outcome, stopped) = drain_queue(transport, &queue);
 
-    if let Some(reason) = fatal {
-        set_phase(BACKFILL_PHASE_FAILED);
-        log::warn!("[Elevation] backfill stopped: {}", reason);
-        return BackfillRun::Failed(reason);
+    match stopped {
+        Some(Stopped::Unauthorized) => {
+            set_phase(BACKFILL_PHASE_FAILED);
+            log::warn!("[Elevation] backfill stopped: unauthorized");
+            return BackfillRun::Failed("unauthorized".to_string());
+        }
+        // Not a failed pass: the rows are untouched and the queue is
+        // unchanged, so this ends partial and the next launch retries. A
+        // rejected credential is different, nothing will change until the
+        // user signs in again.
+        Some(Stopped::NothingToWorkWith) => log::warn!(
+            "[Elevation] backfill gave up after {} failures in a row, {} of {} tracks still to ask",
+            MAX_CONSECUTIVE_FAILURES,
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
+        None => {}
     }
 
     let (remaining, fetched) = with_persistent_engine(|engine| {
@@ -407,16 +434,42 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
     BackfillRun::Finished(outcome)
 }
 
+/// Why a pass ended before its queue did.
+enum Stopped {
+    /// The credential was rejected, so every remaining request would be too.
+    Unauthorized,
+    /// Nothing to work with: [`MAX_CONSECUTIVE_FAILURES`] in a row.
+    NothingToWorkWith,
+}
+
+/// Whether this failure says the connection is gone rather than answering for
+/// one activity.
+///
+/// A transport error, an exhausted budget and a 5xx all mean the next request
+/// will fare no better. A 404 or a body that would not parse is upstream
+/// replying about one track, and counting those would wedge the queue: the
+/// order is re-derived the same way every run, so a permanently 404-ing
+/// prefix would stop every future pass at the same place.
+fn is_connectivity(e: &NetError) -> bool {
+    match e {
+        NetError::Transport(_) | NetError::RateLimited => true,
+        NetError::Http { status, .. } => *status >= 500,
+        _ => false,
+    }
+}
+
 /// Walk the queue in batches. Returns the outcome so far plus the reason the
 /// pass had to stop, if it did.
 fn drain_queue(
     transport: &Transport,
     queue: &[(String, String)],
-) -> (BackfillOutcome, Option<String>) {
+) -> (BackfillOutcome, Option<Stopped>) {
     let mut outcome = BackfillOutcome {
         queued: queue.len() as u32,
         ..BackfillOutcome::default()
     };
+
+    let mut consecutive_failures = 0usize;
 
     for batch in queue.chunks(BATCH) {
         let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
@@ -429,7 +482,7 @@ fn drain_queue(
             .iter()
             .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
         {
-            return (outcome, Some("unauthorized".to_string()));
+            return (outcome, Some(Stopped::Unauthorized));
         }
 
         let sports: std::collections::HashMap<&str, &str> = batch
@@ -445,20 +498,29 @@ fn drain_queue(
                 Fetched::Elevated(points) => {
                     let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
                     to_store.push((id, points, sport.to_string()));
+                    consecutive_failures = 0;
                 }
                 Fetched::NoAltitude => {
                     states.push((id, ELEVATION_STATE_UNAVAILABLE));
                     outcome.unavailable += 1;
+                    consecutive_failures = 0;
                 }
                 Fetched::Empty => {
                     log::info!("[Elevation] {} answered empty, left for the next run", id);
                     outcome.failed += 1;
                     BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                    // Upstream replied, so the connection is fine.
+                    consecutive_failures = 0;
                 }
                 Fetched::Failed(e) => {
                     log::info!("[Elevation] {} left for the next run: {}", id, e);
                     outcome.failed += 1;
                     BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                    if is_connectivity(&e) {
+                        consecutive_failures += 1;
+                    } else {
+                        consecutive_failures = 0;
+                    }
                 }
             }
         }
@@ -467,6 +529,10 @@ fn drain_queue(
         BACKFILL
             .completed
             .fetch_add(batch.len() as u32, Ordering::Relaxed);
+
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+            return (outcome, Some(Stopped::NothingToWorkWith));
+        }
     }
 
     (outcome, None)
