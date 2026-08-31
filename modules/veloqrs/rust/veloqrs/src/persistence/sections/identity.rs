@@ -159,6 +159,21 @@ pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
 /// revisit can carry a TARGETED trigger, not a blanket floor.
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
 
+/// Least share of a candidate's metres a CONTAINED prior must carry to stay its
+/// merge successor. SHIPS AT 0.0 (off): every contained prior keeps the tier and
+/// seniority decides, so a short senior can take a much longer candidate's
+/// ground and the section that described it retires into the short one, keeping
+/// its name, birth date and PR era over ground that is no longer the same.
+///
+/// The guard is a tier demotion, not a filter, which is what separates it from
+/// [`MERGE_MUTUAL_FLOOR`]: a dwarfed prior still competes, so it keeps its own
+/// ground wherever that ground is still detected. No value ships because none
+/// has survived a corpus pass, and for a contained prior the mutual overlap IS
+/// roughly the length ratio, so a ratio at R is close to a floor at 1/R and 0.4
+/// already failed to generalise on GeoLife. Sweep it in `unified_lab` with
+/// `--hyst-ratio` before moving this line.
+const MERGE_SIZE_RATIO: f64 = 0.0;
+
 /// One visible or tombstoned section the registry manages: the durable opaque id
 /// the DB carries, and the full payload persisted under it. Keyed elsewhere by
 /// the pure layer's `s_<n>` join id.
@@ -212,11 +227,13 @@ impl Default for SectionIdentity {
     fn default() -> Self {
         Self {
             // The one place the registry's hysteresis is tuned. k and the
-            // dissolve/re-cut thresholds ride the pure-layer defaults; the merge
-            // floor is stated EXPLICITLY at [`MERGE_MUTUAL_FLOOR`] (0.0 today) so
-            // changing it is a one-line edit here, not a hunt through derives.
+            // dissolve/re-cut thresholds ride the pure-layer defaults. Both
+            // merge guards are stated EXPLICITLY, [`MERGE_MUTUAL_FLOOR`] and
+            // [`MERGE_SIZE_RATIO`], each 0.0 today, so changing one is a
+            // one-line edit here, not a hunt through derives.
             hysteresis: HysteresisState::new(HysteresisParams {
                 merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                merge_size_ratio: MERGE_SIZE_RATIO,
                 ..HysteresisParams::default()
             }),
             rows: BTreeMap::new(),
