@@ -28,7 +28,6 @@ export function useInsights(
   preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
-  topInsight: Insight | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
 } {
@@ -191,7 +190,6 @@ export function useInsights(
 
   return {
     insights: annotatedInsights,
-    topInsight: annotatedInsights[0] ?? null,
     hasNewInsights,
     markAsSeen,
   };

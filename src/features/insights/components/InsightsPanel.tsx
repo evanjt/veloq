@@ -15,10 +15,10 @@ import type { Insight } from '@/types';
 interface InsightsPanelProps {
   insights: Insight[];
   /**
-   * If set, opens the matching insight's detail sheet on mount. Used by deep
-   * links from the home screen's rotating insight chip
-   * (`/(tabs)/insights?insightId=...`). Calls `onInsightOpened` once the sheet
-   * has been triggered so the parent can clear the URL param.
+   * If set, opens the matching insight's detail sheet on mount. Set by a tapped
+   * insight notification (`/(tabs)/insights?insightId=...`). Calls
+   * `onInsightOpened` once the sheet has been triggered so the parent can clear
+   * the URL param.
    */
   initialInsightId?: string;
   onInsightOpened?: () => void;
