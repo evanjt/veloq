@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 import { initializeI18n, changeLanguage } from '@/i18n';
 import { ElevationBackfillStatus } from '@/features/settings/components/ElevationBackfillStatus';
@@ -64,6 +64,103 @@ describe('ElevationBackfillStatus retry line', () => {
       const text = statusText();
       expect(text).not.toContain('{{');
       expect(text).toContain('1');
+    }
+  });
+});
+
+/**
+ * Scenario: the backfill starts on its own, and until it finishes the improved
+ * detector is held behind it.
+ * Expected behaviour: the status line says what is waiting on the download, and
+ * a Why control explains what needs the elevation. Both read from i18n.
+ */
+describe('ElevationBackfillStatus explanation', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
+  });
+
+  beforeEach(async () => {
+    await changeLanguage('en-AU');
+  });
+
+  it('says what waits on the download while it runs', () => {
+    mockUseElevationBackfill.mockReturnValue({
+      phase: 'fetching',
+      completed: 3,
+      total: 10,
+      failed: 0,
+      isRunning: true,
+    });
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.getByTestId('elevation-backfill-explainer').props.children).toBe(
+      'Improved section detection runs once every track has elevation.'
+    );
+  });
+
+  it('still says it when the run stopped part way, since the wait is not over', () => {
+    mockUseElevationBackfill.mockReturnValue(partialRun(2));
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-explainer')).not.toBeNull();
+  });
+
+  it('drops the line once every track has elevation', () => {
+    mockUseElevationBackfill.mockReturnValue({
+      phase: 'complete',
+      completed: 10,
+      total: 10,
+      failed: 0,
+      isRunning: false,
+    });
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
+    expect(tree.queryByTestId('elevation-backfill-why')).not.toBeNull();
+  });
+
+  it('shows nothing at all while the phase is idle', () => {
+    mockUseElevationBackfill.mockReturnValue({
+      phase: 'idle',
+      completed: 0,
+      total: 0,
+      failed: 0,
+      isRunning: false,
+    });
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-why')).toBeNull();
+    expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
+  });
+
+  it('opens the Why dialog on the control and closes it again', () => {
+    mockUseElevationBackfill.mockReturnValue(partialRun(0));
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-why-body')).toBeNull();
+
+    fireEvent.press(tree.getByTestId('elevation-backfill-why'));
+    expect(tree.getByTestId('elevation-backfill-why-body').props.children).toBe(
+      'The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.'
+    );
+
+    fireEvent.press(tree.getByTestId('elevation-backfill-why-close'));
+    expect(tree.queryByTestId('elevation-backfill-why-body')).toBeNull();
+  });
+
+  it('translates the explanation rather than falling back to English', async () => {
+    mockUseElevationBackfill.mockReturnValue(partialRun(0));
+    for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
+      await changeLanguage(locale);
+      const tree = render(<ElevationBackfillStatus />);
+      fireEvent.press(tree.getByTestId('elevation-backfill-why'));
+
+      const explainer = tree.getByTestId('elevation-backfill-explainer').props.children as string;
+      const body = tree.getByTestId('elevation-backfill-why-body').props.children as string;
+      expect(explainer).not.toContain('Improved section detection');
+      expect(body).not.toContain('The improved section algorithm');
+      expect(explainer.trim().length).toBeGreaterThan(0);
+      expect(body.trim().length).toBeGreaterThan(0);
     }
   });
 });

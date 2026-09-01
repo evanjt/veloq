@@ -277,6 +277,10 @@ export interface TranslationResource {
     elevationBackfillRetrying_one: string;
     elevationBackfillRetrying_other: string;
     elevationBackfillFailed: string;
+    elevationBackfillExplainer: string;
+    elevationBackfillWhy: string;
+    elevationBackfillWhyTitle: string;
+    elevationBackfillWhyBody: string;
     previewSections: string;
     previewIntro: string;
     previewPickArea: string;
