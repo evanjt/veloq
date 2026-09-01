@@ -126,7 +126,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // already know on every foreground is what keeps Rust from refusing work on
   // a connection that came back while nobody was watching.
   const onlineRef = useRef(networkState.isOnline);
-  onlineRef.current = networkState.isOnline;
+  useEffect(() => {
+    onlineRef.current = networkState.isOnline;
+  });
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (status) => {
       if (status === 'active') pushToEngine(onlineRef.current);

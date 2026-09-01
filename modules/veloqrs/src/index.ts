@@ -83,9 +83,6 @@ export type {
   FfiManualActivity as ManualActivity,
 } from './generated/veloqrs';
 
-// The connectivity state TypeScript pushes into Rust
-export type { NetworkPush } from './delegates/connectivity';
-
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
 
