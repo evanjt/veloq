@@ -16,9 +16,16 @@
 //! Three rules make the pass terminate. Upstream that answers with coordinates
 //! but no usable altitude records `UNAVAILABLE`, so it leaves the queue
 //! permanently. A network failure or an empty response leaves the row
-//! untouched, so it is retried by the NEXT run and not by this one. A 401 ends
-//! the pass outright rather than spending the whole library on rejected
-//! requests.
+//! untouched, so it can be asked again. A 401 ends the pass outright rather
+//! than spending the whole library on rejected requests.
+//!
+//! A track the connection refused is re-asked inside the same pass, in
+//! [`BACKFILL_RETRY_ROUNDS`] rounds that wait longer each time, before it is
+//! left to the next run. A blink of a connection costs seconds rather than a
+//! whole launch. The rounds are skipped when the pass stopped because the
+//! connection is gone: the stop threshold has already decided nothing is
+//! coming back. An empty response is upstream replying, so it waits for the
+//! next run as it always did.
 //!
 //! The final re-cut runs only when a pass ends with the queue empty, so
 //! detection is never re-derived over a half-converted library. A pass that
@@ -71,6 +78,18 @@ pub const MAX_CONSECUTIVE_FAILURES: usize = BATCH;
 
 /// How often the final-detect driver polls the worker it started.
 const DRIVER_POLL: Duration = Duration::from_millis(250);
+
+/// Rounds of re-asking a pass gives the tracks the connection refused.
+///
+/// Bounded, and small: one ask already carries the lane's own three retries,
+/// so this is the ladder above that one, for an outage that outlives a single
+/// request rather than one that outlives the pass.
+pub const BACKFILL_RETRY_ROUNDS: usize = 2;
+
+/// What each retry round waits before it asks again, longest last.
+pub fn backfill_retry_delays() -> [Duration; BACKFILL_RETRY_ROUNDS] {
+    [Duration::from_millis(500), Duration::from_secs(2)]
+}
 
 // ============================================================================
 // Phases
@@ -375,7 +394,13 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
 
     let _suspend = suspend_detection();
 
-    let (mut outcome, stopped) = drain_queue(transport, &queue);
+    let walk = drain_queue(transport, &queue, true);
+    let (mut outcome, stopped, owed) = re_ask(transport, walk);
+    // Whatever is still owed was asked and refused, so it is this pass's
+    // failure count. Stored rather than added: the gauge counted every refusal
+    // as it happened, and a track that landed on a later round is not one.
+    outcome.failed += owed.len() as u32;
+    BACKFILL.failed.store(outcome.failed, Ordering::Relaxed);
 
     match stopped {
         Some(Stopped::Unauthorized) => {
@@ -464,20 +489,88 @@ fn is_connectivity(e: &NetError) -> bool {
     }
 }
 
-/// Walk the queue in batches. Returns the outcome so far plus the reason the
-/// pass had to stop, if it did.
+/// Ask again for the tracks the connection refused, in bounded rounds that
+/// wait longer each time.
+///
+/// Skipped when the first walk stopped: a rejected credential rejects the
+/// retry too, and the consecutive-failure threshold has already established
+/// that the connection is gone rather than blinking. Returns the accumulated
+/// outcome, why the pass ended if it did, and what is still owed.
+fn re_ask(
+    transport: &Transport,
+    first: Walk,
+) -> (BackfillOutcome, Option<Stopped>, Vec<(String, String)>) {
+    let Walk {
+        mut outcome,
+        stopped,
+        mut refused,
+        unasked,
+    } = first;
+
+    if stopped.is_some() {
+        return (outcome, stopped, refused);
+    }
+
+    let mut stopped = None;
+    for delay in backfill_retry_delays() {
+        if refused.is_empty() {
+            break;
+        }
+        log::info!(
+            "[Elevation] re-asking {} refused tracks in {:?}",
+            refused.len(),
+            delay
+        );
+        std::thread::sleep(delay);
+
+        let round = drain_queue(transport, &refused, false);
+        outcome.elevated += round.outcome.elevated;
+        outcome.unavailable += round.outcome.unavailable;
+        outcome.failed += round.outcome.failed;
+        // A round that stopped part way never asked the rest, and they were
+        // refused once already, so they stay owed rather than disappearing.
+        refused = round.refused;
+        refused.extend(round.unasked);
+        if round.stopped.is_some() {
+            stopped = round.stopped;
+            break;
+        }
+    }
+
+    refused.extend(unasked);
+    (outcome, stopped, refused)
+}
+
+/// One walk of a list of tracks, and what it left owing.
+struct Walk {
+    outcome: BackfillOutcome,
+    /// Why the walk ended before its list did, if it did.
+    stopped: Option<Stopped>,
+    /// Asked, and the connection refused. Worth asking again.
+    refused: Vec<(String, String)>,
+    /// Never asked, because the walk stopped first.
+    unasked: Vec<(String, String)>,
+}
+
+/// Walk a list of tracks in batches, fetching and storing what it can.
+///
+/// `count_progress` is false for a retry round: those tracks are already in
+/// the completed count from the first walk, and counting them again pushes the
+/// progress line past its own total.
 fn drain_queue(
     transport: &Transport,
     queue: &[(String, String)],
-) -> (BackfillOutcome, Option<Stopped>) {
+    count_progress: bool,
+) -> Walk {
     let mut outcome = BackfillOutcome {
         queued: queue.len() as u32,
         ..BackfillOutcome::default()
     };
+    let mut refused: Vec<(String, String)> = Vec::new();
 
     let mut consecutive_failures = 0usize;
 
-    for batch in queue.chunks(BATCH) {
+    for (chunk, batch) in queue.chunks(BATCH).enumerate() {
         let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
         let fetched = crate::runtime::block_on(fetch_batch(transport, &ids));
 
@@ -488,7 +581,12 @@ fn drain_queue(
             .iter()
             .any(|(_, f)| matches!(f, Fetched::Failed(NetError::Unauthorized)))
         {
-            return (outcome, Some(Stopped::Unauthorized));
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Unauthorized),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
         }
 
         let sports: std::collections::HashMap<&str, &str> = batch
@@ -519,12 +617,15 @@ fn drain_queue(
                     consecutive_failures = 0;
                 }
                 Fetched::Failed(e) => {
-                    log::info!("[Elevation] {} left for the next run: {}", id, e);
-                    outcome.failed += 1;
                     BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
                     if is_connectivity(&e) {
+                        log::info!("[Elevation] {} refused, worth asking again: {}", id, e);
+                        let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
+                        refused.push((id, sport.to_string()));
                         consecutive_failures += 1;
                     } else {
+                        log::info!("[Elevation] {} left for the next run: {}", id, e);
+                        outcome.failed += 1;
                         consecutive_failures = 0;
                     }
                 }
@@ -532,16 +633,28 @@ fn drain_queue(
         }
 
         outcome.elevated += store_batch(&to_store, &states) as u32;
-        BACKFILL
-            .completed
-            .fetch_add(batch.len() as u32, Ordering::Relaxed);
+        if count_progress {
+            BACKFILL
+                .completed
+                .fetch_add(batch.len() as u32, Ordering::Relaxed);
+        }
 
         if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-            return (outcome, Some(Stopped::NothingToWorkWith));
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::NothingToWorkWith),
+                refused,
+                unasked: queue[(chunk + 1) * BATCH..].to_vec(),
+            };
         }
     }
 
-    (outcome, None)
+    Walk {
+        outcome,
+        stopped: None,
+        refused,
+        unasked: Vec::new(),
+    }
 }
 
 /// Re-ingest the elevated tracks and stamp provenance for the whole batch.
