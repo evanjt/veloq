@@ -201,6 +201,16 @@ impl Setup {
         PersistentEngine::new(self.path.to_str().unwrap()).expect("engine reopen")
     }
 
+    fn signature_blob(&self, id: &str) -> Vec<u8> {
+        self.raw
+            .query_row(
+                "SELECT points FROM signatures WHERE activity_id = ?",
+                params![id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .expect("signature blob")
+    }
+
     fn set_signature_blob(&self, id: &str, bytes: &[u8]) {
         let n = self
             .raw
@@ -494,6 +504,61 @@ fn a_corrupt_signature_yields_no_signature_at_all() {
         "the fixture must store a signature with points"
     );
     assert!(fresh.get_signature("a2").is_none());
+}
+
+/// Scenario: a signature is stored after the move to the quantised codec
+/// (`B137`, the second of the stores `Q15` named).
+///
+/// Expected behaviour: the row carries the quantised container, not postcard,
+/// and reads back on the grid. Roughly 3 B/point against postcard's 25, so the
+/// assertion is on the size as well as on the tag: a writer that fell back
+/// would still round-trip and would still be wrong.
+#[test]
+fn a_stored_signature_is_written_in_the_quantised_container() {
+    let mut s = setup();
+    s.add("a1", track(400, true));
+
+    // A signature is a reduced line, not the whole track, so the size is
+    // measured against what the blob actually carries.
+    let blob = s.signature_blob("a1");
+    let stored = veloqrs::persistence::codec::deserialize_points(&blob).expect("decode");
+    assert_eq!(blob[0], 0xC0, "the signature blob is not the polyline tag");
+    assert!(!stored.is_empty(), "the fixture stored no signature points");
+    let postcard = veloqrs::persistence::codec::serialize_points(&stored).expect("postcard");
+    assert!(
+        blob.len() < postcard.len(),
+        "{} B is not smaller than postcard's {} B for the same {} points",
+        blob.len(),
+        postcard.len(),
+        stored.len()
+    );
+
+    let mut fresh = s.reopen();
+    assert_eq!(
+        fresh.get_signature("a1").expect("stored signature").points,
+        stored
+    );
+}
+
+/// A signature written by an earlier release is postcard, and route grouping
+/// still has to read it. The codec moved, the reader did not narrow.
+#[test]
+fn a_legacy_postcard_signature_still_reads() {
+    let mut s = setup();
+    let points = track(40, true);
+    s.add("a1", points.clone());
+    let legacy = veloqrs::persistence::codec::serialize_points(&points).expect("postcard encode");
+    s.set_signature_blob("a1", &legacy);
+
+    let mut fresh = s.reopen();
+    assert_eq!(
+        fresh
+            .get_signature("a1")
+            .expect("stored signature")
+            .points
+            .len(),
+        points.len()
+    );
 }
 
 /// Scenario: the heatmap walks the whole library.

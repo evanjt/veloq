@@ -1,8 +1,12 @@
 /**
- * The session-expiry notice ships five strings. Every locale needs all of
- * them, the athlete line has to keep its placeholder, and none of it may sit
- * there in English. The two event lines name only the event now, so a
- * translation carrying the old "please sign in again" tail would say it twice.
+ * The signed-out notice ships four strings. Every locale needs all of them,
+ * the athlete line has to keep its placeholder, and none of it may sit there
+ * in English. The event line names only the event, so a translation carrying
+ * the old "please sign in again" tail would say it twice.
+ *
+ * There is one event line because there is one signal, a 401, and it cannot
+ * tell an expiry from another device taking the token (`B143`). A locale that
+ * says either would be claiming something the server never said.
  */
 
 import * as fs from 'fs';
@@ -11,8 +15,7 @@ import * as path from 'path';
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const KEYS = [
-  'sessionExpired',
-  'sessionRevoked',
+  'sessionSignedOut',
   'sessionDataKept',
   'sessionRestore',
   'sessionRestoreAthlete',
@@ -48,8 +51,11 @@ describe('session expiry strings', () => {
     });
 
     it('leaves the sign-in instruction to the restore line', () => {
-      expect(login.sessionExpired).not.toContain(login.sessionRestore);
-      expect(login.sessionRevoked).not.toContain(login.sessionRestore);
+      expect(login.sessionSignedOut).not.toContain(login.sessionRestore);
+    });
+
+    it('claims no expiry and no revocation', () => {
+      expect(login.sessionSignedOut.toLowerCase()).not.toMatch(/expir|revok/);
     });
 
     if (!ENGLISH_LOCALES.includes(locale)) {

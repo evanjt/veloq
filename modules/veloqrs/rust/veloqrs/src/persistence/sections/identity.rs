@@ -1426,7 +1426,7 @@ mod tests {
                       original_polyline_json)
                  VALUES ('s_trimmed', 'auto', 'Trimmed', 'Ride', NULL, ?, 1200.0,
                          'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0, '[]')",
-                rusqlite::params![codec::serialize_points(&line).expect("encode")],
+                rusqlite::params![codec::serialize_track_points(&line)],
             )
             .expect("insert the durable row");
         engine

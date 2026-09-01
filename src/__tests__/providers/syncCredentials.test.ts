@@ -86,7 +86,7 @@ describe('sync credential ownership', () => {
     await useAuthStore.getState().setOAuthCredentials('token-abc', 'i999');
     setSyncCredentials.mockClear();
 
-    await useAuthStore.getState().handleSessionExpired('token_expired');
+    await useAuthStore.getState().handleSessionExpired('signed_out');
 
     expect(clearSyncCredentials).toHaveBeenCalled();
   });

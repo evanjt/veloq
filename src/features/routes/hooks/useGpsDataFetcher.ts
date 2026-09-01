@@ -21,6 +21,7 @@ import {
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -463,6 +464,7 @@ export function useGpsDataFetcher() {
       const sportTypes: ActivitySportMapping[] = activities.map((a) => ({
         activityId: a.id,
         sportType: a.type || 'Ride',
+        startDate: activityStartEpoch(a.start_date_local),
       }));
 
       if (__DEV__) {

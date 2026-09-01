@@ -49,8 +49,15 @@ export function pushCredentialsToEngine(): void {
   engine.clearSyncCredentials();
 }
 
-// Session expiry reason
-export type SessionExpiredReason = 'token_expired' | 'token_revoked' | null;
+/**
+ * Why the session ended. There is one reason because there is one signal: a
+ * 401. intervals.icu issues one live token per athlete per app, so a second
+ * device signing in takes this one's credential, and that 401 is
+ * indistinguishable from an expiry or a revocation at the server (`B143`).
+ * Claiming any of the three would be telling the athlete something the server
+ * never said.
+ */
+export type SessionExpiredReason = 'signed_out' | null;
 
 interface AuthState {
   apiKey: string | null;
@@ -294,7 +301,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ hideDemoBanner: hide });
   },
 
-  handleSessionExpired: async (reason: SessionExpiredReason = 'token_expired') => {
+  handleSessionExpired: async (reason: SessionExpiredReason = 'signed_out') => {
     const { authMethod, athleteId: currentAthleteId } = get();
 
     // Only handle session expiry for OAuth auth method

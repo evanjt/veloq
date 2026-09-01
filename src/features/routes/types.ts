@@ -248,6 +248,8 @@ export interface Section {
   maxGradePercent?: number;
   /** climb, descent, rolling, flat or loop, absent when nothing says */
   klass?: string;
+  /** The detector read most of this ground as a lift rather than a ride */
+  isLift?: boolean;
   /** Interestingness percentile across the catalogue, 0 to 1 */
   rankScore?: number;
   /** Interestingness percentile within the section's sport, 0 to 1 */

@@ -122,8 +122,7 @@ impl PersistentEngine {
 
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
-        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let trimmed_blob = crate::persistence::codec::serialize_track_points(&trimmed);
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         // Update section
@@ -247,8 +246,7 @@ impl PersistentEngine {
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
 
-        let original_blob = crate::persistence::codec::serialize_points(&original)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let original_blob = crate::persistence::codec::serialize_track_points(&original);
 
         // Restore polyline and clear original backup
         self.db
@@ -339,8 +337,7 @@ impl PersistentEngine {
 
         let distance = calculate_route_distance(&polyline);
         let bounds = tracematch::geo_utils::compute_bounds(&polyline);
-        let blob = crate::persistence::codec::serialize_points(&polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let blob = crate::persistence::codec::serialize_track_points(&polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
         let source = if reference.is_some() {
             crate::persistence::sections::SOURCE_EXACT
@@ -491,8 +488,7 @@ impl PersistentEngine {
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
-        let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let polyline_blob = crate::persistence::codec::serialize_track_points(&new_polyline);
 
         // Update section
         self.db

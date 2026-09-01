@@ -1856,8 +1856,7 @@ impl PersistentEngine {
 
             // Blob is the authoritative geometry; only legacy rows carry real
             // JSON, which readers use as a fallback.
-            let polyline_blob = codec::serialize_points(&section.polyline)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+            let polyline_blob = codec::serialize_track_points(&section.polyline);
             let point_density_blob = if section.point_density.is_empty() {
                 None
             } else {

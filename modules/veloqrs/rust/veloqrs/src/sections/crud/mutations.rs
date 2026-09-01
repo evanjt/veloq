@@ -150,8 +150,7 @@ impl PersistentEngine {
             ));
         }
         let created_at = chrono::Utc::now().to_rfc3339();
-        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let polyline_blob = crate::persistence::codec::serialize_track_points(&params.polyline);
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -395,8 +394,7 @@ impl PersistentEngine {
                 .min(track.len());
             let polyline: Vec<GpsPoint> = track.get(start..end).unwrap_or(&[]).to_vec();
 
-            let polyline_blob = crate::persistence::codec::serialize_points(&polyline)
-                .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+            let polyline_blob = crate::persistence::codec::serialize_track_points(&polyline);
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -519,8 +517,8 @@ impl PersistentEngine {
                         .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                 }
 
-                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
-                    .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+                let polyline_blob =
+                    crate::persistence::codec::serialize_track_points(&new_polyline);
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db

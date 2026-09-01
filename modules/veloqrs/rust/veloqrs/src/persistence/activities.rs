@@ -768,8 +768,10 @@ impl PersistentEngine {
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        let points_blob = codec::serialize_points(&sig.points)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        // One codec for stored GPS, ~3 B/point against postcard's 25 (`Q15`,
+        // `B137`). Every earlier container still reads, so no bulk rewrite
+        // runs: a row moves when its activity is next stored.
+        let points_blob = codec::serialize_track_points(&sig.points);
         self.db.execute(
             "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

@@ -231,6 +231,46 @@ fn select(
 /// The `latlng` validity mask governs every series, so all of them come back the
 /// same length in one index space. TypeScript's `parseStreams` applies the same
 /// rule, so the chart cursor and the map cursor index the same samples.
+/// The series worth putting in the durable store, in the `latlng` index space
+/// the track is stored in and in the units the server sent.
+///
+/// `ParsedStreams` is not the source. It converts `ga_velocity` to pace and
+/// fills gaps with NaN, and a store holds what arrived rather than what a
+/// chart wanted. What it does share is the mask: every stored series is
+/// addressed by the same indices as the stored coordinates, which is the rule
+/// `C6` settled.
+///
+/// Dropped here: the series `gps_tracks` and `time_streams` already answer, a
+/// series whose length disagrees with the coordinates, and a series that is
+/// all gaps. A row of nothing reads downstream as "the ride had no power",
+/// which is a different claim from "nothing has been fetched yet".
+pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
+    const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+
+    let mut ignored = Vec::new();
+    let Some(mask) = latlng_mask(raw, &mut ignored) else {
+        return Vec::new();
+    };
+
+    raw.iter()
+        .filter(|s| !FROM_THE_TRACK.contains(&s.kind.as_str()))
+        .filter(|s| s.data.len() == mask.len())
+        .filter_map(|s| {
+            let data: Vec<Option<f64>> = mask
+                .iter()
+                .enumerate()
+                .filter(|(_, keep)| **keep)
+                .map(|(i, _)| s.data[i].filter(|v| v.is_finite()))
+                .collect();
+            data.iter().any(Option::is_some).then(|| StreamDto {
+                kind: s.kind.clone(),
+                data,
+                data2: None,
+            })
+        })
+        .collect()
+}
+
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
     let mut misaligned = Vec::new();

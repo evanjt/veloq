@@ -82,6 +82,12 @@ pub struct FetchAndStoreResult {
 pub struct ActivitySportMapping {
     pub activity_id: String,
     pub sport_type: String,
+    /// Start of the activity, epoch seconds, or `None` when the caller does
+    /// not know it. It decides whether the sync downloads every series or only
+    /// the three the track needs (`B140`), and the engine cannot supply it:
+    /// `activities.start_date` is filled by the metrics sync, which lands
+    /// after this one on a first run.
+    pub start_date: Option<i64>,
 }
 
 /// Validate a backup database file without touching the global engine.
@@ -213,8 +219,18 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
         return;
     };
 
-    // Build sport type lookup
+    // Build sport type lookup, and alongside it the set of activities inside
+    // the stream retention window, which is what the fetch widens for.
     let sport_map_start = Instant::now();
+    let wide_ids: std::collections::HashSet<String> =
+        crate::persistence::with_persistent_engine(|engine| {
+            sport_types
+                .iter()
+                .filter(|m| engine.inside_stream_window(m.start_date))
+                .map(|m| m.activity_id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
     let sport_map: HashMap<String, String> = sport_types
         .into_iter()
         .map(|m| (m.activity_id, m.sport_type))
@@ -256,8 +272,11 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
 
         // Fetch GPS data
         let fetch_start = Instant::now();
-        let fetch_results =
-            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids_clone.clone(), None));
+        let fetch_results = crate::runtime::block_on(fetcher.fetch_activity_maps(
+            activity_ids_clone.clone(),
+            wide_ids,
+            None,
+        ));
         let fetch_success_count = fetch_results.iter().filter(|r| r.success).count();
         info!(
             "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",
@@ -321,6 +340,22 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
                                         )]) {
                                             log::warn!(
                                                 "[Elevation] {} stored without provenance: {}",
+                                                result.activity_id,
+                                                e
+                                            );
+                                        }
+                                        // Empty unless the fetch was widened.
+                                        // The track is already down, so a
+                                        // failure here costs the series and
+                                        // not the activity.
+                                        if !result.streams.is_empty()
+                                            && let Err(e) = engine.store_activity_streams(
+                                                &result.activity_id,
+                                                &result.streams,
+                                            )
+                                        {
+                                            log::warn!(
+                                                "[Streams] {} stored without its series: {}",
                                                 result.activity_id,
                                                 e
                                             );

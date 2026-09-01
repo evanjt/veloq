@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { brand } from '@/theme';
 import { debug } from '@/shared/debug/debug';
+import { tapTargetFromPushData } from '@/features/insights/lib/pushPayload';
 
 const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
@@ -177,23 +178,31 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
 const handledResponseIds = new Set<string>();
 
 /**
- * Route based on notification data. Handles the activityId / sectionId / route
- * fields the same way regardless of whether the tap happened while the app was
- * running or launched the app cold.
+ * Route based on notification data, whether the tap happened while the app was
+ * running or launched it cold.
+ *
+ * The payload is unwrapped by `tapTargetFromPushData`, which is the same
+ * normalisation the background task uses. Reading `data.activityId` directly
+ * was the bug: iOS wraps the object as a JSON string and Android FCM data
+ * messages arrive under `body`, so the direct read was `undefined` and the tap
+ * went nowhere (`B144`).
+ *
+ * Exported so the four shapes can be tested against it.
  */
-function routeFromNotificationData(data: InsightNotificationData | undefined): void {
-  if (!data) return;
-  if (data.activityId) {
-    log.log('Navigating to activity:', data.activityId);
-    router.push(`/activity/${data.activityId}` as never);
-  } else if (data.sectionId) {
-    router.push(`/section/${data.sectionId}` as never);
-  } else if (data.route) {
-    log.log('Navigating to route:', data.route);
-    // navigate (not push) so a route that targets a mounted tab switches to it
-    // instead of stacking a duplicate tab screen on every notification tap
-    router.navigate(data.route as never);
+export function routeFromNotificationData(data: unknown): void {
+  const target = tapTargetFromPushData(data);
+  if (!target) return;
+  log.log('Notification tap routing to:', target.path);
+  if (target.mode === 'navigate') {
+    router.navigate(target.path as never);
+  } else {
+    router.push(target.path as never);
   }
+}
+
+/** Clears the tap dedupe set. Tests only, so one case cannot leak into the next. */
+export function __resetHandledResponseIds(): void {
+  handledResponseIds.clear();
 }
 
 /** Set up the notification response handler for deep linking. Call once at app startup. */
@@ -205,7 +214,7 @@ export function setupNotificationResponseHandler(): Notifications.Subscription {
       return;
     }
     handledResponseIds.add(id);
-    const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    const data = response.notification.request.content.data;
     log.log('Tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   });
@@ -225,7 +234,7 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     const id = response.notification.request.identifier;
     if (handledResponseIds.has(id)) return;
     handledResponseIds.add(id);
-    const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   } catch (e) {

@@ -56,6 +56,25 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Whether an activity's start date is inside the retention window, which
+    /// is what decides whether its sync downloads every series or only the
+    /// three the track needs (`B140`).
+    ///
+    /// An unknown date is outside it. On a first sync no activity has a date
+    /// yet, and widening on a guess would download thirteen series apiece for
+    /// a whole library and hand most of them straight to the prune. The detail
+    /// screen's own fetch still fills the store for anything the athlete opens.
+    pub fn inside_stream_window(&self, start_date: Option<i64>) -> bool {
+        let Some(days) = self.stream_retention_days() else {
+            return true;
+        };
+        let Some(start) = start_date else {
+            return false;
+        };
+        let now = chrono::Utc::now().timestamp();
+        start >= now - days * 86_400
+    }
+
     /// Store the series of one activity, replacing whatever it held. Series the
     /// track already answers are skipped, and an empty series is not stored at
     /// all: a row of nothing would report the activity as stocked and stop the
@@ -180,6 +199,91 @@ mod tests {
                 params![id, days_ago],
             )
             .unwrap();
+    }
+
+    /// Scenario: the bulk sync decides per activity whether to download every
+    /// series or only the three the track needs (`B140`).
+    ///
+    /// Expected behaviour: inside the window it widens, outside it does not,
+    /// and an activity whose date the caller does not know is treated as
+    /// outside. Widening on a guess is how a first sync downloads thirteen
+    /// series apiece and hands twelve of them to the prune.
+    #[test]
+    fn the_window_decides_which_activities_the_sync_widens_for() {
+        let (_dir, engine) = engine();
+        let now = chrono::Utc::now().timestamp();
+
+        assert!(engine.inside_stream_window(Some(now - 10 * 86_400)));
+        assert!(!engine.inside_stream_window(Some(now - 200 * 86_400)));
+        assert!(!engine.inside_stream_window(None));
+    }
+
+    #[test]
+    fn a_window_opened_all_the_way_widens_for_everything_including_an_unknown_date() {
+        let (_dir, engine) = engine();
+        engine.set_stream_retention_days(0).unwrap();
+
+        assert!(engine.inside_stream_window(Some(0)));
+        assert!(engine.inside_stream_window(None));
+    }
+
+    /// The boundary belongs inside the window, so an activity exactly at the
+    /// retention age is still widened rather than falling through the gap
+    /// between "kept" and "downloaded".
+    #[test]
+    fn the_edge_of_the_window_is_inside_it() {
+        let (_dir, engine) = engine();
+        let now = chrono::Utc::now().timestamp();
+        let edge = now - DEFAULT_STREAM_RETENTION_DAYS * 86_400;
+
+        assert!(engine.inside_stream_window(Some(edge + 1)));
+        assert!(!engine.inside_stream_window(Some(edge - 1)));
+    }
+
+    /// Scenario: an in-window activity is synced, so its response carried
+    /// every series and the storing loop put the extra ones away.
+    ///
+    /// Expected behaviour: a later read of power and heart rate is served
+    /// from the store, with no fetch and no body cached for it.
+    #[test]
+    fn a_wide_sync_leaves_power_and_heart_rate_readable_without_a_fetch() {
+        let (_dir, engine) = engine();
+        let response = vec![
+            StreamDto {
+                kind: "latlng".into(),
+                data: vec![Some(46.1), None, Some(46.3)],
+                data2: Some(vec![Some(7.1), None, Some(7.3)]),
+            },
+            series("watts", &[Some(100.0), Some(200.0), Some(300.0)]),
+            series("heartrate", &[Some(140.0), Some(150.0), Some(160.0)]),
+        ];
+
+        engine
+            .store_activity_streams("a1", &crate::net::types::storable_series(&response))
+            .unwrap();
+
+        let body = engine
+            .read_stream_body("a1", "watts,heartrate")
+            .unwrap()
+            .expect("the store answers the selection");
+        let served: Vec<StreamDto> = serde_json::from_str(&body).unwrap();
+
+        // The dropped coordinate takes its samples with it, so the stored
+        // series are in the index space the track is stored in.
+        assert_eq!(
+            served
+                .iter()
+                .find(|s| s.kind == "watts")
+                .map(|s| s.data.clone()),
+            Some(vec![Some(100.0), Some(300.0)])
+        );
+        assert_eq!(
+            served
+                .iter()
+                .find(|s| s.kind == "heartrate")
+                .map(|s| s.data.clone()),
+            Some(vec![Some(140.0), Some(160.0)])
+        );
     }
 
     #[test]

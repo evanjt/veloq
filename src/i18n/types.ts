@@ -223,8 +223,7 @@ export interface TranslationResource {
     apiKeyConnect: string;
     localModeNote: string;
     apiKeyNoNotifications: string;
-    sessionExpired: string;
-    sessionRevoked: string;
+    sessionSignedOut: string;
     sessionDataKept: string;
     sessionRestore: string;
     sessionRestoreAthlete: string;
@@ -968,6 +967,7 @@ export interface TranslationResource {
     aerobicEfficiencyDetail: string;
     aerobicEfficiencyCaption: string;
     traversals: string;
+    liftGround: string;
     routesCountLabel: string;
     noActivitiesFound: string;
     sectionNamePlaceholder: string;
