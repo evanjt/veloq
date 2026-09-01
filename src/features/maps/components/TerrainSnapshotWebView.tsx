@@ -59,7 +59,6 @@ const MAX_SNAPSHOT_RETRIES = 1;
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
   retryFailed: () => void;
-  preloadTiles: (script: string) => void;
 }
 
 interface WorkerState {
@@ -492,13 +491,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           }
           updateProgress();
           processNext();
-        },
-        preloadTiles: (script: string) => {
-          // Find an idle worker to run the preload script
-          const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-          if (worker?.webViewRef.current) {
-            worker.webViewRef.current.injectJavaScript(script);
-          }
         },
       }),
       [processNext, updateProgress]
