@@ -1066,6 +1066,7 @@
     "expandMode": "Erweitere",
     "resetBoundsConfirm": "Uf d originale automatisch erkannte Grenze zruggsetze?\n\nDe Abschnitt wird nöi mit allne dine Aktivitäte abgliche.",
     "traversals": "Durchfahrte",
+    "liftGround": "Lift",
     "trimFailed": "Abschnittsgrenze hend nöd chönne zuegschiite wärde",
     "trimTooShort": "De Abschnitt muess mindestens 5 Pünkt ha",
     "expandUnavailable": "Kei Aktivitätstrack zum Erweitere verfüegbar",

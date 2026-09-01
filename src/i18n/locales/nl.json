@@ -1066,6 +1066,7 @@
     "expandMode": "Uitbreiden",
     "resetBoundsConfirm": "Herstellen naar de oorspronkelijk automatisch gedetecteerde grenzen?\n\nHet traject wordt opnieuw vergeleken met al je activiteiten.",
     "traversals": "doorgangen",
+    "liftGround": "Lift",
     "trimFailed": "Kan trajectgrenzen niet bijsnijden",
     "trimTooShort": "Het traject moet minstens 5 punten hebben",
     "expandUnavailable": "Geen activiteitsspoor beschikbaar voor uitbreiding",

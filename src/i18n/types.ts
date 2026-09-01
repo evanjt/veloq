@@ -968,6 +968,7 @@ export interface TranslationResource {
     aerobicEfficiencyDetail: string;
     aerobicEfficiencyCaption: string;
     traversals: string;
+    liftGround: string;
     routesCountLabel: string;
     noActivitiesFound: string;
     sectionNamePlaceholder: string;

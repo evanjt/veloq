@@ -1066,6 +1066,7 @@
     "expandMode": "Étendre",
     "resetBoundsConfirm": "Réinitialiser aux limites détectées automatiquement ?\n\nLa section sera à nouveau comparée à toutes vos activités.",
     "traversals": "passages",
+    "liftGround": "Remontée",
     "trimFailed": "Échec du découpage des limites de la section",
     "trimTooShort": "La section doit avoir au moins 5 points",
     "expandUnavailable": "Aucune trace d'activité disponible pour l'extension",

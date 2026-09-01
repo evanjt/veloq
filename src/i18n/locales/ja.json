@@ -1066,6 +1066,7 @@
     "expandMode": "拡張",
     "resetBoundsConfirm": "自動検出された元の範囲に戻しますか？\n\nセクションはすべてのアクティビティと再照合されます。",
     "traversals": "通過回数",
+    "liftGround": "リフト",
     "trimFailed": "セクション範囲のトリミングに失敗しました",
     "trimTooShort": "セクションには少なくとも5つのポイントが必要です",
     "expandUnavailable": "拡張に使用できるアクティビティトラックがありません",

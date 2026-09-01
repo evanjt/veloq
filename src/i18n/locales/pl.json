@@ -1068,6 +1068,7 @@
     "expandMode": "Rozszerz",
     "resetBoundsConfirm": "Przywrócić oryginalne automatycznie wykryte granice?\n\nSekcja zostanie ponownie dopasowana do wszystkich Twoich aktywności.",
     "traversals": "przejazdy",
+    "liftGround": "Wyciąg",
     "trimFailed": "Nie udało się przyciąć granic sekcji",
     "trimTooShort": "Sekcja musi mieć co najmniej 5 punktów",
     "expandUnavailable": "Brak dostępnego śladu aktywności do rozszerzenia",
