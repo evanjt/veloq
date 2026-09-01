@@ -20,7 +20,12 @@ export function DebugInfoPanel({ entries, isDark }: DebugInfoPanelProps) {
       {entries.map((entry) => (
         <View key={entry.label} style={styles.row}>
           <Text style={[styles.label, isDark && styles.textMuted]}>{entry.label}</Text>
-          <Text style={[styles.value, isDark && styles.valueDark]}>{entry.value}</Text>
+          <Text
+            testID={`debug-value-${entry.label}`}
+            style={[styles.value, isDark && styles.valueDark]}
+          >
+            {entry.value}
+          </Text>
         </View>
       ))}
     </View>
