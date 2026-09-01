@@ -5,6 +5,10 @@
  * Every intervals.icu call, read and write, now goes through it, so this hook is
  * the single path that logs the user out and shows the re-login prompt.
  *
+ * The state is named `authExpired` but the 401 behind it is not evidence of an
+ * expiry: a second device signing in takes this one's token (`B143`). What the
+ * athlete is told says only that they were signed out.
+ *
  * `handleSessionExpired` is a no-op for API-key sessions, which never expire.
  */
 import { useEffect, useRef } from 'react';
@@ -26,6 +30,6 @@ export function useSyncAuthExpiry(): void {
     }
     if (handledRef.current) return;
     handledRef.current = true;
-    void useAuthStore.getState().handleSessionExpired('token_expired');
+    void useAuthStore.getState().handleSessionExpired('signed_out');
   }, [state]);
 }

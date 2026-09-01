@@ -223,8 +223,7 @@ export interface TranslationResource {
     apiKeyConnect: string;
     localModeNote: string;
     apiKeyNoNotifications: string;
-    sessionExpired: string;
-    sessionRevoked: string;
+    sessionSignedOut: string;
     sessionDataKept: string;
     sessionRestore: string;
     sessionRestoreAthlete: string;

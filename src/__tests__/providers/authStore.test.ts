@@ -330,7 +330,7 @@ describe('AuthStore', () => {
         authMethod: 'oauth',
       });
 
-      await useAuthStore.getState().handleSessionExpired('token_expired');
+      await useAuthStore.getState().handleSessionExpired('signed_out');
 
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
@@ -340,7 +340,7 @@ describe('AuthStore', () => {
       expect(state.athleteId).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(state.authMethod).toBeNull();
-      expect(state.sessionExpired).toBe('token_expired');
+      expect(state.sessionExpired).toBe('signed_out');
     });
 
     it('only affects OAuth auth method, not API key', async () => {
@@ -351,7 +351,7 @@ describe('AuthStore', () => {
         authMethod: 'apiKey',
       });
 
-      await useAuthStore.getState().handleSessionExpired('token_expired');
+      await useAuthStore.getState().handleSessionExpired('signed_out');
 
       // Should NOT have called delete
       expect(mockDeleteItemAsync).not.toHaveBeenCalled();

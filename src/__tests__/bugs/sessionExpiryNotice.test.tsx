@@ -93,23 +93,23 @@ beforeEach(async () => {
   await forgetCachedAthleteId();
 });
 
-async function showExpiry(reason: 'token_expired' | 'token_revoked') {
-  useAuthStore.setState({ sessionExpired: reason });
+async function showExpiry() {
+  useAuthStore.setState({ sessionExpired: 'signed_out' });
   render(<LoginScreen />);
   await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
 }
 
-describe('an expired session', () => {
+describe('a signed-out session', () => {
   it('does not use the login failure slot', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_expired');
+    await showExpiry();
 
     expect(screen.queryByTestId('login-error-text')).toBeNull();
   });
 
   it('says the library is still on the device', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_expired');
+    await showExpiry();
 
     expect(
       screen.getByText('Your activities, sections and settings are still on this device.')
@@ -118,13 +118,13 @@ describe('an expired session', () => {
 
   it('names the athlete a sign-in restores', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_expired');
+    await showExpiry();
 
     expect(screen.getByText(`Sign in again as ${ATHLETE} to get them back.`)).toBeTruthy();
   });
 
   it('still reassures when the mirror holds no athlete', async () => {
-    await showExpiry('token_expired');
+    await showExpiry();
 
     expect(
       screen.getByText('Your activities, sections and settings are still on this device.')
@@ -133,17 +133,20 @@ describe('an expired session', () => {
     expect(screen.queryByText(/as i/)).toBeNull();
   });
 
-  it('separates a revoked token from an expired one', async () => {
+  /// A 401 is all the app has. It cannot tell an expiry from another device
+  /// taking the credential, so it claims neither (`B143`).
+  it('claims neither an expiry nor a revocation the server never signalled', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_revoked');
+    await showExpiry();
 
-    expect(screen.getByText('Your access was revoked.')).toBeTruthy();
-    expect(screen.queryByText('Your session has expired.')).toBeNull();
+    expect(screen.getByText('You have been signed out.')).toBeTruthy();
+    expect(screen.queryByText(/expired/i)).toBeNull();
+    expect(screen.queryByText(/revoked/i)).toBeNull();
   });
 
   it('clears the flag so a later visit to the screen is clean', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_expired');
+    await showExpiry();
 
     expect(useAuthStore.getState().sessionExpired).toBeNull();
 
@@ -166,7 +169,7 @@ describe('a login failure', () => {
 
   it('takes the slot back from a notice that came first', async () => {
     await rememberCachedAthleteId(ATHLETE);
-    await showExpiry('token_expired');
+    await showExpiry();
 
     act(() => reportLoginError?.('Invalid API key'));
 
@@ -179,7 +182,7 @@ describe('a login failure', () => {
     render(<LoginScreen />);
     act(() => reportLoginError?.('Invalid API key'));
 
-    act(() => useAuthStore.setState({ sessionExpired: 'token_expired' }));
+    act(() => useAuthStore.setState({ sessionExpired: 'signed_out' }));
 
     await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
     expect(screen.queryByTestId('login-error-text')).toBeNull();
