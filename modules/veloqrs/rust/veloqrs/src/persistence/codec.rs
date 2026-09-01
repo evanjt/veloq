@@ -531,7 +531,10 @@ mod tests {
     /// begins with exactly the bytes the rmp fixarray sniff claims.
     #[test]
     fn track_blob_round_trips_through_the_quantised_container() {
-        let points = vec![pt(46.123456, 7.654321, Some(1234.5)), pt(46.123556, 7.654221, None)];
+        let points = vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.123556, 7.654221, None),
+        ];
         let blob = serialize_track_points(&points);
         assert_eq!(blob[0], POLYLINE_TAG);
         assert_eq!(deserialize_points(&blob).unwrap(), points);
@@ -581,7 +584,10 @@ mod tests {
     /// processed set, and re-derive the catalogue.
     #[test]
     fn a_verbatim_reingest_is_not_a_mutation_across_the_codec_change() {
-        let points = vec![pt(46.123456, 7.654321, Some(1234.5)), pt(46.223456, 7.554321, None)];
+        let points = vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.223456, 7.554321, None),
+        ];
         for stored in [
             serialize_points(&points).unwrap(),
             rmp_serde::to_vec(&points).unwrap(),
@@ -602,7 +608,10 @@ mod tests {
         assert!(!track_matches(&stored, &moved));
 
         // A shorter track over the same opening point is a mutation too.
-        assert!(!track_matches(&serialize_track_points(&[points[0], moved[0]]), &points));
+        assert!(!track_matches(
+            &serialize_track_points(&[points[0], moved[0]]),
+            &points
+        ));
     }
 
     /// Movement below the quantisation step stops being visible, which is the
@@ -610,7 +619,10 @@ mod tests {
     #[test]
     fn movement_below_the_quantisation_step_is_not_a_mutation() {
         let stored = serialize_track_points(&[pt(46.123456, 7.654321, Some(1234.5))]);
-        assert!(track_matches(&stored, &[pt(46.1234561, 7.6543211, Some(1234.51))]));
+        assert!(track_matches(
+            &stored,
+            &[pt(46.1234561, 7.6543211, Some(1234.51))]
+        ));
     }
 
     #[test]
@@ -890,4 +902,115 @@ mod tests {
             3
         );
     }
+}
+
+/// Framed tag for a quantised scalar series. Distinct from [`POLYLINE_TAG`] so
+/// a series blob can never be handed to the point decoder.
+const SERIES_TAG: u8 = 0xC1;
+
+/// Sample carriage in a series header, mirroring the polyline's elevation modes.
+const SERIES_NONE: u8 = 0;
+const SERIES_ALL: u8 = 1;
+const SERIES_MIXED: u8 = 2;
+
+/// Counts per unit for each series the store holds. A scale is chosen so the
+/// server's own precision is exact rather than approximated: the integer
+/// series count in ones, speeds in hundredths of a metre per second, distance
+/// and temperature in tenths.
+///
+/// The scale is written into the blob rather than looked up on read, so a
+/// future change here cannot silently rescale everything already stored.
+pub fn series_scale(kind: &str) -> f64 {
+    match kind {
+        "velocity_smooth" | "ga_velocity" | "grade_smooth" => 100.0,
+        "distance" | "temp" => 10.0,
+        _ => 1.0,
+    }
+}
+
+/// Quantised zigzag-varint scalar series: sample count, scale, presence mode
+/// (none / all / mixed with a bitmap), then the deltas of the quantised
+/// samples. Exact at the scale it records; gaps survive as gaps.
+///
+/// This is the polyline codec's technique on one dimension rather than three,
+/// which is what `Q31` asked for: the packing format is the quantised codec,
+/// not a design of its own.
+pub fn encode_series(values: &[Option<f64>], scale: f64) -> Vec<u8> {
+    let mut body = Vec::new();
+    write_varint(&mut body, values.len() as u64);
+    write_varint(&mut body, scale.round() as u64);
+    let present = values.iter().filter(|v| v.is_some()).count();
+    let mode = match present {
+        0 => SERIES_NONE,
+        n if n == values.len() => SERIES_ALL,
+        _ => SERIES_MIXED,
+    };
+    body.push(mode);
+    if mode == SERIES_MIXED {
+        let mut bitmap = vec![0u8; values.len().div_ceil(8)];
+        for (i, v) in values.iter().enumerate() {
+            if v.is_some() {
+                bitmap[i / 8] |= 1 << (i % 8);
+            }
+        }
+        body.extend_from_slice(&bitmap);
+    }
+    let mut prev = 0i64;
+    for v in values.iter().flatten() {
+        // A NaN or an infinity has no quantised form, so it stores as the
+        // previous sample's value rather than as a wild delta. The server does
+        // not send them; a body that does is malformed, not meaningful.
+        let q = if v.is_finite() {
+            (v * scale).round() as i64
+        } else {
+            prev
+        };
+        write_varint(&mut body, zigzag(q - prev));
+        prev = q;
+    }
+    frame(SERIES_TAG, body)
+}
+
+/// Decode [`encode_series`] output. `None` on anything truncated, malformed or
+/// not a series blob; never panics on foreign bytes.
+pub fn decode_series(bytes: &[u8]) -> Option<Vec<Option<f64>>> {
+    let body = unframe(SERIES_TAG, bytes)?;
+    let mut pos = 0usize;
+    let n = usize::try_from(read_varint(body, &mut pos)?).ok()?;
+    // A varint can claim an absurd count; bound it by what the remaining bytes
+    // could hold, one byte per present sample at minimum.
+    if n > body.len().saturating_sub(pos).saturating_mul(8) {
+        return None;
+    }
+    let scale = read_varint(body, &mut pos)? as f64;
+    if scale <= 0.0 {
+        return None;
+    }
+    let mode = *body.get(pos)?;
+    pos += 1;
+    let bitmap: &[u8] = if mode == SERIES_MIXED {
+        let len = n.div_ceil(8);
+        let slice = body.get(pos..pos + len)?;
+        pos += len;
+        slice
+    } else {
+        &[]
+    };
+    let mut out = Vec::with_capacity(n);
+    let mut prev = 0i64;
+    for i in 0..n {
+        let present = match mode {
+            SERIES_ALL => true,
+            SERIES_NONE => false,
+            SERIES_MIXED => bitmap.get(i / 8).is_some_and(|b| b & (1 << (i % 8)) != 0),
+            _ => return None,
+        };
+        if !present {
+            out.push(None);
+            continue;
+        }
+        prev += unzigzag(read_varint(body, &mut pos)?);
+        out.push(Some(prev as f64 / scale));
+    }
+    Some(out)
 }
