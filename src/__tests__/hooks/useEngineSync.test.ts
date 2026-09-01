@@ -30,7 +30,7 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
 
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline, isInternetReachable: null, connectionType: null }),
+  useNetwork: () => ({ isOnline: mockIsOnline }),
 }));
 
 let foregroundCallback: (() => void) | null = null;

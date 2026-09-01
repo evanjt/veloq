@@ -97,8 +97,6 @@ describe('NetworkContext', () => {
     it('starts online (optimistic)', () => {
       const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
       expect(result.current.isOnline).toBe(true);
-      expect(result.current.isInternetReachable).toBeNull();
-      expect(result.current.connectionType).toBeNull();
     });
 
     it('subscribes to network state listener on mount', () => {
@@ -121,8 +119,6 @@ describe('NetworkContext', () => {
         });
       });
       expect(result.current.isOnline).toBe(true);
-      expect(result.current.isInternetReachable).toBe(true);
-      expect(result.current.connectionType).toBe('WIFI');
     });
 
     it('coalesces null isInternetReachable to online (missing field)', () => {
@@ -136,8 +132,6 @@ describe('NetworkContext', () => {
       });
       // isInternetReachable !== false → treated as online
       expect(result.current.isOnline).toBe(true);
-      expect(result.current.isInternetReachable).toBeNull();
-      expect(result.current.connectionType).toBe('CELLULAR');
     });
   });
 
@@ -169,8 +163,6 @@ describe('NetworkContext', () => {
         jest.advanceTimersByTime(3000);
       });
       expect(result.current.isOnline).toBe(false);
-      expect(result.current.isInternetReachable).toBe(false);
-      expect(result.current.connectionType).toBe('NONE');
     });
 
     it('cancels debounce when network comes back online before 3s', () => {
@@ -200,7 +192,6 @@ describe('NetworkContext', () => {
         });
       });
       expect(result.current.isOnline).toBe(true);
-      expect(result.current.connectionType).toBe('WIFI');
 
       // Advance past the original 3s mark - no offline flip
       act(() => {
@@ -257,7 +248,6 @@ describe('NetworkContext', () => {
       });
       expect(getMock().getNetworkStateAsync).toHaveBeenCalledTimes(1);
       expect(result.current.isOnline).toBe(true);
-      expect(result.current.connectionType).toBe('WIFI');
     });
 
     it('does not override a listener-reported state that arrived first', () => {
