@@ -457,6 +457,7 @@ impl PersistentEngine {
              DELETE FROM activity_heatmap;
              DELETE FROM time_streams;
              DELETE FROM stream_bodies;
+             DELETE FROM activity_streams;
              DELETE FROM interval_bodies;
              DELETE FROM curve_bodies;
              DELETE FROM calendar_event_bodies;

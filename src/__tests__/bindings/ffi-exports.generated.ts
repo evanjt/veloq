@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 17 standalone `#[uniffi::export]` functions plus
- * 226 methods inside `#[uniffi::export] impl` blocks across
+ * 229 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 243 exports (17 standalone + 226 methods)
+ * Total: 246 exports (17 standalone + 229 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1826,10 +1826,37 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SettingsManager',
   },
   {
+    name: 'stream_retention_days',
+    camelName: 'streamRetentionDays',
+    file: 'objects/settings.rs',
+    line: 69,
+    paramCount: 0,
+    returnType: 'Result<i64, VeloqError>',
+    object: 'SettingsManager',
+  },
+  {
+    name: 'set_stream_retention_days',
+    camelName: 'setStreamRetentionDays',
+    file: 'objects/settings.rs',
+    line: 75,
+    paramCount: 1,
+    returnType: 'Result<(), VeloqError>',
+    object: 'SettingsManager',
+  },
+  {
+    name: 'stream_store_bytes',
+    camelName: 'streamStoreBytes',
+    file: 'objects/settings.rs',
+    line: 85,
+    paramCount: 0,
+    returnType: 'Result<i64, VeloqError>',
+    object: 'SettingsManager',
+  },
+  {
     name: 'delete_setting',
     camelName: 'deleteSetting',
     file: 'objects/settings.rs',
-    line: 65,
+    line: 94,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     object: 'SettingsManager',
@@ -2198,7 +2225,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1775,
+    line: 1776,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2409,6 +2436,9 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'clearUserProfileCaches',
   'getSetting',
   'setSetting',
+  'streamRetentionDays',
+  'setStreamRetentionDays',
+  'streamStoreBytes',
   'deleteSetting',
   'new',
   'getExerciseSets',
@@ -2635,6 +2665,9 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   clear_user_profile_caches: 'clearUserProfileCaches',
   get_setting: 'getSetting',
   set_setting: 'setSetting',
+  stream_retention_days: 'streamRetentionDays',
+  set_stream_retention_days: 'setStreamRetentionDays',
+  stream_store_bytes: 'streamStoreBytes',
   delete_setting: 'deleteSetting',
   get_exercise_sets: 'getExerciseSets',
   is_fit_processed: 'isFitProcessed',
