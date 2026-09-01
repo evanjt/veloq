@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import type { ActivityPattern } from '@/types';
 
 /**
@@ -20,7 +20,7 @@ export function useActivityPatterns(): {
   const trigger = useEngineSubscription(['activities', 'sections']);
 
   const result = useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return { todayPattern: null, allPatterns: [] };
 
     try {

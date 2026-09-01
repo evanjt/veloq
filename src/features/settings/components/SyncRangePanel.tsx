@@ -11,7 +11,7 @@ import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { formatLocalDate, formatFileSize } from '@/shared/format/format';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
@@ -36,7 +36,7 @@ export function SyncRangePanel() {
   const handleHeatmapToggle = useCallback(
     (enabled: boolean) => {
       setHeatmapEnabled(enabled);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (enabled) {
         engine?.enableHeatmapTiles();
       } else {

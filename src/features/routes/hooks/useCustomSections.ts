@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
@@ -114,7 +114,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     queryKey: queryKeys.sections.custom,
     enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         return [];
       }
@@ -155,7 +155,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Create a new section
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<Section> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -240,7 +240,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Delete a section
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -267,7 +267,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Rename a section
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }

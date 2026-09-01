@@ -19,7 +19,7 @@ import {
   markRecordingPermissionBlocked,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
@@ -37,13 +37,13 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 }));
 
 jest.mock('veloqrs', () => ({
-  routeEngine: { importSetsFromFit: jest.fn() },
+  engine: { importSetsFromFit: jest.fn() },
 }));
 
 const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;
 const mockReadFit = readRecordingFit as jest.Mock;
-const mockImportSets = routeEngine.importSetsFromFit as jest.Mock;
+const mockImportSets = engine.importSetsFromFit as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',

@@ -7,8 +7,8 @@
  */
 import { restoreBackup } from '@/features/settings/lib/backup';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => null,
   getRouteDbPath: () => '/tmp/routes.db',
   getNativeModule: () => null,
 }));

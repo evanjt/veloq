@@ -19,7 +19,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 const VERSION_KEY = 'veloq-elevation-backfill-version';
 
@@ -55,7 +55,7 @@ async function attempt(): Promise<boolean> {
   const seen = await AsyncStorage.getItem(VERSION_KEY);
   if (seen === version) return false;
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return false;
 
   try {

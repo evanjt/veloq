@@ -10,8 +10,8 @@ import { getOfferableBackends, getAvailableBackends } from '@/features/settings/
 
 const mockGetSetting = jest.fn<string | undefined, [string]>();
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({
     getSetting: (key: string) => mockGetSetting(key),
     setSetting: jest.fn(),
   }),

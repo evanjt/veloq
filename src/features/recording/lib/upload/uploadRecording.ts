@@ -1,6 +1,6 @@
 import { debug } from '@/shared/debug/debug';
 import { uploadActivityFile } from './intervalsUploads';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import {
   recordingFitExists,
   readRecordingFit,
@@ -43,7 +43,7 @@ async function importRecordedStrengthSets(
     const fit = await readRecordingFit(entry);
     if (!fit) return;
 
-    const inserted = routeEngine.importSetsFromFit(activityId, new Uint8Array(fit));
+    const inserted = engine.importSetsFromFit(activityId, new Uint8Array(fit));
     log.log(`Imported ${inserted} strength sets from ${entry.id}`);
   } catch (err) {
     log.warn(`Strength set import failed for ${entry.id}: ${String(err)}`);

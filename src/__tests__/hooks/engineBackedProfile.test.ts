@@ -13,10 +13,10 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useSportSettings } from '@/shared/app/useSportSettings';
 import { useWellness, useWellnessForDate } from '@/features/wellness/hooks/useWellness';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 // One stable identity per store field: a fresh jest.fn() per render would make
@@ -35,7 +35,7 @@ const engine = {
   subscribe: jest.fn(() => () => {}),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 let client: QueryClient;
 
@@ -46,7 +46,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getAthleteProfile.mockReturnValue(null);
   engine.getSportSettings.mockReturnValue(null);
   engine.getWellnessBodies.mockReturnValue([]);

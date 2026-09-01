@@ -8,7 +8,7 @@
  * turning a refused write into a throw the caller can classify.
  */
 
-import { routeEngine, type CallOutcome, type ManualActivity } from 'veloqrs';
+import { engine, type CallOutcome, type ManualActivity } from 'veloqrs';
 
 import { useAuthStore, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import type { ManualActivityData } from '@/types';
@@ -53,14 +53,14 @@ export async function uploadActivityFile(
 ): Promise<string | undefined> {
   if (isDemoMode()) return `demo-${Date.now()}`;
   return createdId(
-    await routeEngine.uploadActivityFile(filePath, filename, opts?.name, opts?.pairedEventId)
+    await engine.uploadActivityFile(filePath, filename, opts?.name, opts?.pairedEventId)
   );
 }
 
 /** Create an activity with no file behind it, for indoor entries. */
 export async function createManualActivity(data: ManualActivityData): Promise<string | undefined> {
   if (isDemoMode()) return `demo-${Date.now()}`;
-  return createdId(await routeEngine.createManualActivity(toManualActivity(data)));
+  return createdId(await engine.createManualActivity(toManualActivity(data)));
 }
 
 /** Widen the screen's shape to the record the engine takes. */

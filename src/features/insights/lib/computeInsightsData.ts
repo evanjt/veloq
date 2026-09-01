@@ -3,7 +3,7 @@ import type { SectionChangeInput } from '../generators/sectionChanged';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import type { StrengthSummary } from '@/features/strength/types';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
 
@@ -53,7 +53,7 @@ function normalizeStrengthSummary(raw: {
  */
 function recentSectionChanges(): SectionChangeInput[] {
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     const names = getAllSectionDisplayNames();
     return engine.getRecentSectionChanges(14).map((c) => ({
@@ -387,7 +387,7 @@ export function computeInsightsFromData(
  * Pure function - calls synchronous FFI, no React.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   const params = buildInsightsParams();

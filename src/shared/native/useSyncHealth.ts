@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 
-import { getRouteEngine } from './routeEngine';
+import { getEngine } from './engine';
 import { useSyncStatus } from './useSyncStatus';
 
 /** Engine settings key holding the ISO time of the last sync that landed. */
@@ -36,7 +36,7 @@ export function useSyncHealth(): SyncHealth {
   // This hook mounts before the root layout opens the engine, so the first read
   // reaches a null handle. The ready nonce brings it back with a real one.
   useEffect(() => {
-    const stored = getRouteEngine()?.getSetting(LAST_SUCCESS_KEY);
+    const stored = getEngine()?.getSetting(LAST_SUCCESS_KEY);
     if (stored) setLastSuccessAt(stored);
   }, [engineReadyNonce]);
 
@@ -51,7 +51,7 @@ export function useSyncHealth(): SyncHealth {
     // that carried an error, so none of them may move the success time.
     if (state !== 'idle' || lastError) return;
     const at = new Date().toISOString();
-    getRouteEngine()?.setSetting(LAST_SUCCESS_KEY, at);
+    getEngine()?.setSetting(LAST_SUCCESS_KEY, at);
     setLastSuccessAt(at);
   }, [state, lastError]);
 

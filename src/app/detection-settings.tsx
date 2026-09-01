@@ -19,7 +19,7 @@ import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { DetectionIllustration, ElevationBackfillStatus } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { getRouteEngine, UNIFIED_CONFIG } from '@/shared/native/routeEngine';
+import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
 
 type DetectionParams = {
   proximityThreshold: number;
@@ -43,7 +43,7 @@ function defaultParams(): DetectionParams {
  *  is not ready yet. The illustration has to draw these or it shows numbers
  *  the detector is not using. */
 function loadParams(): DetectionParams {
-  const config = getRouteEngine()?.getSectionConfig();
+  const config = getEngine()?.getSectionConfig();
   if (!config) return defaultParams();
   return {
     proximityThreshold: config.proximityThreshold,
@@ -72,7 +72,7 @@ export default function DetectionSettingsScreen() {
   // The engine can still be initialising on the first render, and then the
   // lazy seed above fell back to the defaults.
   useEffect(() => {
-    if (!getRouteEngine()?.getSectionConfig()) return;
+    if (!getEngine()?.getSectionConfig()) return;
     setParams(loadParams());
   }, []);
 

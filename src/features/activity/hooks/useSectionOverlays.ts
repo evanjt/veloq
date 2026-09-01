@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
@@ -98,7 +98,7 @@ export function useSectionOverlays(
         polylineFlat.push(p.lat ?? p.latitude ?? 0, p.lng ?? p.longitude ?? 0);
       }
 
-      const extractedTrace = routeEngine.extractSectionTrace(activityId, polylineFlat);
+      const extractedTrace = engine.extractSectionTrace(activityId, polylineFlat);
 
       if (extractedTrace && extractedTrace.length > 0) {
         // Convert GpsPoint[] to LatLng format
@@ -127,7 +127,7 @@ export function useSectionOverlays(
     ];
     if (allIds.length === 0) return new Set();
     try {
-      return new Set(routeEngine.getActivityPrSections(activityId, allIds));
+      return new Set(engine.getActivityPrSections(activityId, allIds));
     } catch {
       return new Set();
     }

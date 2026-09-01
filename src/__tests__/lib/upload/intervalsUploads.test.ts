@@ -9,7 +9,7 @@
  * where the body is actually built.
  */
 
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import {
   uploadActivityFile,
   createManualActivity,
@@ -18,7 +18,7 @@ import {
 import type { ManualActivityData } from '@/types';
 
 jest.mock('veloqrs', () => ({
-  routeEngine: {
+  engine: {
     uploadActivityFile: jest.fn(),
     createManualActivity: jest.fn(),
   },
@@ -31,8 +31,8 @@ jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',
 }));
 
-const mockUploadActivityFile = routeEngine.uploadActivityFile as jest.Mock;
-const mockCreateManualActivity = routeEngine.createManualActivity as jest.Mock;
+const mockUploadActivityFile = engine.uploadActivityFile as jest.Mock;
+const mockCreateManualActivity = engine.createManualActivity as jest.Mock;
 
 const OK = { kind: 'ok', id: 'i999', message: 'ok' };
 

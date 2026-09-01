@@ -8,9 +8,9 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useRouteRenaming } from '@/features/routes/hooks/useRouteRenaming';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const getAllRouteNames = jest.fn();
 const getGroupSummaries = jest.fn();
@@ -24,7 +24,7 @@ beforeEach(() => {
   getGroupSummaries.mockImplementation(() => {
     throw new Error('the rename path must not read group summaries');
   });
-  (getRouteEngine as jest.Mock).mockReturnValue({
+  (getEngine as jest.Mock).mockReturnValue({
     getAllRouteNames,
     getGroupSummaries,
     setRouteName,

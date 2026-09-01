@@ -5,8 +5,8 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import { useGroupSummaries } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useGroupSummaries } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import { toActivityType, type ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {
@@ -81,7 +81,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   // Rename a route - uses Rust engine as single source of truth
   // The engine will persist the name and fire 'groups' event to trigger refresh
   const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       throw new Error('Route engine not initialized');
     }

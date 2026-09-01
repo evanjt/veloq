@@ -7,7 +7,7 @@ import {
   HR_ZONE_COLORS,
 } from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -33,7 +33,7 @@ export function useZoneDistribution({
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !sport) return undefined;
 
     const sportType = SPORT_TO_ENGINE_TYPE[sport];

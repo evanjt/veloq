@@ -3,7 +3,7 @@ export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
 export { useRouteProcessing } from './useRouteProcessing';
 export { useRouteSignatures, type RouteSignature } from './useRouteSignatures';
-export { useEngineSections, useEngineSectionCount } from './useRouteEngine';
+export { useEngineSections, useEngineSectionCount } from './useEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,

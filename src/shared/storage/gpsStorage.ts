@@ -10,7 +10,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { forgetCachedAthleteId } from './cachedAthleteId';
 
@@ -170,8 +170,8 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
   queryClient.clear();
   await AsyncStorage.removeItem('veloq-query-cache');
 
-  const routeEngine = getRouteEngine();
-  if (routeEngine) routeEngine.clearUserProfileCaches();
+  const engine = getEngine();
+  if (engine) engine.clearUserProfileCaches();
 
   log.log('Cleared auth-only caches (profile + query cache)');
 }
@@ -202,8 +202,8 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
   // all activity / GPS / section tables (see persistence/activities.rs).
   // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
-  const routeEngine = getRouteEngine();
-  if (routeEngine) routeEngine.clear();
+  const engine = getEngine();
+  if (engine) engine.clear();
 
   await Promise.all([
     clearAllGpsTracks(),

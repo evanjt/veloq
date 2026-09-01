@@ -63,7 +63,7 @@ import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/wh
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
@@ -115,12 +115,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useEffect(() => {
     if (isAuthenticated) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (engine) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
           if (__DEV__) {
-            console.warn('[RouteEngine] Cannot initialize - document directory not available.');
+            console.warn('[Engine] Cannot initialize - document directory not available.');
           }
           return;
         }
@@ -142,7 +142,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             ) {
               if (__DEV__) {
                 console.log(
-                  `[RouteEngine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
+                  `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
                 );
               }
               engine.clear();
@@ -156,7 +156,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             markEngineReady();
             if (__DEV__) {
               console.log(
-                `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
+                `[Engine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
               );
             }
             // Set name translations for auto-generated route/section names
@@ -218,14 +218,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // Retry once after delay - handles transient FS issues on first launch
             if (__DEV__) {
               console.warn(
-                `[RouteEngine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
+                `[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
               );
             }
             setTimeout(() => tryInit(attempt + 1), 500);
           } else {
             if (__DEV__) {
               console.warn(
-                `[RouteEngine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
+                `[Engine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
               );
             }
             setEngineInitFailed(true);
@@ -312,7 +312,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return () => clearTimeout(timer);
     } else if (isAuthenticated && inLoginScreen) {
       // Check for athlete ID mismatch (restored backup from different account)
-      const engine = getRouteEngine();
+      const engine = getEngine();
       const backupAthleteId = engine?.getSetting('__athlete_id');
       const currentAthleteId = useAuthStore.getState().athleteId;
       if (
@@ -424,7 +424,7 @@ export default function RootLayout() {
         const support = useSupportStore.getState();
         if (support.isLoaded && !support.isLegacyPurchaser) {
           try {
-            const eng = getRouteEngine();
+            const eng = getEngine();
             if (eng && eng.getActivityCount() > 0) {
               support.setLegacyPurchaser();
             }

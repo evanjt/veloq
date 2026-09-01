@@ -50,7 +50,7 @@ import {
   SectionTrimOverlay,
   SportTypeSelector,
 } from '@/features/routes';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { ScreenErrorBoundary } from '@/shared/ui';
@@ -344,7 +344,7 @@ export default function SectionDetailScreen() {
         isDark={isDark}
         insetTop={insets.top}
         onBack={() => router.back()}
-        loading={getRouteEngine() == null}
+        loading={getEngine() == null}
         notFoundMessage={t('sections.sectionNotFound')}
       />
     );

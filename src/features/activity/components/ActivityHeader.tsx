@@ -20,7 +20,7 @@ import {
   formatElevation,
   formatDateTime,
 } from '@/shared/format/format';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 import { colors, colorWithOpacity, opacity, spacing, typography } from '@/theme';
 
 interface LatLng {
@@ -103,7 +103,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
               debugEnabled
                 ? () => {
                     const doClone = (n: number) => {
-                      const created = routeEngine.debugCloneActivity(activityId, n);
+                      const created = engine.debugCloneActivity(activityId, n);
                       Alert.alert('Done', `Created ${created} clones`);
                     };
                     Alert.alert(

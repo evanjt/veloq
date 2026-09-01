@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
@@ -37,7 +37,7 @@ export function ActivitySyncRow() {
   const stop = useCallback(() => {
     if (stopping) return;
     setStopping(true);
-    getRouteEngine()?.cancelSync();
+    getEngine()?.cancelSync();
   }, [stopping]);
 
   if (!isSyncing) return null;

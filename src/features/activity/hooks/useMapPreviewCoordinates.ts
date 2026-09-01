@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import {
   PREVIEW_STREAM_TYPES,
   readStreams,
@@ -36,7 +36,7 @@ export function useMapPreviewCoordinates(
   const engineResult = useMemo(() => {
     if (!hasGpsData) return null;
     if (startupTrack) return null; // startup data takes priority, skip engine call
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     const points = engine.getGpsTrack(activityId);
     if (!points || points.length === 0) return null;

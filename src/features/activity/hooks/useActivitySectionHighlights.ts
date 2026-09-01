@@ -15,9 +15,9 @@
 
 import { useMemo } from 'react';
 import type { ActivityHighlightsBundle } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 
 export interface ActivitySectionHighlight {
   sectionId: string;
@@ -65,7 +65,7 @@ export function useActivitySectionHighlights(
       // unless the caller already has the bundle.
       let bundle = preComputedBundle;
       if (!bundle) {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return empty;
         bundle = engine.getActivityHighlightsBundle(activityIds);
       }

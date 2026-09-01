@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { RoutePoint } from '@/types';
 
 /** A ledger row, with the engine's 64-bit ids as numbers. */
@@ -46,7 +46,7 @@ export function useSectionLedger(sectionId: string | undefined, refreshKey = 0):
   const reload = useCallback(() => setTick((k) => k + 1), []);
 
   const state = useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !sectionId) return EMPTY;
     const history: SectionHistoryEvent[] = engine.getSectionHistory(sectionId).map((e) => ({
       id: Number(e.id),
@@ -76,7 +76,7 @@ export function useSectionLedger(sectionId: string | undefined, refreshKey = 0):
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !sectionId) return [];
       return engine.getSectionGeometryVersionPolyline(sectionId, version);
     },
@@ -85,7 +85,7 @@ export function useSectionLedger(sectionId: string | undefined, refreshKey = 0):
 
   const revert = useCallback(
     (version: number): boolean => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !sectionId) return false;
       const ok = engine.revertSectionToVersion(sectionId, version);
       if (ok) reload();
@@ -95,7 +95,7 @@ export function useSectionLedger(sectionId: string | undefined, refreshKey = 0):
   );
 
   const unpin = useCallback((): boolean => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !sectionId) return false;
     const ok = engine.unpinSection(sectionId);
     if (ok) reload();

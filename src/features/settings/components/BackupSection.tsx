@@ -9,7 +9,7 @@ import {
 } from '@/features/settings/hooks/exportIndex';
 import { formatFileSize } from '@/shared/format/format';
 import { useTheme } from '@/shared/app';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
@@ -206,7 +206,7 @@ export function BackupSection() {
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
 
-  const totalActivities = useMemo(() => getRouteEngine()?.getActivityCount() ?? 0, []);
+  const totalActivities = useMemo(() => getEngine()?.getActivityCount() ?? 0, []);
 
   const lastBackupText = lastBackupTs
     ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString() })

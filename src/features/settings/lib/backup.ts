@@ -8,7 +8,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine, getRouteDbPath, getNativeModule } from '@/shared/native/routeEngine';
+import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { setSetting } from '@/shared/storage';
@@ -85,7 +85,7 @@ const BackupValidationSchema = z.object({
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) throw new Error('Engine not initialized');
 
   const date = formatLocalDate(new Date());
@@ -230,7 +230,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     // Snapshot the live DB so a failed restore can roll back. destroyEngine first
     // so the snapshot is a clean, closed copy.
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) {
       engine.destroyEngine();
     }
@@ -265,7 +265,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
-        const ok = nativeModule.routeEngine.initWithPath(dbPath);
+        const ok = nativeModule.engine.initWithPath(dbPath);
         const newlyQuarantined = (await listQuarantined()).some((n) => !quarantinedBefore.has(n));
         if (!ok || newlyQuarantined) {
           throw new Error('Restored database could not be opened');
@@ -275,7 +275,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await reinitializeAllStores();
       await AsyncStorage.removeItem('veloq-query-cache');
 
-      const restoredEngine = getRouteEngine();
+      const restoredEngine = getEngine();
       const activityCount = restoredEngine?.getActivityCount() ?? 0;
 
       // Wake query-on-demand hooks so mounted screens re-query the restored data
@@ -302,7 +302,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       // the file being replaced (and initWithPath below would otherwise
       // no-op on its already-initialized guard).
       try {
-        getRouteEngine()?.destroyEngine();
+        getEngine()?.destroyEngine();
       } catch {
         // Best-effort. Proceed with the rollback copy regardless.
       }
@@ -321,7 +321,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       }
       try {
         if (nativeModule) {
-          nativeModule.routeEngine.initWithPath(dbPath);
+          nativeModule.engine.initWithPath(dbPath);
         }
       } catch {
         // Engine recovery failed - app may need restart
@@ -443,7 +443,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     preferencesRestored: 0,
   };
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
 
   // Restore custom sections
   if (engine && Array.isArray(backup.customSections) && backup.customSections.length > 0) {

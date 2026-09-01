@@ -29,7 +29,7 @@ export function startElevationBackfill(host: DelegateHost): boolean {
   try {
     return host.timed('startElevationBackfill', () => ffiStartElevationBackfill());
   } catch (e) {
-    console.error('[RouteEngine] startElevationBackfill threw:', e);
+    console.error('[Engine] startElevationBackfill threw:', e);
     return false;
   }
 }
@@ -46,7 +46,7 @@ export function getElevationBackfillRemaining(host: DelegateHost): number | null
   try {
     return host.timed('getElevationBackfillRemaining', () => ffiGetElevationBackfillRemaining());
   } catch (e) {
-    console.error('[RouteEngine] getElevationBackfillRemaining threw:', e);
+    console.error('[Engine] getElevationBackfillRemaining threw:', e);
     return null;
   }
 }
@@ -57,7 +57,7 @@ export function getElevationBackfillProgress(host: DelegateHost): ElevationBackf
   try {
     return host.timed('getElevationBackfillProgress', () => ffiGetElevationBackfillProgress());
   } catch (e) {
-    console.error('[RouteEngine] getElevationBackfillProgress threw:', e);
+    console.error('[Engine] getElevationBackfillProgress threw:', e);
     return null;
   }
 }

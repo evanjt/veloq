@@ -14,7 +14,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 import type { BackupBackend, BackupEntry } from './backends/types';
 import { Platform } from 'react-native';
@@ -50,26 +50,26 @@ export function registerBackend(backend: BackupBackend): void {
 
 /** Get the user's configured backend (defaults to local). */
 export function getConfiguredBackend(): BackupBackend {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const backendId = engine?.getSetting(SETTING_BACKEND_ID) ?? 'local';
   return backends[backendId] ?? localBackend;
 }
 
 /** Set the user's preferred backup backend. */
 export function setBackendPreference(backendId: string): void {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   engine?.setSetting(SETTING_BACKEND_ID, backendId);
 }
 
 /** Check if auto-backup is enabled (defaults to false). */
 export function isAutoBackupEnabled(): boolean {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   return engine?.getSetting(SETTING_AUTO_BACKUP_ENABLED) === '1';
 }
 
 /** Enable or disable auto-backup. */
 export function setAutoBackupEnabled(enabled: boolean): void {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   engine?.setSetting(SETTING_AUTO_BACKUP_ENABLED, enabled ? '1' : '0');
 }
 
@@ -102,7 +102,7 @@ export async function getOfferableBackends(): Promise<BackupBackend[]> {
 
 /** Get timestamp of the last auto-backup, or null if never. */
 export function getLastBackupTimestamp(): number | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const value = engine?.getSetting(SETTING_LAST_BACKUP);
   return value != null ? Number(value) : null;
 }
@@ -122,7 +122,7 @@ export interface BackupFailure {
  * noise rather than information.
  */
 export function getLastBackupFailure(): BackupFailure | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const raw = engine?.getSetting(SETTING_LAST_FAILURE);
   if (!raw) return null;
   try {
@@ -134,13 +134,13 @@ export function getLastBackupFailure(): BackupFailure | null {
 }
 
 function clearBackupFailure(): void {
-  getRouteEngine()?.setSetting(SETTING_LAST_FAILURE, '');
+  getEngine()?.setSetting(SETTING_LAST_FAILURE, '');
 }
 
 function recordBackupFailure(error: unknown): void {
   if (!isBackupTransferError(error) || !error.permanent) return;
   const failure: BackupFailure = { kind: error.kind, status: error.status, at: Date.now() };
-  getRouteEngine()?.setSetting(SETTING_LAST_FAILURE, JSON.stringify(failure));
+  getEngine()?.setSetting(SETTING_LAST_FAILURE, JSON.stringify(failure));
 }
 
 /**
@@ -166,7 +166,7 @@ function shouldBackup(force = false): boolean {
 export async function performBackup(force = false): Promise<boolean> {
   if (!shouldBackup(force)) return false;
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return false;
 
   const backend = getConfiguredBackend();

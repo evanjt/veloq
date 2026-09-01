@@ -3,8 +3,8 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from './useEngine';
 import type { MergeCandidate } from 'veloqrs';
 
 interface UseMergeSectionsResult {
@@ -30,13 +30,13 @@ export function useMergeSections(
   const candidates = useMemo(() => {
     if (preComputed) return preComputed;
     if (!sectionId) return [];
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     return engine.getMergeCandidates(sectionId);
   }, [sectionId, trigger, preComputed]);
 
   const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     setIsMerging(true);
     try {

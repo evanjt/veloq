@@ -6,14 +6,14 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 interface Progress {
   phase: string;
@@ -26,7 +26,7 @@ interface Progress {
 function engineReporting(progress: () => Progress | null) {
   return {
     getElevationBackfillProgress: () => progress(),
-  } as unknown as ReturnType<typeof getRouteEngine>;
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 function progress(phase: string, over: Partial<Progress> = {}): Progress {
@@ -44,7 +44,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('reads idle when no run has happened', () => {
-    mockGetRouteEngine.mockReturnValue(engineReporting(() => progress('idle')));
+    mockGetEngine.mockReturnValue(engineReporting(() => progress('idle')));
 
     const { result } = renderHook(() => useElevationBackfill());
 
@@ -53,7 +53,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('reports a live count while fetching', () => {
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engineReporting(() => progress('fetching', { completed: 12, total: 40 }))
     );
 
@@ -69,7 +69,7 @@ describe('useElevationBackfill', () => {
 
   it('follows the count as the run advances', () => {
     let completed = 1;
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engineReporting(() => progress('fetching', { completed, total: 40 }))
     );
 
@@ -87,7 +87,7 @@ describe('useElevationBackfill', () => {
     ['partial', { completed: 40, total: 40, failed: 3 }],
     ['failed', {}],
   ])('reports the %s terminal state as itself', (phase, over) => {
-    mockGetRouteEngine.mockReturnValue(engineReporting(() => progress(phase, over)));
+    mockGetEngine.mockReturnValue(engineReporting(() => progress(phase, over)));
 
     const { result } = renderHook(() => useElevationBackfill());
 
@@ -96,7 +96,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('never reports a failed run as a finished one', () => {
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engineReporting(() => progress('failed', { completed: 40, total: 40 }))
     );
 
@@ -108,7 +108,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('keeps the retry count of a partial run', () => {
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engineReporting(() => progress('partial', { completed: 40, total: 40, failed: 5 }))
     );
 
@@ -118,7 +118,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('treats an unknown phase as idle rather than as a finished run', () => {
-    mockGetRouteEngine.mockReturnValue(engineReporting(() => progress('detecting')));
+    mockGetEngine.mockReturnValue(engineReporting(() => progress('detecting')));
 
     const { result } = renderHook(() => useElevationBackfill());
 
@@ -126,7 +126,7 @@ describe('useElevationBackfill', () => {
   });
 
   it('reads idle when the engine is unavailable', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     const { result } = renderHook(() => useElevationBackfill());
 
@@ -135,7 +135,7 @@ describe('useElevationBackfill', () => {
 
   it('stops polling once unmounted', () => {
     const read = jest.fn(() => progress('fetching', { completed: 1, total: 2 }));
-    mockGetRouteEngine.mockReturnValue(engineReporting(read));
+    mockGetEngine.mockReturnValue(engineReporting(read));
 
     const { unmount } = renderHook(() => useElevationBackfill());
     unmount();
