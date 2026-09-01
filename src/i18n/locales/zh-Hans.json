@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "活动已记录"
     },
+    "activityPr": {
+      "title": "刷新个人纪录"
+    },
+    "activityFaster": {
+      "title": "比平时更快"
+    },
     "privacy": {
       "title": "隐私声明",
       "brief": "您的运动员 ID 和推送令牌将存储在我们的服务器上（30天过期）。通知通过 Apple 或 Google 路由，但所有洞察内容均在您的设备上生成。不存储个人数据。您可以随时禁用。",

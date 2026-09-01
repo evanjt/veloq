@@ -1,4 +1,5 @@
 import {
+  buildActivityNotification,
   buildActivityNotificationBody,
   NOTIFICATION_BODY_MAX,
 } from '@/features/insights/lib/activityNotificationBody';
@@ -352,5 +353,125 @@ describe('an activity with no name', () => {
   it('is the finding alone when the engine has one, with no dangling separator', () => {
     setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
     expect(nameless()).toBe('notifications.activityBody.onRoute(Lake Loop)');
+  });
+});
+
+/**
+ * Scenario: every enriched activity notification arrived titled "Activity
+ * Recorded", so a route PR and an unremarkable commute read the same on a
+ * collapsed Android lock screen, where the title is often all there is.
+ *
+ * Expected behaviour: the ladder the body already walks picks the title too.
+ * Three tiers, no more: a PR title for the four PR rungs, a faster-than-usual
+ * title for the trend rung, and the recorded title for everything below.
+ */
+describe('the title follows the ladder', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const titleOf = (
+    p: NotificationPreferences = prefs,
+    insights: Insight[] = [],
+    info: Parameters<typeof buildActivityNotification>[4] = null
+  ) => buildActivityNotification('a1', 'Morning Ride', insights, p, info, t).title;
+
+  const PR = 'notifications.activityPr.title';
+  const FASTER = 'notifications.activityFaster.title';
+  const RECORDED = 'notifications.activityRecorded.title';
+
+  it('titles a named route PR as a PR', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 } });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles an unnamed route PR as a PR', () => {
+    setEngine({ highlight: { routeName: '', isPr: true, trend: 1 } });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles a single section PR as a PR', () => {
+    setEngine({
+      highlight: null,
+      sections: [{ id: 's1', name: 'Climb' }],
+      bestBySection: { s1: 'a1' },
+    });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles several section PRs as a PR', () => {
+    setEngine({
+      highlight: null,
+      sections: [
+        { id: 's1', name: 'Climb' },
+        { id: 's2', name: 'Sprint' },
+      ],
+      bestBySection: { s1: 'a1', s2: 'a1' },
+    });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles the trend rung faster than usual', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 1 } });
+    expect(titleOf()).toBe(FASTER);
+  });
+
+  it('suppressing PRs drops the title to the trend tier with the body', () => {
+    setEngine({
+      highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 },
+      sections: [{ id: 's1', name: 'Climb' }],
+      bestBySection: { s1: 'a1' },
+    });
+    expect(titleOf(noPrPrefs)).toBe(FASTER);
+  });
+
+  it('titles route identity, traversals, milestones and bare stats as recorded', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+    expect(titleOf()).toBe(RECORDED);
+
+    setEngine({ highlight: null, sections: [{ id: 's1', name: 'Climb' }] });
+    expect(titleOf()).toBe(RECORDED);
+
+    setEngine({ highlight: null, sections: [] });
+    const milestone = { id: 'i1', category: 'fitness_milestone', title: 'FTP up 5W' } as Insight;
+    expect(titleOf(prefs, [milestone])).toBe(RECORDED);
+
+    expect(
+      titleOf(prefs, [], {
+        name: 'Morning Ride',
+        type: 'Ride',
+        ingested: true,
+        distance: 12345,
+        movingTime: 2700,
+      })
+    ).toBe(RECORDED);
+
+    expect(titleOf()).toBe(RECORDED);
+  });
+
+  it('titles an engine failure as recorded rather than throwing', () => {
+    mockEngine.getActivityRouteHighlights.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    mockEngine.getSectionsForActivity.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    expect(titleOf()).toBe(RECORDED);
+  });
+
+  it('carries the same body the body builder returns', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 } });
+    const both = buildActivityNotification('a1', 'Morning Ride', [], prefs, null, t);
+    expect(both.body).toBe(buildActivityNotificationBody('a1', 'Morning Ride', [], prefs, null, t));
+  });
+
+  it('never claims a time improvement in the trend tier', () => {
+    const english = (key: string) =>
+      ({
+        'notifications.activityFaster.title': 'Faster Than Usual',
+      })[key] ?? key;
+    setEngine({
+      highlight: { routeName: 'Lake Loop', isPr: false, trend: 1, timeDeltaSeconds: 8 },
+    });
+    const title = buildActivityNotification('a1', 'Ride', [], prefs, null, english).title;
+    expect(title).not.toMatch(/PR|record|\d/i);
   });
 });

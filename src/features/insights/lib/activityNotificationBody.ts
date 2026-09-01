@@ -149,19 +149,49 @@ function compose(detail: string, activityName: string): string {
 }
 
 /**
- * Build an activity-centric notification body.
+ * Which rung of the ladder the body came from, and so which title goes with
+ * it. Three is enough: the four PR rungs, the trend rung, and everything
+ * below it, which is what the single hardcoded title used to cover (`B150`).
+ */
+export type ActivityNotificationTier = 'pr' | 'faster' | 'recorded';
+
+const TITLE_KEYS: Record<ActivityNotificationTier, string> = {
+  pr: 'notifications.activityPr.title',
+  faster: 'notifications.activityFaster.title',
+  recorded: 'notifications.activityRecorded.title',
+};
+
+export interface ActivityNotification {
+  title: string;
+  body: string;
+}
+
+/**
+ * The detail clause and the rung it came from. A null detail means no clause
+ * won and the body is the activity name alone.
+ */
+interface Detail {
+  detail: string | null;
+  tier: ActivityNotificationTier;
+}
+
+const pr = (detail: string): Detail => ({ detail, tier: 'pr' });
+const faster = (detail: string): Detail => ({ detail, tier: 'faster' });
+const recorded = (detail: string | null): Detail => ({ detail, tier: 'recorded' });
+
+/**
+ * Walk the priority ladder for this activity.
  * Queries the engine to find the matched route, section PRs, and matches for
  * THIS specific activity, rather than relying on generic insight fingerprint
  * diffing.
  */
-export function buildActivityNotificationBody(
+function resolveDetail(
   activityId: string,
-  activityName: string,
   newInsights: Insight[],
   prefs: NotificationPreferences,
   activityInfo: ActivityInfo | null,
   t: TFunc
-): string {
+): Detail {
   const route = getRouteHighlight(activityId);
 
   try {
@@ -208,65 +238,70 @@ export function buildActivityNotificationBody(
     // falls back to its no-delta sibling when the comparison isn't available.
     if (prefs.categories.sectionPr) {
       if (route?.isPr && route.routeName) {
-        const detail = route.prImprovementSeconds
-          ? t('notifications.activityBody.routePrDelta', {
-              name: placeName(route.routeName),
-              delta: formatDurationDelta(route.prImprovementSeconds),
-            })
-          : t('notifications.activityBody.routePr', { name: placeName(route.routeName) });
-        return compose(detail, activityName);
+        return pr(
+          route.prImprovementSeconds
+            ? t('notifications.activityBody.routePrDelta', {
+                name: placeName(route.routeName),
+                delta: formatDurationDelta(route.prImprovementSeconds),
+              })
+            : t('notifications.activityBody.routePr', { name: placeName(route.routeName) })
+        );
       }
       if (prCount === 1) {
-        const detail = prSectionDelta
-          ? t('notifications.activityBody.sectionPrDelta', {
-              name: placeName(prSectionName),
-              delta: formatDurationDelta(prSectionDelta),
-            })
-          : t('notifications.activityBody.sectionPr', { name: placeName(prSectionName) });
-        return compose(detail, activityName);
+        return pr(
+          prSectionDelta
+            ? t('notifications.activityBody.sectionPrDelta', {
+                name: placeName(prSectionName),
+                delta: formatDurationDelta(prSectionDelta),
+              })
+            : t('notifications.activityBody.sectionPr', { name: placeName(prSectionName) })
+        );
       }
       if (prCount > 1) {
-        const detail = prSectionHasName
-          ? t('notifications.activityBody.sectionPrMany', {
-              name: placeName(prSectionName),
-              count: prCount - 1,
-            })
-          : t('notifications.activityBody.sectionPrCount', { count: prCount });
-        return compose(detail, activityName);
+        return pr(
+          prSectionHasName
+            ? t('notifications.activityBody.sectionPrMany', {
+                name: placeName(prSectionName),
+                count: prCount - 1,
+              })
+            : t('notifications.activityBody.sectionPrCount', { count: prCount })
+        );
       }
       if (route?.isPr) {
-        const detail = route.prImprovementSeconds
-          ? t('notifications.activityBody.routePrUnnamedDelta', {
-              delta: formatDurationDelta(route.prImprovementSeconds),
-            })
-          : t('notifications.activityBody.routePrUnnamed');
-        return compose(detail, activityName);
+        return pr(
+          route.prImprovementSeconds
+            ? t('notifications.activityBody.routePrUnnamedDelta', {
+                delta: formatDurationDelta(route.prImprovementSeconds),
+              })
+            : t('notifications.activityBody.routePrUnnamed')
+        );
       }
     }
 
+    // A speed verdict against a running average, not a time against the
+    // all-time best, so neither this clause nor its title may claim a time
+    // improvement. The delta here is the gap still to close.
     if (route?.trendUp && route.routeName) {
-      const detail =
+      return faster(
         route.timeDeltaSeconds != null && route.timeDeltaSeconds > 0
           ? t('notifications.activityBody.fasterOnRouteDelta', {
               name: placeName(route.routeName),
               delta: formatDurationDelta(route.timeDeltaSeconds),
             })
-          : t('notifications.activityBody.fasterOnRoute', { name: placeName(route.routeName) });
-      return compose(detail, activityName);
+          : t('notifications.activityBody.fasterOnRoute', { name: placeName(route.routeName) })
+      );
     }
     if (route?.routeName) {
-      return compose(
-        t('notifications.activityBody.onRoute', { name: placeName(route.routeName) }),
-        activityName
+      return recorded(
+        t('notifications.activityBody.onRoute', { name: placeName(route.routeName) })
       );
     }
     if (sectionCount === 1) {
-      return compose(t('notifications.activityBody.sectionTraversedOne'), activityName);
+      return recorded(t('notifications.activityBody.sectionTraversedOne'));
     }
     if (sectionCount > 1) {
-      return compose(
-        t('notifications.activityBody.sectionTraversedMany', { count: sectionCount }),
-        activityName
+      return recorded(
+        t('notifications.activityBody.sectionTraversedMany', { count: sectionCount })
       );
     }
   } catch {
@@ -276,14 +311,43 @@ export function buildActivityNotificationBody(
   // Check for new insights caused by this activity
   const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
   if (milestone) {
-    return compose(milestone.title, activityName);
+    return recorded(milestone.title);
   }
 
   // Fallback: basic stats so the notification isn't just the activity name
-  const stat = formatBasicStat(activityInfo, t);
-  if (stat) {
-    return compose(stat, activityName);
-  }
+  return recorded(formatBasicStat(activityInfo, t));
+}
 
-  return trim(activityName, NOTIFICATION_BODY_MAX);
+/**
+ * Build the enriched activity notification, title and body together. The rung
+ * that wins the body picks the title, so the one line an Android lock screen
+ * reliably shows says which kind of outcome this was.
+ */
+export function buildActivityNotification(
+  activityId: string,
+  activityName: string,
+  newInsights: Insight[],
+  prefs: NotificationPreferences,
+  activityInfo: ActivityInfo | null,
+  t: TFunc
+): ActivityNotification {
+  const { detail, tier } = resolveDetail(activityId, newInsights, prefs, activityInfo, t);
+  return {
+    title: t(TITLE_KEYS[tier]),
+    body:
+      detail === null ? trim(activityName, NOTIFICATION_BODY_MAX) : compose(detail, activityName),
+  };
+}
+
+/** The body alone, for callers that only decide what the tray does with it. */
+export function buildActivityNotificationBody(
+  activityId: string,
+  activityName: string,
+  newInsights: Insight[],
+  prefs: NotificationPreferences,
+  activityInfo: ActivityInfo | null,
+  t: TFunc
+): string {
+  return buildActivityNotification(activityId, activityName, newInsights, prefs, activityInfo, t)
+    .body;
 }

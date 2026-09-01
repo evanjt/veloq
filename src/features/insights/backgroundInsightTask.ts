@@ -10,7 +10,7 @@ import {
 } from '@/features/settings/lib/notificationService';
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-import { buildActivityNotificationBody } from './lib/activityNotificationBody';
+import { buildActivityNotification } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
@@ -155,7 +155,7 @@ async function loadActivityMetadata(
 
 /**
  * Attach a freshly ingested activity to existing sections and route groups so
- * its PRs are available when buildActivityNotificationBody queries the engine.
+ * its PRs are available when buildActivityNotification queries the engine.
  * Cheap (one activity vs existing sections, incremental regroup) so it fits
  * the background push budget where a full O(N²) detection cannot. New sections
  * the activity might create wait for the next full detection run.
@@ -426,7 +426,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // An ingest that failed has no name, and an empty body is how that
       // reaches the tray decision below rather than as the notification's own
       // title repeated back to the athlete.
-      const body = buildActivityNotificationBody(
+      const { title, body } = buildActivityNotification(
         activityId,
         activityInfo?.name ?? '',
         allowedNewInsights,
@@ -456,12 +456,10 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
                 action === 'dismiss-only'
                   ? null
                   : () =>
-                      presentActivityNotification(
+                      presentActivityNotification(activityId, title, body, {
+                        route: `/activity/${activityId}`,
                         activityId,
-                        t('notifications.activityRecorded.title'),
-                        body,
-                        { route: `/activity/${activityId}`, activityId }
-                      ),
+                      }),
             });
 
       if (posted) {

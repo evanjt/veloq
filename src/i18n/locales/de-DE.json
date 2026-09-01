@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Aktivität aufgezeichnet"
     },
+    "activityPr": {
+      "title": "Persönliche Bestzeit"
+    },
+    "activityFaster": {
+      "title": "Schneller als üblich"
+    },
     "privacy": {
       "title": "Datenschutzhinweis",
       "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Keine persönlichen Daten werden gespeichert. Du kannst jederzeit deaktivieren.",
