@@ -771,6 +771,12 @@ export interface TranslationResource {
     activityRecorded: {
       title: string;
     };
+    activityPr: {
+      title: string;
+    };
+    activityFaster: {
+      title: string;
+    };
     privacy: {
       title: string;
       brief: string;
