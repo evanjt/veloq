@@ -211,7 +211,7 @@ impl PersistentEngine {
             let polyline_blob: Option<Vec<u8>> =
                 serde_json::from_str::<Vec<GpsPoint>>(polyline_json)
                     .ok()
-                    .and_then(|pts| super::codec::serialize_points(&pts).ok());
+                    .map(|pts| super::codec::serialize_track_points(&pts));
 
             let density_blob: Option<Vec<u8>> = density_json
                 .as_deref()

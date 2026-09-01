@@ -368,8 +368,7 @@ impl PersistentEngine {
             )
             .unwrap_or_default();
             let blob = (!line.is_empty())
-                .then(|| codec::serialize_points(&line).ok())
-                .flatten()
+                .then(|| codec::serialize_track_points(&line))
                 .or(section.blob);
             count += tx.execute(
                 "INSERT INTO section_catalogue_archive
@@ -763,7 +762,7 @@ mod tests {
                  VALUES ('s_auto', 'auto', 'Auto', 'Ride', NULL, ?, 1200.0,
                          'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0,
                          46.0, 46.1, 7.0, 7.1)",
-                rusqlite::params![codec::serialize_points(&line).expect("encode")],
+                rusqlite::params![codec::serialize_track_points(&line)],
             )
             .expect("insert the section");
         engine
@@ -814,6 +813,50 @@ mod tests {
 
         assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
 
+        assert_eq!(archived_line(&engine).len(), 12);
+    }
+
+    fn archived_blob(engine: &PersistentEngine) -> Vec<u8> {
+        engine
+            .db
+            .query_row(
+                "SELECT polyline_blob FROM section_catalogue_archive WHERE section_id = 's_auto'",
+                [],
+                |row| row.get::<_, Option<Vec<u8>>>(0),
+            )
+            .expect("archived row")
+            .expect("archived blob")
+    }
+
+    /// Scenario: the archive is one of the stores `Q15` named and it was still
+    /// on postcard after `B125` moved the tracks (`B137`).
+    ///
+    /// Expected behaviour: a line the archive rebuilds is written in the
+    /// quantised container, and it still reads back as the same line, because
+    /// the reader was never narrowed to one container.
+    #[test]
+    fn the_archive_writes_the_quantised_container() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
+                [],
+            )
+            .expect("clear the cached geometry");
+
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        let blob = archived_blob(&engine);
+        assert_eq!(blob[0], 0xC0, "the archived blob is not the polyline tag");
+        assert!(
+            blob.len()
+                < codec::serialize_points(&archived_line(&engine))
+                    .expect("postcard")
+                    .len(),
+            "the archived blob is no smaller than postcard for the same line"
+        );
         assert_eq!(archived_line(&engine).len(), 12);
     }
 }
