@@ -167,14 +167,40 @@ impl PersistentEngine {
                 (None, None, None, None)
             };
 
+        // A cut from a stored ride is a slice of that ride, and the reference
+        // triple is what a reader re-slices from. Without it the blob is the
+        // only copy of a line the source activity still holds. The caller's
+        // range is inclusive, the map hands `slice(start, end + 1)` to the
+        // polyline above, while the triple is half-open, so the end moves on
+        // by one crossing over. A range that spans one point is not a line and
+        // indexes nothing worth rebuilding.
+        let spans_a_line = matches!(
+            (params.start_index, params.end_index),
+            (Some(start), Some(end)) if end > start
+        );
+        let reference = crate::persistence::sections::geometry::reference(
+            params.source_activity_id.as_deref(),
+            params.start_index.filter(|_| spans_a_line),
+            params
+                .end_index
+                .filter(|_| spans_a_line)
+                .map(|end| end.saturating_add(1)),
+        );
+        let geometry_source = if reference.is_some() {
+            crate::persistence::sections::SOURCE_EXACT
+        } else {
+            crate::persistence::sections::SOURCE_CONSENSUS
+        };
+
         self.db
             .execute(
                 "INSERT INTO sections (
                     id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
                     representative_activity_id, source_activity_id, start_index, end_index,
+                    rep_start_index, rep_end_index, geometry_source,
                     created_at, is_user_defined,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     id,
                     section_type.as_str(),
@@ -187,6 +213,9 @@ impl PersistentEngine {
                     params.source_activity_id,
                     params.start_index,
                     params.end_index,
+                    reference.map(|(_, start, _)| start),
+                    reference.map(|(_, _, end)| end),
+                    geometry_source,
                     created_at,
                     1,
                     bounds_min_lat,
