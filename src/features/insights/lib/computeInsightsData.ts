@@ -125,8 +125,12 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   const dropped: ConsolidationDrop[] = [];
   // Grows as stories are kept, so two stories about one section still collapse
   // to the first. That one is order-dependent on purpose: the order is the
-  // score order, so the stronger card is the one that stays.
-  const seenSectionIds = new Set<string>(prSectionIds);
+  // score order, so the stronger card is the one that stays. Kept apart from
+  // the PR set so the drop reason names whichever card actually covered the
+  // section: the debug panel is the one tool for asking why a card is
+  // missing, and a story blamed on a PR sends the reader after a card that
+  // was never generated.
+  const storySectionIds = new Set<string>();
   let keptSectionStories = 0;
 
   for (const insight of insights) {
@@ -145,17 +149,30 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
       }
 
       const sectionIds = getInsightSectionIds(insight);
-      if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
-        dropped.push({
-          insight,
-          reason: 'duplicate section (already covered by PR insight)',
-        });
-        continue;
+      if (sectionIds.length > 0) {
+        if (sectionIds.every((sectionId) => prSectionIds.has(sectionId))) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by PR insight)',
+          });
+          continue;
+        }
+        if (
+          sectionIds.every(
+            (sectionId) => prSectionIds.has(sectionId) || storySectionIds.has(sectionId)
+          )
+        ) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by an earlier story)',
+          });
+          continue;
+        }
       }
 
       kept.push(insight);
       keptSectionStories += 1;
-      sectionIds.forEach((sectionId) => seenSectionIds.add(sectionId));
+      sectionIds.forEach((sectionId) => storySectionIds.add(sectionId));
       continue;
     }
 
