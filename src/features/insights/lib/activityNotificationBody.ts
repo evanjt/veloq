@@ -104,6 +104,48 @@ function getRouteHighlight(activityId: string): {
 }
 
 /**
+ * Roughly what an Android lock screen shows of a body before it collapses the
+ * line. iOS is more generous, around four lines, but truncates mid-word with
+ * no ellipsis, so one cap serves both (`B148`).
+ */
+export const NOTIFICATION_BODY_MAX = 60;
+
+/** A route or section name inside a detail clause. */
+const MAX_PLACE_NAME = 24;
+
+/**
+ * Below this there is no room for a name, only for a fragment of one, so the
+ * activity name is dropped instead.
+ */
+const MIN_NAME_TAIL = 8;
+
+const SEPARATOR = ' - ';
+
+/** A route or section name as it appears inside a detail clause. */
+const placeName = (name: string): string => trim(name, MAX_PLACE_NAME);
+
+/** Trim to `max`, marking the cut, so a name never runs off the end silently. */
+function trim(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1).trimEnd()}\u2026`;
+}
+
+/**
+ * The finding first, the activity name second.
+ *
+ * The name used to lead, so a long one plus a user-renamed route pushed the PR
+ * and its delta past the collapse, and the athlete saw only what they had just
+ * uploaded. The detail is never truncated: it is the only reason the
+ * enrichment pipeline exists. The name gives way, and is dropped outright when
+ * what is left of it would be a fragment.
+ */
+function compose(detail: string, activityName: string): string {
+  const room = NOTIFICATION_BODY_MAX - detail.length - SEPARATOR.length;
+  if (room < MIN_NAME_TAIL) return detail;
+  return `${detail}${SEPARATOR}${trim(activityName, room)}`;
+}
+
+/**
  * Build an activity-centric notification body.
  * Queries the engine to find the matched route, section PRs, and matches for
  * THIS specific activity, rather than relying on generic insight fingerprint
@@ -165,29 +207,29 @@ export function buildActivityNotificationBody(
       if (route?.isPr && route.routeName) {
         const detail = route.prImprovementSeconds
           ? t('notifications.activityBody.routePrDelta', {
-              name: route.routeName,
+              name: placeName(route.routeName),
               delta: formatDurationDelta(route.prImprovementSeconds),
             })
-          : t('notifications.activityBody.routePr', { name: route.routeName });
-        return `${activityName} - ${detail}`;
+          : t('notifications.activityBody.routePr', { name: placeName(route.routeName) });
+        return compose(detail, activityName);
       }
       if (prCount === 1) {
         const detail = prSectionDelta
           ? t('notifications.activityBody.sectionPrDelta', {
-              name: prSectionName,
+              name: placeName(prSectionName),
               delta: formatDurationDelta(prSectionDelta),
             })
-          : t('notifications.activityBody.sectionPr', { name: prSectionName });
-        return `${activityName} - ${detail}`;
+          : t('notifications.activityBody.sectionPr', { name: placeName(prSectionName) });
+        return compose(detail, activityName);
       }
       if (prCount > 1) {
         const detail = prSectionHasName
           ? t('notifications.activityBody.sectionPrMany', {
-              name: prSectionName,
+              name: placeName(prSectionName),
               count: prCount - 1,
             })
           : t('notifications.activityBody.sectionPrCount', { count: prCount });
-        return `${activityName} - ${detail}`;
+        return compose(detail, activityName);
       }
       if (route?.isPr) {
         const detail = route.prImprovementSeconds
@@ -195,7 +237,7 @@ export function buildActivityNotificationBody(
               delta: formatDurationDelta(route.prImprovementSeconds),
             })
           : t('notifications.activityBody.routePrUnnamed');
-        return `${activityName} - ${detail}`;
+        return compose(detail, activityName);
       }
     }
 
@@ -203,20 +245,26 @@ export function buildActivityNotificationBody(
       const detail =
         route.timeDeltaSeconds != null && route.timeDeltaSeconds > 0
           ? t('notifications.activityBody.fasterOnRouteDelta', {
-              name: route.routeName,
+              name: placeName(route.routeName),
               delta: formatDurationDelta(route.timeDeltaSeconds),
             })
-          : t('notifications.activityBody.fasterOnRoute', { name: route.routeName });
-      return `${activityName} - ${detail}`;
+          : t('notifications.activityBody.fasterOnRoute', { name: placeName(route.routeName) });
+      return compose(detail, activityName);
     }
     if (route?.routeName) {
-      return `${activityName} - ${t('notifications.activityBody.onRoute', { name: route.routeName })}`;
+      return compose(
+        t('notifications.activityBody.onRoute', { name: placeName(route.routeName) }),
+        activityName
+      );
     }
     if (sectionCount === 1) {
-      return `${activityName} - ${t('notifications.activityBody.sectionTraversedOne')}`;
+      return compose(t('notifications.activityBody.sectionTraversedOne'), activityName);
     }
     if (sectionCount > 1) {
-      return `${activityName} - ${t('notifications.activityBody.sectionTraversedMany', { count: sectionCount })}`;
+      return compose(
+        t('notifications.activityBody.sectionTraversedMany', { count: sectionCount }),
+        activityName
+      );
     }
   } catch {
     // Engine query failed, fall through
@@ -225,14 +273,14 @@ export function buildActivityNotificationBody(
   // Check for new insights caused by this activity
   const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
   if (milestone) {
-    return `${activityName} - ${milestone.title}`;
+    return compose(milestone.title, activityName);
   }
 
   // Fallback: basic stats so the notification isn't just the activity name
   const stat = formatBasicStat(activityInfo, t);
   if (stat) {
-    return `${activityName} - ${stat}`;
+    return compose(stat, activityName);
   }
 
-  return activityName;
+  return trim(activityName, NOTIFICATION_BODY_MAX);
 }
