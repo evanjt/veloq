@@ -50,8 +50,10 @@ import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
+import * as connectivityDelegates from './delegates/connectivity';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
+import type { NetworkPush } from './delegates/connectivity';
 import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
@@ -288,6 +290,11 @@ class EngineClient implements DelegateHost {
   takePreviewResult = (): PreviewResult | null => previewDelegates.takePreviewResult(this);
 
   cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
+
+  setNetworkOnline = (online: boolean): void =>
+    connectivityDelegates.setNetworkOnline(this, online);
+
+  getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
 

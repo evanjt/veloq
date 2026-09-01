@@ -503,6 +503,26 @@ where
 /// A transport built from the process-wide credential, so every outbound
 /// request in the app shares one client, pool, governor and retry policy.
 /// `None` before TypeScript has called `set_credentials`.
+/// Stand a credential up for a test, so a code path that declines without one
+/// can be reached. Returns a guard that clears it again on drop: the service
+/// is process-wide, and a credential left behind would change what every test
+/// after it sees.
+#[cfg(test)]
+pub(crate) fn test_credentials() -> TestCredentials {
+    SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "test-secret".to_string(), "1".to_string());
+    TestCredentials
+}
+
+#[cfg(test)]
+pub(crate) struct TestCredentials;
+
+#[cfg(test)]
+impl Drop for TestCredentials {
+    fn drop(&mut self) {
+        SYNC_SERVICE.clear_credentials();
+    }
+}
+
 pub fn current_transport() -> Option<Result<Transport, String>> {
     let creds_present = SYNC_SERVICE
         .creds

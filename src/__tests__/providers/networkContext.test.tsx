@@ -8,6 +8,7 @@
  * - Listener-first / getNetworkStateAsync fallback after 100ms
  * - Cleanup (unsubscribe + timer clear) on unmount
  * - useNetwork() throws when used outside provider
+ * - The same edge pushed into the Rust engine, plus a foreground re-push
  */
 
 import React from 'react';
@@ -15,7 +16,16 @@ import { renderHook, act } from '@testing-library/react-native';
 
 import { onlineManager } from '@tanstack/react-query';
 
+import { AppState } from 'react-native';
+
 import { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
+
+const mockSetNetworkOnline = jest.fn();
+const mockGetEngine = jest.fn(() => ({ setNetworkOnline: mockSetNetworkOnline }));
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockGetEngine(),
+}));
 
 // Mock expo-network so we can drive addNetworkStateListener and getNetworkStateAsync.
 // jest.mock factory runs before imports; its factory must not reference out-of-scope
@@ -73,6 +83,9 @@ describe('NetworkContext', () => {
     mock.getNetworkStateAsync.mockImplementation(() => new Promise(() => {}));
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     (require('expo-network').addNetworkStateListener as jest.Mock).mockClear();
+    mockSetNetworkOnline.mockClear();
+    mockGetEngine.mockClear();
+    mockGetEngine.mockImplementation(() => ({ setNetworkOnline: mockSetNetworkOnline }));
     jest.useFakeTimers();
   });
 
@@ -357,6 +370,111 @@ describe('NetworkContext', () => {
       unmount();
 
       expect(onlineManager.isOnline()).toBe(true);
+    });
+  });
+
+  /**
+   * Scenario: `Q65` put the network lifecycle in Rust, and the crate cannot
+   * see the network. The push has to ride the edge this provider already
+   * debounces, or the app would run two debounces that disagree.
+   */
+  describe('the push into the engine', () => {
+    let appStateListeners: ((s: string) => void)[] = [];
+
+    beforeEach(() => {
+      appStateListeners = [];
+      jest.spyOn(AppState, 'addEventListener').mockImplementation(((
+        _event: string,
+        handler: (s: string) => void
+      ) => {
+        appStateListeners.push(handler);
+        return { remove: jest.fn() };
+      }) as unknown as typeof AppState.addEventListener);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('pushes online on the same edge that sets onlineManager', () => {
+      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
+
+      expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
+    });
+
+    it('pushes offline only after the 3s debounce, not on the raw edge', () => {
+      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+      });
+      expect(mockSetNetworkOnline).not.toHaveBeenCalledWith(false);
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+    });
+
+    it('does not push offline when the network comes back inside the debounce', () => {
+      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        jest.advanceTimersByTime(1500);
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+        jest.advanceTimersByTime(3000);
+      });
+
+      expect(mockSetNetworkOnline).not.toHaveBeenCalledWith(false);
+    });
+
+    /**
+     * A state Rust cannot refresh is worse than none, so the provider
+     * re-states what it knows every time the app comes back.
+     */
+    it('re-pushes the state it holds on foreground', () => {
+      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        jest.advanceTimersByTime(3000);
+      });
+      mockSetNetworkOnline.mockClear();
+
+      act(() => {
+        appStateListeners.forEach((l) => l('active'));
+      });
+
+      expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+    });
+
+    it('releases the engine on unmount, so nothing is left refusing work', () => {
+      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      act(() => {
+        getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+        jest.advanceTimersByTime(3000);
+      });
+      mockSetNetworkOnline.mockClear();
+
+      unmount();
+
+      expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
+    });
+
+    /**
+     * The provider mounts before `initWithPath`, so the module may not be
+     * there yet. A push that throws must not take the provider down with it.
+     */
+    it('survives an engine that is not loaded', () => {
+      mockGetEngine.mockImplementation(() => null as never);
+      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+      act(() => {
+        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
+      });
+
+      expect(result.current.isOnline).toBe(true);
     });
   });
 

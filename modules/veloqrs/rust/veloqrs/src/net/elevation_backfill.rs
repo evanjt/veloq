@@ -423,6 +423,14 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
             queue.len() as u32 - outcome.elevated - outcome.unavailable,
             queue.len()
         ),
+        // Also not a failed pass. The rows are untouched, the queue is
+        // unchanged, and the ladder that owns the retry decides when to ask
+        // again now that the network is worth asking on.
+        Some(Stopped::Offline) => log::info!(
+            "[Elevation] backfill stopped: offline, {} of {} tracks still to ask",
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
         None => {}
     }
 
@@ -476,6 +484,9 @@ enum Stopped {
     Unauthorized,
     /// Nothing to work with: [`MAX_CONSECUTIVE_FAILURES`] in a row.
     NothingToWorkWith,
+    /// TypeScript says the network is gone, so the rest of the queue would
+    /// only be spent discovering that one request at a time.
+    Offline,
 }
 
 /// Whether this failure says the connection is gone rather than answering for
@@ -562,10 +573,20 @@ struct Walk {
 /// `count_progress` is false for a retry round: those tracks are already in
 /// the completed count from the first walk, and counting them again pushes the
 /// progress line past its own total.
-fn drain_queue(
-    transport: &Transport,
+fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress: bool) -> Walk {
+    drain_queue_with(queue, count_progress, |ids| {
+        crate::runtime::block_on(fetch_batch(transport, ids))
+    })
+}
+
+/// The walk itself, with the fetch handed in.
+///
+/// Split from [`drain_queue`] so the stop conditions can be exercised without
+/// a transport: everything that ends a walk early is decided here.
+fn drain_queue_with(
     queue: &[(String, String)],
     count_progress: bool,
+    mut fetch: impl FnMut(&[String]) -> Vec<(String, Fetched)>,
 ) -> Walk {
     let mut outcome = BackfillOutcome {
         queued: queue.len() as u32,
@@ -576,8 +597,21 @@ fn drain_queue(
     let mut consecutive_failures = 0usize;
 
     for (chunk, batch) in queue.chunks(BATCH).enumerate() {
+        // Read before every batch, not only before the walk: a pass that
+        // loses the network half way through would otherwise spend the rest
+        // of its queue discovering that one request at a time. Advisory, so
+        // an unset or stale state falls through and the walk carries on.
+        if crate::net::connectivity::is_offline() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Offline),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+
         let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
-        let fetched = crate::runtime::block_on(fetch_batch(transport, &ids));
+        let fetched = fetch(&ids);
 
         // A rejected credential rejects every remaining request too. Spending
         // the rest of the library on 401s helps nobody, so the pass stops and
@@ -814,6 +848,13 @@ pub fn start_elevation_backfill() -> bool {
     if BACKFILL.running.load(Ordering::SeqCst) {
         return false;
     }
+    // The state TypeScript pushes is advisory, so this only declines on a
+    // fresh offline. Unset or stale falls through and the pass runs, which is
+    // exactly what happened before there was a state to read.
+    if crate::net::connectivity::is_offline() {
+        log::info!("[Elevation] backfill deferred: offline");
+        return false;
+    }
     let Some(Ok(transport)) = crate::objects::current_transport() else {
         log::info!("[Elevation] backfill deferred: no credential yet");
         return false;
@@ -1033,5 +1074,198 @@ mod tests {
         let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine opens");
 
         assert_eq!(engine.elevation_backfill_remaining().ok(), Some(0));
+    }
+
+    /// Scenario: `Q65` put the network lifecycle in Rust, so a pass has to
+    /// react to the connectivity TypeScript pushes rather than spending its
+    /// whole queue discovering the network is gone one request at a time.
+    ///
+    /// Expected behaviour: the state is advisory. Never pushed means try, a
+    /// pushed offline stops the walk where it stands, and a flip back to
+    /// online lets the next walk run.
+    mod offline {
+        use super::*;
+        use crate::net::connectivity;
+        use std::time::Instant;
+
+        fn queue(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("a{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        /// One flat point per id, which stores as unavailable rather than
+        /// elevated. Whether it lands is not what these tests measure; what
+        /// they measure is how many ids the walk asked about.
+        fn answer(ids: &[String]) -> Vec<(String, Fetched)> {
+            ids.iter()
+                .map(|id| (id.clone(), Fetched::NoAltitude))
+                .collect()
+        }
+
+        #[test]
+        fn a_never_pushed_state_walks_the_whole_queue() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 3 * BATCH, "an unset state must not refuse work");
+            assert!(walk.stopped.is_none());
+            assert!(walk.unasked.is_empty());
+        }
+
+        #[test]
+        fn a_pass_that_starts_offline_asks_nothing() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(false);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 0, "nothing should be dispatched while offline");
+            assert!(matches!(walk.stopped, Some(Stopped::Offline)));
+            assert_eq!(
+                walk.unasked.len(),
+                2 * BATCH,
+                "the whole queue is still owed"
+            );
+
+            connectivity::reset();
+        }
+
+        #[test]
+        fn losing_the_network_stops_the_walk_where_it_stands() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(true);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(4 * BATCH), true, |ids| {
+                asked += ids.len();
+                connectivity::set_online(false);
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked, BATCH,
+                "the walk must stop after the batch that lost the network, not finish the queue"
+            );
+            assert!(matches!(walk.stopped, Some(Stopped::Offline)));
+            assert_eq!(walk.unasked.len(), 3 * BATCH);
+
+            connectivity::reset();
+        }
+
+        #[test]
+        fn a_flip_back_to_online_leaves_the_walk_running() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online(false);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids| {
+                asked += ids.len();
+                answer(ids)
+            });
+            assert_eq!(asked, 0);
+
+            connectivity::set_online(true);
+            let mut asked_again = 0usize;
+            let second = drain_queue_with(&walk.unasked, true, |ids| {
+                asked_again += ids.len();
+                connectivity::set_online(true);
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked_again,
+                3 * BATCH,
+                "a state that came back online must not leave the pass stopped"
+            );
+            assert!(second.stopped.is_none());
+
+            connectivity::reset();
+        }
+
+        /// An offline nobody refreshed is a missed push, not a fact. Rust
+        /// refusing work on a live connection is worse than never knowing, so
+        /// the state expires and the walk goes back to trying.
+        #[test]
+        fn a_stale_offline_reads_as_try_rather_than_do_not() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online_at(false, Instant::now() - connectivity::STALE_AFTER);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 2 * BATCH, "a state this old must not refuse work");
+            assert!(walk.stopped.is_none());
+
+            connectivity::reset();
+        }
+
+        /// The walk-level read is the one that saves the queue, but a start
+        /// that already knows there is no network should not spawn a thread
+        /// to find out. Credentials are set here because the start declines
+        /// without one anyway, which would hide what is being measured.
+        #[test]
+        fn a_start_declines_while_offline_and_goes_ahead_once_it_is_back() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            connectivity::set_online(false);
+            assert!(
+                !start_elevation_backfill(),
+                "a fresh offline must not spawn a pass"
+            );
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "and must not leave the run flag claimed"
+            );
+
+            connectivity::reset();
+            assert!(
+                start_elevation_backfill(),
+                "a never-pushed state has to behave exactly as it did before"
+            );
+
+            connectivity::reset();
+            drain_detection();
+        }
+
+        /// A stale *online* is harmless: the value is only ever a reason to
+        /// refuse, so expiry can only ever open the gate, never close it.
+        #[test]
+        fn a_stale_online_still_reads_as_try() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            connectivity::set_online_at(true, Instant::now() - connectivity::STALE_AFTER);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(BATCH), true, |ids| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, BATCH);
+            assert!(walk.stopped.is_none());
+
+            connectivity::reset();
+        }
     }
 }
