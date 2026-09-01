@@ -6,6 +6,7 @@
  */
 
 import { cacheEvictionScript } from '@/features/maps/lib/tileCacheBudget';
+import { MAPLIBRE_GL_CSS, MAPLIBRE_GL_JS } from '@/features/maps/assets/maplibreRenderer.generated';
 
 /**
  * Bridges calls to `window._rn_log(msg)` to React Native via postMessage.
@@ -106,7 +107,9 @@ export function vectorProtocolScript(): string {
  * `heatmap-file` round-trips to React Native, which reads the PNG off disk.
  *
  * Defines `terrainHits`/`terrainMisses`, `satHits`/`satMisses` and
- * `vecHits`/`vecMisses` counters that callers may log.
+ * `vecHits`/`vecMisses` counters that callers may log, plus
+ * `terrainDelivered`/`terrainFailed`, which the 3D page reads to tell a flat
+ * map from a terrain one.
  *
  * `tileCacheBudgetMb` is the athlete's setting. It is baked in rather than
  * pushed at runtime because the page is rebuilt when it changes, and a live
@@ -138,6 +141,10 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
 
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
     var terrainHits = 0, terrainMisses = 0;
+    // Deliveries and failures, not cache hits and misses: a miss that the
+    // network serves is still terrain on screen. A page with failures and no
+    // deliveries has no terrain at all, which is what the 3D page reports on.
+    var terrainDelivered = 0, terrainFailed = 0;
 
     // One path for the protocol handler and the zoom prefetch alike. A prefetch
     // that fetches the tile any other way warms the platform HTTP cache, which
@@ -169,7 +176,11 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
       var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
       return terrainTile(realUrl).then(function(r) {
         return r.blob().then(demBlobToImage);
+      }).then(function(image) {
+        terrainDelivered++;
+        return image;
       }).catch(function(err) {
+        terrainFailed++;
         window._rn_log('terrain protocol error: ' + err.message);
         throw err;
       });
@@ -274,6 +285,13 @@ export function bundledAssetsScript(options: { workerId?: string } = {}): string
 /**
  * Standard HTML head: MapLibre GL JS, inline CSS for full-bleed map.
  * `mapHeight` defaults to `100vh`; pass a pixel value for fixed-height workers.
+ *
+ * The renderer and its stylesheet are inlined from the app bundle rather than
+ * pulled off a CDN, so a device with no radio and a cold WebView HTTP cache
+ * still draws a map (`B131`, decided in `Q28`). It cannot come through the
+ * `bundled://` channel the sprite and the glyphs use: that channel is defined
+ * by a script which itself calls `maplibregl.addProtocol`. This is the one
+ * place it happens, so all three page builders stay identical.
  */
 export function mapLibreHead(options: { title?: string; mapHeight?: string } = {}): string {
   const height = options.mapHeight ?? '100vh';
@@ -284,8 +302,8 @@ export function mapLibreHead(options: { title?: string; mapHeight?: string } = {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>${title}</title>
-  <script src="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script id="maplibre-gl">${MAPLIBRE_GL_JS}</script>
+  <style>${MAPLIBRE_GL_CSS}</style>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { width: 100vw; height: ${height}; }

@@ -282,8 +282,12 @@ export interface TranslationResource {
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
     previewSections: string;
-    previewIntro: string;
-    previewPickArea: string;
+    cutoverRebuilding: string;
+    cutoverFailed: string;
+    cutoverPhaseDraining: string;
+    cutoverPhaseArchiving: string;
+    cutoverPhaseDetecting: string;
+    cutoverPhaseDiffing: string;
     previewAreaFallback: string;
     previewAreaVisits: string;
     previewAreaSections: string;
@@ -1410,6 +1414,7 @@ export interface TranslationResource {
     zoomToActivity: string;
     closePopup: string;
     closeSectionPopup: string;
+    threeDUnavailable: string;
     unavailableTitle: string;
     unavailableHint: string;
     viewDetails: string;

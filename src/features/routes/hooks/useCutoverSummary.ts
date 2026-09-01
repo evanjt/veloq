@@ -29,9 +29,15 @@ export interface CutoverSummary {
   isRunning: boolean;
   /** The stored diff's counts, or null while a run is in flight. */
   counts: CutoverCounts | null;
+  /**
+   * Whether this observer saw a run take the slot. A settled phase left over
+   * from a run that finished before the caller mounted is not news, so a
+   * surface that only reports live work reads this rather than the phase.
+   */
+  sawRun: boolean;
 }
 
-const IDLE: CutoverSummary = { phase: 'idle', isRunning: false, counts: null };
+const IDLE: CutoverSummary = { phase: 'idle', isRunning: false, counts: null, sawRun: false };
 
 /** An unrecognised phase reads as idle rather than as a finished run. */
 function narrowPhase(phase: string): CutoverPhase {
@@ -45,16 +51,22 @@ function narrowPhase(phase: string): CutoverPhase {
  */
 function read(previous: CutoverSummary, needDiff: boolean): CutoverSummary {
   const engine = getEngine();
-  if (!engine) return IDLE;
+  const sawRun = previous.sawRun;
+  if (!engine) return { ...IDLE, sawRun };
   try {
     const progress = engine.getCutoverProgress?.();
-    if (!progress) return IDLE;
+    if (!progress) return { ...IDLE, sawRun };
     const phase = narrowPhase(progress.phase);
-    if (progress.running) return { phase, isRunning: true, counts: null };
-    if (!needDiff) return { phase, isRunning: false, counts: previous.counts };
-    return { phase, isRunning: false, counts: engine.getCutoverDiff?.()?.counts ?? null };
+    if (progress.running) return { phase, isRunning: true, counts: null, sawRun: true };
+    if (!needDiff) return { phase, isRunning: false, counts: previous.counts, sawRun };
+    return {
+      phase,
+      isRunning: false,
+      counts: engine.getCutoverDiff?.()?.counts ?? null,
+      sawRun,
+    };
   } catch {
-    return IDLE;
+    return { ...IDLE, sawRun };
   }
 }
 
@@ -62,6 +74,7 @@ function same(a: CutoverSummary, b: CutoverSummary): boolean {
   return (
     a.phase === b.phase &&
     a.isRunning === b.isRunning &&
+    a.sawRun === b.sawRun &&
     a.counts?.current === b.counts?.current &&
     a.counts?.proposed === b.counts?.proposed &&
     a.counts?.unchanged === b.counts?.unchanged &&

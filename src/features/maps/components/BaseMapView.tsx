@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { colors, darkColors, mapLayerColors, spacing, layout, shadows } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import {
@@ -101,6 +102,15 @@ export function BaseMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
+
+  // The page drew, it just had no DEM tiles, so 3D is the flat map with a
+  // wasted WebView on top. Drop back and say why, rather than leave it (`B131`).
+  const handleTerrainUnavailable = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+    setTerrainUnavailable(true);
+  }, []);
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
 
@@ -403,10 +413,16 @@ export function BaseMapView({
               mapStyle={mapStyle}
               routeColor={routeColor}
               onMapReady={handleMap3DReady}
+              onMapFailed={() => setIs3DMode(false)}
+              onTerrainUnavailable={handleTerrainUnavailable}
               onBearingChange={handleBearingChange}
             />
           </Animated.View>
         </ComponentErrorBoundary>
+      )}
+
+      {terrainUnavailable && (
+        <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
       )}
 
       {/* Controls overlay */}

@@ -54,6 +54,7 @@ mod screens;
 pub mod sections;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
+pub mod streams;
 pub use settings::settings_keys;
 pub mod bodies;
 mod strength;
@@ -833,11 +834,7 @@ impl PersistentEngine {
         let mut first_error: Option<rusqlite::Error> = None;
         for (name, result) in outcomes {
             if let Err(e) = result {
-                log::error!(
-                    "veloqrs: [PersistentEngine] load: {} failed: {}",
-                    name,
-                    e
-                );
+                log::error!("veloqrs: [PersistentEngine] load: {} failed: {}", name, e);
                 if first_error.is_none() {
                     first_error = Some(e);
                 }

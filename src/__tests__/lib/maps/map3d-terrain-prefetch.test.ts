@@ -38,7 +38,9 @@ function buildConfig(overrides: Partial<Map3DHtmlConfig> = {}): Map3DHtmlConfig 
 }
 
 function extractPageScript(html: string): string {
-  const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+  const blocks = [
+    ...html.matchAll(/<script(?![^>]*\bsrc=)(?![^>]*maplibre-gl)[^>]*>([\s\S]*?)<\/script>/g),
+  ];
   expect(blocks.length).toBe(1);
   return blocks[0][1];
 }

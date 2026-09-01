@@ -665,6 +665,7 @@
     "expandRange": "Estendi intervallo"
   },
   "maps": {
+    "threeDUnavailable": "Il rilievo richiede una connessione. Viene mostrata la mappa piatta.",
     "unavailableTitle": "Mappa non disponibile",
     "unavailableHint": "Impossibile caricare la mappa. Controlla la connessione e riaprila.",
     "activitiesCount": "{{count}} attività",
@@ -1222,8 +1223,12 @@
     "elevationBackfillWhyTitle": "Perché viene aggiunta l'altitudine",
     "elevationBackfillWhyBody": "L'algoritmo delle sezioni migliorato e il rilevamento delle salite leggono un'altitudine che le versioni precedenti non scaricavano mai. Veloq la scarica una volta per le tue attività esistenti, poi rileva di nuovo le sezioni con il nuovo algoritmo.",
     "previewSections": "Anteprima delle modifiche alle sezioni",
-    "previewIntro": "Prova le nuove impostazioni su una zona prima di applicarle ovunque.",
-    "previewPickArea": "Scegli una zona",
+    "cutoverRebuilding": "Ricostruzione delle sezioni: {{phase}}",
+    "cutoverFailed": "La ricostruzione delle sezioni non è terminata.",
+    "cutoverPhaseDraining": "svuotamento della coda",
+    "cutoverPhaseArchiving": "archiviazione",
+    "cutoverPhaseDetecting": "rilevamento",
+    "cutoverPhaseDiffing": "confronto",
     "previewAreaFallback": "Zona {{number}}",
     "previewAreaVisits": "{{count}} visite",
     "previewAreaSections": "{{count}} sezioni",

@@ -61,6 +61,35 @@ impl SettingsManager {
         })?
     }
 
+    /// Days of stream history the athlete keeps. Zero means keep everything.
+    ///
+    /// Not the same knob as the activity `retentionDays` in
+    /// `RouteSettingsStore`, which deletes whole activities. This one only ever
+    /// evicts stored series.
+    fn stream_retention_days(&self) -> Result<i64, VeloqError> {
+        with_engine(|e| e.stream_retention_days().unwrap_or(0))
+    }
+
+    /// Set the stream retention window in days, then evict what now falls
+    /// outside it. Zero keeps everything.
+    fn set_stream_retention_days(&self, days: i64) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_stream_retention_days(days)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    /// Bytes the stream store holds, for the cache readout.
+    fn stream_store_bytes(&self) -> Result<i64, VeloqError> {
+        with_engine(|e| {
+            e.stream_store_bytes().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
+    }
+
     /// Delete a single user preference.
     fn delete_setting(&self, key: String) -> Result<(), VeloqError> {
         with_engine(|e| {

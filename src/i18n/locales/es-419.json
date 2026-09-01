@@ -665,6 +665,7 @@
     "expandRange": "Ampliar rango"
   },
   "maps": {
+    "threeDUnavailable": "El relieve necesita conexión. Se muestra el mapa plano.",
     "unavailableTitle": "Mapa no disponible",
     "unavailableHint": "No se pudo cargar el mapa. Revisa tu conexión y ábrelo otra vez.",
     "activitiesCount": "{{count}} actividades",
@@ -1222,8 +1223,12 @@
     "elevationBackfillWhyTitle": "Por qué se agrega la altitud",
     "elevationBackfillWhyBody": "El algoritmo de secciones mejorado y la detección de subidas leen una altitud que las versiones anteriores nunca descargaban. Veloq la descarga una vez para tus actividades existentes y después vuelve a detectar las secciones con el nuevo algoritmo.",
     "previewSections": "Vista previa de cambios de secciones",
-    "previewIntro": "Prueba la nueva configuración en una zona antes de aplicarla en todas partes.",
-    "previewPickArea": "Elige una zona",
+    "cutoverRebuilding": "Reconstruyendo secciones: {{phase}}",
+    "cutoverFailed": "La reconstrucción de secciones no terminó.",
+    "cutoverPhaseDraining": "vaciando la cola",
+    "cutoverPhaseArchiving": "archivando",
+    "cutoverPhaseDetecting": "detectando",
+    "cutoverPhaseDiffing": "comparando",
     "previewAreaFallback": "Zona {{number}}",
     "previewAreaVisits": "{{count}} visitas",
     "previewAreaSections": "{{count}} secciones",

@@ -28,6 +28,7 @@ import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
 import {
   SectionCreationOverlay,
@@ -181,6 +182,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -381,6 +383,14 @@ export const ActivityMapView = memo(function ActivityMapView({
   const handleMap3DFailed = useCallback(() => {
     setIs3DReady(false);
     setIs3DMode(false);
+  }, []);
+
+  // The page drew, it just had no DEM tiles, so the "3D" view is the flat map
+  // with a wasted WebView on top of it. Same landing, plus a reason.
+  const handleTerrainUnavailable = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+    setTerrainUnavailable(true);
   }, []);
 
   // Handle 3D map ready
@@ -684,6 +694,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 }
                 onMapReady={handleMap3DReady}
                 onMapFailed={handleMap3DFailed}
+                onTerrainUnavailable={handleTerrainUnavailable}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
@@ -702,6 +713,10 @@ export const ActivityMapView = memo(function ActivityMapView({
           <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
+        )}
+
+        {terrainUnavailable && (
+          <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
         )}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}

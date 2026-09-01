@@ -665,6 +665,7 @@
     "expandRange": "範囲を広げる"
   },
   "maps": {
+    "threeDUnavailable": "地形には接続が必要です。平面の地図を表示しています。",
     "unavailableTitle": "地図を表示できません",
     "unavailableHint": "地図を読み込めませんでした。接続を確認してもう一度開いてください。",
     "activitiesCount": "{{count}}件のアクティビティ",
@@ -1222,8 +1223,12 @@
     "elevationBackfillWhyTitle": "標高を追加する理由",
     "elevationBackfillWhyBody": "改良されたセクションアルゴリズムと登坂検出は、以前のバージョンが取得していなかった標高を使います。Veloq は既存のアクティビティについて一度だけ標高を取得し、その後で新しいアルゴリズムによりセクションを検出し直します。",
     "previewSections": "セクション変更のプレビュー",
-    "previewIntro": "新しい設定をひとつのエリアで試してから全体に適用できます。",
-    "previewPickArea": "エリアを選択",
+    "cutoverRebuilding": "セクションを再構築中: {{phase}}",
+    "cutoverFailed": "セクションの再構築が完了しませんでした。",
+    "cutoverPhaseDraining": "キューの処理中",
+    "cutoverPhaseArchiving": "アーカイブ中",
+    "cutoverPhaseDetecting": "検出中",
+    "cutoverPhaseDiffing": "比較中",
     "previewAreaFallback": "エリア {{number}}",
     "previewAreaVisits": "{{count}} 回の訪問",
     "previewAreaSections": "{{count}} セクション",

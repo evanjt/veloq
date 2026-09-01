@@ -63,13 +63,18 @@ fn pt(lat: f64, lng: f64, ele: Option<f64>) -> GpsPoint {
     }
 }
 
+/// Real exports carry 6-decimal coordinates and 1-decimal elevations, and the
+/// store quantises to exactly that, so the fixture is built by rounding rather
+/// than by accumulating floats. An accumulated `46.2 + 3 * 0.000_09` is
+/// 46.200270000000004, which no export ever sends and which the store rounds.
 fn track(n: usize, with_elevation: bool) -> Vec<GpsPoint> {
+    let dec = |v: f64, places: usize| -> f64 { format!("{v:.places$}").parse().unwrap() };
     (0..n)
         .map(|i| {
             pt(
-                46.2 + i as f64 * 0.000_09,
-                7.36 - i as f64 * 0.000_113,
-                with_elevation.then_some(500.0 + i as f64 * 0.7),
+                dec(46.2 + i as f64 * 0.000_09, 6),
+                dec(7.36 - i as f64 * 0.000_113, 6),
+                with_elevation.then_some(dec(500.0 + i as f64 * 0.7, 1)),
             )
         })
         .collect()
@@ -528,5 +533,32 @@ fn for_each_track_holds_one_track_at_a_time() {
     assert!(
         live_bytes() - baseline < one_track,
         "the walk left a track behind"
+    );
+}
+
+/// Scenario: a track is stored and read back after the move to the quantised
+/// codec (`B125`).
+///
+/// Expected behaviour: a 6-decimal coordinate survives exactly, and anything
+/// finer is rounded to the grid rather than kept. The store has one encoding,
+/// so this is the guarantee, not an accident of what was written last.
+#[test]
+fn a_stored_track_reads_back_on_the_quantisation_grid() {
+    let mut s = setup();
+    s.add(
+        "a1",
+        vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.1234561_7, 7.6543214_2, Some(1234.56)),
+        ],
+    );
+
+    let read = s.engine.tracks_batch(&["a1".to_string()]);
+    assert_eq!(
+        read[0].1,
+        TrackRead::Present(vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.123456, 7.654321, Some(1234.6)),
+        ])
     );
 }

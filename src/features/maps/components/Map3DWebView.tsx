@@ -73,6 +73,8 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   onMapReady?: () => void;
   /** Called when the page or the WebView failed and no map will appear */
   onMapFailed?: (reason: string) => void;
+  /** Called when the page drew, but had no DEM tiles, so the terrain is flat */
+  onTerrainUnavailable?: (reason: string) => void;
   /** Called when bearing changes (for compass sync) */
   onBearingChange?: (bearing: number) => void;
   /** Called when the full camera state updates (center, zoom, bearing, pitch) */
@@ -134,6 +136,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       showHeatmap = false,
       onMapReady,
       onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
       initialCamera,
@@ -239,6 +242,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       updateLayers,
       onMapReady,
       onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
     });

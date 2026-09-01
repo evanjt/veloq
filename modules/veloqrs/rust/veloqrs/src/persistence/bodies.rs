@@ -148,13 +148,21 @@ impl PersistentEngine {
 /// outside this set only ever arrives as a body from intervals.icu.
 const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "time"];
 
-/// How many stream payloads to keep. Streams are 100-500KB each, so this is a
-/// cache with a ceiling, not a mirror of the athlete's history.
-const MAX_STREAM_BODIES: i64 = 50;
+/// How much raw payload to keep. `Q31` retired the row count: fifty rows is
+/// 5 MB of one athlete's streams and 25 MB of another's, so the ceiling that
+/// matters is bytes. The durable series behind these bodies live in
+/// `activity_streams` and are sized by the athlete instead, which is what lets
+/// this stay small: it is a hot cache of exactly what the server sent, not the
+/// history.
+const MAX_STREAM_BODY_BYTES: i64 = 8 * 1024 * 1024;
 
 impl PersistentEngine {
-    /// Store a stream payload for an activity and series selection, then drop
-    /// the least recently used ones beyond the cache ceiling.
+    /// Store a stream payload for an activity and series selection.
+    ///
+    /// The body goes in the cache and its series go in the durable store, so a
+    /// payload evicted from here is still answerable from the device. A body
+    /// that will not parse is still cached: it is what the server sent, and
+    /// refusing to cache it would refetch it on every open.
     pub fn set_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
         self.db.execute(
             "INSERT INTO stream_bodies (activity_id, types, raw, updated_at)
@@ -164,19 +172,46 @@ impl PersistentEngine {
                 updated_at = excluded.updated_at",
             params![activity_id, types, raw],
         )?;
+        match serde_json::from_str::<Vec<crate::net::types::StreamDto>>(raw) {
+            Ok(parsed) => self.store_activity_streams(activity_id, &parsed)?,
+            Err(e) => log::warn!(
+                "veloqrs: [Streams] {} body for {} did not parse, caching it unstored: {}",
+                types,
+                activity_id,
+                e
+            ),
+        }
+        self.trim_stream_bodies_to_budget()?;
+        Ok(())
+    }
+
+    /// Drop least recently used bodies until the cache is inside its byte
+    /// budget, always keeping the most recent one. A single payload larger than
+    /// the whole budget would otherwise delete itself the moment it was
+    /// written, and the activity it belongs to would refetch forever.
+    fn trim_stream_bodies_to_budget(&self) -> SqlResult<()> {
         self.db.execute(
-            "DELETE FROM stream_bodies WHERE rowid NOT IN (
-                 SELECT rowid FROM stream_bodies ORDER BY updated_at DESC, rowid DESC LIMIT ?
+            "DELETE FROM stream_bodies WHERE rowid IN (
+                 SELECT rowid FROM (
+                     SELECT rowid,
+                            SUM(LENGTH(raw)) OVER (
+                                ORDER BY updated_at DESC, rowid DESC
+                                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                            ) AS running,
+                            ROW_NUMBER() OVER (ORDER BY updated_at DESC, rowid DESC) AS rank
+                     FROM stream_bodies
+                 )
+                 WHERE running > ? AND rank > 1
              )",
-            params![MAX_STREAM_BODIES],
+            params![MAX_STREAM_BODY_BYTES],
         )?;
         Ok(())
     }
 
     /// The read order for a series selection: the cached server body first,
-    /// then a reconstruction from the points and times the ingest already
-    /// stored. `None` means nothing on device can answer it, which is what
-    /// makes the caller fetch.
+    /// then a reconstruction from what the device already holds, which is the
+    /// track, its time stream and the durable series store. `None` means
+    /// nothing on device can answer it, which is what makes the caller fetch.
     ///
     /// The reconstruction is not a second cache. It is the same data in the
     /// shape the charts read, so it is rebuilt per call and never written
@@ -198,8 +233,36 @@ impl PersistentEngine {
     /// at all.
     fn reconstruct_stream_body(&self, activity_id: &str, types: &str) -> Option<String> {
         let wanted: Vec<&str> = types.split(',').filter(|t| !t.is_empty()).collect();
-        if wanted.is_empty() || !wanted.iter().all(|t| RECONSTRUCTABLE.contains(t)) {
+        if wanted.is_empty() {
             return None;
+        }
+
+        // The durable store answers the series a track cannot hold. Loaded
+        // first, because whether the selection is servable at all depends on
+        // what it has, not only on what the track has.
+        let stored = self.load_activity_streams(activity_id).unwrap_or_default();
+        let servable =
+            |t: &&str| RECONSTRUCTABLE.contains(t) || stored.iter().any(|s| &s.kind.as_str() == t);
+        if !wanted.iter().all(servable) {
+            return None;
+        }
+
+        let from_track: Vec<&&str> = wanted
+            .iter()
+            .filter(|t| RECONSTRUCTABLE.contains(*t))
+            .collect();
+
+        let mut items: Vec<crate::net::types::StreamDto> = Vec::with_capacity(wanted.len());
+
+        // A selection asking only for stored series needs no track, and an
+        // activity may hold power without ever holding coordinates.
+        if from_track.is_empty() {
+            for kind in &wanted {
+                if let Some(s) = stored.iter().find(|s| &s.kind.as_str() == kind) {
+                    items.push(s.clone());
+                }
+            }
+            return serde_json::to_string(&items).ok();
         }
 
         // Both series ride the `latlng` mask the ingest applied, so the stored
@@ -208,8 +271,6 @@ impl PersistentEngine {
             crate::persistence::codec::TrackRead::Present(points) if !points.is_empty() => points,
             _ => return None,
         };
-
-        let mut items: Vec<crate::net::types::StreamDto> = Vec::with_capacity(wanted.len());
 
         if wanted.contains(&"latlng") {
             items.push(crate::net::types::StreamDto {
@@ -251,6 +312,20 @@ impl PersistentEngine {
                 data: times.iter().map(|t| Some(f64::from(*t))).collect(),
                 data2: None,
             });
+        }
+
+        // A stored series is only in the track's index space if it has the same
+        // sample count. One that disagrees is not addressable positionally
+        // against the points, and a chart drawn on the wrong index space puts
+        // the power spike on the wrong hill.
+        for kind in &wanted {
+            if RECONSTRUCTABLE.contains(kind) {
+                continue;
+            }
+            match stored.iter().find(|s| &s.kind.as_str() == kind) {
+                Some(s) if s.data.len() == points.len() => items.push(s.clone()),
+                _ => return None,
+            }
         }
 
         serde_json::to_string(&items).ok()
@@ -388,28 +463,51 @@ mod tests {
         assert!(engine.get_stream_body("a1", "watts").unwrap().is_none());
     }
 
+    /// A quarter of the budget, so four bodies fit and the fifth evicts. Sized
+    /// off the constant rather than a literal, or a change to the budget would
+    /// leave the test asserting nothing.
+    fn quarter_budget_body() -> String {
+        "x".repeat((MAX_STREAM_BODY_BYTES / 4) as usize)
+    }
+
+    fn cached_bytes(engine: &PersistentEngine) -> i64 {
+        engine
+            .db
+            .query_row(
+                "SELECT COALESCE(SUM(LENGTH(raw)), 0) FROM stream_bodies",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
     #[test]
-    fn stream_bodies_stay_under_the_cache_ceiling() {
+    fn stream_bodies_stay_under_the_byte_budget() {
         let (_dir, engine) = engine();
-        for i in 0..(MAX_STREAM_BODIES + 10) {
+        let body = quarter_budget_body();
+        for i in 0..6 {
             engine
-                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .set_stream_body(&format!("a{}", i), "time", &body)
                 .unwrap();
         }
 
-        let count: i64 = engine
-            .db
-            .query_row("SELECT COUNT(*) FROM stream_bodies", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(count, MAX_STREAM_BODIES, "streams are a bounded cache");
-
-        // The most recent write survives the prune.
         assert!(
-            engine
-                .get_stream_body(&format!("a{}", MAX_STREAM_BODIES + 9), "time")
-                .unwrap()
-                .is_some()
+            cached_bytes(&engine) <= MAX_STREAM_BODY_BYTES,
+            "the cache is bounded by bytes, not by rows"
         );
+        // The most recent write survives the prune.
+        assert!(engine.get_stream_body("a5", "time").unwrap().is_some());
+    }
+
+    #[test]
+    fn one_body_larger_than_the_whole_budget_is_still_kept() {
+        let (_dir, engine) = engine();
+        let huge = "x".repeat((MAX_STREAM_BODY_BYTES + 1024) as usize);
+        engine.set_stream_body("a1", "time", &huge).unwrap();
+
+        // Evicting it would refetch it on every open, which is worse than
+        // holding one oversized payload.
+        assert!(engine.get_stream_body("a1", "time").unwrap().is_some());
     }
 
     /// Backdate every stored stream to a distinct second so eviction order is
@@ -440,9 +538,10 @@ mod tests {
     #[test]
     fn reading_a_stream_body_saves_it_from_eviction() {
         let (_dir, engine) = engine();
-        for i in 0..MAX_STREAM_BODIES {
+        let body = quarter_budget_body();
+        for i in 0..4 {
             engine
-                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .set_stream_body(&format!("a{}", i), "time", &body)
                 .unwrap();
         }
         age_streams(&engine);
@@ -451,10 +550,9 @@ mod tests {
         // athlete just opened that activity, so it is the last thing to drop.
         assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
 
-        engine.set_stream_body("new", "time", "payload").unwrap();
+        engine.set_stream_body("new", "time", &body).unwrap();
 
         let ids = stored_ids(&engine);
-        assert_eq!(ids.len() as i64, MAX_STREAM_BODIES);
         assert!(ids.contains(&"a0".to_string()), "the read row must survive");
         assert!(
             !ids.contains(&"a1".to_string()),
@@ -465,16 +563,17 @@ mod tests {
     #[test]
     fn a_second_read_keeps_the_row_at_the_head() {
         let (_dir, engine) = engine();
-        for i in 0..MAX_STREAM_BODIES {
+        let body = quarter_budget_body();
+        for i in 0..4 {
             engine
-                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .set_stream_body(&format!("a{}", i), "time", &body)
                 .unwrap();
         }
         age_streams(&engine);
 
         engine.get_stream_body("a0", "time").unwrap();
         engine.get_stream_body("a0", "time").unwrap();
-        engine.set_stream_body("new", "time", "payload").unwrap();
+        engine.set_stream_body("new", "time", &body).unwrap();
 
         assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
     }
@@ -493,15 +592,127 @@ mod tests {
     }
 
     #[test]
-    fn the_ceiling_is_reached_without_evicting() {
+    fn the_budget_is_reached_without_evicting() {
         let (_dir, engine) = engine();
-        for i in 0..MAX_STREAM_BODIES {
+        let body = quarter_budget_body();
+        for i in 0..4 {
             engine
-                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .set_stream_body(&format!("a{}", i), "time", &body)
                 .unwrap();
         }
-        assert_eq!(stored_ids(&engine).len() as i64, MAX_STREAM_BODIES);
+        assert_eq!(stored_ids(&engine).len(), 4);
         assert!(engine.get_stream_body("a0", "time").unwrap().is_some());
+    }
+
+    /// Scenario: a fifty-first activity evicts the fiftieth, so the athlete
+    /// loses a stream they already paid to fetch.
+    /// Expected behaviour: the raw body is a cache and may go, but the series
+    /// themselves are stored, so the read still answers from the device.
+    #[test]
+    fn a_stored_series_survives_the_body_cache_ceiling() {
+        let (_dir, engine) = engine();
+        let body =
+            r#"[{"type":"watts","data":[100,110,120]},{"type":"heartrate","data":[140,141,142]}]"#;
+        engine
+            .set_stream_body("a0", "watts,heartrate", body)
+            .unwrap();
+        for i in 1..=60 {
+            engine
+                .set_stream_body(&format!("a{}", i), "watts,heartrate", body)
+                .unwrap();
+        }
+
+        let served = engine
+            .read_stream_body("a0", "watts,heartrate")
+            .unwrap()
+            .expect("a stream must outlive the body cache");
+        let parsed: Vec<crate::net::types::StreamDto> = serde_json::from_str(&served).unwrap();
+        let watts = parsed.iter().find(|s| s.kind == "watts").unwrap();
+        assert_eq!(watts.data, vec![Some(100.0), Some(110.0), Some(120.0)]);
+        let hr = parsed.iter().find(|s| s.kind == "heartrate").unwrap();
+        assert_eq!(hr.data, vec![Some(140.0), Some(141.0), Some(142.0)]);
+    }
+
+    /// A narrow selection must never be served for a wide one. The body cache
+    /// keys on the selection, and the durable store answers only a selection
+    /// every series of which it holds.
+    #[test]
+    fn a_narrow_store_never_answers_a_wide_selection() {
+        let (_dir, engine) = engine();
+        engine
+            .set_stream_body("a1", "watts", r#"[{"type":"watts","data":[100,110]}]"#)
+            .unwrap();
+
+        assert!(engine.read_stream_body("a1", "watts").unwrap().is_some());
+        // heartrate was never fetched, so the pair is unanswerable and the
+        // caller must go and get it.
+        assert!(
+            engine
+                .read_stream_body("a1", "watts,heartrate")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    /// A stored series is addressed positionally against the track, so one that
+    /// disagrees with it is not in the same index space and must not be served
+    /// beside it.
+    #[test]
+    fn a_series_that_disagrees_with_the_track_is_not_served_with_it() {
+        let (_dir, engine) = engine();
+        let points = vec![
+            crate::GpsPoint {
+                latitude: 1.0,
+                longitude: 2.0,
+                elevation: Some(10.0),
+            },
+            crate::GpsPoint {
+                latitude: 1.1,
+                longitude: 2.1,
+                elevation: Some(11.0),
+            },
+        ];
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES ('a1', 'Ride', 0, 0, 0, 0)",
+                [],
+            )
+            .unwrap();
+        engine.store_gps_track("a1", &points).unwrap();
+        engine
+            .store_activity_streams(
+                "a1",
+                &[crate::net::types::StreamDto {
+                    kind: "watts".to_string(),
+                    data: vec![Some(100.0), Some(110.0), Some(120.0)],
+                    data2: None,
+                }],
+            )
+            .unwrap();
+
+        assert!(
+            engine
+                .read_stream_body("a1", "latlng,watts")
+                .unwrap()
+                .is_none()
+        );
+        // The same series alone is still servable: nothing is being addressed
+        // against the track there.
+        assert!(engine.read_stream_body("a1", "watts").unwrap().is_some());
+    }
+
+    #[test]
+    fn clearing_empties_the_stream_store() {
+        let (_dir, mut engine) = engine();
+        engine
+            .set_stream_body("a1", "watts", r#"[{"type":"watts","data":[1]}]"#)
+            .unwrap();
+        assert!(!engine.stored_stream_kinds("a1").unwrap().is_empty());
+
+        engine.clear().unwrap();
+        assert!(engine.stored_stream_kinds("a1").unwrap().is_empty());
     }
 
     #[test]

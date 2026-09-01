@@ -120,19 +120,26 @@ function ParamRow({
   );
 }
 
+// Five rows sit under the map and nothing scrolls, so the card takes whatever
+// the fixed chrome leaves and the rows divide it evenly rather than each
+// claiming a height the screen may not have. A short phone gets thin sliders,
+// which is worse than a tall phone and much better than a Keep button pushed
+// off the bottom.
 const styles = StyleSheet.create({
   card: {
+    flex: 1,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
   },
-  paramRow: { gap: 2 },
+  paramRow: { flex: 1, justifyContent: 'center' },
   paramLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
   },
   slider: {
     width: '100%',
-    height: 36,
+    flex: 1,
   },
 });

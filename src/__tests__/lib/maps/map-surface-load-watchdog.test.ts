@@ -1,8 +1,7 @@
 /**
- * Scenario: every 2D surface is MapLibre GL JS fetched from a CDN. With the
- * radio off and a cold WebView cache the renderer never arrives, the page
- * script throws before it can build a map, and the surface is a blank
- * rectangle with nothing to say for itself.
+ * Scenario: every 2D surface is MapLibre GL JS. If the renderer never
+ * defines itself the page script throws before it can build a map, and the
+ * surface is a blank rectangle with nothing to say for itself.
  *
  * Expected behaviour: the page reports its own failure. The watchdog is armed
  * before anything touches `maplibregl`, so a missing renderer, a throwing
@@ -30,7 +29,9 @@ function buildConfig(overrides: Partial<MapSurfaceHtmlConfig> = {}): MapSurfaceH
 }
 
 function extractPageScript(html: string): string {
-  const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+  const blocks = [
+    ...html.matchAll(/<script(?![^>]*\bsrc=)(?![^>]*maplibre-gl)[^>]*>([\s\S]*?)<\/script>/g),
+  ];
   expect(blocks.length).toBe(1);
   return blocks[0][1];
 }
@@ -48,7 +49,7 @@ interface RunResult {
 }
 
 /**
- * Runs the page script in a sandbox. `withMapLibre: false` models the CDN
+ * Runs the page script in a sandbox. `withMapLibre: false` models the renderer
  * bundle never arriving, which is the case the watchdog exists for.
  */
 function runPage(options: { withMapLibre?: boolean; mapFactory?: () => FakeMap } = {}): RunResult {
@@ -183,7 +184,7 @@ describe('2D map surface load watchdog', () => {
     expect(typesOf(posted)).not.toContain('mapFailed');
   });
 
-  it('posts mapFailed when the renderer never loaded from the CDN', () => {
+  it('posts mapFailed when the renderer never defined itself', () => {
     const { posted } = runPage({ withMapLibre: false });
     jest.advanceTimersByTime(MAP_SURFACE_READY_TIMEOUT_MS * 2);
 

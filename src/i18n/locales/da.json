@@ -665,6 +665,7 @@
     "expandRange": "Udvid interval"
   },
   "maps": {
+    "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
     "unavailableTitle": "Kort utilgængeligt",
     "unavailableHint": "Kortet kunne ikke indlæses. Tjek din forbindelse, og åbn det igen.",
     "activitiesCount": "{{count}} aktiviteter",
@@ -1222,8 +1223,12 @@
     "elevationBackfillWhyTitle": "Hvorfor højde bliver tilføjet",
     "elevationBackfillWhyBody": "Den forbedrede sektionsalgoritme og stigningsdetektering læser højde, som tidligere versioner aldrig hentede. Veloq henter den én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
     "previewSections": "Se sektionsændringer på forhånd",
-    "previewIntro": "Afprøv nye indstillinger på ét kørselsområde, før du anvender dem overalt.",
-    "previewPickArea": "Vælg et område",
+    "cutoverRebuilding": "Genopbygger sektioner: {{phase}}",
+    "cutoverFailed": "Genopbygningen af sektioner blev ikke fuldført.",
+    "cutoverPhaseDraining": "tømmer køen",
+    "cutoverPhaseArchiving": "arkiverer",
+    "cutoverPhaseDetecting": "registrerer",
+    "cutoverPhaseDiffing": "sammenligner",
     "previewAreaFallback": "Område {{number}}",
     "previewAreaVisits": "{{count}} besøg",
     "previewAreaSections": "{{count}} sektioner",
