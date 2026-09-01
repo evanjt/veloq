@@ -146,7 +146,7 @@ describe('planet vector tiles resolve through the TileJSON', () => {
  */
 describe('the snapshot worker holds the same vector contract', () => {
   function workerProtocolScript(): string {
-    const html = buildSnapshotWorkerHtml();
+    const html = buildSnapshotWorkerHtml(0);
     const start = html.indexOf("var VECTOR_CACHE = 'veloq-vector-v1';");
     expect(start).toBeGreaterThan(-1);
     const end = html.indexOf('// Cache eviction', start);
