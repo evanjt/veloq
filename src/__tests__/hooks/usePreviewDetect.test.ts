@@ -25,7 +25,6 @@ const LIVE_CONFIG: FfiSectionConfig = {
   samplePoints: 60,
   detectionMode: 'unified',
   includePotentials: false,
-  scalePresets: [],
   preserveHierarchy: false,
   jaccardThreshold: 0.4,
   minRoutes: 2,
