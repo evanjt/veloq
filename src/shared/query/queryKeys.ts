@@ -75,6 +75,7 @@ export const queryKeys = {
 
   calendar: {
     oldestDate: ['oldestActivityDate'] as const,
+    yearCounts: ['activityYearCounts'] as const,
     events: (today: string) => ['calendar-events', today] as const,
   },
 } as const;

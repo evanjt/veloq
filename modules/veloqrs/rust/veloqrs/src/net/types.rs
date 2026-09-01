@@ -6,6 +6,7 @@
 //! Unknown JSON fields are ignored, so requesting a `fields=` subset is safe.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 // ===========================================================================
 // Activities
@@ -385,10 +386,72 @@ pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
         .min()
 }
 
+/// The athlete's whole activity history, reduced to what the history slider
+/// needs: where it may reach back to, and how much sits in each year on the
+/// way. Both come from one response, so neither costs a request of its own.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ActivityHistorySummary {
+    pub oldest: Option<String>,
+    pub counts_by_year: BTreeMap<String, u32>,
+}
+
+/// Count activities per calendar year, keyed by the `YYYY` prefix of
+/// `start_date_local`. The history slider needs to say how much a widening
+/// would download, and the same response that carries the oldest date carries
+/// every start date, so this costs no extra request. A record with no start
+/// date is skipped: it cannot be placed on the timeline either.
+pub fn activity_counts_by_year(activities: &[ActivityRecord]) -> BTreeMap<String, u32> {
+    let mut counts = BTreeMap::new();
+    for a in activities {
+        let Some(date) = a.start_date_local.as_deref() else {
+            continue;
+        };
+        if date.len() < 4 || !date[..4].bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        *counts.entry(date[..4].to_string()).or_insert(0) += 1;
+    }
+    counts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn year_counts_bucket_every_dated_activity() {
+        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+            {"id": "a", "start_date_local": "2024-06-20T07:00:00"},
+            {"id": "b", "start_date_local": "2024-01-02T07:00:00"},
+            {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
+        ]))
+        .unwrap();
+        let counts = activity_counts_by_year(&acts);
+        assert_eq!(counts.get("2024"), Some(&2));
+        assert_eq!(counts.get("2025"), Some(&1));
+        assert_eq!(counts.len(), 2);
+    }
+
+    #[test]
+    fn year_counts_skip_what_cannot_be_placed() {
+        // A row with no start date is already dropped by the window sync, and
+        // a malformed one would bucket under a year that does not exist.
+        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+            {"id": "a"},
+            {"id": "b", "start_date_local": "not-a-date"},
+            {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
+        ]))
+        .unwrap();
+        let counts = activity_counts_by_year(&acts);
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts.get("2025"), Some(&1));
+    }
+
+    #[test]
+    fn year_counts_of_nothing_is_empty() {
+        assert!(activity_counts_by_year(&[]).is_empty());
+    }
 
     #[test]
     fn parses_activities_subset() {
