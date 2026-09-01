@@ -116,16 +116,50 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
 
     // Cache vector tiles (protocol buffers) via Cache API.
     var VECTOR_CACHE = 'veloq-vector-v1';
+    // Same contract as tileProtocolsScript, over the same cache: resolve the
+    // TileJSON rather than assume a tile path, and never store an empty body.
+    // This worker shares veloq-vector-v1 with the interactive surfaces, so a
+    // zero-length entry written here is one they serve.
+    function vectorTileJson(realUrl) {
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json().then(function(tj) {
+          if (tj && tj.tiles) {
+            tj.tiles = tj.tiles.map(function(t) {
+              return t.indexOf('https://') === 0
+                ? 'cached-vector://' + t.substring('https://'.length)
+                : t;
+            });
+          }
+          return { data: tj };
+        });
+      });
+    }
+
+    function vectorFetch(cache, realUrl) {
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var copy = r.clone();
+        return r.arrayBuffer().then(function(d) {
+          if (d.byteLength === 0) throw new Error('empty vector tile: ' + realUrl);
+          cache.put(realUrl, copy); maybeEvict(VECTOR_CACHE);
+          return { data: d };
+        });
+      });
+    }
+
     maplibregl.addProtocol('cached-vector', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
+      if (realUrl.indexOf('.pbf') === -1) return vectorTileJson(realUrl);
       return caches.open(VECTOR_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { return { data: d }; });
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
-            return r.arrayBuffer().then(function(d) { return { data: d }; });
-          });
+          if (cached) {
+            return cached.arrayBuffer().then(function(d) {
+              if (d.byteLength > 0) return { data: d };
+              return vectorFetch(cache, realUrl);
+            });
+          }
+          return vectorFetch(cache, realUrl);
         });
       });
     });

@@ -155,20 +155,59 @@ export function tileProtocolsScript(): string {
 
     var VECTOR_CACHE = 'veloq-vector-v1';
     var vecHits = 0, vecMisses = 0;
+    // The TileJSON is never cached: it names a dated planet snapshot that rolls,
+    // and a cached one pins a vintage that goes stale rather than empty, which is
+    // harder to diagnose. Its tile template is rewritten back onto the protocol so
+    // the tiles it names are the ones the cache serves.
+    function vectorTileJson(realUrl) {
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json().then(function(tj) {
+          if (tj && tj.tiles) {
+            tj.tiles = tj.tiles.map(function(t) {
+              return t.indexOf('https://') === 0
+                ? 'cached-vector://' + t.substring('https://'.length)
+                : t;
+            });
+          }
+          return { data: tj };
+        });
+      });
+    }
+
     maplibregl.addProtocol('cached-vector', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
+      if (realUrl.indexOf('.pbf') === -1) return vectorTileJson(realUrl);
       return caches.open(VECTOR_CACHE).then(function(cache) {
         return cache.match(realUrl).then(function(cached) {
-          if (cached) { vecHits++; return cached.arrayBuffer().then(function(d) { return { data: d }; }); }
-          vecMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
-            return r.arrayBuffer().then(function(d) { return { data: d }; });
-          });
+          // A zero-length hit is a poisoned entry from the build that asked the
+          // origin for the unversioned path. Refetch rather than serve it.
+          if (cached) {
+            return cached.arrayBuffer().then(function(d) {
+              if (d.byteLength > 0) { vecHits++; return { data: d }; }
+              return vectorFetch(cache, realUrl);
+            });
+          }
+          return vectorFetch(cache, realUrl);
         });
       });
     });
+
+    // An empty tile is what the origin answers when it is asked for a path it does
+    // not serve. It is not an error to MapLibre, so caching it makes a blank map
+    // permanent.
+    function vectorFetch(cache, realUrl) {
+      vecMisses++;
+      return fetch(realUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var copy = r.clone();
+        return r.arrayBuffer().then(function(d) {
+          if (d.byteLength === 0) throw new Error('empty vector tile: ' + realUrl);
+          cache.put(realUrl, copy); maybeEvict(VECTOR_CACHE);
+          return { data: d };
+        });
+      });
+    }
 
     window._heatmapRequests = {};
     maplibregl.addProtocol('heatmap-file', function(params) {
