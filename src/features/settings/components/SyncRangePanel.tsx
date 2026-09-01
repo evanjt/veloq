@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Alert, View, Text, StyleSheet } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,11 +8,13 @@ import { TimelineSlider } from '@/features/maps/components';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
+import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
 import { formatLocalDate, formatFileSize } from '@/shared/format/format';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 
@@ -53,6 +55,7 @@ export function SyncRangePanel() {
   // --- Data range state ---
   const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
+  const { data: yearCounts } = useActivityYearCounts();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
@@ -86,11 +89,23 @@ export function SyncRangePanel() {
 
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
-      if (start < cachedStartDate) {
-        syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+      if (start >= cachedStartDate) return;
+      const expand = () => syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+
+      // An upper bound, and zero when the sync has not stored the counts yet.
+      // Neither may hold the user behind a figure the app cannot produce.
+      const count = activitiesInRange(yearCounts, start, cachedStartDate);
+      if (count < LARGE_HISTORY_THRESHOLD) {
+        expand();
+        return;
       }
+
+      Alert.alert(t('settings.largeHistoryTitle'), t('settings.largeHistoryMessage', { count }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.largeHistoryConfirm'), onPress: expand },
+      ]);
     },
-    [syncDateRange, cachedStartDate]
+    [syncDateRange, cachedStartDate, yearCounts, t]
   );
 
   return (

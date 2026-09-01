@@ -611,7 +611,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     step!(sync_sport_settings(&transport, &athlete_id).await);
     step!(sync_wellness(&transport, &athlete_id).await);
     step!(sync_activities(&transport, &athlete_id).await);
-    step!(sync_oldest_activity_date(&transport, &athlete_id).await);
+    step!(sync_activity_history_summary(&transport, &athlete_id).await);
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
@@ -730,22 +730,41 @@ fn day_start_timestamp(day: &str) -> Option<i64> {
 /// Settings key holding the athlete's first-ever activity date.
 pub const OLDEST_ACTIVITY_DATE_KEY: &str = "oldest_activity_date";
 
-/// Persist the athlete's oldest activity date. This spans all history, not the
-/// synced window, so the timeline slider knows how far back it may reach.
-async fn sync_oldest_activity_date(
+/// Settings key holding the per-year activity counts, as a `{"YYYY": n}` JSON
+/// object. The history slider gates a large widening on it.
+pub const ACTIVITY_YEAR_COUNTS_KEY: &str = "activity_year_counts";
+
+/// Persist the athlete's history summary. It spans all history, not the synced
+/// window, so the timeline slider knows how far back it may reach and how much
+/// a widening would download. One request answers both.
+async fn sync_activity_history_summary(
     transport: &Transport,
     athlete_id: &str,
 ) -> Result<(), NetError> {
     let today = chrono::Local::now().date_naive().to_string();
-    let oldest =
-        endpoints::fetch_oldest_activity_date(transport, athlete_id, &today, Lane::Backfill)
+    let summary =
+        endpoints::fetch_activity_history_summary(transport, athlete_id, &today, Lane::Backfill)
             .await?;
-    let Some(oldest) = oldest else {
+    let Some(oldest) = summary.oldest else {
+        // No activities at all: nothing to record, and writing an empty
+        // counts object would read as a real answer of zero everywhere.
         return Ok(());
+    };
+    let counts = match serde_json::to_string(&summary.counts_by_year) {
+        Ok(json) => json,
+        Err(e) => {
+            log::warn!("[Sync] year counts encode failed: {}", e);
+            String::new()
+        }
     };
     crate::persistence::with_persistent_engine_blocking(move |engine| {
         if let Err(e) = engine.set_setting(OLDEST_ACTIVITY_DATE_KEY, &oldest) {
             log::warn!("[Sync] oldest activity date write failed: {}", e);
+        }
+        if !counts.is_empty() {
+            if let Err(e) = engine.set_setting(ACTIVITY_YEAR_COUNTS_KEY, &counts) {
+                log::warn!("[Sync] year counts write failed: {}", e);
+            }
         }
     })
     .await;

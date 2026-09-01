@@ -336,6 +336,9 @@ export interface TranslationResource {
     unitsMetricHint: string;
     unitsImperial: string;
     unitsImperialHint: string;
+    largeHistoryConfirm: string;
+    largeHistoryMessage: string;
+    largeHistoryTitle: string;
     localDataRange: string;
     summaryCard: string;
     showSummaryCard: string;
