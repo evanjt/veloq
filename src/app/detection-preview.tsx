@@ -79,6 +79,9 @@ export default function DetectionPreviewScreen() {
   const selectedCentre = centre ?? centres[0] ?? null;
   const currentSections = usePreviewCurrentSections(client, selectedCentre);
   const running = status === 'running';
+  // The engine reports a percentage for a bounded job, so draw it. Clamped
+  // because a phase that finishes ahead of its own estimate can overshoot.
+  const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
 
   const handlePreview = useCallback(() => {
     if (!selectedCentre || running) return;
@@ -184,13 +187,24 @@ export default function DetectionPreviewScreen() {
         {result && <PreviewDiffStrip counts={result.counts} />}
 
         {running ? (
-          <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
-            <ActivityIndicator size="small" color={textSecondary} />
-            <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
-              {progress?.phase === 'loading'
-                ? t('settings.previewRunning', { count: progress.total })
-                : (progress?.displayName ?? t('settings.previewRun'))}
-            </Text>
+          <View>
+            <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
+              <ActivityIndicator size="small" color={textSecondary} />
+              <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
+                {progress?.phase === 'loading'
+                  ? t('settings.previewRunning', { count: progress.total })
+                  : (progress?.displayName ?? t('settings.previewRun'))}
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: border }]}>
+              <View
+                testID="preview-progress-fill"
+                style={[
+                  styles.progressFill,
+                  { backgroundColor: brand.tealLight, width: `${runPercent}%` },
+                ]}
+              />
+            </View>
           </View>
         ) : (
           <Pressable
@@ -307,6 +321,16 @@ const styles = StyleSheet.create({
   },
   pickerWrap: {
     marginHorizontal: -spacing.md,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 2,
+    marginTop: spacing.xs,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   runBtn: {
     flexDirection: 'row',
