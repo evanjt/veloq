@@ -217,9 +217,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           } else if (attempt < 2) {
             // Retry once after delay - handles transient FS issues on first launch
             if (__DEV__) {
-              console.warn(
-                `[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
-              );
+              console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
             }
             setTimeout(() => tryInit(attempt + 1), 500);
           } else {

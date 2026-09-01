@@ -614,9 +614,7 @@ export function useGpsDataFetcher() {
       const routeMatchingOn = isRouteMatchingEnabled();
       const needsDetection =
         routeMatchingOn &&
-        (result.syncedIds.length > 0 ||
-          engine.getStats()?.sectionsDirty === true ||
-          hasExpanded);
+        (result.syncedIds.length > 0 || engine.getStats()?.sectionsDirty === true || hasExpanded);
 
       // API: detection 50-75%, tiles 75-100%
       if (needsDetection && isMountedRef.current) {

@@ -17,12 +17,7 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
 
   const body = getEngine()?.getPowerCurveBody(sport, days) ?? null;
-  useEngineBody(
-    body !== null,
-    () => getEngine()?.syncPowerCurve(sport, days),
-    queryKey,
-    enabled
-  );
+  useEngineBody(body !== null, () => getEngine()?.syncPowerCurve(sport, days), queryKey, enabled);
 
   return useQuery<PowerCurve>({
     queryKey,

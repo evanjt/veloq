@@ -171,8 +171,7 @@ export function useSectionTimeStreamSync(
     }
 
     // Check which activities are missing from cache (memory + SQLite)
-    const missingIds =
-      knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
+    const missingIds = knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
 
     // If all time streams are cached, we're done immediately
     if (missingIds.length === 0) {
