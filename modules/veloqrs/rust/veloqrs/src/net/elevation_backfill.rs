@@ -406,6 +406,11 @@ pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
         Some(Stopped::Unauthorized) => {
             set_phase(BACKFILL_PHASE_FAILED);
             log::warn!("[Elevation] backfill stopped: unauthorized");
+            // The pass is the only thing talking upstream during a
+            // conversion, so a credential rejected here is reported the way
+            // sync reports one. Nothing else would ask until the next sync,
+            // and until then the revoked session stands.
+            crate::objects::park_auth_expired();
             return BackfillRun::Failed("unauthorized".to_string());
         }
         // Not a failed pass: the rows are untouched and the queue is

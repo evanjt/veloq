@@ -335,7 +335,7 @@ impl SyncService {
     }
 
     /// Terminal transition for a finished job.
-    fn finish(&self, state: SyncState, last_error: Option<String>, success: bool) {
+    pub fn finish(&self, state: SyncState, last_error: Option<String>, success: bool) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.state = state;
         inner.running = false;
@@ -362,7 +362,7 @@ impl SyncService {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).cancel
     }
 
-    fn snapshot(&self) -> FfiSyncStatus {
+    pub fn snapshot(&self) -> FfiSyncStatus {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         FfiSyncStatus {
             state: inner.state.as_str().to_string(),
@@ -376,6 +376,21 @@ impl SyncService {
 
 /// The process-wide sync service.
 pub static SYNC_SERVICE: Lazy<SyncService> = Lazy::new(SyncService::new);
+
+/// Park the service on a rejected credential.
+///
+/// Every 401 the app sees ends here, whatever raised it: a sync step, an
+/// on-demand fetch, a write, or the elevation backfill. `Q20` decided a
+/// rejected credential signs the athlete out and keeps the database, and this
+/// state is what `useSyncAuthExpiry` reads to do it, so a caller that reports
+/// its own failure instead leaves the dead session standing.
+pub fn park_auth_expired() {
+    SYNC_SERVICE.finish(
+        SyncState::AuthExpired,
+        Some("unauthorized".to_string()),
+        false,
+    );
+}
 
 /// Releases the running slot when a sync task unwinds.
 ///
@@ -478,11 +493,7 @@ where
 
         match job(transport, athlete_id).await {
             Ok(()) => {}
-            Err(NetError::Unauthorized) => SYNC_SERVICE.finish(
-                SyncState::AuthExpired,
-                Some("unauthorized".to_string()),
-                false,
-            ),
+            Err(NetError::Unauthorized) => park_auth_expired(),
             Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
         }
     });
@@ -540,11 +551,7 @@ where
     // A write refused for a dead credential parks the service, so an upload
     // reaches the same session-expiry path a failed sync already does.
     if outcome.kind == "unauthorized" {
-        SYNC_SERVICE.finish(
-            SyncState::AuthExpired,
-            Some("unauthorized".to_string()),
-            false,
-        );
+        park_auth_expired();
     }
     outcome
 }
