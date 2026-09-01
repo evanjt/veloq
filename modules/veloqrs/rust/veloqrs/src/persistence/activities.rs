@@ -228,8 +228,8 @@ impl PersistentEngine {
             .filter(|(id, coords, _)| {
                 self.activity_metadata.contains_key(id)
                     && self
-                        .load_gps_track_from_db(id)
-                        .map(|stored| stored != *coords)
+                        .load_gps_track_blob(id)
+                        .map(|stored| !codec::track_matches(&stored, coords))
                         .unwrap_or(true)
             })
             .map(|(id, _, _)| id.clone())
@@ -693,8 +693,7 @@ impl PersistentEngine {
     }
 
     pub(super) fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
-        let track_data = codec::serialize_points(coords)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        let track_data = codec::serialize_track_points(coords);
         self.db.execute(
             "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
              VALUES (?, ?, ?)",
@@ -1221,6 +1220,19 @@ impl PersistentEngine {
     }
 
     /// Load original GPS track from database (separate function to avoid borrow issues)
+    /// The stored bytes, undecoded. The mutation check compares encodings
+    /// rather than points, so it must not go through a decode that would erase
+    /// which container the row is in.
+    fn load_gps_track_blob(&self, activity_id: &str) -> Option<Vec<u8>> {
+        self.db
+            .query_row(
+                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .ok()
+    }
+
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
         self.track(activity_id)
             .into_option("load_gps_track_from_db", activity_id)

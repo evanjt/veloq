@@ -8,25 +8,42 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 /// [`tag_blob`], which sits inside a body whose format is already known.
 const POSTCARD_TAG: u8 = 0xC1;
 
-fn frame_postcard(payload: Vec<u8>) -> Vec<u8> {
+/// Format tag prefixed to a quantised track blob. 0xC0 is msgpack's `nil`, and
+/// a legacy points blob is always a sequence, so it can never lead one. The
+/// tag is not a nicety: a quantised stream opens with its varint point count,
+/// and counts 144 to 159 encode as exactly the fixarray bytes
+/// [`is_rmp_array_header`] claims, so a sniffing reader would hand a 150-point
+/// track to rmp. The 4-byte length after the tag pins the payload the same way
+/// the postcard frame does.
+const POLYLINE_TAG: u8 = 0xC0;
+
+fn frame(tag: u8, payload: Vec<u8>) -> Vec<u8> {
     let Ok(len) = u32::try_from(payload.len()) else {
         // Oversized payload: write unframed, still readable via the fallback.
         return payload;
     };
     let mut out = Vec::with_capacity(payload.len() + 5);
-    out.push(POSTCARD_TAG);
+    out.push(tag);
     out.extend_from_slice(&len.to_le_bytes());
     out.extend_from_slice(&payload);
     out
 }
 
-fn unframe_postcard(bytes: &[u8]) -> Option<&[u8]> {
-    if bytes.len() < 5 || bytes[0] != POSTCARD_TAG {
+fn unframe(tag: u8, bytes: &[u8]) -> Option<&[u8]> {
+    if bytes.len() < 5 || bytes[0] != tag {
         return None;
     }
     let len = u32::from_le_bytes(bytes[1..5].try_into().ok()?) as usize;
     let payload = &bytes[5..];
     (payload.len() == len).then_some(payload)
+}
+
+fn frame_postcard(payload: Vec<u8>) -> Vec<u8> {
+    frame(POSTCARD_TAG, payload)
+}
+
+fn unframe_postcard(bytes: &[u8]) -> Option<&[u8]> {
+    unframe(POSTCARD_TAG, bytes)
 }
 
 /// Postcard decode that rejects trailing bytes. postcard::from_bytes ignores
@@ -108,6 +125,30 @@ fn is_rmp_array_header(b: u8) -> bool {
     matches!(b, 0x90..=0x9f | 0xdc | 0xdd)
 }
 
+/// Write a track the one way tracks are written: quantised, framed, ~3 B/point
+/// against postcard's ~25 (`Q15`, `B125`). Every earlier container still reads,
+/// so no bulk rewrite runs, a row moves when its activity is next stored.
+pub fn serialize_track_points(points: &[crate::GpsPoint]) -> Vec<u8> {
+    frame(POLYLINE_TAG, encode_polyline(points))
+}
+
+/// Whether a stored track blob and an incoming track are the same ground.
+///
+/// Both sides are normalised through the quantised encoding before they are
+/// compared, which is what makes the codec change invisible to mutation
+/// detection: a legacy postcard row and a fresh quantised write of the same
+/// points compare equal. A blob that will not decode is not the same ground as
+/// anything, so it reads as changed and the activity is re-derived.
+///
+/// The cost is that movement below the quantisation step, ~0.11 m of latitude
+/// and 0.1 m of elevation, stops counting as a mutation.
+pub fn track_matches(stored: &[u8], incoming: &[crate::GpsPoint]) -> bool {
+    match deserialize_points(stored) {
+        Ok(points) => encode_polyline(&points) == encode_polyline(incoming),
+        Err(_) => false,
+    }
+}
+
 /// rmp decode that rejects trailing bytes. A quantised polyline whose leading
 /// varint lands in the fixarray range would otherwise decode as a short array
 /// and silently return the wrong points.
@@ -148,6 +189,17 @@ pub fn deserialize_points(bytes: &[u8]) -> Result<Vec<crate::GpsPoint>, String> 
 
     let mut steps: Vec<String> = Vec::new();
     let mut claimed = false;
+
+    if first == POLYLINE_TAG {
+        claimed = true;
+        match unframe(POLYLINE_TAG, bytes) {
+            Some(payload) => match decode_polyline(payload) {
+                Some(points) => return Ok(points),
+                None => steps.push("framed polyline body: malformed stream".to_string()),
+            },
+            None => steps.push("framed polyline: length prefix disagrees with payload".to_string()),
+        }
+    }
 
     if first == POSTCARD_TAG {
         claimed = true;
@@ -469,6 +521,102 @@ mod tests {
             longitude: lng,
             elevation: ele,
         }
+    }
+
+    /// Scenario: the store moves to the quantised codec while rows written by
+    /// every earlier container are still on disk.
+    ///
+    /// Expected behaviour: the new container is recognised by its own tag
+    /// rather than by sniffing, because a quantised stream of 144 to 159 points
+    /// begins with exactly the bytes the rmp fixarray sniff claims.
+    #[test]
+    fn track_blob_round_trips_through_the_quantised_container() {
+        let points = vec![pt(46.123456, 7.654321, Some(1234.5)), pt(46.123556, 7.654221, None)];
+        let blob = serialize_track_points(&points);
+        assert_eq!(blob[0], POLYLINE_TAG);
+        assert_eq!(deserialize_points(&blob).unwrap(), points);
+    }
+
+    #[test]
+    fn a_track_in_the_fixarray_collision_range_is_not_read_as_rmp() {
+        for n in 144..=159usize {
+            let points: Vec<GpsPoint> = (0..n)
+                .map(|i| pt(46.0 + i as f64 * 0.000_01, 7.0, Some(500.0)))
+                .collect();
+            let blob = serialize_track_points(&points);
+            assert_eq!(
+                deserialize_points(&blob).unwrap(),
+                points,
+                "{n} points decoded as something other than the track written"
+            );
+        }
+    }
+
+    #[test]
+    fn every_legacy_container_still_decodes() {
+        let points = vec![pt(46.1, 7.2, Some(500.0)), pt(46.2, 7.3, None)];
+        let framed = serialize_points(&points).unwrap();
+        assert_eq!(deserialize_points(&framed).unwrap(), points);
+
+        let compact: Vec<CompactGpsPoint> = points
+            .iter()
+            .map(|p| CompactGpsPoint {
+                latitude: p.latitude,
+                longitude: p.longitude,
+                elevation: p.elevation,
+            })
+            .collect();
+        let unframed = postcard::to_allocvec(&compact).unwrap();
+        assert_eq!(deserialize_points(&unframed).unwrap(), points);
+
+        let rmp = rmp_serde::to_vec(&points).unwrap();
+        assert_eq!(deserialize_points(&rmp).unwrap(), points);
+    }
+
+    /// Scenario: the first sync after the upgrade re-sends every activity the
+    /// athlete already has, and their stored blobs are unquantised postcard.
+    ///
+    /// Expected behaviour: none of them counts as mutated. A raw comparison
+    /// would call all of them changed, evict the whole library from the
+    /// processed set, and re-derive the catalogue.
+    #[test]
+    fn a_verbatim_reingest_is_not_a_mutation_across_the_codec_change() {
+        let points = vec![pt(46.123456, 7.654321, Some(1234.5)), pt(46.223456, 7.554321, None)];
+        for stored in [
+            serialize_points(&points).unwrap(),
+            rmp_serde::to_vec(&points).unwrap(),
+            serialize_track_points(&points),
+        ] {
+            assert!(
+                track_matches(&stored, &points),
+                "a re-ingest of the same points was called a mutation"
+            );
+        }
+    }
+
+    #[test]
+    fn a_moved_point_is_still_a_mutation() {
+        let points = vec![pt(46.123456, 7.654321, Some(1234.5))];
+        let moved = vec![pt(46.123556, 7.654321, Some(1234.5))];
+        let stored = serialize_track_points(&points);
+        assert!(!track_matches(&stored, &moved));
+
+        // A shorter track over the same opening point is a mutation too.
+        assert!(!track_matches(&serialize_track_points(&[points[0], moved[0]]), &points));
+    }
+
+    /// Movement below the quantisation step stops being visible, which is the
+    /// price of one codec. 1e-7 degrees is ~11 mm.
+    #[test]
+    fn movement_below_the_quantisation_step_is_not_a_mutation() {
+        let stored = serialize_track_points(&[pt(46.123456, 7.654321, Some(1234.5))]);
+        assert!(track_matches(&stored, &[pt(46.1234561, 7.6543211, Some(1234.51))]));
+    }
+
+    #[test]
+    fn a_corrupt_stored_blob_counts_as_a_mutation() {
+        assert!(!track_matches(&[0x07, 0x07, 0x07], &[pt(46.1, 7.2, None)]));
+        assert!(!track_matches(&[], &[pt(46.1, 7.2, None)]));
     }
 
     /// A realistic 6-decimal line, built the way real data arrives: parsed
