@@ -808,6 +808,13 @@ class EngineClient implements DelegateHost {
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
+  streamRetentionDays = (): number | undefined => settingsDelegates.streamRetentionDays(this);
+
+  setStreamRetentionDays = (days: number): void =>
+    settingsDelegates.setStreamRetentionDays(this, days);
+
+  streamStoreBytes = (): number => settingsDelegates.streamStoreBytes(this);
+
   // ==========================================================================
   // Database Backup
   // ==========================================================================

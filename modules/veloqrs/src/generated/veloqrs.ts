@@ -14551,6 +14551,23 @@ export interface SettingsManagerLike {
    */
   setSetting(key: string, value: string) /*throws*/ : void;
   setSportSettings(json: string) /*throws*/ : void;
+  /**
+   * Set the stream retention window in days, then evict what now falls
+   * outside it. Zero keeps everything.
+   */
+  setStreamRetentionDays(days: /*i64*/ bigint) /*throws*/ : void;
+  /**
+   * Days of stream history the athlete keeps. Zero means keep everything.
+   *
+   * Not the same knob as the activity `retentionDays` in
+   * `RouteSettingsStore`, which deletes whole activities. This one only ever
+   * evicts stored series.
+   */
+  streamRetentionDays() /*throws*/ : /*i64*/ bigint;
+  /**
+   * Bytes the stream store holds, for the cache readout.
+   */
+  streamStoreBytes() /*throws*/ : /*i64*/ bigint;
 }
 /**
  * @deprecated Use `SettingsManagerLike` instead.
@@ -14722,6 +14739,70 @@ export class SettingsManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Set the stream retention window in days, then evict what now falls
+   * outside it. Zero keeps everything.
+   */
+  setStreamRetentionDays(days: /*i64*/ bigint): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_stream_retention_days(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterInt64.lower(days),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Days of stream history the athlete keeps. Zero means keep everything.
+   *
+   * Not the same knob as the activity `retentionDays` in
+   * `RouteSettingsStore`, which deletes whole activities. This one only ever
+   * evicts stored series.
+   */
+  streamRetentionDays(): /*i64*/ bigint /*throws*/ {
+    return FfiConverterInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Bytes the stream store holds, for the cache readout.
+   */
+  streamStoreBytes(): /*i64*/ bigint /*throws*/ {
+    return FfiConverterInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -18555,6 +18636,30 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days() !==
+    33965
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days() !==
+    25279
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes() !==
+    57031
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes",
     );
   }
   if (
