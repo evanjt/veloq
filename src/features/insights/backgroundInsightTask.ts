@@ -14,6 +14,7 @@ import { buildActivityNotificationBody } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
+import { shouldDismissForActivity } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
@@ -432,18 +433,15 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         t
       );
 
-      // Clear any tray entries for this activity (both the FCM-generated
+      // Clear the tray entries for this activity (both the FCM-generated
       // visible push and any older on-device one). We re-present below only
       // if the app is not in foreground - if the user already opened the app
       // via the notification tap, the in-app UI shows the data and leaving
-      // a stale tray entry up is noise.
+      // a stale tray entry up is noise. Anything else stays: see `traySweep`.
       try {
         const presented = await Notifications.getPresentedNotificationsAsync();
         for (const n of presented) {
-          const data = n.request.content.data as { activityId?: string } | undefined;
-          const isThisActivity = data?.activityId === activityId;
-          const isGenericFcm = !data?.activityId; // FCM-posted visible push
-          if (isThisActivity || isGenericFcm) {
+          if (shouldDismissForActivity(n.request.identifier, n.request.content.data, activityId)) {
             await Notifications.dismissNotificationAsync(n.request.identifier);
           }
         }
