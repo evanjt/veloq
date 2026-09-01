@@ -515,6 +515,31 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   return rewritten;
 }
 
+/**
+ * Point the sprite and the glyphs at the app bundle.
+ *
+ * The handler falls back to the network for anything not bundled, so a style
+ * keeps every label it had online and gains the Latin ones offline. Only pages
+ * that register the `bundled` protocol may be rewritten.
+ */
+export function rewriteBundledAssets<T extends object>(style: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rewritten: any = JSON.parse(JSON.stringify(style));
+  if (typeof rewritten.sprite === 'string') {
+    rewritten.sprite = rewritten.sprite.replace(
+      /^https:\/\/tiles\.openfreemap\.org\//,
+      'bundled://'
+    );
+  }
+  if (typeof rewritten.glyphs === 'string') {
+    rewritten.glyphs = rewritten.glyphs.replace(
+      /^https:\/\/tiles\.openfreemap\.org\//,
+      'bundled://'
+    );
+  }
+  return rewritten;
+}
+
 // 3D terrain attribution
 export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
 

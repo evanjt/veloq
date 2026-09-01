@@ -281,4 +281,20 @@ See: https://www.unicode.org/license.txt
 
 ---
 
-*Last updated: 2026-01-24*
+## Bundled Basemap Assets
+
+The sprite sheet and the Latin glyph ranges ship inside the app so an offline
+map keeps its icons and place labels. They are fetched by
+`scripts/fetch-basemap-assets.mjs` and regenerated from the same source.
+
+| Asset | Source | License |
+|-------|--------|---------|
+| Sprite sheet `ofm_f384` | OpenFreeMap | MIT |
+| Noto Sans glyph ranges | Google Fonts | SIL Open Font License 1.1 |
+
+Vector tiles are fetched at runtime rather than bundled and carry the
+OpenStreetMap attribution shown on every map surface.
+
+---
+
+*Last updated: 2026-09-01*

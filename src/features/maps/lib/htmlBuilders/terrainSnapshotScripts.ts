@@ -29,10 +29,12 @@ export function buildRenderSnapshotScript(
 
   // Satellite and dark are inline objects; light is fetched from its URL so
   // MapLibre resolves the TileJSON itself, the same as the detail 3D view.
-  const { styleJSON: styleConfig, url } = resolveStyleExpression(
-    request.mapStyle,
-    TERRAIN_STYLE_OPTIONS
-  );
+  // The worker page registers no protocol handlers, so a `bundled://` request
+  // would go unanswered. Snapshots keep their labels on the network.
+  const { styleJSON: styleConfig, url } = resolveStyleExpression(request.mapStyle, {
+    ...TERRAIN_STYLE_OPTIONS,
+    bundledAssets: false,
+  });
   const lightStyleUrl = url ?? '';
 
   const coordsJSON = JSON.stringify(request.coordinates);

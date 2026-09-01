@@ -24,6 +24,7 @@ export {
   buildClusterExpansionZoomScript,
   buildProjectPointsScript,
   buildHeatmapTileReplyScript,
+  buildBundledAssetReplyScript,
 } from './mapSurface';
 export type {
   MapCameraSpec,

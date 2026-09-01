@@ -3,6 +3,8 @@ import type { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
+import { buildBundledAssetReplyScript } from '@/features/maps/lib/htmlBuilders';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import type {
   WebViewBridgeHandlers,
@@ -91,6 +93,13 @@ export function useMap3DBridge({
         if (typeof data.activityId === 'string') {
           onActivityClickRef.current?.(data.activityId);
         }
+      },
+      bundledAssetRequest: (data: WebViewBridgeMessage) => {
+        if (!data.requestId || !data.path) return;
+        const base64 = bundledBasemapAsset(data.path as string);
+        webViewRef.current?.injectJavaScript(
+          buildBundledAssetReplyScript(data.requestId as string, base64)
+        );
       },
       heatmapTileRequest: (data: WebViewBridgeMessage) => {
         if (!data.requestId || !data.tilePath) return;
