@@ -318,3 +318,39 @@ describe('the body fits the collapsed lock screen', () => {
     expect(body).not.toContain('…');
   });
 });
+
+/**
+ * Scenario: `fetchAndIngestActivity` returned null, which it does on three
+ * paths: no credentials, the metadata poll exhausting its 15 s, and any thrown
+ * exception. There is no name to put in the body.
+ *
+ * Expected behaviour: the body carries whatever the engine still knows and
+ * nothing else. It used to fall back to the notification's own title, so the
+ * athlete got "Activity Recorded" over "Activity Recorded", which is a strictly
+ * worse notification than the generic one it replaced (`B149`).
+ */
+describe('an activity with no name', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const nameless = () => buildActivityNotificationBody('a1', '', [], prefs, null, t);
+
+  it('is empty when the engine knows nothing either', () => {
+    setEngine({ highlight: null, sections: [] });
+    expect(nameless()).toBe('');
+  });
+
+  it('is empty when the engine itself failed', () => {
+    mockEngine.getActivityRouteHighlights.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    mockEngine.getSectionsForActivity.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    expect(nameless()).toBe('');
+  });
+
+  it('is the finding alone when the engine has one, with no dangling separator', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+    expect(nameless()).toBe('notifications.activityBody.onRoute(Lake Loop)');
+  });
+});

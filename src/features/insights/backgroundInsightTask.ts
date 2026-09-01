@@ -14,7 +14,7 @@ import { buildActivityNotificationBody } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
-import { replaceActivityTrayEntry } from './lib/traySweep';
+import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
@@ -423,10 +423,12 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 9. Replace the placeholder with the enriched activity notification
     if (isActivityEvent && activityId) {
-      const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
+      // An ingest that failed has no name, and an empty body is how that
+      // reaches the tray decision below rather than as the notification's own
+      // title repeated back to the athlete.
       const body = buildActivityNotificationBody(
         activityId,
-        activityName,
+        activityInfo?.name ?? '',
         allowedNewInsights,
         prefs,
         activityInfo,
@@ -438,30 +440,37 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       // activity and a tray entry is noise, which is the common case when
       // tapping the visible push cold-starts the app and the silent push fires
       // the task a second later. The old entries still come down.
-      const foreground = AppState.currentState === 'active';
-      const posted = await replaceActivityTrayEntry({
-        activityId,
-        listPresented: async () =>
-          (await Notifications.getPresentedNotificationsAsync()).map((n) => ({
-            identifier: n.request.identifier,
-            data: n.request.content.data,
-          })),
-        dismiss: (identifier) => Notifications.dismissNotificationAsync(identifier),
-        present: foreground
-          ? null
-          : () =>
-              presentActivityNotification(
-                activityId,
-                t('notifications.activityRecorded.title'),
-                body,
-                { route: `/activity/${activityId}`, activityId }
-              ),
-      });
+      const action = trayActionFor(body, AppState.currentState === 'active');
+      const posted =
+        action === 'leave'
+          ? false
+          : await replaceActivityTrayEntry({
+              activityId,
+              listPresented: async () =>
+                (await Notifications.getPresentedNotificationsAsync()).map((n) => ({
+                  identifier: n.request.identifier,
+                  data: n.request.content.data,
+                })),
+              dismiss: (identifier) => Notifications.dismissNotificationAsync(identifier),
+              present:
+                action === 'dismiss-only'
+                  ? null
+                  : () =>
+                      presentActivityNotification(
+                        activityId,
+                        t('notifications.activityRecorded.title'),
+                        body,
+                        { route: `/activity/${activityId}`, activityId }
+                      ),
+            });
 
       if (posted) {
         log.log(`Notification sent: ${body}`);
         await appendTaskRun({ stage: 'notified', activityId, detail: body });
-      } else if (foreground) {
+      } else if (action === 'leave') {
+        log.warn('Nothing to say about this activity, leaving the tray as it is');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (no detail)' });
+      } else if (action === 'dismiss-only') {
         log.log('App foregrounded, skipping enriched notification re-post');
         await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (foreground)' });
       } else {

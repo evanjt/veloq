@@ -87,3 +87,20 @@ export async function replaceActivityTrayEntry(r: TrayReplacement): Promise<bool
 
   return posted;
 }
+
+/**
+ * What the task should do with the tray once the body is built.
+ *
+ * `leave` is the outcome that was missing. `fetchAndIngestActivity` returns
+ * null on three paths, the body then had nothing in it but the notification's
+ * own title, and reposting that over the generic entry the push already put up
+ * made the failure path produce a worse notification than doing nothing
+ * (`B149`).
+ */
+export function trayActionFor(
+  body: string,
+  foreground: boolean
+): 'post' | 'dismiss-only' | 'leave' {
+  if (!body.trim()) return 'leave';
+  return foreground ? 'dismiss-only' : 'post';
+}

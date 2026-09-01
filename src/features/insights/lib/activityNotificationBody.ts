@@ -140,6 +140,9 @@ function trim(value: string, max: number): string {
  * what is left of it would be a fragment.
  */
 function compose(detail: string, activityName: string): string {
+  // No name means no activity to describe: the ingest failed and the only
+  // string available used to be the notification's own title (`B149`).
+  if (!activityName) return detail;
   const room = NOTIFICATION_BODY_MAX - detail.length - SEPARATOR.length;
   if (room < MIN_NAME_TAIL) return detail;
   return `${detail}${SEPARATOR}${trim(activityName, room)}`;
