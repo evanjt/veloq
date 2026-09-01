@@ -124,6 +124,33 @@ const SEPARATOR = ' - ';
 /** A route or section name as it appears inside a detail clause. */
 const placeName = (name: string): string => trim(name, MAX_PLACE_NAME);
 
+/**
+ * Below this a place name is a fragment rather than a name, so the template
+ * gets what is left and the cap does the rest.
+ */
+const MIN_PLACE_NAME = 6;
+
+/**
+ * A detail clause that fits, by giving the place name back to the template
+ * until it does.
+ *
+ * `MAX_PLACE_NAME` was sized against the English templates, and a translated
+ * one is longer: "Faster than usual on X (2:34 off PR)" is 56 characters in
+ * English and 72 in Portuguese, so the clause cleared the cap on its own with
+ * no name left to give and the lock screen dropped the delta (`B153`). The
+ * delta is the finding, so the name yields to it, and the clause is only cut
+ * outright when there is no name left to take.
+ */
+function fitDetail(render: (place: string) => string, rawName: string): string {
+  let cap = MAX_PLACE_NAME;
+  let out = render(trim(rawName, cap));
+  while (out.length > NOTIFICATION_BODY_MAX && cap > MIN_PLACE_NAME) {
+    cap = Math.max(MIN_PLACE_NAME, cap - (out.length - NOTIFICATION_BODY_MAX));
+    out = render(trim(rawName, cap));
+  }
+  return out;
+}
+
 /** Trim to `max`, marking the cut, so a name never runs off the end silently. */
 function trim(value: string, max: number): string {
   if (value.length <= max) return value;
@@ -238,32 +265,46 @@ function resolveDetail(
     // falls back to its no-delta sibling when the comparison isn't available.
     if (prefs.categories.sectionPr) {
       if (route?.isPr && route.routeName) {
+        const improvement = route.prImprovementSeconds;
         return pr(
-          route.prImprovementSeconds
-            ? t('notifications.activityBody.routePrDelta', {
-                name: placeName(route.routeName),
-                delta: formatDurationDelta(route.prImprovementSeconds),
-              })
-            : t('notifications.activityBody.routePr', { name: placeName(route.routeName) })
+          fitDetail(
+            (place) =>
+              improvement
+                ? t('notifications.activityBody.routePrDelta', {
+                    name: place,
+                    delta: formatDurationDelta(improvement),
+                  })
+                : t('notifications.activityBody.routePr', { name: place }),
+            route.routeName
+          )
         );
       }
       if (prCount === 1) {
+        const delta = prSectionDelta;
         return pr(
-          prSectionDelta
-            ? t('notifications.activityBody.sectionPrDelta', {
-                name: placeName(prSectionName),
-                delta: formatDurationDelta(prSectionDelta),
-              })
-            : t('notifications.activityBody.sectionPr', { name: placeName(prSectionName) })
+          fitDetail(
+            (place) =>
+              delta
+                ? t('notifications.activityBody.sectionPrDelta', {
+                    name: place,
+                    delta: formatDurationDelta(delta),
+                  })
+                : t('notifications.activityBody.sectionPr', { name: place }),
+            prSectionName
+          )
         );
       }
       if (prCount > 1) {
         return pr(
           prSectionHasName
-            ? t('notifications.activityBody.sectionPrMany', {
-                name: placeName(prSectionName),
-                count: prCount - 1,
-              })
+            ? fitDetail(
+                (place) =>
+                  t('notifications.activityBody.sectionPrMany', {
+                    name: place,
+                    count: prCount - 1,
+                  }),
+                prSectionName
+              )
             : t('notifications.activityBody.sectionPrCount', { count: prCount })
         );
       }
@@ -282,18 +323,26 @@ function resolveDetail(
     // all-time best, so neither this clause nor its title may claim a time
     // improvement. The delta here is the gap still to close.
     if (route?.trendUp && route.routeName) {
+      const gap = route.timeDeltaSeconds;
       return faster(
-        route.timeDeltaSeconds != null && route.timeDeltaSeconds > 0
-          ? t('notifications.activityBody.fasterOnRouteDelta', {
-              name: placeName(route.routeName),
-              delta: formatDurationDelta(route.timeDeltaSeconds),
-            })
-          : t('notifications.activityBody.fasterOnRoute', { name: placeName(route.routeName) })
+        fitDetail(
+          (place) =>
+            gap != null && gap > 0
+              ? t('notifications.activityBody.fasterOnRouteDelta', {
+                  name: place,
+                  delta: formatDurationDelta(gap),
+                })
+              : t('notifications.activityBody.fasterOnRoute', { name: place }),
+          route.routeName
+        )
       );
     }
     if (route?.routeName) {
       return recorded(
-        t('notifications.activityBody.onRoute', { name: placeName(route.routeName) })
+        fitDetail(
+          (place) => t('notifications.activityBody.onRoute', { name: place }),
+          route.routeName
+        )
       );
     }
     if (sectionCount === 1) {
@@ -332,10 +381,13 @@ export function buildActivityNotification(
   t: TFunc
 ): ActivityNotification {
   const { detail, tier } = resolveDetail(activityId, newInsights, prefs, activityInfo, t);
+  // The cap binds on what is posted, not on the name alone. A clause with no
+  // name left to give up is cut here rather than by the lock screen.
+  const clause = detail === null ? null : trim(detail, NOTIFICATION_BODY_MAX);
   return {
     title: t(TITLE_KEYS[tier]),
     body:
-      detail === null ? trim(activityName, NOTIFICATION_BODY_MAX) : compose(detail, activityName),
+      clause === null ? trim(activityName, NOTIFICATION_BODY_MAX) : compose(clause, activityName),
   };
 }
 
