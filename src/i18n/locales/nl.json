@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "Waarom hoogte wordt toegevoegd",
     "elevationBackfillWhyBody": "Het verbeterde sectie-algoritme en de klimdetectie lezen hoogte die eerdere versies nooit ophaalden. Veloq haalt die één keer op voor je bestaande activiteiten en detecteert de secties daarna opnieuw met het nieuwe algoritme.",
     "previewSections": "Voorbeeld van sectiewijzigingen",
-    "previewIntro": "Test nieuwe instellingen op één gebied voordat je ze overal toepast.",
-    "previewPickArea": "Kies een gebied",
     "previewAreaFallback": "Gebied {{number}}",
     "previewAreaVisits": "{{count}} bezoeken",
     "previewAreaSections": "{{count}} secties",

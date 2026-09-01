@@ -1,5 +1,5 @@
 /**
- * The detection preview ships twenty-eight settings strings and two section
+ * The detection preview ships twenty-six settings strings and two section
  * metric labels. Every locale needs a real translation with the interpolation
  * placeholders intact, otherwise the screen reads as English or renders a raw
  * `{{count}}`.
@@ -12,8 +12,6 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const SETTINGS_KEYS = [
   'previewSections',
-  'previewIntro',
-  'previewPickArea',
   'previewAreaFallback',
   'previewAreaVisits',
   'previewAreaSections',

@@ -1249,8 +1249,6 @@
     "elevationBackfillWhyTitle": "Why elevation is being added",
     "elevationBackfillWhyBody": "The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.",
     "previewSections": "Preview section changes",
-    "previewIntro": "Test new settings on one riding area before applying them everywhere.",
-    "previewPickArea": "Choose an area",
     "previewAreaFallback": "Area {{number}}",
     "previewAreaVisits": "{{count}} visits",
     "previewAreaSections": "{{count}} sections",

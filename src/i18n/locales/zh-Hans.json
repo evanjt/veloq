@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "为什么要添加海拔",
     "elevationBackfillWhyBody": "改进的路段算法和爬升检测需要读取海拔，而旧版本从未获取过这些数据。Veloq 会为你已有的活动获取一次海拔，然后用新算法重新检测路段。",
     "previewSections": "预览路段变化",
-    "previewIntro": "先在一个区域测试新设置，再应用到全部。",
-    "previewPickArea": "选择区域",
     "previewAreaFallback": "区域 {{number}}",
     "previewAreaVisits": "{{count}} 次访问",
     "previewAreaSections": "{{count}} 个路段",

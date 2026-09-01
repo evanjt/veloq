@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "Warum Höhendaten hinzugefügt werden",
     "elevationBackfillWhyBody": "Der verbesserte Abschnittsalgorithmus und die Anstiegserkennung lesen Höhendaten, die frühere Versionen nie abgerufen haben. Veloq lädt sie einmal für deine vorhandenen Aktivitäten und erkennt die Abschnitte danach mit dem neuen Algorithmus erneut.",
     "previewSections": "Vorschau der Abschnittsänderungen",
-    "previewIntro": "Teste neue Einstellungen in einem Fahrgebiet, bevor du sie überall anwendest.",
-    "previewPickArea": "Gebiet wählen",
     "previewAreaFallback": "Gebiet {{number}}",
     "previewAreaVisits": "{{count}} Besuche",
     "previewAreaSections": "{{count}} Abschnitte",

@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "Hvorfor højde bliver tilføjet",
     "elevationBackfillWhyBody": "Den forbedrede sektionsalgoritme og stigningsdetektering læser højde, som tidligere versioner aldrig hentede. Veloq henter den én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
     "previewSections": "Se sektionsændringer på forhånd",
-    "previewIntro": "Afprøv nye indstillinger på ét kørselsområde, før du anvender dem overalt.",
-    "previewPickArea": "Vælg et område",
     "previewAreaFallback": "Område {{number}}",
     "previewAreaVisits": "{{count}} besøg",
     "previewAreaSections": "{{count}} sektioner",

@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "Por que a altitude está sendo adicionada",
     "elevationBackfillWhyBody": "O algoritmo de trechos aprimorado e a detecção de subidas leem uma altitude que as versões anteriores nunca baixavam. O Veloq baixa essa altitude uma vez para as suas atividades existentes e depois detecta os trechos de novo com o novo algoritmo.",
     "previewSections": "Pré-visualizar mudanças de trechos",
-    "previewIntro": "Teste as novas configurações em uma área antes de aplicá-las em todo lugar.",
-    "previewPickArea": "Escolha uma área",
     "previewAreaFallback": "Área {{number}}",
     "previewAreaVisits": "{{count}} visitas",
     "previewAreaSections": "{{count}} trechos",

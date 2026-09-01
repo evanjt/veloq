@@ -1223,8 +1223,6 @@
     "elevationBackfillWhyTitle": "Pourquoi l'altitude est ajoutée",
     "elevationBackfillWhyBody": "L'algorithme de sections amélioré et la détection des montées lisent une altitude que les versions précédentes ne récupéraient jamais. Veloq la télécharge une seule fois pour tes activités existantes, puis détecte à nouveau les sections avec le nouvel algorithme.",
     "previewSections": "Aperçu des modifications de sections",
-    "previewIntro": "Testez les nouveaux réglages sur une zone avant de les appliquer partout.",
-    "previewPickArea": "Choisir une zone",
     "previewAreaFallback": "Zone {{number}}",
     "previewAreaVisits": "{{count}} visites",
     "previewAreaSections": "{{count}} sections",

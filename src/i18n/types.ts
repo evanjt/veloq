@@ -282,8 +282,6 @@ export interface TranslationResource {
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
     previewSections: string;
-    previewIntro: string;
-    previewPickArea: string;
     previewAreaFallback: string;
     previewAreaVisits: string;
     previewAreaSections: string;
