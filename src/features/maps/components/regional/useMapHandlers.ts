@@ -12,6 +12,7 @@ import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialI
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
@@ -206,7 +207,13 @@ export function useMapHandlers({
           // activity's GPS, then read it back the same way as any other.
           startFetchAndStore(
             [activity.id],
-            [{ activityId: activity.id, sportType: activity.type }]
+            [
+              {
+                activityId: activity.id,
+                sportType: activity.type,
+                startDate: activityStartEpoch(activity.start_date_local),
+              },
+            ]
           );
           setSelected({ activity, mapData: null, isLoading: true });
           waitForGpsTrack(activity.id).then((coords) => {

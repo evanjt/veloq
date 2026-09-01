@@ -426,6 +426,14 @@ export function computePolylineOverlap(
 export type ActivitySportMapping = {
   activityId: string;
   sportType: string;
+  /**
+   * Start of the activity, epoch seconds, or `None` when the caller does
+   * not know it. It decides whether the sync downloads every series or only
+   * the three the track needs (`B140`), and the engine cannot supply it:
+   * `activities.start_date` is filled by the metrics sync, which lands
+   * after this one on a first run.
+   */
+  startDate?: /*i64*/ bigint;
 };
 
 /**
@@ -453,16 +461,19 @@ const FfiConverterTypeActivitySportMapping = (() => {
       return {
         activityId: FfiConverterString.read(from),
         sportType: FfiConverterString.read(from),
+        startDate: FfiConverterOptionalInt64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
       FfiConverterString.write(value.sportType, into);
+      FfiConverterOptionalInt64.write(value.startDate, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterString.allocationSize(value.sportType)
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterOptionalInt64.allocationSize(value.startDate)
       );
     }
   }

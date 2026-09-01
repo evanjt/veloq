@@ -12,6 +12,7 @@ import type { NotificationPreferences } from '@/features/settings/stores/Notific
 
 import { buildActivityNotificationBody } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
@@ -237,7 +238,18 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       return activityInfo;
     }
 
-    startFetchAndStore([activityId], [{ activityId, sportType: activityInfo.type }]);
+    startFetchAndStore(
+      [activityId],
+      [
+        {
+          activityId,
+          sportType: activityInfo.type,
+          startDate: activityStartEpoch(
+            typeof activity.start_date_local === 'string' ? activity.start_date_local : undefined
+          ),
+        },
+      ]
+    );
 
     const startTime = Date.now();
     const completed = await waitForDownloadCompletion(getDownloadProgress);

@@ -93,6 +93,10 @@ pub struct ActivityMapResult {
     pub elevations: Option<Vec<Option<f64>>>,
     /// Response body size after transfer decoding, for the throughput log.
     pub body_bytes: u32,
+    /// The series the durable store holds, masked into the track's index
+    /// space. Empty unless the fetch was widened, which only happens for an
+    /// activity inside the retention window (`B140`).
+    pub streams: Vec<StreamDto>,
     pub success: bool,
     pub error: Option<String>,
 }
@@ -161,14 +165,20 @@ impl ActivityFetcher {
     }
 
     /// Fetch map data for multiple activities in parallel
+    /// `wide_ids` names the activities inside the stream retention window.
+    /// Those download every series the app can use; the rest stay on the three
+    /// the track needs (`B140`).
     pub async fn fetch_activity_maps(
         &self,
         activity_ids: Vec<String>,
+        wide_ids: std::collections::HashSet<String>,
         on_progress: Option<ProgressCallback>,
     ) -> Vec<ActivityMapResult> {
         use futures::stream::{self, StreamExt};
 
         let total = activity_ids.len() as u32;
+        let wide_ids = Arc::new(wide_ids);
+        let wide_bytes = Arc::new(AtomicU32::new(0));
         // NOTE: Caller is responsible for calling reset_download_progress() before this
         // and finish_download_progress() after this completes.
         let completed = Arc::new(AtomicU32::new(0));
@@ -193,6 +203,8 @@ impl ActivityFetcher {
                 let total_bytes = Arc::clone(&total_bytes);
                 let callback = on_progress.clone();
                 let start_time = start;
+                let wide_ids = Arc::clone(&wide_ids);
+                let wide_bytes = Arc::clone(&wide_bytes);
 
                 async move {
                     // Transport paces every dispatch through the shared choke
@@ -200,7 +212,11 @@ impl ActivityFetcher {
                     let dispatch_num = counter.next_dispatch_number();
                     let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_track(transport, &id).await;
+                    let wide = wide_ids.contains(&id);
+                    let result = Self::fetch_single_track(transport, &id, wide).await;
+                    if wide {
+                        wide_bytes.fetch_add(result.body_bytes, Ordering::Relaxed);
+                    }
 
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -265,6 +281,16 @@ impl ActivityFetcher {
             total_kb as f64 / elapsed.as_secs_f64()
         );
 
+        // What the widening cost, named rather than folded into the total:
+        // a sync that silently multiplied is the failure this guards against.
+        info!(
+            "[RUST: fetch_activity_maps] Widened {}/{} activities for {}KB of the {}KB downloaded",
+            wide_ids.len().min(total as usize),
+            total,
+            wide_bytes.load(Ordering::Relaxed) / 1024,
+            total_kb
+        );
+
         // NOTE: Caller is responsible for calling finish_download_progress()
 
         results
@@ -273,7 +299,15 @@ impl ActivityFetcher {
     /// One activity's track. Transport owns pacing, retry, `Retry-After` and
     /// 401 classification, so this is request, decode, reduce to one index
     /// space.
-    async fn fetch_single_track(transport: &Transport, activity_id: &str) -> ActivityMapResult {
+    /// `wide` asks for every series the app can use rather than the three the
+    /// track needs. It is true only for an activity inside the stream
+    /// retention window: outside it the prune deletes the extra series the
+    /// same second they land, so the bytes buy nothing.
+    async fn fetch_single_track(
+        transport: &Transport,
+        activity_id: &str,
+        wide: bool,
+    ) -> ActivityMapResult {
         let req_start = Instant::now();
 
         let failed = |error: String| ActivityMapResult {
@@ -281,6 +315,7 @@ impl ActivityFetcher {
             latlngs: None,
             elevations: None,
             body_bytes: 0,
+            streams: Vec::new(),
             success: false,
             error: Some(error),
         };
@@ -288,7 +323,14 @@ impl ActivityFetcher {
         let bytes = match transport
             .get_bytes(
                 &format!("/activity/{}/streams.json", activity_id),
-                &[("types", crate::net::endpoints::TRACK_STREAM_TYPES)],
+                &[(
+                    "types",
+                    if wide {
+                        crate::net::endpoints::DEFAULT_STREAM_TYPES
+                    } else {
+                        crate::net::endpoints::TRACK_STREAM_TYPES
+                    },
+                )],
                 Lane::Interactive,
             )
             .await
@@ -306,6 +348,13 @@ impl ActivityFetcher {
         let raw: Vec<StreamDto> = match serde_json::from_slice(&bytes) {
             Ok(d) => d,
             Err(e) => return failed(format!("JSON parse error: {}", e)),
+        };
+        // Taken before `parse_streams` consumes the response, and only when
+        // the fetch was widened: a narrow one carries nothing to store.
+        let streams = if wide {
+            crate::net::types::storable_series(&raw)
+        } else {
+            Vec::new()
         };
         let parsed = parse_streams(raw);
         let json_elapsed = json_start.elapsed();
@@ -353,6 +402,7 @@ impl ActivityFetcher {
             latlngs: Some(parsed.latlng),
             elevations,
             body_bytes: body_size as u32,
+            streams,
             success: true,
             error: None,
         }
@@ -388,9 +438,30 @@ mod tests {
 
     fn fetch_one(server: &MockServer, id: &str) -> ActivityMapResult {
         let f = fetcher_to(server.base_url());
-        crate::runtime::block_on(f.fetch_activity_maps(vec![id.to_string()], None))
-            .pop()
-            .unwrap()
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec![id.to_string()],
+            std::collections::HashSet::new(),
+            None,
+        ))
+        .pop()
+        .unwrap()
+    }
+
+    /// The same fetch with this activity inside the retention window, so the
+    /// request is the wide one.
+    fn fetch_one_wide(server: &MockServer, id: &str) -> ActivityMapResult {
+        let f = fetcher_to(server.base_url());
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec![id.to_string()],
+            std::collections::HashSet::from([id.to_string()]),
+            None,
+        ))
+        .pop()
+        .unwrap()
+    }
+
+    fn series_named<'a>(r: &'a ActivityMapResult, kind: &str) -> Option<&'a StreamDto> {
+        r.streams.iter().find(|s| s.kind == kind)
     }
 
     #[test]
@@ -572,7 +643,11 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        let results = crate::runtime::block_on(f.fetch_activity_maps(vec!["a1".into()], None));
+        let results = crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["a1".into()],
+            std::collections::HashSet::new(),
+            None,
+        ));
 
         assert!(!results[0].success);
         assert_eq!(results[0].error.as_deref(), Some("unauthorized"));
@@ -595,9 +670,11 @@ mod tests {
         });
 
         let f = fetcher_to(server.base_url());
-        let results = crate::runtime::block_on(
-            f.fetch_activity_maps(vec!["good".into(), "gone".into()], None),
-        );
+        let results = crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["good".into(), "gone".into()],
+            std::collections::HashSet::new(),
+            None,
+        ));
 
         let good = results.iter().find(|r| r.activity_id == "good").unwrap();
         let gone = results.iter().find(|r| r.activity_id == "gone").unwrap();
@@ -618,12 +695,154 @@ mod tests {
         let f = fetcher_to(server.base_url());
         crate::runtime::block_on(f.fetch_activity_maps(
             vec!["a".into(), "b".into(), "c".into()],
+            std::collections::HashSet::new(),
             Some(Arc::new(move |_done, _total| {
                 counter.fetch_add(1, Ordering::Relaxed);
             })),
         ));
 
         assert_eq!(seen.load(Ordering::Relaxed), 3);
+    }
+
+    /// Scenario: an activity inside the retention window is synced. The store
+    /// `B132` built has nothing to fill it until the bulk pass widens (`B140`).
+    ///
+    /// Expected behaviour: the request asks for every series the app can use,
+    /// and the extra ones come back on the result so the storing loop can put
+    /// them away. The track is unchanged by the widening.
+    #[test]
+    fn a_wide_fetch_asks_for_every_series_and_carries_them_back() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", crate::net::endpoints::DEFAULT_STREAM_TYPES);
+            then.status(200).json_body(streams_body(
+                json!([46.10, null, 46.12]),
+                json!([7.10, null, 7.12]),
+                vec![
+                    json!({"type": "watts", "data": [100.0, 200.0, 300.0]}),
+                    json!({"type": "heartrate", "data": [140.0, 150.0, 160.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        mock.assert();
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 2);
+        // The dropped coordinate takes its sample with it: the store holds the
+        // series in the index space the track is stored in.
+        assert_eq!(
+            series_named(&r, "watts").map(|s| s.data.clone()),
+            Some(vec![Some(100.0), Some(300.0)])
+        );
+        assert_eq!(
+            series_named(&r, "heartrate").map(|s| s.data.clone()),
+            Some(vec![Some(140.0), Some(160.0)])
+        );
+    }
+
+    /// An activity outside the window still costs the narrow body, because the
+    /// prune would delete the extra series the same second they landed.
+    #[test]
+    fn an_activity_outside_the_window_still_costs_the_narrow_body() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![json!({"type": "watts", "data": [100.0, 300.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        mock.assert();
+        assert!(r.success);
+        assert!(
+            r.streams.is_empty(),
+            "a narrow fetch stored series it never asked for"
+        );
+    }
+
+    /// The track, its elevation and its time are answered from `gps_tracks`
+    /// and `time_streams`, so storing them again would pay twice.
+    #[test]
+    fn a_wide_fetch_carries_no_series_the_track_already_answers() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![
+                    json!({"type": "altitude", "data": [500.0, 510.0]}),
+                    json!({"type": "time", "data": [0.0, 10.0]}),
+                    json!({"type": "watts", "data": [100.0, 300.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        let kinds: Vec<&str> = r.streams.iter().map(|s| s.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["watts"]);
+    }
+
+    /// Scenario: a widened response carries a series whose sample count
+    /// disagrees with the coordinates.
+    ///
+    /// Expected behaviour: that series is dropped and the track is still
+    /// stored. A series at the wrong length has no trustworthy index space,
+    /// and losing the activity over it would cost far more than the series.
+    #[test]
+    fn a_misaligned_series_in_a_wide_fetch_does_not_lose_the_track() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12, 46.14]),
+                json!([7.10, 7.12, 7.14]),
+                vec![
+                    json!({"type": "watts", "data": [100.0, 300.0]}),
+                    json!({"type": "heartrate", "data": [140.0, 150.0, 160.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 3);
+        assert!(
+            series_named(&r, "watts").is_none(),
+            "a series at the wrong length was stored"
+        );
+        assert!(series_named(&r, "heartrate").is_some());
+    }
+
+    /// An empty series is not stored: a row of nothing reads downstream as
+    /// "the ride had no power", which stops the fetch that would fill it.
+    #[test]
+    fn a_wide_fetch_stores_no_empty_series() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![json!({"type": "watts", "data": [null, null]})],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        assert!(r.streams.is_empty(), "an all-gap series was stored");
     }
 
     #[test]
