@@ -2225,7 +2225,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1776,
+    line: 1772,
     paramCount: 3,
     returnType: 'f64',
   },
