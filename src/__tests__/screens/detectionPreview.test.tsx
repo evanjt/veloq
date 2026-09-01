@@ -1,5 +1,4 @@
 import React from 'react';
-import { ScrollView } from 'react-native';
 import { render } from '@testing-library/react-native';
 import DetectionPreviewScreen from '@/app/detection-preview';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -83,8 +82,7 @@ jest.mock('@/features/routes/components', () => ({
 
 function panelPaddingBottom() {
   const tree = render(<DetectionPreviewScreen />);
-  const scroll = tree.UNSAFE_getAllByType(ScrollView)[0];
-  const style = scroll.props.contentContainerStyle;
+  const style = tree.getByTestId('preview-control-panel').props.style;
   const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style;
   tree.unmount();
   return flat.paddingBottom;
