@@ -211,8 +211,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // Clear FileSystem caches (GPS tracks and bounds)
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
-    setActivityCount(0);
-    setEngineDateRange({ oldest: null, newest: null });
+    // Do not write the count and range down by hand. What survived a clear is
+    // the engine's answer, not this hook's assumption, and a clear that half
+    // failed must show what is really still there. The re-subscription below
+    // re-reads both, so the display follows the database rather than leading it.
     // Force engine re-subscription since destroy+reinit breaks the old subscription
     setEngineGeneration((g) => g + 1);
   }, []);
