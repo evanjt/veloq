@@ -14,7 +14,7 @@ import { buildActivityNotificationBody } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
-import { shouldDismissForActivity } from './lib/traySweep';
+import { replaceActivityTrayEntry } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
@@ -433,38 +433,40 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         t
       );
 
-      // Clear the tray entries for this activity (both the FCM-generated
-      // visible push and any older on-device one). We re-present below only
-      // if the app is not in foreground - if the user already opened the app
-      // via the notification tap, the in-app UI shows the data and leaving
-      // a stale tray entry up is noise. Anything else stays: see `traySweep`.
-      try {
-        const presented = await Notifications.getPresentedNotificationsAsync();
-        for (const n of presented) {
-          if (shouldDismissForActivity(n.request.identifier, n.request.content.data, activityId)) {
-            await Notifications.dismissNotificationAsync(n.request.identifier);
-          }
-        }
-      } catch (e) {
-        log.warn('Could not dismiss tray entries:', e);
-      }
+      // The enriched entry goes up, then the entries it replaces come down.
+      // Nothing is posted when the app is already open: the athlete is on the
+      // activity and a tray entry is noise, which is the common case when
+      // tapping the visible push cold-starts the app and the silent push fires
+      // the task a second later. The old entries still come down.
+      const foreground = AppState.currentState === 'active';
+      const posted = await replaceActivityTrayEntry({
+        activityId,
+        listPresented: async () =>
+          (await Notifications.getPresentedNotificationsAsync()).map((n) => ({
+            identifier: n.request.identifier,
+            data: n.request.content.data,
+          })),
+        dismiss: (identifier) => Notifications.dismissNotificationAsync(identifier),
+        present: foreground
+          ? null
+          : () =>
+              presentActivityNotification(
+                activityId,
+                t('notifications.activityRecorded.title'),
+                body,
+                { route: `/activity/${activityId}`, activityId }
+              ),
+      });
 
-      // Skip re-presenting if the user has already opened the app - they're
-      // looking at the data already, a tray entry is redundant. This is the
-      // common case when tapping the generic visible push cold-starts the
-      // app and the silent push fires the task a second or two later.
-      if (AppState.currentState === 'active') {
+      if (posted) {
+        log.log(`Notification sent: ${body}`);
+        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+      } else if (foreground) {
         log.log('App foregrounded, skipping enriched notification re-post');
         await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (foreground)' });
       } else {
-        await presentActivityNotification(
-          activityId,
-          t('notifications.activityRecorded.title'),
-          body,
-          { route: `/activity/${activityId}`, activityId }
-        );
-        log.log(`Notification sent: ${body}`);
-        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+        log.warn('Enriched notification could not be posted, tray left as it was');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'post failed' });
       }
     } else if (allowedNewInsights.length > 0) {
       // Non-activity event (fitness update, wellness change) with new insights.
