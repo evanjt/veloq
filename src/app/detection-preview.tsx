@@ -26,6 +26,7 @@ import { useTheme } from '@/shared/app';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
+import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
 import { usePreviewCurrentSections } from '@/features/routes/hooks/usePreviewCurrentSections';
 import {
@@ -50,6 +51,7 @@ export default function DetectionPreviewScreen() {
   const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
   const { status, progress, result, suspended, start, cancel } = usePreviewDetect(client);
+  const { forceRescan } = useSectionRescan();
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
@@ -93,11 +95,15 @@ export default function DetectionPreviewScreen() {
           const config = client?.getSectionConfig();
           if (!client || !config) return;
           client.setSectionConfig({ ...config, ...params });
+          // Through the rescan hook, not the client: the re-cut is global and
+          // the athlete has to be able to see it run, and the hook is what
+          // starts the poll every progress indicator reads.
+          //
           // The engine refuses a re-cut while a detect runs or the elevation
           // backfill holds detection. The config above is already written and
           // the evidence cache already cleared, so closing here would report a
           // change that never ran. Stay, say why, and let Keep be pressed again.
-          if (!client.forceRedetectSections()) {
+          if (!forceRescan()) {
             Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
             return;
           }
@@ -105,7 +111,7 @@ export default function DetectionPreviewScreen() {
         },
       },
     ]);
-  }, [t, client, params]);
+  }, [t, client, params, forceRescan]);
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
