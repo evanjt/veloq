@@ -209,6 +209,44 @@ export function tileProtocolsScript(): string {
       });
     }
 
+    // The sprite and the Latin glyph ranges ship in the app, so a map with no
+    // radio still draws its icons and its place names. Anything the host does
+    // not carry falls back to the network, which is where CJK lives.
+    var BUNDLED_ORIGIN = 'https://tiles.openfreemap.org/';
+    window._veloqBlobToImage = demBlobToImage;
+    window._bundledRequests = {};
+    maplibregl.addProtocol('bundled', function(params) {
+      var path = params.url.substring('bundled://'.length);
+      var kind = params.type === 'json' ? 'json' : params.type === 'image' ? 'image' : 'arrayBuffer';
+      function fromNetwork() {
+        return fetch(BUNDLED_ORIGIN + path).then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (kind === 'json') return r.json().then(function(d) { return { data: d }; });
+          if (kind === 'image') return r.blob().then(demBlobToImage);
+          return r.arrayBuffer().then(function(d) { return { data: d }; });
+        });
+      }
+      if (!window.ReactNativeWebView) return fromNetwork();
+      return new Promise(function(resolve) {
+        var requestId = '_ba_' + Date.now() + '_' + Math.random().toString(36).substr(2);
+        var settled = false;
+        function done(value) {
+          if (settled) return;
+          settled = true;
+          delete window._bundledRequests[requestId];
+          resolve(value);
+        }
+        window._bundledRequests[requestId] = { deliver: done, fallback: function() { done(fromNetwork()); }, kind: kind };
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'bundledAssetRequest',
+          requestId: requestId,
+          path: path
+        }));
+        // A host that never answers must not cost the page its labels.
+        setTimeout(function() { if (!settled) done(fromNetwork()); }, 3000);
+      });
+    });
+
     window._heatmapRequests = {};
     maplibregl.addProtocol('heatmap-file', function(params) {
       var tilePath = params.url.replace('heatmap-file://', '');

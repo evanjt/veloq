@@ -12,3 +12,4 @@ modules/veloqrs/android/
 modules/veloqrs/ios/
 *.lock
 *.log
+basemap*.generated.ts
