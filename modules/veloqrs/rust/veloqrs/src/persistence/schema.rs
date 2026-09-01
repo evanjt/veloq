@@ -125,6 +125,7 @@ impl PersistentEngine {
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_sections_geometry_provenance(conn)?;
+        Self::backfill_custom_section_reference(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
@@ -559,6 +560,37 @@ impl PersistentEngine {
                            OR geometry_source IN ('exact', 'consensus', 'orphaned'));
                  COMMIT;",
             )?;
+        }
+        Ok(())
+    }
+
+    /// Move a hand-cut section's source range across to the reference triple.
+    ///
+    /// `create_section` wrote `source_activity_id`, `start_index` and
+    /// `end_index` and left the triple the resolver reads empty, so every
+    /// section the athlete cut from a ride reads as having no provenance and
+    /// cannot re-slice the stream it came from. The source range is inclusive
+    /// and the triple is half-open, hence the `+ 1`. Scoped to rows that carry
+    /// a source range that spans more than one point and no triple, which no
+    /// other writer produces, and rerunnable because the same predicate stops
+    /// matching once it has run.
+    fn backfill_custom_section_reference(conn: &Connection) -> SqlResult<()> {
+        let repaired = conn.execute(
+            "UPDATE sections
+                SET rep_start_index = start_index,
+                    rep_end_index = end_index + 1,
+                    geometry_source = 'exact'
+              WHERE source_activity_id IS NOT NULL
+                AND source_activity_id <> ''
+                AND start_index IS NOT NULL
+                AND end_index > start_index
+                AND rep_start_index IS NULL",
+            [],
+        )?;
+        if repaired > 0 {
+            log::info!(
+                "veloqrs: [Migration] Gave {repaired} hand-cut sections their reference triple"
+            );
         }
         Ok(())
     }
