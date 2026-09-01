@@ -764,10 +764,14 @@ RustBuffer uniffi_veloqrs_fn_func_get_elevation_backfill_progress(
     RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
     RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_veloqrs_fn_func_get_network_push(RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_is_cutover_pending(RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_is_cutover_running(RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_func_set_network_online(int8_t online,
+                                               RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_start_detector_cutover(RustCallStatus *uniffi_out_err);
 int8_t
@@ -906,8 +910,10 @@ uint16_t uniffi_veloqrs_checksum_func_get_cutover_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_download_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_progress();
 uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining();
+uint16_t uniffi_veloqrs_checksum_func_get_network_push();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_pending();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_running();
+uint16_t uniffi_veloqrs_checksum_func_set_network_online();
 uint16_t uniffi_veloqrs_checksum_func_start_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_start_elevation_backfill();
 uint16_t uniffi_veloqrs_checksum_func_start_fetch_and_store();
@@ -5573,6 +5579,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_get_network_push"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_get_network_push"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_get_network_push(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_is_cutover_pending"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5593,6 +5610,17 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_is_cutover_running(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_set_network_online"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_set_network_online"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_set_network_online(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_start_detector_cutover"] =
@@ -6267,6 +6295,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_get_network_push"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_get_network_push"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_get_network_push(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6287,6 +6326,17 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_set_network_online"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_set_network_online"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_set_network_online(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover"] =
@@ -13619,6 +13669,17 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
 
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_network_push(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_get_network_push(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_is_cutover_pending(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -13640,6 +13701,18 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_is_cutover_running(
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_set_network_online(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_func_set_network_online(
+      uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_detector_cutover(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -14310,6 +14383,13 @@ jsi::Value NativeVeloqrs::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_network_push(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_get_network_push();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_is_cutover_pending(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -14321,6 +14401,13 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_is_cutover_running();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_set_network_online(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_set_network_online();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

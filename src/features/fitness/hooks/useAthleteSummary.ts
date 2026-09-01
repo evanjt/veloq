@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/shared/format/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
@@ -105,7 +105,7 @@ const WEEK_SECONDS = 7 * 24 * 60 * 60;
  * question Rust cannot answer.
  */
 function readWeeklySummaries(currentMonday: Date, weeksBack: number): AthleteSummary[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getWeeklySummaries) return [];
 
   const mondays: Date[] = [];

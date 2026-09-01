@@ -15,7 +15,7 @@ import { Alert, Keyboard, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -142,7 +142,7 @@ export function useSectionActions({
       setExcludedActivityIds(new Set(preComputedExcludedActivityIds));
       return;
     }
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     const ids = engine.getExcludedActivityIds(id);
     setExcludedActivityIds(new Set(ids));
@@ -224,7 +224,7 @@ export function useSectionActions({
     (activityId: string) => {
       if (!id) return;
 
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
 
       // Check if this activity is already the reference
@@ -300,7 +300,7 @@ export function useSectionActions({
 
     if (isSectionDisabled) {
       // Restore
-      getRouteEngine()?.enableSection(id);
+      getEngine()?.enableSection(id);
     } else {
       // Remove with confirmation, navigate back after
       Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
@@ -309,7 +309,7 @@ export function useSectionActions({
           text: t('common.remove'),
           style: 'destructive',
           onPress: () => {
-            getRouteEngine()?.disableSection(id);
+            getEngine()?.disableSection(id);
             router.back();
           },
         },
@@ -321,7 +321,7 @@ export function useSectionActions({
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.excludeActivityFromSection(id, activityId);
       setExcludedActivityIds((prev) => new Set([...prev, activityId]));
@@ -333,7 +333,7 @@ export function useSectionActions({
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.includeActivityInSection(id, activityId);
       setExcludedActivityIds((prev) => {
@@ -353,7 +353,7 @@ export function useSectionActions({
   // --- accept/pin ---
   const handleAcceptSection = useCallback(() => {
     if (!id || isCustomId) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     engine.acceptSection(id);
     queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });

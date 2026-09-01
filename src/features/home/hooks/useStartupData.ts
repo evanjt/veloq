@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { decodeCoords } from 'veloqrs';
 import type { InsightsData, PreviewTrack as PreviewTrackRecord, SummaryCardData } from 'veloqrs';
 import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
@@ -51,7 +51,7 @@ function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<strin
  * for the computeTimestamps + getStartupData + result-building pipeline.
  */
 function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   try {

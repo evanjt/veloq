@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { decodeCoords } from 'veloqrs';
 import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { PerformanceDataPoint } from '../types';
 import type { RoutePerformancePoint } from './useRoutePerformances';
 
@@ -18,7 +18,7 @@ export function useRouteChartData(
     try {
       let allSigs = preComputedSignatures;
       if (!allSigs) {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return {};
         allSigs = engine.getAllMapSignatures();
       }

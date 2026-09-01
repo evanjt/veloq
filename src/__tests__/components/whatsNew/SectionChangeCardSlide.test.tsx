@@ -1,10 +1,10 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { SectionChangeCardSlide } from '@/features/settings/components/whatsNew/SectionChangeCardSlide';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -24,7 +24,7 @@ const ALL_BUT_DEVICE = {
 
 describe('SectionChangeCardSlide', () => {
   it('shows one row per supported claim and never the cross-device row', () => {
-    (getRouteEngine as jest.Mock).mockReturnValue({
+    (getEngine as jest.Mock).mockReturnValue({
       getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
     const { getByTestId, queryByTestId, getAllByText } = render(<SectionChangeCardSlide />);
@@ -43,7 +43,7 @@ describe('SectionChangeCardSlide', () => {
   });
 
   it('hides a row whose flag is false and the card when nothing is supported', () => {
-    (getRouteEngine as jest.Mock).mockReturnValue({
+    (getEngine as jest.Mock).mockReturnValue({
       getChangeCardSupport: () => ({
         ...ALL_BUT_DEVICE,
         deterministic: false,
@@ -55,7 +55,7 @@ describe('SectionChangeCardSlide', () => {
     expect(queryByTestId('change-card-row-revert')).toBeNull();
     expect(queryByTestId('change-card-row-ledger')).toBeTruthy();
 
-    (getRouteEngine as jest.Mock).mockReturnValue({
+    (getEngine as jest.Mock).mockReturnValue({
       getChangeCardSupport: () => ({
         ...ALL_BUT_DEVICE,
         deterministic: false,
@@ -67,7 +67,7 @@ describe('SectionChangeCardSlide', () => {
       }),
     });
     expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
-    (getRouteEngine as jest.Mock).mockReturnValue(null);
+    (getEngine as jest.Mock).mockReturnValue(null);
     expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe('SectionChangeCardSlide', () => {
     };
 
     function engineWith(progress: unknown, diff: unknown) {
-      (getRouteEngine as jest.Mock).mockReturnValue({
+      (getEngine as jest.Mock).mockReturnValue({
         getChangeCardSupport: () => ALL_BUT_DEVICE,
         getCutoverProgress: () => progress,
         getCutoverDiff: () => diff,
@@ -144,7 +144,7 @@ describe('SectionChangeCardSlide', () => {
     });
 
     it('keeps the claim rows when the engine has no cutover calls at all', () => {
-      (getRouteEngine as jest.Mock).mockReturnValue({
+      (getEngine as jest.Mock).mockReturnValue({
         getChangeCardSupport: () => ALL_BUT_DEVICE,
       });
       const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
@@ -153,7 +153,7 @@ describe('SectionChangeCardSlide', () => {
     });
 
     it('shows nothing at all when no claim is supported, run or not', () => {
-      (getRouteEngine as jest.Mock).mockReturnValue({
+      (getEngine as jest.Mock).mockReturnValue({
         getChangeCardSupport: () => ({
           deterministic: false,
           sameResultDripOrBatch: false,

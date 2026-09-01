@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';

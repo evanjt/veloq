@@ -3,7 +3,7 @@
  * All filtering happens in Rust (single O(n) pass) - no JS filtering.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem } from '@/types';
 
 interface UseEngineMapActivitiesOptions {
@@ -49,7 +49,7 @@ export function useEngineMapActivities({
     let unsubscribe: (() => void) | null = null;
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       if (!cancelled) {
@@ -87,7 +87,7 @@ export function useEngineMapActivities({
     const empty = { activities: [], availableTypes: [], activityCount: 0 };
     if (!enabled) return empty;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return empty;
 
     const sportTypesArray = selectedTypes.size > 0 ? Array.from(selectedTypes) : undefined;

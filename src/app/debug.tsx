@@ -22,10 +22,10 @@ import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog'
 import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
 import type { PersistentEngineStats } from 'veloqrs';
 
-function getRouteEngine() {
+function getEngine() {
   try {
     const mod = require('veloqrs');
-    return mod.RouteEngineClient?.getInstance() ?? null;
+    return mod.EngineClient?.getInstance() ?? null;
   } catch {
     return null;
   }
@@ -276,7 +276,7 @@ export default function DebugScreen() {
   }, []);
 
   // Engine stats
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const stats: PersistentEngineStats | undefined = engine?.getStats();
 
   // FFI metrics

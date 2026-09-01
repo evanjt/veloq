@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, TextInput } from 'react-native';
 import type { TFunction } from 'i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 /**
  * `preComputedNames` lets a caller that already read the name map as part of a
@@ -20,7 +20,7 @@ export function useRouteRenaming(
   const nameInputRef = useRef<TextInput>(null);
 
   const readNames = useCallback(
-    () => preComputedNames ?? getRouteEngine()?.getAllRouteNames() ?? {},
+    () => preComputedNames ?? getEngine()?.getAllRouteNames() ?? {},
     [preComputedNames]
   );
 
@@ -35,7 +35,7 @@ export function useRouteRenaming(
 
   // Rename function - calls engine directly (no need to load all groups)
   const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       throw new Error('Route engine not initialized');
     }

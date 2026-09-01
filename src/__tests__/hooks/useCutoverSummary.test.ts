@@ -7,14 +7,14 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 interface Progress {
   phase: string;
@@ -38,7 +38,7 @@ function engine(progress: () => Progress | null, diff: () => { counts: Counts } 
   return {
     getCutoverProgress: () => progress(),
     getCutoverDiff: () => diff(),
-  } as unknown as ReturnType<typeof getRouteEngine>;
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 const POLL_TICKS = 6;
@@ -54,14 +54,14 @@ describe('useCutoverSummary', () => {
   });
 
   it('reports no engine as idle with no counts', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
     const { result } = renderHook(() => useCutoverSummary());
     expect(result.current).toEqual({ phase: 'idle', isRunning: false, counts: null });
   });
 
   it('reports the phase while the re-cut runs and withholds the counts', () => {
     const stored = counts({ current: 40, proposed: 42, changed: 3, new: 2 });
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => ({ phase: 'detecting', running: true }),
         () => ({ counts: stored })
@@ -84,7 +84,7 @@ describe('useCutoverSummary', () => {
       new: 4,
       gone: 2,
     });
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => ({ phase, running }),
         () => ({ counts: stored })
@@ -106,7 +106,7 @@ describe('useCutoverSummary', () => {
     let phase = 'complete';
     let running = false;
     let stored = counts({ current: 10, proposed: 11, new: 1 });
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => ({ phase, running }),
         () => ({ counts: stored })
@@ -132,7 +132,7 @@ describe('useCutoverSummary', () => {
   });
 
   it('treats an unknown phase as idle', () => {
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => ({ phase: 'reticulating', running: false }),
         () => null
@@ -143,7 +143,7 @@ describe('useCutoverSummary', () => {
   });
 
   it('survives a diff the engine cannot give and a progress call that throws', () => {
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => ({ phase: 'complete', running: false }),
         () => null
@@ -153,7 +153,7 @@ describe('useCutoverSummary', () => {
     expect(noDiff.current.counts).toBeNull();
     expect(noDiff.current.phase).toBe('complete');
 
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(
         () => {
           throw new Error('worker died');
@@ -169,7 +169,7 @@ describe('useCutoverSummary', () => {
     // The diff parser walks every section, so polling it twice a second while
     // the card sits open is work the settled numbers never need repeated.
     const getDiff = jest.fn(() => ({ counts: counts({ current: 4, proposed: 6 }) }));
-    mockGetRouteEngine.mockReturnValue(engine(() => ({ phase: 'idle', running: false }), getDiff));
+    mockGetEngine.mockReturnValue(engine(() => ({ phase: 'idle', running: false }), getDiff));
 
     renderHook(() => useCutoverSummary());
     const afterMount = getDiff.mock.calls.length;
@@ -184,7 +184,7 @@ describe('useCutoverSummary', () => {
   it('re-reads the diff when a run gives up the slot', () => {
     const getDiff = jest.fn(() => ({ counts: counts({ current: 4, proposed: 6 }) }));
     let running = true;
-    mockGetRouteEngine.mockReturnValue(
+    mockGetEngine.mockReturnValue(
       engine(() => ({ phase: running ? 'detecting' : 'idle', running }), getDiff)
     );
 
@@ -201,7 +201,7 @@ describe('useCutoverSummary', () => {
 
   it('stops polling once unmounted', () => {
     const progress = jest.fn(() => ({ phase: 'detecting', running: true }));
-    mockGetRouteEngine.mockReturnValue(engine(progress, () => null));
+    mockGetEngine.mockReturnValue(engine(progress, () => null));
     const { unmount } = renderHook(() => useCutoverSummary());
     const callsWhileMounted = progress.mock.calls.length;
     unmount();

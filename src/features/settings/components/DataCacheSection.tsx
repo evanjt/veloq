@@ -7,7 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
-import { useSectionSummaries } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionSummaries } from '@/features/routes/hooks/useEngine';
 import { useTheme } from '@/shared/app';
 import { formatFullDate } from '@/shared/format/format';
 import { estimateRoutesDatabaseSize } from '@/shared/storage/gpsStorage';
@@ -25,7 +25,7 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
@@ -92,7 +92,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
-    getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+    getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
     emitClearTileCache();
     setTerrainCacheSize(0);
     setHeatmapCacheSize(0);
@@ -162,7 +162,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             await clearCache();
             await clearTerrainPreviews();
             emitClearTileCache();
-            getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+            getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);
             setTileCacheStats(null);

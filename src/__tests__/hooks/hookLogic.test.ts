@@ -1,4 +1,4 @@
-// routeEngine pulls in react-native through its import chain, so the mock must be
+// engine pulls in react-native through its import chain, so the mock must be
 // declared before any import that triggers it.
 import {
   getSettingsForSport,
@@ -12,8 +12,8 @@ import { getFormZone, FORM_ZONE_BOUNDARIES, type FormZone } from '@/features/fit
 import { getLatestFTP, getLatestEFTP } from '@/features/activity/hooks/useEFTPHistory';
 import type { SportSettings, Activity } from '@/types';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => null,
 }));
 
 // ---------------------------------------------------------------------------

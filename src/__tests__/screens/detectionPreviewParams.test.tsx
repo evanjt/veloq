@@ -21,8 +21,8 @@ const mockGetSectionConfig = jest.fn(() => ({
   divergenceThreshold: 0.2,
 }));
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({
     getSectionConfig: mockGetSectionConfig,
     setSectionConfig: mockSetSectionConfig,
     forceRedetectSections: mockForceRedetect,

@@ -9,7 +9,7 @@
 
 import { useEffect } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteReoptimization');
@@ -35,7 +35,7 @@ export function useRouteReoptimization() {
   useEffect(() => {
     if (!hasExpanded) return;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       log.warn('Engine not initialized');
       return;

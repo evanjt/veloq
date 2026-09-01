@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import type {
   ActivityMetrics,
   MergeCandidate,
@@ -32,7 +32,7 @@ export interface SectionDetailBundle {
 }
 
 function fetchSectionDetailData(sectionId: string): SectionDetailBundle | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine || !sectionId) return null;
 
   try {
@@ -116,7 +116,7 @@ export function useSectionDetailPerformance(
 
   return useMemo(() => {
     if (!enabled || !sectionId) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     try {
       return engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null;

@@ -20,8 +20,8 @@ jest.mock('@/shared/app/AuthStore', () => ({
 
 const mockGetWellnessBodies = jest.fn<string[], [string, string]>();
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({ getWellnessBodies: mockGetWellnessBodies }),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ getWellnessBodies: mockGetWellnessBodies }),
 }));
 
 jest.mock('@/shared/native/useEngineChannel', () => ({

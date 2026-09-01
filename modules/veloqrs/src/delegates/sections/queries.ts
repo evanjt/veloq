@@ -313,7 +313,7 @@ export function getSectionExtensionTrack(
       };
     });
   } catch (e) {
-    console.error('[RouteEngine] getSectionExtensionTrack failed:', sectionId, e);
+    console.error('[Engine] getSectionExtensionTrack failed:', sectionId, e);
     return null;
   }
 }
@@ -446,7 +446,7 @@ export function getSectionLineages(host: DelegateHost): FfiSectionLineage[] {
   try {
     return host.engine.sections().getLineages();
   } catch (e) {
-    console.error('[RouteEngine] getSectionLineages failed:', e);
+    console.error('[Engine] getSectionLineages failed:', e);
     return [];
   }
 }

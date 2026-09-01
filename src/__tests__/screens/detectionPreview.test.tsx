@@ -36,8 +36,8 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({
     getSectionConfig: () => ({
       proximityThreshold: 50,
       minSectionLength: 500,

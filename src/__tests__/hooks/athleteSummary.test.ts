@@ -9,8 +9,8 @@ jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: jest.fn(),
 }));
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => null,
 }));
 
 jest.mock('@/shared/format/format', () => ({

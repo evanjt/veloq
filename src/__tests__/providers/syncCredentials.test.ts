@@ -8,16 +8,16 @@
 import * as SecureStore from 'expo-secure-store';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 const setSyncCredentials = jest.fn();
 const clearSyncCredentials = jest.fn();
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
   typeof SecureStore.getItemAsync
 >;
@@ -41,10 +41,10 @@ describe('sync credential ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetStore();
-    mockGetRouteEngine.mockReturnValue({
+    mockGetEngine.mockReturnValue({
       setSyncCredentials,
       clearSyncCredentials,
-    } as unknown as ReturnType<typeof getRouteEngine>);
+    } as unknown as ReturnType<typeof getEngine>);
   });
 
   it('sends an API key as api_key with the athlete id', async () => {
@@ -99,7 +99,7 @@ describe('sync credential ownership', () => {
   });
 
   it('is a no-op before the engine exists', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     expect(() => pushCredentialsToEngine()).not.toThrow();
     expect(setSyncCredentials).not.toHaveBeenCalled();

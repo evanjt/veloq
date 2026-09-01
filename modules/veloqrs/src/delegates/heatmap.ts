@@ -17,7 +17,7 @@ export function enableHeatmapTiles(host: DelegateHost): void {
   try {
     host.engine.heatmap().setTilesPath(normalizedTilesPath);
   } catch (e) {
-    console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
+    console.warn('[EngineClient] Failed to set heatmap tiles path:', e);
   }
 }
 
@@ -27,7 +27,7 @@ export function disableHeatmapTiles(host: DelegateHost): void {
   try {
     host.engine.heatmap().clearTilesPath();
   } catch (e) {
-    console.warn('[RouteEngineClient] Failed to clear heatmap tiles path:', e);
+    console.warn('[EngineClient] Failed to clear heatmap tiles path:', e);
   }
 }
 

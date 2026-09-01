@@ -10,8 +10,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { InteractionManager } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from './useEngine';
 import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/distance';
 
@@ -125,7 +125,7 @@ export function useRoutesScreenData(opts?: {
   // inside InteractionManager (below) and return the last result synchronously.
   const computeData = useCallback((): PaginatedRoutesData | null => {
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return lastResultRef.current;
 
       const result = engine.getRoutesScreenData(

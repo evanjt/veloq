@@ -6,13 +6,13 @@ import {
 } from '@/features/insights/lib/generateInsights';
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(() => null),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(() => null),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 /** The HRV verdict is Rust's, so the generator only ever sees this shape. */
 const stubHrvTrend = (
@@ -24,9 +24,9 @@ const stubHrvTrend = (
     sparkline: number[];
   } | null
 ) => {
-  mockGetRouteEngine.mockReturnValue({
+  mockGetEngine.mockReturnValue({
     computeHrvTrend: () => trend,
-  } as unknown as ReturnType<typeof getRouteEngine>);
+  } as unknown as ReturnType<typeof getEngine>);
 };
 
 // Mock translation function - returns key with interpolated params
@@ -155,7 +155,7 @@ describe('generateInsights', () => {
     });
 
     afterEach(() => {
-      mockGetRouteEngine.mockReturnValue(null);
+      mockGetEngine.mockReturnValue(null);
     });
 
     it('generates HRV trend from the engine verdict', () => {
@@ -173,7 +173,7 @@ describe('generateInsights', () => {
     });
 
     it('generates nothing when there is no engine at all', () => {
-      mockGetRouteEngine.mockReturnValue(null);
+      mockGetEngine.mockReturnValue(null);
       const result = generateInsights(EMPTY_INPUT, mockT);
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
@@ -1018,7 +1018,7 @@ describe('generateInsights - boundary conditions', () => {
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.category).toBe('hrv_trend');
     expect(hrv!.confidence).toBeCloseTo(5 / 7, 2);
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
   });
 
   it('the sparkline passes through the engine window untouched', () => {
@@ -1032,7 +1032,7 @@ describe('generateInsights - boundary conditions', () => {
     const result = generateInsights(EMPTY_INPUT, mockT);
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
   });
 
   /**

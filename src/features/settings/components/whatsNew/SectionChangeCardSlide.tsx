@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { CutoverPhase, FfiChangeCardSupport as ChangeCardSupport } from 'veloqrs';
@@ -54,7 +54,7 @@ const PHASE_KEYS: Partial<Record<CutoverPhase, string>> = {
 
 export function readChangeCardSupport(): ChangeCardSupport | null {
   try {
-    return getRouteEngine()?.getChangeCardSupport() ?? null;
+    return getEngine()?.getChangeCardSupport() ?? null;
   } catch {
     return null;
   }

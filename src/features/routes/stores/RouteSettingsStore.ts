@@ -101,8 +101,8 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
     });
 
     try {
-      const { getRouteEngine } = require('@/shared/native/routeEngine');
-      const engine = getRouteEngine();
+      const { getEngine } = require('@/shared/native/engine');
+      const engine = getEngine();
       if (engine) {
         if (!enabled) {
           // Clear route/section data from SQLite (GPS tracks preserved for heatmap)

@@ -540,6 +540,46 @@ pub struct ElevationBackfillProgress {
     pub percent: u32,
 }
 
+/// Tell the engine what TypeScript sees on the network.
+///
+/// `Q65` put the network lifecycle in Rust, and nothing in the crate can see
+/// the network itself, so this is the whole of its connectivity input. Call it
+/// from the same place that calls `onlineManager.setOnline`, on every
+/// transition and on foreground, so there is one debounce and one edge rather
+/// than two.
+///
+/// The value is advisory and only ever a reason to refuse work: a state
+/// nobody has refreshed for fifteen minutes expires back to "try", and an
+/// install that never calls this behaves exactly as it did before.
+#[uniffi::export]
+pub fn set_network_online(online: bool) {
+    init_logging();
+    crate::net::connectivity::set_online(online);
+}
+
+/// What was last pushed to [`set_network_online`], and how many seconds ago.
+///
+/// `null` means nothing has ever been pushed. For the debug screen and for
+/// tests that need to see the push landed, not for scheduling: everything
+/// that schedules reads the state in Rust.
+#[uniffi::export]
+pub fn get_network_push() -> Option<NetworkPush> {
+    crate::net::connectivity::last_push().map(|(online, age)| NetworkPush {
+        online,
+        age_seconds: age.as_secs().try_into().unwrap_or(u32::MAX),
+    })
+}
+
+/// The last connectivity state TypeScript pushed, with its age.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NetworkPush {
+    /// What was pushed.
+    pub online: bool,
+    /// Seconds since the push. Past the staleness window the engine ignores
+    /// the value and tries anyway.
+    pub age_seconds: u32,
+}
+
 /// Start the elevation backfill on a background thread.
 ///
 /// Returns false when nothing is outstanding, when a run is already in flight,

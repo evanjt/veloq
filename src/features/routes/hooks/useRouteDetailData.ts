@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import type { RouteDetailData } from 'veloqrs';
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -22,7 +22,7 @@ export function useRouteDetailData(
 
   return useMemo(() => {
     if (!groupId) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     try {
       return engine.getRouteDetailData(groupId, currentActivityId, MIN_GROUP_ACTIVITIES) ?? null;

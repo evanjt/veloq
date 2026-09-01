@@ -1,6 +1,6 @@
 import type { Insight, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { insightIcon } from '@/theme';
 
 const HRV_WINDOW_DAYS = 7;
@@ -23,7 +23,7 @@ interface TrendShape {
 export function generateHrvTrendInsight(now: number, t: TFunc): Insight[] {
   let trend: TrendShape | null = null;
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine?.computeHrvTrend) {
       trend = engine.computeHrvTrend(HRV_WINDOW_DAYS);
     }

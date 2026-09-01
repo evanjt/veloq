@@ -37,7 +37,7 @@ import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { FrequentSection } from '@/types';
 import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
@@ -421,7 +421,7 @@ export const SectionsList = memo(function SectionsList({
         {
           text: t('common.confirm'),
           onPress: () => {
-            const count = getRouteEngine()?.acceptAllSections() ?? 0;
+            const count = getEngine()?.acceptAllSections() ?? 0;
             setAcceptAllResult(count);
           },
         },
@@ -526,14 +526,14 @@ export const SectionsList = memo(function SectionsList({
       swipeable?.close();
 
       if (item.disabled || item.supersededBy) {
-        getRouteEngine()?.enableSection(item.id);
+        getEngine()?.enableSection(item.id);
       } else {
         Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('common.remove'),
             style: 'destructive',
-            onPress: () => getRouteEngine()?.disableSection(item.id),
+            onPress: () => getEngine()?.disableSection(item.id),
           },
         ]);
       }

@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { CutoverCounts, CutoverPhase } from 'veloqrs';
 
 const POLL_INTERVAL_MS = 500;
@@ -44,7 +44,7 @@ function narrowPhase(phase: string): CutoverPhase {
  * settle and carried after that. The caller re-arms it when a run takes the slot.
  */
 function read(previous: CutoverSummary, needDiff: boolean): CutoverSummary {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return IDLE;
   try {
     const progress = engine.getCutoverProgress?.();

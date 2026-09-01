@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import type { Section as NativeSection } from 'veloqrs';
@@ -37,7 +37,7 @@ export function useSectionDataRefresh(id: string | undefined, preComputedSection
     // Re-fetch fresh data from engine when refresh key changes
     // IMPORTANT: Use ALL fresh data, not just polyline - activityIds may have changed
     if (sectionRefreshKey > 0) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
         if (fresh && fresh.encodedPolyline && fresh.encodedPolyline.byteLength > 0) {

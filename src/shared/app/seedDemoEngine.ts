@@ -12,14 +12,14 @@
  */
 
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import { applyDetectionStrictness, getRouteEngine } from '@/shared/native/routeEngine';
+import { applyDetectionStrictness, getEngine } from '@/shared/native/engine';
 import type { Activity, WellnessData } from '@/types';
 
 /** The curve windows the stats screens request. */
 const POWER_CURVE_WINDOWS = [42, 90, 365];
 const PACE_CURVE_WINDOWS = [42, 90, 365];
 
-type DemoEngine = NonNullable<ReturnType<typeof getRouteEngine>>;
+type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
 type DemoCurves = typeof import('@/features/fitness/demo/curves');
 
 /** Midnight today, in the epoch seconds the pace snapshot table keys on. */
@@ -28,7 +28,7 @@ function todayTimestamp(): number {
 }
 
 export function seedDemoEngine(): void {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return;
 
   // Demo has no older catalogue to migrate, so the cutover never runs here.

@@ -76,7 +76,7 @@ let ffiMetricsIndex = 0;
 let ffiMetricsCount = 0;
 
 /**
- * Record an FFI call timing. Called by RouteEngineClient.timed() in dev mode.
+ * Record an FFI call timing. Called by EngineClient.timed() in dev mode.
  * Stores in a ring buffer (last 500 entries, zero allocation after warmup).
  */
 export function recordFFIMetric(name: string, durationMs: number): void {

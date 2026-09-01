@@ -72,9 +72,9 @@ jest.mock('@/features/auth/hooks/useBackupRestore', () => ({
 
 // The engine is closed at the login screen on a cold start, so identity comes
 // from the AsyncStorage mirror. That is the shape SB10 left behind.
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
-  isRouteEngineReady: () => false,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => null,
+  isEngineReady: () => false,
 }));
 
 let reportLoginError: ((message: string) => void) | null = null;

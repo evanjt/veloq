@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
 
 interface RescanResult {
@@ -26,7 +26,7 @@ interface SectionRescanState {
 }
 
 function getSectionCount(): number {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return 0;
   try {
     const { totalCount } = engine.getFilteredSectionSummaries(undefined, 1, 'visits');
@@ -56,7 +56,7 @@ export function useSectionRescan(): SectionRescanState {
     setResult(null);
     setFailed(false);
     pollRef.current = setInterval(() => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       const status = engine.pollSectionDetection();
       if (status === 'error') {
@@ -89,7 +89,7 @@ export function useSectionRescan(): SectionRescanState {
   }, [stopPolling]);
 
   const rescan = useCallback(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return false;
     beforeCountRef.current = getSectionCount();
     const started = engine.startSectionDetection();
@@ -98,7 +98,7 @@ export function useSectionRescan(): SectionRescanState {
   }, [startPolling]);
 
   const forceRescan = useCallback(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return false;
     beforeCountRef.current = getSectionCount();
     const started = engine.forceRedetectSections();

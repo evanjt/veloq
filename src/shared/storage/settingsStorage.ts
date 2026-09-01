@@ -6,13 +6,13 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 /**
  * Read a setting. Tries SQLite first, falls back to AsyncStorage.
  */
 export async function getSetting(key: string): Promise<string | null> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (engine) {
     const value = engine.getSetting(key);
     if (value !== undefined) return value;
@@ -25,7 +25,7 @@ export async function getSetting(key: string): Promise<string | null> {
  * Write a setting to both SQLite and AsyncStorage (transition period).
  */
 export async function setSetting(key: string, value: string): Promise<void> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (engine) {
     engine.setSetting(key, value);
   }
@@ -36,7 +36,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
  * Remove a setting from both SQLite and AsyncStorage.
  */
 export async function removeSetting(key: string): Promise<void> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (engine) {
     engine.deleteSetting(key);
   }

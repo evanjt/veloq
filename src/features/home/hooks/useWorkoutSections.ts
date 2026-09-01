@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 
 export interface WorkoutSection {
   id: string;
@@ -30,7 +30,7 @@ export function useWorkoutSections(sportType: string | undefined): {
 
   const sections = useMemo<WorkoutSection[]>(() => {
     if (!sportType) return [];
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
 
     return engine.getWorkoutSections(sportType, 5).map((row) => ({

@@ -16,10 +16,10 @@ import {
 } from '@/features/activity/hooks/useActivities';
 import { emitSyncSettled } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 let mockIsOnline = true;
@@ -34,7 +34,7 @@ const engine = {
   subscribe: jest.fn(() => () => {}),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 let client: QueryClient;
 
@@ -46,7 +46,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetActivityWindowRequests();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getActivityBodies.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
   engine.syncActivitiesWindow.mockReturnValue(true);

@@ -7,8 +7,8 @@ import {
 const mockEngineOverlap = jest.fn();
 let mockEngine: { computePolylineOverlap: jest.Mock } | null = null;
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
 }));
 
 describe('haversineDistance', () => {

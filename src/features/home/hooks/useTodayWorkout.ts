@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -31,7 +31,7 @@ export function useTodayWorkout() {
   // window is re-requested on every mount rather than only when empty.
   useEngineBody(
     false,
-    () => getRouteEngine()?.syncCalendarEvents(today, tomorrow),
+    () => getEngine()?.syncCalendarEvents(today, tomorrow),
     queryKey,
     isAuthenticated
   );

@@ -5,9 +5,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, ink } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
@@ -90,7 +90,7 @@ export function SyncDebugTab() {
   });
 
   // Engine data (refreshes on subscription trigger)
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const engineActivityIds = useMemo(() => {
     return engine?.getActivityIds() ?? [];
   }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps

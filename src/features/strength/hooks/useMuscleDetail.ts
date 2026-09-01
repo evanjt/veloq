@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
@@ -36,7 +36,7 @@ export function useMuscleDetail(
 ): MuscleGroupDetail | null {
   return useMemo(() => {
     if (!slug || !activityId) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     const detail = engine.getMuscleDetail(activityId, slug);
     if (!detail || detail.exercises.length === 0) return null;

@@ -80,7 +80,7 @@ export type PreviewPollStatus =
 
 /**
  * The surface the preview screen talks to. The real implementation is
- * RouteEngineClient pass-throughs onto the SectionPreview FFI object plus the
+ * EngineClient pass-throughs onto the SectionPreview FFI object plus the
  * existing config and redetect methods the Keep path reuses.
  */
 export interface PreviewClient {
@@ -209,7 +209,7 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
         }))
     );
   } catch (e) {
-    console.error('[RouteEngine] getPreviewCentres threw:', e);
+    console.error('[Engine] getPreviewCentres threw:', e);
     return [];
   }
 }
@@ -229,7 +229,7 @@ export function getPreviewCurrentSections(
     const json = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
     return json ? parsePreviewSections(json) : [];
   } catch (e) {
-    console.error('[RouteEngine] getPreviewCurrentSections threw:', e);
+    console.error('[Engine] getPreviewCurrentSections threw:', e);
     return [];
   }
 }
@@ -249,7 +249,7 @@ export function startPreviewDetect(
   try {
     return host.timed('startPreviewDetect', () => previewObj().start(lat, lng, config));
   } catch (e) {
-    console.error('[RouteEngine] startPreviewDetect threw:', e);
+    console.error('[Engine] startPreviewDetect threw:', e);
     return false;
   }
 }
@@ -259,7 +259,7 @@ export function pollPreviewDetect(host: DelegateHost): PreviewPollStatus {
   try {
     return host.timed('pollPreviewDetect', () => previewObj().poll()) as PreviewPollStatus;
   } catch (e) {
-    console.error('[RouteEngine] pollPreviewDetect threw:', e);
+    console.error('[Engine] pollPreviewDetect threw:', e);
     return 'error';
   }
 }
@@ -269,7 +269,7 @@ export function getPreviewProgress(host: DelegateHost): SectionDetectionProgress
   try {
     return host.timed('getPreviewProgress', () => previewObj().getProgress()) ?? null;
   } catch (e) {
-    console.error('[RouteEngine] getPreviewProgress threw:', e);
+    console.error('[Engine] getPreviewProgress threw:', e);
     return null;
   }
 }
@@ -281,7 +281,7 @@ export function takePreviewResult(host: DelegateHost): PreviewResult | null {
     const json = host.timed('takePreviewResult', () => previewObj().takeResult());
     return json ? parsePreviewResult(json) : null;
   } catch (e) {
-    console.error('[RouteEngine] takePreviewResult threw:', e);
+    console.error('[Engine] takePreviewResult threw:', e);
     return null;
   }
 }
@@ -291,6 +291,6 @@ export function cancelPreviewDetect(host: DelegateHost): void {
   try {
     host.timed('cancelPreviewDetect', () => previewObj().cancel());
   } catch (e) {
-    console.error('[RouteEngine] cancelPreviewDetect threw:', e);
+    console.error('[Engine] cancelPreviewDetect threw:', e);
   }
 }

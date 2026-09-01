@@ -146,8 +146,8 @@ function restoreCustomIndexTs() {
   const indexTs = path.join(MODULE_DIR, 'src/index.ts');
   if (existsSync(indexTs)) {
     const content = readFileSync(indexTs, 'utf8');
-    // Our custom index.ts exports routeEngine - if it's missing, restore from git
-    if (!content.includes('routeEngine')) {
+    // Our custom index.ts wraps EngineClient - if it's missing, restore from git
+    if (!content.includes('EngineClient')) {
       try {
         execSync('git checkout HEAD -- src/index.ts', { cwd: MODULE_DIR, stdio: 'ignore' });
       } catch {

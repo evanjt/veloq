@@ -34,7 +34,7 @@ import {
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
 import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
@@ -217,7 +217,7 @@ export default function RecordScreen() {
   // stored; the engine event brings in anything the refresh adds.
   useEffect(() => {
     const today = formatLocalDate(new Date());
-    const engine = getRouteEngine();
+    const engine = getEngine();
     engine?.syncCalendarEvents(today, today);
     setTodayEvents(readCalendarEvents(today, today));
 

@@ -4,8 +4,8 @@
  */
 
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from './useEngine';
 import type { NearbySectionSummary } from 'veloqrs';
 
 interface UseNearbySectionsResult {
@@ -27,7 +27,7 @@ export function useNearbySections(
   const nearby = useMemo(() => {
     if (preComputed) return preComputed;
     if (!sectionId) return [];
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     return engine.getNearbySections(sectionId, radiusMeters);
   }, [sectionId, radiusMeters, trigger, preComputed]);

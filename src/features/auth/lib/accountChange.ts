@@ -10,7 +10,7 @@
 
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
-import { getRouteEngine, isRouteEngineReady } from '@/shared/native/routeEngine';
+import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
@@ -33,7 +33,7 @@ export type AccountChangeKind = 'login' | 'demo';
  * told who it holds yet.
  */
 export async function getCachedAthleteId(): Promise<string | null> {
-  const engine = isRouteEngineReady() ? getRouteEngine() : null;
+  const engine = isEngineReady() ? getEngine() : null;
   if (engine) {
     const json = engine.getAthleteProfile();
     const parsed = json ? safeJsonParse<{ id?: number | string }>(json, {}) : null;

@@ -13,10 +13,10 @@ import {
   PREVIEW_STREAM_TYPES,
 } from '@/features/activity/lib/engineStreams';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 const engine = {
@@ -24,13 +24,13 @@ const engine = {
   syncActivityStreams: jest.fn(),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 describe('streamTypesKey', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.setState({ isDemoMode: false });
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   });
 
   it('is order independent', () => {

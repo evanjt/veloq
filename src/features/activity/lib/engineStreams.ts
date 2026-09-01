@@ -16,7 +16,7 @@
 
 import { parseStreams } from '@/features/activity/lib/streams';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { ActivityStreams, RawStreamItem } from '@/types';
 
 /** The full series set the detail charts render. */
@@ -52,7 +52,7 @@ export function streamTypesKey(types: readonly string[]): string {
 
 /** Streams parsed from the stored body, or null when nothing is stored. */
 export function readStreams(activityId: string, types: readonly string[]): ActivityStreams | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getStreamBody || !activityId) return null;
 
   const body = engine.getStreamBody(activityId, streamTypesKey(types));
@@ -89,5 +89,5 @@ export function requestStreams(activityId: string, types: readonly string[]): vo
   if (!activityId) return;
   // Demo mode has no account to fetch against, the generator answers instead.
   if (useAuthStore.getState().isDemoMode) return;
-  getRouteEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
+  getEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
 }

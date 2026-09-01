@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary } from 'veloqrs';
 import type { FrequentSection, PerformanceDataPoint } from '@/types';
@@ -26,7 +26,7 @@ export function useSectionChartDataEnriched({
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
       const result = engine.getExcludedSectionPerformances(id);
       if (!result?.records?.length) return [];
@@ -81,7 +81,7 @@ export function useSectionChartDataEnriched({
     if (preComputedCalendarSummary !== undefined) return preComputedCalendarSummary;
     if (!section?.id) return null;
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return null;
       const t0 = performance.now();
       const result = engine.getSectionCalendarSummary(section.id);

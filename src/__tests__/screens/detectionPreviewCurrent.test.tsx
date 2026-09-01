@@ -60,8 +60,8 @@ const mockGetPreviewCurrentSections = jest.fn((_lat: number, _lng: number) => LI
 const mockStart = jest.fn();
 let mockResult: PreviewResult | null = null;
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({
     getSectionConfig: () => ({
       proximityThreshold: 50,
       minSectionLength: 500,

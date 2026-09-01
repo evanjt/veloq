@@ -21,7 +21,7 @@ import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
@@ -126,9 +126,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        getRouteEngine()?.enableSection(sectionId);
+        getEngine()?.enableSection(sectionId);
       } else {
-        getRouteEngine()?.disableSection(sectionId);
+        getEngine()?.disableSection(sectionId);
       }
     },
     []

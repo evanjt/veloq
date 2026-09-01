@@ -1,6 +1,6 @@
 import type { Insight } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
@@ -356,7 +356,7 @@ export function generateStalePRInsights(
 
   let filtered: StalePROpportunity[] | null = null;
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine?.findStalePrOpportunities) {
       const rows = engine.findStalePrOpportunities(
         getStaleThresholdDays(),

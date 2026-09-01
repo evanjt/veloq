@@ -1,5 +1,5 @@
 /**
- * RouteEngineClient - Backward compatibility layer for existing app code.
+ * EngineClient - Backward compatibility layer for existing app code.
  *
  * Delegates to domain-specific UniFFI Objects (VeloqEngine, SectionManager,
  * ActivityManager, etc.) via dynamic require. The generated bindings are
@@ -50,8 +50,10 @@ import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
+import * as connectivityDelegates from './delegates/connectivity';
 import * as elevationDelegates from './delegates/elevation';
 import type { ElevationBackfillProgress } from './delegates/elevation';
+import type { NetworkPush } from './delegates/connectivity';
 import * as cutoverDelegates from './delegates/cutover';
 import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
@@ -99,8 +101,8 @@ const gen = (): any => require('./generated/veloqrs');
 /** Pre-computed daily activity intensity from Rust heatmap cache. Re-exported from delegates. */
 export type { HeatmapDay };
 
-class RouteEngineClient implements DelegateHost {
-  private static instance: RouteEngineClient;
+class EngineClient implements DelegateHost {
+  private static instance: EngineClient;
   private listeners: Map<string, Set<() => void>> = new Map();
   private pendingNotifications: Set<string> = new Set();
   private notifyScheduled = false;
@@ -121,7 +123,7 @@ class RouteEngineClient implements DelegateHost {
 
   timed<T>(name: string, fn: () => T): T {
     const shouldLog = typeof __DEV__ !== 'undefined' && __DEV__;
-    const shouldRecord = RouteEngineClient.debugEnabled;
+    const shouldRecord = EngineClient.debugEnabled;
     if (!shouldLog && !shouldRecord) return fn();
     const start = performance.now();
     const result = fn();
@@ -131,7 +133,7 @@ class RouteEngineClient implements DelegateHost {
       console.log(`${icon} [FFI] ${name}: ${ms.toFixed(1)}ms`);
     }
     if (shouldRecord) {
-      RouteEngineClient.recordMetric(name, ms);
+      EngineClient.recordMetric(name, ms);
     }
     return result;
   }
@@ -140,16 +142,16 @@ class RouteEngineClient implements DelegateHost {
   private static recordMetric: (name: string, ms: number) => void = () => {};
 
   static setDebugEnabled(enabled: boolean): void {
-    RouteEngineClient.debugEnabled = enabled;
+    EngineClient.debugEnabled = enabled;
   }
 
   static setMetricRecorder(recorder: (name: string, ms: number) => void): void {
-    RouteEngineClient.recordMetric = recorder;
+    EngineClient.recordMetric = recorder;
   }
 
-  static getInstance(): RouteEngineClient {
+  static getInstance(): EngineClient {
     if (!this.instance) {
-      this.instance = new RouteEngineClient();
+      this.instance = new EngineClient();
     }
     return this.instance;
   }
@@ -164,13 +166,13 @@ class RouteEngineClient implements DelegateHost {
       try {
         const engine = gen().VeloqEngine.create(dbPath);
         if (!engine.isInitialized()) {
-          console.warn('[RouteEngineClient] Engine reported failed init for', dbPath);
+          console.warn('[EngineClient] Engine reported failed init for', dbPath);
           return false;
         }
         this.engine = engine;
         return true;
       } catch (e) {
-        console.warn('[RouteEngineClient] Engine init threw:', e);
+        console.warn('[EngineClient] Engine init threw:', e);
         this.engine = null;
         return false;
       }
@@ -203,7 +205,7 @@ class RouteEngineClient implements DelegateHost {
     try {
       this.engine.clearRoutesAndSections();
     } catch (e) {
-      console.warn('[RouteEngineClient] Failed to clear routes and sections:', e);
+      console.warn('[EngineClient] Failed to clear routes and sections:', e);
     }
   }
 
@@ -288,6 +290,11 @@ class RouteEngineClient implements DelegateHost {
   takePreviewResult = (): PreviewResult | null => previewDelegates.takePreviewResult(this);
 
   cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
+
+  setNetworkOnline = (online: boolean): void =>
+    connectivityDelegates.setNetworkOnline(this, online);
+
+  getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
 
@@ -1106,4 +1113,4 @@ class RouteEngineClient implements DelegateHost {
   }
 }
 
-export { RouteEngineClient };
+export { EngineClient };

@@ -11,10 +11,10 @@
 
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 // Get mock functions with proper typing
@@ -27,7 +27,7 @@ const _mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
 const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<
   typeof SecureStore.deleteItemAsync
 >;
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 // Storage keys (must match AuthStore.ts)
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
@@ -134,15 +134,15 @@ describe('AuthStore', () => {
     const clearSyncCredentials = jest.fn();
 
     beforeEach(() => {
-      mockGetRouteEngine.mockReturnValue({
+      mockGetEngine.mockReturnValue({
         clear,
         setSyncCredentials,
         clearSyncCredentials,
-      } as unknown as ReturnType<typeof getRouteEngine>);
+      } as unknown as ReturnType<typeof getEngine>);
     });
 
     afterEach(() => {
-      mockGetRouteEngine.mockReset();
+      mockGetEngine.mockReset();
     });
 
     it('keeps the database when no credentials are stored', async () => {

@@ -11,12 +11,12 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { LAST_SUCCESS_KEY, useSyncHealth } from '@/shared/native/useSyncHealth';
 import type { SyncStatus } from 'veloqrs';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 let mockStatus: SyncStatus | null = null;
@@ -24,7 +24,7 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncStatus: () => mockStatus,
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 type FakeEngine = {
   settings: Map<string, string>;
@@ -56,7 +56,7 @@ describe('useSyncHealth', () => {
 
   it('reports nothing before any sync has run', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result } = renderHook(() => useSyncHealth());
 
@@ -66,7 +66,7 @@ describe('useSyncHealth', () => {
 
   it('reads the persisted success time on mount', () => {
     const engine = fakeEngine({ [LAST_SUCCESS_KEY]: '2026-08-01T10:00:00.000Z' });
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result } = renderHook(() => useSyncHealth());
 
@@ -74,12 +74,12 @@ describe('useSyncHealth', () => {
   });
 
   it('re-reads once the engine becomes ready', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
     const { result, rerender } = renderHook(() => useSyncHealth());
     expect(result.current.lastSuccessAt).toBeNull();
 
     const engine = fakeEngine({ [LAST_SUCCESS_KEY]: '2026-08-02T10:00:00.000Z' });
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     act(() => useEngineStatus.getState().markEngineReady());
     rerender(undefined);
 
@@ -88,7 +88,7 @@ describe('useSyncHealth', () => {
 
   it('records the success time when a sync settles clean', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
@@ -104,7 +104,7 @@ describe('useSyncHealth', () => {
 
   it('does not record a success when the sync settles with an error', () => {
     const engine = fakeEngine({ [LAST_SUCCESS_KEY]: '2026-08-01T10:00:00.000Z' });
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
@@ -120,7 +120,7 @@ describe('useSyncHealth', () => {
 
   it('keeps the earlier success time across a second failing sync', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
@@ -142,7 +142,7 @@ describe('useSyncHealth', () => {
 
   it('clears the error once a later sync lands', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
@@ -163,7 +163,7 @@ describe('useSyncHealth', () => {
 
   it('treats an expired credential as a failure, not a success', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
@@ -179,7 +179,7 @@ describe('useSyncHealth', () => {
 
   it('does not record a success without a preceding sync', () => {
     const engine = fakeEngine();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
     const { rerender } = renderHook(() => useSyncHealth());
 
@@ -190,7 +190,7 @@ describe('useSyncHealth', () => {
   });
 
   it('survives a missing engine when a sync settles', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 

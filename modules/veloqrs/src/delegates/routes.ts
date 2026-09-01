@@ -197,7 +197,7 @@ export function setRouteRepresentative(
     host.notify('groups');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] setRouteRepresentative failed:', routeId, activityId, e);
+    console.error('[Engine] setRouteRepresentative failed:', routeId, activityId, e);
     return false;
   }
 }

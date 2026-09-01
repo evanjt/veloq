@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import { getIntlLocale } from '@/shared/format/format';
@@ -24,7 +24,7 @@ export default function SectionRetiredScreen() {
   const locale = getIntlLocale();
 
   const { retired, names } = useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return { retired: [], names: {} as Record<string, string> };
     return { retired: engine.getRetiredSections(), names: getAllSectionDisplayNames() };
   }, []);

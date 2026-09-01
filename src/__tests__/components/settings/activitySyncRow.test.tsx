@@ -1,7 +1,7 @@
 /**
  * Scenario: a first sync of ten years of history runs for minutes, and the only
  * way out was to kill the app. The engine has held a soft cancel since
- * `objects/sync.rs`, and `RouteEngineClient.cancelSync` has reached it since the
+ * `objects/sync.rs`, and `EngineClient.cancelSync` has reached it since the
  * client was written, but nothing in the UI ever called either.
  *
  * Expected behaviour: while the engine reports `syncing` the row names the sync
@@ -31,8 +31,8 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
 
 const cancelSync = jest.fn();
 let mockEngine: { cancelSync: jest.Mock } | null = null;
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
 }));
 
 describe('ActivitySyncRow', () => {

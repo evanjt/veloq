@@ -19,7 +19,7 @@ import {
 
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
 jest.mock('veloqrs', () => ({
-  RouteEngineClient: {
+  EngineClient: {
     setMetricRecorder: jest.fn(),
     setDebugEnabled: jest.fn(),
   },
@@ -28,7 +28,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({
   recordFFIMetric: jest.fn(),
 }));
 
-// DebugStore imports debug, whose chain pulls in routeEngine -> expo-file-system.
+// DebugStore imports debug, whose chain pulls in engine -> expo-file-system.
 // Mock the debug module so the chain stays out of node tests.
 const noop = () => {};
 jest.mock('@/shared/debug/debug', () => ({

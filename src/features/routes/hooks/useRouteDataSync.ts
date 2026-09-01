@@ -4,8 +4,8 @@ import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/shared/native/routeEngine';
-import { routeEngine } from 'veloqrs';
+import { getNativeModule } from '@/shared/native/engine';
+import { engine } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -133,7 +133,7 @@ export function useRouteDataSync(
         }
 
         // Check engine state for already-synced activities
-        const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
+        const engineActivityIds = new Set(nativeModule.engine.getActivityIds());
 
         // Filter to activities with GPS that aren't already in the engine
         const withGps = activitiesToSync.filter(
@@ -154,7 +154,7 @@ export function useRouteDataSync(
         // Sync metrics only for activities not already in the engine.
         // Uses metric IDs (all activities) not GPS activity IDs (GPS-only) to avoid
         // re-writing indoor/non-GPS activities on every startup.
-        const cachedMetricIds = new Set(nativeModule.routeEngine.getActivityMetricIds());
+        const cachedMetricIds = new Set(nativeModule.engine.getActivityMetricIds());
         const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
         if (__DEV__) {
           console.log(
@@ -166,8 +166,8 @@ export function useRouteDataSync(
             .filter((a) => a.start_date_local && a.moving_time)
             .map(toActivityMetrics);
           if (newMetrics.length > 0) {
-            nativeModule.routeEngine.setActivityMetrics(newMetrics);
-            routeEngine.triggerRefresh('activities');
+            nativeModule.engine.setActivityMetrics(newMetrics);
+            engine.triggerRefresh('activities');
           }
         }
 
@@ -179,9 +179,9 @@ export function useRouteDataSync(
 
           if (
             strengthIds.length > 0 &&
-            typeof nativeModule.routeEngine.getUnprocessedStrengthIds === 'function'
+            typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
           ) {
-            const unprocessed = nativeModule.routeEngine.getUnprocessedStrengthIds(strengthIds);
+            const unprocessed = nativeModule.engine.getUnprocessedStrengthIds(strengthIds);
             if (unprocessed.length > 0) {
               if (__DEV__) {
                 console.log(
@@ -191,7 +191,7 @@ export function useRouteDataSync(
               try {
                 // Fire and forget: the downloads run on a Rust thread and the
                 // sets are read back from SQLite when a strength screen asks.
-                const started = nativeModule.routeEngine.batchFetchExerciseSets(unprocessed);
+                const started = nativeModule.engine.batchFetchExerciseSets(unprocessed);
                 if (__DEV__) {
                   console.log(
                     `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
@@ -212,17 +212,17 @@ export function useRouteDataSync(
           // Drain any completed-but-uncollected detection results. If a prior
           // detection finished after the TS poll loop timed out, the result
           // sits in the global handle and blocks all future start() calls.
-          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
+          const drainStatus = nativeModule.engine.pollSectionDetection();
           if (drainStatus === 'complete') {
             if (__DEV__) {
               console.log('[RouteDataSync] Drained stale detection result');
             }
-            routeEngine.triggerRefresh('sections');
-            routeEngine.triggerRefresh('groups');
+            engine.triggerRefresh('sections');
+            engine.triggerRefresh('groups');
           }
 
           // Check if section detection was interrupted and needs to recover
-          const stats = routeEngine.getStats();
+          const stats = engine.getStats();
           if (stats?.sectionsDirty && isMountedRef.current) {
             if (__DEV__) {
               console.log(
@@ -238,33 +238,33 @@ export function useRouteDataSync(
             });
 
             // The engine starts detection when the batch lands; follow it.
-            const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
+            const started = nativeModule.engine.pollSectionDetection() === 'running';
             if (started) {
               const pollInterval = 500;
               const maxPollTime = 60000;
               const startTime = Date.now();
               while (isMountedRef.current && !abortController.signal.aborted) {
-                const detectionStatus = nativeModule.routeEngine.pollSectionDetection();
+                const detectionStatus = nativeModule.engine.pollSectionDetection();
                 if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
                 await new Promise((resolve) => setTimeout(resolve, pollInterval));
               }
               // Skip side effects if a newer sync took over (cache clear race)
               if (!abortController.signal.aborted) {
-                routeEngine.triggerRefresh('groups');
-                routeEngine.triggerRefresh('sections');
+                engine.triggerRefresh('groups');
+                engine.triggerRefresh('sections');
               }
 
               // Poll heatmap tile generation (runs on Rust background thread) and surface
               // processed/total so the user sees forward motion instead of a frozen bar.
               // Foreground wait capped at 5 s (Tier 1.2); Rust keeps rendering in background
               // if we bail out early and the map will pick up tiles as they land.
-              const tileStatus = routeEngine.pollTileGeneration();
+              const tileStatus = engine.pollTileGeneration();
               if (
                 tileStatus === 'running' &&
                 isMountedRef.current &&
                 !abortController.signal.aborted
               ) {
-                const initialTileProgress = routeEngine.getHeatmapTileProgress();
+                const initialTileProgress = engine.getHeatmapTileProgress();
                 const tileTotal =
                   initialTileProgress && initialTileProgress.length >= 2
                     ? initialTileProgress[1]
@@ -274,8 +274,8 @@ export function useRouteDataSync(
                 const tileStartTime = Date.now();
                 while (isMountedRef.current && !abortController.signal.aborted) {
                   await new Promise((resolve) => setTimeout(resolve, 200));
-                  const s = routeEngine.pollTileGeneration();
-                  const progress = routeEngine.getHeatmapTileProgress();
+                  const s = engine.pollTileGeneration();
+                  const progress = engine.getHeatmapTileProgress();
                   if (progress && progress.length >= 2 && progress[1] > 0) {
                     const [processed, total] = progress;
                     const tilePct = Math.min(100, Math.round((processed / total) * 100));
@@ -301,7 +301,7 @@ export function useRouteDataSync(
           // so this only reports progress while it drains.
           if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
             try {
-              const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+              const needingStreams = engine.getActivitiesNeedingTimeStreams();
               if (needingStreams.length > 0) {
                 if (__DEV__) {
                   console.log(
@@ -309,7 +309,7 @@ export function useRouteDataSync(
                   );
                 }
                 const totalStreams = needingStreams.length;
-                routeEngine.syncTimeStreams(needingStreams);
+                engine.syncTimeStreams(needingStreams);
 
                 const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
                 let remaining = totalStreams;
@@ -318,7 +318,7 @@ export function useRouteDataSync(
                   isMountedRef.current &&
                   !abortController.signal.aborted
                 ) {
-                  remaining = routeEngine.getMissingTimeStreams(needingStreams).length;
+                  remaining = engine.getMissingTimeStreams(needingStreams).length;
                   if (remaining === 0) break;
                   if (isMountedRef.current) {
                     updateProgress({
@@ -430,7 +430,7 @@ export function useRouteDataSync(
     const nativeModule = getNativeModule();
     if (!nativeModule) return;
 
-    const unsubscribe = nativeModule.routeEngine.subscribe('syncReset', () => {
+    const unsubscribe = nativeModule.engine.subscribe('syncReset', () => {
       // Reset GLOBAL syncing state so next sync can proceed
       // Note: Don't directly mutate isSyncingRef.current here - resetGlobalSyncState()
       // handles the global mutex, and each component's local ref should be managed

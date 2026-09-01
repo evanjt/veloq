@@ -4,14 +4,14 @@
  * preserved exactly.
  */
 import { useQuery } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { zoneColors } from '@/theme/colors';
 import type { SportSettings, Zone } from '@/types';
 
 function readSportSettings(): SportSettings[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return [];
   const json = engine.getSportSettings();
   if (!json) return [];

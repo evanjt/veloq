@@ -7,7 +7,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 
 const mockVersion = { current: '0.3.1' };
@@ -23,11 +23,11 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const VERSION_KEY = 'veloq-elevation-backfill-version';
 
@@ -35,7 +35,7 @@ function engineWith(start: jest.Mock, remaining: jest.Mock) {
   return {
     startElevationBackfill: start,
     getElevationBackfillRemaining: remaining,
-  } as unknown as ReturnType<typeof getRouteEngine>;
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 describe('startElevationBackfillAfterUpdate', () => {
@@ -48,7 +48,7 @@ describe('startElevationBackfillAfterUpdate', () => {
     mockVersion.current = '0.3.1';
     start = jest.fn().mockReturnValue(true);
     remaining = jest.fn().mockReturnValue(5);
-    mockGetRouteEngine.mockReturnValue(engineWith(start, remaining));
+    mockGetEngine.mockReturnValue(engineWith(start, remaining));
   });
 
   it('starts a run while tracks still lack elevation, without stamping', async () => {
@@ -101,7 +101,7 @@ describe('startElevationBackfillAfterUpdate', () => {
   });
 
   it('leaves the version unstamped when the engine is unavailable', async () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     await expect(startElevationBackfillAfterUpdate()).resolves.toBe(false);
 
@@ -154,7 +154,7 @@ describe('resumeElevationBackfill', () => {
     remaining = jest.fn().mockReturnValue(5);
     // Resetting the registry hands the trigger a fresh copy of the engine
     // mock, so the outer handle is not the one it will call.
-    const fresh = require('@/shared/native/routeEngine').getRouteEngine as jest.Mock;
+    const fresh = require('@/shared/native/engine').getEngine as jest.Mock;
     fresh.mockReturnValue(engineWith(start, remaining));
     trigger = require('@/features/routes/lib/elevationBackfillTrigger');
   });

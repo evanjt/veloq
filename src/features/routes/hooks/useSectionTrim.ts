@@ -11,7 +11,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -195,7 +195,7 @@ export function useSectionTrim(
   const canReset = useMemo(() => {
     if (preComputedHasOriginalBounds !== undefined) return preComputedHasOriginalBounds;
     if (!section?.id) return false;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return false;
     return engine.hasOriginalBounds(section.id);
   }, [section?.id, preComputedHasOriginalBounds]);
@@ -223,7 +223,7 @@ export function useSectionTrim(
     }
 
     // Switch to expand mode - load extension track and compute padded window
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
 
     try {
@@ -286,7 +286,7 @@ export function useSectionTrim(
     }
 
     setIsSaving(true);
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       setIsSaving(false);
       return;
@@ -356,7 +356,7 @@ export function useSectionTrim(
       {
         text: t('common.reset'),
         onPress: () => {
-          const engine = getRouteEngine();
+          const engine = getEngine();
           if (!engine) return;
 
           const success = engine.resetSectionBounds(section.id);

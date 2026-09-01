@@ -123,12 +123,12 @@ pub async fn fetch_activities_with_bodies(
 }
 
 /// Oldest activity date across the whole history (cheap two-field pull + reduce).
-pub async fn fetch_oldest_activity_date(
+pub async fn fetch_activity_history_summary(
     t: &Transport,
     athlete_id: &str,
     today: &str,
     lane: Lane,
-) -> Result<Option<String>, NetError> {
+) -> Result<ActivityHistorySummary, NetError> {
     let acts: Vec<ActivityRecord> = t
         .get_json(
             &format!("/athlete/{}/activities", athlete_id),
@@ -140,7 +140,10 @@ pub async fn fetch_oldest_activity_date(
             lane,
         )
         .await?;
-    Ok(oldest_activity_date(&acts))
+    Ok(ActivityHistorySummary {
+        oldest: oldest_activity_date(&acts),
+        counts_by_year: activity_counts_by_year(&acts),
+    })
 }
 
 /// `GET /activity/{id}/streams.json` → parsed streams, every series reduced to
@@ -541,14 +544,18 @@ mod tests {
             ]));
         });
         let t = fast_transport(server.base_url());
-        let d = crate::runtime::block_on(fetch_oldest_activity_date(
+        let summary = crate::runtime::block_on(fetch_activity_history_summary(
             &t,
             "i1",
             "2026-06-26",
             Lane::Backfill,
         ))
         .unwrap();
-        assert_eq!(d.as_deref(), Some("2023-02-02T00:00:00"));
+        assert_eq!(summary.oldest.as_deref(), Some("2023-02-02T00:00:00"));
+        // The same response carries every start date, so the year counts come
+        // out of it rather than out of a second request.
+        assert_eq!(summary.counts_by_year.get("2026"), Some(&1));
+        assert_eq!(summary.counts_by_year.get("2023"), Some(&1));
     }
 
     #[test]

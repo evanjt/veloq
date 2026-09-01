@@ -31,11 +31,11 @@ const mockEngine = {
 
 const mockNativeModule = {
   validateBackupDatabase: jest.fn(),
-  routeEngine: { initWithPath: jest.fn() },
+  engine: { initWithPath: jest.fn() },
 };
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
   getNativeModule: () => mockNativeModule,
 }));
@@ -300,7 +300,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
 
   beforeEach(() => {
     mockNativeModule.validateBackupDatabase.mockReset();
-    mockNativeModule.routeEngine.initWithPath.mockReset().mockReturnValue(true);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.destroyEngine.mockClear();
     mockEngine.getActivityCount.mockReturnValue(100);
     mockEngine.notifyAll.mockClear();
@@ -378,7 +378,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     mockProbe(
       JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
     );
-    mockNativeModule.routeEngine.initWithPath
+    mockNativeModule.engine.initWithPath
       .mockImplementationOnce(() => {
         throw new Error('init failed on restored DB');
       })

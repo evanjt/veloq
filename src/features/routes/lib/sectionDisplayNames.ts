@@ -1,8 +1,8 @@
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { generateSectionName, resolveSectionNames } from '@/features/routes/lib/sectionNaming';
 
 export function getAllSectionDisplayNames(): Record<string, string> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return {};
 
   // Use summaries instead of full sections - faster since no polyline data

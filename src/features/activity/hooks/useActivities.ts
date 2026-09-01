@@ -9,7 +9,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
@@ -21,7 +21,7 @@ import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
  * not parse is dropped rather than surfaced as a half-populated card.
  */
 function readActivities(oldest: string, newest: string): Activity[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getActivityBodies) return [];
 
   const out: Activity[] = [];
@@ -58,7 +58,7 @@ function windowKey(oldest: string, newest: string): string {
 
 function requestActivityWindow(oldest: string, newest: string): void {
   if (requestedWindows.has(windowKey(oldest, newest))) return;
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.syncActivitiesWindow) return;
   try {
     if (engine.syncActivitiesWindow(oldest, newest)) {
@@ -241,7 +241,7 @@ export function useActivity(id: string) {
 
   // The list sync stores a lighter body for every activity. Opening one asks
   // for the full detail, which replaces that row in place.
-  useEngineBody(false, () => getRouteEngine()?.syncActivityDetail(id), queryKey, !!id);
+  useEngineBody(false, () => getEngine()?.syncActivityDetail(id), queryKey, !!id);
 
   return useQuery<ActivityDetail | null>({
     queryKey,
@@ -259,7 +259,7 @@ export function useActivity(id: string) {
 
 /** The stored body for one activity, from the window that contains its day. */
 function readActivityBody(id: string): Activity | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getActivityBodies || !id) return null;
   // The store is keyed by id but queried by window, so scan the widest range
   // the app ever shows. The table holds one row per activity, not per day.
@@ -296,13 +296,13 @@ export function useActivityStreams(id: string) {
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);
 
-  const body = id ? (getRouteEngine()?.getIntervalBody(id) ?? null) : null;
-  useEngineBody(body !== null, () => getRouteEngine()?.syncActivityIntervals(id), queryKey, !!id);
+  const body = id ? (getEngine()?.getIntervalBody(id) ?? null) : null;
+  useEngineBody(body !== null, () => getEngine()?.syncActivityIntervals(id), queryKey, !!id);
 
   return useQuery<IntervalsDTO>({
     queryKey,
     queryFn: () => {
-      const stored = getRouteEngine()?.getIntervalBody(id);
+      const stored = getEngine()?.getIntervalBody(id);
       if (!stored) return EMPTY_INTERVALS;
       try {
         return JSON.parse(stored) as IntervalsDTO;

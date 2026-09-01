@@ -5,7 +5,7 @@
  * Expected behaviour: `getCachedAthleteId` still names the account whose data
  * is on disk, so the destructive demo and account-switch paths ask first.
  *
- * The engine mock models production: `getRouteEngine` hands back a singleton
+ * The engine mock models production: `getEngine` hands back a singleton
  * that exists from the first require and is never null once the native module
  * loads, and readiness is a separate flag. A mock that returns null for the
  * not-ready case tests a shape the app never has.
@@ -26,9 +26,9 @@ const mockEngine = {
 };
 let mockEngineReady = true;
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
-  isRouteEngineReady: () => mockEngineReady,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
+  isEngineReady: () => mockEngineReady,
 }));
 
 describe('getCachedAthleteId', () => {

@@ -26,7 +26,7 @@ import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRe
 
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
-import { getRouteEngine } from './routeEngine';
+import { getEngine } from './engine';
 import { useSyncStatus } from './useSyncStatus';
 
 export function useEngineSync(): void {
@@ -41,7 +41,7 @@ export function useEngineSync(): void {
 
   useEffect(() => {
     if (!isAuthenticated || isDemoMode || startedRef.current) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     // This hook mounts before the root layout has opened the engine, so the
     // first call reaches a null handle and returns false without touching
@@ -67,7 +67,7 @@ export function useEngineSync(): void {
     if (state === 'idle' && status?.lastError) startedRef.current = false;
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
-    getRouteEngine()?.triggerRefresh('activities');
+    getEngine()?.triggerRefresh('activities');
     // The exclusive slot is free again. Anything the sync refused while it held
     // it gets its one chance to ask now.
     emitSyncSettled();

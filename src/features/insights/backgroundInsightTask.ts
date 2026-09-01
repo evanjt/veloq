@@ -159,12 +159,12 @@ async function loadActivityMetadata(
  * the activity might create wait for the next full detection run.
  */
 async function indexActivity(
-  routeEngine: { indexNewActivity: (activityId: string) => unknown },
+  engine: { indexNewActivity: (activityId: string) => unknown },
   activityId: string
 ): Promise<void> {
   const start = Date.now();
   try {
-    const summary = routeEngine.indexNewActivity(activityId) as {
+    const summary = engine.indexNewActivity(activityId) as {
       matchedSections: number;
       insertedPortions: number;
       regrouped: boolean;
@@ -203,10 +203,10 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       startFetchAndStore,
       getDownloadProgress,
       takeFetchAndStoreResult,
-      routeEngine,
+      engine,
     } = require('veloqrs');
 
-    const activity = await loadActivityMetadata(routeEngine, activityId);
+    const activity = await loadActivityMetadata(engine, activityId);
     if (!activity) return null;
 
     const activityInfo: ActivityInfo = {
@@ -223,7 +223,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     // a pointless 150–15000ms network roundtrip.
     const alreadyIngested = (() => {
       try {
-        return routeEngine.getActivityIds().includes(activityId);
+        return engine.getActivityIds().includes(activityId);
       } catch {
         return false;
       }
@@ -233,7 +233,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       activityInfo.ingested = true;
       log.log(`Activity already in DB, skipping download: ${activityInfo.name}`);
       // Idempotent, and covers a webhook that arrived before indexing ran.
-      await indexActivity(routeEngine, activityId);
+      await indexActivity(engine, activityId);
       return activityInfo;
     }
 
@@ -248,8 +248,8 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     const result = takeFetchAndStoreResult();
     if (result && result.successCount > 0) {
       const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
-      routeEngine.setActivityMetrics([toActivityMetrics(activity)]);
-      routeEngine.triggerRefresh('activities');
+      engine.setActivityMetrics([toActivityMetrics(activity)]);
+      engine.triggerRefresh('activities');
       activityInfo.ingested = true;
       log.log(
         `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
@@ -257,7 +257,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 
       // Attach the new activity to existing sections and route groups so its
       // PRs are present when the notification body queries the engine below.
-      await indexActivity(routeEngine, activityId);
+      await indexActivity(engine, activityId);
 
       // Queue for priority terrain snapshot generation when app opens
       const { addPendingSnapshot } = require('@/features/maps/lib/storage/terrainPreviewCache');
@@ -359,11 +359,11 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     // 6. Read wellness from the engine, refreshed by the sync above
     let wellnessData: WellnessInput[] | null = null;
     try {
-      const { routeEngine } = require('veloqrs');
+      const { engine } = require('veloqrs');
       const newest = new Date();
       const oldest = new Date(newest);
       oldest.setDate(oldest.getDate() - WELLNESS_WINDOW_DAYS);
-      const bodies: string[] = routeEngine.getWellnessBodies(
+      const bodies: string[] = engine.getWellnessBodies(
         oldest.toISOString().split('T')[0],
         newest.toISOString().split('T')[0]
       );

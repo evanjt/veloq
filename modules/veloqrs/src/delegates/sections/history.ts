@@ -27,7 +27,7 @@ export function getSectionHistory(host: DelegateHost, sectionId: string): Sectio
   try {
     return host.engine.sections().getHistory(sectionId);
   } catch (e) {
-    console.error('[RouteEngine] getSectionHistory failed:', sectionId, e);
+    console.error('[Engine] getSectionHistory failed:', sectionId, e);
     return [];
   }
 }
@@ -40,7 +40,7 @@ export function getSectionGeometryVersions(
   try {
     return host.engine.sections().getGeometryVersions(sectionId);
   } catch (e) {
-    console.error('[RouteEngine] getSectionGeometryVersions failed:', sectionId, e);
+    console.error('[Engine] getSectionGeometryVersions failed:', sectionId, e);
     return [];
   }
 }
@@ -57,7 +57,7 @@ export function getSectionGeometryVersionPolyline(
       host.engine.sections().getGeometryVersionCoords(sectionId, BigInt(version))
     ).map((p) => ({ lat: p.latitude, lng: p.longitude }));
   } catch (e) {
-    console.error('[RouteEngine] getSectionGeometryVersionPolyline failed:', sectionId, version, e);
+    console.error('[Engine] getSectionGeometryVersionPolyline failed:', sectionId, version, e);
     return [];
   }
 }
@@ -72,7 +72,7 @@ export function revertSectionToVersion(
     host.engine.sections().revertToVersion(sectionId, BigInt(version));
     return true;
   } catch (e) {
-    console.error('[RouteEngine] revertSectionToVersion failed:', sectionId, version, e);
+    console.error('[Engine] revertSectionToVersion failed:', sectionId, version, e);
     return false;
   }
 }
@@ -83,7 +83,7 @@ export function unpinSection(host: DelegateHost, sectionId: string): boolean {
     host.engine.sections().unpin(sectionId);
     return true;
   } catch (e) {
-    console.error('[RouteEngine] unpinSection failed:', sectionId, e);
+    console.error('[Engine] unpinSection failed:', sectionId, e);
     return false;
   }
 }
@@ -94,7 +94,7 @@ export function getPinnedSectionVersion(host: DelegateHost, sectionId: string): 
     const v = host.engine.sections().getPinnedVersion(sectionId);
     return v == null ? null : Number(v);
   } catch (e) {
-    console.error('[RouteEngine] getPinnedSectionVersion failed:', sectionId, e);
+    console.error('[Engine] getPinnedSectionVersion failed:', sectionId, e);
     return null;
   }
 }
@@ -104,7 +104,7 @@ export function getRetiredSections(host: DelegateHost): RetiredSection[] {
   try {
     return host.engine.sections().getRetired();
   } catch (e) {
-    console.error('[RouteEngine] getRetiredSections failed:', e);
+    console.error('[Engine] getRetiredSections failed:', e);
     return [];
   }
 }
@@ -115,7 +115,7 @@ export function getRecentSectionChanges(host: DelegateHost, days: number): Secti
   try {
     return host.engine.sections().getRecentChanges(days);
   } catch (e) {
-    console.error('[RouteEngine] getRecentSectionChanges failed:', e);
+    console.error('[Engine] getRecentSectionChanges failed:', e);
     return [];
   }
 }

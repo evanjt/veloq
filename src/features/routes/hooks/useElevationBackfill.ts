@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { ElevationBackfillPhase } from 'veloqrs';
 
 const POLL_INTERVAL_MS = 500;
@@ -42,7 +42,7 @@ function narrowPhase(phase: string): ElevationBackfillPhase {
 }
 
 function read(): ElevationBackfillState {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return IDLE;
   const progress = engine.getElevationBackfillProgress();
   if (!progress) return IDLE;

@@ -45,7 +45,7 @@ import {
   type FfiStalePrOpportunity,
 } from './generated/veloqrs';
 
-import { RouteEngineClient } from './RouteEngineClient';
+import { EngineClient } from './EngineClient';
 
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
@@ -73,8 +73,8 @@ export type {
   FetchProgressEvent,
 } from './conversions';
 
-// Re-export RouteEngineClient and its locally-defined types
-export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from './RouteEngineClient';
+// Re-export EngineClient and its locally-defined types
+export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
@@ -148,7 +148,7 @@ export type {
   FfiNearbySectionSummary as NearbySectionSummary,
   FfiActivitySectionHighlight as ActivitySectionHighlight,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
-} from './RouteEngineClient';
+} from './EngineClient';
 // Strength training types
 export type {
   FfiExerciseSet as ExerciseSet,
@@ -161,4 +161,4 @@ export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }
 
-export const routeEngine = RouteEngineClient.getInstance();
+export const engine = EngineClient.getInstance();

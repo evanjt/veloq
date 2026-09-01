@@ -4,10 +4,10 @@ import {
   hasPartialExclusion,
   lapKey,
 } from '@/features/routes/hooks/useSectionLaps';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 function record(activityId: string, starts: number[]): SectionPerformanceRecord {
   return {
@@ -41,7 +41,7 @@ describe('useSectionLaps', () => {
       excludeSectionLap: jest.fn(() => true),
       includeSectionLap: jest.fn(() => true),
     };
-    (getRouteEngine as jest.Mock).mockReturnValue(engine);
+    (getEngine as jest.Mock).mockReturnValue(engine);
     const { result } = renderHook(() => useSectionLaps('sec1'));
     expect(result.current.excludedLaps).toEqual(new Set([lapKey('a', 40)]));
 
@@ -57,7 +57,7 @@ describe('useSectionLaps', () => {
   });
 
   it('is empty without an engine', () => {
-    (getRouteEngine as jest.Mock).mockReturnValue(null);
+    (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLaps('sec1'));
     expect(result.current.excludedLaps.size).toBe(0);
   });

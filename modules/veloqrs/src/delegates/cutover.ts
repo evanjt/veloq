@@ -57,7 +57,7 @@ export function isCutoverPending(host: DelegateHost): boolean {
   try {
     return host.timed('isCutoverPending', () => ffiIsCutoverPending());
   } catch (e) {
-    console.error('[RouteEngine] isCutoverPending threw:', e);
+    console.error('[Engine] isCutoverPending threw:', e);
     return false;
   }
 }
@@ -68,7 +68,7 @@ export function isCutoverRunning(host: DelegateHost): boolean {
   try {
     return host.timed('isCutoverRunning', () => ffiIsCutoverRunning());
   } catch (e) {
-    console.error('[RouteEngine] isCutoverRunning threw:', e);
+    console.error('[Engine] isCutoverRunning threw:', e);
     return false;
   }
 }
@@ -108,7 +108,7 @@ export function startDetectorCutover(host: DelegateHost): boolean {
   try {
     return host.timed('startDetectorCutover', () => ffiStartDetectorCutover());
   } catch (e) {
-    console.error('[RouteEngine] startDetectorCutover threw:', e);
+    console.error('[Engine] startDetectorCutover threw:', e);
     return false;
   }
 }
@@ -121,7 +121,7 @@ export function getCutoverProgress(host: DelegateHost): CutoverProgress | null {
     const phase = CUTOVER_PHASES.includes(p.phase) ? (p.phase as CutoverPhase) : 'idle';
     return { phase, running: p.running };
   } catch (e) {
-    console.error('[RouteEngine] getCutoverProgress threw:', e);
+    console.error('[Engine] getCutoverProgress threw:', e);
     return null;
   }
 }
@@ -133,7 +133,7 @@ export function getCutoverDiff(host: DelegateHost): CutoverDiff | null {
     const json = host.timed('getCutoverDiff', () => ffiGetCutoverDiff());
     return json ? parseCutoverDiff(json) : null;
   } catch (e) {
-    console.error('[RouteEngine] getCutoverDiff threw:', e);
+    console.error('[Engine] getCutoverDiff threw:', e);
     return null;
   }
 }
@@ -208,7 +208,7 @@ export function getChangeCardSupport(host: DelegateHost): ChangeCardSupport {
   try {
     return ffiGetChangeCardSupport();
   } catch (e) {
-    console.error('[RouteEngine] getChangeCardSupport threw:', e);
+    console.error('[Engine] getChangeCardSupport threw:', e);
     return NO_SUPPORT;
   }
 }

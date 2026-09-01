@@ -8,7 +8,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 
@@ -28,7 +28,7 @@ export const HEATMAP_TILES_DIR = HEATMAP_DIR;
  */
 export function getHeatmapTilesCacheSize(): number {
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return 0;
     return engine.getHeatmapCacheSize(HEATMAP_DIR);
   } catch {
