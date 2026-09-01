@@ -761,6 +761,12 @@
     "activityRecorded": {
       "title": "Aktywność zarejestrowana"
     },
+    "activityPr": {
+      "title": "Nowy rekord życiowy"
+    },
+    "activityFaster": {
+      "title": "Szybciej niż zwykle"
+    },
     "privacy": {
       "title": "Informacja o prywatności",
       "brief": "Twój identyfikator sportowca i token push będą przechowywane na naszym serwerze (wygasają po 30 dniach). Powiadomienia są kierowane przez Apple lub Google, ale cała treść analiz jest generowana na Twoim urządzeniu. Żadne dane osobowe nie są przechowywane. Możesz wyłączyć w dowolnym momencie.",

@@ -40,8 +40,8 @@ const MANUFACTURER_DEVELOPMENT = 255;
 const PRODUCT_ID = 1; // App-specific, arbitrary for development manufacturer
 const APP_NAME = 'Veloq';
 const APP_VERSION_MAJOR = 0;
-const APP_VERSION_MINOR = 3;
-const SOFTWARE_VERSION = APP_VERSION_MAJOR * 100 + APP_VERSION_MINOR; // 0.3 → 3
+const APP_VERSION_MINOR = 4;
+const SOFTWARE_VERSION = APP_VERSION_MAJOR * 100 + APP_VERSION_MINOR; // 0.4 → 4
 
 // Sport types: [sport, sub_sport]
 const SPORT_MAP: Partial<Record<ActivityType, [number, number]>> = {

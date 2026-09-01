@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Actividad grabada"
     },
+    "activityPr": {
+      "title": "Nuevo récord personal"
+    },
+    "activityFaster": {
+      "title": "Más rápido de lo habitual"
+    },
     "privacy": {
       "title": "Aviso de privacidad",
       "brief": "Tu ID de atleta y un token push se almacenarán en nuestro servidor (caducidad de 30 días). Las notificaciones se enrutan a través de Apple o Google, pero todo el contenido de las perspectivas se genera en tu dispositivo. No se almacenan datos personales. Puedes desactivarlo en cualquier momento.",

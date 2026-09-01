@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Activité enregistrée"
     },
+    "activityPr": {
+      "title": "Nouveau record personnel"
+    },
+    "activityFaster": {
+      "title": "Plus rapide que d'habitude"
+    },
     "privacy": {
       "title": "Avis de confidentialité",
       "brief": "Votre identifiant athlète et un jeton push seront stockés sur notre serveur (expiration à 30 jours). Les notifications transitent par Apple ou Google mais tout le contenu des aperçus est généré sur votre appareil. Aucune donnée personnelle n'est stockée. Vous pouvez désactiver à tout moment.",

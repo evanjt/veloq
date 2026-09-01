@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Atividade gravada"
     },
+    "activityPr": {
+      "title": "Novo recorde pessoal"
+    },
+    "activityFaster": {
+      "title": "Mais rápido que o normal"
+    },
     "privacy": {
       "title": "Aviso de privacidade",
       "brief": "Seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações são encaminhadas pela Apple ou Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Nenhum dado pessoal é armazenado. Você pode desativar a qualquer momento.",

@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Aktivität ufgnoh"
     },
+    "activityPr": {
+      "title": "Persönliche Bestzyt"
+    },
+    "activityFaster": {
+      "title": "Schneller als üblich"
+    },
     "privacy": {
       "title": "Dateschutz-Hinwiis",
       "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Apple oder Google gschickt, aber de ganzi Inhalt wird uf dim Grät erstellt. Kei persönlichi Date werded gspicheret. Chasch jederzit deaktiviere.",

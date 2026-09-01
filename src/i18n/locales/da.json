@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Aktivitet registreret"
     },
+    "activityPr": {
+      "title": "Personlig rekord"
+    },
+    "activityFaster": {
+      "title": "Hurtigere end normalt"
+    },
     "privacy": {
       "title": "Privatlivsmeddelelse",
       "brief": "Dit atlet-ID og et push-token gemmes på vores server (30 dages udløb). Notifikationer sendes via Apple eller Google, men alt indsigtsindhold genereres på din enhed. Ingen personlige data gemmes. Du kan deaktivere når som helst.",

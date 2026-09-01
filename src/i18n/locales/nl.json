@@ -759,6 +759,12 @@
     "activityRecorded": {
       "title": "Activiteit opgenomen"
     },
+    "activityPr": {
+      "title": "Nieuw persoonlijk record"
+    },
+    "activityFaster": {
+      "title": "Sneller dan gewoonlijk"
+    },
     "privacy": {
       "title": "Privacymelding",
       "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen worden via Apple of Google verzonden, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Er worden geen persoonlijke gegevens opgeslagen. Je kunt dit op elk moment uitschakelen.",

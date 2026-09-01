@@ -10,11 +10,11 @@ import {
 } from '@/features/settings/lib/notificationService';
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-import { buildActivityNotificationBody } from './lib/activityNotificationBody';
+import { buildActivityNotification } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
-import { shouldDismissForActivity } from './lib/traySweep';
+import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
@@ -155,7 +155,7 @@ async function loadActivityMetadata(
 
 /**
  * Attach a freshly ingested activity to existing sections and route groups so
- * its PRs are available when buildActivityNotificationBody queries the engine.
+ * its PRs are available when buildActivityNotification queries the engine.
  * Cheap (one activity vs existing sections, incremental regroup) so it fits
  * the background push budget where a full O(N²) detection cannot. New sections
  * the activity might create wait for the next full detection run.
@@ -423,48 +423,57 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     // 9. Replace the placeholder with the enriched activity notification
     if (isActivityEvent && activityId) {
-      const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
-      const body = buildActivityNotificationBody(
+      // An ingest that failed has no name, and an empty body is how that
+      // reaches the tray decision below rather than as the notification's own
+      // title repeated back to the athlete.
+      const { title, body } = buildActivityNotification(
         activityId,
-        activityName,
+        activityInfo?.name ?? '',
         allowedNewInsights,
         prefs,
         activityInfo,
         t
       );
 
-      // Clear the tray entries for this activity (both the FCM-generated
-      // visible push and any older on-device one). We re-present below only
-      // if the app is not in foreground - if the user already opened the app
-      // via the notification tap, the in-app UI shows the data and leaving
-      // a stale tray entry up is noise. Anything else stays: see `traySweep`.
-      try {
-        const presented = await Notifications.getPresentedNotificationsAsync();
-        for (const n of presented) {
-          if (shouldDismissForActivity(n.request.identifier, n.request.content.data, activityId)) {
-            await Notifications.dismissNotificationAsync(n.request.identifier);
-          }
-        }
-      } catch (e) {
-        log.warn('Could not dismiss tray entries:', e);
-      }
+      // The enriched entry goes up, then the entries it replaces come down.
+      // Nothing is posted when the app is already open: the athlete is on the
+      // activity and a tray entry is noise, which is the common case when
+      // tapping the visible push cold-starts the app and the silent push fires
+      // the task a second later. The old entries still come down.
+      const action = trayActionFor(body, AppState.currentState === 'active');
+      const posted =
+        action === 'leave'
+          ? false
+          : await replaceActivityTrayEntry({
+              activityId,
+              listPresented: async () =>
+                (await Notifications.getPresentedNotificationsAsync()).map((n) => ({
+                  identifier: n.request.identifier,
+                  data: n.request.content.data,
+                })),
+              dismiss: (identifier) => Notifications.dismissNotificationAsync(identifier),
+              present:
+                action === 'dismiss-only'
+                  ? null
+                  : () =>
+                      presentActivityNotification(activityId, title, body, {
+                        route: `/activity/${activityId}`,
+                        activityId,
+                      }),
+            });
 
-      // Skip re-presenting if the user has already opened the app - they're
-      // looking at the data already, a tray entry is redundant. This is the
-      // common case when tapping the generic visible push cold-starts the
-      // app and the silent push fires the task a second or two later.
-      if (AppState.currentState === 'active') {
+      if (posted) {
+        log.log(`Notification sent: ${body}`);
+        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+      } else if (action === 'leave') {
+        log.warn('Nothing to say about this activity, leaving the tray as it is');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (no detail)' });
+      } else if (action === 'dismiss-only') {
         log.log('App foregrounded, skipping enriched notification re-post');
         await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (foreground)' });
       } else {
-        await presentActivityNotification(
-          activityId,
-          t('notifications.activityRecorded.title'),
-          body,
-          { route: `/activity/${activityId}`, activityId }
-        );
-        log.log(`Notification sent: ${body}`);
-        await appendTaskRun({ stage: 'notified', activityId, detail: body });
+        log.warn('Enriched notification could not be posted, tray left as it was');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'post failed' });
       }
     } else if (allowedNewInsights.length > 0) {
       // Non-activity event (fitness update, wellness change) with new insights.
