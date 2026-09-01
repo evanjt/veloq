@@ -9,6 +9,7 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  discardRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { classifyUploadError } from './classifyUploadError';
 import type { RecordingLibraryEntry } from '@/types';
@@ -69,9 +70,11 @@ export interface UploadRecordingResult {
  * transition. The single upload path shared by the review-screen save, the
  * background processor, and the library's manual "upload now".
  *
- * The FIT file on disk is the source of truth; nothing is deleted here on any
- * outcome. The engine streams it straight off disk, so a long ride never has to
- * fit in memory to be uploaded.
+ * The FIT file on disk is the source of truth until the upload lands, and no
+ * failure outcome deletes it. The engine streams it straight off disk, so a long
+ * ride never has to fit in memory to be uploaded. Once intervals.icu has the
+ * activity, and once everything that still needed the bytes has read them, the
+ * FIT is discarded.
  */
 export async function uploadRecording(
   entry: RecordingLibraryEntry
@@ -90,7 +93,12 @@ export async function uploadRecording(
       pairedEventId: entry.pairedEventId,
     });
     await markRecordingUploaded(entry.id, activityId);
+    // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
+    // A finished upload stays finished even if the file cannot be removed.
+    await discardRecordingFit(entry.id).catch((err) => {
+      log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
+    });
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);
