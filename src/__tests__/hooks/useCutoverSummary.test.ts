@@ -56,7 +56,12 @@ describe('useCutoverSummary', () => {
   it('reports no engine as idle with no counts', () => {
     mockGetEngine.mockReturnValue(null);
     const { result } = renderHook(() => useCutoverSummary());
-    expect(result.current).toEqual({ phase: 'idle', isRunning: false, counts: null });
+    expect(result.current).toEqual({
+      phase: 'idle',
+      isRunning: false,
+      counts: null,
+      sawRun: false,
+    });
   });
 
   it('reports the phase while the re-cut runs and withholds the counts', () => {
@@ -162,7 +167,12 @@ describe('useCutoverSummary', () => {
       )
     );
     const { result: thrown } = renderHook(() => useCutoverSummary());
-    expect(thrown.current).toEqual({ phase: 'idle', isRunning: false, counts: null });
+    expect(thrown.current).toEqual({
+      phase: 'idle',
+      isRunning: false,
+      counts: null,
+      sawRun: false,
+    });
   });
 
   it('parses the diff once while idle rather than on every poll', () => {

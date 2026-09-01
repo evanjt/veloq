@@ -282,6 +282,12 @@ export interface TranslationResource {
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
     previewSections: string;
+    cutoverRebuilding: string;
+    cutoverFailed: string;
+    cutoverPhaseDraining: string;
+    cutoverPhaseArchiving: string;
+    cutoverPhaseDetecting: string;
+    cutoverPhaseDiffing: string;
     previewAreaFallback: string;
     previewAreaVisits: string;
     previewAreaSections: string;

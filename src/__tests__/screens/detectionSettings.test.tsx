@@ -68,6 +68,7 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 jest.mock('@/features/settings/components', () => ({
   DetectionIllustration: () => null,
   ElevationBackfillStatus: () => null,
+  CutoverStatus: () => null,
 }));
 
 describe('detection settings screen', () => {
