@@ -384,13 +384,16 @@ impl PersistentEngine {
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         if section_type == "custom" {
-            // For custom sections, update polyline from new activity's track using indices
+            // The stored range is the one the athlete drew, and the map writes
+            // it inclusive, so the cut runs one past the end. A stream shorter
+            // than the range is clamped rather than refused: the athlete asked
+            // for this activity's line and the part of it that exists is it.
             let start = start_index.unwrap_or(0) as usize;
-            let end = end_index.unwrap_or(track.len() as u32) as usize;
-            let polyline: Vec<GpsPoint> = track
-                .get(start..end.min(track.len()))
-                .unwrap_or(&[])
-                .to_vec();
+            let end = end_index
+                .map(|end| end as usize + 1)
+                .unwrap_or(track.len())
+                .min(track.len());
+            let polyline: Vec<GpsPoint> = track.get(start..end).unwrap_or(&[]).to_vec();
 
             let polyline_blob = crate::persistence::codec::serialize_points(&polyline)
                 .map_err(|e| format!("Failed to encode polyline: {}", e))?;
