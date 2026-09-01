@@ -665,6 +665,7 @@
     "expandRange": "Expandir intervalo"
   },
   "maps": {
+    "threeDUnavailable": "O relevo precisa de conexão. Mostrando o mapa plano.",
     "unavailableTitle": "Mapa indisponível",
     "unavailableHint": "Não foi possível carregar o mapa. Verifique sua conexão e abra novamente.",
     "activitiesCount": "{{count}} atividades",

@@ -665,6 +665,7 @@
     "expandRange": "Bereich erwiitere"
   },
   "maps": {
+    "threeDUnavailable": "Das Gelände braucht eine Verbindung. Es wird die flache Karte gezeigt.",
     "unavailableTitle": "Charte gaht nöd",
     "unavailableHint": "D Charte hät nöd chöne lade. Lueg dini Verbindig aa und probiers nomol.",
     "activitiesCount": "{{count}} Aktivitäte",

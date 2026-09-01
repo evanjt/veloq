@@ -663,8 +663,8 @@ export function buildMapSurfaceHtml(config: MapSurfaceHtmlConfig): string {
   <script>
 ${consoleBridgeScript()}
 
-    // The renderer is fetched from a CDN and nothing below runs without it, so
-    // the watchdog is armed before the first line that touches maplibregl.
+    // Nothing below runs without the renderer, so the watchdog is armed
+    // before the first line that touches maplibregl.
     var _mapReadySent = false;
     var _mapFailedSent = false;
 

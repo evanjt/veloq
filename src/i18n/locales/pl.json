@@ -667,6 +667,7 @@
     "expandRange": "Rozszerz zakres"
   },
   "maps": {
+    "threeDUnavailable": "Teren wymaga połączenia. Pokazujemy płaską mapę.",
     "unavailableTitle": "Mapa niedostępna",
     "unavailableHint": "Nie udało się wczytać mapy. Sprawdź połączenie i otwórz ją ponownie.",
     "activitiesCount": "{{count}} aktywności",

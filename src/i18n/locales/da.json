@@ -665,6 +665,7 @@
     "expandRange": "Udvid interval"
   },
   "maps": {
+    "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
     "unavailableTitle": "Kort utilgængeligt",
     "unavailableHint": "Kortet kunne ikke indlæses. Tjek din forbindelse, og åbn det igen.",
     "activitiesCount": "{{count}} aktiviteter",

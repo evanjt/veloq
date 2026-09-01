@@ -117,9 +117,9 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
 ${consoleBridgeScript()}
 
     // The ready signal is the only thing that clears the loading spinner, so
-    // it is armed before anything that can throw. maplibregl comes off a CDN
-    // and the light style is fetched at runtime, so the page has to be able to
-    // report its own failure without either of them.
+    // it is armed before anything that can throw. The renderer is inlined and
+    // the light style is still fetched at runtime, so the page has to be able
+    // to report its own failure without either of them.
     var mapReadySent = false;
     var mapFailedSent = false;
 
@@ -129,6 +129,25 @@ ${consoleBridgeScript()}
       window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+      }
+      reportTerrainState();
+    }
+
+    // The renderer ships in the app but the DEM tiles do not, so an offline 3D
+    // open draws a flat map that looks like broken 3D. Reported once, after
+    // the page has settled, so the caller can drop back to 2D and say why.
+    var terrainReportSent = false;
+
+    function reportTerrainState() {
+      if (terrainReportSent) return;
+      if (terrainDelivered > 0 || terrainFailed === 0) return;
+      terrainReportSent = true;
+      window._rn_log('sending terrainUnavailable - ' + terrainFailed + ' DEM tiles failed');
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'terrainUnavailable',
+          reason: 'no terrain tiles: ' + terrainFailed + ' failed, none delivered'
+        }));
       }
     }
 
@@ -563,6 +582,9 @@ ${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
       // hand and the bytes stay inside the eviction budget.
       map.once('idle', function() {
         setTimeout(function() {
+          // A DEM tile that fails after the ready signal still leaves a flat
+          // map, so the state is re-read once the page has stopped moving.
+          reportTerrainState();
           var z = Math.floor(map.getZoom());
           var b = map.getBounds();
           function lng2tile(lng, zoom) { return Math.floor((lng + 180) / 360 * Math.pow(2, zoom)); }

@@ -691,6 +691,7 @@
     "loadingOlderActivities": "Loading older activities..."
   },
   "maps": {
+    "threeDUnavailable": "Terrain needs a connection. Showing the flat map.",
     "unavailableTitle": "Map unavailable",
     "unavailableHint": "The map could not load. Check your connection and open it again.",
     "activitiesCount": "{{count}} activities",

@@ -665,6 +665,7 @@
     "expandRange": "扩展范围"
   },
   "maps": {
+    "threeDUnavailable": "地形需要联网。现在显示平面地图。",
     "unavailableTitle": "地图不可用",
     "unavailableHint": "地图加载失败。请检查网络连接后重新打开。",
     "activitiesCount": "{{count}} 个活动",

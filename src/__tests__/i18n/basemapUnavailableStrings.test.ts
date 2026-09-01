@@ -1,7 +1,9 @@
 /**
  * The basemap-unavailable state is the only thing a map surface can say when
- * the renderer never loaded, so it has to say it in the reader's language.
- * English left in place reads as a bug rather than an explanation.
+ * the renderer never loaded, and the terrain-unavailable notice is the only
+ * thing a 3D view can say when it dropped back to the flat map. Both have to
+ * say it in the reader's language. English left in place reads as a bug rather
+ * than an explanation.
  */
 
 import * as fs from 'fs';
@@ -9,7 +11,7 @@ import * as path from 'path';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
-const KEYS = ['unavailableTitle', 'unavailableHint'] as const;
+const KEYS = ['unavailableTitle', 'unavailableHint', 'threeDUnavailable'] as const;
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 

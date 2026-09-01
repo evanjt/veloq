@@ -31,6 +31,7 @@ interface Map3DBridgeParams {
   updateLayers: () => void;
   onMapReady?: () => void;
   onMapFailed?: (reason: string) => void;
+  onTerrainUnavailable?: (reason: string) => void;
   onBearingChange?: (bearing: number) => void;
   onCameraStateChange?: (camera: Camera) => void;
 }
@@ -47,6 +48,7 @@ export function useMap3DBridge({
   updateLayers,
   onMapReady,
   onMapFailed,
+  onTerrainUnavailable,
   onBearingChange,
   onCameraStateChange,
 }: Map3DBridgeParams) {
@@ -66,6 +68,12 @@ export function useMap3DBridge({
       mapFailed: (data: WebViewBridgeMessage) => {
         mapReadyRef.current = false;
         onMapFailed?.(typeof data.reason === 'string' ? data.reason : 'unknown');
+      },
+      // Not a failure: the page rendered, it just has no elevation to drape
+      // over. The caller drops to 2D rather than leaving a flat map that reads
+      // as broken 3D.
+      terrainUnavailable: (data: WebViewBridgeMessage) => {
+        onTerrainUnavailable?.(typeof data.reason === 'string' ? data.reason : 'unknown');
       },
       bearingChange: (data: WebViewBridgeMessage) => {
         if (typeof data.bearing === 'number') {
@@ -182,6 +190,7 @@ export function useMap3DBridge({
       onActivityClickRef,
       onMapReady,
       onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
       updateLayers,

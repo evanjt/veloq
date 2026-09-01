@@ -665,6 +665,7 @@
     "expandRange": "Estendi intervallo"
   },
   "maps": {
+    "threeDUnavailable": "Il rilievo richiede una connessione. Viene mostrata la mappa piatta.",
     "unavailableTitle": "Mappa non disponibile",
     "unavailableHint": "Impossibile caricare la mappa. Controlla la connessione e riaprila.",
     "activitiesCount": "{{count}} attività",

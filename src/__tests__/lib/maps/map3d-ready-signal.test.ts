@@ -37,9 +37,11 @@ function buildConfig(overrides: Partial<Map3DHtmlConfig> = {}): Map3DHtmlConfig 
   };
 }
 
-/** The page carries one inline script after the MapLibre CDN tag in the head. */
+/** The page carries one inline script after the bundled renderer in the head. */
 function extractPageScript(html: string): string {
-  const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+  const blocks = [
+    ...html.matchAll(/<script(?![^>]*\bsrc=)(?![^>]*maplibre-gl)[^>]*>([\s\S]*?)<\/script>/g),
+  ];
   expect(blocks.length).toBe(1);
   return blocks[0][1];
 }
@@ -220,7 +222,7 @@ describe('3D map ready signal', () => {
     expect(typesOf(posted)).toContain('mapFailed');
   });
 
-  it('posts mapFailed when maplibregl never loaded from the CDN', () => {
+  it('posts mapFailed when maplibregl never defined itself', () => {
     const { posted } = runPage(buildMap3DHtml(buildConfig()), { withMapLibre: false });
     jest.advanceTimersByTime(60_000);
 

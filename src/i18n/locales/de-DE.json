@@ -665,6 +665,7 @@
     "expandRange": "Bereich erweitern"
   },
   "maps": {
+    "threeDUnavailable": "Das Gelände braucht eine Verbindung. Es wird die flache Karte gezeigt.",
     "unavailableTitle": "Karte nicht verfügbar",
     "unavailableHint": "Die Karte konnte nicht geladen werden. Prüfe deine Verbindung und öffne sie erneut.",
     "activitiesCount": "{{count}} Aktivitäten",

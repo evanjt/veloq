@@ -665,6 +665,7 @@
     "expandRange": "範囲を広げる"
   },
   "maps": {
+    "threeDUnavailable": "地形には接続が必要です。平面の地図を表示しています。",
     "unavailableTitle": "地図を表示できません",
     "unavailableHint": "地図を読み込めませんでした。接続を確認してもう一度開いてください。",
     "activitiesCount": "{{count}}件のアクティビティ",

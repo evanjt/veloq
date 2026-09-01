@@ -665,6 +665,7 @@
     "expandRange": "Ampliar rango"
   },
   "maps": {
+    "threeDUnavailable": "El relieve necesita conexión. Se muestra el mapa plano.",
     "unavailableTitle": "Mapa no disponible",
     "unavailableHint": "No se ha podido cargar el mapa. Revisa tu conexión y ábrelo de nuevo.",
     "activitiesCount": "{{count}} actividades",

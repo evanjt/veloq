@@ -665,6 +665,7 @@
     "expandRange": "Bereik uitbreiden"
   },
   "maps": {
+    "threeDUnavailable": "Terrein vereist een verbinding. De platte kaart wordt getoond.",
     "unavailableTitle": "Kaart niet beschikbaar",
     "unavailableHint": "De kaart kon niet laden. Controleer je verbinding en open hem opnieuw.",
     "activitiesCount": "{{count}} activiteiten",
