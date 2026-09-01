@@ -96,7 +96,7 @@ export async function uploadRecording(
     // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
     // A finished upload stays finished even if the file cannot be removed.
-    await discardRecordingFit(entry.id).catch((err) => {
+    await discardRecordingFit(entry.id).catch((err: unknown) => {
       log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
     });
     return { outcome: 'uploaded' };
