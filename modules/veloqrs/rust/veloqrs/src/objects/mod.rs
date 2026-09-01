@@ -16,4 +16,7 @@ mod tiles;
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
 pub use preview::SectionPreview;
-pub use sync::{FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SyncManager, current_transport};
+pub use sync::{
+    FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SYNC_SERVICE, SyncManager, SyncState,
+    current_transport, park_auth_expired,
+};

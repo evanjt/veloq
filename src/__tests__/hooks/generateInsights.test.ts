@@ -1364,6 +1364,69 @@ describe('consolidateInsights', () => {
     ]);
   });
 
+  // ============================================================
+  // Why a story was dropped
+  //
+  // Scenario: the drop reason is on screen in the debug panel, which is the
+  // one tool for asking why a card is missing.
+  // Expected behaviour: a story dropped for a PR names the PR, and a story
+  // dropped for an earlier story names the story, so the reader is not sent
+  // looking for a PR card that was never generated.
+  // ============================================================
+
+  it('names the earlier story, not a PR, when one story covers another', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-s1', 'duplicate section (already covered by an earlier story)']]);
+  });
+
+  it('still names the PR when the PR is what covered the section', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-s1', 'duplicate section (already covered by PR insight)']]);
+  });
+
+  it('names the earlier story when a PR covers one section and a story the other', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('stale-s2', 'stale_pr', 1, { sectionIds: ['s2'] }),
+      createInsight('efficiency-both', 'efficiency_trend', 1, { sectionIds: ['s1', 's2'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-both', 'duplicate section (already covered by an earlier story)']]);
+  });
+
+  it('names the PR for a story a later PR covers, since no story covered it', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 5, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['stale-s1', 'duplicate section (already covered by PR insight)']]);
+  });
+
   it('records the section story limit as the reason it dropped a card', () => {
     generateInsights(EMPTY_INPUT, mockT);
 

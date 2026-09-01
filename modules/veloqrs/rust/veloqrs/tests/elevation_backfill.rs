@@ -23,9 +23,11 @@ use tracematch::GpsPoint;
 use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
-    BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL, BackfillRun,
-    MAX_CONSECUTIVE_FAILURES, backfill_progress, detect_runs_started, run_elevation_backfill,
+    BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
+    BACKFILL_RETRY_ROUNDS, BackfillRun, MAX_CONSECUTIVE_FAILURES, backfill_progress,
+    backfill_retry_delays, detect_runs_started, run_elevation_backfill,
 };
+use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
     SECTION_DETECTION_HANDLE, persistent_engine_init,
 };
@@ -71,6 +73,23 @@ fn flat_streams(seed: f64) -> serde_json::Value {
 fn fast_transport(base: String) -> Transport {
     let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
     Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).expect("transport")
+}
+
+/// The same transport carrying an OAuth token, so the auth method a 401
+/// arrives under is a variable the tests can set.
+fn fast_oauth_transport(base: String) -> Transport {
+    let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+    Transport::with_governor(base, AuthMethod::Bearer("t"), gov).expect("transport")
+}
+
+/// The process-wide sync service is shared across these tests, so each one
+/// that reads it starts from a live session rather than the last test's park.
+fn live_session() {
+    SYNC_SERVICE.finish(SyncState::Idle, None, false);
+}
+
+fn sync_state() -> String {
+    SYNC_SERVICE.snapshot().state
 }
 
 /// A fresh global engine holding `ids` flat tracks, all at elevation state
@@ -1083,4 +1102,313 @@ fn work_landing_between_the_failures_keeps_the_pass_going() {
         "the run of failures never reached the threshold, so nothing should have stopped"
     );
     assert!(outcome.elevated > 0);
+}
+
+// ============================================================================
+// Backoff inside the pass
+//
+// Scenario: the connection drops for a moment part way through a long pass.
+// Expected behaviour: the pass re-asks the tracks the connection refused,
+// waiting longer before each round, rather than deferring every one of them to
+// the next cold launch. Bounded, so a connection that is really gone still ends
+// the pass rather than looping on it.
+//
+// One ask is four hits: the backfill lane retries a transient answer three
+// times inside the request before it gives the pass an error to work with.
+// `Retry-After: 0` keeps that ladder fast while still taking the path the
+// transport honours.
+// ============================================================================
+
+const HITS_PER_ASK: usize = 4;
+
+static REFUSALS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Refuses the first ask, whichever activity it is for, then stops refusing.
+/// Tests are serialised, so the count belongs to the one running.
+fn refuse_the_first_ask(_req: &httpmock::prelude::HttpMockRequest) -> bool {
+    REFUSALS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < HITS_PER_ASK
+}
+
+/// `id` is refused once, then answers with altitude.
+fn refused_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
+    REFUSALS.store(0, std::sync::atomic::Ordering::SeqCst);
+    let path = format!("/activity/{id}/streams.json");
+    let refused = path.clone();
+    server.mock(|when, then| {
+        when.path(refused).matches(refuse_the_first_ask);
+        then.status(429)
+            .header("Retry-After", "0")
+            .body("slow down");
+    });
+    server.mock(|when, then| {
+        when.path(path);
+        then.status(200).json_body(elevated_streams(seed));
+    });
+}
+
+#[test]
+fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a", "b"]);
+
+    let server = MockServer::start();
+    refused_once_then_elevated(&server, "a", 0.0);
+    server.mock(|when, then| {
+        when.path("/activity/b/streams.json");
+        then.status(200).json_body(elevated_streams(0.4));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        outcome.elevated, 2,
+        "the track the connection refused was never re-asked inside the pass"
+    );
+    assert_eq!(outcome.failed, 0, "a track that landed is not a failure");
+    assert!(
+        queue_ids().is_empty(),
+        "the queue drained, so nothing is owed"
+    );
+    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_COMPLETE);
+}
+
+#[test]
+fn the_re_asking_is_bounded_and_waits_longer_each_round() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a"]);
+
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.path("/activity/a/streams.json");
+        then.status(429)
+            .header("Retry-After", "0")
+            .body("slow down");
+    });
+
+    let started = Instant::now();
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let elapsed = started.elapsed();
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        outcome.failed, 1,
+        "one track failed, however many times it was asked"
+    );
+    assert_eq!(outcome.elevated, 0);
+    assert_eq!(
+        mock.hits(),
+        HITS_PER_ASK * (1 + BACKFILL_RETRY_ROUNDS),
+        "the first ask plus one per bounded round, and no more"
+    );
+
+    let ladder: Duration = backfill_retry_delays().iter().sum();
+    assert!(
+        elapsed >= ladder,
+        "the rounds ran back to back instead of backing off: {elapsed:?} < {ladder:?}"
+    );
+    assert!(
+        backfill_retry_delays().windows(2).all(|w| w[1] > w[0]),
+        "each round has to wait longer than the one before it"
+    );
+    assert_eq!(
+        backfill_progress().phase,
+        BACKFILL_PHASE_PARTIAL,
+        "the queue is not drained, so the next run still has work"
+    );
+    assert_eq!(queue_ids().len(), 1);
+}
+
+#[test]
+fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a"]);
+
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.path("/activity/a/streams.json");
+        then.status(404).body("no such activity");
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        mock.hits(),
+        1,
+        "a 404 is upstream answering, not the connection going away"
+    );
+    assert_eq!(outcome.failed, 1);
+}
+
+#[test]
+fn a_connection_that_is_gone_is_not_re_asked_at_all() {
+    let _serial = serial();
+    let (_dir, ids) = seeded_long_queue();
+
+    let server = MockServer::start();
+    answer_all(&server, &ids, 429, true);
+
+    let started = Instant::now();
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let elapsed = started.elapsed();
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {run:?}");
+    };
+
+    assert_eq!(
+        outcome.failed, MAX_CONSECUTIVE_FAILURES as u32,
+        "the stop threshold already decided nothing is coming back"
+    );
+    let ladder: Duration = backfill_retry_delays().iter().sum();
+    assert!(
+        elapsed < ladder,
+        "a pass stopped for a dead connection spent the backoff anyway: {elapsed:?}"
+    );
+}
+
+#[test]
+fn re_asking_never_reports_more_progress_than_the_queue_held() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a", "b"]);
+
+    let server = MockServer::start();
+    refused_once_then_elevated(&server, "a", 0.0);
+    server.mock(|when, then| {
+        when.path("/activity/b/streams.json");
+        then.status(200).json_body(elevated_streams(0.4));
+    });
+
+    run_elevation_backfill(&fast_transport(server.base_url()));
+
+    let progress = backfill_progress();
+    assert_eq!(progress.total, 2);
+    assert_eq!(
+        progress.completed, 2,
+        "the retry counted its tracks a second time"
+    );
+}
+
+/// Scenario: a token is revoked while the backfill is the only thing talking
+/// to intervals.icu.
+///
+/// Expected behaviour: the rejected credential reaches the same park a sync
+/// step's 401 does, so the one hook that signs the session out sees it.
+/// Without this the pass ends "failed", the settings line says the update
+/// could not run, and the dead session stands until something else asks.
+#[test]
+fn a_rejected_credential_parks_the_sync_service() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1", "a2"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(401);
+    });
+
+    let run = run_elevation_backfill(&fast_oauth_transport(server.base_url()));
+    assert!(
+        matches!(run, BackfillRun::Failed(_)),
+        "a rejected credential fails the pass, got {:?}",
+        run
+    );
+
+    let status = SYNC_SERVICE.snapshot();
+    assert_eq!(
+        status.state, "authExpired",
+        "the 401 never reached the session-expiry path"
+    );
+    assert_eq!(status.last_error.as_deref(), Some("unauthorized"));
+}
+
+/// The park is auth-method agnostic, exactly as `Q20` decided. What an
+/// API-key session then does with it is `B90`, not this.
+#[test]
+fn an_api_key_401_parks_the_service_too() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(401);
+    });
+
+    run_elevation_backfill(&fast_transport(server.base_url()));
+
+    assert_eq!(sync_state(), "authExpired");
+}
+
+/// A connection that is gone says nothing about the credential, so the pass
+/// gives up without signing anybody out.
+#[test]
+fn a_connectivity_failure_leaves_the_session_alone() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1", "a2"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(503);
+    });
+
+    run_elevation_backfill(&fast_transport(server.base_url()));
+
+    assert_eq!(
+        sync_state(),
+        "idle",
+        "a 5xx is not a rejected credential and must not sign the athlete out"
+    );
+}
+
+/// Neither does a pass that works.
+#[test]
+fn a_clean_pass_leaves_the_session_alone() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(200).json_body(elevated_streams(0.0));
+    });
+
+    run_elevation_backfill(&fast_transport(server.base_url()));
+    drain_detection();
+
+    assert_eq!(sync_state(), "idle");
+}
+
+/// The second pass parks too. Nothing latches the first one, so a resume that
+/// runs while the token is still dead reports it again rather than falling
+/// silent.
+#[test]
+fn a_second_rejected_pass_parks_again() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(401);
+    });
+
+    run_elevation_backfill(&fast_transport(server.base_url()));
+    assert_eq!(sync_state(), "authExpired");
+
+    live_session();
+    run_elevation_backfill(&fast_transport(server.base_url()));
+    assert_eq!(sync_state(), "authExpired", "the second pass fell silent");
 }

@@ -369,38 +369,6 @@ impl From<FfiRouteGroup> for tracematch::RouteGroup {
 // Section Detection Types
 // ============================================================================
 
-/// Scale preset for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiScalePreset {
-    pub name: String,
-    pub min_length: f64,
-    pub max_length: f64,
-    pub min_activities: u32,
-}
-
-impl From<tracematch::ScalePreset> for FfiScalePreset {
-    fn from(s: tracematch::ScalePreset) -> Self {
-        Self {
-            name: s.name.to_string(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
-impl From<FfiScalePreset> for tracematch::ScalePreset {
-    fn from(s: FfiScalePreset) -> Self {
-        Self {
-            name: s.name.parse().unwrap_or_default(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
 /// Section config for FFI
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -413,7 +381,6 @@ pub struct FfiSectionConfig {
     pub sample_points: u32,
     pub detection_mode: String,
     pub include_potentials: bool,
-    pub scale_presets: Vec<FfiScalePreset>,
     pub preserve_hierarchy: bool,
     pub jaccard_threshold: f64,
     pub min_routes: u32,
@@ -435,11 +402,6 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.parse().unwrap_or_default(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(tracematch::ScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,
@@ -465,12 +427,6 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.to_string(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .iter()
-                .cloned()
-                .map(FfiScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,
@@ -495,11 +451,6 @@ impl Default for FfiSectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.to_string(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(FfiScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,

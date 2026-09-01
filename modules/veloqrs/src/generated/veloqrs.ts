@@ -5715,62 +5715,6 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
 })();
 
 /**
- * Scale preset for FFI
- */
-export type FfiScalePreset = {
-  name: string;
-  minLength: /*f64*/ number;
-  maxLength: /*f64*/ number;
-  minActivities: /*u32*/ number;
-};
-
-/**
- * Generated factory for {@link FfiScalePreset} record objects.
- */
-export const FfiScalePreset = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiScalePreset, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiScalePreset>,
-  });
-})();
-
-const FfiConverterTypeFfiScalePreset = (() => {
-  type TypeName = FfiScalePreset;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        name: FfiConverterString.read(from),
-        minLength: FfiConverterFloat64.read(from),
-        maxLength: FfiConverterFloat64.read(from),
-        minActivities: FfiConverterUInt32.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.name, into);
-      FfiConverterFloat64.write(value.minLength, into);
-      FfiConverterFloat64.write(value.maxLength, into);
-      FfiConverterUInt32.write(value.minActivities, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterFloat64.allocationSize(value.minLength) +
-        FfiConverterFloat64.allocationSize(value.maxLength) +
-        FfiConverterUInt32.allocationSize(value.minActivities)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Unified section for FFI.
  * Represents both auto-detected and custom sections with the same structure.
  */
@@ -6209,7 +6153,6 @@ export type FfiSectionConfig = {
   samplePoints: /*u32*/ number;
   detectionMode: string;
   includePotentials: boolean;
-  scalePresets: Array<FfiScalePreset>;
   preserveHierarchy: boolean;
   jaccardThreshold: /*f64*/ number;
   minRoutes: /*u32*/ number;
@@ -6250,7 +6193,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         samplePoints: FfiConverterUInt32.read(from),
         detectionMode: FfiConverterString.read(from),
         includePotentials: FfiConverterBool.read(from),
-        scalePresets: FfiConverterArrayTypeFfiScalePreset.read(from),
         preserveHierarchy: FfiConverterBool.read(from),
         jaccardThreshold: FfiConverterFloat64.read(from),
         minRoutes: FfiConverterUInt32.read(from),
@@ -6270,7 +6212,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
       FfiConverterUInt32.write(value.samplePoints, into);
       FfiConverterString.write(value.detectionMode, into);
       FfiConverterBool.write(value.includePotentials, into);
-      FfiConverterArrayTypeFfiScalePreset.write(value.scalePresets, into);
       FfiConverterBool.write(value.preserveHierarchy, into);
       FfiConverterFloat64.write(value.jaccardThreshold, into);
       FfiConverterUInt32.write(value.minRoutes, into);
@@ -6290,7 +6231,6 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         FfiConverterUInt32.allocationSize(value.samplePoints) +
         FfiConverterString.allocationSize(value.detectionMode) +
         FfiConverterBool.allocationSize(value.includePotentials) +
-        FfiConverterArrayTypeFfiScalePreset.allocationSize(value.scalePresets) +
         FfiConverterBool.allocationSize(value.preserveHierarchy) +
         FfiConverterFloat64.allocationSize(value.jaccardThreshold) +
         FfiConverterUInt32.allocationSize(value.minRoutes) +
@@ -16818,11 +16758,6 @@ const FfiConverterArrayTypeFfiRoutePerformance = new FfiConverterArray(
   FfiConverterTypeFfiRoutePerformance,
 );
 
-// FfiConverter for Array<FfiScalePreset>
-const FfiConverterArrayTypeFfiScalePreset = new FfiConverterArray(
-  FfiConverterTypeFfiScalePreset,
-);
-
 // FfiConverter for Array<FfiSection>
 const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
   FfiConverterTypeFfiSection,
@@ -18981,7 +18916,6 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutePerformanceResult,
     FfiConverterTypeFfiRouteSignature,
     FfiConverterTypeFfiRoutesScreenData,
-    FfiConverterTypeFfiScalePreset,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionChange,
     FfiConverterTypeFfiSectionChartData,
