@@ -149,7 +149,12 @@ describe('the snapshot worker holds the same vector contract', () => {
     const html = buildSnapshotWorkerHtml(0);
     const start = html.indexOf("var VECTOR_CACHE = 'veloq-vector-v1';");
     expect(start).toBeGreaterThan(-1);
-    const end = html.indexOf('// Cache eviction', start);
+    // Stop at whichever block follows the vector protocol, so an insertion
+    // between them does not drag unrelated scope into the eval.
+    const end = ['// The sprite and the Latin glyph ranges', '// Cache eviction']
+      .map((marker) => html.indexOf(marker, start))
+      .filter((at) => at > start)
+      .sort((a, b) => a - b)[0];
     expect(end).toBeGreaterThan(start);
     return 'function maybeEvict() {}\n' + html.substring(start, end);
   }

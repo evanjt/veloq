@@ -11,7 +11,7 @@
  *
  * Kept as a pure function so callers can memoize it off the worker list.
  */
-import { consoleBridgeScript, mapLibreHead } from './shared';
+import { bundledAssetsScript, consoleBridgeScript, mapLibreHead } from './shared';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -163,6 +163,8 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
         });
       });
     });
+
+    ${bundledAssetsScript({ workerId: 'window._workerId' })}
 
     // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
     var _insertCounts = {};

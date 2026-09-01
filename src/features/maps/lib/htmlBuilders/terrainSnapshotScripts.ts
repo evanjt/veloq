@@ -28,13 +28,14 @@ export function buildRenderSnapshotScript(
   const isFlat = request.flat === true;
 
   // Satellite and dark are inline objects; light is fetched from its URL so
-  // MapLibre resolves the TileJSON itself, the same as the detail 3D view.
-  // The worker page registers no protocol handlers, so a `bundled://` request
-  // would go unanswered. Snapshots keep their labels on the network.
-  const { styleJSON: styleConfig, url } = resolveStyleExpression(request.mapStyle, {
-    ...TERRAIN_STYLE_OPTIONS,
-    bundledAssets: false,
-  });
+  // MapLibre resolves the TileJSON itself, the same as the detail 3D view. The
+  // bundle reaches the two inline styles only: a light snapshot fetches the
+  // hosted style and takes its sprite and glyph URLs from there, so it needs the
+  // radio for the style before the labels are a question at all.
+  const { styleJSON: styleConfig, url } = resolveStyleExpression(
+    request.mapStyle,
+    TERRAIN_STYLE_OPTIONS
+  );
   const lightStyleUrl = url ?? '';
 
   const coordsJSON = JSON.stringify(request.coordinates);

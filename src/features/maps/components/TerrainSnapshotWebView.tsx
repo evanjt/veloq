@@ -37,7 +37,11 @@ import {
   onTileCacheStatsRequest,
   emitTileCacheStats,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import {
+  buildSnapshotWorkerHtml,
+  buildBundledAssetReplyScript,
+} from '@/features/maps/lib/htmlBuilders';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -240,6 +244,17 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           if (typeof data.workerId !== 'number') return;
           if (!workers[data.workerId]) return;
           if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+        },
+        bundledAssetRequest: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          const worker = workers[data.workerId];
+          if (!worker) return;
+          const requestId = data.requestId as string;
+          const path = data.path as string;
+          if (!requestId || !path) return;
+          worker.webViewRef.current?.injectJavaScript(
+            buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path))
+          );
         },
         mapReady: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;

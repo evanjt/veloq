@@ -209,6 +209,44 @@ export function tileProtocolsScript(): string {
       });
     }
 
+    ${bundledAssetsScript()}
+
+    window._heatmapRequests = {};
+    maplibregl.addProtocol('heatmap-file', function(params) {
+      var tilePath = params.url.replace('heatmap-file://', '');
+      return new Promise(function(resolve, reject) {
+        var requestId = '_ht_' + Date.now() + '_' + Math.random().toString(36).substr(2);
+        window._heatmapRequests[requestId] = { resolve: resolve, reject: reject };
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'heatmapTileRequest',
+          requestId: requestId,
+          tilePath: tilePath
+        }));
+        setTimeout(function() {
+          if (window._heatmapRequests[requestId]) {
+            delete window._heatmapRequests[requestId];
+            reject(new Error('heatmap tile timeout'));
+          }
+        }, 10000);
+      });
+    });
+  `;
+}
+
+/**
+ * Registers the `bundled` protocol, which asks the host for a basemap asset that
+ * ships in the app and falls back to the network for anything it does not carry.
+ *
+ * Split out of `tileProtocolsScript` so the snapshot worker can take the bundled
+ * assets without also taking the terrain, satellite and vector caches, which
+ * would change what a preview costs to render. Pass `workerId` where several
+ * pages post through one `onMessage`, so the host knows which to reply into.
+ *
+ * Expects `demBlobToImage` in scope, which both callers define.
+ */
+export function bundledAssetsScript(options: { workerId?: string } = {}): string {
+  const workerField = options.workerId ? `, workerId: ${options.workerId}` : '';
+  return `
     // The sprite and the Latin glyph ranges ship in the app, so a map with no
     // radio still draws its icons and its place names. Anything the host does
     // not carry falls back to the network, which is where CJK lives.
@@ -240,33 +278,12 @@ export function tileProtocolsScript(): string {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'bundledAssetRequest',
           requestId: requestId,
-          path: path
+          path: path${workerField}
         }));
         // A host that never answers must not cost the page its labels.
         setTimeout(function() { if (!settled) done(fromNetwork()); }, 3000);
       });
-    });
-
-    window._heatmapRequests = {};
-    maplibregl.addProtocol('heatmap-file', function(params) {
-      var tilePath = params.url.replace('heatmap-file://', '');
-      return new Promise(function(resolve, reject) {
-        var requestId = '_ht_' + Date.now() + '_' + Math.random().toString(36).substr(2);
-        window._heatmapRequests[requestId] = { resolve: resolve, reject: reject };
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'heatmapTileRequest',
-          requestId: requestId,
-          tilePath: tilePath
-        }));
-        setTimeout(function() {
-          if (window._heatmapRequests[requestId]) {
-            delete window._heatmapRequests[requestId];
-            reject(new Error('heatmap tile timeout'));
-          }
-        }, 10000);
-      });
-    });
-  `;
+    });`;
 }
 
 /**
