@@ -41,6 +41,7 @@ export function convertNativeSectionToApp(native: NativeSection): FrequentSectio
     avgGradePercent: native.avgGradePercent ?? undefined,
     maxGradePercent: native.maxGradePercent ?? undefined,
     klass: native.klass ?? undefined,
+    isLift: native.isLift,
     rankScore: native.rankScore ?? undefined,
     sportRankScore: native.sportRankScore ?? undefined,
     version: native.version ?? undefined,

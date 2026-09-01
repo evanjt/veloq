@@ -1066,6 +1066,7 @@
     "expandMode": "Expand",
     "resetBoundsConfirm": "Reset to the original auto-detected bounds?\n\nThe section will be re-matched against all your activities.",
     "traversals": "times through",
+    "liftGround": "Lift",
     "trimFailed": "Failed to trim section bounds",
     "trimTooShort": "Section must have at least 5 points",
     "expandUnavailable": "No activity track available for expansion",

@@ -1066,6 +1066,7 @@
     "expandMode": "Erweitern",
     "resetBoundsConfirm": "Auf die ursprünglich automatisch erkannten Grenzen zurücksetzen?\n\nDer Abschnitt wird erneut mit allen deinen Aktivitäten abgeglichen.",
     "traversals": "Durchfahrten",
+    "liftGround": "Lift",
     "trimFailed": "Abschnittsgrenzen konnten nicht zugeschnitten werden",
     "trimTooShort": "Der Abschnitt muss mindestens 5 Punkte haben",
     "expandUnavailable": "Kein Aktivitätstrack zur Erweiterung verfügbar",

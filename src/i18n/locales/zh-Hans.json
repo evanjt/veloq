@@ -1066,6 +1066,7 @@
     "expandMode": "扩展",
     "resetBoundsConfirm": "恢复到自动检测的原始边界？\n\n该路段将与您的所有活动重新匹配。",
     "traversals": "次通过",
+    "liftGround": "缆车",
     "trimFailed": "裁剪路段边界失败",
     "trimTooShort": "路段必须至少有5个点",
     "expandUnavailable": "没有可用于扩展的活动轨迹",

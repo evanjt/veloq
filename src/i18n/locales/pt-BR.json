@@ -1066,6 +1066,7 @@
     "expandMode": "Expandir",
     "resetBoundsConfirm": "Restaurar os limites originais detectados automaticamente?\n\nA seção será novamente comparada com todas as suas atividades.",
     "traversals": "travessias",
+    "liftGround": "Teleférico",
     "trimFailed": "Falha ao recortar os limites da seção",
     "trimTooShort": "A seção deve ter pelo menos 5 pontos",
     "expandUnavailable": "Nenhuma trilha de atividade disponível para expansão",
