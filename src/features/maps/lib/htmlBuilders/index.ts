@@ -4,7 +4,12 @@ export { buildUpdateLayersScript } from './map3DScripts';
 export { buildRenderSnapshotScript } from './terrainSnapshotScripts';
 export type { SnapshotRequest } from './terrainSnapshotScripts';
 export { buildSnapshotWorkerHtml } from './snapshotWorker';
-export { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+export {
+  consoleBridgeScript,
+  mapLibreHead,
+  tileProtocolsScript,
+  vectorProtocolScript,
+} from './shared';
 export {
   resolveStyleForWebView,
   resolveStyleExpression,

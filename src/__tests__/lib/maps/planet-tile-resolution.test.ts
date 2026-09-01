@@ -11,7 +11,7 @@
 
 import { rewriteVectorUrls } from '@/features/maps/components/mapStyles';
 import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
-import { tileProtocolsScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { tileProtocolsScript, vectorProtocolScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 
 const PLANET = 'https://tiles.openfreemap.org/planet';
@@ -174,5 +174,26 @@ describe('the snapshot worker holds the same vector contract', () => {
       url: 'cached-vector://tiles.openfreemap.org/planet',
     });
     expect((result.data as { tiles: string[] }).tiles[0]).toContain('20260823_080002_pt');
+  });
+});
+
+/**
+ * Scenario: the vector protocol is registered by two pages over one cache.
+ * Expected behaviour: there is one copy of it. `B117` was a defect in the
+ * contract, and fixing it meant editing both handlers, which is the argument
+ * for the snippet being shared rather than duplicated.
+ */
+describe('one vector protocol, two pages', () => {
+  it('is the same text in the interactive surfaces and in the worker', () => {
+    const snippet = vectorProtocolScript();
+    expect(snippet).toContain("addProtocol('cached-vector'");
+    expect(tileProtocolsScript()).toContain(snippet);
+    expect(buildSnapshotWorkerHtml(0)).toContain(snippet);
+  });
+
+  it('registers the protocol exactly once on each page', () => {
+    for (const page of [tileProtocolsScript(), buildSnapshotWorkerHtml(0)]) {
+      expect(page.split("addProtocol('cached-vector'").length - 1).toBe(1);
+    }
   });
 });
