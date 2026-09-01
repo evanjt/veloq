@@ -11,6 +11,7 @@ import {
   getCombinedSatelliteStyle,
   rewriteSatelliteUrls,
   rewriteVectorUrls,
+  rewriteBundledAssets,
   MAP_STYLE_URLS,
 } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
@@ -32,6 +33,12 @@ export interface WebViewStyleOptions {
    * cold map does not wait on a style fetch.
    */
   bundledLightStyle?: boolean;
+  /**
+   * Serve the sprite and the Latin glyph ranges out of the app bundle. On by
+   * default. Off for a page that does not register the `bundled` protocol,
+   * which is the snapshot worker, where the request would go unanswered.
+   */
+  bundledAssets?: boolean;
 }
 
 /**
@@ -56,20 +63,21 @@ export function resolveStyleForWebView(
   style: MapStyleType,
   options: WebViewStyleOptions = {}
 ): ResolvedWebViewStyle {
-  const { cacheVectorTiles = true, bundledLightStyle = true } = options;
+  const { cacheVectorTiles = true, bundledLightStyle = true, bundledAssets = true } = options;
+  const withAssets = <T extends object>(s: T): T => (bundledAssets ? rewriteBundledAssets(s) : s);
 
   if (style === 'satellite') {
-    return { inline: rewriteSatelliteUrls(getCombinedSatelliteStyle()), url: null };
+    return { inline: withAssets(rewriteSatelliteUrls(getCombinedSatelliteStyle())), url: null };
   }
 
   if (style === 'dark') {
     const dark = cacheVectorTiles ? rewriteVectorUrls(DARK_MATTER_STYLE) : DARK_MATTER_STYLE;
-    return { inline: dark, url: null };
+    return { inline: withAssets(dark), url: null };
   }
 
   if (bundledLightStyle) {
     const light = cacheVectorTiles ? rewriteVectorUrls(MAP_STYLE_URLS.light) : MAP_STYLE_URLS.light;
-    return { inline: light, url: null };
+    return { inline: withAssets(light), url: null };
   }
 
   return { inline: null, url: LIGHT_STYLE_URL };

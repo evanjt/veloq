@@ -25,7 +25,10 @@ import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
-import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import {
+  initializeTileCacheSettings,
+  migrateTileCacheSettings,
+} from '@/features/maps/lib/storage/tileCacheSettings';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -408,6 +411,7 @@ export default function RootLayout() {
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
           migrateTileCacheSettings(),
+          initializeTileCacheSettings(),
           initializeWhatsNewStore(),
           initializeInsightsStore(),
           initializeRecordingPreferences(),

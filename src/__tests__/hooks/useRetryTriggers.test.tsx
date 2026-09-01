@@ -15,7 +15,7 @@ import { useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
 
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline, isInternetReachable: null, connectionType: null }),
+  useNetwork: () => ({ isOnline: mockIsOnline }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

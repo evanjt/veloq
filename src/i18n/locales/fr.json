@@ -1178,6 +1178,7 @@
     "syncStop": "Arrêter",
     "syncStopping": "Arrêt...",
     "system": "Système",
+    "tileCacheLimit": "Limite des tuiles de carte",
     "title": "Paramètres",
     "units": "Unités",
     "unitsAuto": "Auto",

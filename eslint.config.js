@@ -16,6 +16,7 @@ module.exports = [
       'modules/veloqrs/src/generated/**',
       'modules/veloqrs/rust/**',
       'src/__tests__/bindings/ffi-exports.generated.ts',
+      'src/features/maps/assets/*.generated.ts',
       'coverage/**',
       'dist/**',
       '.expo/**',

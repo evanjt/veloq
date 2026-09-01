@@ -12,6 +12,7 @@
  * out, so there is no platform-specific tap path on the React Native side.
  */
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -696,7 +697,7 @@ ${consoleBridgeScript()}
 
     setTimeout(function() { _sendMapFailed('ready timeout'); }, ${MAP_SURFACE_READY_TIMEOUT_MS});
 
-${tileProtocolsScript()}
+${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
 
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
@@ -913,6 +914,48 @@ export function buildProjectPointsScript(
     window._veloq && window._veloq.projectPoints(${JSON.stringify(requestId)}, ${JSON.stringify(
       points
     )});
+    true;
+  `;
+}
+
+/**
+ * Answer a pending `bundled://` request with base64 bytes, or tell the page to
+ * fetch it itself when the app does not carry that asset.
+ *
+ * The page decoded what shape it asked for when it made the request, so the
+ * reply only carries bytes. They are walked out of the binary string with
+ * `charCodeAt`: `new Blob` would re-encode them as UTF-8 and mangle the PNG.
+ */
+export function buildBundledAssetReplyScript(requestId: string, base64: string | null): string {
+  const id = JSON.stringify(requestId);
+  if (!base64) {
+    return `
+      (function() {
+        var pending = window._bundledRequests && window._bundledRequests[${id}];
+        if (pending) pending.fallback();
+      })();
+      true;
+    `;
+  }
+  return `
+    (function() {
+      var pending = window._bundledRequests && window._bundledRequests[${id}];
+      if (!pending) return;
+      try {
+        var binary = atob('${base64}');
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        if (pending.kind === 'json') {
+          pending.deliver({ data: JSON.parse(new TextDecoder().decode(bytes)) });
+        } else if (pending.kind === 'image') {
+          pending.deliver(window._veloqBlobToImage(new Blob([bytes])));
+        } else {
+          pending.deliver({ data: bytes.buffer });
+        }
+      } catch (e) {
+        pending.fallback();
+      }
+    })();
     true;
   `;
 }

@@ -311,6 +311,7 @@ export interface TranslationResource {
     previewKeepRefusedTitle: string;
     previewKeepRefused: string;
     database: string;
+    tileCacheLimit: string;
     dateRange: string;
     noData: string;
     lastSynced: string;

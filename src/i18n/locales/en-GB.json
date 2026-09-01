@@ -1184,6 +1184,7 @@
     "syncStop": "Stop",
     "syncStopping": "Stopping...",
     "system": "System",
+    "tileCacheLimit": "Map tile limit",
     "title": "Settings",
     "units": "Units",
     "unitsAuto": "Auto",

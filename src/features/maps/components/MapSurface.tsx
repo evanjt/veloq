@@ -37,8 +37,10 @@ import type {
 } from '@/features/maps/hooks/useWebViewBridge';
 import { REGION_CHANGE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
 import {
   buildApplyScript,
+  buildBundledAssetReplyScript,
   buildClusterExpansionZoomScript,
   buildClusterLeavesScript,
   buildFitBoundsScript,
@@ -395,6 +397,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       clusterLeaves: (data) => resolvePending(data.requestId as string, data.features ?? []),
       clusterExpansionZoom: (data) => resolvePending(data.requestId as string, data.zoom ?? null),
       projected: (data) => resolvePending(data.requestId as string, data.points ?? []),
+      bundledAssetRequest: (data) => {
+        const requestId = data.requestId as string;
+        const path = data.path as string;
+        if (!requestId || !path) return;
+        inject(buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path)));
+      },
       heatmapTileRequest: async (data) => {
         const requestId = data.requestId as string;
         const tilePath = data.tilePath as string;

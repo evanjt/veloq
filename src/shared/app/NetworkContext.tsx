@@ -8,10 +8,6 @@ import { getEngine } from '@/shared/native/engine';
 interface NetworkContextValue {
   /** Whether device has network connectivity */
   isOnline: boolean;
-  /** Whether internet is reachable (null if unknown) */
-  isInternetReachable: boolean | null;
-  /** Connection type (wifi, cellular, etc.) */
-  connectionType: string | null;
 }
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
@@ -39,8 +35,6 @@ function pushToEngine(online: boolean): void {
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [networkState, setNetworkState] = useState<NetworkContextValue>({
     isOnline: true, // Assume online initially
-    isInternetReachable: null,
-    connectionType: null,
   });
 
   // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
@@ -63,11 +57,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
       if (isOnline) {
         // Going online: update immediately
-        setNetworkState({
-          isOnline: true,
-          isInternetReachable: state.isInternetReachable ?? null,
-          connectionType: state.type ?? null,
-        });
+        setNetworkState({ isOnline: true });
         // TanStack has no React Native connectivity source of its own, so
         // without this it believes it is permanently online and
         // `refetchOnReconnect` never fires.
@@ -77,11 +67,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
           if (cancelled) return;
-          setNetworkState({
-            isOnline: false,
-            isInternetReachable: state.isInternetReachable ?? null,
-            connectionType: state.type ?? null,
-          });
+          setNetworkState({ isOnline: false });
           onlineManager.setOnline(false);
           pushToEngine(false);
         }, 3000);

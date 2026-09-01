@@ -16,7 +16,9 @@ const path = require("path");
  */
 
 // Quick-Record stays compiled but out of the gallery until the record surface is
-// ready. Flip to true to register its receiver again.
+// ready. This is the only gate: it drops the standalone receiver and writes the
+// bool the Dashboard widget's large layout reads, which carries a record button
+// over the same deep link. Flip to true to ship both.
 const INCLUDE_RECORD_WIDGET = false;
 
 // Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the flagged-off
@@ -45,16 +47,27 @@ function copyDir(src, dest) {
   }
 }
 
-function withWidgetSources(config) {
-  return withDangerousMod(config, [
-    "android",
-    (cfg) => {
-      const androidRoot = cfg.modRequest.platformProjectRoot;
-      const widgetSrc = path.join(cfg.modRequest.projectRoot, "widget", "android");
-      const pkg = cfg.android?.package || "com.veloq.app";
-      const mainSrc = path.join(androidRoot, "app", "src", "main");
+// The Kotlin cannot read the JS constant, so it reaches the natives as a resource.
+// Generated rather than tracked, so there is no second copy to drift.
+function writeFlags(resDir) {
+  const values = path.join(resDir, "values");
+  fs.mkdirSync(values, { recursive: true });
+  fs.writeFileSync(
+    path.join(values, "widget_flags.xml"),
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <bool name="widget_record_enabled">${INCLUDE_RECORD_WIDGET}</bool>
+</resources>
+`
+  );
+}
+
+function writeWidgetSources(projectRoot, androidRoot, pkg) {
+  const widgetSrc = path.join(projectRoot, "widget", "android");
+  const mainSrc = path.join(androidRoot, "app", "src", "main");
 
       copyDir(path.join(widgetSrc, "res"), path.join(mainSrc, "res"));
+      writeFlags(path.join(mainSrc, "res"));
 
       const javaDest = path.join(mainSrc, "java", pkg.replace(/\./g, "/"), "widget");
       fs.mkdirSync(javaDest, { recursive: true });
@@ -73,14 +86,23 @@ function withWidgetSources(config) {
         const templated = fs.readFileSync(path.join(javaSrc, file), "utf8").replace(/__PKG__/g, pkg);
         fs.writeFileSync(path.join(javaDest, file), templated);
       }
+}
+
+function withWidgetSources(config) {
+  return withDangerousMod(config, [
+    "android",
+    (cfg) => {
+      writeWidgetSources(
+        cfg.modRequest.projectRoot,
+        cfg.modRequest.platformProjectRoot,
+        cfg.android?.package || "com.veloq.app"
+      );
       return cfg;
     },
   ]);
 }
 
-function withWidgetReceiver(config) {
-  return withAndroidManifest(config, (mod) => {
-    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
+function applyReceivers(app) {
     app.receiver = app.receiver || [];
     for (const { name, include } of RECEIVERS) {
       if (!include) {
@@ -108,6 +130,11 @@ function withWidgetReceiver(config) {
         ],
       });
     }
+}
+
+function withWidgetReceiver(config) {
+  return withAndroidManifest(config, (mod) => {
+    applyReceivers(AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults));
     return mod;
   });
 }
@@ -117,3 +144,7 @@ module.exports = function withAndroidWidget(config) {
   config = withWidgetSources(config);
   return config;
 };
+
+module.exports.INCLUDE_RECORD_WIDGET = INCLUDE_RECORD_WIDGET;
+module.exports.applyReceivers = applyReceivers;
+module.exports.writeWidgetSources = writeWidgetSources;

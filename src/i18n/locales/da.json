@@ -1179,6 +1179,7 @@
     "syncStop": "Afbryd",
     "syncStopping": "Afbryder...",
     "system": "Systemindstilling",
+    "tileCacheLimit": "Grænse for korttegn",
     "title": "Indstillinger",
     "units": "Enheder",
     "unitsAuto": "Automatisk",

@@ -16,6 +16,7 @@ import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */
@@ -164,7 +165,7 @@ ${consoleBridgeScript()}
     const _hillshadePaint = ${initHillshadePaintJSON};
     const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
-${tileProtocolsScript()}
+${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
 
     // Create map with appropriate style
     // Use saved camera state if available, otherwise use bounds or center/zoom

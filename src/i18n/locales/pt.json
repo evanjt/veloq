@@ -1178,6 +1178,7 @@
     "syncStop": "Parar",
     "syncStopping": "A parar...",
     "system": "Sistema",
+    "tileCacheLimit": "Limite de mosaicos do mapa",
     "title": "Definicoes",
     "units": "Unidades",
     "unitsAuto": "Auto",

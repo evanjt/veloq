@@ -5,7 +5,8 @@
  * Expected behaviour: each failure lands the library entry in the state that
  * matches what the user can do about it. A transient failure must stay
  * retriable, a 403 must route to the permission upgrade, and a hard rejection
- * must never be silently re-queued. The FIT file is never deleted.
+ * must never be silently re-queued. No failure outcome deletes the FIT file;
+ * that a success does is `discardFitAfterUpload.test.ts`.
  */
 
 import { uploadActivityFile } from '@/features/recording/lib/upload/intervalsUploads';
@@ -34,6 +35,7 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingUploadFailed: jest.fn().mockResolvedValue(undefined),
   markRecordingRejected: jest.fn().mockResolvedValue(undefined),
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
+  discardRecordingFit: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('veloqrs', () => ({

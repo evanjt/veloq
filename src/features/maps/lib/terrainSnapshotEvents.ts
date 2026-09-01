@@ -95,6 +95,25 @@ export function emitClearTileCache(): void {
 }
 
 /**
+ * Tile cache budget changes. A lowered ceiling has to reach the pages that are
+ * already open, or the athlete watches the size they just shrank stay where it
+ * was until the next fiftieth tile.
+ */
+type TileCacheBudgetListener = (budgetMb: number) => void;
+const tileCacheBudgetListeners = new Set<TileCacheBudgetListener>();
+
+export function onTileCacheBudget(cb: TileCacheBudgetListener): () => void {
+  tileCacheBudgetListeners.add(cb);
+  return () => {
+    tileCacheBudgetListeners.delete(cb);
+  };
+}
+
+export function emitTileCacheBudget(budgetMb: number): void {
+  for (const cb of tileCacheBudgetListeners) cb(budgetMb);
+}
+
+/**
  * Tile cache stats - request/response pair for querying DEM tile count and size.
  * MapsSection requests stats, TerrainSnapshotWebView responds.
  */
