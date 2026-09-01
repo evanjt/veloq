@@ -506,8 +506,13 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   if (rewritten.sources) {
     for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
       if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
-        delete source.url;
-        source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+        // Point the source at the TileJSON through the protocol, rather than at a
+        // tile path built here. The origin serves tiles from a dated snapshot
+        // segment the TileJSON names, and answers the unversioned path with an
+        // empty body, so a template written here draws nothing. The handler
+        // rewrites the TileJSON's own template back onto the protocol.
+        source.url = 'cached-vector://tiles.openfreemap.org/planet';
+        delete source.tiles;
         source.maxzoom = 14;
       }
     }
