@@ -220,6 +220,25 @@ export function getElevationBackfillRemaining(): /*u32*/ number /*throws*/ {
   );
 }
 /**
+ * What was last pushed to [`set_network_online`], and how many seconds ago.
+ *
+ * `null` means nothing has ever been pushed. For the debug screen and for
+ * tests that need to see the push landed, not for scheduling: everything
+ * that schedules reads the state in Rust.
+ */
+export function getNetworkPush(): NetworkPush | undefined {
+  return FfiConverterOptionalTypeNetworkPush.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_network_push(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Whether the Corridor-to-Unified cutover is pending.
  */
 export function isCutoverPending(): boolean {
@@ -247,6 +266,30 @@ export function isCutoverRunning(): boolean {
       },
       /*liftString:*/ FfiConverterString.lift,
     ),
+  );
+}
+/**
+ * Tell the engine what TypeScript sees on the network.
+ *
+ * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
+ * the network itself, so this is the whole of its connectivity input. Call it
+ * from the same place that calls `onlineManager.setOnline`, on every
+ * transition and on foreground, so there is one debounce and one edge rather
+ * than two.
+ *
+ * The value is advisory and only ever a reason to refuse work: a state
+ * nobody has refreshed for fifteen minutes expires back to "try", and an
+ * install that never calls this behaves exactly as it did before.
+ */
+export function setNetworkOnline(online: boolean): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_set_network_online(
+        FfiConverterBool.lower(online),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -8729,6 +8772,61 @@ const FfiConverterTypeMapActivityComplete = (() => {
 })();
 
 /**
+ * The last connectivity state TypeScript pushed, with its age.
+ */
+export type NetworkPush = {
+  /**
+   * What was pushed.
+   */
+  online: boolean;
+  /**
+   * Seconds since the push. Past the staleness window the engine ignores
+   * the value and tries anyway.
+   */
+  ageSeconds: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link NetworkPush} record objects.
+ */
+export const NetworkPush = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<NetworkPush, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<NetworkPush>,
+  });
+})();
+
+const FfiConverterTypeNetworkPush = (() => {
+  type TypeName = NetworkPush;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        online: FfiConverterBool.read(from),
+        ageSeconds: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterBool.write(value.online, into);
+      FfiConverterUInt32.write(value.ageSeconds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.online) +
+        FfiConverterUInt32.allocationSize(value.ageSeconds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Statistics for the persistent engine.
  */
 export type PersistentEngineStats = {
@@ -16570,6 +16668,11 @@ const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
   FfiConverterTypeFfiWellnessSparklines,
 );
 
+// FfiConverter for NetworkPush | undefined
+const FfiConverterOptionalTypeNetworkPush = new FfiConverterOptional(
+  FfiConverterTypeNetworkPush,
+);
+
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
@@ -16967,6 +17070,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_network_push() !==
+    50292
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_get_network_push",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !==
     63840
   ) {
@@ -16980,6 +17091,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_is_cutover_running",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
+    16099
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_set_network_online",
     );
   }
   if (
@@ -18957,6 +19076,7 @@ export default Object.freeze({
     FfiConverterTypeHeatmapManager,
     FfiConverterTypeMapActivityComplete,
     FfiConverterTypeMapManager,
+    FfiConverterTypeNetworkPush,
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRouteManager,
     FfiConverterTypeSectionManager,
