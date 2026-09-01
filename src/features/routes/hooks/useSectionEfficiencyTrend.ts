@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { EfficiencyTrend } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from './useEngine';
 
 /**
  * Aerobic efficiency over the matched efforts on one section.
@@ -16,7 +16,7 @@ export function useSectionEfficiencyTrend(sectionId: string | null): EfficiencyT
   return useMemo(() => {
     if (!sectionId) return null;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
 
     try {

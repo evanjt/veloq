@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 
@@ -34,7 +34,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
   const query = useQuery<ExerciseSet[]>({
     queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
 
       // Check if strength() method exists (requires Rust rebuild with StrengthManager)
@@ -97,7 +97,7 @@ export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
     queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || typeof engine.getMuscleGroups !== 'function') return [];
 
       try {

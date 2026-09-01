@@ -6,8 +6,8 @@
  * intervals.icu. Returns false when no engine is open or a sync already holds
  * the slot, which is not an error worth surfacing.
  */
-import { getRouteEngine } from './routeEngine';
+import { getEngine } from './engine';
 
 export function requestSyncRefresh(): boolean {
-  return getRouteEngine()?.syncNow() ?? false;
+  return getEngine()?.syncNow() ?? false;
 }

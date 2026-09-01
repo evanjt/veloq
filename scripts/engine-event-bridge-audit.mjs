@@ -6,7 +6,7 @@
 // nothing invalidated its query key after a sync.
 //
 // Checks:
-//   1. Hooks that read engine data (getRouteEngine / engine.get* / routeEngine.*)
+//   1. Hooks that read engine data (getEngine() or any engine.* member)
 //      inside a useQuery queryFn or a useMemo must EITHER subscribe via
 //      useEngineSubscription / createEngineHook OR have every queryKey group they
 //      use invalidated in GlobalDataSync. Orphans are flagged.
@@ -64,7 +64,7 @@ function parseInvalidatedGroups(src, knownGroups) {
   return invalidated;
 }
 
-const ENGINE_READ = /\bgetRouteEngine\s*\(|\bengine\.get[A-Z]|\brouteEngine\.\w/;
+const ENGINE_READ = /\bgetEngine\s*\(|\bengine\.\w/;
 
 // Anything that wakes engine-derived React Query data when the engine changes:
 // the subscription helpers, a raw engine.subscribe(...), or a call into one of

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '../types';
 
@@ -23,7 +23,7 @@ export function useExcludedActivities(
       setExcludedActivityIds(new Set(preComputedExcludedIds));
       return;
     }
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     const ids = engine.getExcludedRouteActivityIds(id);
     setExcludedActivityIds(new Set(ids));
@@ -32,7 +32,7 @@ export function useExcludedActivities(
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.excludeActivityFromRoute(id, activityId);
       setExcludedActivityIds((prev) => new Set([...prev, activityId]));
@@ -43,7 +43,7 @@ export function useExcludedActivities(
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.includeActivityInRoute(id, activityId);
       setExcludedActivityIds((prev) => {
@@ -63,7 +63,7 @@ export function useExcludedActivities(
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
       const result = engine.getExcludedRoutePerformances(id, sportFilter);
       if (!result?.performances?.length) return [];

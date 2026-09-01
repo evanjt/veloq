@@ -4,7 +4,7 @@
  * The Rust sync replaces a whole window rather than upserting into it, so an
  * event cancelled on intervals.icu disappears here too.
  */
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { CalendarEvent } from '@/types';
 
 /** Local midnight for a YYYY-MM-DD day, as the epoch seconds the engine keys on. */
@@ -13,7 +13,7 @@ function dayStartTimestamp(day: string): number {
 }
 
 export function readCalendarEvents(oldest: string, newest: string): CalendarEvent[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getCalendarEventBodies) return [];
 
   const out: CalendarEvent[] = [];

@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, contributionRamp } from '@/theme';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
@@ -49,7 +49,7 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
     const endDate = formatLocalDate(new Date());
 
     // Try Rust engine cache first (fast: single SQL query, but limited to sync range)
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) {
       try {
         const days = engine.getActivityHeatmap(startDate, endDate);

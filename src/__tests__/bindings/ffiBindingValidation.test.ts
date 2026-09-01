@@ -30,7 +30,7 @@ const RUST_OBJECTS_DIR = path.resolve(
  * Looks for: import { fn1, fn2, ... } from './generated/veloqrs'
  */
 function extractGeneratedImports(): Set<string> {
-  const files = ['index.ts', 'RouteEngineClient.ts'];
+  const files = ['index.ts', 'EngineClient.ts'];
   const imports = new Set<string>();
 
   for (const file of files) {
@@ -229,7 +229,7 @@ describe('FFI Binding Validation', () => {
       __dirname,
       '../../../modules/veloqrs/rust/veloqrs/src/objects/strength.rs'
     );
-    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'RouteEngineClient.ts');
+    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'EngineClient.ts');
 
     it('Rust StrengthManager exposes bulk_insert_exercise_sets', () => {
       const source = fs.readFileSync(STRENGTH_RS, 'utf-8');

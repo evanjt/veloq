@@ -28,7 +28,7 @@ import {
   isRunningActivity,
 } from '@/features/activity/lib/activityUtils';
 import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
-import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 

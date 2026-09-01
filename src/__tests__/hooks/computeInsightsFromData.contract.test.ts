@@ -18,10 +18,10 @@ import {
   type WellnessInput,
 } from '@/features/insights/lib/computeInsightsData';
 import type { InsightsData, SummaryCardData } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
@@ -240,7 +240,7 @@ function buildMockEngine(): unknown {
 
 describe('Tier 0.6 contract: computeInsightsFromData', () => {
   beforeEach(() => {
-    (getRouteEngine as jest.Mock).mockReturnValue(buildMockEngine());
+    (getEngine as jest.Mock).mockReturnValue(buildMockEngine());
   });
 
   it('produces a stable, ranked insight list given fixture FFI data', () => {

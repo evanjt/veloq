@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { decodeCoords } from 'veloqrs';
 import type {
   ActivityHighlightsBundle,
@@ -63,7 +63,7 @@ function buildTraces(
  * and the manual refresh so both run the same pipeline.
  */
 function fetchActivityDetailData(activityId: string): ActivityDetailBundle | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine || !activityId) return null;
 
   try {

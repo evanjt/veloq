@@ -6,8 +6,8 @@
 
 import { useMemo } from 'react';
 import { useCustomSections } from './useCustomSections';
-import { useEngineSubscription } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineSubscription } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -55,7 +55,7 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
   const sectionsTrigger = useEngineSubscription(['sections']);
   const hookEngineSections = useMemo(() => {
     if (!enabled || skipEngineFetch) return [];
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     const summaries = engine.getAllSectionsIncludingHidden(sportType);
     // Cast: disabled/supersededBy fields are added by migration 020.

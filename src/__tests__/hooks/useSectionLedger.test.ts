@@ -1,8 +1,8 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 function engineWith(pinned: number | null) {
   return {
@@ -30,7 +30,7 @@ function engineWith(pinned: number | null) {
 describe('useSectionLedger', () => {
   it('reads the ledger newest first with numbers, and re-reads after a revert', () => {
     const engine = engineWith(null);
-    (getRouteEngine as jest.Mock).mockReturnValue(engine);
+    (getEngine as jest.Mock).mockReturnValue(engine);
     const { result } = renderHook(() => useSectionLedger('sec1'));
 
     expect(result.current.history.map((e) => e.kind)).toEqual(['recut', 'formed']);
@@ -55,7 +55,7 @@ describe('useSectionLedger', () => {
   });
 
   it('is empty without an engine or a section', () => {
-    (getRouteEngine as jest.Mock).mockReturnValue(null);
+    (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
     expect(result.current.revert(1)).toBe(false);

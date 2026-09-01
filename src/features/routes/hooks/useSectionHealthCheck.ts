@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
 const FLAG_KEY = 'veloq-section-health-check-v1';
@@ -31,7 +31,7 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         const alreadyRan = await AsyncStorage.getItem(FLAG_KEY);
         if (alreadyRan === 'done') return;
 
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return;
 
         const activityCount = engine.getActivityCount?.() ?? 0;

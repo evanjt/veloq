@@ -1,5 +1,5 @@
 /**
- * Shared types used by delegate modules and re-exported from RouteEngineClient
+ * Shared types used by delegate modules and re-exported from EngineClient
  * for public consumption (via `export { type Foo } from '...'`).
  *
  * Every shape here now exists in `./generated/veloqrs.ts`, so this module is a

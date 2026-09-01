@@ -2,7 +2,7 @@
  * Geometry utilities for GPS coordinate processing.
  */
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 // Distance lives in one place. See shared/geo/distance.ts.
 export { haversineDistance } from '@/shared/geo/distance';
@@ -34,7 +34,7 @@ export function computePolylineOverlap(
 ): number {
   if (polylineA.length === 0 || polylineB.length === 0) return 0;
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return 0;
 
   return engine.computePolylineOverlap(

@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { parsePowerCurveBody } from '@/features/stats/lib/curveBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -16,10 +16,10 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
   const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
 
-  const body = getRouteEngine()?.getPowerCurveBody(sport, days) ?? null;
+  const body = getEngine()?.getPowerCurveBody(sport, days) ?? null;
   useEngineBody(
     body !== null,
-    () => getRouteEngine()?.syncPowerCurve(sport, days),
+    () => getEngine()?.syncPowerCurve(sport, days),
     queryKey,
     enabled
   );
@@ -27,7 +27,7 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   return useQuery<PowerCurve>({
     queryKey,
     queryFn: () => {
-      const stored = getRouteEngine()?.getPowerCurveBody(sport, days);
+      const stored = getEngine()?.getPowerCurveBody(sport, days);
       const parsed = stored ? parsePowerCurveBody(stored, sport) : null;
       return parsed ?? emptyPowerCurve(sport);
     },

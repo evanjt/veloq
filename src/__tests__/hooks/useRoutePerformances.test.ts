@@ -7,10 +7,10 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
-jest.mock('@/features/routes/hooks/useRouteEngine', () => ({
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/features/routes/hooks/useEngine', () => ({
   useEngineSubscription: () => 0,
   useEngineGroups: () => ({
     groups: [
@@ -56,7 +56,7 @@ const getRoutePerformances = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (getRouteEngine as jest.Mock).mockReturnValue({ getRoutePerformances });
+  (getEngine as jest.Mock).mockReturnValue({ getRoutePerformances });
 });
 
 it('takes the fastest attempt from the engine, not from the metrics it holds', () => {

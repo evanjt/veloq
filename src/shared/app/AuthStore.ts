@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
@@ -33,7 +33,7 @@ export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
  * has. A credential the engine cannot use is cleared rather than left stale.
  */
 export function pushCredentialsToEngine(): void {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return;
 
   const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();

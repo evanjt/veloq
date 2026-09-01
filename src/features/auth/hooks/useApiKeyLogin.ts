@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
@@ -38,7 +38,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
       try {
         // The engine checks the key against /athlete/me without storing it, so
         // a rejected key never becomes the credential the app syncs with.
-        const check = await routeEngine.validateSyncCredentials('api_key', apiKey.trim());
+        const check = await engine.validateSyncCredentials('api_key', apiKey.trim());
         if (check.kind !== 'ok' || !check.id) {
           setError(check.status === 401 ? t('login.invalidApiKey') : t('login.connectionFailed'));
           return;

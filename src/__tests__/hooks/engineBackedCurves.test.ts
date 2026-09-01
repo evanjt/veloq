@@ -14,10 +14,10 @@ import { usePowerCurve } from '@/features/stats/hooks/usePowerCurve';
 import { usePaceCurve } from '@/features/stats/hooks/usePaceCurve';
 import { useAthleteSummary } from '@/features/fitness/hooks/useAthleteSummary';
 import { parsePaceCurveBody, parsePowerCurveBody } from '@/features/stats/lib/curveBodies';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
 const engine = {
@@ -32,7 +32,7 @@ const engine = {
   triggerRefresh: jest.fn(),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 let client: QueryClient;
 
@@ -43,7 +43,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getPowerCurveBody.mockReturnValue(null);
   engine.getPaceCurveBody.mockReturnValue(null);
   engine.getWeeklySummaries.mockReturnValue([]);

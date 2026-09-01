@@ -20,7 +20,7 @@ import {
   formatRelativeDate,
   formatSwimPace,
 } from '@/shared/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -650,7 +650,7 @@ export function gatherWidgetSnapshot(opts: {
   now?: Date;
   translate?: (key: string) => string;
 }): WidgetSnapshot | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   const now = opts.now ?? new Date();

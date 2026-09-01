@@ -5,8 +5,8 @@
  */
 
 import { useMemo } from 'react';
-import { useEngineGroups } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineGroups } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type {
@@ -174,7 +174,7 @@ export function useRoutePerformances(
       // Get typed performance data directly from Rust engine (now includes metrics)
       let result = preComputed?.result;
       if (!result) {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return emptyResult;
         result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
       }

@@ -19,7 +19,7 @@
 import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
-import { getRouteEngine } from './routeEngine';
+import { getEngine } from './engine';
 
 /**
  * How often a waiting reader checks whether a body landed. Short enough that a
@@ -38,9 +38,9 @@ let lastCount = 0;
  */
 function watchForLandings(): () => void {
   if (waiting === 0) {
-    lastCount = getRouteEngine()?.getBodiesStored() ?? 0;
+    lastCount = getEngine()?.getBodiesStored() ?? 0;
     timer = setInterval(() => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       const count = engine.getBodiesStored();
       if (count === lastCount) return;
@@ -85,7 +85,7 @@ export function useEngineBody(
 
   useEffect(() => {
     if (!enabled) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     return engine.subscribe('activities', () => {
       queryClient.invalidateQueries({ queryKey });

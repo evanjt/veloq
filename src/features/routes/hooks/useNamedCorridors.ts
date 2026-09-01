@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { decodeCoords, type LatLng } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 export interface NamedCorridor {
   intentId: string;
@@ -34,13 +34,13 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
   const reload = useCallback(() => setTick((k) => k + 1), []);
 
   useEffect(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     return engine.subscribe('sections', reload);
   }, [reload]);
 
   const corridors = useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     // Engine order is the persisted order. Sorting here would fight it.
     return engine.getNamedCorridors().map((c) => ({
@@ -58,7 +58,7 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
 
   const remove = useCallback(
     (intentId: string): boolean => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
       const ok = engine.removeNamedCorridor(intentId);
       if (ok) reload();

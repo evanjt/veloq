@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
@@ -47,7 +47,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     let unsubscribes: (() => void)[] = [];
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       const cb = () => refreshRef.current();
@@ -126,7 +126,7 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
   return useMemo(() => {
     try {
       if (!enabled) return { groups: [], totalCount: 0 };
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return { groups: [], totalCount: 0 };
 
       const allGroups = engine.getGroups();
@@ -175,7 +175,7 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
   return useMemo(() => {
     if (!enabled) return { sections: [], totalCount: 0 };
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return { sections: [], totalCount: 0 };
 
       const nativeSections = engine.getSectionsFiltered(sportType, minVisits);
@@ -213,7 +213,7 @@ export function useEngineSectionCount(): number {
 
   return useMemo(() => {
     try {
-      return getRouteEngine()?.getSectionCount() ?? 0;
+      return getEngine()?.getSectionCount() ?? 0;
     } catch {
       return 0;
     }
@@ -251,7 +251,7 @@ export function useSectionSummaries(
   return useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
       // Visit-count filter + sort done in Rust; TS only fills display names.
@@ -298,7 +298,7 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
 
   return useMemo(() => {
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
       // Filter + sort pushed into Rust.
@@ -340,7 +340,7 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
     }
 
     setIsLoading(true);
-    const engine = getRouteEngine();
+    const engine = getEngine();
     const gpsPoints = engine ? engine.getConsensusRoute(groupId) : [];
 
     if (gpsPoints.length > 0) {
@@ -368,7 +368,7 @@ export function useSectionDetail(sectionId: string | null): UseSectionDetailResu
   const section = useMemo(() => {
     if (!sectionId) return null;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
 
     try {
@@ -404,7 +404,7 @@ export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
   const group = useMemo(() => {
     if (!groupId) return null;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
 
     try {
@@ -431,7 +431,7 @@ export function useSectionPolyline(sectionId: string | null): UseSectionPolyline
   const polyline = useMemo(() => {
     if (!sectionId) return [];
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
 
     try {

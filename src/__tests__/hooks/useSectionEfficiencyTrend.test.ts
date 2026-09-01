@@ -6,10 +6,10 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({ getRouteEngine: jest.fn() }));
-jest.mock('@/features/routes/hooks/useRouteEngine', () => ({
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/features/routes/hooks/useEngine', () => ({
   useEngineSubscription: () => 0,
 }));
 
@@ -38,7 +38,7 @@ const getSectionEfficiencyTrend = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (getRouteEngine as jest.Mock).mockReturnValue({ getSectionEfficiencyTrend });
+  (getEngine as jest.Mock).mockReturnValue({ getSectionEfficiencyTrend });
 });
 
 it('returns the engine trend for a section', () => {
@@ -85,7 +85,7 @@ it('returns null when the engine call throws', () => {
 });
 
 it('returns null when there is no engine', () => {
-  (getRouteEngine as jest.Mock).mockReturnValue(null);
+  (getEngine as jest.Mock).mockReturnValue(null);
 
   const { result } = renderHook(() => useSectionEfficiencyTrend('sec-1'));
 

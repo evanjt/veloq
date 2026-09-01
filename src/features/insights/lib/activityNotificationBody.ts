@@ -76,7 +76,7 @@ function getRouteHighlight(activityId: string): {
   prImprovementSeconds: number | null;
 } | null {
   try {
-    const { routeEngine } = require('veloqrs');
+    const { engine } = require('veloqrs');
     type Highlight = {
       activityId: string;
       routeName: string;
@@ -85,7 +85,7 @@ function getRouteHighlight(activityId: string): {
       timeDeltaSeconds?: number | null;
       prImprovementSeconds?: number | null;
     };
-    const highlights: Highlight[] = routeEngine.getActivityRouteHighlights([activityId]);
+    const highlights: Highlight[] = engine.getActivityRouteHighlights([activityId]);
     const h = highlights?.find((entry) => entry.activityId === activityId);
     if (!h) return null;
     return {
@@ -120,11 +120,11 @@ export function buildActivityNotificationBody(
   const route = getRouteHighlight(activityId);
 
   try {
-    const { routeEngine } = require('veloqrs');
+    const { engine } = require('veloqrs');
 
     // Check which sections this activity traversed
     // Rust already filters out disabled/superseded sections
-    const sections = routeEngine.getSectionsForActivity(activityId);
+    const sections = engine.getSectionsForActivity(activityId);
     const sectionCount = sections?.length ?? 0;
 
     let prCount = 0;
@@ -138,7 +138,7 @@ export function buildActivityNotificationBody(
       type BatchEntry = { sectionId: string; result: PerfResult };
       const batch: BatchEntry[] = (() => {
         try {
-          return routeEngine.getPerformancesBatch(sectionIds);
+          return engine.getPerformancesBatch(sectionIds);
         } catch {
           return [];
         }

@@ -28,7 +28,7 @@ export function pollSectionDetection(host: DelegateHost): string {
     // this, a Rust-side panic or DB failure in the detection apply path
     // disappeared into the void and the UI just showed a status string
     // with no context for debugging.
-    console.error('[RouteEngine] pollSectionDetection threw:', e);
+    console.error('[Engine] pollSectionDetection threw:', e);
     return 'error';
   }
 }
@@ -70,7 +70,7 @@ export function forceRedetectSections(host: DelegateHost): boolean {
     );
     return started;
   } catch (e) {
-    console.error('[RouteEngine] forceRedetectSections failed:', e);
+    console.error('[Engine] forceRedetectSections failed:', e);
     return false;
   }
 }

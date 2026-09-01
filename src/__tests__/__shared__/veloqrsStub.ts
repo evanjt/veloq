@@ -26,6 +26,6 @@ export const startFetchAndStore = jest.fn();
 export const takeFetchAndStoreResult = jest.fn(() => null);
 export const getDownloadProgress = jest.fn(() => null);
 
-export const routeEngine = {
+export const engine = {
   create: jest.fn(),
 };

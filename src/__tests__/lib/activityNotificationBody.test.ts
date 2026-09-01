@@ -8,7 +8,7 @@ const mockEngine = {
   getPerformancesBatch: jest.fn(),
 };
 
-jest.mock('veloqrs', () => ({ routeEngine: mockEngine }), { virtual: true });
+jest.mock('veloqrs', () => ({ engine: mockEngine }), { virtual: true });
 
 const t = (key: string, params?: Record<string, string | number>) =>
   params ? `${key}(${Object.values(params).join(',')})` : key;

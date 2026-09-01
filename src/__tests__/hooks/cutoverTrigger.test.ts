@@ -6,14 +6,14 @@
  * costs one launch and nothing is written on the JS side.
  */
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 interface EngineParts {
   pending?: boolean;
@@ -28,7 +28,7 @@ function engineWith({ pending = true, running = false, remaining = 0, start }: E
     isCutoverRunning: jest.fn(() => running),
     getElevationBackfillRemaining: jest.fn(() => remaining),
     startDetectorCutover: start ?? jest.fn(() => true),
-  } as unknown as ReturnType<typeof getRouteEngine>;
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 describe('startDetectorCutoverAfterUpdate', () => {
@@ -38,7 +38,7 @@ describe('startDetectorCutoverAfterUpdate', () => {
 
   it('starts a run when the migration is owed and the library is elevated', async () => {
     const start = jest.fn(() => true);
-    mockGetRouteEngine.mockReturnValue(engineWith({ start }));
+    mockGetEngine.mockReturnValue(engineWith({ start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(true);
     expect(start).toHaveBeenCalledTimes(1);
@@ -46,7 +46,7 @@ describe('startDetectorCutoverAfterUpdate', () => {
 
   it('does nothing when the migration is not owed', async () => {
     const start = jest.fn(() => true);
-    mockGetRouteEngine.mockReturnValue(engineWith({ pending: false, start }));
+    mockGetEngine.mockReturnValue(engineWith({ pending: false, start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
     expect(start).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe('startDetectorCutoverAfterUpdate', () => {
 
   it('does nothing while a run is already in flight', async () => {
     const start = jest.fn(() => true);
-    mockGetRouteEngine.mockReturnValue(engineWith({ running: true, start }));
+    mockGetEngine.mockReturnValue(engineWith({ running: true, start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
     expect(start).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe('startDetectorCutoverAfterUpdate', () => {
 
   it('waits for the elevation backfill rather than cutting a half-elevated library', async () => {
     const start = jest.fn(() => true);
-    mockGetRouteEngine.mockReturnValue(engineWith({ remaining: 12, start }));
+    mockGetEngine.mockReturnValue(engineWith({ remaining: 12, start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
     expect(start).not.toHaveBeenCalled();
@@ -70,24 +70,24 @@ describe('startDetectorCutoverAfterUpdate', () => {
 
   it('declines when the remaining count is unreadable rather than cutting', async () => {
     const start = jest.fn(() => true);
-    mockGetRouteEngine.mockReturnValue(engineWith({ remaining: null, start }));
+    mockGetEngine.mockReturnValue(engineWith({ remaining: null, start }));
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
     expect(start).not.toHaveBeenCalled();
   });
 
   it('costs one launch when the engine throws', async () => {
-    mockGetRouteEngine.mockReturnValue({
+    mockGetEngine.mockReturnValue({
       isCutoverPending: jest.fn(() => {
         throw new Error('engine gone');
       }),
-    } as unknown as ReturnType<typeof getRouteEngine>);
+    } as unknown as ReturnType<typeof getEngine>);
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
   });
 
   it('answers false with no engine', async () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
   });

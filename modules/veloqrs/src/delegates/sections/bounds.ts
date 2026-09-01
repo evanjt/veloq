@@ -23,7 +23,7 @@ export function trimSection(
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
+    console.error('[Engine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
     return false;
   }
 }
@@ -36,7 +36,7 @@ export function resetSectionBounds(host: DelegateHost, sectionId: string): boole
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] resetSectionBounds failed:', sectionId, e);
+    console.error('[Engine] resetSectionBounds failed:', sectionId, e);
     return false;
   }
 }
@@ -63,7 +63,7 @@ export function expandSectionBounds(
     return true;
   } catch (e) {
     console.error(
-      '[RouteEngine] expandSectionBounds failed:',
+      '[Engine] expandSectionBounds failed:',
       sectionId,
       { activityId, startIndex, endIndex },
       e

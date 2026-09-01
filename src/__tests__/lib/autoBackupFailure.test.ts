@@ -19,8 +19,8 @@ import {
 
 const mockSettings = new Map<string, string>();
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
     backupDatabase: jest.fn(),

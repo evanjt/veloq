@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -27,7 +27,7 @@ let demoStrengthSeedAttempted = false;
 function ensureDemoStrengthSeeded(): void {
   if (demoStrengthSeedAttempted) return;
   if (!useAuthStore.getState().isDemoMode) return;
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return;
   demoStrengthSeedAttempted = true;
   try {
@@ -137,7 +137,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
     queryFn: () => {
       ensureDemoStrengthSeeded();
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || typeof engine.getStrengthSummary !== 'function') {
         return { muscleVolumes: [], activityCount: 0, totalSets: 0 };
       }
@@ -162,7 +162,7 @@ export function useStrengthProgression(muscleSlug: string | null) {
   return useQuery<StrengthProgression | null>({
     queryKey: queryKeys.strength.progression(muscleSlug!),
     queryFn: () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
         return null;
       }
@@ -207,7 +207,7 @@ export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string
     queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !muscleSlug || typeof engine.getExercisesForMuscle !== 'function') {
         return { exercises: [], periodDays: 0 };
       }
@@ -260,7 +260,7 @@ export function useActivitiesForExercise(
     queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug!, exerciseCategory!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (
         !engine ||
         !muscleSlug ||
@@ -312,7 +312,7 @@ export function useHasStrengthData(): boolean {
     let unsubscribe: (() => void) | null = null;
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       unsubscribe = engine.subscribe('activities', () => {
@@ -340,7 +340,7 @@ export function useHasStrengthData(): boolean {
   }, []);
 
   return useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || typeof engine.hasStrengthData !== 'function') return false;
     // Seed demo fixtures before the first hasStrengthData check, otherwise
     // the Strength tab never appears (and useStrengthVolume - which also

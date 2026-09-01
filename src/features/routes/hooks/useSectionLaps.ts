@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 export function lapKey(activityId: string, startIndex: number): string {
@@ -21,7 +21,7 @@ export interface SectionLaps {
 export function useSectionLaps(sectionId: string | undefined, refreshKey = 0): SectionLaps {
   const [tick, setTick] = useState(0);
   const excludedLaps = useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !sectionId) return new Set<string>();
     return new Set(
       engine.getExcludedSectionLaps(sectionId).map((l) => lapKey(l.activityId, l.startIndex))
@@ -30,7 +30,7 @@ export function useSectionLaps(sectionId: string | undefined, refreshKey = 0): S
 
   const excludeLap = useCallback(
     (activityId: string, startIndex: number) => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !sectionId) return;
       if (engine.excludeSectionLap(sectionId, activityId, startIndex)) setTick((k) => k + 1);
     },
@@ -38,7 +38,7 @@ export function useSectionLaps(sectionId: string | undefined, refreshKey = 0): S
   );
   const includeLap = useCallback(
     (activityId: string, startIndex: number) => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !sectionId) return;
       if (engine.includeSectionLap(sectionId, activityId, startIndex)) setTick((k) => k + 1);
     },

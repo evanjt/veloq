@@ -11,8 +11,8 @@ import { type MetricId } from '@/features/home/store';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 
 /**
  * Supporting metric for SummaryCard display
@@ -217,7 +217,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     let cardData = precomputedCardData;
 
     if (!cardData) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return defaults;
 
       const getMonday = (date: Date): Date => {
@@ -337,7 +337,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
   // `wellnessData` is kept as a dep so the memo refreshes after each sync.
   const sparklines = useMemo(() => {
     if (!summaryCard.showSparkline) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine?.getWellnessSparklines) return null;
     try {
       return engine.getWellnessSparklines(30);

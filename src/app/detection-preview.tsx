@@ -35,7 +35,7 @@ import {
   PreviewParamPanel,
   PreviewSectionPopover,
 } from '@/features/routes/components';
-import { getRouteEngine, UNIFIED_CONFIG } from '@/shared/native/routeEngine';
+import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
 import type {
   PreviewCentre,
   PreviewParams,
@@ -47,7 +47,7 @@ export default function DetectionPreviewScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const client = useMemo(() => getRouteEngine(), []);
+  const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
   const { status, progress, result, suspended, start, cancel } = usePreviewDetect(client);
 
