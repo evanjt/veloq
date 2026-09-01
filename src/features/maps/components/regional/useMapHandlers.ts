@@ -211,7 +211,7 @@ export function useMapHandlers({
               {
                 activityId: activity.id,
                 sportType: activity.type,
-                startDate: activityStartEpoch(activity.start_date_local),
+                startDate: activityStartEpoch(activity.date),
               },
             ]
           );
