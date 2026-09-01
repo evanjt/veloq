@@ -567,7 +567,6 @@ impl PersistentEngine {
         rows.collect()
     }
 
-    /// The stored diff payload, if any. None before the cutover has run.
     /// Which claims the change card may make, each backed by the tables and
     /// code that deliver it. A flag is false until its feature ships, so the
     /// card never says more than the build can show.
@@ -588,6 +587,7 @@ impl PersistentEngine {
         }
     }
 
+    /// The stored diff payload, if any. None before the cutover has run.
     pub fn cutover_diff(&self) -> Option<String> {
         self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()
     }
