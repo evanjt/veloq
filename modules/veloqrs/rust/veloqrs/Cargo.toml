@@ -66,16 +66,6 @@ oslog = "0.2"
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }
 
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = "s"
-strip = false
-
-[profile.release-mobile]
-inherits = "release"
-panic = "abort"
-
 [dev-dependencies]
 tempfile = "3.27"
 env_logger = "0.11"

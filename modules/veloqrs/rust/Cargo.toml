@@ -1,3 +1,23 @@
 [workspace]
 members = ["tracematch", "veloqrs"]
 resolver = "2"
+
+# Cargo only honours a profile declared at the workspace root. These lived in
+# veloqrs/Cargo.toml until B154, where cargo discarded them with `profiles for
+# the non root package will be ignored` and every release build, CI and shipped
+# alike, quietly took the defaults.
+#
+# codegen-units is the one that bites. At the default 16, whether rstar's
+# generic AABB distance methods inline into the section fold's nearest-neighbour
+# queries depends on how the partitioner happens to split the crate, and an
+# unrelated edit anywhere can flip it. That is worth ~200 ms on the warm-add
+# median, a third of the per-activity budget, and it is what a bisect over
+# `drip_budget` was reading as a source regression.
+#
+# opt-level is deliberately NOT "s" as veloqrs declared. Honouring that costs
+# 2,297 ms on the same median against 700 ms at level 3, so the size it buys is
+# not affordable on a path a sync pays per downloaded activity.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = false
