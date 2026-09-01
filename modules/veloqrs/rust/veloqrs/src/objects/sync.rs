@@ -560,9 +560,11 @@ where
 /// fitness screens offer, so a range change never needs a fresh request.
 const WELLNESS_DAYS: i64 = 365;
 
-/// How many days of activities one sync pulls. The timeline slider can widen
-/// the app's own range beyond this; that expansion is still TypeScript's job.
-const ACTIVITY_DAYS: i64 = 365;
+/// How many days of activities one sync pulls. Matches the default range the
+/// settings slider starts at, so the number the app says it holds is the
+/// number it downloaded. The slider widens it beyond this through
+/// `sync_activities_window`; that expansion is still TypeScript's job.
+const ACTIVITY_DAYS: i64 = 90;
 
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
 const SYNC_STEPS: u32 = 5;
@@ -661,7 +663,7 @@ async fn sync_activities(transport: &Transport, athlete_id: &str) -> Result<(), 
     .await
 }
 
-/// Persist one date window of activities. The default sync covers a year; the
+/// Persist one date window of activities. The default sync covers 90 days; the
 /// feed asks for older windows as the reader scrolls past it.
 async fn sync_activity_window(
     transport: &Transport,
@@ -1333,6 +1335,71 @@ mod tests {
         assert!(svc.build_transport().is_ok());
         svc.clear_credentials();
         assert!(svc.build_transport().is_err());
+    }
+
+    #[test]
+    fn default_activity_sync_covers_ninety_days() {
+        // The slider's own default is 90 days, so the sync that runs without
+        // it must ask for the same window, not a year.
+        let server = MockServer::start();
+        let today = chrono::Local::now().date_naive();
+        let oldest = (today - chrono::Duration::days(90)).to_string();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", oldest.as_str())
+                .query_param("newest", today.to_string());
+            then.status(200).json_body(json!([]));
+        });
+
+        crate::runtime::block_on(sync_activities(&transport_to(server.base_url()), "i1"))
+            .expect("default sync");
+        mock.assert();
+    }
+
+    #[test]
+    fn default_wellness_sync_still_covers_a_year() {
+        // Narrowing activities must not narrow wellness: the fitness plots
+        // read a year and refetching on every range change is what the
+        // wider window exists to avoid.
+        let server = MockServer::start();
+        let today = chrono::Local::now().date_naive();
+        let oldest = (today - chrono::Duration::days(365)).to_string();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/wellness")
+                .query_param("oldest", oldest.as_str())
+                .query_param("newest", today.to_string());
+            then.status(200).json_body(json!([]));
+        });
+
+        crate::runtime::block_on(sync_wellness(&transport_to(server.base_url()), "i1"))
+            .expect("wellness sync");
+        mock.assert();
+    }
+
+    #[test]
+    fn a_window_older_than_the_default_still_reaches_the_api() {
+        // The 90-day default only sets where the sync starts. Everything
+        // older arrives through the expansion path, so narrowing the default
+        // must not be able to read as losing history.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", "2019-01-01")
+                .query_param("newest", "2019-12-31");
+            then.status(200).json_body(json!([]));
+        });
+
+        crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2019-01-01",
+            "2019-12-31",
+        ))
+        .expect("expansion window");
+        mock.assert();
     }
 
     #[test]
