@@ -5,6 +5,8 @@
  * primitives without runtime overhead or duplication.
  */
 
+import { cacheEvictionScript } from '@/features/maps/lib/tileCacheBudget';
+
 /**
  * Bridges calls to `window._rn_log(msg)` to React Native via postMessage.
  * Receivers should handle `{ type: 'console', message: string }` messages.
@@ -105,8 +107,12 @@ export function vectorProtocolScript(): string {
  *
  * Defines `terrainHits`/`terrainMisses`, `satHits`/`satMisses` and
  * `vecHits`/`vecMisses` counters that callers may log.
+ *
+ * `tileCacheBudgetMb` is the athlete's setting. It is baked in rather than
+ * pushed at runtime because the page is rebuilt when it changes, and a live
+ * page takes `applyTileCacheBudgetScript`.
  */
-export function tileProtocolsScript(): string {
+export function tileProtocolsScript(options: { tileCacheBudgetMb?: number } = {}): string {
   return `
     // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
     // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
@@ -128,42 +134,7 @@ export function tileProtocolsScript(): string {
       });
     }
 
-    // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
-    var _insertCounts = {};
-    var CACHE_BUDGETS = {
-      'veloq-satellite-v1': 120 * 1024 * 1024,
-      'veloq-vector-v1': 50 * 1024 * 1024,
-      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
-    };
-
-    function maybeEvict(cacheName) {
-      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
-      if (_insertCounts[cacheName] % 50 !== 0) return;
-      var budget = CACHE_BUDGETS[cacheName];
-      if (!budget) return;
-      caches.open(cacheName).then(function(cache) {
-        cache.keys().then(function(requests) {
-          var sizes = requests.map(function(req) {
-            return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
-              if (cl > 0) return { req: req, size: cl };
-              return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
-              });
-            });
-          });
-          Promise.all(sizes).then(function(entries) {
-            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
-            if (total <= budget) return;
-            for (var i = 0; i < entries.length && total > budget; i++) {
-              cache.delete(entries[i].req);
-              total -= entries[i].size;
-            }
-          });
-        });
-      });
-    }
+${cacheEvictionScript(options.tileCacheBudgetMb)}
 
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
     var terrainHits = 0, terrainMisses = 0;

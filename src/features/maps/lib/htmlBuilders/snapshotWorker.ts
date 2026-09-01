@@ -17,6 +17,10 @@ import {
   mapLibreHead,
   vectorProtocolScript,
 } from './shared';
+import {
+  cacheEvictionScript,
+  DEFAULT_TILE_CACHE_BUDGET_MB,
+} from '@/features/maps/lib/tileCacheBudget';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
@@ -31,7 +35,10 @@ const SNAPSHOT_HEIGHT = 240;
  * The `workerId` is embedded directly into the page so postMessage
  * payloads can be routed back to the matching `WorkerState` on the JS side.
  */
-export function buildSnapshotWorkerHtml(workerId: number): string {
+export function buildSnapshotWorkerHtml(
+  workerId: number,
+  tileCacheBudgetMb: number = DEFAULT_TILE_CACHE_BUDGET_MB
+): string {
   return `${mapLibreHead({ title: 'Snapshot Worker', mapHeight: `${SNAPSHOT_HEIGHT}px` })}
 <body>
   <div id="map"></div>
@@ -123,42 +130,7 @@ ${vectorProtocolScript()}
 
     ${bundledAssetsScript({ workerId: 'window._workerId' })}
 
-    // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
-    var _insertCounts = {};
-    var CACHE_BUDGETS = {
-      'veloq-satellite-v1': 120 * 1024 * 1024,
-      'veloq-vector-v1': 50 * 1024 * 1024,
-      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
-    };
-
-    function maybeEvict(cacheName) {
-      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
-      if (_insertCounts[cacheName] % 50 !== 0) return;
-      var budget = CACHE_BUDGETS[cacheName];
-      if (!budget) return;
-      caches.open(cacheName).then(function(cache) {
-        cache.keys().then(function(requests) {
-          var sizes = requests.map(function(req) {
-            return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0', 10) || 0;
-              if (cl > 0) return { req: req, size: cl };
-              return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
-              });
-            });
-          });
-          Promise.all(sizes).then(function(entries) {
-            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
-            if (total <= budget) return;
-            for (var i = 0; i < entries.length && total > budget; i++) {
-              cache.delete(entries[i].req);
-              total -= entries[i].size;
-            }
-          });
-        });
-      });
-    }
+${cacheEvictionScript(tileCacheBudgetMb)}
 
     window._rn_log('Initializing MapLibre (worker ${workerId})...');
 

@@ -1178,6 +1178,7 @@
     "syncStop": "Parar",
     "syncStopping": "Parando...",
     "system": "Sistema",
+    "tileCacheLimit": "Limite de blocos do mapa",
     "title": "Configuracoes",
     "units": "Unidades",
     "unitsAuto": "Automático",

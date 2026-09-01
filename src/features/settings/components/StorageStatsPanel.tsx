@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate, formatFileSize } from '@/shared/format/format';
 import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
+import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
+import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { colors, darkColors, spacing } from '@/theme';
 
 function formatDateOrDash(dateStr: string | null): string {
@@ -160,6 +162,18 @@ export function StorageStatsPanel({
   freeStorage,
 }: StorageStatsPanelProps) {
   const { t } = useTranslation();
+  const budgetMb = useTileCacheSettings((state) => state.budgetMb);
+  const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
+
+  // A cycle rather than a picker: four values, and the row already reads as one
+  // line beside the size it governs.
+  const cycleBudget = useCallback(() => {
+    const next =
+      TILE_CACHE_BUDGET_CHOICES_MB[
+        (TILE_CACHE_BUDGET_CHOICES_MB.indexOf(budgetMb) + 1) % TILE_CACHE_BUDGET_CHOICES_MB.length
+      ];
+    setBudgetMb(next);
+  }, [budgetMb, setBudgetMb]);
 
   return (
     <>
@@ -262,6 +276,23 @@ export function StorageStatsPanel({
             </TouchableOpacity>
           )}
         </View>
+      </View>
+
+      {/* The one control Q23 left: how much of the device the tiles may hold. */}
+      <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
+        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
+          {t('settings.tileCacheLimit')}
+        </Text>
+        <TouchableOpacity
+          testID="settings-tile-cache-limit"
+          onPress={cycleBudget}
+          style={styles.infoValueRow}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.infoValue, styles.statLabelClickable]}>
+            {formatFileSize(budgetMb * 1024 * 1024)} ›
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Storage breakdown bar */}

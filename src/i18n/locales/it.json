@@ -1178,6 +1178,7 @@
     "syncStop": "Interrompi",
     "syncStopping": "Interruzione...",
     "system": "Sistema",
+    "tileCacheLimit": "Limite riquadri mappa",
     "title": "Impostazioni",
     "units": "Unità",
     "unitsAuto": "Automatico",

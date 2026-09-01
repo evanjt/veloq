@@ -12,6 +12,7 @@
  * out, so there is no platform-specific tap path on the React Native side.
  */
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -696,7 +697,7 @@ ${consoleBridgeScript()}
 
     setTimeout(function() { _sendMapFailed('ready timeout'); }, ${MAP_SURFACE_READY_TIMEOUT_MS});
 
-${tileProtocolsScript()}
+${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
 
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};

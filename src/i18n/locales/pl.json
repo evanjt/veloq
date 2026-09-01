@@ -1180,6 +1180,7 @@
     "syncStop": "Zatrzymaj",
     "syncStopping": "Zatrzymywanie...",
     "system": "Systemowy",
+    "tileCacheLimit": "Limit kafelków mapy",
     "title": "Ustawienia",
     "units": "Jednostki",
     "unitsAuto": "Auto",

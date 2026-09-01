@@ -1178,6 +1178,7 @@
     "syncStop": "Stopp",
     "syncStopping": "Wird gestoppt...",
     "system": "System",
+    "tileCacheLimit": "Kartenkachel-Limit",
     "title": "Einstellungen",
     "units": "Einheiten",
     "unitsAuto": "Auto",

@@ -34,14 +34,17 @@ import {
   emitSnapshotComplete,
   emitSnapshotFailed,
   onClearTileCache,
+  onTileCacheBudget,
   onTileCacheStatsRequest,
   emitTileCacheStats,
 } from '@/features/maps/lib/terrainSnapshotEvents';
+import { applyTileCacheBudgetScript } from '@/features/maps/lib/tileCacheBudget';
 import {
   buildSnapshotWorkerHtml,
   buildBundledAssetReplyScript,
 } from '@/features/maps/lib/htmlBuilders';
 import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
+import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -91,7 +94,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }));
     }
     const workers = workersRef.current;
-    const workerHtmls = useMemo(() => workers.map((w) => buildSnapshotWorkerHtml(w.id)), [workers]);
+    const tileCacheBudgetMb = useTileCacheSettings((s) => s.budgetMb);
+    const workerHtmls = useMemo(
+      () => workers.map((w) => buildSnapshotWorkerHtml(w.id, tileCacheBudgetMb)),
+      [workers, tileCacheBudgetMb]
+    );
 
     const queueRef = useRef<SnapshotRequest[]>([]);
     const queueTotalRef = useRef(0);
@@ -399,6 +406,15 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           });
           true;
         `);
+        }
+      });
+    }, [workers]);
+
+    // A changed ceiling reaches the pages that are already open.
+    useEffect(() => {
+      return onTileCacheBudget((budgetMb) => {
+        for (const worker of workers) {
+          worker.webViewRef.current?.injectJavaScript(applyTileCacheBudgetScript(budgetMb));
         }
       });
     }, [workers]);

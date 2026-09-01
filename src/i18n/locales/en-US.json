@@ -1205,6 +1205,7 @@
     "syncStopping": "Stopping...",
     "system": "System",
     "terrain3D": "3D Terrain",
+    "tileCacheLimit": "Map tile limit",
     "title": "Settings",
     "units": "Units",
     "unitsAuto": "Auto",
