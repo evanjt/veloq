@@ -134,7 +134,7 @@ jobs:
       # reachable again from any ref the checkout can see.
       - name: Purged data tripwire
         run: |
-          git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --quiet --no-recurse-submodules origin '+refs/heads/*:refs/remotes/origin/*'
           if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0c8dc'; then
             echo "The purged routes.db blob is reachable from a fetched ref."
             exit 1
