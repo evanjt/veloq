@@ -1060,8 +1060,9 @@ impl PersistentEngine {
     /// detection apply. Called by remove_activity. Ground is untouched: only the
     /// gone activity leaves; the section's geometry and other members stay.
     pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
-        /// Whether the section carried the activity at all.
-        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> bool {
+        /// Whether the section carried the activity at all, and how many
+        /// passes left with it.
+        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> (bool, u32) {
             let ids_before = section.activity_ids.len();
             section.activity_ids.retain(|a| a != activity_id);
             let before = section.activity_portions.len();
@@ -1070,14 +1071,28 @@ impl PersistentEngine {
                 .retain(|p| p.activity_id != activity_id);
             let dropped = (before - section.activity_portions.len()) as u32;
             section.visit_count = section.visit_count.saturating_sub(dropped);
-            dropped > 0 || section.activity_ids.len() != ids_before
+            (
+                dropped > 0 || section.activity_ids.len() != ids_before,
+                dropped,
+            )
         }
         let mut moved = false;
-        for row in self.identity.rows.values_mut() {
-            moved |= drop_from(&mut row.section, activity_id);
+        // The pure layer holds its own count per visible id, and reads a
+        // batch that counts fewer passes on an unchanged line as a re-cut.
+        // Telling it what left keeps a deletion from narrating one.
+        let mut dropped_by_pid: Vec<(String, u32)> = Vec::new();
+        for (pid, row) in self.identity.rows.iter_mut() {
+            let (touched, dropped) = drop_from(&mut row.section, activity_id);
+            moved |= touched;
+            if dropped > 0 {
+                dropped_by_pid.push((pid.clone(), dropped));
+            }
+        }
+        for (pid, dropped) in dropped_by_pid {
+            self.identity.hysteresis.drop_visits(&pid, dropped);
         }
         for row in self.identity.graves.values_mut() {
-            moved |= drop_from(&mut row.section, activity_id);
+            moved |= drop_from(&mut row.section, activity_id).0;
         }
         moved |= self.identity.seen.remove(activity_id);
         for section in &mut self.sections {
