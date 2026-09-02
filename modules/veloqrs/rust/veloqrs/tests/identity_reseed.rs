@@ -267,14 +267,7 @@ fn a_relinquish_is_durable_without_a_save() {
 
 /// The trunk section, its stored geometry version, and the branch traffic that
 /// re-cuts it.
-fn pinned_run(
-    pin: bool,
-) -> (
-    PersistentEngine,
-    tempfile::TempDir,
-    String,
-    Vec<GpsPoint>,
-) {
+fn pinned_run(pin: bool) -> (PersistentEngine, tempfile::TempDir, String, Vec<GpsPoint>) {
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "trunk", &refs(&trunk_outings(21)));
     let (id, fp) = busiest_section(&cold.snapshot).expect("trunk section detected");

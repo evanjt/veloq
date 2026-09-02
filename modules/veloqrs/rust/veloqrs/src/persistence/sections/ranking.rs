@@ -52,10 +52,7 @@ impl PersistentEngine {
             ) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!(
-                        "veloqrs: [RankedSections] Failed to prepare query: {}",
-                        e
-                    );
+                    log::error!("veloqrs: [RankedSections] Failed to prepare query: {}", e);
                     return Vec::new();
                 }
             };

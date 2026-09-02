@@ -73,10 +73,7 @@ fn catalogue(engine: &PersistentEngine) -> Vec<Vec<String>> {
 }
 
 /// Sports of the activities that ended up in the catalogue.
-fn covered_sports(
-    engine: &PersistentEngine,
-    activities: &[LifecycleActivity],
-) -> BTreeSet<String> {
+fn covered_sports(engine: &PersistentEngine, activities: &[LifecycleActivity]) -> BTreeSet<String> {
     let sports: HashMap<&str, &str> = activities
         .iter()
         .map(|a| (a.id.as_str(), a.sport_type.as_str()))
@@ -163,8 +160,7 @@ fn test_detection_catalogue_stable_across_invocations() {
 
     let dir = TempDir::new().unwrap();
     let start_path = dir.path().join("start.db");
-    let mut start_engine =
-        PersistentEngine::new(start_path.to_str().unwrap()).expect("engine");
+    let mut start_engine = PersistentEngine::new(start_path.to_str().unwrap()).expect("engine");
     ingest(&mut start_engine, &activities);
     detect(&mut start_engine);
 

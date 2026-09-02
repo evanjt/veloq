@@ -243,9 +243,7 @@ impl DetectionManager {
             return Ok(false);
         }
         if detection_running() {
-            info!(
-                "veloqrs: [DetectionManager] Cannot force redetect: detection already running"
-            );
+            info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
             return Ok(false);
         }
 
@@ -259,9 +257,7 @@ impl DetectionManager {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
-            info!(
-                "veloqrs: [DetectionManager] Cannot force redetect: detection already running"
-            );
+            info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
             return Ok(false);
         }
 

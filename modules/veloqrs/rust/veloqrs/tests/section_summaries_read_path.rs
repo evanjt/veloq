@@ -74,10 +74,7 @@ fn seed_synthetic(path: &str) {
 }
 
 /// What `get_summaries_with_count` does, minus the global-engine lock.
-fn summaries_with_count(
-    engine: &PersistentEngine,
-    sport_type: Option<&str>,
-) -> (u32, usize) {
+fn summaries_with_count(engine: &PersistentEngine, sport_type: Option<&str>) -> (u32, usize) {
     let total_count = engine.get_section_count();
     let summaries = match sport_type {
         Some(sport) => engine.get_section_summaries_for_sport(sport),
@@ -142,9 +139,7 @@ fn get_summaries_with_count_is_a_fast_column_read() {
     // The sport tabs pass a sport through, which filters the same summaries in
     // Rust. It shares the budget, so measure it rather than assume it is free.
     let sport_median = median_ms(&mut engine, Some("Ride"), 15);
-    println!(
-        "[read-path] get_summaries_with_count(Ride): {sport_median:.2}ms median ({label})"
-    );
+    println!("[read-path] get_summaries_with_count(Ride): {sport_median:.2}ms median ({label})");
 
     assert!(
         sport_median <= 30.0,
