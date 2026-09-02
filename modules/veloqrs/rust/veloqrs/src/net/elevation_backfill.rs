@@ -173,6 +173,12 @@ pub fn detect_runs_started() -> u32 {
     BACKFILL.detects.load(Ordering::Relaxed)
 }
 
+/// Whether a pass holds the single-run slot, for the fixture that waits on it.
+#[cfg(test)]
+pub(crate) fn pass_running() -> bool {
+    BACKFILL.running.load(Ordering::SeqCst)
+}
+
 /// Holds the single-run slot. Release is structural, so a panic or an early
 /// return cannot leave the backfill permanently unstartable.
 struct RunGuard;
@@ -369,11 +375,17 @@ async fn fetch_batch(transport: &Transport, ids: &[String]) -> Vec<(String, Fetc
 /// the re-cut, and it runs only when the queue drained to empty, so no
 /// catalogue is ever cut over a half-converted library.
 pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
-    let Some(_slot) = RunGuard::claim() else {
+    let Some(slot) = RunGuard::claim() else {
         log::info!("[Elevation] backfill refused: a run is already in flight");
         return BackfillRun::Refused;
     };
+    run_in_slot(slot, transport)
+}
 
+/// The pass proper, on a slot the caller already holds. The guard lives to
+/// the end of the run so the slot is released after the terminal phase, and
+/// after the suspension, which was taken later and so drops first.
+fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
     let queue = match with_persistent_engine(|engine| engine.tracks_missing_elevation()) {
         Some(Ok(queue)) => queue,
         Some(Err(e)) => {
@@ -845,9 +857,13 @@ pub fn start_elevation_backfill() -> bool {
     if !matches!(remaining, Some(Ok(n)) if n > 0) {
         return false;
     }
-    if BACKFILL.running.load(Ordering::SeqCst) {
+    // The slot is claimed here, not on the thread, so a true below means a
+    // pass holds it: a second start in the same instant is refused rather
+    // than spawning alongside, and anything waiting on the slot sees it
+    // taken. A decline further down drops the guard and frees it again.
+    let Some(slot) = RunGuard::claim() else {
         return false;
-    }
+    };
     // The state TypeScript pushes is advisory, so this only declines on a
     // fresh offline. Unset or stale falls through and the pass runs, which is
     // exactly what happened before there was a state to read.
@@ -861,7 +877,7 @@ pub fn start_elevation_backfill() -> bool {
     };
 
     std::thread::spawn(move || {
-        run_elevation_backfill(&transport);
+        run_in_slot(slot, &transport);
     });
     true
 }
@@ -869,9 +885,11 @@ pub fn start_elevation_backfill() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::sections::conditioning::detection_suspended;
     use crate::persistence::sections::detection_workers_started;
     use crate::test_globals::{
-        clear_detection_handle, drain_detection, race, seeded_global_engine, serial_global_state,
+        clear_detection_handle, drain_backfill, drain_detection, race, seeded_global_engine,
+        serial_global_state,
     };
     use tempfile::TempDir;
 
@@ -1245,7 +1263,47 @@ mod tests {
             );
 
             connectivity::reset();
+            drain_backfill();
             drain_detection();
+            // The pass runs detached and holds detection suspended for its
+            // whole life. Returning while it still runs leaks that suspension
+            // into whichever test takes the crate lock next, and every start
+            // there is refused.
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "the pass must be finished before the test releases the crate lock"
+            );
+            assert!(
+                !detection_suspended(),
+                "the pass's suspension must not outlive the test"
+            );
+        }
+
+        /// A true from the start has to mean the slot is held, not that a
+        /// thread will claim it shortly. Otherwise a second start in that
+        /// window spawns a second pass, and a test that waits on the slot
+        /// sees it free and returns while the pass is still to come.
+        #[test]
+        fn a_start_that_went_ahead_holds_the_slot_before_it_returns() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            let _creds = crate::objects::test_credentials();
+
+            assert!(start_elevation_backfill());
+            assert!(
+                BACKFILL.running.load(Ordering::SeqCst),
+                "the run flag must be claimed by the time the start reports true"
+            );
+            assert!(
+                !start_elevation_backfill(),
+                "a second start while the first is in flight must be refused"
+            );
+
+            drain_backfill();
+            drain_detection();
+            assert!(!BACKFILL.running.load(Ordering::SeqCst));
+            assert!(!detection_suspended());
         }
 
         /// A stale *online* is harmless: the value is only ever a reason to
