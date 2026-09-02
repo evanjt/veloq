@@ -94,6 +94,12 @@ module.exports = [
     rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' },
   },
   {
+    // CLI tools under the native module. Console output is their product.
+    // `scripts/**` above resolves from this directory and never reaches them.
+    files: ['modules/veloqrs/scripts/**'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['scripts/**/*.mjs'],
     languageOptions: { sourceType: 'module' },
   },

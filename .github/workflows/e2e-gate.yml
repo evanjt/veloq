@@ -208,6 +208,10 @@ jobs:
           name: e2e-gate-debug
           path: /tmp/maestro-artifacts
           retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
 
       - name: Upload test report
         if: always()
@@ -307,6 +311,10 @@ jobs:
           name: e2e-map-debug
           path: /tmp/maestro-map-artifacts
           retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
 
       - name: Upload test report
         if: always()

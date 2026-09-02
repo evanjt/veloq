@@ -26,7 +26,7 @@
     "test:perf": "jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint . --no-warn-ignored --max-warnings 1164",
+    "lint": "eslint . --no-warn-ignored --max-warnings 1156",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
@@ -66,7 +66,8 @@
     "lint:reachability": "node scripts/reachability-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling"
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling",
+    "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

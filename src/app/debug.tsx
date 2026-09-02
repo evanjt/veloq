@@ -187,6 +187,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear dismissed</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          testID="debug-support-legacy-toggle"
           onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
           style={styles.actionButton}
           activeOpacity={0.7}

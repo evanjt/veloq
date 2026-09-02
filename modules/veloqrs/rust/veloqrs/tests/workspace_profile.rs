@@ -34,7 +34,8 @@ fn root() -> PathBuf {
 
 /// Section headers declared in a `Cargo.toml`, `[foo.bar]` as `foo.bar`.
 fn sections(path: &Path) -> Vec<String> {
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let text =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
     text.lines()
         .map(str::trim)
         .filter_map(|l| l.strip_prefix('[').and_then(|l| l.strip_suffix(']')))

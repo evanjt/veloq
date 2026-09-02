@@ -18,8 +18,8 @@ pub use ffi_types::*;
 // Persistence layer with SQLite storage
 pub mod persistence;
 pub use persistence::{
-    CacheUpdate, FitOutcome, GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats,
-    PersistentEngine, SectionDetectionHandle, with_persistent_engine,
+    CacheUpdate, FitOutcome, GroupSummary, PERSISTENT_ENGINE, PersistentEngine,
+    PersistentEngineStats, SectionDetectionHandle, with_persistent_engine,
 };
 
 // Shared process-wide async runtime for all outbound network work
@@ -183,6 +183,21 @@ pub(crate) mod test_globals {
                 Err(e) => panic!("drain failed: {:?}", e),
             }
             assert!(Instant::now() < deadline, "detection never went idle");
+        }
+    }
+
+    /// Wait for a detached elevation pass to release its slot. The pass holds
+    /// detection suspended for its whole life, and the counter is
+    /// process-wide, so a test that started one and returned early would
+    /// leave every start in the next test refused.
+    pub(crate) fn drain_backfill() {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while crate::net::elevation_backfill::pass_running() {
+            std::thread::sleep(Duration::from_millis(25));
+            assert!(
+                Instant::now() < deadline,
+                "the backfill pass never finished"
+            );
         }
     }
 

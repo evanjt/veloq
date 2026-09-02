@@ -92,9 +92,7 @@ impl SectionPreview {
         if let Some(handle) = slot.as_mut() {
             match handle.poll_status() {
                 PreviewPoll::Running => {
-                    info!(
-                        "veloqrs: [SectionPreview] Start refused: a preview is already running"
-                    );
+                    info!("veloqrs: [SectionPreview] Start refused: a preview is already running");
                     return Ok(false);
                 }
                 PreviewPoll::Complete

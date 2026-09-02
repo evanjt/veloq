@@ -43,11 +43,7 @@ fn summary_name(engine: &PersistentEngine, id: &str) -> Option<String> {
 }
 
 /// Ids of visible sections currently carrying `name`.
-fn sections_named(
-    engine: &PersistentEngine,
-    snap: &SectionSnapshot,
-    name: &str,
-) -> Vec<String> {
+fn sections_named(engine: &PersistentEngine, snap: &SectionSnapshot, name: &str) -> Vec<String> {
     snap.sections
         .keys()
         .filter(|id| section_name(engine, id).as_deref() == Some(name))

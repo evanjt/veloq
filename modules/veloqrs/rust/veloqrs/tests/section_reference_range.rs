@@ -100,7 +100,11 @@ fn re_pointing_twice_does_not_shorten_the_line() {
     }
 
     let section = s.engine.get_section(&id).expect("section readable");
-    assert_eq!(section.polyline.len(), 9, "the line lost points on re-point");
+    assert_eq!(
+        section.polyline.len(),
+        9,
+        "the line lost points on re-point"
+    );
 }
 
 /// The last index of the stream is the boundary the half-open read gets wrong
@@ -113,7 +117,11 @@ fn re_pointing_a_whole_ride_cut_keeps_the_final_point() {
 
     let second = track(20, 7.001);
     s.engine
-        .add_activity("act_whole_b".to_string(), second.clone(), "Ride".to_string())
+        .add_activity(
+            "act_whole_b".to_string(),
+            second.clone(),
+            "Ride".to_string(),
+        )
         .expect("add second activity");
     s.engine
         .set_section_reference(&id, "act_whole_b")

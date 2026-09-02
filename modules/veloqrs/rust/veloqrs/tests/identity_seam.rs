@@ -545,9 +545,7 @@ where
 
     let filler = filler_act(label, 90);
     let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-        panic!(
-            "{label}: the first resync after promotion failed (the UNIQUE-collision class): {e}"
-        )
+        panic!("{label}: the first resync after promotion failed (the UNIQUE-collision class): {e}")
     });
 
     assert!(
@@ -848,9 +846,7 @@ fn durable_rows_never_collide() {
     for pass in 1..=2 {
         let filler = filler_act("durable", 90 + pass);
         let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-            panic!(
-                "resync {pass} with all durable kinds failed (the UNIQUE-collision class): {e}"
-            )
+            panic!("resync {pass} with all durable kinds failed (the UNIQUE-collision class): {e}")
         });
         assert_eq!(
             rows_for(&sections_dump(&db), &durable),

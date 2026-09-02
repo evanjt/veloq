@@ -173,6 +173,16 @@ tags:
       id: "debug-support-preset-31d"
     timeout: 10000
 
+# Earlier flows seed demo activities and the app then marks the profile a
+# legacy purchaser, which short-circuits the support card ahead of the date
+# check. The preset does not clear that flag, so unset it first.
+- runFlow:
+    when:
+      visible: "Unset legacy"
+    commands:
+      - tapOn:
+          id: "debug-support-legacy-toggle"
+
 - tapOn:
     id: "debug-support-preset-31d"
 

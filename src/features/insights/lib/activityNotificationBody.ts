@@ -121,9 +121,6 @@ const MIN_NAME_TAIL = 8;
 
 const SEPARATOR = ' - ';
 
-/** A route or section name as it appears inside a detail clause. */
-const placeName = (name: string): string => trim(name, MAX_PLACE_NAME);
-
 /**
  * Below this a place name is a fragment rather than a name, so the template
  * gets what is left and the cap does the rest.
