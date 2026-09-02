@@ -602,7 +602,28 @@ impl PersistentEngine {
         // evidence a rotation accumulated.
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
-        let (out, resolutions) = identity.hysteresis.step_assign(&candidates);
+        // The registry's half of the agreement floor. The pure layer adopts an
+        // agreeing extent only while the passes hold; members are this side's
+        // evidence, and a prior member with no qualifying pass on the new line
+        // would leave the section silently, since the graft below can only
+        // keep what still matches. Reporting the loss makes it a debounced
+        // re-cut the ledger narrates instead.
+        let rows = &identity.rows;
+        let loses_a_member = |pid: &str, j: usize| -> bool {
+            let Some(row) = rows.get(pid) else {
+                return false;
+            };
+            let cand = &raw[j];
+            row.section.activity_ids.iter().any(|aid| {
+                !cand.activity_ids.contains(aid)
+                    && self.get_gps_track(aid).is_some_and(|track| {
+                        compute_section_portions(aid, &track, &cand.polyline, &config).is_empty()
+                    })
+            })
+        };
+        let (out, resolutions) = identity
+            .hysteresis
+            .step_assign_guarded(&candidates, &loses_a_member);
 
         // Activities new since the last apply, and their tracks, for the fold.
         // Read up front so the reconcile below borrows nothing from `self`.
