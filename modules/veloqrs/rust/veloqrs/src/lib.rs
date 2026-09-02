@@ -186,6 +186,21 @@ pub(crate) mod test_globals {
         }
     }
 
+    /// Wait for a detached elevation pass to release its slot. The pass holds
+    /// detection suspended for its whole life, and the counter is
+    /// process-wide, so a test that started one and returned early would
+    /// leave every start in the next test refused.
+    pub(crate) fn drain_backfill() {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while crate::net::elevation_backfill::pass_running() {
+            std::thread::sleep(Duration::from_millis(25));
+            assert!(
+                Instant::now() < deadline,
+                "the backfill pass never finished"
+            );
+        }
+    }
+
     /// Run `start` on `RACERS` threads released together and report how many
     /// claimed to have started.
     pub(crate) fn race<F>(start: F) -> usize
