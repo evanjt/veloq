@@ -118,3 +118,4 @@ modules/veloq-widget/android/.cxx/
 modules/veloqrs/rust/veloqrs/tests/fixtures/private/
 *.veloqdb
 *.db
+.eslintcache
