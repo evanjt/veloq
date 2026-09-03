@@ -15,6 +15,9 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('RouteSyncContext');
 
 // Global mutex to prevent concurrent syncs across all hook instances
 // This is necessary because multiple components may call useRouteDataSync
@@ -137,20 +140,20 @@ export function useRouteSyncContext(): UseRouteSyncContextResult {
   const canStartSync = useCallback(() => {
     const isAuth = isAuthenticatedRef.current;
     if (__DEV__) {
-      console.log(
+      log.log(
         `[SyncMutex] canStartSync called: isAuth=${isAuth}, globalIsSyncing=${globalIsSyncing}`
       );
     }
     if (!isAuth || globalIsSyncing) {
       if (__DEV__) {
-        console.log(`[SyncMutex] BLOCKED: isAuth=${isAuth}, globalIsSyncing=${globalIsSyncing}`);
+        log.log(`[SyncMutex] BLOCKED: isAuth=${isAuth}, globalIsSyncing=${globalIsSyncing}`);
       }
       return false;
     }
     globalIsSyncing = true;
     isSyncingRef.current = true;
     if (__DEV__) {
-      console.log(`[SyncMutex] ACQUIRED mutex, globalIsSyncing now true`);
+      log.log(`[SyncMutex] ACQUIRED mutex, globalIsSyncing now true`);
     }
     return true;
   }, []);

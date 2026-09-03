@@ -21,6 +21,9 @@ import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SectionActions');
 
 interface UseSectionActionsArgs {
   /** Section id from the URL (may be undefined on first render). */
@@ -260,7 +263,7 @@ export function useSectionActions({
             text: t('common.confirm'),
             onPress: () => {
               if (__DEV__) {
-                console.log(
+                log.log(
                   '[SetReference] Attempting to set reference:',
                   'sectionId=',
                   id,
@@ -269,7 +272,7 @@ export function useSectionActions({
                 );
               }
               const success = engine.setSectionReference(id, activityId);
-              if (__DEV__) console.log('[SetReference] Result:', success);
+              if (__DEV__) log.log('[SetReference] Result:', success);
               if (success) {
                 // Update local state immediately for responsive UI
                 setOverrideReferenceId(activityId);

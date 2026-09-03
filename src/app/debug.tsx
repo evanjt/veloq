@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -276,9 +276,12 @@ export default function DebugScreen() {
     setTimeout(() => setRefreshing(false), 200);
   }, []);
 
-  // Engine stats
-  const engine = getEngine();
-  const stats: PersistentEngineStats | undefined = engine?.getStats();
+  // Engine stats, re-read on pull to refresh and on nothing else.
+  const stats: PersistentEngineStats | undefined = useMemo(
+    () => getEngine()?.getStats(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  );
 
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
@@ -286,9 +289,6 @@ export default function DebugScreen() {
 
   // Memory
   const mem = getMemoryStats();
-
-  // Force re-read on refreshKey
-  void refreshKey;
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;

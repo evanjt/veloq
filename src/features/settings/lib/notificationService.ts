@@ -172,7 +172,7 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
       const id = notification.request.identifier;
       if (id !== 'sync-progress') {
         const data = notification.request.content.data;
-        console.log(`[Notification] Received (foreground) id=${id}`, data);
+        log.log(`[Notification] Received (foreground) id=${id}`, data);
       }
     }
   });

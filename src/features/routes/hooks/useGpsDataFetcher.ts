@@ -24,6 +24,9 @@ import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('GpsDataFetcher');
 
 /** How long to let the Rust time-stream backfill drain before moving on. It
  *  resumes on the next sync, so a slow drain never blocks the banner. */
@@ -245,7 +248,7 @@ export function useGpsDataFetcher() {
         const currentGeneration = getSyncGeneration();
         if (currentGeneration !== startGeneration) {
           if (__DEV__) {
-            console.log(
+            log.log(
               `[fetchDemoGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
             );
           }
@@ -340,7 +343,7 @@ export function useGpsDataFetcher() {
                     engine.triggerRefresh('sections');
                     engine.triggerRefresh('groups');
                     if (__DEV__) {
-                      console.log(
+                      log.log(
                         `[fetchDemoGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
                       );
                     }
@@ -425,7 +428,7 @@ export function useGpsDataFetcher() {
       const startGeneration = getSyncGeneration();
 
       if (__DEV__) {
-        console.log(
+        log.log(
           `[fetchApiGps] Entered with ${activities.length} activities, generation=${startGeneration}`
         );
       }
@@ -468,7 +471,7 @@ export function useGpsDataFetcher() {
       }));
 
       if (__DEV__) {
-        console.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);
+        log.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);
       }
 
       // Update initial progress
@@ -504,7 +507,7 @@ export function useGpsDataFetcher() {
         const progress = getDownloadProgress();
         if (!progress.active) {
           if (__DEV__) {
-            console.log(
+            log.log(
               `[fetchApiGps] GPS done after ${pollCount} polls: ${progress.completed}/${progress.total}`
             );
           }
@@ -524,12 +527,12 @@ export function useGpsDataFetcher() {
 
       // Get result (just IDs - no GPS data transfer!)
       if (__DEV__) {
-        console.log('[fetchApiGps] Calling takeFetchAndStoreResult()...');
+        log.log('[fetchApiGps] Calling takeFetchAndStoreResult()...');
       }
       const result = takeFetchAndStoreResult();
 
       if (__DEV__) {
-        console.log(
+        log.log(
           '[fetchApiGps] takeFetchAndStoreResult returned:',
           result ? `${result.successCount}/${result.total}` : 'null'
         );
@@ -546,12 +549,12 @@ export function useGpsDataFetcher() {
 
       if (__DEV__) {
         // Log Rust result in Expo console (timing logged via adb logcat)
-        console.log(
+        log.log(
           `[RUST: fetch_and_store] Complete: ${result.successCount}/${result.total} synced, ` +
             `${result.failedIds.length} failed`
         );
         if (result.failedIds.length > 0) {
-          console.log(`[fetchApiGps] Sample failures:`, result.failedIds.slice(0, 3));
+          log.log(`[fetchApiGps] Sample failures:`, result.failedIds.slice(0, 3));
         }
       }
 
@@ -568,7 +571,7 @@ export function useGpsDataFetcher() {
       const currentGeneration = getSyncGeneration();
       if (currentGeneration !== startGeneration) {
         if (__DEV__) {
-          console.log(
+          log.log(
             `[fetchApiGps] DISCARDING stale results: generation ${startGeneration} -> ${currentGeneration}`
           );
         }
@@ -591,7 +594,7 @@ export function useGpsDataFetcher() {
         const t0 = Date.now();
         engine.setActivityMetrics(metrics);
         if (__DEV__) {
-          console.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
+          log.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
         }
 
         // Yield so the sync banner can paint between the metrics write and the
@@ -602,12 +605,12 @@ export function useGpsDataFetcher() {
         engine.triggerRefresh('activities');
         engine.triggerRefresh('groups');
         if (__DEV__) {
-          console.log(`[fetchApiGps] ⏱ triggerRefresh: ${Date.now() - t1}ms`);
+          log.log(`[fetchApiGps] ⏱ triggerRefresh: ${Date.now() - t1}ms`);
         }
       }
 
       if (__DEV__) {
-        console.log(`[fetchApiGps] ⏱ total gap before detection check: ${Date.now() - gapStart}ms`);
+        log.log(`[fetchApiGps] ⏱ total gap before detection check: ${Date.now() - gapStart}ms`);
       }
 
       // Run section detection if route matching is enabled AND (new activities synced,
@@ -711,7 +714,7 @@ export function useGpsDataFetcher() {
                     engine.triggerRefresh('sections');
                     engine.triggerRefresh('groups');
                     if (__DEV__) {
-                      console.log(
+                      log.log(
                         `[fetchApiGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
                       );
                     }
@@ -751,7 +754,7 @@ export function useGpsDataFetcher() {
           const needingStreams = engine.getActivitiesNeedingTimeStreams();
           if (needingStreams.length > 0) {
             if (__DEV__) {
-              console.log(
+              log.log(
                 `[fetchApiGps] Backfilling time streams for ${needingStreams.length} activities`
               );
             }

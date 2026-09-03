@@ -6203,18 +6203,7 @@ export type FfiSectionConfig = {
   minSectionLength: /*f64*/ number;
   maxSectionLength: /*f64*/ number;
   minActivities: /*u32*/ number;
-  clusterTolerance: /*f64*/ number;
-  samplePoints: /*u32*/ number;
-  detectionMode: string;
-  includePotentials: boolean;
-  preserveHierarchy: boolean;
-  jaccardThreshold: /*f64*/ number;
-  minRoutes: /*u32*/ number;
-  enableDensitySplits: boolean;
-  mergeDistanceMultiplier: /*f64*/ number;
-  minCellVisits: /*u32*/ number;
   divergenceThreshold: /*f64*/ number;
-  minCorridorTracks: /*u32*/ number;
 };
 
 /**
@@ -6243,18 +6232,7 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         minSectionLength: FfiConverterFloat64.read(from),
         maxSectionLength: FfiConverterFloat64.read(from),
         minActivities: FfiConverterUInt32.read(from),
-        clusterTolerance: FfiConverterFloat64.read(from),
-        samplePoints: FfiConverterUInt32.read(from),
-        detectionMode: FfiConverterString.read(from),
-        includePotentials: FfiConverterBool.read(from),
-        preserveHierarchy: FfiConverterBool.read(from),
-        jaccardThreshold: FfiConverterFloat64.read(from),
-        minRoutes: FfiConverterUInt32.read(from),
-        enableDensitySplits: FfiConverterBool.read(from),
-        mergeDistanceMultiplier: FfiConverterFloat64.read(from),
-        minCellVisits: FfiConverterUInt32.read(from),
         divergenceThreshold: FfiConverterFloat64.read(from),
-        minCorridorTracks: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6262,18 +6240,7 @@ const FfiConverterTypeFfiSectionConfig = (() => {
       FfiConverterFloat64.write(value.minSectionLength, into);
       FfiConverterFloat64.write(value.maxSectionLength, into);
       FfiConverterUInt32.write(value.minActivities, into);
-      FfiConverterFloat64.write(value.clusterTolerance, into);
-      FfiConverterUInt32.write(value.samplePoints, into);
-      FfiConverterString.write(value.detectionMode, into);
-      FfiConverterBool.write(value.includePotentials, into);
-      FfiConverterBool.write(value.preserveHierarchy, into);
-      FfiConverterFloat64.write(value.jaccardThreshold, into);
-      FfiConverterUInt32.write(value.minRoutes, into);
-      FfiConverterBool.write(value.enableDensitySplits, into);
-      FfiConverterFloat64.write(value.mergeDistanceMultiplier, into);
-      FfiConverterUInt32.write(value.minCellVisits, into);
       FfiConverterFloat64.write(value.divergenceThreshold, into);
-      FfiConverterUInt32.write(value.minCorridorTracks, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6281,18 +6248,7 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         FfiConverterFloat64.allocationSize(value.minSectionLength) +
         FfiConverterFloat64.allocationSize(value.maxSectionLength) +
         FfiConverterUInt32.allocationSize(value.minActivities) +
-        FfiConverterFloat64.allocationSize(value.clusterTolerance) +
-        FfiConverterUInt32.allocationSize(value.samplePoints) +
-        FfiConverterString.allocationSize(value.detectionMode) +
-        FfiConverterBool.allocationSize(value.includePotentials) +
-        FfiConverterBool.allocationSize(value.preserveHierarchy) +
-        FfiConverterFloat64.allocationSize(value.jaccardThreshold) +
-        FfiConverterUInt32.allocationSize(value.minRoutes) +
-        FfiConverterBool.allocationSize(value.enableDensitySplits) +
-        FfiConverterFloat64.allocationSize(value.mergeDistanceMultiplier) +
-        FfiConverterUInt32.allocationSize(value.minCellVisits) +
-        FfiConverterFloat64.allocationSize(value.divergenceThreshold) +
-        FfiConverterUInt32.allocationSize(value.minCorridorTracks)
+        FfiConverterFloat64.allocationSize(value.divergenceThreshold)
       );
     }
   }

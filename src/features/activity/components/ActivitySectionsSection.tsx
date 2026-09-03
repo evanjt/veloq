@@ -26,6 +26,9 @@ import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayN
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows } from '@/theme';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionsSection');
 
 interface ActivitySectionsSectionProps {
   activityId: string;
@@ -219,7 +222,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       if (idx === null) {
         if (!nullMatchLoggedRef.current) {
           nullMatchLoggedRef.current = true;
-          console.log('[scrub] no-match pageY=', Math.round(pageY));
+          log.log('[scrub] no-match pageY=', Math.round(pageY));
         }
         return null;
       }
@@ -274,7 +277,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const row = findRowAtPageY(pageY);
       const rowKey = row?.rowKey ?? null;
       if (rowKey !== lastLoggedRowRef.current) {
-        console.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
+        log.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
         lastLoggedRowRef.current = rowKey;
       }
       if (row) applyRow(row);
@@ -288,7 +291,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 
   const handleScrubEnd = useCallback(() => {
-    console.log('[scrub] end');
+    log.log('[scrub] end');
     lastLoggedRowRef.current = null;
     nullMatchLoggedRef.current = false;
     stopAutoScroll();
@@ -312,7 +315,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       // scrolled since mount. Single measureInWindow round-trip, not one per row.
       remeasureFirstRow().then(() => {
         const row = findRowAtPageY(pageY);
-        console.log(
+        log.log(
           '[scrub] onStart pageY=',
           Math.round(pageY),
           'firstRowTopY=',

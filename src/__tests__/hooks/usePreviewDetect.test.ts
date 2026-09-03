@@ -21,18 +21,7 @@ const LIVE_CONFIG: FfiSectionConfig = {
   minSectionLength: 200,
   maxSectionLength: 10000,
   minActivities: 3,
-  clusterTolerance: 50,
-  samplePoints: 60,
-  detectionMode: 'unified',
-  includePotentials: false,
-  preserveHierarchy: false,
-  jaccardThreshold: 0.4,
-  minRoutes: 2,
-  enableDensitySplits: false,
-  mergeDistanceMultiplier: 1.5,
-  minCellVisits: 30,
   divergenceThreshold: 0.2,
-  minCorridorTracks: 3,
 };
 
 const PARAMS: PreviewParams = {

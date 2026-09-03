@@ -6,7 +6,7 @@
  * reversible, and no banned token ever reaches the UI.
  */
 
-import fc from 'fast-check';
+import * as fc from 'fast-check';
 import {
   formatDistance,
   formatDuration,

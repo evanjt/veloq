@@ -18,6 +18,9 @@ import type { ActivityHighlightsBundle } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionHighlights');
 
 export interface ActivitySectionHighlight {
   sectionId: string;
@@ -125,11 +128,11 @@ export function useActivitySectionHighlights(
       if (__DEV__) {
         const prRoutes = rawRoutes.filter((r) => r.isPr);
         const trendRoutes = rawRoutes.filter((r) => r.trend !== 0 && !r.isPr);
-        console.log(
+        log.log(
           `[Indicators] sections: ${sectionMap.size}, routes: ${rawRoutes.length} raw (${prRoutes.length} PR, ${trendRoutes.length} trend)`
         );
         if (prRoutes.length > 0) {
-          console.log(
+          log.log(
             `[Indicators] Route PRs:`,
             prRoutes.map((r) => `${r.activityId.slice(-6)} "${r.routeName}" trend=${r.trend}`)
           );

@@ -10,6 +10,9 @@ import type { RoutePoint } from '@/types';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';
 import { haversineDistance } from '@/shared/math/geometry';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SectionCreation');
 
 interface UseSectionCreationParams {
   creationMode: boolean;
@@ -53,7 +56,7 @@ export function useSectionCreation({
   // Reset section creation state when mode changes
   useEffect(() => {
     if (__DEV__) {
-      console.log('[useSectionCreation] creationMode effect', { creationMode });
+      log.log('[useSectionCreation] creationMode effect', { creationMode });
     }
     if (creationMode) {
       setCreationState('selectingStart');
@@ -70,7 +73,7 @@ export function useSectionCreation({
 
     if (creationMode && wasError && nowUndefined) {
       if (__DEV__) {
-        console.log('[useSectionCreation] Resetting selection after error dismissal');
+        log.log('[useSectionCreation] Resetting selection after error dismissal');
       }
       setCreationState('selectingStart');
       setStartIndex(null);
@@ -102,7 +105,7 @@ export function useSectionCreation({
 
       if (creationState === 'selectingStart') {
         if (__DEV__) {
-          console.log('[useSectionCreation] Setting startIndex', { nearestIndex });
+          log.log('[useSectionCreation] Setting startIndex', { nearestIndex });
         }
         setStartIndex(nearestIndex);
         setCreationState('selectingEnd');
@@ -111,13 +114,13 @@ export function useSectionCreation({
         // Ensure end is after start
         if (nearestIndex <= (startIndex ?? 0)) {
           if (__DEV__) {
-            console.log('[useSectionCreation] Swapping start/end', { nearestIndex, startIndex });
+            log.log('[useSectionCreation] Swapping start/end', { nearestIndex, startIndex });
           }
           setEndIndex(startIndex);
           setStartIndex(nearestIndex);
         } else {
           if (__DEV__) {
-            console.log('[useSectionCreation] Setting endIndex', { nearestIndex });
+            log.log('[useSectionCreation] Setting endIndex', { nearestIndex });
           }
           setEndIndex(nearestIndex);
         }

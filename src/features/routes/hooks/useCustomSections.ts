@@ -11,6 +11,9 @@ import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section, RoutePoint } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('CustomSections');
 
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
@@ -199,7 +202,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       } as Section;
 
       if (__DEV__) {
-        console.log(
+        log.log(
           `[useCustomSections] Created section ${result.id} (${result.polyline.length} points, ${result.distanceMeters.toFixed(0)}m)`
         );
       }
@@ -220,7 +223,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
             engine.setSuperseded(autoId, result.id);
           }
           if (__DEV__) {
-            console.log(
+            log.log(
               `[useCustomSections] Custom section ${result.id} supersedes ${supersededIds.length} auto sections`
             );
           }

@@ -13,7 +13,7 @@ const PROBE: &str = "VELOQ_DIGEST_PROBE";
 
 fn mutated() -> SectionConfig {
     SectionConfig {
-        min_routes: SectionConfig::default().min_routes + 1,
+        min_activities: SectionConfig::default().min_activities + 1,
         ..Default::default()
     }
 }

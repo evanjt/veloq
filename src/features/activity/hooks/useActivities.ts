@@ -296,14 +296,13 @@ export function useActivityStreams(id: string) {
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);
 
-  const body = id ? (getEngine()?.getIntervalBody(id) ?? null) : null;
-  useEngineBody(body !== null, () => getEngine()?.syncActivityIntervals(id), queryKey, !!id);
-
-  return useQuery<IntervalsDTO>({
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it.
+  const query = useQuery<IntervalsDTO | null>({
     queryKey,
     queryFn: () => {
       const stored = getEngine()?.getIntervalBody(id);
-      if (!stored) return EMPTY_INTERVALS;
+      if (!stored) return null;
       try {
         return JSON.parse(stored) as IntervalsDTO;
       } catch {
@@ -315,6 +314,14 @@ export function useActivityIntervals(id: string) {
     gcTime: CACHE.HOUR * 2,
     enabled: !!id,
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncActivityIntervals(id),
+    queryKey,
+    !!id && query.data !== undefined
+  );
+
+  return { ...query, data: query.data ?? EMPTY_INTERVALS };
 }
 
 /** Rendered as "no intervals" rather than an error while the fetch is in flight. */

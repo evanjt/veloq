@@ -8,6 +8,9 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('TabsLayout');
 
 export default function TabsLayout() {
   const { t } = useTranslation();
@@ -18,7 +21,7 @@ export default function TabsLayout() {
   const renderCount = useRef(0);
   renderCount.current++;
   if (PERF_DEBUG) {
-    console.log(`[RENDER] TabsLayout #${renderCount.current}`);
+    log.log(`[RENDER] TabsLayout #${renderCount.current}`);
   }
 
   return (

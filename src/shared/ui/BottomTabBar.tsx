@@ -15,6 +15,9 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { brand, colorWithOpacity, ink, spacing } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('BottomTabBar');
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
@@ -41,7 +44,7 @@ function BottomTabBarComponent() {
   const renderCount = useRef(0);
   renderCount.current++;
   if (PERF_DEBUG) {
-    console.log(`[RENDER] BottomTabBar #${renderCount.current}`);
+    log.log(`[RENDER] BottomTabBar #${renderCount.current}`);
   }
 
   const insets = useSafeAreaInsets();
@@ -82,9 +85,9 @@ function BottomTabBarComponent() {
 
       // Performance: Log navigation start
       if (PERF_DEBUG) {
-        console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        console.log(`[NAV] ${pathname} → ${route}`);
-        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        log.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        log.log(`[NAV] ${pathname} → ${route}`);
+        log.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       }
 
       if (Platform.OS === 'ios') {

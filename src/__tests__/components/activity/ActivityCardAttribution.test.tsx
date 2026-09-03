@@ -13,6 +13,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import type { Activity } from '@/types';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('react-native-iap', () => ({
@@ -47,6 +48,7 @@ jest.mock('@/features/strength', () => ({
 }));
 
 jest.mock('@/features/activity/components/ActivityMapPreview', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pressable } = require('react-native');
   const { AttributionOverlay } = jest.requireActual(
     '@/features/maps/components/AttributionOverlay'
