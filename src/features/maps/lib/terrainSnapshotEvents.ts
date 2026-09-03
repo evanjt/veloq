@@ -123,6 +123,7 @@ export interface TileCacheStats {
   terrain?: { tileCount: number; totalBytes: number };
   satellite?: { tileCount: number; totalBytes: number };
   vector?: { tileCount: number; totalBytes: number };
+  ground?: { tileCount: number; totalBytes: number };
 }
 
 type TileCacheStatsRequestListener = () => void;
