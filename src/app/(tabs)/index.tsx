@@ -53,6 +53,9 @@ import {
 import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('Feed');
 
 // Activity type categories for filtering
 const ACTIVITY_TYPE_GROUPS = {
@@ -136,7 +139,7 @@ export default function FeedScreen() {
     refetch,
   } = useInfiniteActivities();
   if (PERF_DEBUG && performance.now() - t1 > 5)
-    console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
+    log.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
   // Flatten all pages into a single array - stabilize reference to prevent
   // FlatList re-renders when TanStack Query refetches with identical data
@@ -167,7 +170,7 @@ export default function FeedScreen() {
   );
   const { data: startupData } = useStartupData(previewIds);
   if (PERF_DEBUG && performance.now() - t2 > 5)
-    console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
+    log.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
   // Summary card data - uses precomputed data from getStartupData to skip redundant FFI
   const t0 = PERF_DEBUG ? performance.now() : 0;
@@ -190,17 +193,17 @@ export default function FeedScreen() {
     refetch: refetchSummary,
   } = useSummaryCardData(startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t0 > 5)
-    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
+    log.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
   // useInsights uses pre-computed data from startup - never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
   const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t3 > 5)
-    console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
+    log.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
 
   if (PERF_DEBUG) {
     const hookTime = performance.now() - renderStart;
-    if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
+    if (hookTime > 50) log.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
 
   // Filter activities by search query and type
@@ -533,10 +536,10 @@ export default function FeedScreen() {
 
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
-      console.log(
+      log.log(
         `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
       );
-    if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
+    if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce

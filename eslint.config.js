@@ -113,4 +113,32 @@ module.exports = [
       'jest/valid-describe-callback': 'error',
     },
   },
+  {
+    // i18next's default export is the singleton instance, and `use`,
+    // `changeLanguage` and the rest are that instance's methods as well as
+    // named exports bound to it. Calling them on the instance is the library's
+    // own documented shape, so the caution has nothing to catch here.
+    files: ['src/i18n/index.ts'],
+    rules: { 'import/no-named-as-default-member': 'off' },
+  },
+  {
+    // The console's home. `debug` wraps it and `renderTimer` is the dev
+    // instrument that prints frame and heap numbers, so neither can route
+    // through a logger built on top of itself.
+    files: ['src/shared/debug/**'],
+    rules: { 'no-console': 'off' },
+  },
+  {
+    // A Cloudflare Worker. `console.log` is its log stream, there is no
+    // `__DEV__` to guard on and no bundle to keep the lines out of.
+    files: ['oauth-proxy/**'],
+    rules: { 'no-console': 'off' },
+  },
+  {
+    // The FFI timing line is the one place a `debug` logger cannot go: this
+    // module is what `debug` would be measuring, and it already guards on
+    // `__DEV__` itself.
+    files: ['modules/veloqrs/src/EngineClient.ts'],
+    rules: { 'no-console': 'off' },
+  },
 ];

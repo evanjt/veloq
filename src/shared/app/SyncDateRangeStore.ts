@@ -10,6 +10,9 @@
 
 import { create } from 'zustand';
 import { formatLocalDate } from '@/shared/format/format';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SyncDateRangeStore');
 
 export interface GpsSyncProgress {
   status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
@@ -129,7 +132,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     // Block expansion if locked (after reset/clear, until initial sync completes)
     if (current.isExpansionLocked) {
       if (__DEV__) {
-        console.log(
+        log.log(
           `[SyncDateRange] Expansion BLOCKED (locked): requested ${requestedOldest} - ${requestedNewest}`
         );
       }
@@ -151,7 +154,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       });
 
       if (__DEV__) {
-        console.log(
+        log.log(
           `[SyncDateRange] Expanded range: ${current.oldest} - ${current.newest} -> ${newOldest} - ${newNewest}`
         );
       }
@@ -162,7 +165,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     const current = get();
     if (oldest < current.oldest || newest > current.newest) {
       if (__DEV__) {
-        console.log(
+        log.log(
           `[SyncDateRange] Initialized range from engine: ${oldest} - ${newest} (no recomputation)`
         );
       }
@@ -175,7 +178,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
     const current = get();
     const newGeneration = current.syncGeneration + 1;
     if (__DEV__) {
-      console.log(
+      log.log(
         `[SyncDateRange] Reset to 90 days (${range.oldest} - ${range.newest}), ` +
           `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
       );
@@ -221,7 +224,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
 
   unlockExpansion: () => {
     if (__DEV__) {
-      console.log('[SyncDateRange] Expansion manually UNLOCKED');
+      log.log('[SyncDateRange] Expansion manually UNLOCKED');
     }
     set({ isExpansionLocked: false });
   },
@@ -238,7 +241,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       const currentState = get();
       if (currentState.isExpansionLocked) {
         if (__DEV__) {
-          console.log('[SyncDateRange] Expansion UNLOCKED after delay');
+          log.log('[SyncDateRange] Expansion UNLOCKED after delay');
         }
         set({ isExpansionLocked: false });
       }

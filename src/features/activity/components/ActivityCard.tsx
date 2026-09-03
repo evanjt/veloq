@@ -31,6 +31,9 @@ import { StrengthActivityCard, type StrengthCardData } from '@/features/strength
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivityCard');
 
 function formatLocation(activity: Activity): string | null {
   if (!activity.locality) return null;
@@ -134,7 +137,7 @@ export const ActivityCard = React.memo(
   }: ActivityCardProps) {
     // Log actual function body execution (not useEffect which is deferred)
     if (__DEV__ && (index ?? 0) < 3) {
-      console.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
+      log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
     }
     const { t } = useTranslation();
     const { isDark } = useTheme();
@@ -670,9 +673,7 @@ export const ActivityCard = React.memo(
       if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
       if (prev.sectionHighlights !== next.sectionHighlights) diffs.push('sectionHighlights');
       if (prev.routeHighlight !== next.routeHighlight) diffs.push('routeHighlight');
-      console.log(
-        `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
-      );
+      log.log(`    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`);
     }
     return equal;
   }

@@ -7,6 +7,9 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 
 import { demoStrengthSets } from '../demo';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ExerciseSets');
 
 function isDemo(): boolean {
   return useAuthStore.getState().isDemoMode;
@@ -39,7 +42,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
 
       // Check if strength() method exists (requires Rust rebuild with StrengthManager)
       if (typeof engine.getExerciseSets !== 'function') {
-        console.log('[ExerciseSets] getExerciseSets not available - rebuild required');
+        log.log('[ExerciseSets] getExerciseSets not available - rebuild required');
         return [];
       }
 
@@ -54,7 +57,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
         // activity that carries one, then read back through the normal path.
         if (isDemo() && demoStrengthSets[activityId]) {
           if (typeof engine.bulkInsertExerciseSets !== 'function') {
-            console.log('[ExerciseSets] bulkInsertExerciseSets not available - rebuild required');
+            log.log('[ExerciseSets] bulkInsertExerciseSets not available - rebuild required');
             return [];
           }
           engine.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);

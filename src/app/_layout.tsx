@@ -80,6 +80,9 @@ import {
 
 // Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('RootLayout');
 enableFreeze(true);
 if (!__DEV__) {
   // Keep production logs quieter without hiding warnings while developing.
@@ -141,7 +144,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               cachedAthleteId !== credentialsAthleteId
             ) {
               if (__DEV__) {
-                console.log(
+                log.log(
                   `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
                 );
               }
@@ -155,7 +158,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // The bump is what lets them try again, the launch sync first.
             markEngineReady();
             if (__DEV__) {
-              console.log(
+              log.log(
                 `[Engine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
               );
             }
@@ -209,7 +212,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               const newestDateStr = formatLocalDate(new Date(Number(stats.newestDate) * 1000));
               initializeRange(oldestDateStr, newestDateStr);
               if (__DEV__) {
-                console.log(
+                log.log(
                   `[SyncDateRange] Initialized from engine: ${oldestDateStr} - ${newestDateStr}`
                 );
               }
