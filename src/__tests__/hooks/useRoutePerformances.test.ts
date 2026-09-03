@@ -8,6 +8,7 @@
 import { renderHook } from '@testing-library/react-native';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getEngine } from '@/shared/native/engine';
+import type { FfiActivityMetrics, FfiRoutePerformance, FfiRoutePerformanceResult } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
@@ -124,4 +125,72 @@ it('has no best when the engine throws', () => {
 
   expect(result.current.performances).toEqual([]);
   expect(result.current.best).toBeNull();
+});
+
+describe('a sport filter over a screen bundle', () => {
+  const groups: FfiRouteGroup[] = [
+    { groupId: 'g1', representativeId: 'a1', activityIds: ['a1', 'a2'], sportType: 'Ride' },
+  ];
+  const bundledMetrics = (activityId: string, movingTime: number): FfiActivityMetrics => ({
+    ...metrics(activityId, movingTime),
+    date: 1_700_000_000n,
+    sportType: 'Ride',
+  });
+  const bundledPerformance = (activityId: string, movingTime: number): FfiRoutePerformance => ({
+    ...performance(activityId, movingTime),
+    date: 1_700_000_000n,
+    duration: movingTime,
+    isCurrent: activityId === 'a1',
+  });
+  const filtered: FfiRoutePerformanceResult = {
+    performances: [bundledPerformance('a1', 3600)],
+    activityMetrics: [bundledMetrics('a1', 3600)],
+    best: bundledPerformance('a1', 3600),
+    currentRank: 1,
+  };
+  const unfiltered: FfiRoutePerformanceResult = {
+    ...filtered,
+    performances: [bundledPerformance('a1', 3600), bundledPerformance('a2', 3000)],
+    activityMetrics: [bundledMetrics('a1', 3600), bundledMetrics('a2', 3000)],
+  };
+
+  it('reads the engine once across re-renders that rebuild the bundle object', () => {
+    getRoutePerformances.mockReturnValue(filtered);
+
+    // The screen builds this literal in its render body, so every render is a
+    // new object with the same contents.
+    const { result, rerender } = renderHook(
+      ({ sport }: { sport?: string }) =>
+        useRoutePerformances('a1', 'g1', sport, { groups, result: undefined }),
+      { initialProps: { sport: 'Ride' } }
+    );
+    expect(result.current.performances).toHaveLength(1);
+
+    rerender({ sport: 'Ride' });
+    rerender({ sport: 'Ride' });
+
+    expect(getRoutePerformances).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads again when the filter changes, and not when it is cleared over a held result', () => {
+    getRoutePerformances.mockReturnValue(filtered);
+
+    const { result, rerender } = renderHook(
+      ({ sport }: { sport?: string }) =>
+        useRoutePerformances('a1', 'g1', sport, {
+          groups,
+          result: sport ? undefined : unfiltered,
+        }),
+      { initialProps: { sport: 'Ride' as string | undefined } }
+    );
+    expect(getRoutePerformances).toHaveBeenCalledTimes(1);
+
+    rerender({ sport: 'Run' });
+    expect(getRoutePerformances).toHaveBeenCalledTimes(2);
+    expect(getRoutePerformances).toHaveBeenLastCalledWith('g1', 'a1', 'Run');
+
+    rerender({ sport: undefined });
+    expect(result.current.performances).toHaveLength(2);
+    expect(getRoutePerformances).toHaveBeenCalledTimes(2);
+  });
 });
