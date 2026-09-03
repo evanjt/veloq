@@ -8,6 +8,8 @@ import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudge
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { colors, darkColors, spacing } from '@/theme';
 
+import { StreamHistoryRow } from './StreamHistoryRow';
+
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
   return formatFullDate(dateStr);
@@ -265,6 +267,8 @@ export function StorageStatsPanel({
           {formatFileSize(databaseSize)}
         </Text>
       </View>
+
+      <StreamHistoryRow isDark={isDark} />
 
       {/* Map tiles cache row with clear button */}
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
