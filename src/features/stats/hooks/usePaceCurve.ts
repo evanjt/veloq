@@ -20,26 +20,27 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
 
   const queryKey = queryKeys.charts.paceCurve.bySport(sport, days, gap);
 
-  const body = getEngine()?.getPaceCurveBody(sport, days, gap) ?? null;
-  useEngineBody(
-    body !== null,
-    () => getEngine()?.syncPaceCurve(sport, days, gap),
-    queryKey,
-    enabled
-  );
-
-  const result = useQuery<PaceCurve>({
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it; the empty curve is what the
+  // chart draws in the meantime.
+  const query = useQuery<PaceCurve | null>({
     queryKey,
     queryFn: () => {
       const stored = getEngine()?.getPaceCurveBody(sport, days, gap);
-      const parsed = stored ? parsePaceCurveBody(stored, sport) : null;
-      return parsed ?? emptyPaceCurve(sport);
+      return stored ? parsePaceCurveBody(stored, sport) : null;
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncPaceCurve(sport, days, gap),
+    queryKey,
+    enabled && query.data !== undefined
+  );
+  const result = { ...query, data: query.data ?? emptyPaceCurve(sport) };
 
   // Snapshot critical speed for trend tracking (idempotent: INSERT OR REPLACE by date+sport)
   const lastSnapshotted = useRef<string | null>(null);

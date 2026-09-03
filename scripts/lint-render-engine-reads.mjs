@@ -51,14 +51,6 @@ const JSON_OUT = process.argv.includes('--json');
 // open audit item is a debt, not an exemption, and comes out when the item
 // closes.
 const ALLOWLIST = new Map([
-  // B165: the body read at render duplicates the queryFn's read. Comes out
-  // with the fix.
-  ['src/features/stats/hooks/usePowerCurve.ts', 'B165, render read duplicates the queryFn'],
-  ['src/features/stats/hooks/usePaceCurve.ts', 'B165, render read duplicates the queryFn'],
-  ['src/features/activity/hooks/useActivities.ts', 'B165, render read duplicates the queryFn'],
-  // B165: getStats on every render of the debug screen, with a refreshKey
-  // nothing keys it on.
-  ['src/app/debug.tsx', 'B165, getStats every render, refreshKey unused'],
   // Re-reads once when the engine opens after the row mounted, guarded by the
   // ready nonce, so it is one extra read per open and not one per render.
   [
