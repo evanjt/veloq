@@ -6,6 +6,7 @@ import { formatFullDate, formatFileSize } from '@/shared/format/format';
 import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
+import { mapCacheTotal } from '../lib/mapCacheTotal';
 import { colors, darkColors, spacing } from '@/theme';
 
 import { StreamHistoryRow } from './StreamHistoryRow';
@@ -15,12 +16,25 @@ function formatDateOrDash(dateStr: string | null): string {
   return formatFullDate(dateStr);
 }
 
+/** Every segment the bar can draw. A key, never a literal: the legend was the
+ * one thing on this screen that stayed in English. */
+type SegmentKey =
+  | 'settings.storageDatabase'
+  | 'settings.storageHeatmap'
+  | 'settings.storageSatellite'
+  | 'settings.storageTerrain'
+  | 'settings.storageVector'
+  | 'settings.storageGround'
+  | 'settings.storagePreviews';
+
 interface StorageBarSegment {
-  label: string;
+  labelKey: SegmentKey;
   bytes: number;
   color: string;
 }
 
+/** Segment names are keys, never literals: this is the only chart on the screen
+ * and its legend was the one thing on it that stayed in English. */
 function StorageBreakdownBar({
   routesSize,
   tileCacheStats,
@@ -36,44 +50,57 @@ function StorageBreakdownBar({
   freeStorage: number | null;
   isDark: boolean;
 }) {
+  const { t } = useTranslation();
   const segments = useMemo<StorageBarSegment[]>(() => {
     const result: StorageBarSegment[] = [];
     if (routesSize > 0) {
-      result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
+      result.push({
+        labelKey: 'settings.storageDatabase',
+        bytes: routesSize,
+        color: colors.primary,
+      });
     }
     if (heatmapCacheSize > 0) {
-      result.push({ label: 'Heatmap', bytes: heatmapCacheSize, color: colors.cautionOrange });
+      result.push({
+        labelKey: 'settings.storageHeatmap',
+        bytes: heatmapCacheSize,
+        color: colors.cautionOrange,
+      });
     }
     if (tileCacheStats?.satellite?.totalBytes) {
       result.push({
-        label: 'Satellite',
+        labelKey: 'settings.storageSatellite',
         bytes: tileCacheStats.satellite.totalBytes,
         color: colors.chartPurple,
       });
     }
     if (tileCacheStats?.terrain?.totalBytes) {
       result.push({
-        label: 'Terrain',
+        labelKey: 'settings.storageTerrain',
         bytes: tileCacheStats.terrain.totalBytes,
         color: colors.chartGreen,
       });
     }
     if (tileCacheStats?.vector?.totalBytes) {
       result.push({
-        label: 'Vector',
+        labelKey: 'settings.storageVector',
         bytes: tileCacheStats.vector.totalBytes,
         color: colors.chartCyan,
       });
     }
     if (tileCacheStats?.ground?.totalBytes) {
       result.push({
-        label: 'Ground',
+        labelKey: 'settings.storageGround',
         bytes: tileCacheStats.ground.totalBytes,
         color: colors.chartAmber,
       });
     }
     if (terrainCacheSize > 0) {
-      result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
+      result.push({
+        labelKey: 'settings.storagePreviews',
+        bytes: terrainCacheSize,
+        color: colors.chartYellow,
+      });
     }
     return result;
   }, [routesSize, tileCacheStats, terrainCacheSize, heatmapCacheSize]);
@@ -94,7 +121,7 @@ function StorageBreakdownBar({
           if (pct < 0.5) return null;
           return (
             <View
-              key={seg.label}
+              key={seg.labelKey}
               style={[styles.storageBarSegment, { width: `${pct}%`, backgroundColor: seg.color }]}
             />
           );
@@ -102,10 +129,13 @@ function StorageBreakdownBar({
       </View>
       <View style={styles.storageLegend}>
         {segments.map((seg) => (
-          <View key={seg.label} style={styles.storageLegendItem}>
+          <View key={seg.labelKey} style={styles.storageLegendItem}>
             <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
-            <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
-              {seg.label} {formatFileSize(seg.bytes)}
+            <Text
+              testID="storage-legend-label"
+              style={[styles.storageLegendText, isDark && styles.textMuted]}
+            >
+              {t(seg.labelKey)} {formatFileSize(seg.bytes)}
             </Text>
           </View>
         ))}
@@ -143,7 +173,6 @@ export interface StorageStatsPanelProps {
   lastSync: string | null;
   totalQueries: number;
   databaseSize: number;
-  totalMapCache: number;
   onClearMapCache: () => void;
   routesSize: number;
   tileCacheStats: TileCacheStats | null;
@@ -162,7 +191,6 @@ export function StorageStatsPanel({
   lastSync,
   totalQueries,
   databaseSize,
-  totalMapCache,
   onClearMapCache,
   routesSize,
   tileCacheStats,
@@ -171,6 +199,11 @@ export function StorageStatsPanel({
   freeStorage,
 }: StorageStatsPanelProps) {
   const { t } = useTranslation();
+  const total = mapCacheTotal({
+    terrainBytes: terrainCacheSize,
+    heatmapBytes: heatmapCacheSize,
+    tileStats: tileCacheStats,
+  });
   const budgetMb = useTileCacheSettings((state) => state.budgetMb);
   const setBudgetMb = useTileCacheSettings((state) => state.setBudgetMb);
 
@@ -270,20 +303,28 @@ export function StorageStatsPanel({
 
       <StreamHistoryRow isDark={isDark} />
 
-      {/* Map tiles cache row with clear button */}
+      {/* Everything the map draws from, which is previews, heatmap and tiles. */}
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textMuted]}>
-          {t('settings.mapTiles', { defaultValue: 'Map tiles' })}
+        <Text
+          testID="settings-map-cache-label"
+          style={[styles.infoLabel, isDark && styles.textMuted]}
+        >
+          {t('settings.mapCache')}
         </Text>
         <View style={styles.infoValueRow}>
-          <Text style={[styles.infoValue, isDark && styles.textLight]}>
-            {totalMapCache > 0 ? formatFileSize(totalMapCache) : '-'}
+          <Text
+            testID="settings-map-cache-value"
+            style={[styles.infoValue, isDark && styles.textLight]}
+          >
+            {total.bytes > 0
+              ? total.complete
+                ? formatFileSize(total.bytes)
+                : t('settings.sizeAtLeast', { size: formatFileSize(total.bytes) })
+              : '-'}
           </Text>
-          {totalMapCache > 0 && (
+          {total.bytes > 0 && (
             <TouchableOpacity onPress={onClearMapCache} style={styles.clearInlineButton}>
-              <Text style={styles.clearInlineText}>
-                {t('settings.clearCache', { defaultValue: 'Clear' })}
-              </Text>
+              <Text style={styles.clearInlineText}>{t('settings.clearCache')}</Text>
             </TouchableOpacity>
           )}
         </View>

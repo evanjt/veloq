@@ -89,8 +89,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       .catch(() => setFreeStorage(null));
   }, []);
 
-  const totalMapCache = terrainCacheSize + heatmapCacheSize + (tileCacheStats?.totalBytes ?? 0);
-
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
     getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
@@ -206,7 +204,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           lastSync={cacheStats.lastSync}
           totalQueries={totalQueries}
           databaseSize={cacheSizes.routes}
-          totalMapCache={totalMapCache}
           onClearMapCache={handleClearMapCache}
           routesSize={cacheSizes.routes}
           tileCacheStats={tileCacheStats}
