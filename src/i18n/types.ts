@@ -325,6 +325,7 @@ export interface TranslationResource {
     storageVector: string;
     storageGround: string;
     storagePreviews: string;
+    clearCache: string;
     mapCache: string;
     sizeAtLeast: string;
     tileCacheLimit: string;

@@ -80,8 +80,10 @@ const baseProps = {
   freeStorage: 1000,
 };
 
-function renderPanel(over: Partial<React.ComponentProps<typeof StorageStatsPanel>>) {
-  return render(<StorageStatsPanel {...baseProps} {...(over as never)} />);
+type PanelProps = React.ComponentProps<typeof StorageStatsPanel>;
+
+function renderPanel(over: Omit<PanelProps, keyof typeof baseProps>) {
+  return render(<StorageStatsPanel {...baseProps} {...over} />);
 }
 
 describe('the map cache row against its legend', () => {
