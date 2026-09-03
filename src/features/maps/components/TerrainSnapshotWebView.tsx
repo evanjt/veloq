@@ -108,6 +108,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const queueTotalRef = useRef(0);
     const queueCompletedRef = useRef(0);
     const failedRequestsRef = useRef<SnapshotRequest[]>([]);
+    // One silent idle retry per request, so a card whose render was dropped or
+    // timed out does not wait for a pull-to-refresh it may never get.
+    const idleRetriedRef = useRef(new Set<string>());
     const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const STALENESS_TIMEOUT_MS = 15000;
@@ -184,7 +187,31 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       worker.webViewRef.current?.reload();
     }, []);
 
+    const requestKey = (r: SnapshotRequest) =>
+      `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
+
     const processNext = useCallback(() => {
+      // Nothing left to render and nothing in flight: this is the moment to
+      // give the failures one more go, before the pool goes quiet.
+      if (
+        queueRef.current.length === 0 &&
+        failedRequestsRef.current.length > 0 &&
+        !workers.some((w) => w.processingRef.current)
+      ) {
+        const failed = failedRequestsRef.current;
+        failedRequestsRef.current = [];
+        for (const req of failed) {
+          const key = requestKey(req);
+          if (idleRetriedRef.current.has(key)) continue;
+          if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
+          idleRetriedRef.current.add(key);
+          // Already at the ladder's last rung, so this is one more render and
+          // not another round of in-flight retries.
+          queueRef.current.push({ ...req, _retryAttempt: MAX_SNAPSHOT_RETRIES });
+          queueTotalRef.current++;
+        }
+      }
+
       for (const worker of workers) {
         if (worker.processingRef.current || !worker.mapReadyRef.current) continue;
 
@@ -194,7 +221,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         let drained = 0;
         while (
           queueRef.current.length > 0 &&
-          hasTerrainPreview(queueRef.current[0].activityId, queueRef.current[0].mapStyle)
+          hasTerrainPreview(
+            queueRef.current[0].activityId,
+            queueRef.current[0].mapStyle,
+            !queueRef.current[0].flat
+          )
         ) {
           queueRef.current.shift();
           drained++;
@@ -296,6 +327,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             (data.mapStyle as MapStyleType) ??
             worker.currentRequestRef.current?.mapStyle ??
             'light';
+          // The render is half the key, and only the request knows which one it
+          // asked for: the page posts back the style, not the camera.
+          const is3D = worker.currentRequestRef.current?.flat === false;
           worker.processingRef.current = false;
           worker.currentRequestRef.current = null;
           queueCompletedRef.current++;
@@ -311,7 +345,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           }
           // Save concurrently - card shows loading state until emitSnapshotComplete
           try {
-            const uri = await saveTerrainPreview(activityId, style, base64);
+            const uri = await saveTerrainPreview(activityId, style, is3D, base64);
             if (__DEV__)
               console.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
             emitSnapshotComplete(activityId, uri);
@@ -443,20 +477,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       ref,
       () => ({
         requestSnapshot: (request: SnapshotRequest) => {
-          // Deduplicate: skip if already cached, already queued, or in-flight on a worker
-          if (hasTerrainPreview(request.activityId, request.mapStyle)) return;
-          if (
-            queueRef.current.some(
-              (r) => r.activityId === request.activityId && r.mapStyle === request.mapStyle
-            )
-          )
-            return;
+          // Deduplicate: skip if already cached, already queued, or in-flight on
+          // a worker. The render is part of the identity: a 3D request that
+          // arrives while the flat one for the same activity is still rendering
+          // is a different image, and dropping it leaves the toggle with no
+          // effect at all.
+          if (hasTerrainPreview(request.activityId, request.mapStyle, !request.flat)) return;
+          if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
           if (
             workers.some(
               (w) =>
                 w.processingRef.current &&
-                w.currentRequestRef.current?.activityId === request.activityId &&
-                w.currentRequestRef.current?.mapStyle === request.mapStyle
+                w.currentRequestRef.current !== null &&
+                requestKey(w.currentRequestRef.current) === requestKey(request)
             )
           )
             return;
@@ -476,7 +509,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           if (__DEV__) console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
           failedRequestsRef.current = [];
           for (const req of failed) {
-            if (hasTerrainPreview(req.activityId, req.mapStyle)) continue;
+            if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
             queueRef.current.push(req);
             queueTotalRef.current++;
           }
