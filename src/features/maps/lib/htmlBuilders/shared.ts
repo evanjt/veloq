@@ -98,16 +98,17 @@ export function vectorProtocolScript(): string {
 }
 
 /**
- * Registers the `cached-terrain`, `cached-satellite`, `cached-vector` and
- * `heatmap-file` protocols on `maplibregl`.
+ * Registers the `cached-terrain`, `cached-satellite`, `cached-ground`,
+ * `cached-vector` and `heatmap-file` protocols on `maplibregl`.
  *
  * The three cache protocols back onto the Cache API keyed off the stable
  * `https://veloq.fit/` base URL, so tiles survive a WebView being recreated.
  * Eviction is FIFO and size-capped, checked every 50 inserts per cache.
  * `heatmap-file` round-trips to React Native, which reads the PNG off disk.
  *
- * Defines `terrainHits`/`terrainMisses`, `satHits`/`satMisses` and
- * `vecHits`/`vecMisses` counters that callers may log, plus
+ * Defines `terrainHits`/`terrainMisses`, `satHits`/`satMisses`,
+ * `groundHits`/`groundMisses` and `vecHits`/`vecMisses` counters that callers
+ * may log, plus
  * `terrainDelivered`/`terrainFailed`, which the 3D page reads to tell a flat
  * map from a terrain one.
  *
@@ -197,6 +198,26 @@ ${cacheEvictionScript(options.tileCacheBudgetMb)}
           return fetch(realUrl).then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
+            return r.blob().then(demBlobToImage);
+          });
+        });
+      });
+    });
+
+    // The light style paints this raster below zoom 7, so at world zoom it is the
+    // whole visible ground. It has its own store rather than the satellite one:
+    // the pyramid stops at zoom 6, and a satellite session must not evict it.
+    var GROUND_CACHE = 'veloq-ground-v1';
+    var groundHits = 0, groundMisses = 0;
+    maplibregl.addProtocol('cached-ground', function(params) {
+      var realUrl = 'https://' + params.url.substring('cached-ground://'.length);
+      return caches.open(GROUND_CACHE).then(function(cache) {
+        return cache.match(realUrl).then(function(cached) {
+          if (cached) { groundHits++; return cached.blob().then(demBlobToImage); }
+          groundMisses++;
+          return fetch(realUrl).then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache.put(realUrl, r.clone()); maybeEvict(GROUND_CACHE);
             return r.blob().then(demBlobToImage);
           });
         });

@@ -38,7 +38,11 @@ import {
   onTileCacheStatsRequest,
   emitTileCacheStats,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { applyTileCacheBudgetScript } from '@/features/maps/lib/tileCacheBudget';
+import {
+  applyTileCacheBudgetScript,
+  clearTileCachesScript,
+  tileCacheStatsScript,
+} from '@/features/maps/lib/tileCacheBudget';
 import {
   buildSnapshotWorkerHtml,
   buildBundledAssetReplyScript,
@@ -395,17 +399,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     useEffect(() => {
       return onClearTileCache(() => {
         for (const worker of workers) {
-          worker.webViewRef.current?.injectJavaScript(`
-          Promise.all([
-            caches.delete('veloq-terrain-dem-v1'),
-            caches.delete('veloq-satellite-v1'),
-            caches.delete('veloq-vector-v1'),
-          ]).then(function() {
-            window._rn_log('All tile caches cleared');
-            window._currentBaseStyle = null;
-          });
-          true;
-        `);
+          worker.webViewRef.current?.injectJavaScript(clearTileCachesScript());
         }
       });
     }, [workers]);
@@ -425,41 +419,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Query worker 0 if its map is ready
         const worker = workers[0];
         if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
-        worker.webViewRef.current.injectJavaScript(`
-          (function() {
-            var cacheNames = ['veloq-terrain-dem-v1', 'veloq-satellite-v1', 'veloq-vector-v1'];
-            Promise.all(cacheNames.map(function(name) {
-              return caches.open(name).then(function(cache) {
-                return cache.keys().then(function(requests) {
-                  return Promise.all(requests.map(function(req) {
-                    return cache.match(req).then(function(r) {
-                      return r ? (parseInt(r.headers.get('content-length') || '0', 10) || 0) : 0;
-                    });
-                  })).then(function(sizes) {
-                    var total = 0;
-                    for (var i = 0; i < sizes.length; i++) total += sizes[i];
-                    return { name: name, tileCount: requests.length, totalBytes: total };
-                  });
-                });
-              }).catch(function() { return { name: name, tileCount: 0, totalBytes: 0 }; });
-            })).then(function(results) {
-              var combined = { tileCount: 0, totalBytes: 0, terrain: null, satellite: null, vector: null };
-              results.forEach(function(r) {
-                combined.tileCount += r.tileCount;
-                combined.totalBytes += r.totalBytes;
-                if (r.name.indexOf('terrain') >= 0) combined.terrain = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-                else if (r.name.indexOf('satellite') >= 0) combined.satellite = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-                else if (r.name.indexOf('vector') >= 0) combined.vector = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-              });
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'tileCacheStats', workerId: window._workerId,
-                tileCount: combined.tileCount, totalBytes: combined.totalBytes,
-                terrain: combined.terrain, satellite: combined.satellite, vector: combined.vector,
-              }));
-            });
-          })();
-          true;
-        `);
+        worker.webViewRef.current.injectJavaScript(tileCacheStatsScript());
       });
     }, [workers]);
 

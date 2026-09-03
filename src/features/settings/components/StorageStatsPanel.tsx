@@ -63,6 +63,13 @@ function StorageBreakdownBar({
         color: colors.chartCyan,
       });
     }
+    if (tileCacheStats?.ground?.totalBytes) {
+      result.push({
+        label: 'Ground',
+        bytes: tileCacheStats.ground.totalBytes,
+        color: colors.chartAmber,
+      });
+    }
     if (terrainCacheSize > 0) {
       result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
     }
