@@ -3,6 +3,9 @@ import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary } from 'veloqrs';
 import type { FrequentSection, PerformanceDataPoint } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SectionChartDataEnriched');
 
 interface UseSectionChartDataEnrichedArgs {
   id: string | undefined;
@@ -86,7 +89,7 @@ export function useSectionChartDataEnriched({
       const t0 = performance.now();
       const result = engine.getSectionCalendarSummary(section.id);
       if (__DEV__)
-        console.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
+        log.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
       return result ?? null;
     } catch {
       return null;
