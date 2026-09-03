@@ -26,10 +26,9 @@ pub mod settings_keys {
     /// the strictness-slider fields; this captures every field so a restart
     /// restores the EXACT config that was last set. Without it the load path
     /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
-    /// (which spreads the current config and re-sets preset-only fields like
-    /// `preserve_hierarchy` / `min_corridor_tracks`) then reads as a genuine
-    /// change every boot, clearing the processed set and renumbering every
-    /// section. Preferred by the loader; the individual keys remain as a
+    /// (which spreads the current config and re-sets whatever it holds) then
+    /// reads as a genuine change every boot, clearing the processed set and
+    /// renumbering every section. Preferred by the loader; the individual keys remain as a
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
 }
