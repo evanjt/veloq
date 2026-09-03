@@ -155,7 +155,7 @@ describe('render-time engine read lint', () => {
     // A file the real allowlist names, present but without the read it excuses.
     const root = withHook(
       'export function useThing() {\n  return 1;\n}\n',
-      'src/features/stats/hooks/usePowerCurve.ts'
+      'src/features/settings/components/StreamHistoryRow.tsx'
     );
     const { status, output } = runLint(root);
     expect(status).toBe(1);

@@ -16,21 +16,28 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
   const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
 
-  const body = getEngine()?.getPowerCurveBody(sport, days) ?? null;
-  useEngineBody(body !== null, () => getEngine()?.syncPowerCurve(sport, days), queryKey, enabled);
-
-  return useQuery<PowerCurve>({
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it; the empty curve is what the
+  // chart draws in the meantime.
+  const query = useQuery<PowerCurve | null>({
     queryKey,
     queryFn: () => {
       const stored = getEngine()?.getPowerCurveBody(sport, days);
-      const parsed = stored ? parsePowerCurveBody(stored, sport) : null;
-      return parsed ?? emptyPowerCurve(sport);
+      return stored ? parsePowerCurveBody(stored, sport) : null;
     },
     enabled,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncPowerCurve(sport, days),
+    queryKey,
+    enabled && query.data !== undefined
+  );
+
+  return { ...query, data: query.data ?? emptyPowerCurve(sport) };
 }
 
 /** Rendered as "no data yet" rather than an error while the fetch is in flight. */
