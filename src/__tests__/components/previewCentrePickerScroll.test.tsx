@@ -31,7 +31,7 @@ function centre(binKey: string) {
     lng: 2,
     visitTotal: 10,
     sectionCount: 3,
-    source: 'visits' as const,
+    source: 'activities' as const,
   };
 }
 
