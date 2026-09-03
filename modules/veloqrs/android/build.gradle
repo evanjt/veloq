@@ -209,6 +209,13 @@ task buildRustLibrary {
     // removed Project.exec from the task-action context.
     def cmd = ["cargo", "ndk"] + args + ["--platform", "24",
                "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"]
+    // Measurement features such as lock-trace ride in by environment, so a
+    // one-off instrumented build needs no edit to Cargo.toml.
+    def features = System.getenv("VELOQRS_CARGO_FEATURES")
+    if (features) {
+      cmd += ["--features", features]
+      println "[veloqrs] Cargo features: ${features}"
+    }
     def proc = new ProcessBuilder(cmd).directory(rustDir).inheritIO().start()
     def code = proc.waitFor()
     if (code != 0) {

@@ -16,6 +16,9 @@ synthetic = ["tracematch/synthetic"]
 # Targets that read the owner's private GPX corpora. The traces never enter the
 # repository, so a machine without them must not build these at all.
 real-corpus = []
+# Times every engine lock take per caller and prints the table to the log.
+# Measurement only, never on by default.
+lock-trace = []
 
 [dependencies]
 # Core algorithm library

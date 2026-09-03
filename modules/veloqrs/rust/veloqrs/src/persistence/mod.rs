@@ -46,6 +46,8 @@ pub mod cutover;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
+#[cfg(feature = "lock-trace")]
+pub mod lock_trace;
 pub(crate) mod records;
 mod route_identity;
 mod routes;
@@ -1455,13 +1457,34 @@ unsafe impl Sync for PersistentEngine {}
 /// `get_section_by_id`, `get_consensus_route`, `get_section_performances`,
 /// `get_groups`) **and any closure that touches `self.db`** (the read lock
 /// is memory-only - see safety invariant above).
+#[track_caller]
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentEngine) -> R,
 {
+    with_persistent_engine_at(std::panic::Location::caller(), f)
+}
+
+/// The write-lock take itself, keyed by the call site that asked for it.
+///
+/// `caller` is only read by the `lock-trace` feature, which times the wait
+/// and the hold per site so the lock can be measured rather than argued about.
+pub fn with_persistent_engine_at<F, R>(
+    caller: &'static std::panic::Location<'static>,
+    f: F,
+) -> Option<R>
+where
+    F: FnOnce(&mut PersistentEngine) -> R,
+{
+    #[cfg(not(feature = "lock-trace"))]
+    let _ = caller;
+    #[cfg(feature = "lock-trace")]
+    let mut timing = lock_trace::Timing::begin(caller);
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
     // here would disable the engine for the rest of the session.
     let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+    #[cfg(feature = "lock-trace")]
+    timing.acquired();
     guard.as_mut().map(f)
 }
 
@@ -1476,19 +1499,26 @@ where
 ///
 /// The closure is `'static`, so callers hand it owned data rather than a
 /// borrow of a local.
-pub async fn with_persistent_engine_blocking<F, R>(f: F) -> Option<R>
+///
+/// A plain `fn` returning the future rather than an `async fn`, so
+/// `#[track_caller]` names the awaiting site and not this function.
+#[track_caller]
+pub fn with_persistent_engine_blocking<F, R>(f: F) -> impl std::future::Future<Output = Option<R>>
 where
     F: FnOnce(&mut PersistentEngine) -> R + Send + 'static,
     R: Send + 'static,
 {
-    match tokio::task::spawn_blocking(move || with_persistent_engine(f)).await {
-        Ok(result) => result,
-        // The blocking task itself panicked, or the runtime is shutting down.
-        // Either way the write did not happen; the caller's other work should
-        // not be cancelled with it.
-        Err(e) => {
-            log::warn!("[Engine] blocking engine call failed: {e}");
-            None
+    let caller = std::panic::Location::caller();
+    async move {
+        match tokio::task::spawn_blocking(move || with_persistent_engine_at(caller, f)).await {
+            Ok(result) => result,
+            // The blocking task itself panicked, or the runtime is shutting down.
+            // Either way the write did not happen; the caller's other work should
+            // not be cancelled with it.
+            Err(e) => {
+                log::warn!("[Engine] blocking engine call failed: {e}");
+                None
+            }
         }
     }
 }
