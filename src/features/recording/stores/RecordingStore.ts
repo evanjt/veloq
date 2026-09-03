@@ -153,14 +153,12 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const { status, _pauseStart, pausedDuration, pauseIntervals, startTime } = get();
     if (status !== 'recording' && status !== 'paused') return;
     const now = Date.now();
-    const paused = status === 'paused' && _pauseStart;
+    const pausedSince = status === 'paused' ? _pauseStart : null;
     set({
       status: 'stopped',
       stopTime: now,
-      pausedDuration: pausedDuration + (paused ? now - _pauseStart! : 0),
-      pauseIntervals: paused
-        ? closePause(pauseIntervals, startTime, _pauseStart, now)
-        : pauseIntervals,
+      pausedDuration: pausedDuration + (pausedSince ? now - pausedSince : 0),
+      pauseIntervals: closePause(pauseIntervals, startTime, pausedSince, now),
       _pauseStart: null,
     });
   },

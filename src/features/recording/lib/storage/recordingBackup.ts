@@ -53,7 +53,8 @@ export function buildRecordingBackup(state: {
   if (!activityType || !mode || !startTime) return null;
 
   const now = Date.now();
-  const ongoingPause = status === 'paused' && state._pauseStart ? now - state._pauseStart : 0;
+  const pauseStart = status === 'paused' ? state._pauseStart : null;
+  const ongoingPause = pauseStart ? now - pauseStart : 0;
 
   return {
     activityType: activityType as RecordingBackup['activityType'],
@@ -62,13 +63,10 @@ export function buildRecordingBackup(state: {
     startTime,
     stopTime: state.stopTime,
     pausedDuration: state.pausedDuration + ongoingPause,
-    pauseIntervals: ongoingPause
+    pauseIntervals: pauseStart
       ? [
           ...(state.pauseIntervals ?? []),
-          {
-            start: (state._pauseStart! - startTime) / 1000,
-            end: (now - startTime) / 1000,
-          },
+          { start: (pauseStart - startTime) / 1000, end: (now - startTime) / 1000 },
         ]
       : (state.pauseIntervals ?? []),
     streams: state.streams,
