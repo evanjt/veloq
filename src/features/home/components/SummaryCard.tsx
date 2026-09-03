@@ -15,6 +15,9 @@ import { colors, darkColors, spacing, layout, typography, shadows, opacity } fro
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('SummaryCard');
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard
@@ -98,7 +101,7 @@ export const SummaryCard = React.memo(function SummaryCard({
     // eslint-disable-next-line react-hooks/rules-of-hooks
     React.useEffect(() => {
       const dur = performance.now() - start;
-      if (dur > 20) console.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
+      if (dur > 20) log.log(`  📊 SummaryCard render: ${dur.toFixed(0)}ms`);
     });
   }
   const { isDark, colors: themeColors } = useTheme();

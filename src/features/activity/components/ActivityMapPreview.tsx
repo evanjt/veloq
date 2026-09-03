@@ -304,7 +304,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           ? 'loading'
           : 'none';
     const render3d = terrainImageUri ? 'cached' : show3D ? '3D-pending' : 'flat-pending';
-    console.log(
+    log.log(
       `    🗺️ MapPreview[${index}] hooks: ${hookTime.toFixed(0)}ms | coords: ${validCoordinates.length} | source: ${source} | ${render3d}`
     );
   }

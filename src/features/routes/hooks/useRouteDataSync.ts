@@ -11,6 +11,9 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('RouteDataSync');
 
 /** How long to let the Rust time-stream backfill run before moving on. It
  *  resumes on the next sync, so a slow drain never blocks the banner. */
@@ -78,7 +81,7 @@ export function useRouteDataSync(
       // Don't sync if not authenticated or already unmounted
       if (!isAuth || !isMountedRef.current) {
         if (__DEV__) {
-          console.log(`[RouteDataSync] Blocked: isAuth=${isAuth}, mounted=${isMountedRef.current}`);
+          log.log(`[RouteDataSync] Blocked: isAuth=${isAuth}, mounted=${isMountedRef.current}`);
         }
         return;
       }
@@ -87,7 +90,7 @@ export function useRouteDataSync(
       // Existing synced activities will still work from the engine cache
       if (!online) {
         if (__DEV__) {
-          console.log('[RouteDataSync] Blocked: offline');
+          log.log('[RouteDataSync] Blocked: offline');
         }
         if (isMountedRef.current) {
           updateProgress({
@@ -104,7 +107,7 @@ export function useRouteDataSync(
       // Prevent concurrent syncs
       if (!canStartSync()) {
         if (__DEV__) {
-          console.log('[RouteDataSync] Blocked: sync already in progress');
+          log.log('[RouteDataSync] Blocked: sync already in progress');
         }
         return;
       }
@@ -144,7 +147,7 @@ export function useRouteDataSync(
           const totalGps = activitiesToSync.filter((a) =>
             a.stream_types?.includes('latlng')
           ).length;
-          console.log(
+          log.log(
             `[RouteDataSync] Activities: ${activitiesToSync.length} total, ` +
               `${totalGps} with GPS, ${withGps.length} new to sync, ` +
               `${engineActivityIds.size} already in engine, isDemo: ${isDemo}`
@@ -157,7 +160,7 @@ export function useRouteDataSync(
         const cachedMetricIds = new Set(nativeModule.engine.getActivityMetricIds());
         const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
         if (__DEV__) {
-          console.log(
+          log.log(
             `[RouteDataSync] Metrics: ${cachedMetricIds.size} cached, ${newActivities.length} new`
           );
         }
@@ -184,7 +187,7 @@ export function useRouteDataSync(
             const unprocessed = nativeModule.engine.getUnprocessedStrengthIds(strengthIds);
             if (unprocessed.length > 0) {
               if (__DEV__) {
-                console.log(
+                log.log(
                   `[RouteDataSync] Fetching FIT files for ${unprocessed.length} strength activities`
                 );
               }
@@ -193,7 +196,7 @@ export function useRouteDataSync(
                 // sets are read back from SQLite when a strength screen asks.
                 const started = nativeModule.engine.batchFetchExerciseSets(unprocessed);
                 if (__DEV__) {
-                  console.log(
+                  log.log(
                     `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
                       started ? 'started' : 'already running'
                     }`
@@ -215,7 +218,7 @@ export function useRouteDataSync(
           const drainStatus = nativeModule.engine.pollSectionDetection();
           if (drainStatus === 'complete') {
             if (__DEV__) {
-              console.log('[RouteDataSync] Drained stale detection result');
+              log.log('[RouteDataSync] Drained stale detection result');
             }
             engine.triggerRefresh('sections');
             engine.triggerRefresh('groups');
@@ -225,7 +228,7 @@ export function useRouteDataSync(
           const stats = engine.getStats();
           if (stats?.sectionsDirty && isMountedRef.current) {
             if (__DEV__) {
-              console.log(
+              log.log(
                 '[RouteDataSync] No new GPS, but sectionsDirty - triggering section detection'
               );
             }
@@ -293,7 +296,7 @@ export function useRouteDataSync(
               }
             }
           } else if (__DEV__) {
-            console.log('[RouteDataSync] No new activities to sync');
+            log.log('[RouteDataSync] No new activities to sync');
           }
 
           // Backfill: time streams for activities with NULL lap_time (upgrade
@@ -304,7 +307,7 @@ export function useRouteDataSync(
               const needingStreams = engine.getActivitiesNeedingTimeStreams();
               if (needingStreams.length > 0) {
                 if (__DEV__) {
-                  console.log(
+                  log.log(
                     `[RouteDataSync] Backfilling time streams for ${needingStreams.length} activities`
                   );
                 }
@@ -336,7 +339,7 @@ export function useRouteDataSync(
                   await new Promise((resolve) => setTimeout(resolve, STREAM_BACKFILL_POLL_MS));
                 }
                 if (__DEV__) {
-                  console.log(
+                  log.log(
                     `[RouteDataSync] Backfilled ${totalStreams - remaining}/${totalStreams} time streams`
                   );
                 }
@@ -362,7 +365,7 @@ export function useRouteDataSync(
         }
 
         if (__DEV__) {
-          console.log(`[RouteDataSync] Starting GPS fetch for ${withGps.length} activities...`);
+          log.log(`[RouteDataSync] Starting GPS fetch for ${withGps.length} activities...`);
         }
 
         // Fetch GPS data (demo or real API mode)
@@ -396,7 +399,7 @@ export function useRouteDataSync(
         }
       } finally {
         if (__DEV__) {
-          console.log('[RouteDataSync] Sync complete (finally block)');
+          log.log('[RouteDataSync] Sync complete (finally block)');
         }
         // Always mark sync complete. Ownership check inside markSyncComplete
         // ensures a stale run won't clear the globals a newer sync now owns.

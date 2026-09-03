@@ -59,6 +59,9 @@ import type {
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('TerrainSnapshotWebView');
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 30;
@@ -246,7 +249,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         const workerId = worker.id;
 
         if (__DEV__) {
-          console.log(
+          log.log(
             `[TerrainSnapshot:${workerId}] Processing ${request.activityId} gen=${gen} (style: ${request.mapStyle})`
           );
         }
@@ -285,7 +288,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         console: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
           if (!workers[data.workerId]) return;
-          if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+          if (__DEV__) log.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
         },
         bundledAssetRequest: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
@@ -302,7 +305,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           if (typeof data.workerId !== 'number') return;
           const worker = workers[data.workerId];
           if (!worker) return;
-          if (__DEV__) console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
+          if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
           worker.mapReadyRef.current = true;
           processNext();
         },
@@ -339,15 +342,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           const base64 = data.base64 as string;
           const activityId = data.activityId as string;
           if (__DEV__) {
-            console.log(
+            log.log(
               `[TerrainSnapshot:${data.workerId}] Captured ${activityId} (${Math.round(base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
             );
           }
           // Save concurrently - card shows loading state until emitSnapshotComplete
           try {
             const uri = await saveTerrainPreview(activityId, style, is3D, base64);
-            if (__DEV__)
-              console.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
+            if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
             emitSnapshotComplete(activityId, uri);
           } catch (saveErr) {
             if (__DEV__) {
@@ -510,7 +512,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         retryFailed: () => {
           const failed = failedRequestsRef.current;
           if (failed.length === 0) return;
-          if (__DEV__) console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
+          if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
           failedRequestsRef.current = [];
           for (const req of failed) {
             if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
