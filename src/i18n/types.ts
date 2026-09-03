@@ -318,6 +318,15 @@ export interface TranslationResource {
     streamHistoryDays: string;
     streamHistoryAll: string;
     streamHistoryReset: string;
+    storageDatabase: string;
+    storageHeatmap: string;
+    storageSatellite: string;
+    storageTerrain: string;
+    storageVector: string;
+    storageGround: string;
+    storagePreviews: string;
+    mapCache: string;
+    sizeAtLeast: string;
     tileCacheLimit: string;
     dateRange: string;
     noData: string;
