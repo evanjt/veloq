@@ -494,9 +494,13 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           )
             return;
 
-          // Drop oldest if queue is full
+          // Drop oldest if queue is full. A dropped request never completes,
+          // so it comes back off the total too: leaving it counted is what kept
+          // completed from ever catching total while cards kept mounting, and
+          // the progress notification posted for the whole session.
           if (queueRef.current.length >= MAX_QUEUE_SIZE) {
             queueRef.current.shift();
+            queueTotalRef.current--;
           }
           queueRef.current.push(request);
           queueTotalRef.current++;
