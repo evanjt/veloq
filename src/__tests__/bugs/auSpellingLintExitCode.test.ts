@@ -6,6 +6,10 @@
  * Expected behaviour: the guard fails on the American form, and passes the
  * words that are not ours to spell: serde, HTTP, the UniFFI surface and the
  * one phase token TypeScript keys on.
+ *
+ * The guard also reads the two English locale files, which is how `Reanalyze
+ * sections` shipped to en-AU. Their allowlist is not the crate's: a phase
+ * token has no business in a string an athlete reads.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -15,6 +19,7 @@ import { join } from 'node:path';
 
 const SCRIPT = join(__dirname, '../../../scripts/lint-au-spelling.mjs');
 const CRATE = 'modules/veloqrs/rust/veloqrs/src';
+const LOCALES = 'src/i18n/locales';
 
 function runGuard(root?: string): { status: number; output: string } {
   try {
@@ -37,6 +42,18 @@ function crate(contents: string): string {
   const full = join(root, CRATE, 'lib.rs');
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, contents);
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['add', '-A'], { cwd: root });
+  return root;
+}
+
+function locales(files: Record<string, unknown>): string {
+  const root = mkdtempSync(join(tmpdir(), 'au-spelling-locale-'));
+  roots.push(root);
+  mkdirSync(join(root, LOCALES), { recursive: true });
+  for (const [name, body] of Object.entries(files)) {
+    writeFileSync(join(root, LOCALES, name), JSON.stringify(body, null, 2));
+  }
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['add', '-A'], { cwd: root });
   return root;
@@ -101,4 +118,57 @@ it('ignores files outside the crate', () => {
   execFileSync('git', ['add', '-A'], { cwd: root });
 
   expect(runGuard(root).status).toBe(0);
+});
+
+describe('the English locale files are read too', () => {
+  it('fails on an American spelling in a string the athlete reads', () => {
+    const { status, output } = runGuard(
+      locales({ 'en-AU.json': { settings: { reanalyzeSections: 'Reanalyze sections' } } })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('en-AU.json');
+    expect(output).toContain('settings.reanalyzeSections');
+    expect(output).toContain('analys');
+  });
+
+  it('passes the Australian spelling of the same string', () => {
+    expect(
+      runGuard(
+        locales({
+          'en-AU.json': {
+            settings: { reanalyzeSections: 'Reanalyse sections', note: 'Re-analysed just now' },
+          },
+        })
+      ).status
+    ).toBe(0);
+  });
+
+  it('reads en-GB as well', () => {
+    const { status, output } = runGuard(
+      locales({ 'en-GB.json': { settings: { colorScheme: 'Color scheme' } } })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('en-GB.json');
+  });
+
+  it("does not carry the crate's allowlist into a locale file", () => {
+    expect(runGuard(locales({ 'en-AU.json': { routes: { phase: 'analyzing' } } })).status).toBe(1);
+  });
+
+  it('leaves the sixteen other locales alone, they are not ours to spell', () => {
+    expect(
+      runGuard(locales({ 'fr.json': { settings: { color: 'Couleur behavior' } } })).status
+    ).toBe(0);
+  });
+
+  it('reads a value nested several levels down', () => {
+    const { status, output } = runGuard(
+      locales({ 'en-AU.json': { a: { b: { c: { d: 'Optimize the route' } } } } })
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('a.b.c.d');
+  });
 });
