@@ -11,6 +11,9 @@ import type { Insight, SectionRankingScores } from '../types';
 import { generateInsights, recordConsolidation } from './generateInsights';
 import type { ConsolidationDrop } from './generateInsights';
 import { buildInsightsParams } from './insightsParams';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ComputeInsightsData');
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -182,9 +185,9 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   recordConsolidation(kept, dropped);
 
   if (__DEV__ && dropped.length > 0) {
-    console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
+    log.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
+      log.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
     }
   }
 
@@ -363,13 +366,11 @@ export function computeInsightsFromData(
     const consolidated = consolidateInsights(coreInsights);
 
     if (__DEV__) {
-      console.log(
+      log.log(
         `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} before consolidation)`
       );
       for (const i of consolidated) {
-        console.log(
-          `[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`
-        );
+        log.log(`[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`);
       }
     }
 
