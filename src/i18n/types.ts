@@ -314,6 +314,10 @@ export interface TranslationResource {
     previewKeepRefusedTitle: string;
     previewKeepRefused: string;
     database: string;
+    streamHistory: string;
+    streamHistoryDays: string;
+    streamHistoryAll: string;
+    streamHistoryReset: string;
     tileCacheLimit: string;
     dateRange: string;
     noData: string;
