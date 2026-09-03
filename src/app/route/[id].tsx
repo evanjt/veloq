@@ -89,6 +89,16 @@ export default function RouteDetailScreen() {
 
   // Get performance data filtered by selected sport type. Without a filter the
   // bundle's unfiltered result is the answer, so no second read is made.
+  const preComputedPerformances = useMemo(
+    () =>
+      detail
+        ? {
+            groups: detail.groups,
+            result: sportFilter ? undefined : detail.performances,
+          }
+        : undefined,
+    [detail, sportFilter]
+  );
   const {
     performances,
     best: bestPerformance,
@@ -96,17 +106,7 @@ export default function RouteDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useRoutePerformances(
-    id,
-    engineGroup?.groupId,
-    sportFilter,
-    detail
-      ? {
-          groups: detail.groups,
-          result: sportFilter ? undefined : detail.performances,
-        }
-      : undefined
-  );
+  } = useRoutePerformances(id, engineGroup?.groupId, sportFilter, preComputedPerformances);
 
   // Consensus route points, decoded from the bundle.
   const consensusPoints = useMemo(() => {

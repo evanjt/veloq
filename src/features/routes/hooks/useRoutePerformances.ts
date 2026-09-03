@@ -145,6 +145,10 @@ export function useRoutePerformances(
     };
   }
 
+  // The bundle is rebuilt by the screen on every render, so the memo keys on
+  // the result inside it, which is stable, and not on the wrapper.
+  const preComputedResult = preComputed?.result;
+
   // Get route performance data from Rust engine (includes inlined metrics as of Issue C optimization)
   // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
   const rustData = useMemo((): {
@@ -172,7 +176,7 @@ export function useRoutePerformances(
 
     try {
       // Get typed performance data directly from Rust engine (now includes metrics)
-      let result = preComputed?.result;
+      let result = preComputedResult;
       if (!result) {
         const engine = getEngine();
         if (!engine) return emptyResult;
@@ -211,7 +215,7 @@ export function useRoutePerformances(
     } catch {
       return emptyResult;
     }
-  }, [engineGroup, activityId, sportType, preComputed]);
+  }, [engineGroup, activityId, sportType, preComputedResult]);
 
   const {
     matchInfoMap,
