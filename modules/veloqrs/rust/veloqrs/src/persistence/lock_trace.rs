@@ -5,7 +5,8 @@
 //! long it waited for the write lock and how long its closure held it, keyed by
 //! the call site. A call that waits or holds longer than half a frame is logged
 //! as it happens, with its thread, and a reporter thread prints the per-caller
-//! table every fifteen seconds so the histogram can be read out of logcat.
+//! tables every fifteen seconds, by hold, by call count and by longest wait, so
+//! the histogram can be read out of logcat.
 
 use std::collections::HashMap;
 use std::panic::Location;
@@ -166,6 +167,17 @@ fn report() {
             ms(s.wait_total),
             ms(s.wait_max),
             hist(&s.hold_hist),
+        );
+    }
+    rows.sort_by(|a, b| b.1.calls.cmp(&a.1.calls));
+    for (caller, s) in rows.iter().take(TOP) {
+        log::info!(
+            "[LockTrace] calls {}:{} calls={} sum={:.1}ms max={:.1}ms",
+            caller.file(),
+            caller.line(),
+            s.calls,
+            ms(s.hold_total),
+            ms(s.hold_max),
         );
     }
     rows.sort_by(|a, b| b.1.wait_max.cmp(&a.1.wait_max));
