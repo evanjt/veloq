@@ -200,12 +200,6 @@ export function DetectionIllustration({
           minSectionLength,
           maxSectionLength: 200000,
           minActivities,
-          clusterTolerance: 80,
-          samplePoints: 50,
-          detectionMode: 'discovery',
-          includePotentials: false,
-          preserveHierarchy: true,
-          enableDensitySplits: false,
           divergenceThreshold,
         });
 
