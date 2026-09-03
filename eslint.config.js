@@ -113,4 +113,12 @@ module.exports = [
       'jest/valid-describe-callback': 'error',
     },
   },
+  {
+    // i18next's default export is the singleton instance, and `use`,
+    // `changeLanguage` and the rest are that instance's methods as well as
+    // named exports bound to it. Calling them on the instance is the library's
+    // own documented shape, so the caution has nothing to catch here.
+    files: ['src/i18n/index.ts'],
+    rules: { 'import/no-named-as-default-member': 'off' },
+  },
 ];
