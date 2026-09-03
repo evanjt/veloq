@@ -36,7 +36,7 @@ function captions(overrides: Partial<typeof params> = {}) {
   );
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Text } = require('react-native');
-  return UNSAFE_getAllByType(Text).map((n: { props: { children: string } }) => n.props.children);
+  return UNSAFE_getAllByType(Text).map((n) => String(n.props.children));
 }
 
 describe('the distance captions', () => {
