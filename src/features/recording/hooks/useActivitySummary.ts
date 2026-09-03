@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 
 import type { RecordingStreams } from '@/features/recording/types';
 import { elevationGain } from '@/shared/math';
+import { pausedSecondsBetween, type PauseInterval } from '../lib/pausedTime';
 import { parseManualSummary } from '../lib/parseManualSummary';
 
 export interface ActivitySummary {
@@ -24,6 +25,7 @@ export interface UseActivitySummaryArgs {
   startTime: number | null;
   stopTime: number | null;
   pausedDuration: number;
+  pauseIntervals: readonly PauseInterval[];
   trimStart: number;
   trimEnd: number;
   canTrim: boolean;
@@ -44,6 +46,8 @@ export interface UseActivitySummary {
   summary: ActivitySummary;
   trimDelta: TrimDelta | null;
   getTrimmedStreams: () => RecordingStreams;
+  /** Paused seconds inside the saved window, for the FIT writer's timer time. */
+  pausedSecondsInWindow: number;
 }
 
 /**
@@ -61,6 +65,7 @@ export function useActivitySummary({
   startTime,
   stopTime,
   pausedDuration,
+  pauseIntervals,
   trimStart,
   trimEnd,
   canTrim,
@@ -103,10 +108,16 @@ export function useActivitySummary({
       : (streams.distance[streams.distance.length - 1] ?? 0);
     const totalDistance = endDist - startDist;
 
-    // Stream time values are seconds; startTime/stopTime are milliseconds.
+    // Stream time values are seconds; startTime/stopTime are milliseconds. Stream
+    // times run on wall clock, so a window measured from them still holds its pauses.
     const elapsed = startTime
       ? canTrim && s.time.length >= 2
-        ? s.time[s.time.length - 1] - s.time[0]
+        ? Math.max(
+            0,
+            s.time[s.time.length - 1] -
+              s.time[0] -
+              pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1])
+          )
         : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
 
@@ -139,6 +150,7 @@ export function useActivitySummary({
     startTime,
     stopTime,
     pausedDuration,
+    pauseIntervals,
     canTrim,
     trimStart,
     trimEnd,
@@ -153,7 +165,16 @@ export function useActivitySummary({
       (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);
     const fullElapsed =
       startTime && streams.time.length >= 2
-        ? streams.time[streams.time.length - 1] - streams.time[0]
+        ? Math.max(
+            0,
+            streams.time[streams.time.length - 1] -
+              streams.time[0] -
+              pausedSecondsBetween(
+                pauseIntervals,
+                streams.time[0],
+                streams.time[streams.time.length - 1]
+              )
+          )
         : 0;
 
     const distDelta = summary.distance - fullDist;
@@ -161,7 +182,15 @@ export function useActivitySummary({
 
     if (distDelta === 0 && durationDelta === 0) return null;
     return { distance: distDelta, duration: durationDelta };
-  }, [canTrim, trimStart, trimEnd, streams, startTime, summary]);
+  }, [canTrim, trimStart, trimEnd, streams, startTime, pauseIntervals, summary]);
 
-  return { summary, trimDelta, getTrimmedStreams };
+  // Pauses inside the window actually saved, whether trimmed or whole.
+  const pausedSecondsInWindow = useMemo(() => {
+    if (isManual) return 0;
+    const s = canTrim ? getTrimmedStreams() : streams;
+    if (s.time.length < 2) return pausedDuration / 1000;
+    return pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1]);
+  }, [isManual, canTrim, getTrimmedStreams, streams, pauseIntervals, pausedDuration]);
+
+  return { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow };
 }

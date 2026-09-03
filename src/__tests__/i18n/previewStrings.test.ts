@@ -45,7 +45,7 @@ const PLACEHOLDERS: Record<string, string[]> = {
   previewAreaFallback: ['{{number}}'],
   previewAreaVisits: ['{{count}}'],
   previewAreaSections: ['{{count}}'],
-  sectionMaxLength: ['{{meters}}'],
+  sectionMaxLength: ['{{distance}}'],
   sectionSameTraffic: ['{{value}}'],
   previewRunning: ['{{count}}'],
   previewUnchanged: ['{{count}}'],

@@ -15,10 +15,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
-import {
-  startElevationBackfillAfterUpdate,
-  resumeElevationBackfill,
-} from '@/features/routes/lib/elevationBackfillTrigger';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
@@ -254,13 +251,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
       if (state === 'active') {
         onAppForeground();
-        // A pass left partial by a moment without a connection would otherwise
-        // wait for the app to be killed and reopened, and the detector cutover
-        // waits behind it. The trigger spaces these itself, so calling it on
-        // every foreground is cheap.
-        if (!useAuthStore.getState().isDemoMode) {
-          resumeElevationBackfill().catch(() => {});
-        }
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;

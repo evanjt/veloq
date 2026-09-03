@@ -1,12 +1,17 @@
 /**
  * The five staged sliders. Pure local values: moving a slider changes nothing
  * outside this panel until the caller runs a preview or keeps the result.
+ *
+ * The three distance captions all read through `formatDistance`, so the ceiling
+ * reads as kilometres rather than as 200000 metres and the panel has one
+ * spacing rule instead of a per-caption one.
  */
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
+import { formatDistance } from '@/shared/format/format';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import type { PreviewParams } from '../../../../../modules/veloqrs/src/delegates/preview';
@@ -33,7 +38,9 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
       pointerEvents={disabled ? 'none' : 'auto'}
     >
       <ParamRow
-        label={t('settings.sectionProximity', { meters: params.proximityThreshold })}
+        label={t('settings.sectionProximity', {
+          distance: formatDistance(params.proximityThreshold),
+        })}
         value={params.proximityThreshold}
         min={25}
         max={300}
@@ -42,7 +49,9 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         isDark={isDark}
       />
       <ParamRow
-        label={t('settings.sectionMinLength', { meters: params.minSectionLength })}
+        label={t('settings.sectionMinLength', {
+          distance: formatDistance(params.minSectionLength),
+        })}
         value={params.minSectionLength}
         min={50}
         max={2000}
@@ -51,7 +60,9 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         isDark={isDark}
       />
       <ParamRow
-        label={t('settings.sectionMaxLength', { meters: params.maxSectionLength })}
+        label={t('settings.sectionMaxLength', {
+          distance: formatDistance(params.maxSectionLength),
+        })}
         value={params.maxSectionLength}
         min={2000}
         max={200000}

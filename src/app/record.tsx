@@ -186,6 +186,7 @@ export default function RecordScreen() {
                 startTime: backup.startTime,
                 stopTime: backup.stopTime ?? backup.savedAt,
                 pausedDuration: backup.pausedDuration,
+                pauseIntervals: backup.pauseIntervals ?? [],
                 streams: backup.streams,
                 laps: backup.laps,
                 status: 'stopped',
@@ -200,6 +201,13 @@ export default function RecordScreen() {
             useRecordingStore.setState({
               startTime: backup.startTime,
               pausedDuration: backup.pausedDuration + Math.max(0, now - backup.savedAt),
+              pauseIntervals: [
+                ...(backup.pauseIntervals ?? []),
+                {
+                  start: (backup.savedAt - backup.startTime) / 1000,
+                  end: (Math.max(now, backup.savedAt) - backup.startTime) / 1000,
+                },
+              ],
               streams: backup.streams,
               laps: backup.laps,
               status: 'paused', // Start paused so user can review before resuming

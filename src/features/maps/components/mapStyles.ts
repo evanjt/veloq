@@ -2,6 +2,7 @@
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
+import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -495,6 +496,26 @@ export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): Combined
     if (source.type === 'raster' && source.tiles) {
       source.tiles = source.tiles.map((url) => url.replace(/^https:\/\//, 'cached-satellite://'));
     }
+  }
+  return rewritten;
+}
+
+/**
+ * Route the light style's `ne2_shaded` ground raster through `cached-ground://`.
+ *
+ * The layer draws below zoom 6, where it is the whole visible ground, so left on
+ * the network a map with no radio opens on nothing. Only sources pointing at the
+ * OpenFreeMap Natural Earth path are touched, so a satellite raster keeps the
+ * protocol `rewriteSatelliteUrls` gave it.
+ */
+export function rewriteGroundRasterUrls<T extends object>(style: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rewritten: any = JSON.parse(JSON.stringify(style));
+  for (const source of Object.values(rewritten.sources ?? {}) as Record<string, unknown>[]) {
+    if (source.type !== 'raster' || !Array.isArray(source.tiles)) continue;
+    source.tiles = (source.tiles as string[]).map((url) =>
+      url.startsWith(NATURAL_EARTH_ORIGIN) ? url.replace(/^https:\/\//, 'cached-ground://') : url
+    );
   }
   return rewritten;
 }

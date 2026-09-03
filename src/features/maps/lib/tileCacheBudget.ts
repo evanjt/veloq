@@ -1,5 +1,5 @@
 /**
- * How much device storage the three tile caches may hold, and the eviction
+ * How much device storage the four tile caches may hold, and the eviction
  * that enforces it.
  *
  * The budget used to be a literal inside two WebView scripts over the same
@@ -8,24 +8,28 @@
  * here, interpolated into both pages at build time (`B123`, `Q23`).
  */
 
-/** The three Cache API stores the map pages write to. */
+/** The Cache API stores the map pages write to. */
 export const TILE_CACHE_NAMES = [
   'veloq-satellite-v1',
   'veloq-vector-v1',
   'veloq-terrain-dem-v1',
+  'veloq-ground-v1',
 ] as const;
 
 export type TileCacheName = (typeof TILE_CACHE_NAMES)[number];
 
 /**
- * The split between them, from the 120/50/30 MB that shipped. Satellite tiles
- * are images and dominate, vector tiles are small and cover far more ground per
- * byte, and the DEM is only fetched for the 3D surfaces.
+ * The split between them, from the 120/50/30 MB that shipped, with the light
+ * style's ground raster carved out of the satellite share. Satellite tiles are
+ * images and dominate, vector tiles are small and cover far more ground per
+ * byte, the DEM is only fetched for the 3D surfaces, and the ground raster
+ * stops at zoom 6, so its whole pyramid is smaller than one city of satellite.
  */
 const SHARES: Record<TileCacheName, number> = {
-  'veloq-satellite-v1': 0.6,
+  'veloq-satellite-v1': 0.55,
   'veloq-vector-v1': 0.25,
   'veloq-terrain-dem-v1': 0.15,
+  'veloq-ground-v1': 0.05,
 };
 
 /** What every install had before the setting existed. */
@@ -47,6 +51,7 @@ export function tileCacheBudgets(totalMb: number): Record<TileCacheName, number>
     'veloq-satellite-v1': Math.round(total * SHARES['veloq-satellite-v1']),
     'veloq-vector-v1': Math.round(total * SHARES['veloq-vector-v1']),
     'veloq-terrain-dem-v1': Math.round(total * SHARES['veloq-terrain-dem-v1']),
+    'veloq-ground-v1': Math.round(total * SHARES['veloq-ground-v1']),
   };
 }
 
@@ -117,4 +122,70 @@ export function applyTileCacheBudgetScript(totalMb: number): string {
     })();
     true;
   `;
+}
+
+/**
+ * Drop every tile cache. Injected into a live page when the athlete clears the
+ * caches from settings. Driven by `TILE_CACHE_NAMES` so a cache added later
+ * cannot be the one the clear misses.
+ */
+export function clearTileCachesScript(): string {
+  const deletes = TILE_CACHE_NAMES.map((name) => `caches.delete('${name}')`).join(
+    ',\n            '
+  );
+  return `
+          Promise.all([
+            ${deletes},
+          ]).then(function() {
+            window._rn_log('All tile caches cleared');
+            window._currentBaseStyle = null;
+          });
+          true;
+        `;
+}
+
+/**
+ * Measure every tile cache and post the totals back as `tileCacheStats`. The
+ * per-kind buckets are what the storage panel draws, so a cache with no bucket
+ * would count toward the total and appear in no segment.
+ */
+export function tileCacheStatsScript(): string {
+  return `
+          (function() {
+            var cacheNames = ${JSON.stringify([...TILE_CACHE_NAMES])};
+            Promise.all(cacheNames.map(function(name) {
+              return caches.open(name).then(function(cache) {
+                return cache.keys().then(function(requests) {
+                  return Promise.all(requests.map(function(req) {
+                    return cache.match(req).then(function(r) {
+                      return r ? (parseInt(r.headers.get('content-length') || '0', 10) || 0) : 0;
+                    });
+                  })).then(function(sizes) {
+                    var total = 0;
+                    for (var i = 0; i < sizes.length; i++) total += sizes[i];
+                    return { name: name, tileCount: requests.length, totalBytes: total };
+                  });
+                });
+              }).catch(function() { return { name: name, tileCount: 0, totalBytes: 0 }; });
+            })).then(function(results) {
+              var combined = { tileCount: 0, totalBytes: 0, terrain: null, satellite: null, vector: null, ground: null };
+              results.forEach(function(r) {
+                combined.tileCount += r.tileCount;
+                combined.totalBytes += r.totalBytes;
+                var bucket = { tileCount: r.tileCount, totalBytes: r.totalBytes };
+                if (r.name.indexOf('terrain') >= 0) combined.terrain = bucket;
+                else if (r.name.indexOf('satellite') >= 0) combined.satellite = bucket;
+                else if (r.name.indexOf('vector') >= 0) combined.vector = bucket;
+                else if (r.name.indexOf('ground') >= 0) combined.ground = bucket;
+              });
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'tileCacheStats', workerId: window._workerId,
+                tileCount: combined.tileCount, totalBytes: combined.totalBytes,
+                terrain: combined.terrain, satellite: combined.satellite,
+                vector: combined.vector, ground: combined.ground,
+              }));
+            });
+          })();
+          true;
+        `;
 }

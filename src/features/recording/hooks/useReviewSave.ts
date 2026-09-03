@@ -32,7 +32,8 @@ export interface UseReviewSaveArgs {
   };
   notes: string;
   startTime: number | null;
-  pausedDuration: number;
+  /** Paused seconds inside the window being saved, not the whole session. */
+  pausedSecondsInWindow: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
@@ -77,7 +78,7 @@ export function useReviewSave({
   summary,
   notes,
   startTime,
-  pausedDuration,
+  pausedSecondsInWindow,
   laps,
   pairedEventId,
   getTrimmedStreams,
@@ -160,7 +161,7 @@ export function useReviewSave({
           streams: trimmedStreams,
           laps,
           name,
-          pausedTimeSeconds: pausedDuration / 1000,
+          pausedTimeSeconds: pausedSecondsInWindow,
         });
 
         const entry = await saveRecording({
@@ -260,7 +261,7 @@ export function useReviewSave({
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     t,

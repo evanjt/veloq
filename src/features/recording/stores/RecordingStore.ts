@@ -2,6 +2,7 @@ import { haversineDistance } from '@/shared/geo/distance';
 import { create } from 'zustand';
 
 import { getMaxPlausibleSpeed } from '@/features/recording/lib/sportCategoryDetector';
+import type { PauseInterval } from '@/features/recording/lib/pausedTime';
 import type {
   ActivityType,
   RecordingMode,
@@ -44,6 +45,8 @@ interface RecordingState {
   startTime: number | null;
   stopTime: number | null;
   pausedDuration: number;
+  /** Each pause as elapsed seconds since startTime, so any stream window can subtract its own. */
+  pauseIntervals: PauseInterval[];
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
@@ -74,6 +77,16 @@ interface RecordingState {
   reset: () => void;
 }
 
+function closePause(
+  intervals: PauseInterval[],
+  startTime: number | null,
+  pauseStart: number | null,
+  now: number
+): PauseInterval[] {
+  if (!startTime || !pauseStart) return intervals;
+  return [...intervals, { start: (pauseStart - startTime) / 1000, end: (now - startTime) / 1000 }];
+}
+
 export const useRecordingStore = create<RecordingState>((set, get) => ({
   status: 'idle',
   activityType: null,
@@ -81,6 +94,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   startTime: null,
   stopTime: null,
   pausedDuration: 0,
+  pauseIntervals: [],
   streams: { ...EMPTY_STREAMS },
   laps: [],
   pairedEventId: null,
@@ -96,6 +110,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       mode,
       startTime: Date.now(),
       pausedDuration: 0,
+      pauseIntervals: [],
       streams: {
         time: [],
         latlng: [],
@@ -122,24 +137,28 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   },
 
   resumeRecording: () => {
-    const { status, _pauseStart, pausedDuration } = get();
+    const { status, _pauseStart, pausedDuration, pauseIntervals, startTime } = get();
     if (status !== 'paused') return;
-    const additionalPause = _pauseStart ? Date.now() - _pauseStart : 0;
+    const now = Date.now();
+    const additionalPause = _pauseStart ? now - _pauseStart : 0;
     set({
       status: 'recording',
       pausedDuration: pausedDuration + additionalPause,
+      pauseIntervals: closePause(pauseIntervals, startTime, _pauseStart, now),
       _pauseStart: null,
     });
   },
 
   stopRecording: () => {
-    const { status, _pauseStart, pausedDuration } = get();
+    const { status, _pauseStart, pausedDuration, pauseIntervals, startTime } = get();
     if (status !== 'recording' && status !== 'paused') return;
-    const additionalPause = status === 'paused' && _pauseStart ? Date.now() - _pauseStart : 0;
+    const now = Date.now();
+    const pausedSince = status === 'paused' ? _pauseStart : null;
     set({
       status: 'stopped',
-      stopTime: Date.now(),
-      pausedDuration: pausedDuration + additionalPause,
+      stopTime: now,
+      pausedDuration: pausedDuration + (pausedSince ? now - pausedSince : 0),
+      pauseIntervals: closePause(pauseIntervals, startTime, pausedSince, now),
       _pauseStart: null,
     });
   },
@@ -313,6 +332,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       startTime: null,
       stopTime: null,
       pausedDuration: 0,
+      pauseIntervals: [],
       streams: {
         time: [],
         latlng: [],

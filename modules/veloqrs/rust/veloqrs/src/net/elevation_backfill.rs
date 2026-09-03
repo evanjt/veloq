@@ -91,6 +91,86 @@ pub fn backfill_retry_delays() -> [Duration; BACKFILL_RETRY_ROUNDS] {
     [Duration::from_millis(500), Duration::from_secs(2)]
 }
 
+/// How long a resume attempt waits after the one before it, longest last.
+///
+/// The last entry is the resting rate: a library nothing can elevate is asked
+/// about twice an hour, not once a minute. This is the ladder between passes,
+/// where [`backfill_retry_delays`] is the one inside a single pass.
+pub const RESUME_WAITS: [Duration; 5] = [
+    Duration::from_secs(60),
+    Duration::from_secs(120),
+    Duration::from_secs(300),
+    Duration::from_secs(900),
+    Duration::from_secs(1800),
+];
+
+/// What the attempt after `attempts` earlier ones waits, capped at the last rung.
+pub fn resume_wait(attempts: usize) -> Duration {
+    RESUME_WAITS[attempts.min(RESUME_WAITS.len() - 1)]
+}
+
+/// Whether a ladder is climbing in this process. One at a time: a second start
+/// joins the ladder that is already running rather than laying a parallel one.
+static RESUME_ARMED: AtomicBool = AtomicBool::new(false);
+
+/// The ladder itself, with everything it waits on handed in.
+///
+/// `sleep` returns false to end the climb, which is how a test stops it and how
+/// nothing stops it in production. Split out so the schedule can be exercised
+/// without spending an evening on it, the same way `drain_queue_with` splits
+/// the fetch out of the walk.
+pub fn resume_ladder(
+    mut sleep: impl FnMut(Duration) -> bool,
+    mut remaining: impl FnMut() -> Option<u64>,
+    mut offline: impl FnMut() -> bool,
+    mut attempt: impl FnMut() -> bool,
+) {
+    let mut attempts = 0usize;
+    loop {
+        if !sleep(resume_wait(attempts)) {
+            return;
+        }
+        attempts += 1;
+        // Zero is the one answer that ends the ladder for good. A queue that
+        // cannot be read is not an empty one, so it climbs and asks again.
+        if remaining() == Some(0) {
+            return;
+        }
+        // A rung spent offline costs no request and still moves up the ladder,
+        // so a device that is away for an evening is not asked every minute
+        // when it comes back.
+        if offline() {
+            continue;
+        }
+        attempt();
+    }
+}
+
+/// Put a ladder behind the pass, unless one is already climbing.
+fn arm_resume_ladder() {
+    if RESUME_ARMED
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+    std::thread::spawn(|| {
+        resume_ladder(
+            |wait| {
+                std::thread::sleep(wait);
+                true
+            },
+            || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
+                Some(Ok(n)) => Some(n),
+                _ => None,
+            },
+            crate::net::connectivity::is_offline,
+            start_pass,
+        );
+        RESUME_ARMED.store(false, Ordering::SeqCst);
+    });
+}
+
 // ============================================================================
 // Phases
 // ============================================================================
@@ -851,6 +931,19 @@ fn start_final_detect() -> bool {
 /// or when the queue is already empty, so a caller can fire this at every
 /// launch and let it decide.
 pub fn start_elevation_backfill() -> bool {
+    let accepted = start_pass();
+    // The ladder outlives this call either way. A pass that was refused for
+    // want of a credential, and one that ends partial because the connection
+    // went away, both need asking again, and nothing outside the engine
+    // schedules that any more.
+    arm_resume_ladder();
+    accepted
+}
+
+/// One attempt to put a pass on a thread. False when there is nothing to do,
+/// when a run holds the slot, when the device is offline, or when no
+/// credential has arrived yet.
+fn start_pass() -> bool {
     // A queue that cannot be read is not an empty one, but it is also not a
     // queue a run could work, so this declines and the next launch asks again.
     let remaining = with_persistent_engine(|engine| engine.elevation_backfill_remaining());

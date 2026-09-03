@@ -11,6 +11,7 @@ import {
   getCombinedSatelliteStyle,
   rewriteSatelliteUrls,
   rewriteVectorUrls,
+  rewriteGroundRasterUrls,
   rewriteBundledAssets,
   MAP_STYLE_URLS,
 } from '@/features/maps/components/mapStyles';
@@ -22,9 +23,10 @@ export const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export interface WebViewStyleOptions {
   /**
-   * Route vector tiles through the `cached-vector://` protocol. On by default:
-   * every 2D surface wants it, and rewriting after a `setStyle` is what the 3D
-   * paths avoid, since it leaves features blank until the cache warms.
+   * Route the basemap tiles through the `cached-vector://` and `cached-ground://`
+   * protocols. On by default: every 2D surface wants it, and rewriting after a
+   * `setStyle` is what the 3D paths avoid, since it leaves features blank until
+   * the cache warms.
    */
   cacheVectorTiles?: boolean;
   /**
@@ -76,7 +78,9 @@ export function resolveStyleForWebView(
   }
 
   if (bundledLightStyle) {
-    const light = cacheVectorTiles ? rewriteVectorUrls(MAP_STYLE_URLS.light) : MAP_STYLE_URLS.light;
+    const light = cacheVectorTiles
+      ? rewriteGroundRasterUrls(rewriteVectorUrls(MAP_STYLE_URLS.light))
+      : MAP_STYLE_URLS.light;
     return { inline: withAssets(light), url: null };
   }
 
