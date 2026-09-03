@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# First, because a hook running against the wrong index rewrites the commit
+# rather than checking it. See scripts/check-commit-index.sh.
+./scripts/check-commit-index.sh "$0"
 ./scripts/check-no-private-data.sh
 npx lint-staged
 
