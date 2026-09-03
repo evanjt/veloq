@@ -200,11 +200,7 @@ export default function ReviewScreen() {
           testID="review-activity-name"
           style={[
             styles.nameInput,
-            {
-              color: textPrimary,
-              backgroundColor: surface,
-              borderColor: border,
-            },
+            { color: textPrimary, backgroundColor: surface, borderColor: border },
           ]}
           value={name}
           onChangeText={setName}
@@ -252,11 +248,7 @@ export default function ReviewScreen() {
           testID="review-notes"
           style={[
             styles.notesInput,
-            {
-              color: textPrimary,
-              backgroundColor: surface,
-              borderColor: border,
-            },
+            { color: textPrimary, backgroundColor: surface, borderColor: border },
           ]}
           value={notes}
           onChangeText={setNotes}

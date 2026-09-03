@@ -130,9 +130,7 @@ export function useReviewSave({
           description: notes || undefined,
         });
         queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.activities.infinite.all,
-        });
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
         await clearRecordingBackup();
         setIsUploading(false);
         finishAndGoHome(null);
@@ -206,9 +204,7 @@ export function useReviewSave({
       switch (result.outcome) {
         case 'uploaded':
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.activities.infinite.all,
-          });
+          queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
           setIsUploading(false);
           finishAndGoHome(null);
           return;

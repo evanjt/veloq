@@ -253,10 +253,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   setSensorSample: (kind, value) => {
     if (!Number.isFinite(value) || value < 0) return;
     set((state) => ({
-      latestSensor: {
-        ...state.latestSensor,
-        [kind]: { value, at: Date.now() },
-      },
+      latestSensor: { ...state.latestSensor, [kind]: { value, at: Date.now() } },
     }));
   },
 
