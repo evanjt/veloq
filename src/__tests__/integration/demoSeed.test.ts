@@ -5,10 +5,10 @@
  */
 
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
-import { applyDetectionStrictness, getRouteEngine } from '@/shared/native/routeEngine';
+import { applyDetectionStrictness, getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
   applyDetectionStrictness: jest.fn(),
 }));
 
@@ -19,7 +19,6 @@ const engine = {
   setActivityMetrics: jest.fn(),
   upsertActivityBodies: jest.fn(),
   setSetting: jest.fn(),
-  setStreamBody: jest.fn(),
   setIntervalBody: jest.fn(),
   setCurveBody: jest.fn(),
   replaceCalendarEvents: jest.fn(),
@@ -27,12 +26,12 @@ const engine = {
   triggerRefresh: jest.fn(),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 describe('seedDemoEngine', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   });
 
   it('stores the athlete profile as a raw body', () => {
@@ -87,12 +86,6 @@ describe('seedDemoEngine', () => {
     );
   });
 
-  it('never writes stream bodies, whose bounded store a full seed would evict', () => {
-    seedDemoEngine();
-
-    expect(engine.setStreamBody).not.toHaveBeenCalled();
-  });
-
   it('stores both curve kinds under the windows the stats screens ask for', () => {
     seedDemoEngine();
 
@@ -140,14 +133,14 @@ describe('seedDemoEngine', () => {
   });
 
   it('is a no-op before the engine exists', () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     expect(() => seedDemoEngine()).not.toThrow();
     expect(engine.setAthleteProfile).not.toHaveBeenCalled();
   });
 
   it('puts demo on the shipped detector, since every tier0 flow runs here', () => {
-    mockGetRouteEngine.mockReturnValue(engine as never);
+    mockGetEngine.mockReturnValue(engine as never);
 
     seedDemoEngine();
 

@@ -8,8 +8,6 @@ export function useSectionUIState() {
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
     RoutePoint[] | undefined
   >(undefined);
-  // Track if user is actively scrubbing - used to defer expensive map updates
-  const [isScrubbing, setIsScrubbing] = useState(false);
   // Defer map loading until after first paint for faster perceived load
   const [mapReady, setMapReady] = useState(false);
   // Merge dialog state
@@ -28,8 +26,6 @@ export function useSectionUIState() {
     setHighlightedActivityId,
     highlightedActivityPoints,
     setHighlightedActivityPoints,
-    isScrubbing,
-    setIsScrubbing,
     mapReady,
     setMapReady,
     mergeTarget,

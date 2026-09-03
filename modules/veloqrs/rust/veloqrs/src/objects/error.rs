@@ -1,6 +1,6 @@
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum VeloqError {
-    #[error("Engine not initialized")]
+    #[error("Engine not initialised")]
     NotInitialized,
     #[error("Engine lock failed")]
     LockFailed,
@@ -12,6 +12,8 @@ pub enum VeloqError {
     ParseError { msg: String },
     #[error("Reference activity: {msg}")]
     ReferenceActivity { msg: String },
+    #[error("Basemap tile store: {msg}")]
+    TileStore { msg: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.
@@ -24,7 +26,7 @@ pub enum VeloqError {
 /// on `PERSISTENT_ENGINE`.
 pub fn with_engine<F, R>(f: F) -> Result<R, VeloqError>
 where
-    F: FnOnce(&mut crate::persistence::PersistentRouteEngine) -> R,
+    F: FnOnce(&mut crate::persistence::PersistentEngine) -> R,
 {
     // Recover from a poisoned lock instead of failing forever. Builds unwind
     // on panic, so a single panic under the write lock would otherwise turn
@@ -40,14 +42,14 @@ where
 /// Execute a closure with a **read lock** on the persistent engine.
 ///
 /// Multiple callers can hold the read lock concurrently. The closure
-/// receives `&PersistentRouteEngine`, so any call into a `&mut self` helper
+/// receives `&PersistentEngine`, so any call into a `&mut self` helper
 /// fails to compile.
 ///
 /// **Safety**: do not call any method that dereferences `self.db` from
 /// inside this closure. SQLite access goes through the write lock only.
 pub fn with_engine_read<F, R>(f: F) -> Result<R, VeloqError>
 where
-    F: FnOnce(&crate::persistence::PersistentRouteEngine) -> R,
+    F: FnOnce(&crate::persistence::PersistentEngine) -> R,
 {
     // Same poison recovery as with_engine.
     let guard = crate::persistence::PERSISTENT_ENGINE

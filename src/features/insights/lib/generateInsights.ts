@@ -1,8 +1,10 @@
 import type { EfficiencyTrend } from 'veloqrs';
+import type { StrengthSummary } from '@/features/strength/types';
 
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import {
   generatePeriodComparisonInsights,
@@ -62,14 +64,6 @@ export interface InsightInputData {
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: {
-    date: string;
-    hrv?: number;
-    restingHR?: number;
-    sleepSecs?: number;
-    ctl?: number;
-    atl?: number;
-  }[];
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
@@ -79,6 +73,10 @@ export interface InsightInputData {
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
    */
   activeRegion?: Bbox | null;
+  /** Four-week strength rollup. Null when the athlete logs no strength work. */
+  strengthMonthly?: StrengthSummary | null;
+  /** Per-week strength rollups backing the progression candidates. */
+  strengthWeekly?: StrengthSummary[];
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +88,19 @@ export interface PipelineOutcome {
   rejected: { insight: Insight; reason: GateReason }[];
   scored: ScoredInsight[];
   capDropped: DropRecord[];
+  /**
+   * What the screen actually renders, in the order it renders it.
+   * `kept` is the pipeline's output, and consolidation runs after it: it drops
+   * on the section story cap and the duplicate-section rule, and reorders what
+   * is left. Null until consolidation has run for this generation.
+   */
+  consolidated: Insight[] | null;
+  consolidationDropped: ConsolidationDrop[];
+}
+
+export interface ConsolidationDrop {
+  insight: Insight;
+  reason: string;
 }
 
 /**
@@ -101,6 +112,17 @@ let _lastOutcome: PipelineOutcome | null = null;
 
 export function getLastInsightOutcome(): PipelineOutcome | null {
   return _lastOutcome;
+}
+
+/**
+ * Record what consolidation did to the pipeline's output. Called by
+ * `consolidateInsights`, which runs downstream of generation, so the debug
+ * panel sees the list the screen shows rather than the one the pipeline
+ * handed on.
+ */
+export function recordConsolidation(kept: Insight[], dropped: ConsolidationDrop[]): void {
+  if (!_lastOutcome) return;
+  _lastOutcome = { ..._lastOutcome, consolidated: kept, consolidationDropped: dropped };
 }
 
 function logInsightGeneration(outcome: PipelineOutcome): void {
@@ -158,9 +180,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   //    from one yields zero insights for that category but does not kill
   //    the rest.
   candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
-  candidates.push(
-    ...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t))
-  );
+  candidates.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(now, t)));
   candidates.push(
     ...safeRun('periodComparison', () =>
       generatePeriodComparisonInsights(
@@ -230,6 +250,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     );
   }
 
+  if (data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
+    candidates.push(
+      ...safeRun('strength', () =>
+        generateStrengthInsights(data.strengthMonthly ?? null, data.strengthWeekly ?? [], now, t)
+      )
+    );
+  }
+
   // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
   const rejected: { insight: Insight; reason: GateReason }[] = [];
@@ -256,7 +284,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // 4. Diversity + surface cap (D9, D10)
   const { kept, dropped: capDropped } = applyMixAndCap(scored);
 
-  const outcome: PipelineOutcome = { kept, rejected, scored, capDropped };
+  const outcome: PipelineOutcome = {
+    kept,
+    rejected,
+    scored,
+    capDropped,
+    consolidated: null,
+    consolidationDropped: [],
+  };
   _lastOutcome = outcome;
   logInsightGeneration(outcome);
 

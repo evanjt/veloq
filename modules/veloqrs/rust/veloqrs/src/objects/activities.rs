@@ -136,22 +136,6 @@ impl ActivityManager {
         })?
     }
 
-    /// Store a stream payload directly. Demo seeding writes the same table a
-    /// live fetch fills, so every downstream read is identical in both modes.
-    fn set_stream_body(
-        &self,
-        activity_id: String,
-        types: String,
-        raw: String,
-    ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_stream_body(&activity_id, &types, &raw)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })?
-    }
-
     /// Store an activity's interval payload directly, for demo seeding.
     fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
         with_engine(|e| {
@@ -208,15 +192,17 @@ impl ActivityManager {
         })?
     }
 
-    /// A stored stream payload for an activity and series selection, or
-    /// `None` when it has not been fetched or has aged out of the cache.
+    /// A stream payload for an activity and series selection: the cached
+    /// server body, or one rebuilt from the points and times the ingest
+    /// already stored. `None` when neither can answer the selection, which is
+    /// what makes the caller fetch.
     fn get_stream_body(
         &self,
         activity_id: String,
         types: String,
     ) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {
-            e.get_stream_body(&activity_id, &types)
+            e.read_stream_body(&activity_id, &types)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
@@ -286,8 +272,8 @@ impl ActivityManager {
     /// indicator highlights, this activity's portion of each section it
     /// traverses, and the sections where it holds the record.
     ///
-    /// `min_route_activities` filters the returned route groups the same way
-    /// the screen used to filter them after the fact.
+    /// `min_route_activities` filters the returned route groups here, so the
+    /// screen does not filter them after the fact.
     fn get_detail_data(
         &self,
         activity_id: String,

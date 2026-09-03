@@ -3,4 +3,4 @@ v0.3.7
 • Detecção de seções redesenhada com três métodos para escolher: Corredor, Grade de densidade e Grafo de fluxo
 • Cada método tem seus próprios controles e uma prévia ao vivo
 • Botão de reanálise destaca-se quando as configurações mudam
-• Corrigido: páginas de seção vazias — atividades correspondentes e histórico voltam a aparecer
+• Corrigido: páginas de seção vazias, atividades correspondentes e histórico voltam a aparecer

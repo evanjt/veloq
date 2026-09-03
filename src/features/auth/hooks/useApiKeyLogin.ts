@@ -1,11 +1,15 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { routeEngine } from 'veloqrs';
+import { engine } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import {
+  accountChangeAction,
+  confirmAccountChange,
+  getCachedAthleteId,
+} from '@/features/auth/lib/accountChange';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -34,7 +38,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
       try {
         // The engine checks the key against /athlete/me without storing it, so
         // a rejected key never becomes the credential the app syncs with.
-        const check = await routeEngine.validateSyncCredentials('api_key', apiKey.trim());
+        const check = await engine.validateSyncCredentials('api_key', apiKey.trim());
         if (check.kind !== 'ok' || !check.id) {
           setError(check.status === 401 ? t('login.invalidApiKey') : t('login.connectionFailed'));
           return;
@@ -47,7 +51,8 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // previous user's avatar can't bleed through.
         const incomingId = check.id;
         const cachedId = await getCachedAthleteId();
-        if (cachedId && cachedId !== incomingId) {
+        const action = accountChangeAction(cachedId, incomingId);
+        if (cachedId && action === 'confirm-then-wipe') {
           const proceed = await confirmAccountChange({
             cachedAthleteId: cachedId,
             incomingKind: 'login',
@@ -56,9 +61,11 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
             setIsApiKeyLoading(false);
             return;
           }
-          await clearAccountData(queryClient);
-        } else {
+        }
+        if (action === 'keep') {
           await clearAuthOnly(queryClient);
+        } else {
+          await clearAccountData(queryClient);
         }
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);

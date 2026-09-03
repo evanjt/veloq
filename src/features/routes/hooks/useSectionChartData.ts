@@ -10,7 +10,7 @@
 import { useMemo } from 'react';
 import { type ChartSummaryStats } from '@/features/routes/lib/performanceTypes';
 import { RANGE_DAYS } from '@/features/routes/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
 import type { FfiSectionChartData } from 'veloqrs';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
@@ -90,7 +90,7 @@ export function useSectionChartData({
   const rustChart = useMemo(() => {
     if (preComputedChart !== undefined) return preComputedChart;
     if (!section) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     try {
       const rangeDays = RANGE_DAYS[sectionTimeRange];

@@ -7,9 +7,9 @@ use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{GroupSummary, PersistentRouteEngine, codec, get_route_word};
+use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -92,14 +92,14 @@ impl PersistentRouteEngine {
         let groups_count = self.groups.len();
         let matches_count = self.activity_matches.len();
         log::info!(
-            "tracematch: load_groups: {} groups, {} activity_matches entries",
+            "veloqrs: load_groups: {} groups, {} activity_matches entries",
             groups_count,
             matches_count
         );
 
         if !self.groups.is_empty() && self.activity_matches.is_empty() {
             log::info!(
-                "tracematch: Forcing groups recompute: groups exist but activity_matches is empty"
+                "veloqrs: Forcing groups recompute: groups exist but activity_matches is empty"
             );
             self.groups_dirty = true;
         } else {
@@ -132,7 +132,7 @@ impl PersistentRouteEngine {
             // Reload matches to include the new entries
             self.load_activity_matches()?;
             log::info!(
-                "tracematch: Backfilled {} missing activity_matches entries from group member lists",
+                "veloqrs: Backfilled {} missing activity_matches entries from group member lists",
                 backfilled
             );
         }
@@ -164,7 +164,7 @@ impl PersistentRouteEngine {
 
             if !has_any_nonzero {
                 log::info!(
-                    "tracematch: [migration] All non-representative match percentages are 0.0, \
+                    "veloqrs: [migration] All non-representative match percentages are 0.0, \
                      running one-time AMD recalculation"
                 );
                 self.recalculate_match_percentages_from_tracks();
@@ -178,7 +178,7 @@ impl PersistentRouteEngine {
                     }
                     Err(e) => {
                         log::error!(
-                            "tracematch: [migration] Failed to persist match percentages: {}",
+                            "veloqrs: [migration] Failed to persist match percentages: {}",
                             e
                         );
                     }
@@ -227,7 +227,7 @@ impl PersistentRouteEngine {
 
         if !orphaned_ids.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
+                "veloqrs: [PersistentEngine] load_route_names: Cleaning up {} orphaned route names",
                 orphaned_ids.len()
             );
             let mut delete_stmt = self
@@ -253,7 +253,7 @@ impl PersistentRouteEngine {
 
         if !groups_without_names.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] Migrating {} routes without names",
+                "veloqrs: [PersistentEngine] Migrating {} routes without names",
                 groups_without_names.len()
             );
 
@@ -270,7 +270,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Route N" - still recognize for numbering
+                // Old pattern: "{Sport} Route N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -404,7 +404,7 @@ impl PersistentRouteEngine {
                 }
 
                 log::info!(
-                    "tracematch: [PersistentEngine] Stripped sport prefixes from {} route names",
+                    "veloqrs: [PersistentEngine] Stripped sport prefixes from {} route names",
                     renames.len()
                 );
             }
@@ -472,8 +472,8 @@ impl PersistentRouteEngine {
         // Take the incremental path when we have existing groups AND the
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
-        // ~10× less work - this was the dominant slice of scenario E
-        // before the change (4s of the 9s wall-clock).
+        // ~10× less work, and the full path dominates the wall clock
+        // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
         let already_grouped: std::collections::HashSet<&str> = self
@@ -498,7 +498,7 @@ impl PersistentRouteEngine {
         let use_incremental =
             !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
-        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
             let new_sigs: Vec<RouteSignature> = arc_sigs
@@ -539,7 +539,7 @@ impl PersistentRouteEngine {
             group_ms
         );
 
-        // B2: remap the freshly-grouped catalogue onto stable assign-once ids. The
+        // Remap the freshly-grouped catalogue onto stable assign-once ids. The
         // grouping assigned each group the Union-Find root as its id (which the
         // full and incremental paths pick differently, re-keying to the min member
         // on a resync); the registry carries the prior stable id and the user's
@@ -596,18 +596,18 @@ impl PersistentRouteEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
-        // B4: `save_groups` writes the route registry blob in its own transaction
+        // `save_groups` writes the route registry blob in its own transaction
         // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
-            log::error!("tracematch: Failed to save groups to database: {}", e);
+            log::error!("veloqrs: Failed to save groups to database: {}", e);
         }
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
-        // Recompute materialized PR/trend indicators with updated route groups
+        // Recompute materialised PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [recompute_groups] Indicator recomputation failed: {}",
+                "veloqrs: [recompute_groups] Indicator recomputation failed: {}",
                 e
             );
         }
@@ -633,7 +633,7 @@ impl PersistentRouteEngine {
         let func_start = Instant::now();
 
         log::info!(
-            "tracematch: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
+            "veloqrs: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
             self.groups.len()
         );
 
@@ -675,8 +675,8 @@ impl PersistentRouteEngine {
 
         // Second pass: recalculate match percentages using AMD
         // PERF: CPU bound - O(n*m) distance calculations per pair
-        // OPTIMIZATION 1: Skip self-comparisons (activity == representative)
-        // OPTIMIZATION 2: Parallelize with rayon
+        // OPTIMISATION 1: Skip self-comparisons (activity == representative)
+        // OPTIMISATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
         let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
@@ -747,7 +747,7 @@ impl PersistentRouteEngine {
             let matches = self.activity_matches.entry(group_id).or_default();
             if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
                 log::debug!(
-                    "tracematch: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
+                    "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
                     activity_id,
                     match_info.match_percentage,
                     new_percentage,
@@ -799,7 +799,7 @@ impl PersistentRouteEngine {
         }
         if updated > 0 {
             log::info!(
-                "tracematch: Persisted {} non-zero match percentages to DB",
+                "veloqrs: Persisted {} non-zero match percentages to DB",
                 updated
             );
         }
@@ -855,7 +855,7 @@ impl PersistentRouteEngine {
 
             if !orphaned_ids.is_empty() {
                 log::info!(
-                    "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
+                    "veloqrs: [PersistentEngine] Cleaning up {} orphaned route names",
                     orphaned_ids.len()
                 );
                 let mut delete_stmt = self
@@ -1017,13 +1017,13 @@ impl PersistentRouteEngine {
                 }
                 if restored > 0 {
                     log::info!(
-                        "tracematch: Restored {} excluded flags after save_groups",
+                        "veloqrs: Restored {} excluded flags after save_groups",
                         restored
                     );
                 }
             }
 
-            // B4: write the route registry blob in THIS transaction so it commits
+            // Write the route registry blob in THIS transaction so it commits
             // atomically with the groups.
             if let Some(blob) = self.route_identity_blob() {
                 self.db.execute(
@@ -1068,7 +1068,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare group summaries query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare group summaries query: {}",
                     e
                 );
                 return Vec::new();
@@ -1173,7 +1173,7 @@ impl PersistentRouteEngine {
             .collect();
 
         log::info!(
-            "tracematch: [PersistentEngine] get_group_summaries returned {} summaries",
+            "veloqrs: [PersistentEngine] get_group_summaries returned {} summaries",
             results.len()
         );
         results
@@ -1185,7 +1185,7 @@ impl PersistentRouteEngine {
         // Check LRU cache first
         if let Some(group) = self.group_cache.get(&group_id.to_string()) {
             log::debug!(
-                "tracematch: [PersistentEngine] get_group_by_id cache hit for {}",
+                "veloqrs: [PersistentEngine] get_group_by_id cache hit for {}",
                 group_id
             );
             return Some(group.clone());
@@ -1256,12 +1256,12 @@ impl PersistentRouteEngine {
         if let Some(ref group) = result {
             self.group_cache.put(group_id.to_string(), group.clone());
             log::info!(
-                "tracematch: [PersistentEngine] get_group_by_id found and cached group {}",
+                "veloqrs: [PersistentEngine] get_group_by_id found and cached group {}",
                 group_id
             );
         } else {
             log::info!(
-                "tracematch: [PersistentEngine] get_group_by_id: group {} not found",
+                "veloqrs: [PersistentEngine] get_group_by_id: group {} not found",
                 group_id
             );
         }
@@ -1310,7 +1310,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare batch signature query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare batch signature query: {}",
                     e
                 );
                 return HashMap::new();
@@ -1595,7 +1595,7 @@ impl PersistentRouteEngine {
         self.recalculate_match_percentages_from_tracks();
         if let Err(e) = self.persist_match_percentages() {
             log::error!(
-                "tracematch: Failed to persist match percentages after representative change: {}",
+                "veloqrs: Failed to persist match percentages after representative change: {}",
                 e
             );
         }

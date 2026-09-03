@@ -21,8 +21,6 @@ interface RouteSettings {
   autoCleanupEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
   heatmapEnabled: boolean;
-  /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
-  detectionStrictness: number;
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
@@ -30,7 +28,6 @@ const DEFAULT_SETTINGS: RouteSettings = {
   retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
   heatmapEnabled: true, // Generate heatmap tiles by default
-  detectionStrictness: 60,
 };
 
 /**
@@ -47,13 +44,18 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
-  // A value of the right type is not necessarily a valid one.
-  if ('detectionStrictness' in obj) {
-    const strictness = obj.detectionStrictness;
-    if (typeof strictness !== 'number' || !Number.isFinite(strictness)) return false;
-    if (strictness < 0 || strictness > 100) return false;
-  }
   return true;
+}
+
+// A retired field left behind in storage must not ride back into state, or
+// every later write persists it again.
+function pickSettings(parsed: Partial<RouteSettings>): RouteSettings {
+  return {
+    enabled: parsed.enabled ?? DEFAULT_SETTINGS.enabled,
+    retentionDays: parsed.retentionDays ?? DEFAULT_SETTINGS.retentionDays,
+    autoCleanupEnabled: parsed.autoCleanupEnabled ?? DEFAULT_SETTINGS.autoCleanupEnabled,
+    heatmapEnabled: parsed.heatmapEnabled ?? DEFAULT_SETTINGS.heatmapEnabled,
+  };
 }
 
 interface RouteSettingsState {
@@ -66,7 +68,6 @@ interface RouteSettingsState {
   setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
-  setDetectionStrictness: (value: number) => Promise<void>;
 }
 
 export const useRouteSettings = create<RouteSettingsState>((set) => ({
@@ -79,7 +80,7 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
       if (stored) {
         const parsed = safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS);
         set({
-          settings: { ...DEFAULT_SETTINGS, ...parsed },
+          settings: pickSettings(parsed),
           isLoaded: true,
         });
       } else {
@@ -100,8 +101,8 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
     });
 
     try {
-      const { getRouteEngine } = require('@/shared/native/routeEngine');
-      const engine = getRouteEngine();
+      const { getEngine } = require('@/shared/native/engine');
+      const engine = getEngine();
       if (engine) {
         if (!enabled) {
           // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
@@ -164,17 +165,6 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
 
     log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
   },
-
-  setDetectionStrictness: async (value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)));
-    set((state) => {
-      const newSettings = { ...state.settings, detectionStrictness: clamped };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection strictness:', error);
-      });
-      return { settings: newSettings };
-    });
-  },
 }));
 
 // Helper for synchronous access
@@ -182,18 +172,9 @@ export function isRouteMatchingEnabled(): boolean {
   return useRouteSettings.getState().settings.enabled;
 }
 
-// Helper for getting retention days synchronously
-export function getRetentionDays(): number {
-  return useRouteSettings.getState().settings.retentionDays;
-}
-
 // Helper for checking heatmap enabled synchronously
 export function isHeatmapEnabled(): boolean {
   return useRouteSettings.getState().settings.heatmapEnabled;
-}
-
-export function getDetectionStrictness(): number {
-  return useRouteSettings.getState().settings.detectionStrictness;
 }
 
 // Initialize route settings (call during app startup)

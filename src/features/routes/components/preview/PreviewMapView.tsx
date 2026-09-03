@@ -1,26 +1,34 @@
 /**
  * Two-catalogue overlay map for the detection preview.
  *
- * Current sections draw dashed underneath, proposed sections solid on top,
- * removed sections dashed in the error colour. Both catalogues toggle through
- * legend chips by swapping source data; the sources and layers themselves
- * never unmount.
+ * Before a run there is one catalogue, the live one, and it draws as current.
+ * After a run, current sections draw dashed underneath, proposed sections
+ * solid on top, removed sections dashed in the error colour. Both catalogues
+ * toggle through legend chips by swapping source data; the sources and layers
+ * themselves never unmount.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { MapSurface, type MapSurfaceRef } from '@/features/maps/components';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import {
-  boundsOfLngLat,
-  EMPTY_FEATURE_COLLECTION,
-  type LngLat,
-} from '@/features/maps/lib/coordinates';
+  AttributionOverlay,
+  MapSurface,
+  type AttributionOverlayRef,
+  type MapCameraState,
+  type MapSurfaceRef,
+} from '@/features/maps/components';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
+import {
+  previewCameraBounds,
+  type PreviewAreaCentre,
+} from '@/features/routes/lib/previewMapCamera';
 import type {
   PreviewResult,
   PreviewSection,
@@ -31,8 +39,8 @@ import {
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-const BOUNDS_PADDING = 0.15;
+/** Zoom assumed before the surface reports one, matching the camera fallback. */
+const DEFAULT_ATTRIBUTION_ZOOM = 11;
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
@@ -61,8 +69,11 @@ function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature
 
 interface PreviewMapViewProps {
   result: PreviewResult | null;
-  /** Fallback camera centre before a run completes. */
-  centre: { lat: number; lng: number } | null;
+  /** The live catalogue for the area, drawn until a run supersedes it. */
+  currentSections: PreviewSection[];
+  /** Selected riding area. The camera never leaves its bin. `PreviewAreaCentre`
+   *  carries the `binKey` the camera needs and is a superset of `{lat, lng}`. */
+  centre: PreviewAreaCentre | null;
   selectedId: string | null;
   showCurrent: boolean;
   showProposed: boolean;
@@ -73,6 +84,7 @@ interface PreviewMapViewProps {
 
 export function PreviewMapView({
   result,
+  currentSections,
   centre,
   selectedId,
   showCurrent,
@@ -86,31 +98,41 @@ export function PreviewMapView({
   const { getGlobalMapStyle } = useMapPreferences();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
+  // A finished run supersedes the live catalogue: its rows already carry the
+  // current sections, as matched rows and as gone ones.
+  const sections = useMemo(() => result?.sections ?? currentSections, [result, currentSections]);
+
   const decoded = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
-    for (const section of result?.sections ?? []) {
+    for (const section of sections) {
       byId.set(section.id, decodePolyline(section.polylineBase64));
     }
     return byId;
-  }, [result]);
+  }, [sections]);
 
   const features = useMemo(() => {
     const current: GeoJSON.Feature[] = [];
     const proposed: GeoJSON.Feature[] = [];
     const gone: GeoJSON.Feature[] = [];
-    for (const section of result?.sections ?? []) {
+    for (const section of sections) {
       const coords = decoded.get(section.id) ?? [];
       if (coords.length < 2) continue;
       const feature = lineFeature(section, coords);
+      // Nothing is proposed until a run finishes, so the live catalogue draws
+      // as current alone.
+      if (!result) {
+        current.push(feature);
+        continue;
+      }
       if (section.status === 'gone') gone.push(feature);
       else proposed.push(feature);
       if (section.liveId !== null) current.push(feature);
     }
     return { current, proposed, gone };
-  }, [result, decoded]);
+  }, [result, sections, decoded]);
 
   const sources = useMemo(() => {
-    const selectedSection = result?.sections.find((s) => s.id === selectedId) ?? null;
+    const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
     return buildPreviewSources({
       current: showCurrent
@@ -132,15 +154,14 @@ export function PreviewMapView({
             }
           : EMPTY_FEATURE_COLLECTION,
     });
-  }, [result, decoded, features, selectedId, showCurrent, showProposed]);
+  }, [sections, decoded, features, selectedId, showCurrent, showProposed]);
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 
-  const bounds = useMemo(() => {
-    const all: LngLat[] = [];
-    for (const coords of decoded.values()) all.push(...coords);
-    return boundsOfLngLat(all, BOUNDS_PADDING);
-  }, [decoded]);
+  const bounds = useMemo(
+    () => previewCameraBounds(centre, [...decoded.values()]),
+    [centre, decoded]
+  );
 
   const initialCamera = useMemo(() => {
     if (bounds) return sectionCameraSpec(bounds);
@@ -154,21 +175,44 @@ export function PreviewMapView({
     if (bounds) surfaceRef.current?.fitBounds(bounds, 60, 400);
   }, [bounds]);
 
-  // Before a run completes there is no geometry to frame, so picking a
-  // different riding area moves the camera to its centre.
+  // Attribution is a licence condition, so the credit line has to name the
+  // imagery actually drawn. Satellite sources are regional, so it follows the
+  // viewport rather than the area the picker started on.
+  const [viewport, setViewport] = useState<{
+    center: LngLat;
+    zoom: number;
+  } | null>(null);
+
+  const mapStyle = getGlobalMapStyle();
+  const attribution = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: false,
+        center: viewport?.center ?? (centre ? [centre.lng, centre.lat] : null),
+        zoom: viewport?.zoom ?? DEFAULT_ATTRIBUTION_ZOOM,
+      }),
+    [mapStyle, viewport, centre]
+  );
+
+  // The overlay keeps its own state so a camera move never re-renders the
+  // surface, so the text goes in through the ref rather than the prop.
+  const attributionRef = useRef<AttributionOverlayRef>(null);
   useEffect(() => {
-    if (!bounds && centre) {
-      surfaceRef.current?.setCamera({ center: [centre.lng, centre.lat], zoom: 11 }, 400);
-    }
-  }, [bounds, centre]);
+    attributionRef.current?.setAttribution(attribution);
+  }, [attribution]);
+
+  const handleRegionDidChange = useCallback((state: MapCameraState) => {
+    setViewport({ center: state.center, zoom: state.zoom });
+  }, []);
 
   const handlePress = useCallback(
     (event: { feature: { properties: Record<string, unknown> } | null }) => {
       const id = event.feature?.properties?.id;
-      const section = result?.sections.find((s) => s.id === id) ?? null;
+      const section = sections.find((s) => s.id === id) ?? null;
       onSelect(section);
     },
-    [result, onSelect]
+    [sections, onSelect]
   );
 
   const chipBg = isDark ? darkColors.surface : colors.surface;
@@ -179,15 +223,16 @@ export function PreviewMapView({
     <View style={styles.container}>
       <MapSurface
         ref={surfaceRef}
-        mapStyle={getGlobalMapStyle()}
-        styleOptions={SURFACE_STYLE_OPTIONS}
+        mapStyle={mapStyle}
         initialCamera={initialCamera}
         sources={sources}
         layers={layers}
         interactiveLayers={PREVIEW_INTERACTIVE_LAYERS}
         onPress={handlePress}
+        onRegionDidChange={handleRegionDidChange}
         testID="preview-map"
       />
+      <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       <View style={styles.legend} pointerEvents="box-none">
         <Pressable
           style={[

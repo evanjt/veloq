@@ -4,11 +4,11 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, insightIcon } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
@@ -72,7 +72,7 @@ function getContextCopy(
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
   const { section } = useSectionDetail(sectionId);
   if (!section?.polyline || section.polyline.length < 2) return null;
-  return <SectionInsightMap polyline={section.polyline} lineColor="#FF9800" />;
+  return <SectionInsightMap polyline={section.polyline} lineColor={insightIcon.opportunity} />;
 });
 
 /**
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   dataValueGood: {
-    color: '#22C55E',
+    color: colors.success,
   },
   sectionList: {
     gap: spacing.xs,

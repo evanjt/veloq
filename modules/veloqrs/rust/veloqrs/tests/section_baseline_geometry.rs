@@ -12,7 +12,7 @@ use migration_support::seed_at_version;
 use rusqlite::Connection;
 use std::path::Path;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Epoch seconds, well before any plausible upgrade day.
 const RIDE_ONE: i64 = 1_600_000_000;
@@ -64,7 +64,7 @@ fn seed_populated_v12(path: &Path) {
 }
 
 fn upgrade(path: &Path) {
-    drop(PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine"));
+    drop(PersistentEngine::new(path.to_str().unwrap()).expect("open engine"));
 }
 
 fn baseline_rows(conn: &Connection) -> Vec<(String, i64, String, i64, Option<String>)> {

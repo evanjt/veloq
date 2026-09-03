@@ -1,15 +1,15 @@
-import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import type { SectionChangeInput } from '../generators/sectionChanged';
 import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import type { StrengthSummary } from '@/features/strength/types';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
 
-import type { Insight } from '../types';
-import { generateInsights } from './generateInsights';
+import type { Insight, SectionRankingScores } from '../types';
+import { generateInsights, recordConsolidation } from './generateInsights';
+import type { ConsolidationDrop } from './generateInsights';
 import { buildInsightsParams } from './insightsParams';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
@@ -53,7 +53,7 @@ function normalizeStrengthSummary(raw: {
  */
 function recentSectionChanges(): SectionChangeInput[] {
   try {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     const names = getAllSectionDisplayNames();
     return engine.getRecentSectionChanges(14).map((c) => ({
@@ -105,18 +105,36 @@ function getInsightSectionIds(insight: Insight): string[] {
 }
 
 export function consolidateInsights(insights: Insight[]): Insight[] {
-  if (insights.length <= 1) return insights;
+  if (insights.length <= 1) {
+    recordConsolidation(insights, []);
+    return insights;
+  }
 
-  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  // Every section a PR card covers, collected before anything is kept. Read
+  // in one pass, the drop below fired only when the PR happened to come first,
+  // which held because `section_pr` outranked `stale_pr` by priority and this
+  // function used to sort by priority. It arrives in score order now.
+  const prSectionIds = new Set<string>();
+  for (const insight of insights) {
+    if (insight.category === 'section_pr') {
+      getInsightSectionIds(insight).forEach((sectionId) => prSectionIds.add(sectionId));
+    }
+  }
 
   const kept: Insight[] = [];
-  const dropped: { id: string; category: string; reason: string }[] = [];
-  const seenSectionIds = new Set<string>();
+  const dropped: ConsolidationDrop[] = [];
+  // Grows as stories are kept, so two stories about one section still collapse
+  // to the first. That one is order-dependent on purpose: the order is the
+  // score order, so the stronger card is the one that stays. Kept apart from
+  // the PR set so the drop reason names whichever card actually covered the
+  // section: the debug panel is the one tool for asking why a card is
+  // missing, and a story blamed on a PR sends the reader after a card that
+  // was never generated.
+  const storySectionIds = new Set<string>();
   let keptSectionStories = 0;
 
-  for (const insight of sorted) {
+  for (const insight of insights) {
     if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
       kept.push(insight);
       continue;
     }
@@ -124,36 +142,49 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
         });
         continue;
       }
 
       const sectionIds = getInsightSectionIds(insight);
-      if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
-        dropped.push({
-          id: insight.id,
-          category: insight.category,
-          reason: 'duplicate section (already covered by PR insight)',
-        });
-        continue;
+      if (sectionIds.length > 0) {
+        if (sectionIds.every((sectionId) => prSectionIds.has(sectionId))) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by PR insight)',
+          });
+          continue;
+        }
+        if (
+          sectionIds.every(
+            (sectionId) => prSectionIds.has(sectionId) || storySectionIds.has(sectionId)
+          )
+        ) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by an earlier story)',
+          });
+          continue;
+        }
       }
 
       kept.push(insight);
       keptSectionStories += 1;
-      sectionIds.forEach((sectionId) => seenSectionIds.add(sectionId));
+      sectionIds.forEach((sectionId) => storySectionIds.add(sectionId));
       continue;
     }
 
     kept.push(insight);
   }
 
+  recordConsolidation(kept, dropped);
+
   if (__DEV__ && dropped.length > 0) {
     console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.category}/${d.id} - ${d.reason}`);
+      console.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
     }
   }
 
@@ -226,6 +257,7 @@ export function computeInsightsFromData(
         sportType?: string;
         daysSinceLast?: number;
         latestIsPr?: boolean;
+        ranking?: SectionRankingScores;
       }
     >();
 
@@ -248,6 +280,13 @@ export function computeInsightsFromData(
               sportType,
               daysSinceLast: rs.daysSinceLast,
               latestIsPr: rs.latestIsPr,
+              ranking: {
+                relevance: rs.relevanceScore,
+                recency: rs.recencyScore,
+                improvement: rs.improvementScore,
+                anomaly: rs.anomalyScore,
+                engagement: rs.engagementScore,
+              },
             });
           }
         }
@@ -284,16 +323,6 @@ export function computeInsightsFromData(
     // Aerobic efficiency trends arrive already filtered and capped by Rust.
     const efficiencyTrends = sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
 
-    // 7-day wellness window
-    const wellnessWindow = sortedWellness.slice(-7).map((w) => ({
-      date: w.id,
-      hrv: w.hrv ?? undefined,
-      restingHR: w.restingHR ?? undefined,
-      sleepSecs: w.sleepSecs ?? undefined,
-      ctl: w.ctl ?? w.ctlLoad ?? undefined,
-      atl: w.atl ?? w.atlLoad ?? undefined,
-    }));
-
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
       ? (ffiData.recentPrs ?? []).map((pr) => ({
@@ -303,6 +332,9 @@ export function computeInsightsFromData(
           daysAgo: pr.daysAgo,
         }))
       : [];
+
+    // Strength rides the same bundle, so it enters the same pipeline.
+    const strengthSeries = ffiData.hasStrengthData ? ffiData.strengthSeries : undefined;
 
     const coreInsights = generateInsights(
       {
@@ -318,29 +350,21 @@ export function computeInsightsFromData(
         formAtl: atl > 0 ? atl : null,
         peakCtl: null,
         currentCtl: ctl > 0 ? ctl : null,
-        wellnessWindow,
         chronicPeriod,
         allSectionTrends: sectionTrends,
         efficiencyTrends,
         sectionChanges,
+        strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
+        strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
       },
       t
     );
 
-    // Strength insights come from the same bundle as everything else.
-    let strengthInsights: Insight[] = [];
-    const series = ffiData.hasStrengthData ? ffiData.strengthSeries : undefined;
-    if (series) {
-      const monthlySummary = normalizeStrengthSummary(series.monthly);
-      const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
-      strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now(), t);
-    }
-
-    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+    const consolidated = consolidateInsights(coreInsights);
 
     if (__DEV__) {
       console.log(
-        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} before consolidation)`
       );
       for (const i of consolidated) {
         console.log(
@@ -363,7 +387,7 @@ export function computeInsightsFromData(
  * Pure function - calls synchronous FFI, no React.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   const params = buildInsightsParams();

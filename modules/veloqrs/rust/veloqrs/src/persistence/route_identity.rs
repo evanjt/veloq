@@ -1,12 +1,12 @@
-//! Assign-once route identity: the route half of B2 (design 2.3 / Part 4 step 3).
+//! Assign-once route identity: the route half of the identity layer.
 //!
 //! A route group's `group_id` was the Union-Find ROOT of its member set, which
 //! the full and incremental grouping paths pick differently, so the first
 //! incremental resync re-keys a group to its MIN member, orphaning anything keyed
 //! to the old id (the representative via `existing_reps`, the name via
-//! `route_names`). That is R2 reaching routes. This layer mirrors the section
-//! registry: it owns a stable id per route over time, carried forward by MEMBER
-//! overlap rather than re-derived from the churning root.
+//! `route_names`). This layer mirrors the section registry: it owns a stable id
+//! per route over time, carried forward by MEMBER overlap rather than
+//! re-derived from the churning root.
 //!
 //! Two deliberate differences from the section registry:
 //!
@@ -25,9 +25,8 @@
 //!   reseed adopts existing ids and continues the counter past them.
 //!
 //! Scope is identity + keying only (no hysteresis debounce, a route has no
-//! non-monotone reform to damp). The custom-name re-hydration on recompute stays
-//! B4; this layer only stops the `route_names` row being orphaned by keying it to
-//! the surviving stable id.
+//! non-monotone reform to damp). This layer only stops the `route_names` row
+//! being orphaned by keying it to the surviving stable id.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -35,11 +34,11 @@ use rusqlite::{Connection, Result as SqlResult};
 
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use tracematch::RouteGroup;
 
-/// `identity_state.key` for the route registry blob (B4 migration 013).
+/// `identity_state.key` for the route registry blob.
 pub(crate) const ROUTE_IDENTITY_KEY: &str = "route_identity";
 
 /// Version byte on the persisted route-registry blob. Bump on any
@@ -48,8 +47,8 @@ pub(crate) const ROUTE_IDENTITY_BLOB_VERSION: u8 = 1;
 
 /// Per-route identity state: the seniority ordinal of each live stable id plus
 /// the monotonic counter that both mints `r_<n>` ids and stamps `first_seen`.
-/// In-memory pre-B4 (reseeded from the DB groups on open); serde-ready so B4 can
-/// persist it as one blob. `#[serde(default)]` + the blob version tag keep an
+/// Persisted as one blob, and reseeded from the DB groups when there is none.
+/// `#[serde(default)]` + the blob version tag keep an
 /// older persisted blob readable (or gracefully reseeding) across a field change.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -112,13 +111,13 @@ pub(crate) fn restore_identity(conn: &Connection) -> Option<RouteIdentity> {
         )
         .ok()?;
     let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
-        log::warn!("tracematch: [restore_identity] blob version mismatch, reseeding");
+        log::warn!("veloqrs: [restore_identity] blob version mismatch, reseeding");
         return None;
     };
     match codec::deserialize::<RouteIdentity>(body) {
         Ok(state) => Some(state),
         Err(e) => {
-            log::warn!("tracematch: [restore_identity] decode failed, reseeding: {e}");
+            log::warn!("veloqrs: [restore_identity] decode failed, reseeding: {e}");
             None
         }
     }
@@ -157,7 +156,7 @@ pub(crate) fn write_identity(conn: &Connection, state: &RouteIdentity) -> SqlRes
     Ok(())
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Test-only fingerprint of the route registry state (first_seen + ordinal),
     /// for asserting a restart restores it exactly. Behind `synthetic`.
     #[cfg(feature = "synthetic")]
@@ -407,7 +406,7 @@ fn better_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::PersistentRouteEngine;
+    use crate::persistence::PersistentEngine;
 
     fn group(id: &str, members: &[&str]) -> RouteGroup {
         RouteGroup {
@@ -430,7 +429,7 @@ mod tests {
     /// the next mint would re-issue `r_5` and collide with a live group PK.
     #[test]
     fn restore_reconciles_ordinal_past_saved_groups() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // A group `r_5` survived the crash (in memory here it stands for the
         // committed route_groups row load() would have read before restore runs).
@@ -479,7 +478,7 @@ mod tests {
     /// reconcile only lifts, never rewinds, so live seniority is preserved.
     #[test]
     fn restore_keeps_counter_when_blob_leads_groups() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_3", &["a1"])];
         engine.route_identity = RouteIdentity {
             first_seen: [("r_3".to_string(), 3u64)].into_iter().collect(),

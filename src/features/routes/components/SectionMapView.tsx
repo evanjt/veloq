@@ -96,8 +96,6 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   return validTypes.has(sportType);
 }
 
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
-
 interface SectionMapViewProps {
   section: FrequentSection;
   height?: number;
@@ -118,8 +116,6 @@ interface SectionMapViewProps {
    * This avoids expensive shape geometry updates during scrubbing.
    */
   allActivityTraces?: Record<string, RoutePoint[]>;
-  /** Whether user is actively scrubbing - skips expensive renders during scrub */
-  isScrubbing?: boolean;
   /** Trim range for bounds editing - when set, shows full polyline faded + trimmed portion highlighted */
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
@@ -217,6 +213,13 @@ export const SectionMapView = memo(function SectionMapView({
   }, [is3DMode, map3DOpacity]);
 
   // Handle 3D map ready - fade in the 3D view
+  // A 3D page that cannot render drops back to the 2D map, otherwise the
+  // spinner has no terminal path. Same landing as the error boundary below.
+  const handleMap3DFailed = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+  }, []);
+
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
     Animated.timing(map3DOpacity, {
@@ -432,7 +435,6 @@ export const SectionMapView = memo(function SectionMapView({
     <MapSurface
       ref={surfaceRef}
       mapStyle={currentMapStyle}
-      styleOptions={SURFACE_STYLE_OPTIONS}
       initialCamera={{ ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }}
       sources={inlineSources}
       layers={inlineLayers}
@@ -479,6 +481,7 @@ export const SectionMapView = memo(function SectionMapView({
                     mapStyle={currentMapStyle}
                     routeColor={activityColor}
                     onMapReady={handleMap3DReady}
+                    onMapFailed={handleMap3DFailed}
                     onBearingChange={handleBearingChange}
                   />
                 </Animated.View>
@@ -487,7 +490,7 @@ export const SectionMapView = memo(function SectionMapView({
 
             {/* 3D loading spinner */}
             {is3DMode && !is3DReady && (
-              <View style={styles.loadingOverlay}>
+              <View style={styles.loadingOverlay} testID="section-map-3d-loading">
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
             )}

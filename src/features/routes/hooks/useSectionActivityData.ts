@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { calculateSpeed } from '@/shared/math';
@@ -23,7 +23,7 @@ export function useSectionActivityData(
     if (!section?.activityIds?.length) return [];
     let metrics = preComputed?.activityMetrics;
     if (!metrics) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
       metrics = engine.getActivityMetricsForIds(section.activityIds);
     }
@@ -50,7 +50,7 @@ export function useSectionActivityData(
     try {
       let sigs = preComputed?.mapSignatures;
       if (!sigs) {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return undefined;
         sigs = engine.getMapSignaturesForIds(section.activityIds);
       }

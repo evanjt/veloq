@@ -1,17 +1,55 @@
 import { debug } from '@/shared/debug/debug';
 import { uploadActivityFile } from './intervalsUploads';
+import { engine } from 'veloqrs';
 import {
   recordingFitExists,
+  readRecordingFit,
   markRecordingUploading,
   markRecordingUploaded,
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  discardRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { classifyUploadError } from './classifyUploadError';
 import type { RecordingLibraryEntry } from '@/types';
 
 const log = debug.create('Upload');
+
+/**
+ * Pull the strength sets out of a recorded session's own FIT.
+ *
+ * intervals.icu keeps the sets in the file it was handed, so nothing comes
+ * back down the sync for them. Parsing the local copy is what puts a session
+ * recorded in the app on the same footing as one recorded on a watch.
+ *
+ * Best effort by design: the upload has already succeeded by the time this
+ * runs, and a session with no sets on device is worth less than a session the
+ * queue thinks failed.
+ */
+async function importRecordedStrengthSets(
+  entry: RecordingLibraryEntry,
+  activityId: string | undefined
+): Promise<void> {
+  if (entry.activityType !== 'WeightTraining') return;
+
+  // The sets key on the activity the server created. Without that id there is
+  // nothing to attach them to, and the next sync will carry them anyway.
+  if (!activityId) {
+    log.warn(`No activity id for ${entry.id}, leaving its strength sets to the sync`);
+    return;
+  }
+
+  try {
+    const fit = await readRecordingFit(entry);
+    if (!fit) return;
+
+    const inserted = engine.importSetsFromFit(activityId, new Uint8Array(fit));
+    log.log(`Imported ${inserted} strength sets from ${entry.id}`);
+  } catch (err) {
+    log.warn(`Strength set import failed for ${entry.id}: ${String(err)}`);
+  }
+}
 
 export type UploadRecordingOutcome =
   | 'uploaded'
@@ -32,9 +70,11 @@ export interface UploadRecordingResult {
  * transition. The single upload path shared by the review-screen save, the
  * background processor, and the library's manual "upload now".
  *
- * The FIT file on disk is the source of truth; nothing is deleted here on any
- * outcome. The engine streams it straight off disk, so a long ride never has to
- * fit in memory to be uploaded.
+ * The FIT file on disk is the source of truth until the upload lands, and no
+ * failure outcome deletes it. The engine streams it straight off disk, so a long
+ * ride never has to fit in memory to be uploaded. Once intervals.icu has the
+ * activity, and once everything that still needed the bytes has read them, the
+ * FIT is discarded.
  */
 export async function uploadRecording(
   entry: RecordingLibraryEntry
@@ -48,11 +88,17 @@ export async function uploadRecording(
   await markRecordingUploading(entry.id);
   try {
     log.log(`Uploading ${entry.name}.fit (${entry.id})...`);
-    await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
+    const activityId = await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
       name: entry.name,
       pairedEventId: entry.pairedEventId,
     });
-    await markRecordingUploaded(entry.id);
+    await markRecordingUploaded(entry.id, activityId);
+    // Reads the same FIT, so the discard below has to wait for it.
+    await importRecordedStrengthSets(entry, activityId);
+    // A finished upload stays finished even if the file cannot be removed.
+    await discardRecordingFit(entry.id).catch((err: unknown) => {
+      log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
+    });
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);

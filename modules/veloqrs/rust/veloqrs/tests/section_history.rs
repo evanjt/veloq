@@ -1,15 +1,15 @@
-//! Contract suite for the D4 storage layer: section history events, versioned
+//! Contract suite for the storage layer: section history events, versioned
 //! geometry, and pins. The tables key on the durable real section id with no
 //! foreign key to the wipe-managed `sections` table, versions decode
 //! independently (no delta chains), and retention keeps the birth geometry,
-//! milestones, the pinned version, and the newest three. The D5 emitter is
-//! the writer; these contracts pin the storage semantics it will lean on.
+//! milestones, the pinned version, and the newest three. The lifecycle emitter
+//! is the writer; these contracts pin the storage semantics it will lean on.
 
 mod lifecycle_support;
 
 use lifecycle_support::fresh_engine;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const SID: &str = "s_1700000000000__ab12cd34";
 
@@ -25,7 +25,7 @@ fn poly(seed: u32) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn versions_of(engine: &PersistentRouteEngine, sid: &str) -> Vec<i64> {
+fn versions_of(engine: &PersistentEngine, sid: &str) -> Vec<i64> {
     engine
         .section_geometry_versions(sid)
         .iter()
@@ -161,7 +161,7 @@ fn history_events_append_in_order_and_read_back() {
 
 /// Scenario: the app restarts.
 /// Expected behaviour: events, versions, and the pin read back from the DB
-/// alone — the layer holds no in-memory state to lose.
+/// alone, the layer holds no in-memory state to lose.
 #[test]
 fn history_geometry_and_pin_survive_restart() {
     let (mut engine, dir) = fresh_engine();
@@ -178,7 +178,7 @@ fn history_geometry_and_pin_survive_restart() {
     let path = dir.path().join("lifecycle.db");
     drop(engine);
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     assert_eq!(versions_of(&engine, SID), vec![1, 2]);
     assert_eq!(engine.section_geometry_polyline(SID, 1).unwrap(), poly(1));

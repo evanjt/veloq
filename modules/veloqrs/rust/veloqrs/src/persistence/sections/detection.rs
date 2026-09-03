@@ -15,7 +15,7 @@ use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::route_identity::{RouteIdentity, load_identity, write_identity};
 use super::super::{
-    CacheUpdate, PersistentRouteEngine, SectionDetectionHandle, SectionDetectionProgress,
+    CacheUpdate, PersistentEngine, SectionDetectionHandle, SectionDetectionProgress,
     load_groups_from_db,
 };
 
@@ -38,6 +38,18 @@ const MAX_CORRUPT_POOL_FRACTION: f64 = 0.10;
 /// both bars, so the floor costs nothing against the shape worth catching.
 const MIN_CORRUPT_TO_ABANDON: usize = 8;
 
+/// Detection worker threads spawned since process start. The single-flight
+/// gates are the only thing keeping this to one live worker at a time, and a
+/// count is the only way a test can see a worker that was spawned and then
+/// orphaned by a losing start.
+static DETECTION_WORKERS_STARTED: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+/// Total detection worker threads spawned since process start.
+pub fn detection_workers_started() -> u64 {
+    DETECTION_WORKERS_STARTED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// Seconds an abandoned pool stays abandoned while its activity ids are
 /// unchanged. The abort returns before `save_processed_activity_ids`, so
 /// without a window every sync reloads and re-decodes the whole store to reach
@@ -58,7 +70,7 @@ const CORRUPT_ID_LOG_CAP: usize = 20;
 /// Whether a pool with this many unreadable rows may still be cut over. Both
 /// bars must be cleared to abandon: enough unreadable rows to rule out
 /// isolated rot, and enough of the store to rule out a catalogue worth cutting.
-fn pool_is_usable(readable: usize, corrupt: usize) -> bool {
+pub(crate) fn pool_is_usable(readable: usize, corrupt: usize) -> bool {
     let total = readable + corrupt;
     if total == 0 || corrupt < MIN_CORRUPT_TO_ABANDON {
         return true;
@@ -122,7 +134,7 @@ fn record_abandoned_pool(conn: &Connection, activity_ids: &[String]) {
         "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
         params![ABANDONED_POOL_KEY, value],
     ) {
-        log::error!("tracematch: [pool integrity] abandon record failed: {}", e);
+        log::error!("veloqrs: [pool integrity] abandon record failed: {}", e);
     }
 }
 
@@ -141,14 +153,14 @@ fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) 
         return;
     }
     log::error!(
-        "tracematch: [{}] {} of {} stored tracks are unreadable and excluded from the pool",
+        "veloqrs: [{}] {} of {} stored tracks are unreadable and excluded from the pool",
         context,
         corrupt.len(),
         readable + corrupt.len()
     );
     for track in corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
         log::error!(
-            "tracematch: [{}] activity {} unreadable: {}",
+            "veloqrs: [{}] activity {} unreadable: {}",
             context,
             track.activity_id,
             track.reason
@@ -156,7 +168,7 @@ fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) 
     }
     if corrupt.len() > CORRUPT_ID_LOG_CAP {
         log::error!(
-            "tracematch: [{}] {} further unreadable tracks not listed",
+            "veloqrs: [{}] {} further unreadable tracks not listed",
             context,
             corrupt.len() - CORRUPT_ID_LOG_CAP
         );
@@ -198,7 +210,7 @@ fn record_pool_integrity(
         "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
         params![POOL_INTEGRITY_KEY, value],
     ) {
-        log::error!("tracematch: [pool integrity] record failed: {}", e);
+        log::error!("veloqrs: [pool integrity] record failed: {}", e);
     }
 }
 
@@ -282,7 +294,7 @@ fn recompute_and_save_groups(
         log_corrupt_tracks("BG Groups", signatures.len(), &corrupt);
         if !pool_is_usable(signatures.len(), corrupt.len()) {
             log::error!(
-                "tracematch: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
+                "veloqrs: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
             );
             return existing_groups.to_vec();
         }
@@ -325,7 +337,7 @@ fn recompute_and_save_groups(
     };
     let group_ms = group_start.elapsed().as_millis();
 
-    // SB5: the same assign-once remap the foreground writer runs. Without it this
+    // The same assign-once remap the foreground writer runs. Without it this
     // path persists the raw Union-Find roots, re-keying the catalogue behind the
     // stable ids `route_names` and `activity_matches` are keyed on, and the user's
     // route names are orphaned by whichever writer happened to run last.
@@ -450,7 +462,7 @@ fn save_groups_txn(
 /// reports the unknown-phase 50 rather than pretending to progress.
 pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// A handle for a run that never started: no worker, both senders dropped.
     ///
     /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
@@ -506,7 +518,7 @@ impl PersistentRouteEngine {
         // suspension gate sits here rather than at each caller.
         if super::conditioning::detection_suspended() {
             log::info!(
-                "tracematch: [SectionDetection] Refused: detection is suspended for a backfill"
+                "veloqrs: [SectionDetection] Refused: detection is suspended for a backfill"
             );
             return Self::refused_detection_handle();
         }
@@ -518,6 +530,11 @@ impl PersistentRouteEngine {
     /// guard precisely so nothing else can run, and its detect is the one the
     /// suspension exists to protect.
     pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
+        // A clear owed from an earlier failed DELETE is settled here, before
+        // the processed set is read: this is the one place the stale set would
+        // otherwise short-circuit a detect the config change asked for.
+        self.retry_pending_processed_clear();
+
         let (tx, rx) = mpsc::channel();
         // Out-of-band channel for the evidence-cache update. Left unsent by
         // the short-circuit, so the caller's `take_cache` returns None and the
@@ -619,7 +636,7 @@ impl PersistentRouteEngine {
             && self.section_evidence_cache.dirty_clusters() == 0
         {
             log::info!(
-                "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
+                "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
             let sections_copy = match &self.raw_sections {
@@ -650,9 +667,10 @@ impl PersistentRouteEngine {
         // Clone activity_ids for the background thread (to persist as processed after detection)
         let all_activity_ids = activity_ids.clone();
 
+        DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
             log::info!(
-                "tracematch: [SectionDetection] Background thread started with {} activity IDs",
+                "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
             );
 
@@ -662,7 +680,7 @@ impl PersistentRouteEngine {
                     c
                 }
                 Err(e) => {
-                    log::info!("tracematch: [SectionDetection] Failed to open DB: {:?}", e);
+                    log::info!("veloqrs: [SectionDetection] Failed to open DB: {:?}", e);
                     tx.send((Vec::new(), Vec::new())).ok();
                     return;
                 }
@@ -674,7 +692,7 @@ impl PersistentRouteEngine {
             // without a result, so the poll reports the same abort.
             if abandon_window_active(&conn, &ids_to_load) {
                 log::error!(
-                    "tracematch: [SectionDetection] Abandoning detection: this pool of {} activities was already found unreadable within the last {} hours. The catalogue is left unchanged.",
+                    "veloqrs: [SectionDetection] Abandoning detection: this pool of {} activities was already found unreadable within the last {} hours. The catalogue is left unchanged.",
                     ids_to_load.len(),
                     ABANDON_RETRY_SECONDS / 3600
                 );
@@ -684,14 +702,14 @@ impl PersistentRouteEngine {
 
             let groups = if needs_group_recompute {
                 log::info!(
-                    "tracematch: [SectionDetection] Recomputing route groups on background thread..."
+                    "veloqrs: [SectionDetection] Recomputing route groups on background thread..."
                 );
                 recompute_and_save_groups(&conn, &match_config, &current_groups, &sport_map)
             } else {
                 load_groups_from_db(&conn)
             };
             log::info!(
-                "tracematch: [SectionDetection] {} groups ready (recomputed={})",
+                "veloqrs: [SectionDetection] {} groups ready (recomputed={})",
                 groups.len(),
                 needs_group_recompute
             );
@@ -722,7 +740,7 @@ impl PersistentRouteEngine {
 
             if ids_to_load.len() > MEMORY_WARN_THRESHOLD {
                 log::warn!(
-                    "tracematch: [SectionDetection] Loading {} full-resolution tracks for detection - all must stay resident simultaneously (all-pairs algorithm). Peak memory may be high (~{}MB est.); chunked load bounds only the transient spike, not the resident set.",
+                    "veloqrs: [SectionDetection] Loading {} full-resolution tracks for detection - all must stay resident simultaneously (all-pairs algorithm). Peak memory may be high (~{}MB est.); chunked load bounds only the transient spike, not the resident set.",
                     ids_to_load.len(),
                     // Rough estimate: ~64KB resident per track at ~1k points.
                     ids_to_load.len() * 64 / 1024,
@@ -775,7 +793,7 @@ impl PersistentRouteEngine {
                         }
                         Err(e) => {
                             log::warn!(
-                                "tracematch: [SectionDetection] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
+                                "veloqrs: [SectionDetection] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
                                 chunk.len(),
                                 e
                             );
@@ -805,7 +823,7 @@ impl PersistentRouteEngine {
             };
 
             log::info!(
-                "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing, {} unreadable) from {} activity IDs",
+                "veloqrs: [SectionDetection] Loaded {} tracks ({} empty/missing, {} unreadable) from {} activity IDs",
                 tracks_loaded,
                 tracks_empty,
                 corrupt_tracks.len(),
@@ -825,7 +843,7 @@ impl PersistentRouteEngine {
 
             if !usable {
                 log::error!(
-                    "tracematch: [SectionDetection] Abandoning detection: {} of {} stored tracks are unreadable, past both the {} row floor and the {:.0}% ceiling. The catalogue is left unchanged.",
+                    "veloqrs: [SectionDetection] Abandoning detection: {} of {} stored tracks are unreadable, past both the {} row floor and the {:.0}% ceiling. The catalogue is left unchanged.",
                     corrupt_tracks.len(),
                     rows_readable + corrupt_tracks.len(),
                     MIN_CORRUPT_TO_ABANDON,
@@ -838,7 +856,7 @@ impl PersistentRouteEngine {
             clear_abandoned_pool(&conn);
 
             if tracks.is_empty() {
-                log::info!("tracematch: [SectionDetection] No tracks loaded, skipping detection");
+                log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
                 progress_clone.set_phase("complete", 0);
                 tx.send((Vec::new(), all_activity_ids)).ok();
                 return;
@@ -846,7 +864,7 @@ impl PersistentRouteEngine {
 
             let total_points: usize = tracks.iter().map(|(_, t)| t.len()).sum();
             log::info!(
-                "tracematch: [SectionDetection] Total GPS points: {}, avg per track: {}",
+                "veloqrs: [SectionDetection] Total GPS points: {}, avg per track: {}",
                 total_points,
                 total_points / tracks.len().max(1)
             );
@@ -857,6 +875,21 @@ impl PersistentRouteEngine {
             // Without this marker the bar sits frozen at the end of "loading"
             // and a long large-corpus detection reads as a crash.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
+
+            // The per-point time offsets the lift veto reads. Held here so
+            // the borrowed view below outlives the fold, and positional to
+            // `tracks` so an activity with no stored stream, or one whose
+            // stream does not index its points, simply reads as untimed.
+            // Eight bytes a point against a `GpsPoint`'s twenty-four, on a
+            // resident set the loader already warns about above.
+            let seconds = super::track_pool::load_seconds_chunked(&conn, &tracks);
+            let timed = seconds.iter().filter(|s| !s.is_empty()).count();
+            let seconds_view = super::track_pool::seconds_view(&seconds);
+            log::info!(
+                "veloqrs: [SectionDetection] {} of {} pool tracks carry a time stream the veto can read",
+                timed,
+                tracks.len()
+            );
 
             {
                 // The order-free CACHED incremental. It folds only the
@@ -873,10 +906,6 @@ impl PersistentRouteEngine {
                 // on a warm cache it is just the genuinely new activities. This is
                 // what makes a restart self-heal (the DB holds the catalogue; the
                 // cache rebuilds) without ever double-routing an already-folded id.
-                // No seconds. They feed only the lift veto, whose ruling is
-                // still open: ingest now carries elevation, so the veto can
-                // raise candidates, and wiring seconds needs the lift-candidate
-                // memo re-keyed first.
                 let new_ids_for_cache: Vec<String> = tracks
                     .iter()
                     .map(|(id, _)| id.clone())
@@ -885,7 +914,7 @@ impl PersistentRouteEngine {
                 let new_id_refs: Vec<&str> = new_ids_for_cache.iter().map(|s| s.as_str()).collect();
 
                 log::info!(
-                    "tracematch: [SectionDetection] Unified cached incremental: {} new of {} pool tracks against {} existing sections ({} folded in cache)",
+                    "veloqrs: [SectionDetection] Unified cached incremental: {} new of {} pool tracks against {} existing sections ({} folded in cache)",
                     new_id_refs.len(),
                     tracks.len(),
                     existing_sections.len(),
@@ -922,7 +951,7 @@ impl PersistentRouteEngine {
                     &existing_sections,
                     &tracks,
                     &new_id_refs,
-                    &[],
+                    &seconds_view,
                     &sport_map,
                     &start_epochs,
                     &section_config,
@@ -935,7 +964,7 @@ impl PersistentRouteEngine {
                 let sections_to_send = fold.catalogue;
 
                 log::info!(
-                    "tracematch: [SectionDetection] Unified cached incremental complete: {} sections",
+                    "veloqrs: [SectionDetection] Unified cached incremental complete: {} sections",
                     sections_to_send.len()
                 );
 
@@ -982,14 +1011,14 @@ impl PersistentRouteEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        // B2: remap the raw detection batch through the assign-once identity +
+        // Remap the raw detection batch through the assign-once identity +
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
         let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
-        // SB6: a section whose every portion belongs to an activity the pool no
+        // A section whose every portion belongs to an activity the pool no
         // longer holds gets zero junction rows, so no trigger fires and it renders
         // as "0 visits" over an empty detail screen. Keep it out of the visible
         // catalogue. The registry row stays, so the hysteresis still dissolves the
@@ -1002,7 +1031,7 @@ impl PersistentRouteEngine {
                     .any(|p| self.activity_metadata.contains_key(&p.activity_id));
             if !alive {
                 log::warn!(
-                    "tracematch: [apply_sections_save] dropping section {} - none of its {} \
+                    "veloqrs: [apply_sections_save] dropping section {} - none of its {} \
                      portions belong to a pooled activity",
                     section.id,
                     section.activity_portions.len(),
@@ -1022,7 +1051,7 @@ impl PersistentRouteEngine {
         }
         let old_sections = std::mem::replace(&mut self.sections, visible);
         // Make the trial registry live BEFORE the save: `save_sections` writes its
-        // blob (B4) inside the same transaction as the catalogue, so the two
+        // blob inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
@@ -1040,7 +1069,7 @@ impl PersistentRouteEngine {
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
                 if let Err(e) = self.rank_catalogue() {
-                    log::warn!("tracematch: [detection] ranking skipped: {}", e);
+                    log::warn!("veloqrs: [detection] ranking skipped: {}", e);
                 }
                 Ok(())
             }
@@ -1137,7 +1166,7 @@ impl PersistentRouteEngine {
         }
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [apply_sections_finalize] Indicator recomputation failed: {}",
+                "veloqrs: [apply_sections_finalize] Indicator recomputation failed: {}",
                 e
             );
         }
@@ -1166,7 +1195,7 @@ impl PersistentRouteEngine {
 /// what it says.
 const EVIDENCE_CACHE_BLOB_VERSION: u8 = 1;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Write the evidence cache and its folded-id shadow beside the config
     /// digest they were folded under.
     ///
@@ -1226,14 +1255,14 @@ impl PersistentRouteEngine {
         let cache_blob = match codec::serialize_named(cache) {
             Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
             Err(e) => {
-                log::warn!("tracematch: evidence cache not encodable, staying cold: {e}");
+                log::warn!("veloqrs: evidence cache not encodable, staying cold: {e}");
                 return;
             }
         };
         let folded_blob = match codec::serialize_gps_composite(&folded) {
             Ok(bytes) => codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, bytes),
             Err(e) => {
-                log::warn!("tracematch: folded ids not encodable, staying cold: {e}");
+                log::warn!("veloqrs: folded ids not encodable, staying cold: {e}");
                 return;
             }
         };
@@ -1253,7 +1282,7 @@ impl PersistentRouteEngine {
                  updated_at = excluded.updated_at",
             params![digest, folded_blob, cache_blob, now],
         ) {
-            log::warn!("tracematch: evidence cache not written, staying cold: {e}");
+            log::warn!("veloqrs: evidence cache not written, staying cold: {e}");
         }
     }
 
@@ -1262,7 +1291,7 @@ impl PersistentRouteEngine {
     /// had already decided was stale.
     pub(crate) fn clear_persisted_evidence_cache(&mut self) {
         if let Err(e) = self.db.execute("DELETE FROM evidence_cache", []) {
-            log::warn!("tracematch: evidence cache row not cleared: {e}");
+            log::warn!("veloqrs: evidence cache row not cleared: {e}");
         }
     }
 
@@ -1289,7 +1318,7 @@ impl PersistentRouteEngine {
         };
 
         if stored_digest != digest {
-            log::info!("tracematch: evidence cache was folded under another config, dropping it");
+            log::info!("veloqrs: evidence cache was folded under another config, dropping it");
             self.clear_persisted_evidence_cache();
             return false;
         }
@@ -1298,6 +1327,12 @@ impl PersistentRouteEngine {
             .ok_or_else(|| "cache blob tag".to_string())
             .and_then(|b| codec::deserialize_gps_composite::<SectionEvidenceCache>(b))
             .and_then(|cache| {
+                // The blob tag only frames the row. A layout bump changes what
+                // the decoded cluster shape means, so the cache's own version
+                // is the guard that decides whether it can be trusted.
+                if !cache.is_current() {
+                    return Err("cache layout version".to_string());
+                }
                 let folded = codec::untag_blob(EVIDENCE_CACHE_BLOB_VERSION, &folded_blob)
                     .ok_or_else(|| "folded blob tag".to_string())
                     .and_then(codec::deserialize_gps_composite::<Vec<String>>)?;
@@ -1311,7 +1346,7 @@ impl PersistentRouteEngine {
                 true
             }
             Err(e) => {
-                log::warn!("tracematch: evidence cache unreadable, starting cold: {e}");
+                log::warn!("veloqrs: evidence cache unreadable, starting cold: {e}");
                 self.clear_persisted_evidence_cache();
                 false
             }
@@ -1341,7 +1376,7 @@ mod tests {
 
     /// Two well-separated tracks, so the grouping returns two groups whose ids
     /// are the Union-Find roots the members happen to produce, not the stable ids.
-    fn store_signatures(engine: &PersistentRouteEngine) {
+    fn store_signatures(engine: &PersistentEngine) {
         for (id, base_lat) in [("a1", 40.0_f64), ("a2", 40.0), ("b1", 50.0)] {
             engine
                 .db
@@ -1383,13 +1418,13 @@ mod tests {
         rows.filter_map(|r| r.ok()).collect()
     }
 
-    /// SB5. The background writer is handed the same catalogue back under fresh
+    /// The background writer is handed the same catalogue back under fresh
     /// Union-Find root ids, which is what the grouping emits. It must carry the
     /// stable ids, so the user's route name stays attached, rather than persist
     /// the roots raw and orphan it.
     #[test]
     fn background_save_carries_stable_ids_and_names() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1", "a2"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         store_signatures(&engine);
@@ -1435,7 +1470,7 @@ mod tests {
     /// it, so the id namespace the next run reads holds no dead keys.
     #[test]
     fn background_save_drops_names_of_dissolved_routes() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine.groups = vec![group("r_1", &["a1"]), group("r_2", &["b1"])];
         engine.route_identity_reseed();
         engine.save_groups().unwrap();
@@ -1458,5 +1493,69 @@ mod tests {
             )
             .unwrap();
         assert_eq!(orphan_matches, 0);
+    }
+
+    /// A cache blob as an older or newer build would have written it: the same
+    /// named fields, a layout version this build does not recognise. Memos are
+    /// `serde(default)` so the shape stays minimal.
+    #[derive(serde::Serialize)]
+    struct ForeignVersionCache {
+        version: u32,
+        sports: HashMap<String, Vec<u8>>,
+    }
+
+    fn write_evidence_row(engine: &PersistentEngine, cache_body: Vec<u8>) {
+        let digest = super::super::section_config_digest(&engine.section_config);
+        let folded = codec::tag_blob(
+            EVIDENCE_CACHE_BLOB_VERSION,
+            codec::serialize_gps_composite(&vec!["a1".to_string()]).unwrap(),
+        );
+        engine
+            .db
+            .execute(
+                "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at)
+                 VALUES (1, ?1, ?2, ?3, 0)",
+                params![
+                    digest,
+                    folded,
+                    codec::tag_blob(EVIDENCE_CACHE_BLOB_VERSION, cache_body)
+                ],
+            )
+            .unwrap();
+    }
+
+    fn evidence_rows(engine: &PersistentEngine) -> i64 {
+        engine
+            .db
+            .query_row("SELECT COUNT(*) FROM evidence_cache", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    /// The blob tag and the config digest both stay valid across a layout
+    /// bump, so without the cache's own version check the catalogue would
+    /// freeze at the previous detector's answer.
+    #[test]
+    fn a_cache_from_another_layout_version_is_rejected() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let stale = codec::serialize_named(&ForeignVersionCache {
+            version: u32::MAX,
+            sports: HashMap::new(),
+        })
+        .unwrap();
+        write_evidence_row(&engine, stale);
+
+        assert!(!engine.restore_evidence_cache());
+        assert!(engine.cache_folded_ids.is_empty());
+        assert_eq!(evidence_rows(&engine), 0);
+    }
+
+    #[test]
+    fn a_cache_at_the_current_layout_version_is_adopted() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
+        write_evidence_row(&engine, current);
+
+        assert!(engine.restore_evidence_cache());
+        assert!(engine.cache_folded_ids.contains("a1"));
     }
 }

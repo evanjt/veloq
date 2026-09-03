@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
+import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 
@@ -171,8 +171,7 @@ export function useSectionTimeStreamSync(
     }
 
     // Check which activities are missing from cache (memory + SQLite)
-    const missingIds =
-      knownMissingIds ?? routeEngine.getActivitiesMissingTimeStreams(allActivityIds);
+    const missingIds = knownMissingIds ?? engine.getActivitiesMissingTimeStreams(allActivityIds);
 
     // If all time streams are cached, we're done immediately
     if (missingIds.length === 0) {
@@ -188,11 +187,11 @@ export function useSectionTimeStreamSync(
       // Rust fetches the missing streams behind the shared governor and
       // persists them. Completion is observed, since Rust cannot push into
       // the JS listener map.
-      routeEngine.syncTimeStreams(missingIds);
+      engine.syncTimeStreams(missingIds);
 
       const deadline = Date.now() + TIME_STREAM_TIMEOUT_MS;
       while (Date.now() < deadline) {
-        if (routeEngine.getActivitiesMissingTimeStreams(allActivityIds).length === 0) break;
+        if (engine.getActivitiesMissingTimeStreams(allActivityIds).length === 0) break;
         await new Promise((resolve) => setTimeout(resolve, TIME_STREAM_POLL_MS));
       }
 
@@ -260,7 +259,7 @@ export function useSectionPerformances(
       }
       try {
         // Get typed performance result directly from Rust engine (no JSON parsing)
-        return toPerformanceView(routeEngine.getSectionPerformances(section.id, sportType));
+        return toPerformanceView(engine.getSectionPerformances(section.id, sportType));
       } catch {
         // Engine may not have data yet - return empty
         return EMPTY_PERFORMANCE_VIEW;

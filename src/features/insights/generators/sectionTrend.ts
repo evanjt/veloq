@@ -6,6 +6,11 @@ import { insightIcon } from '@/theme';
 
 const DAY_MS = 86_400_000;
 
+/** Engine scores are 0..1. Show them as whole percentages. */
+function asPercent(score: number): string {
+  return `${Math.round(score * 100)}%`;
+}
+
 /**
  * Generate section trend insights for improving/declining sections.
  *
@@ -41,8 +46,13 @@ export function generateSectionTrendInsights(
   });
   if (eligible.length === 0) return [];
 
+  // Relevance is the engine's composite rank, so it decides between two
+  // sections trending the same way. Traversal count only breaks a tie the
+  // engine did not score, which is the pattern fallback path.
   const sorted = [...eligible].sort((a, b) => {
     if (b.trend !== a.trend) return b.trend - a.trend;
+    const relevance = (b.ranking?.relevance ?? 0) - (a.ranking?.relevance ?? 0);
+    if (relevance !== 0) return relevance;
     if (a.latestIsPr !== b.latestIsPr) return a.latestIsPr ? -1 : 1;
     return b.traversalCount - a.traversalCount;
   });
@@ -109,6 +119,7 @@ export function generateSectionTrendInsights(
               sportType: section.sportType,
               hasRecentPR: section.latestIsPr,
               daysSinceLast: section.daysSinceLast,
+              ranking: section.ranking,
             },
           ],
           dataPoints: [
@@ -125,6 +136,30 @@ export function generateSectionTrendInsights(
               label: t('insights.data.efforts'),
               value: section.traversalCount,
             },
+            ...(section.ranking
+              ? [
+                  {
+                    label: t('insights.data.relevance'),
+                    value: asPercent(section.ranking.relevance),
+                  },
+                  {
+                    label: t('insights.data.recency'),
+                    value: asPercent(section.ranking.recency),
+                  },
+                  {
+                    label: t('insights.data.improvementSignal'),
+                    value: asPercent(section.ranking.improvement),
+                  },
+                  {
+                    label: t('insights.data.anomaly'),
+                    value: asPercent(section.ranking.anomaly),
+                  },
+                  {
+                    label: t('insights.data.engagement'),
+                    value: asPercent(section.ranking.engagement),
+                  },
+                ]
+              : []),
           ],
         },
         methodology: {

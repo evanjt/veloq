@@ -240,12 +240,16 @@ export interface Section {
   stability?: number;
   /** Elevation gain in metres over the representative slice, absent when unknown */
   elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice, absent when unknown */
+  elevationLossM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
   maxGradePercent?: number;
   /** climb, descent, rolling, flat or loop, absent when nothing says */
   klass?: string;
+  /** The detector read most of this ground as a lift rather than a ride */
+  isLift?: boolean;
   /** Interestingness percentile across the catalogue, 0 to 1 */
   rankScore?: number;
   /** Interestingness percentile within the section's sport, 0 to 1 */
@@ -285,25 +289,9 @@ export interface Section {
   supersededBy?: string | null;
 }
 
-/**
- * A potential section detected from limited activity overlaps.
- * These are suggestions that users can promote to full sections.
- */
-export interface PotentialSection {
-  id: string;
-  sportType: string;
-  polyline: RoutePoint[];
-  activityIds: string[];
-  visitCount: number;
-  distanceMeters: number;
-  confidence: number;
-  scale: string;
-}
-
 /** Backward compatibility aliases */
 export type FrequentSection = Section;
 export type CustomSection = Section;
-export type UnifiedSection = Section;
 
 /**
  * Lightweight section summary (no polyline).
@@ -319,6 +307,8 @@ export interface SectionSummary {
   createdAt: string;
   /** Elevation gain in metres over the representative slice, absent when unknown */
   elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice, absent when unknown */
+  elevationLossM?: number;
   /** Net grade percent over the representative slice, absent when unknown */
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
@@ -346,9 +336,6 @@ export interface ActivitySectionRecord {
   /** Direction relative to representative: "same" or "reverse" */
   direction: 'same' | 'reverse';
 }
-
-/** Backward compatibility alias */
-export type SectionPortion = ActivitySectionRecord;
 
 /** Parameters for creating a section */
 export interface CreateSectionParams {

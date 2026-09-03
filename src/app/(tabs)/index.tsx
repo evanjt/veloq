@@ -25,6 +25,7 @@ import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -202,10 +203,6 @@ export default function FeedScreen() {
     if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
 
-  // InsightLine intentionally disabled per product direction (noisy in top-right slot of
-  // SummaryCard). Leave `undefined` so the SummaryCard slot does not render.
-  const insightLine = undefined;
-
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
     let filtered = allActivities;
@@ -242,6 +239,7 @@ export default function FeedScreen() {
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    requestSyncRefresh();
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
@@ -570,7 +568,6 @@ export default function FeedScreen() {
             rhrData={rhrData}
             showSparkline={showSparkline}
             supportingMetrics={supportingMetrics}
-            insightLine={insightLine}
           />
         )}
 

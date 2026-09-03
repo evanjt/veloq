@@ -15,7 +15,6 @@ import {
   type FfiActivityMetrics,
   type FfiGpsPoint,
   type FfiRouteGroup,
-  type FfiFrequentSection,
   type FfiSection,
   type FfiSectionConfig,
   type FfiSectionPerformanceResult,
@@ -46,7 +45,7 @@ import {
   type FfiStalePrOpportunity,
 } from './generated/veloqrs';
 
-import { RouteEngineClient } from './RouteEngineClient';
+import { EngineClient } from './EngineClient';
 
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
@@ -74,8 +73,8 @@ export type {
   FetchProgressEvent,
 } from './conversions';
 
-// Re-export RouteEngineClient and its locally-defined types
-export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from './RouteEngineClient';
+// Re-export EngineClient and its locally-defined types
+export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
@@ -86,6 +85,9 @@ export type {
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
+
+// Detector cutover consumer types
+export type { CutoverPhase, CutoverCounts } from './delegates/cutover';
 
 // Preview detection consumer types
 export type {
@@ -106,7 +108,6 @@ export type { RouteDetailData } from './delegates/routes';
 export type ActivityMetrics = FfiActivityMetrics;
 export type GpsPoint = FfiGpsPoint;
 export type RouteGroup = FfiRouteGroup;
-export type FrequentSection = FfiFrequentSection;
 export type Section = FfiSection;
 export type SectionConfig = FfiSectionConfig;
 export type SectionPerformanceResult = FfiSectionPerformanceResult;
@@ -147,7 +148,7 @@ export type {
   FfiNearbySectionSummary as NearbySectionSummary,
   FfiActivitySectionHighlight as ActivitySectionHighlight,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
-} from './RouteEngineClient';
+} from './EngineClient';
 // Strength training types
 export type {
   FfiExerciseSet as ExerciseSet,
@@ -160,4 +161,4 @@ export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();
 }
 
-export const routeEngine = RouteEngineClient.getInstance();
+export const engine = EngineClient.getInstance();

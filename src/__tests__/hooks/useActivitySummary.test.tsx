@@ -5,11 +5,11 @@
  * timer time the FIT writer records and the duration intervals.icu reports.
  */
 
-import { renderHook } from "@testing-library/react-native";
+import { renderHook } from '@testing-library/react-native';
 
-import { useActivitySummary } from "@/features/recording/hooks/useActivitySummary";
-import { pausedSecondsBetween } from "@/features/recording/lib/pausedTime";
-import type { RecordingStreams } from "@/features/recording/types";
+import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
+import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
+import type { RecordingStreams } from '@/features/recording/types';
 
 const START = 1_700_000_000_000;
 
@@ -30,9 +30,7 @@ function streamsWithPause(): RecordingStreams {
 
 const PAUSES = [{ start: 10, end: 610 }];
 
-function summaryFor(
-  overrides: Partial<Parameters<typeof useActivitySummary>[0]> = {},
-) {
+function summaryFor(overrides: Partial<Parameters<typeof useActivitySummary>[0]> = {}) {
   const streams = streamsWithPause();
   const { result } = renderHook(() =>
     useActivitySummary({
@@ -47,13 +45,13 @@ function summaryFor(
       isManual: false,
       params: {},
       ...overrides,
-    }),
+    })
   );
   return result.current;
 }
 
-describe("pausedSecondsBetween", () => {
-  it("counts only the overlap with the window", () => {
+describe('pausedSecondsBetween', () => {
+  it('counts only the overlap with the window', () => {
     expect(pausedSecondsBetween(PAUSES, 0, 620)).toBe(600);
     expect(pausedSecondsBetween(PAUSES, 300, 620)).toBe(310);
     expect(pausedSecondsBetween(PAUSES, 610, 620)).toBe(0);
@@ -61,14 +59,14 @@ describe("pausedSecondsBetween", () => {
   });
 });
 
-describe("useActivitySummary duration", () => {
-  it("excludes paused time from the whole recording", () => {
+describe('useActivitySummary duration', () => {
+  it('excludes paused time from the whole recording', () => {
     const { summary } = summaryFor();
     expect(summary.duration).toBe(20);
     expect(summary.avgSpeed).toBeCloseTo(300 / 20);
   });
 
-  it("excludes only the pause inside a trimmed window", () => {
+  it('excludes only the pause inside a trimmed window', () => {
     const { summary, pausedSecondsInWindow } = summaryFor({
       trimStart: 1,
       trimEnd: 3,
@@ -77,7 +75,7 @@ describe("useActivitySummary duration", () => {
     expect(summary.duration).toBe(10);
   });
 
-  it("reports no paused time for a window after the pause", () => {
+  it('reports no paused time for a window after the pause', () => {
     const { summary, pausedSecondsInWindow } = summaryFor({
       trimStart: 2,
       trimEnd: 3,

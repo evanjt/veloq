@@ -18,7 +18,7 @@ mod lifecycle_support;
 use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_700_000_000;
@@ -112,7 +112,7 @@ fn ground_pieces(snap: &SectionSnapshot, ground: &[GpsPoint]) -> Vec<(String, f6
 /// been through the sections table's JSON read path, whose float parse is up
 /// to one ULP off (serde_json without `float_roundtrip`). So counterpart
 /// matching requires the same point count with every coordinate within
-/// ~0.1 mm — still orders of magnitude tighter than any genuine geometry
+/// ~0.1 mm, still orders of magnitude tighter than any genuine geometry
 /// change, which moves whole points and extents.
 fn exact_counterpart<'a>(snap: &'a SectionSnapshot, poly: &[GpsPoint]) -> Option<&'a String> {
     const ULP_TOL_DEG: f64 = 1.0e-9;
@@ -128,7 +128,7 @@ fn exact_counterpart<'a>(snap: &'a SectionSnapshot, poly: &[GpsPoint]) -> Option
         .map(|(id, _)| id)
 }
 
-fn created_at_of(engine: &mut PersistentRouteEngine, id: &str) -> Option<String> {
+fn created_at_of(engine: &mut PersistentEngine, id: &str) -> Option<String> {
     engine.get_section_by_id(id).and_then(|s| s.created_at)
 }
 
@@ -138,7 +138,7 @@ fn created_at_of(engine: &mut PersistentRouteEngine, id: &str) -> Option<String>
 // later wave clusters a few metres east of their centre, so the medoid of the
 // grown set re-picks to a wave ride and the reference polyline moves by
 // metres while the extent stays put (mutual overlap ~1.0, far above the 0.85
-// agreement threshold — adopts with no debounce). The junction corpus
+// agreement threshold, adopts with no debounce). The junction corpus
 // produces a MATERIAL re-cut: branches peeling at 45% and 60% split the
 // trunk into pieces (mutual overlap of any piece against the full trunk is
 // well below 0.85), so the pure layer debounces and fires at k = 3.
@@ -242,7 +242,7 @@ fn junction_corpus() -> JunctionCorpus {
 /// Drive the junction scenario chunk by chunk, recording per step whether the
 /// raw catalogue has split the trunk and what the visible catalogue holds.
 struct JunctionRun {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     _dir: tempfile::TempDir,
     /// Polyline of the visible trunk section before any branch chunk.
     cold_trunk_polyline: Vec<GpsPoint>,
@@ -387,7 +387,7 @@ fn accepted_section_never_adopts() {
 
     let path = dir.path().join("lifecycle.db");
     drop(engine);
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     let after_restart = engine
         .get_section(&id)
@@ -498,7 +498,7 @@ fn adopted_geometry_survives_restart_and_resync() {
     let path = run._dir.path().join("lifecycle.db");
     let engine = run.engine;
     drop(engine);
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     let after_restart = snapshot(&mut engine);
     for (raw_id, raw_poly) in &pieces {
@@ -550,7 +550,7 @@ fn adoption_recomputes_portions_against_new_geometry() {
         })
         .clone();
 
-    let assert_portions = |engine: &mut PersistentRouteEngine, ctx: &str| {
+    let assert_portions = |engine: &mut PersistentEngine, ctx: &str| {
         let section = engine
             .get_section_by_id(&visible_id)
             .expect("adopted section readable");
@@ -579,7 +579,7 @@ fn adoption_recomputes_portions_against_new_geometry() {
 
     let path = run._dir.path().join("lifecycle.db");
     drop(engine);
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     assert_portions(&mut engine, "after restart");
 }

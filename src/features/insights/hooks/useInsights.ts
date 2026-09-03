@@ -3,7 +3,7 @@ import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
@@ -28,7 +28,6 @@ export function useInsights(
   preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
-  topInsight: Insight | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
 } {
@@ -191,7 +190,6 @@ export function useInsights(
 
   return {
     insights: annotatedInsights,
-    topInsight: annotatedInsights[0] ?? null,
     hasNewInsights,
     markAsSeen,
   };

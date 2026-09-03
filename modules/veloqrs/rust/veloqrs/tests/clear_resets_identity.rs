@@ -7,7 +7,7 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -23,7 +23,7 @@ fn corpus() -> LifecycleCorpus {
 fn clear_leaves_no_registry_behind() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("identity.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     for a in corpus().through_a() {
         engine

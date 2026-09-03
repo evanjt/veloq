@@ -46,6 +46,7 @@ pub mod cutover;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
+pub(crate) mod records;
 mod route_identity;
 mod routes;
 mod schema;
@@ -53,6 +54,7 @@ mod screens;
 pub mod sections;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
+pub mod streams;
 pub use settings::settings_keys;
 pub mod bodies;
 mod strength;
@@ -527,7 +529,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
         Ok(s) => s,
         Err(e) => {
             log::warn!(
-                "tracematch: [load_groups_from_db] Failed to prepare statement: {:?}",
+                "veloqrs: [load_groups_from_db] Failed to prepare statement: {:?}",
                 e
             );
             return Vec::new();
@@ -587,7 +589,7 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 /// Only loads lightweight metadata into memory. Signatures are LRU cached,
 /// and GPS tracks are loaded on-demand only when needed for section detection.
 
-pub struct PersistentRouteEngine {
+pub struct PersistentEngine {
     /// Database connection
     pub(crate) db: Connection,
 
@@ -618,13 +620,14 @@ pub struct PersistentRouteEngine {
     /// Tier 2: LRU cached groups for single-item lookups (100 max = ~1MB)
     group_cache: LruCache<String, RouteGroup>,
 
-    /// Cached route groups (loaded from DB). Since B2 their `group_id` is a stable
+    /// Cached route groups (loaded from DB). Their `group_id` is a stable
     /// assign-once id carried by `route_identity`, not the churning Union-Find root.
     groups: Vec<RouteGroup>,
 
-    /// Assign-once route identity registry (B2 step 3). Owns the stable route id
-    /// over time and carries it (plus the representative) onto the recomputed
-    /// group by member overlap. In-memory pre-B4; reseeded from the DB on open.
+    /// Assign-once route identity registry. Owns the stable route id over time
+    /// and carries it (plus the representative) onto the recomputed group by
+    /// member overlap. Restored from its persisted blob on open, or reseeded
+    /// from the loaded groups when there is none.
     route_identity: route_identity::RouteIdentity,
 
     /// Per-activity match info: route_id -> Vec<ActivityMatchInfo>
@@ -639,7 +642,7 @@ pub struct PersistentRouteEngine {
     /// from the `time_streams` SQLite table.
     time_streams: LruCache<String, Vec<u32>>,
 
-    /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
+    /// Cached sections (loaded from DB). This is the identity-stable,
     /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
     /// batch, `sections::SectionIdentity` remaps ids and debounces churn between
     /// the worker's raw catalogue and this field.
@@ -662,13 +665,14 @@ pub struct PersistentRouteEngine {
     pub(crate) named_overlay: std::sync::RwLock<sections::NamedOverlay>,
     pub(crate) named_overlay_stamp: std::sync::atomic::AtomicI64,
 
-    /// Assign-once section identity registry + hysteresis debounce (B2). Owns the
+    /// Assign-once section identity registry + hysteresis debounce. Owns the
     /// stable opaque id over time and damps the non-monotone batch into the
-    /// visible `sections` above. In-memory pre-B4; reseeded from the DB on open.
+    /// visible `sections` above. Restored from its persisted blob on open, or
+    /// reseeded from the loaded sections when there is none.
     identity: sections::SectionIdentity,
 
     /// The last RAW detection catalogue applied, before the identity + hysteresis
-    /// remap. `sections` is the DAMPED view the app renders; this is the B1
+    /// remap. `sections` is the DAMPED view the app renders; this is the
     /// convergence truth (order-free, tracks the batch every step) the parity
     /// gates compare against. The two DIFFER by design: the damped view can hold a
     /// section a debounced dissolve has not yet retired, so it lags the raw batch
@@ -701,6 +705,13 @@ pub struct PersistentRouteEngine {
     /// never disagree, and persisted in the same row for the same reason.
     cache_folded_ids: HashSet<String>,
 
+    /// A `clear_processed_activity_ids` whose DELETE failed, usually a
+    /// `SQLITE_BUSY` outliving the 5 s timeout. The config that provoked the
+    /// clear is already persisted, so the processed set now disagrees with the
+    /// base detection would re-derive under. The next detect retries the clear
+    /// before it reads the set.
+    pending_processed_clear: bool,
+
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
     sections_dirty: bool,
@@ -719,7 +730,7 @@ pub struct PersistentRouteEngine {
     perf_cache: LruCache<String, SectionPerformanceResult>,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     pub(crate) fn invalidate_perf_cache(&mut self) {
@@ -749,7 +760,7 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
-    // Initialization
+    // Initialisation
     // ========================================================================
 
     /// Create a new persistent engine with the given database path.
@@ -786,6 +797,7 @@ impl PersistentRouteEngine {
             section_evidence_cache: SectionEvidenceCache::new(),
             fork_records: Vec::new(),
             cache_folded_ids: HashSet::new(),
+            pending_processed_clear: false,
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
@@ -822,11 +834,7 @@ impl PersistentRouteEngine {
         let mut first_error: Option<rusqlite::Error> = None;
         for (name, result) in outcomes {
             if let Err(e) = result {
-                log::error!(
-                    "tracematch: [PersistentEngine] load: {} failed: {}",
-                    name,
-                    e
-                );
+                log::error!("veloqrs: [PersistentEngine] load: {} failed: {}", name, e);
                 if first_error.is_none() {
                     first_error = Some(e);
                 }
@@ -850,15 +858,14 @@ impl PersistentRouteEngine {
         // Read the cutover token and set the pending flag. Nothing slow.
         self.check_cutover_state();
 
-        // B2: seed the identity registry from the sections just loaded so an
-        // existing install adopts its current ids as stable seeds. The evidence
-        // cache stays cold (the next detect cold-rebatches), but identity is
-        // preserved: a resync carries the seeded ids onto their surviving ground
-        // rather than re-deriving them. Must run after both `sections` and
-        // `metadata` load so it sees the managed catalogue and the activity set.
-        // B4: prefer the persisted registry blob (exact debounce + tombstone
-        // state) and fall back to reseeding from the DB rows for a fresh or
-        // pre-B4 install.
+        // Prefer the persisted registry blob (exact debounce + tombstone
+        // state). Failing that, seed the identity registry from the sections
+        // just loaded so an existing install adopts its current ids as stable
+        // seeds. The evidence cache stays cold (the next detect cold-rebatches),
+        // but identity is preserved: a resync carries the seeded ids onto their
+        // surviving ground rather than re-deriving them. Must run after both
+        // `sections` and `metadata` load so it sees the managed catalogue and
+        // the activity set.
         // A reseed off a truncated `sections` (a loader error this function
         // deliberately continues past) stays in memory, so the next open reseeds
         // from the whole catalogue instead of restoring the truncation.
@@ -869,9 +876,9 @@ impl PersistentRouteEngine {
             }
         }
 
-        // B2 step 3 + B4: same for routes, restore the persisted registry
-        // (mint counter + seniority), else adopt the loaded group_ids as stable
-        // seeds. Must run after `groups` load.
+        // Same for routes: restore the persisted registry (mint counter +
+        // seniority), else adopt the loaded group_ids as stable seeds. Must run
+        // after `groups` load.
         if !self.route_identity_restore() {
             self.route_identity_reseed();
         }
@@ -896,7 +903,7 @@ impl PersistentRouteEngine {
             .unwrap_or(0);
         if backfilled > 0 {
             log::info!(
-                "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
+                "veloqrs: [PersistentEngine] Backfilled duration_secs for {} activities",
                 backfilled
             );
         }
@@ -905,7 +912,7 @@ impl PersistentRouteEngine {
         // mark sections as dirty so re-detection runs with the updated algorithm.
         if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] {} activities but no processed IDs - marking sections dirty for re-detection",
+                "veloqrs: [PersistentEngine] {} activities but no processed IDs - marking sections dirty for re-detection",
                 self.activity_metadata.len()
             );
             self.sections_dirty = true;
@@ -925,14 +932,6 @@ impl PersistentRouteEngine {
     // ========================================================================
     // Configuration
     // ========================================================================
-
-    /// Set match configuration (invalidates computed groups).
-    pub fn set_match_config(&mut self, config: MatchConfig) {
-        self.match_config = config;
-        self.signature_cache.clear(); // Signatures depend on config
-        self.groups_dirty = true;
-        self.sections_dirty = true;
-    }
 
     /// Read-only access to the active `match_config.min_match_percentage`.
     /// Exposed so integration tests can verify persisted strictness without
@@ -987,7 +986,7 @@ impl PersistentRouteEngine {
             &config.proximity_threshold.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist proximity_threshold: {}",
+                "veloqrs: [set_section_config] failed to persist proximity_threshold: {}",
                 e
             );
         }
@@ -996,7 +995,7 @@ impl PersistentRouteEngine {
             &config.min_section_length.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist min_section_length: {}",
+                "veloqrs: [set_section_config] failed to persist min_section_length: {}",
                 e
             );
         }
@@ -1005,7 +1004,7 @@ impl PersistentRouteEngine {
             &config.min_activities.to_string(),
         ) {
             log::warn!(
-                "tracematch: [set_section_config] failed to persist min_activities: {}",
+                "veloqrs: [set_section_config] failed to persist min_activities: {}",
                 e
             );
         }
@@ -1016,19 +1015,19 @@ impl PersistentRouteEngine {
             Ok(json) => {
                 if let Err(e) = self.set_setting(settings_keys::SECTION_CONFIG_JSON, &json) {
                     log::warn!(
-                        "tracematch: [set_section_config] failed to persist config blob: {}",
+                        "veloqrs: [set_section_config] failed to persist config blob: {}",
                         e
                     );
                 }
             }
             Err(e) => log::warn!(
-                "tracematch: [set_section_config] failed to serialise config blob: {}",
+                "veloqrs: [set_section_config] failed to serialise config blob: {}",
                 e
             ),
         }
 
         self.section_config = config;
-        // R6 freshness: a config change alters what detection would find, so the
+        // A config change alters what detection would find, so the
         // whole library must be re-analysed. The processed set is insert-only and
         // would otherwise short-circuit the next detect on the seen activities;
         // clearing it forces a full re-detect under the new config.
@@ -1083,7 +1082,7 @@ impl PersistentRouteEngine {
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
             })
             .unwrap_or_else(|e| {
-                log::warn!("tracematch: debug_clone_activity section query failed: {e:?}");
+                log::warn!("veloqrs: debug_clone_activity section query failed: {e:?}");
                 Vec::new()
             });
 
@@ -1115,7 +1114,7 @@ impl PersistentRouteEngine {
                     source_meta.bounds.max_lng,
                 ],
             ) {
-                log::warn!("tracematch: debug_clone_activity activity insert failed: {e:?}");
+                log::warn!("veloqrs: debug_clone_activity activity insert failed: {e:?}");
                 continue;
             }
 
@@ -1139,7 +1138,7 @@ impl PersistentRouteEngine {
                         metrics.sport_type,
                     ],
                 ) {
-                    log::warn!("tracematch: debug_clone_activity metrics insert failed: {e:?}");
+                    log::warn!("veloqrs: debug_clone_activity metrics insert failed: {e:?}");
                 }
 
                 // Add to in-memory metrics
@@ -1168,7 +1167,7 @@ impl PersistentRouteEngine {
                         lap_pace
                     ],
                 ) {
-                    log::warn!("tracematch: debug_clone_activity section insert failed: {e:?}");
+                    log::warn!("veloqrs: debug_clone_activity section insert failed: {e:?}");
                 }
             }
 
@@ -1369,6 +1368,7 @@ impl PersistentRouteEngine {
                     disabled: s.disabled,
                     superseded_by: s.superseded_by,
                     elevation_gain_m: s.elevation_gain_m,
+                    elevation_loss_m: s.elevation_loss_m,
                     avg_grade_percent: s.avg_grade_percent,
                     max_grade_percent: s.max_grade_percent,
                     klass: s.klass,
@@ -1429,26 +1429,26 @@ pub struct PersistentEngineStats {
 ///
 /// # Safety invariant
 ///
-/// `PersistentRouteEngine` contains a `rusqlite::Connection`, which is
+/// `PersistentEngine` contains a `rusqlite::Connection`, which is
 /// `Send + !Sync`. We `unsafe impl Sync` (below) because callers are
 /// required to access the connection only through the **write** lock:
 /// every FFI method that touches SQLite goes through `with_persistent_engine`
 /// / `with_engine` (write), which guarantees exclusive access. The read
 /// lock (`with_persistent_engine_read` / `with_engine_read`) is only valid
 /// for closures that do not dereference `self.db`; those closures take
-/// `&PersistentRouteEngine` but must stay on pure-memory `&self` methods.
+/// `&PersistentEngine` but must stay on pure-memory `&self` methods.
 
-pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentRouteEngine>>> =
+pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentEngine>>> =
     Lazy::new(|| RwLock::new(None));
 
 // SAFETY: see invariant above. All SQLite operations go through the write
 // lock, which provides exclusive `&mut` access; read-lock callers only touch
 // `&self` methods that don't dereference `self.db`.
-unsafe impl Sync for PersistentRouteEngine {}
+unsafe impl Sync for PersistentEngine {}
 
 /// Acquire the **write** lock on the global persistent engine.
 ///
-/// Required for any closure that needs `&mut PersistentRouteEngine` -
+/// Required for any closure that needs `&mut PersistentEngine` -
 /// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
 /// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
 /// mutate LRU caches (`get_signature`, `get_group_by_id`,
@@ -1457,7 +1457,7 @@ unsafe impl Sync for PersistentRouteEngine {}
 /// is memory-only - see safety invariant above).
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&mut PersistentRouteEngine) -> R,
+    F: FnOnce(&mut PersistentEngine) -> R,
 {
     // Poison recovery: builds unwind on panic, and refusing a poisoned lock
     // here would disable the engine for the rest of the session.
@@ -1465,25 +1465,45 @@ where
     guard.as_mut().map(f)
 }
 
-/// Alias for `with_persistent_engine` - explicit write semantics.
-pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
+/// `with_persistent_engine` for async callers, off the async workers.
+///
+/// The write lock is a blocking `RwLock` and the closure runs SQLite, so taking
+/// it directly from an `async fn` parks one of the runtime's worker threads for
+/// the whole transaction. There are only eight (`runtime.rs`), and a sync pass
+/// takes this lock once per page, so enough concurrent passes starve the pool
+/// and unrelated network work stops being polled. `spawn_blocking` moves the
+/// wait onto the pool tokio keeps for exactly this.
+///
+/// The closure is `'static`, so callers hand it owned data rather than a
+/// borrow of a local.
+pub async fn with_persistent_engine_blocking<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&mut PersistentRouteEngine) -> R,
+    F: FnOnce(&mut PersistentEngine) -> R + Send + 'static,
+    R: Send + 'static,
 {
-    with_persistent_engine(f)
+    match tokio::task::spawn_blocking(move || with_persistent_engine(f)).await {
+        Ok(result) => result,
+        // The blocking task itself panicked, or the runtime is shutting down.
+        // Either way the write did not happen; the caller's other work should
+        // not be cancelled with it.
+        Err(e) => {
+            log::warn!("[Engine] blocking engine call failed: {e}");
+            None
+        }
+    }
 }
 
 /// Acquire the **read** lock on the global persistent engine.
 ///
 /// Multiple callers can hold the read lock concurrently. The closure
-/// receives `&PersistentRouteEngine`, so any call to a `&mut self` helper
+/// receives `&PersistentEngine`, so any call to a `&mut self` helper
 /// fails to compile - that is the point.
 ///
 /// **Safety**: do not call any method that dereferences `self.db` from
 /// inside this closure. SQLite access goes through the write lock only.
 pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
 where
-    F: FnOnce(&PersistentRouteEngine) -> R,
+    F: FnOnce(&PersistentEngine) -> R,
 {
     // Same poison recovery as with_persistent_engine.
     let guard = PERSISTENT_ENGINE.read().unwrap_or_else(|e| e.into_inner());
@@ -1562,13 +1582,13 @@ pub mod persistent_engine_ffi {
         });
     }
 
-    /// Initialize the persistent engine with a database path.
+    /// Initialise the persistent engine with a database path.
     /// Called by VeloqEngine::create() - not exported via FFI directly.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
         install_panic_hook(&db_path);
         info!(
-            "tracematch: [PersistentEngine] Initializing with db: {}",
+            "veloqrs: [PersistentEngine] Initialising with db: {}",
             db_path
         );
 
@@ -1576,24 +1596,24 @@ pub mod persistent_engine_ffi {
             if !parent.exists() {
                 if let Err(e) = std::fs::create_dir_all(parent) {
                     log::error!(
-                        "tracematch: [PersistentEngine] Failed to create directory {:?}: {}",
+                        "veloqrs: [PersistentEngine] Failed to create directory {:?}: {}",
                         parent,
                         e
                     );
                     return false;
                 }
                 info!(
-                    "tracematch: [PersistentEngine] Created parent directory: {:?}",
+                    "veloqrs: [PersistentEngine] Created parent directory: {:?}",
                     parent
                 );
             }
         }
 
-        let mut engine = match PersistentRouteEngine::new(&db_path) {
+        let mut engine = match PersistentEngine::new(&db_path) {
             Ok(engine) => engine,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to open database '{}': {:?}",
+                    "veloqrs: [PersistentEngine] Failed to open database '{}': {:?}",
                     db_path,
                     e
                 );
@@ -1616,7 +1636,7 @@ pub mod persistent_engine_ffi {
         if let Err(e) = engine.load() {
             if is_corruption_error(&e) {
                 log::error!(
-                    "tracematch: [PersistentEngine] Corruption while loading '{}': {:?}",
+                    "veloqrs: [PersistentEngine] Corruption while loading '{}': {:?}",
                     db_path,
                     e
                 );
@@ -1628,7 +1648,7 @@ pub mod persistent_engine_ffi {
                 };
             } else {
                 info!(
-                    "tracematch: [PersistentEngine] Warning: Failed to load existing data: {:?}",
+                    "veloqrs: [PersistentEngine] Warning: Failed to load existing data: {:?}",
                     e
                 );
             }
@@ -1636,7 +1656,7 @@ pub mod persistent_engine_ffi {
 
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         *guard = Some(engine);
-        info!("tracematch: [PersistentEngine] Initialized successfully");
+        info!("veloqrs: [PersistentEngine] Initialised successfully");
 
         true
     }
@@ -1648,7 +1668,7 @@ pub mod persistent_engine_ffi {
     /// engine-backed feature on every launch, permanently. Renaming it aside
     /// loses only the cache, which the next sync repopulates. The quarantined
     /// copy is kept (one generation) for post-mortem inspection.
-    fn reopen_after_quarantine(db_path: &str) -> Option<PersistentRouteEngine> {
+    fn reopen_after_quarantine(db_path: &str) -> Option<PersistentEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
             // Environmental failure (permissions, missing dir). Nothing to
@@ -1693,7 +1713,7 @@ pub mod persistent_engine_ffi {
                     // only when both fail is the failover abandoned.
                     if suffix.is_empty() || std::fs::remove_file(&src).is_err() {
                         log::error!(
-                            "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
+                            "veloqrs: [PersistentEngine] Could not quarantine '{}': {}",
                             src,
                             e
                         );
@@ -1703,19 +1723,19 @@ pub mod persistent_engine_ffi {
             }
         }
         log::warn!(
-            "tracematch: [PersistentEngine] Quarantined unusable database to '{}.corrupt-{}', starting fresh",
+            "veloqrs: [PersistentEngine] Quarantined unusable database to '{}.corrupt-{}', starting fresh",
             db_path,
             ts
         );
 
-        match PersistentRouteEngine::new(db_path) {
+        match PersistentEngine::new(db_path) {
             Ok(engine) => {
                 // Detector output is a re-derivable cache; the ledger and the
                 // user's own rows are not. Whatever the quarantined file still
                 // yields comes across.
                 let salvaged = engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
                 log::warn!(
-                    "tracematch: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
+                    "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
                     salvaged.history,
                     salvaged.geometry,
                     salvaged.pins,
@@ -1726,7 +1746,7 @@ pub mod persistent_engine_ffi {
             }
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
+                    "veloqrs: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
                     e
                 );
                 None
@@ -1826,7 +1846,7 @@ mod tests {
 
     #[test]
     fn test_add_activity() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1837,7 +1857,7 @@ mod tests {
 
     #[test]
     fn test_signature_caching() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1853,7 +1873,7 @@ mod tests {
 
     #[test]
     fn test_viewport_query() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1885,7 +1905,7 @@ mod tests {
 
         // Create and add data
         {
-            let mut engine = PersistentRouteEngine::new(temp_path).unwrap();
+            let mut engine = PersistentEngine::new(temp_path).unwrap();
             engine.clear().unwrap();
             engine
                 .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
@@ -1894,7 +1914,7 @@ mod tests {
 
         // Reload and verify
         {
-            let mut engine = PersistentRouteEngine::new(temp_path).unwrap();
+            let mut engine = PersistentEngine::new(temp_path).unwrap();
             engine.load().unwrap();
             assert_eq!(engine.activity_count(), 1);
             assert!(engine.has_activity("test-1"));
@@ -1903,7 +1923,7 @@ mod tests {
 
     #[test]
     fn test_grouping() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Add two identical activities
         engine
@@ -1920,7 +1940,7 @@ mod tests {
 
     #[test]
     fn test_remove_activity() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .add_activity("test-1".to_string(), sample_coords(), "cycling".to_string())
             .unwrap();
@@ -1989,7 +2009,7 @@ mod tests {
     /// Test: set_section_reference works for auto-detected (FrequentSection) sections
     #[test]
     fn test_set_section_reference_autodetected_section() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Add two activities with the same route
         let coords = sample_coords();
@@ -2058,7 +2078,7 @@ mod tests {
     /// the section, preserving approximately the same geographic extent.
     #[test]
     fn test_set_section_reference_extracts_matching_portion_for_auto_section() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create a SHORT section polyline (50 points, ~5km)
         let section_coords: Vec<GpsPoint> = (0..50)
@@ -2152,7 +2172,7 @@ mod tests {
     /// is_user_defined flag. This is acceptable if Bug 1 is fixed (polyline won't be corrupted).
     #[test]
     fn test_reset_section_reference_clears_user_defined_flag() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create two activities with slightly different but overlapping routes
         let coords_1: Vec<GpsPoint> = (0..50)
@@ -2231,7 +2251,7 @@ mod tests {
     /// The bug was that activity_traces in FrequentSection accumulated GPS data and was never cleared.
     #[test]
     fn test_activity_traces_cleared_after_section_save() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create activities with GPS tracks
         let coords: Vec<GpsPoint> = (0..1000)
@@ -2283,7 +2303,7 @@ mod tests {
     /// updated to match the new polyline.
     #[test]
     fn test_section_distance_matches_polyline() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create section polyline
         let coords: Vec<GpsPoint> = (0..50)
@@ -2376,7 +2396,7 @@ mod tests {
     /// Activities that no longer overlap should be removed from the junction table.
     #[test]
     fn test_set_section_reference_rematches_activities() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Create section polyline in a specific area
         let section_coords: Vec<GpsPoint> = (0..50)
@@ -2483,7 +2503,7 @@ mod tests {
     /// for activities whose time streams arrive after detection.
     #[test]
     fn test_lap_time_populated_by_apply_sections() {
-        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        let mut engine = PersistentEngine::in_memory().unwrap();
 
         // Two activities sharing the same route.
         let coords = sample_coords();

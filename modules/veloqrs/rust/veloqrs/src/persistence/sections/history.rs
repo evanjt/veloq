@@ -1,10 +1,10 @@
-//! Section history, versioned geometry, and pins: the D4 storage layer.
+//! Section history, versioned geometry, and pins: the storage layer.
 //!
 //! Three tables keyed on the durable real section id with no foreign key to
 //! the wipe-managed `sections` table, so events outlive every catalogue
 //! rebuild. `section_history` holds one row per lifecycle event, kept
 //! forever; the event vocabulary and `details` payload shape belong to the
-//! emitter (D5), which is the only writer of event rows. `section_geometry`
+//! lifecycle emitter, which is the only writer of event rows. `section_geometry`
 //! holds independently-decodable polyline versions (codec `encode_polyline`,
 //! corpus-measured ~3 B/point); `section_pins` freezes a section at a stored
 //! version (revert = pin at version).
@@ -16,8 +16,9 @@
 
 use rusqlite::{OptionalExtension, params};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
+use crate::persistence::sections::geometry;
 use tracematch::GpsPoint;
 
 /// Newest versions always retained, besides version 1, milestones, and the
@@ -358,6 +359,9 @@ struct PendingBaseline {
     id: String,
     blob: Option<Vec<u8>>,
     json: Option<String>,
+    rep_activity_id: Option<String>,
+    rep_start: Option<u32>,
+    rep_end: Option<u32>,
     at: String,
     activity_count: i64,
 }
@@ -414,6 +418,7 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
     // gone falls back to now rather than claiming a date it cannot support.
     let mut stmt = conn.prepare(
         "SELECT s.id, s.polyline_blob, s.polyline_json,
+                s.representative_activity_id, s.rep_start_index, s.rep_end_index,
                 COALESCE(
                     (SELECT datetime(MIN(a.start_date), 'unixepoch')
                      FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
@@ -429,8 +434,11 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
                 id: row.get(0)?,
                 blob: row.get(1)?,
                 json: row.get(2)?,
-                at: row.get(3)?,
-                activity_count: row.get(4)?,
+                rep_activity_id: row.get(3)?,
+                rep_start: row.get(4)?,
+                rep_end: row.get(5)?,
+                at: row.get(6)?,
+                activity_count: row.get(7)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -447,11 +455,18 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
         id,
         blob,
         json,
+        rep_activity_id,
+        rep_start,
+        rep_end,
         at,
         activity_count,
     } in rows
     {
-        let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+        // The blob is a cache. A section whose cache is gone still has a birth
+        // shape as long as its triple indexes a stored stream, and skipping it
+        // would leave it with no version 1 for ever.
+        let reference = geometry::reference(rep_activity_id.as_deref(), rep_start, rep_end);
+        let Ok(polyline) = geometry::line(conn, blob.as_deref(), json.as_deref(), reference) else {
             skipped += 1;
             continue;
         };
@@ -645,7 +660,7 @@ pub(super) fn append_superseded_pair_on(
     Ok((old_event, new_event))
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// The generation the stored catalogue was cut under, when it disagrees
     /// with the live config. None on a catalogue nothing has saved yet, and
     /// None while the two agree.
@@ -733,11 +748,21 @@ impl PersistentRouteEngine {
         if row.0 != ENCODING_QUANTISED {
             return None;
         }
-        let polyline = codec::decode_polyline(&row.1)?;
         let reference = match (row.2, row.3, row.4) {
             (Some(id), Some(start), Some(end)) => Some((id, start, end)),
             _ => None,
         };
+        // The version blob is a cache of its own triple, exactly as the live
+        // row's is. A version that no longer decodes is still a revert target
+        // while its triple indexes a stored stream.
+        let polyline = codec::decode_polyline(&row.1)
+            .filter(|points| !points.is_empty())
+            .or_else(|| {
+                geometry::rebuild(
+                    &self.db,
+                    reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e))?,
+                )
+            })?;
         Some((polyline, reference))
     }
 
@@ -748,21 +773,8 @@ impl PersistentRouteEngine {
         section_id: &str,
         version: i64,
     ) -> Option<Vec<GpsPoint>> {
-        let (encoding, blob): (i64, Vec<u8>) = self
-            .db
-            .query_row(
-                "SELECT encoding, blob FROM section_geometry
-                 WHERE section_id = ? AND version = ?",
-                params![section_id, version],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()
-            .ok()
-            .flatten()?;
-        if encoding != ENCODING_QUANTISED {
-            return None;
-        }
-        codec::decode_polyline(&blob)
+        self.section_geometry_version(section_id, version)
+            .map(|(polyline, _)| polyline)
     }
 
     /// Every section that left the catalogue through a fired retirement and

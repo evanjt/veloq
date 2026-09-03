@@ -4,9 +4,8 @@
 //! backup captures the complete app state.
 
 use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
 /// Reserved setting keys owned by Rust internals. The double-underscore
 /// prefix distinguishes them from user-facing preferences set via
@@ -29,13 +28,13 @@ pub mod settings_keys {
     /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
     /// (which spreads the current config and re-sets preset-only fields like
     /// `preserve_hierarchy` / `min_corridor_tracks`) then reads as a genuine
-    /// change every boot, clearing the processed set and, since B2, renumbering
-    /// every section. Preferred by the loader; the individual keys remain as a
+    /// change every boot, clearing the processed set and renumbering every
+    /// section. Preferred by the loader; the individual keys remain as a
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
         self.db
@@ -59,34 +58,6 @@ impl PersistentRouteEngine {
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
             params![key, value],
         )?;
-        Ok(())
-    }
-
-    /// Get all settings as a HashMap.
-    pub fn get_all_settings(&self) -> SqlResult<HashMap<String, String>> {
-        let mut stmt = self.db.prepare("SELECT key, value FROM settings")?;
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-
-        let mut settings = HashMap::new();
-        for row in rows {
-            let (key, value) = row?;
-            settings.insert(key, value);
-        }
-        Ok(settings)
-    }
-
-    /// Bulk upsert settings from a HashMap.
-    pub fn set_all_settings(&self, settings: &HashMap<String, String>) -> SqlResult<()> {
-        let mut stmt = self.db.prepare(
-            "INSERT INTO settings (key, value, updated_at)
-             VALUES (?, ?, strftime('%s', 'now'))
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-        )?;
-        for (key, value) in settings {
-            stmt.execute(params![key, value])?;
-        }
         Ok(())
     }
 
@@ -117,7 +88,7 @@ impl PersistentRouteEngine {
 
     /// Mirror of `load_match_strictness_from_settings` for `section_config`.
     /// Missing or unparseable values fall back to the default SectionConfig
-    /// fields already in place (set during `PersistentRouteEngine::new`).
+    /// fields already in place (set during `PersistentEngine::new`).
     pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
         // Prefer the whole-config blob: it restores EVERY field, so the TS launch
         // re-apply of the same preset compares equal and no-ops (no re-detect, no
@@ -130,7 +101,7 @@ impl PersistentRouteEngine {
                     return Ok(());
                 }
                 Err(e) => log::warn!(
-                    "tracematch: [load_section_config] config blob unparseable, falling back to slider keys: {}",
+                    "veloqrs: [load_section_config] config blob unparseable, falling back to slider keys: {}",
                     e
                 ),
             }

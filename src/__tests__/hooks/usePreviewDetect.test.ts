@@ -12,6 +12,7 @@ import type {
   PreviewParams,
   PreviewPollStatus,
   PreviewResult,
+  PreviewSection,
 } from '../../../modules/veloqrs/src/delegates/preview';
 import type { FfiSectionConfig } from '../../../modules/veloqrs/src/generated/veloqrs';
 
@@ -24,7 +25,6 @@ const LIVE_CONFIG: FfiSectionConfig = {
   samplePoints: 60,
   detectionMode: 'unified',
   includePotentials: false,
-  scalePresets: [],
   preserveHierarchy: false,
   jaccardThreshold: 0.4,
   minRoutes: 2,
@@ -54,6 +54,7 @@ const RESULT: PreviewResult = {
 function makeClient(over: Partial<PreviewClient> = {}) {
   return {
     getPreviewCentres: jest.fn(() => []),
+    getPreviewCurrentSections: jest.fn((): PreviewSection[] => []),
     startPreviewDetect: jest.fn(() => true),
     pollPreviewDetect: jest.fn((): PreviewPollStatus => 'running'),
     getPreviewProgress: jest.fn(() => null),

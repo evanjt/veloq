@@ -10,12 +10,13 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use tracematch::sections::SectionPortion;
+use tracematch::{Direction, GpsPoint};
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
     db_path: String,
@@ -26,7 +27,7 @@ fn setup() -> Setup {
     let path: PathBuf = tmp.path().join("test.db");
     let db_path = path.to_str().unwrap().to_string();
 
-    let engine = PersistentRouteEngine::new(&db_path).expect("engine new");
+    let engine = PersistentEngine::new(&db_path).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {
@@ -117,18 +118,35 @@ fn detection_save_writes_blob_as_authority() {
     let polyline = sample_polyline();
 
     {
-        let mut engine = PersistentRouteEngine::new(db_path).unwrap();
+        let mut engine = PersistentEngine::new(db_path).unwrap();
+        // The apply keeps an auto section only while one of its portions
+        // belongs to a pooled activity, so the ride the section was cut from
+        // has to be in the pool or the save never sees the row this test
+        // reads back.
+        engine
+            .add_activity("act_blob".to_string(), polyline.clone(), "Ride".to_string())
+            .expect("add_activity");
+        engine
+            .update_activity_metadata("act_blob", Some(1_700_000_000), None, None, None)
+            .expect("update_activity_metadata");
+        let last = (polyline.len() - 1) as u32;
         let section = tracematch::sections::FrequentSection {
             id: "auto_blob_1".to_string(),
             name: None,
             sport_type: "Ride".to_string(),
             polyline: polyline.clone(),
-            representative_activity_id: String::new(),
+            representative_activity_id: "act_blob".to_string(),
             representative_range: None,
-            activity_ids: vec![],
-            activity_portions: vec![],
+            activity_ids: vec!["act_blob".to_string()],
+            activity_portions: vec![SectionPortion {
+                activity_id: "act_blob".to_string(),
+                start_index: 0,
+                end_index: last,
+                distance_meters: tracematch::matching::calculate_route_distance(&polyline),
+                direction: Direction::Same,
+            }],
             route_ids: vec![],
-            visit_count: 0,
+            visit_count: 1,
             distance_meters: tracematch::matching::calculate_route_distance(&polyline),
             activity_traces: std::collections::HashMap::new(),
             confidence: 0.9,
@@ -177,7 +195,7 @@ fn detection_save_writes_blob_as_authority() {
     assert_eq!(density_shape.0, None, "density JSON must not be written");
     assert!(density_shape.1, "density blob must be written");
 
-    let mut engine2 = PersistentRouteEngine::new(db_path).unwrap();
+    let mut engine2 = PersistentEngine::new(db_path).unwrap();
     engine2.load().unwrap();
     let sections = engine2.get_sections();
     let reloaded = sections
@@ -206,7 +224,7 @@ fn legacy_json_only_row_still_decodes() {
 
     // Full engine reload path (load_sections) must also fall back to JSON.
     drop(s.engine);
-    let mut engine2 = PersistentRouteEngine::new(&s.db_path).unwrap();
+    let mut engine2 = PersistentEngine::new(&s.db_path).unwrap();
     engine2.load().unwrap();
     let reloaded = engine2
         .get_sections()
@@ -234,7 +252,7 @@ fn unreadable_row_does_not_abort_the_catalogue_load() {
         .expect("blank the geometry");
 
     drop(s.engine);
-    let mut engine = PersistentRouteEngine::new(&s.db_path).unwrap();
+    let mut engine = PersistentEngine::new(&s.db_path).unwrap();
     engine
         .load()
         .expect("load must succeed despite the bad row");

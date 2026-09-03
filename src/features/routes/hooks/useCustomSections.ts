@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
@@ -80,7 +80,6 @@ function findSupersededSections(
 
 /** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
 function toAppSections(sections: NativeSection[]): Section[] {
-  // Note: FfiSection doesn't have activityPortions - it's optional in the app type
   return sections.map((s) => ({
     ...s,
     polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
@@ -89,7 +88,6 @@ function toAppSections(sections: NativeSection[]): Section[] {
     })),
     sectionType: 'custom' as const,
     createdAt: s.createdAt || new Date().toISOString(),
-    activityPortions: undefined,
   })) as Section[];
 }
 
@@ -101,6 +99,11 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
 
+  // A caller that already read the sections owns the answer. Seeding the query
+  // was not enough: a cache another screen primed wins over `initialData`, so
+  // the bundle's list was dropped and the engine read anyway.
+  const skipOwnFfiCall = preComputedSections !== undefined;
+
   // Load custom sections from unified sections table
   const {
     data: rawSections,
@@ -109,9 +112,9 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refetch,
   } = useQuery<Section[]>({
     queryKey: queryKeys.sections.custom,
-    enabled,
+    enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         return [];
       }
@@ -119,13 +122,17 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       // Get custom sections from unified table
       return toAppSections(engine.getSectionsByType('custom'));
     },
-    initialData: preComputedSections ? () => toAppSections(preComputedSections) : undefined,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const preComputed = useMemo(
+    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
+    [preComputedSections]
+  );
+
   // Filter and sort sections
   const sections = useMemo(() => {
-    let filtered = rawSections || [];
+    let filtered = preComputed ?? rawSections ?? [];
 
     // Filter by sport type if specified
     if (sportType) {
@@ -138,7 +145,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     );
 
     return filtered;
-  }, [rawSections, sportType]);
+  }, [preComputed, rawSections, sportType]);
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {
@@ -148,7 +155,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Create a new section
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<Section> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -233,7 +240,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Delete a section
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -260,7 +267,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Rename a section
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }

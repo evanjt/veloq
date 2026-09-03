@@ -1,4 +1,4 @@
-//! Suite #2 — geometry & metadata edit survival + side effects.
+//! Suite #2, geometry & metadata edit survival + side effects.
 //!
 //! The believability core beyond accept/hide (`suite2_edits.rs`): when a user
 //! renames, re-references, trims, resets, or recalculates a section, the edit
@@ -30,7 +30,7 @@ mod lifecycle_support;
 use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -81,7 +81,7 @@ fn middle_trim(n: usize) -> (u32, u32) {
 /// `get_section_performances` can name, date, and time each traversal. Without
 /// this the perf query returns no records (the synthetic corpus ships neither
 /// `activity_metrics` rows nor time streams).
-fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivity]) {
+fn seed_metrics_and_streams(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
     let mut metrics = Vec::new();
     let mut ids = Vec::new();
     let mut times: Vec<u32> = Vec::new();
@@ -209,14 +209,14 @@ fn recalculate_polyline_stays_on_real_corridor() {
     let cov = coverage(&after.polyline, &one_act, 50.0);
     assert!(
         cov >= 0.9,
-        "recalculated polyline is only {:.0}% covered by a contributing activity — it drifted off the corridor",
+        "recalculated polyline is only {:.0}% covered by a contributing activity, it drifted off the corridor",
         cov * 100.0,
     );
 }
 
 /// Touch one unrelated activity's metrics purely for the invalidate_perf_cache
 /// side effect, so the next perf read is recomputed rather than served stale.
-fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str) {
+fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
     engine
         .set_activity_metrics(vec![ActivityMetrics {
             activity_id: activity_id.to_string(),
@@ -254,7 +254,7 @@ fn set_reference_polyline_stays_within_one_source_activity() {
     let cov = coverage(&after.polyline, &track, 50.0);
     assert!(
         cov >= 0.9,
-        "set_reference polyline only {:.0}% covered by its reference activity — it is not one contiguous real trace",
+        "set_reference polyline only {:.0}% covered by its reference activity, it is not one contiguous real trace",
         cov * 100.0
     );
     assert!(
@@ -292,8 +292,8 @@ fn reset_bounds_disarms_the_resync_crash() {
 
 /// A user-edited (here: trimmed) section survives a later resync with its
 /// trimmed extent intact. The edit promotes the row to user-defined, sparing it
-/// from the wipe, and stable identity (B2) stops fresh detection re-minting the
-/// same id for other ground — so `apply_sections` neither collides nor snaps the
+/// from the wipe, and stable identity stops fresh detection re-minting the
+/// same id for other ground, so `apply_sections` neither collides nor snaps the
 /// extent back.
 #[test]
 fn gate_edited_section_survives_resync() {

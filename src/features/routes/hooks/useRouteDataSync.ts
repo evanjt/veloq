@@ -1,53 +1,14 @@
-/**
- * @fileoverview useRouteDataSync - Route data sync orchestrator
- *
- * **Refactored Architecture** (Phase 1 Complete)
- *
- * Original 441-line file split into focused modules:
- *
- * **Extracted Modules:**
- * 1. `useRouteSyncProgress.ts` (88 lines)
- *    - Progress state management with mount guards
- *    - Derives isSyncing from progress status
- *
- * 2. `useRouteSyncContext.ts` (140 lines)
- *    - Lifecycle refs (auth, demo mode, online, syncing)
- *    - Abort controller management
- *    - Sync state coordination
- *
- * 3. `useGpsDataFetcher.ts` (270 lines)
- *    - Demo mode GPS loading from fixtures
- *    - Real API GPS fetching via Rust HTTP client
- *    - Progress tracking and coordinate building
- *
- * 4. `activityMetrics.ts` (38 lines)
- *    - Activity to ActivityMetrics conversion
- *
- * **Orchestrator (this file - 240 lines):**
- * - Coordinates sync flow
- * - Manages sync triggers (reset, reconnection)
- * - Delegates to specialized hooks
- * - Auto-syncs on activity changes
- *
- * **Benefits:**
- * - Each module has single responsibility
- * - Easier to test individual pieces
- * - Clearer data flow
- * - Better code organization
- *
- * Original file backed up as `useRouteDataSync.ts.backup`
- */
-
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/shared/native/routeEngine';
-import { routeEngine } from 'veloqrs';
+import { getNativeModule } from '@/shared/native/engine';
+import { engine } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -68,42 +29,15 @@ interface UseRouteDataSyncResult {
 export type { SyncProgress };
 
 /**
- * Orchestrates activity GPS data synchronization to the Rust route engine.
+ * Pulls GPS for activities the engine has not seen yet and hands it to Rust,
+ * which then starts section detection.
  *
- * **High-Level Flow:**
- * 1. Check auth, online status, and concurrent sync state
- * 2. Filter activities to those with GPS not yet in engine
- * 3. Fetch GPS (demo fixtures or real API based on mode)
- * 4. Add to engine with metrics and trigger section detection
- * 5. Update progress throughout
+ * Runs on an activities change, an engine reset, a reconnection, or a manual
+ * `syncActivities` call. `enabled` turns off only the automatic trigger.
  *
- * **Triggers:**
- * - Activities list changes
- * - Engine reset (cache clear)
- * - Network reconnection
- * - Manual trigger via syncActivities()
- *
- * **Delegation:**
- * - Progress state → useRouteSyncProgress
- * - Lifecycle refs → useRouteSyncContext
- * - GPS fetching → useGpsDataFetcher
- *
- * @param activities - Activities to sync (should have GPS data available)
- * @param enabled - Whether to automatically sync when activities change
- *
- * @example
- * ```tsx
- * function ActivityList({ activities }: Props) {
- *   const { progress, isSyncing } = useRouteDataSync(activities, true);
- *
- *   return (
- *     <View>
- *       <Text>Status: {progress.message}</Text>
- *       {activities.map(activity => <ActivityCard key={activity.id} {...activity} />)}
- *     </View>
- *   );
- * }
- * ```
+ * Progress lives in `useRouteSyncProgress`, the lifecycle refs in
+ * `useRouteSyncContext` and the fetching in `useGpsDataFetcher`. This file is
+ * the order they run in, nothing more.
  */
 export function useRouteDataSync(
   activities: Activity[] | undefined,
@@ -199,7 +133,7 @@ export function useRouteDataSync(
         }
 
         // Check engine state for already-synced activities
-        const engineActivityIds = new Set(nativeModule.routeEngine.getActivityIds());
+        const engineActivityIds = new Set(nativeModule.engine.getActivityIds());
 
         // Filter to activities with GPS that aren't already in the engine
         const withGps = activitiesToSync.filter(
@@ -220,7 +154,7 @@ export function useRouteDataSync(
         // Sync metrics only for activities not already in the engine.
         // Uses metric IDs (all activities) not GPS activity IDs (GPS-only) to avoid
         // re-writing indoor/non-GPS activities on every startup.
-        const cachedMetricIds = new Set(nativeModule.routeEngine.getActivityMetricIds());
+        const cachedMetricIds = new Set(nativeModule.engine.getActivityMetricIds());
         const newActivities = activitiesToSync.filter((a) => !cachedMetricIds.has(a.id));
         if (__DEV__) {
           console.log(
@@ -232,8 +166,8 @@ export function useRouteDataSync(
             .filter((a) => a.start_date_local && a.moving_time)
             .map(toActivityMetrics);
           if (newMetrics.length > 0) {
-            nativeModule.routeEngine.setActivityMetrics(newMetrics);
-            routeEngine.triggerRefresh('activities');
+            nativeModule.engine.setActivityMetrics(newMetrics);
+            engine.triggerRefresh('activities');
           }
         }
 
@@ -245,9 +179,9 @@ export function useRouteDataSync(
 
           if (
             strengthIds.length > 0 &&
-            typeof nativeModule.routeEngine.getUnprocessedStrengthIds === 'function'
+            typeof nativeModule.engine.getUnprocessedStrengthIds === 'function'
           ) {
-            const unprocessed = nativeModule.routeEngine.getUnprocessedStrengthIds(strengthIds);
+            const unprocessed = nativeModule.engine.getUnprocessedStrengthIds(strengthIds);
             if (unprocessed.length > 0) {
               if (__DEV__) {
                 console.log(
@@ -257,7 +191,7 @@ export function useRouteDataSync(
               try {
                 // Fire and forget: the downloads run on a Rust thread and the
                 // sets are read back from SQLite when a strength screen asks.
-                const started = nativeModule.routeEngine.batchFetchExerciseSets(unprocessed);
+                const started = nativeModule.engine.batchFetchExerciseSets(unprocessed);
                 if (__DEV__) {
                   console.log(
                     `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
@@ -278,17 +212,17 @@ export function useRouteDataSync(
           // Drain any completed-but-uncollected detection results. If a prior
           // detection finished after the TS poll loop timed out, the result
           // sits in the global handle and blocks all future start() calls.
-          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
+          const drainStatus = nativeModule.engine.pollSectionDetection();
           if (drainStatus === 'complete') {
             if (__DEV__) {
               console.log('[RouteDataSync] Drained stale detection result');
             }
-            routeEngine.triggerRefresh('sections');
-            routeEngine.triggerRefresh('groups');
+            engine.triggerRefresh('sections');
+            engine.triggerRefresh('groups');
           }
 
           // Check if section detection was interrupted and needs to recover
-          const stats = routeEngine.getStats();
+          const stats = engine.getStats();
           if (stats?.sectionsDirty && isMountedRef.current) {
             if (__DEV__) {
               console.log(
@@ -304,33 +238,33 @@ export function useRouteDataSync(
             });
 
             // The engine starts detection when the batch lands; follow it.
-            const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
+            const started = nativeModule.engine.pollSectionDetection() === 'running';
             if (started) {
               const pollInterval = 500;
               const maxPollTime = 60000;
               const startTime = Date.now();
               while (isMountedRef.current && !abortController.signal.aborted) {
-                const detectionStatus = nativeModule.routeEngine.pollSectionDetection();
+                const detectionStatus = nativeModule.engine.pollSectionDetection();
                 if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
                 await new Promise((resolve) => setTimeout(resolve, pollInterval));
               }
               // Skip side effects if a newer sync took over (cache clear race)
               if (!abortController.signal.aborted) {
-                routeEngine.triggerRefresh('groups');
-                routeEngine.triggerRefresh('sections');
+                engine.triggerRefresh('groups');
+                engine.triggerRefresh('sections');
               }
 
               // Poll heatmap tile generation (runs on Rust background thread) and surface
               // processed/total so the user sees forward motion instead of a frozen bar.
               // Foreground wait capped at 5 s (Tier 1.2); Rust keeps rendering in background
               // if we bail out early and the map will pick up tiles as they land.
-              const tileStatus = routeEngine.pollTileGeneration();
+              const tileStatus = engine.pollTileGeneration();
               if (
                 tileStatus === 'running' &&
                 isMountedRef.current &&
                 !abortController.signal.aborted
               ) {
-                const initialTileProgress = routeEngine.getHeatmapTileProgress();
+                const initialTileProgress = engine.getHeatmapTileProgress();
                 const tileTotal =
                   initialTileProgress && initialTileProgress.length >= 2
                     ? initialTileProgress[1]
@@ -340,8 +274,8 @@ export function useRouteDataSync(
                 const tileStartTime = Date.now();
                 while (isMountedRef.current && !abortController.signal.aborted) {
                   await new Promise((resolve) => setTimeout(resolve, 200));
-                  const s = routeEngine.pollTileGeneration();
-                  const progress = routeEngine.getHeatmapTileProgress();
+                  const s = engine.pollTileGeneration();
+                  const progress = engine.getHeatmapTileProgress();
                   if (progress && progress.length >= 2 && progress[1] > 0) {
                     const [processed, total] = progress;
                     const tilePct = Math.min(100, Math.round((processed / total) * 100));
@@ -367,7 +301,7 @@ export function useRouteDataSync(
           // so this only reports progress while it drains.
           if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
             try {
-              const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+              const needingStreams = engine.getActivitiesNeedingTimeStreams();
               if (needingStreams.length > 0) {
                 if (__DEV__) {
                   console.log(
@@ -375,7 +309,7 @@ export function useRouteDataSync(
                   );
                 }
                 const totalStreams = needingStreams.length;
-                routeEngine.syncTimeStreams(needingStreams);
+                engine.syncTimeStreams(needingStreams);
 
                 const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
                 let remaining = totalStreams;
@@ -384,7 +318,7 @@ export function useRouteDataSync(
                   isMountedRef.current &&
                   !abortController.signal.aborted
                 ) {
-                  remaining = routeEngine.getMissingTimeStreams(needingStreams).length;
+                  remaining = engine.getMissingTimeStreams(needingStreams).length;
                   if (remaining === 0) break;
                   if (isMountedRef.current) {
                     updateProgress({
@@ -486,25 +420,17 @@ export function useRouteDataSync(
   // Counter to force re-sync after engine reset or reconnection
   const [syncTrigger, setSyncTrigger] = useState(0);
 
-  // Track previous online state to detect reconnection
-  const wasOnlineRef = useRef(isOnlineRef.current);
-
-  // Trigger resync when coming back online
-  useEffect(() => {
-    const isOnline = isOnlineRef.current;
-    if (isOnline && !wasOnlineRef.current) {
-      // Just came back online - increment trigger to resync
-      setSyncTrigger((prev) => prev + 1);
-    }
-    wasOnlineRef.current = isOnline;
-  }, [isOnlineRef]);
+  // Trigger resync when coming back online. This has to key on the network
+  // value: an effect keyed on `isOnlineRef` ran at mount and never again,
+  // because a ref object's identity never changes.
+  useReconnect(() => setSyncTrigger((prev) => prev + 1));
 
   // Listen for engine reset (cache clear) and force a resync
   useEffect(() => {
     const nativeModule = getNativeModule();
     if (!nativeModule) return;
 
-    const unsubscribe = nativeModule.routeEngine.subscribe('syncReset', () => {
+    const unsubscribe = nativeModule.engine.subscribe('syncReset', () => {
       // Reset GLOBAL syncing state so next sync can proceed
       // Note: Don't directly mutate isSyncingRef.current here - resetGlobalSyncState()
       // handles the global mutex, and each component's local ref should be managed

@@ -1,4 +1,4 @@
-//! Suite #2 — config & evidence lifecycle.
+//! Suite #2, config & evidence lifecycle.
 //!
 //! Changing detection config re-analyses the existing library, and removing an
 //! activity purges its contribution. Method-agnostic persistence behaviour, run
@@ -16,10 +16,10 @@ fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
 }
 
-/// Target gate (B1 config invalidation): changing to a far stricter config must
+/// Target gate (config invalidation): changing to a far stricter config must
 /// re-analyse the existing library, not silently keep stale sections. With
 /// min_activities=50 on a ~60-activity corpus the correct catalogue is empty.
-/// Green under B1 — `set_section_config` now clears `processed_activity_ids`, so
+/// `set_section_config` clears `processed_activity_ids`, so
 /// the next trigger re-detects the whole library under the new config instead of
 /// short-circuiting on the seen activities.
 #[test]

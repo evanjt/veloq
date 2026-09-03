@@ -36,7 +36,7 @@ import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecord
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
-import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType, DataFieldType } from '@/types';
@@ -57,7 +57,6 @@ export default function RecordingScreen() {
   // selector would never notify). Each GPS point changes only the relevant
   // length, so only the consumers that need it re-render.
   const latlngLength = useRecordingStore((s) => s.streams.latlng.length);
-  const speedLength = useRecordingStore((s) => s.streams.speed.length);
   const distanceLength = useRecordingStore((s) => s.streams.distance.length);
   const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
 
@@ -105,7 +104,6 @@ export default function RecordingScreen() {
     activityType,
     mode,
     status,
-    speedLength,
     autoPaused,
     setAutoPaused,
   });

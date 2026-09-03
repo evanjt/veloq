@@ -1,11 +1,11 @@
-//! Heatmap tile generation for PersistentRouteEngine.
+//! Heatmap tile generation for PersistentEngine.
 //!
 //! Tile generation runs on a background thread with its own SQLite connection,
 //! following the same pattern as section detection. The engine mutex is held
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
 use super::codec::TrackRead;
-use super::{PersistentRouteEngine, TileGenerationHandle};
+use super::{PersistentEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
@@ -49,7 +49,7 @@ struct TileGeneration {
     corrupt: usize,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Check whether heatmap tiles need (re)generation.
     /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
     pub fn is_heatmap_dirty(&self) -> bool {
@@ -206,25 +206,6 @@ impl PersistentRouteEngine {
         }
         count
     }
-
-    /// Delete heatmap tiles within a geographic bounding box across all zoom levels.
-    /// Used when activities are removed to prevent stale heatmap traces.
-    pub fn invalidate_tiles_for_bounds(&self, bounds: &Bounds) -> u32 {
-        if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let config = tiles::HeatmapConfig::default();
-            tiles::invalidate_tiles_in_bounds(
-                Path::new(tiles_path),
-                bounds.min_lat,
-                bounds.max_lat,
-                bounds.min_lng,
-                bounds.max_lng,
-                config.min_zoom,
-                config.max_zoom,
-            )
-        } else {
-            0
-        }
-    }
 }
 
 /// Ids whose track did not decode on the last run. An absent or unreadable
@@ -295,7 +276,7 @@ fn clear_dirty_marker(tiles_path: &str) {
 ///
 /// Strictly better than the old per-tile loop: GPS tracks are deserialized
 /// once instead of once-per-tile, empty bbox tiles are never enumerated, and
-/// the slow rasterization+PNG encode parallelises across cores.
+/// the slow rasterisation+PNG encode parallelises across cores.
 fn background_generate_tiles(
     db_path: &str,
     tiles_path: &str,
@@ -445,7 +426,7 @@ fn background_generate_tiles(
         plan_ms,
     );
 
-    // --- Phase 4: parallel rasterize + save ---------------------------------
+    // --- Phase 4: parallel rasterise + save ---------------------------------
     // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
     // deep-clone tracks across threads. No SQLite connection inside workers.
     let generated = AtomicU32::new(0);

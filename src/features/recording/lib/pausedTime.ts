@@ -12,7 +12,7 @@ export interface PauseInterval {
 export function pausedSecondsBetween(
   intervals: readonly PauseInterval[],
   from: number,
-  to: number,
+  to: number
 ): number {
   if (!(to > from)) return 0;
   let total = 0;

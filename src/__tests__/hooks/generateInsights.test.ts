@@ -1,10 +1,33 @@
 import {
   generateInsights,
   formatDurationCompact,
+  getLastInsightOutcome,
   InsightInputData,
 } from '@/features/insights/lib/generateInsights';
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
+import { getEngine } from '@/shared/native/engine';
+
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(() => null),
+}));
+
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
+
+/** The HRV verdict is Rust's, so the generator only ever sees this shape. */
+const stubHrvTrend = (
+  trend: {
+    label: string;
+    avg: number;
+    latest: number;
+    dataPoints: number;
+    sparkline: number[];
+  } | null
+) => {
+  mockGetEngine.mockReturnValue({
+    computeHrvTrend: () => trend,
+  } as unknown as ReturnType<typeof getEngine>);
+};
 
 // Mock translation function - returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
@@ -44,8 +67,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 0,
+            totalDuration: 0,
+            totalDistance: 0,
+            totalTss: 0,
+          },
         },
         mockT
       );
@@ -62,7 +95,14 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 1 }],
+          recentPRs: [
+            {
+              sectionId: 's1',
+              sectionName: 'Hill Climb',
+              bestTime: 300,
+              daysAgo: 1,
+            },
+          ],
         },
         mockT
       );
@@ -106,54 +146,59 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('HRV trend', () => {
-    const makeHrvInput = (hrvValues: number[]): InsightInputData => ({
-      ...EMPTY_INPUT,
-      wellnessWindow: hrvValues.map((hrv, i) => ({
-        date: `2026-02-${15 + i}`,
-        hrv,
-      })),
+    const hrvTrend = (label: string, sparkline: number[]) => ({
+      label,
+      avg: sparkline.reduce((a, b) => a + b, 0) / sparkline.length,
+      latest: sparkline[sparkline.length - 1],
+      dataPoints: sparkline.length,
+      sparkline,
     });
 
-    it('generates HRV trend with 3+ HRV values', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
+    afterEach(() => {
+      mockGetEngine.mockReturnValue(null);
+    });
+
+    it('generates HRV trend from the engine verdict', () => {
+      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.category).toBe('hrv_trend');
       expect(hrv!.priority).toBe(2);
     });
 
-    it('does not generate with fewer than 5 HRV values', () => {
-      const result = generateInsights(makeHrvInput([50, 52]), mockT);
+    it('generates nothing when the engine withholds a verdict', () => {
+      stubHrvTrend(null);
+      const result = generateInsights(EMPTY_INPUT, mockT);
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
 
-    it('detects upward, downward, and stable trends from HRV direction', () => {
-      const cases: [number[], string][] = [
-        [[40, 45, 50, 55, 60], 'trendingUp'],
-        [[60, 55, 50, 45, 40], 'trendingDown'],
-        [[50, 50, 50, 50, 50], 'stable'],
-      ];
-      for (const [values, expected] of cases) {
-        const result = generateInsights(makeHrvInput(values), mockT);
+    it('generates nothing when there is no engine at all', () => {
+      mockGetEngine.mockReturnValue(null);
+      const result = generateInsights(EMPTY_INPUT, mockT);
+      expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
+    });
+
+    it('titles each verdict the engine can return', () => {
+      for (const label of ['trendingUp', 'trendingDown', 'stable']) {
+        stubHrvTrend(hrvTrend(label, [50, 52, 55, 58, 60]));
+        const result = generateInsights(EMPTY_INPUT, mockT);
         const hrv = result.find((i) => i.id === 'hrv_trend');
-        expect(hrv!.title).toContain(expected);
+        expect(hrv!.title).toContain(label);
       }
     });
 
     it('includes HRV sparkline in supporting data', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
+      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.supportingData?.sparklineData).toEqual([50, 52, 55, 58, 60]);
     });
 
     it('includes methodology with Kiviniemi reference in APA format', () => {
-      const result = generateInsights(makeHrvInput([50, 52, 55, 58, 60]), mockT);
+      stubHrvTrend(hrvTrend('trendingUp', [50, 52, 55, 58, 60]));
+      const result = generateInsights(EMPTY_INPUT, mockT);
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.methodology?.description).toContain('insights.methodology.hrvDescription');
-    });
-
-    it('skips when all HRV values are zero', () => {
-      const result = generateInsights(makeHrvInput([0, 0, 0, 0, 0]), mockT);
-      expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
   });
 
@@ -257,8 +302,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
         },
         mockT
       );
@@ -271,8 +326,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 2, totalDuration: 3000, totalDistance: 40000, totalTss: 80 },
-          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 2,
+            totalDuration: 3000,
+            totalDistance: 40000,
+            totalTss: 80,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
         mockT
       );
@@ -285,8 +350,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 5200, totalDistance: 100000, totalTss: 195 },
-          previousPeriod: { count: 5, totalDuration: 5000, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 5200,
+            totalDistance: 100000,
+            totalTss: 195,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
         mockT
       );
@@ -297,8 +372,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 0 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 0 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 0,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 0,
+          },
         },
         mockT
       );
@@ -314,8 +399,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 400 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 400,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
         mockT
       );
@@ -328,8 +423,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
-          previousPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
+          currentPeriod: {
+            count: 0,
+            totalDuration: 0,
+            totalDistance: 0,
+            totalTss: 0,
+          },
+          previousPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
         },
         mockT
       );
@@ -346,8 +451,18 @@ describe('generateInsights', () => {
       {
         name: 'ACWR',
         input: {
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          chronicPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
         missingId: 'workload_risk-acwr',
       },
@@ -357,27 +472,12 @@ describe('generateInsights', () => {
           formTsb: 10,
           formCtl: 50,
           formAtl: 40,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 50, ctl: 50, atl: 40 },
-            { date: '2026-02-16', hrv: 52, ctl: 50, atl: 40 },
-            { date: '2026-02-17', hrv: 55, ctl: 50, atl: 40 },
-            { date: '2026-02-18', hrv: 58, ctl: 50, atl: 40 },
-            { date: '2026-02-19', hrv: 60, ctl: 50, atl: 40 },
-          ],
         },
         missingId: 'recovery_readiness',
       },
       {
         name: 'training monotony',
-        input: {
-          wellnessWindow: [
-            { date: '2026-02-15', atl: 50, ctl: 50 },
-            { date: '2026-02-16', atl: 50, ctl: 50 },
-            { date: '2026-02-17', atl: 50, ctl: 50 },
-            { date: '2026-02-18', atl: 51, ctl: 50 },
-            { date: '2026-02-19', atl: 50, ctl: 50 },
-          ],
-        },
+        input: {},
         missingId: 'workload_risk-monotony',
       },
       {
@@ -492,8 +592,18 @@ describe('generateInsights', () => {
             previousFtp: 250,
             previousDate: BigInt(500),
           },
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
           formTsb: 0,
           formCtl: 50,
           formAtl: 50,
@@ -513,8 +623,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 240 },
-          previousPeriod: { count: 4, totalDuration: 5400, totalDistance: 70000, totalTss: 180 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 240,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5400,
+            totalDistance: 70000,
+            totalTss: 180,
+          },
           ftpTrend: {
             latestFtp: 265,
             latestDate: BigInt(1000),
@@ -565,11 +685,6 @@ describe('generateInsights', () => {
           formTsb: -5,
           formCtl: 60,
           formAtl: 65,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 55, ctl: 60, atl: 65 },
-            { date: '2026-02-16', hrv: 57, ctl: 60, atl: 65 },
-            { date: '2026-02-17', hrv: 59, ctl: 60, atl: 65 },
-          ],
         },
         mockT
       );
@@ -614,14 +729,24 @@ describe('generateInsights', () => {
           formTsb: -5,
           formCtl: 50,
           formAtl: 55,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 50, ctl: 50, atl: 55 },
-            { date: '2026-02-16', hrv: 52, ctl: 50, atl: 55 },
-            { date: '2026-02-17', hrv: 55, ctl: 50, atl: 55 },
-          ],
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 250 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
-          chronicPeriod: { count: 5, totalDuration: 5000, totalDistance: 80000, totalTss: 200 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 250,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
+          chronicPeriod: {
+            count: 5,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 200,
+          },
         },
         mockT
       );
@@ -640,8 +765,18 @@ describe('generateInsights', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 },
-          previousPeriod: { count: 4, totalDuration: 5000, totalDistance: 80000, totalTss: 150 },
+          currentPeriod: {
+            count: 5,
+            totalDuration: 7200,
+            totalDistance: 100000,
+            totalTss: 200,
+          },
+          previousPeriod: {
+            count: 4,
+            totalDuration: 5000,
+            totalDistance: 80000,
+            totalTss: 150,
+          },
         },
         mockT
       );
@@ -750,46 +885,22 @@ describe('generateInsights - additional edge cases', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 150 },
-        previousPeriod: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+        currentPeriod: {
+          count: 3,
+          totalDuration: 5000,
+          totalDistance: 50000,
+          totalTss: 150,
+        },
+        previousPeriod: {
+          count: 0,
+          totalDuration: 0,
+          totalDistance: 0,
+          totalTss: 0,
+        },
       },
       mockT
     );
     expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
-  });
-
-  /**
-   * Single HRV data point should NOT generate an HRV trend.
-   * Trends from 1-2 points are unreliable.
-   */
-  it('single HRV value does not produce trend insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [{ date: '2026-02-15', hrv: 55 }],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
-  });
-
-  /**
-   * HRV values with NaN entries should be filtered out and not crash.
-   * If all values are NaN, no insight should be generated.
-   */
-  it('all-NaN HRV values do not produce trend insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: NaN },
-          { date: '2026-02-16', hrv: NaN },
-          { date: '2026-02-17', hrv: NaN },
-        ],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
   });
 
   /**
@@ -834,7 +945,12 @@ describe('generateInsights - additional edge cases', () => {
    * Change should be < 10% so no insight is generated.
    */
   it('identical periods produce no comparison insight', () => {
-    const period = { count: 5, totalDuration: 7200, totalDistance: 100000, totalTss: 200 };
+    const period = {
+      count: 5,
+      totalDuration: 7200,
+      totalDistance: 100000,
+      totalTss: 200,
+    };
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -890,64 +1006,33 @@ describe('generateInsights - additional edge cases', () => {
 // ============================================================
 
 describe('generateInsights - boundary conditions', () => {
-  /**
-   * HRV trend with exactly 3 values (minimum for trend detection).
-   * The guard requires >= 5 HRV values for a reliable trend.
-   * At exactly 5, the split is:
-   * firstHalf = [0..floor(5/2)) = [v0, v1], secondHalf = [floor(5/2)..) = [v2, v3, v4]
-   */
-  it('HRV trend with exactly 5 values generates insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-13', hrv: 45 },
-          { date: '2026-02-14', hrv: 48 },
-          { date: '2026-02-15', hrv: 50 },
-          { date: '2026-02-16', hrv: 55 },
-          { date: '2026-02-17', hrv: 60 },
-        ],
-      },
-      mockT
-    );
+  it('confidence tracks the day count the engine reports', () => {
+    stubHrvTrend({
+      label: 'trendingUp',
+      avg: 51.6,
+      latest: 60,
+      dataPoints: 5,
+      sparkline: [45, 48, 50, 55, 60],
+    });
+    const result = generateInsights(EMPTY_INPUT, mockT);
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.category).toBe('hrv_trend');
-    // Confidence should be 5/7
     expect(hrv!.confidence).toBeCloseTo(5 / 7, 2);
+    mockGetEngine.mockReturnValue(null);
   });
 
-  it('HRV trend with fewer than 5 values does not generate insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 40 },
-          { date: '2026-02-16', hrv: 50 },
-          { date: '2026-02-17', hrv: 60 },
-        ],
-      },
-      mockT
-    );
-    const hrv = result.find((i) => i.id === 'hrv_trend');
-    expect(hrv).toBeUndefined();
-  });
-
-  it('HRV sparkline data with 5 values is accurate', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-13', hrv: 45 },
-          { date: '2026-02-14', hrv: 48 },
-          { date: '2026-02-15', hrv: 52 },
-          { date: '2026-02-16', hrv: 49 },
-          { date: '2026-02-17', hrv: 51 },
-        ],
-      },
-      mockT
-    );
+  it('the sparkline passes through the engine window untouched', () => {
+    stubHrvTrend({
+      label: 'stable',
+      avg: 49,
+      latest: 51,
+      dataPoints: 5,
+      sparkline: [45, 48, 52, 49, 51],
+    });
+    const result = generateInsights(EMPTY_INPUT, mockT);
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.supportingData?.sparklineData).toEqual([45, 48, 52, 49, 51]);
+    mockGetEngine.mockReturnValue(null);
   });
 
   /**
@@ -1041,64 +1126,6 @@ describe('generateInsights - boundary conditions', () => {
   });
 
   /**
-   * All-zero wellness window - verify no division by zero.
-   * The HRV filter `w.hrv > 0` removes all entries, leaving fewer than 3,
-   * so no HRV insight is generated. Additionally the avg check `avg <= 0`
-   * is a second guard.
-   */
-  it('all-zero wellness window does not crash or generate HRV insight', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-16', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-17', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-18', hrv: 0, ctl: 0, atl: 0 },
-          { date: '2026-02-19', hrv: 0, ctl: 0, atl: 0 },
-        ],
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
-  });
-
-  it('wellness window with mix of zero and undefined HRV does not crash', () => {
-    expect(() =>
-      generateInsights(
-        {
-          ...EMPTY_INPUT,
-          wellnessWindow: [
-            { date: '2026-02-15', hrv: 0 },
-            { date: '2026-02-16' },
-            { date: '2026-02-17', hrv: undefined },
-            { date: '2026-02-18', hrv: 0 },
-            { date: '2026-02-19', hrv: 0 },
-          ],
-        },
-        mockT
-      )
-    ).not.toThrow();
-  });
-
-  it('wellness window with exactly one non-zero HRV does not generate trend', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        wellnessWindow: [
-          { date: '2026-02-15', hrv: 0 },
-          { date: '2026-02-16', hrv: 55 },
-          { date: '2026-02-17', hrv: 0 },
-          { date: '2026-02-18', hrv: 0 },
-        ],
-      },
-      mockT
-    );
-    // Only 1 valid HRV value, need >= 5
-    expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
-  });
-
-  /**
    * Period comparison below the 15% threshold does not trigger.
    * 9% and 10% are both under 0.15.
    */
@@ -1107,8 +1134,18 @@ describe('generateInsights - boundary conditions', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
-          currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss },
-          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+          currentPeriod: {
+            count: 3,
+            totalDuration: 5450,
+            totalDistance: 50000,
+            totalTss,
+          },
+          previousPeriod: {
+            count: 3,
+            totalDuration: 5000,
+            totalDistance: 50000,
+            totalTss: 100,
+          },
         },
         mockT
       );
@@ -1124,8 +1161,18 @@ describe('generateInsights - boundary conditions', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5800, totalDistance: 50000, totalTss: 116 },
-        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+        currentPeriod: {
+          count: 3,
+          totalDuration: 5800,
+          totalDistance: 50000,
+          totalTss: 116,
+        },
+        previousPeriod: {
+          count: 3,
+          totalDuration: 5000,
+          totalDistance: 50000,
+          totalTss: 100,
+        },
       },
       mockT
     );
@@ -1186,7 +1233,9 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'stale-s2']);
   });
 
-  it('keeps only the two strongest non-PR section stories', () => {
+  // The two strongest, and strongest now means first: the list arrives in
+  // score order rather than priority order.
+  it('keeps only the first two non-PR section stories', () => {
     const result = consolidateInsights([
       createInsight('stale', 'stale_pr', 2, {
         sectionIds: ['s2'],
@@ -1200,6 +1249,231 @@ describe('consolidateInsights', () => {
       createInsight('fitness', 'fitness_milestone', 2),
     ]);
 
-    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
+    expect(result.map((insight) => insight.id)).toEqual(['stale', 'efficiency', 'fitness']);
+  });
+
+  // ============================================================
+  // Order and dedup
+  //
+  // Scenario: the pipeline scores every candidate and returns them in score
+  // order, and consolidation then re-sorted by priority, so the score decided
+  // only which cards survived the cap and never which one was first.
+  // Expected behaviour: consolidation keeps the order it was given, and its
+  // dedup does not depend on that order.
+  // ============================================================
+
+  it('keeps the order it was given rather than re-sorting by priority', () => {
+    const result = consolidateInsights([
+      createInsight('third-priority', 'fitness_milestone', 3),
+      createInsight('first-priority', 'period_comparison', 1),
+      createInsight('second-priority', 'hrv_trend', 2),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual([
+      'third-priority',
+      'first-priority',
+      'second-priority',
+    ]);
+  });
+
+  it('drops a section story its own PR covers even when the story comes first', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('drops an efficiency trend its own PR covers even when the trend comes first', () => {
+    const result = consolidateInsights([
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('drops a section story whose sections a later PR covers, whatever its priority', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 5, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
+  });
+
+  it('keeps a section story the PRs do not cover, whichever way round they arrive', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s2', 'stale_pr', 1, { sectionIds: ['s2'] }),
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['stale-s2', 'section-pr']);
+  });
+
+  it('spends the two section story slots in the order it was given', () => {
+    const result = consolidateInsights([
+      createInsight('stale-s3', 'stale_pr', 3, { sectionIds: ['s3'] }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency-s2', 'efficiency_trend', 1, { sectionIds: ['s2'] }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['stale-s3', 'efficiency-s1']);
+  });
+
+  it('leaves insights of equal priority in the order they arrived', () => {
+    const result = consolidateInsights([
+      createInsight('second', 'fitness_milestone', 2),
+      createInsight('first', 'hrv_trend', 2),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['second', 'first']);
+  });
+
+  it('returns a single insight untouched', () => {
+    const result = consolidateInsights([createInsight('only', 'fitness_milestone', 3)]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['only']);
+  });
+
+  // ============================================================
+  // What the debug panel reads
+  //
+  // Scenario: the panel rendered the pipeline's own output, so the one stage
+  // that can answer "why is that card not there" was invisible to it.
+  // Expected behaviour: the pipeline outcome carries the consolidated list in
+  // its final order and every consolidation drop with its reason.
+  // ============================================================
+
+  it('carries the consolidated list and its drops into the pipeline outcome', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    const kept = consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('stale-s2', 'stale_pr', 2, { sectionIds: ['s2'] }),
+    ]);
+
+    const outcome = getLastInsightOutcome();
+    expect(outcome?.consolidated?.map((insight) => insight.id)).toEqual(
+      kept.map((insight) => insight.id)
+    );
+    expect(outcome?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])).toEqual([
+      ['efficiency-s1', 'duplicate section (already covered by PR insight)'],
+    ]);
+  });
+
+  // ============================================================
+  // Why a story was dropped
+  //
+  // Scenario: the drop reason is on screen in the debug panel, which is the
+  // one tool for asking why a card is missing.
+  // Expected behaviour: a story dropped for a PR names the PR, and a story
+  // dropped for an earlier story names the story, so the reader is not sent
+  // looking for a PR card that was never generated.
+  // ============================================================
+
+  it('names the earlier story, not a PR, when one story covers another', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-s1', 'duplicate section (already covered by an earlier story)']]);
+  });
+
+  it('still names the PR when the PR is what covered the section', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-s1', 'duplicate section (already covered by PR insight)']]);
+  });
+
+  it('names the earlier story when a PR covers one section and a story the other', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
+      createInsight('stale-s2', 'stale_pr', 1, { sectionIds: ['s2'] }),
+      createInsight('efficiency-both', 'efficiency_trend', 1, { sectionIds: ['s1', 's2'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['efficiency-both', 'duplicate section (already covered by an earlier story)']]);
+  });
+
+  it('names the PR for a story a later PR covers, since no story covered it', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
+      createInsight('section-pr', 'section_pr', 5, { navigationTarget: '/section/s1' }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['stale-s1', 'duplicate section (already covered by PR insight)']]);
+  });
+
+  it('records the section story limit as the reason it dropped a card', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([
+      createInsight('efficiency', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
+      createInsight('efficiency2', 'efficiency_trend', 1, { sectionIds: ['s2'] }),
+      createInsight('stale', 'stale_pr', 2, { sectionIds: ['s3'] }),
+    ]);
+
+    expect(
+      getLastInsightOutcome()?.consolidationDropped.map((drop) => [drop.insight.id, drop.reason])
+    ).toEqual([['stale', 'section story limit (max 2)']]);
+  });
+
+  it('records the short-circuited single insight, which drops nothing', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+
+    consolidateInsights([createInsight('only', 'fitness_milestone', 2)]);
+
+    expect(getLastInsightOutcome()?.consolidated?.map((insight) => insight.id)).toEqual(['only']);
+    expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
+  });
+
+  it('records an empty consolidation rather than leaving the previous run standing', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+    consolidateInsights([
+      createInsight('a', 'fitness_milestone', 2),
+      createInsight('b', 'fitness_milestone', 2),
+    ]);
+    expect(getLastInsightOutcome()?.consolidated).toHaveLength(2);
+
+    consolidateInsights([]);
+
+    expect(getLastInsightOutcome()?.consolidated).toEqual([]);
+  });
+
+  it('a fresh generation clears the consolidated list until consolidation runs again', () => {
+    generateInsights(EMPTY_INPUT, mockT);
+    consolidateInsights([
+      createInsight('a', 'fitness_milestone', 2),
+      createInsight('b', 'fitness_milestone', 2),
+    ]);
+    expect(getLastInsightOutcome()?.consolidated).not.toBeNull();
+
+    generateInsights(EMPTY_INPUT, mockT);
+
+    expect(getLastInsightOutcome()?.consolidated).toBeNull();
+    expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
   });
 });

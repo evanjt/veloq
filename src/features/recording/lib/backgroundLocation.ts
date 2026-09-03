@@ -21,16 +21,16 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
   // Use require to avoid circular dependency - this runs outside React tree
   const { useRecordingStore } = require('@/features/recording/stores/RecordingStore');
-  const { addGpsPoint, status } = useRecordingStore.getState();
+  const { addGpsPoint, setRawLocationFix, status } = useRecordingStore.getState();
 
-  if (status !== 'recording') return;
+  if (status !== 'recording' && status !== 'paused') return;
 
   const rejectThreshold = getAccuracyRejectThreshold();
   for (const location of locations) {
     // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
     if (location.coords.accuracy != null && location.coords.accuracy > rejectThreshold) continue;
 
-    addGpsPoint({
+    const point = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
       altitude: location.coords.altitude,
@@ -38,7 +38,11 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       speed: location.coords.speed,
       heading: location.coords.heading,
       timestamp: location.timestamp,
-    });
+    };
+    // Auto-pause needs a speed signal while paused, so raw fixes are published
+    // whether or not the point itself is recorded.
+    setRawLocationFix(point);
+    if (status === 'recording') addGpsPoint(point);
   }
 
   log.log(`Background: processed ${locations.length} location(s)`);

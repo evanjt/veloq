@@ -1,4 +1,4 @@
-//! Suite #2 — user-edit survival.
+//! Suite #2, user-edit survival.
 //!
 //! The believability core: what the user does to a section must be honoured
 //! across later resyncs. Pins/accepts freeze; hides stay hidden; everything
@@ -20,7 +20,7 @@ fn corpus() -> LifecycleCorpus {
 }
 
 /// Accepting (pinning) a section survives a later resync without crashing and
-/// stays user-defined. The spared accepted row keeps a stable id (B2), so fresh
+/// stays user-defined. The spared accepted row keeps a stable id, so fresh
 /// detection cannot re-mint that id for different ground and collide on INSERT.
 /// A red here means a pinned section breaks the next sync.
 #[test]

@@ -70,15 +70,22 @@ export interface PreviewResult {
   sections: PreviewSection[];
 }
 
-export type PreviewPollStatus = 'idle' | 'running' | 'complete' | 'cancelled' | 'error';
+export type PreviewPollStatus =
+  | 'idle'
+  | 'running'
+  | 'complete'
+  | 'cancelled'
+  | 'error'
+  | 'pool_unusable';
 
 /**
  * The surface the preview screen talks to. The real implementation is
- * RouteEngineClient pass-throughs onto the SectionPreview FFI object plus the
+ * EngineClient pass-throughs onto the SectionPreview FFI object plus the
  * existing config and redetect methods the Keep path reuses.
  */
 export interface PreviewClient {
   getPreviewCentres(limit: number): PreviewCentre[];
+  getPreviewCurrentSections(lat: number, lng: number): PreviewSection[];
   startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
@@ -144,20 +151,37 @@ export function parsePreviewResult(json: string): PreviewResult | null {
       divergenceThreshold: raw.config.divergence_threshold,
     },
     counts: raw.counts,
-    sections: raw.sections.map((s) => ({
-      id: s.id,
-      liveId: s.live_id,
-      status: s.status,
-      name: s.name,
-      sport: s.sport,
-      polylineBase64: s.polyline,
-      visits: s.visits,
-      distanceM: s.distance_m,
-      elevationGainM: s.elevation_gain_m,
-      avgGradePercent: s.avg_grade_percent,
-      pinned: s.pinned,
-    })),
+    sections: raw.sections.map(toPreviewSection),
   };
+}
+
+/** Map one snake_case section row to the camelCase shape. */
+function toPreviewSection(s: RawPreviewSection): PreviewSection {
+  return {
+    id: s.id,
+    liveId: s.live_id,
+    status: s.status,
+    name: s.name,
+    sport: s.sport,
+    polylineBase64: s.polyline,
+    visits: s.visits,
+    distanceM: s.distance_m,
+    elevationGainM: s.elevation_gain_m,
+    avgGradePercent: s.avg_grade_percent,
+    pinned: s.pinned,
+  };
+}
+
+/** Map the engine's snake_case JSON array of live sections. */
+export function parsePreviewSections(json: string): PreviewSection[] {
+  let raw: RawPreviewSection[];
+  try {
+    raw = JSON.parse(json) as RawPreviewSection[];
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.map(toPreviewSection);
 }
 
 let previewObject: SectionPreviewLike | null = null;
@@ -185,7 +209,27 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
         }))
     );
   } catch (e) {
-    console.error('[RouteEngine] getPreviewCentres threw:', e);
+    console.error('[Engine] getPreviewCentres threw:', e);
+    return [];
+  }
+}
+
+/**
+ * The live catalogue for the riding area containing (lat, lng). Empty when no
+ * activity covers the point, so the screen opens on an empty map rather than a
+ * failure.
+ */
+export function getPreviewCurrentSections(
+  host: DelegateHost,
+  lat: number,
+  lng: number
+): PreviewSection[] {
+  if (!host.ready) return [];
+  try {
+    const json = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
+    return json ? parsePreviewSections(json) : [];
+  } catch (e) {
+    console.error('[Engine] getPreviewCurrentSections threw:', e);
     return [];
   }
 }
@@ -205,7 +249,7 @@ export function startPreviewDetect(
   try {
     return host.timed('startPreviewDetect', () => previewObj().start(lat, lng, config));
   } catch (e) {
-    console.error('[RouteEngine] startPreviewDetect threw:', e);
+    console.error('[Engine] startPreviewDetect threw:', e);
     return false;
   }
 }
@@ -215,7 +259,7 @@ export function pollPreviewDetect(host: DelegateHost): PreviewPollStatus {
   try {
     return host.timed('pollPreviewDetect', () => previewObj().poll()) as PreviewPollStatus;
   } catch (e) {
-    console.error('[RouteEngine] pollPreviewDetect threw:', e);
+    console.error('[Engine] pollPreviewDetect threw:', e);
     return 'error';
   }
 }
@@ -225,7 +269,7 @@ export function getPreviewProgress(host: DelegateHost): SectionDetectionProgress
   try {
     return host.timed('getPreviewProgress', () => previewObj().getProgress()) ?? null;
   } catch (e) {
-    console.error('[RouteEngine] getPreviewProgress threw:', e);
+    console.error('[Engine] getPreviewProgress threw:', e);
     return null;
   }
 }
@@ -237,7 +281,7 @@ export function takePreviewResult(host: DelegateHost): PreviewResult | null {
     const json = host.timed('takePreviewResult', () => previewObj().takeResult());
     return json ? parsePreviewResult(json) : null;
   } catch (e) {
-    console.error('[RouteEngine] takePreviewResult threw:', e);
+    console.error('[Engine] takePreviewResult threw:', e);
     return null;
   }
 }
@@ -247,6 +291,6 @@ export function cancelPreviewDetect(host: DelegateHost): void {
   try {
     host.timed('cancelPreviewDetect', () => previewObj().cancel());
   } catch (e) {
-    console.error('[RouteEngine] cancelPreviewDetect threw:', e);
+    console.error('[Engine] cancelPreviewDetect threw:', e);
   }
 }

@@ -41,17 +41,6 @@ export function getActivityCount(host: DelegateHost): number {
   return host.timed('getActivityCount', () => host.engine.activities().getCount());
 }
 
-export function cleanupOldActivities(host: DelegateHost, retentionDays: number): number {
-  if (!host.ready) return 0;
-  const deleted = host.timed('cleanupOldActivities', () =>
-    host.engine.cleanupOldActivities(retentionDays)
-  );
-  if (deleted > 0) {
-    host.notifyAll('activities', 'groups', 'sections');
-  }
-  return deleted;
-}
-
 export function getGpsTrack(host: DelegateHost, activityId: string): FfiGpsPoint[] {
   if (!host.ready) return [];
   validateId(activityId, 'activity ID');
@@ -239,20 +228,6 @@ export interface CalendarEventBodyInput {
   /** Event day as epoch seconds. */
   date: number;
   raw: string;
-}
-
-/** Store a stream payload directly. Demo seeding writes the same table a live
- *  fetch fills, so every downstream read is identical in both modes. */
-export function setStreamBody(
-  host: DelegateHost,
-  activityId: string,
-  types: string,
-  raw: string
-): void {
-  if (!host.ready) return;
-  host.timed('setStreamBody', () =>
-    host.engine.activities().setStreamBody(activityId, types, raw)
-  );
 }
 
 /** Store an activity's interval payload directly, for demo seeding. */

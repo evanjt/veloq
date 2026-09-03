@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
@@ -33,7 +33,7 @@ export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
  * has. A credential the engine cannot use is cleared rather than left stale.
  */
 export function pushCredentialsToEngine(): void {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return;
 
   const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();
@@ -49,8 +49,15 @@ export function pushCredentialsToEngine(): void {
   engine.clearSyncCredentials();
 }
 
-// Session expiry reason
-export type SessionExpiredReason = 'token_expired' | 'token_revoked' | null;
+/**
+ * Why the session ended. There is one reason because there is one signal: a
+ * 401. intervals.icu issues one live token per athlete per app, so a second
+ * device signing in takes this one's credential, and that 401 is
+ * indistinguishable from an expiry or a revocation at the server (`B143`).
+ * Claiming any of the three would be telling the athlete something the server
+ * never said.
+ */
+export type SessionExpiredReason = 'signed_out' | null;
 
 interface AuthState {
   apiKey: string | null;
@@ -114,17 +121,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
         authMethod = 'apiKey';
         isAuthenticated = true;
-      } else {
-        // No valid credentials found - clear any stale route engine data
-        // This handles the case where demo mode was active but app was restarted
-        // (demo mode doesn't persist, but SQLite cache does)
-        const engine = getRouteEngine();
-        if (engine) {
-          engine.clear();
-          if (__DEV__) {
-            console.log('[AuthStore] Cleared route engine - no persisted credentials');
-          }
-        }
       }
 
       set({
@@ -305,7 +301,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ hideDemoBanner: hide });
   },
 
-  handleSessionExpired: async (reason: SessionExpiredReason = 'token_expired') => {
+  handleSessionExpired: async (reason: SessionExpiredReason = 'signed_out') => {
     const { authMethod, athleteId: currentAthleteId } = get();
 
     // Only handle session expiry for OAuth auth method

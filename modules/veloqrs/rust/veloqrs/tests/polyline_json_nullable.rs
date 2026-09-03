@@ -15,7 +15,7 @@ use rusqlite::{Connection, params};
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 const PREVIOUS: u32 = 18;
@@ -96,7 +96,7 @@ fn an_upgrade_relaxes_the_column_and_keeps_every_row() {
     seed_previous(&path);
     assert!(polyline_json_not_null(&Connection::open(&path).unwrap()));
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
     let legacy = engine.get_section_by_id("legacy").expect("legacy row");
     assert_eq!(legacy.polyline.len(), 40, "legacy JSON still decodes");
     let blob = engine.get_section_by_id("blob").expect("blob row");
@@ -155,7 +155,7 @@ fn a_torn_rebuild_leaves_the_old_table_intact() {
         .execute_batch("CREATE VIEW sections_rebuild AS SELECT 1 AS x")
         .unwrap();
 
-    let opened = PersistentRouteEngine::new(path.to_str().unwrap());
+    let opened = PersistentEngine::new(path.to_str().unwrap());
     assert!(opened.is_err(), "a failed rebuild must not open as healthy");
 
     let conn = Connection::open(&path).unwrap();
@@ -168,7 +168,7 @@ fn a_torn_rebuild_leaves_the_old_table_intact() {
 fn a_fresh_write_leaves_polyline_json_null() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("fresh.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
     engine
         .add_activity("a1".into(), points(60), "Ride".into())
         .unwrap();
@@ -193,4 +193,53 @@ fn a_fresh_write_leaves_polyline_json_null() {
         )
         .unwrap();
     assert_eq!(json, None);
+}
+
+/// The rebuild predates any index or column a later migration adds, so it
+/// reads both off the live table rather than a list written here.
+#[test]
+fn the_rebuild_keeps_every_index_and_column() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("indexes.db");
+    seed_previous(&path);
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "ALTER TABLE sections ADD COLUMN future_metric REAL;
+             UPDATE sections SET future_metric = 7.5 WHERE id = 'legacy';
+             CREATE INDEX idx_sections_future_metric ON sections(future_metric);",
+        )
+        .unwrap();
+
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("upgraded engine");
+    drop(engine);
+
+    let conn = Connection::open(&path).unwrap();
+    assert!(!polyline_json_not_null(&conn));
+    for index in [
+        "idx_sections_type",
+        "idx_sections_sport",
+        "idx_sections_disabled",
+        "idx_sections_superseded",
+        "idx_sections_rank_score",
+        "idx_sections_klass",
+        "idx_sections_future_metric",
+    ] {
+        let present: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?",
+                [index],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(present, 1, "{index} survives the rebuild");
+    }
+    let metric: Option<f64> = conn
+        .query_row(
+            "SELECT future_metric FROM sections WHERE id = 'legacy'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(metric, Some(7.5), "a migration-added column carries over");
 }

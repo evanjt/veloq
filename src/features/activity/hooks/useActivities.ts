@@ -1,34 +1,34 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   DETAIL_STREAM_TYPES,
   readStreams,
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
 import { formatLocalDate } from '@/shared/format/format';
-import {
-  addDaysToDay,
-  dayEndEpochSeconds,
-  dayStartEpochSeconds,
-} from '@/shared/time/startDate';
+import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 
 /**
  * Read stored activities over a date window, newest first. A body that will
  * not parse is dropped rather than surfaced as a half-populated card.
  */
 function readActivities(oldest: string, newest: string): Activity[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getActivityBodies) return [];
 
   const out: Activity[] = [];
-  for (const body of engine.getActivityBodies(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest))) {
+  for (const body of engine.getActivityBodies(
+    dayStartEpochSeconds(oldest),
+    dayEndEpochSeconds(newest)
+  )) {
     try {
       out.push(JSON.parse(body) as Activity);
     } catch {
@@ -44,21 +44,39 @@ function readActivities(oldest: string, newest: string): Activity[] {
  * The sync pulls a year on launch. The timeline slider and the infinite feed
  * both reach further back than that, so a window they open is requested once
  * and the engine event wakes the read when it lands.
+ *
+ * Only an accepted job is remembered. `syncActivitiesWindow` returns false
+ * whenever the exclusive sync slot is held, which the launch sync holds for
+ * minutes, and a key recorded for a job that never ran leaves that window
+ * blank for the life of the process.
  */
 const requestedWindows = new Set<string>();
 
+function windowKey(oldest: string, newest: string): string {
+  return `${oldest}:${newest}`;
+}
+
 function requestActivityWindow(oldest: string, newest: string): void {
-  const key = `${oldest}:${newest}`;
-  if (requestedWindows.has(key)) return;
-  const engine = getRouteEngine();
+  if (requestedWindows.has(windowKey(oldest, newest))) return;
+  const engine = getEngine();
   if (!engine?.syncActivitiesWindow) return;
-  requestedWindows.add(key);
-  engine.syncActivitiesWindow(oldest, newest);
+  try {
+    if (engine.syncActivitiesWindow(oldest, newest)) {
+      requestedWindows.add(windowKey(oldest, newest));
+    }
+  } catch {
+    // A throw is a settled failure, so the key stays free for the next ask.
+  }
 }
 
 /** Forget requested windows so a new session re-fetches them. */
 export function resetActivityWindowRequests(): void {
   requestedWindows.clear();
+}
+
+/** Forget one window, so the next ask reaches the engine again. */
+function forgetActivityWindow(oldest: string, newest: string): void {
+  requestedWindows.delete(windowKey(oldest, newest));
 }
 
 interface UseActivitiesOptions {
@@ -96,10 +114,27 @@ export function useActivities(options: UseActivitiesOptions = {}) {
 
   useEngineChannel('activities', queryKeys.activities.all);
 
-  useEffect(() => {
+  const askForWindow = useCallback(() => {
     if (!enabled || !athleteId) return;
     requestActivityWindow(queryOldest!, queryNewest!);
   }, [enabled, athleteId, queryOldest, queryNewest]);
+
+  useEffect(askForWindow, [askForWindow]);
+
+  // A window accepted while the connection was dropping may have fetched
+  // nothing, and the mount effect never re-runs for an unchanged window.
+  useReconnect(() => {
+    if (!enabled || !athleteId) return;
+    forgetActivityWindow(queryOldest!, queryNewest!);
+    askForWindow();
+  });
+
+  // The launch sync holds the exclusive slot for minutes and refuses every
+  // window opened while it runs. Nothing else observes it letting go, so a
+  // window asked for at launch would otherwise stay blank until the user went
+  // offline and back. An accepted window is already recorded, so this is a
+  // no-op for it.
+  useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
     queryKey: queryKeys.activities.list(
@@ -175,6 +210,20 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
     enabled: isAuthenticated && !!athleteId,
   });
 
+  // The pages already loaded asked for their windows once. A reconnect is the
+  // point where a window that came back empty is worth asking for again.
+  useReconnect(() => {
+    resetActivityWindowRequests();
+    void query.refetch();
+  });
+
+  // The launch sync refuses any page opened while it runs. Refetching replays
+  // every loaded page through the queryFn, which re-asks only the windows that
+  // were refused, so no reset is wanted here.
+  useSyncSettled(() => {
+    void query.refetch();
+  });
+
   // All activities flattened from loaded pages
   const allActivities = useMemo(() => {
     if (!query.data?.pages) return [];
@@ -192,7 +241,7 @@ export function useActivity(id: string) {
 
   // The list sync stores a lighter body for every activity. Opening one asks
   // for the full detail, which replaces that row in place.
-  useEngineBody(false, () => getRouteEngine()?.syncActivityDetail(id), queryKey, !!id);
+  useEngineBody(false, () => getEngine()?.syncActivityDetail(id), queryKey, !!id);
 
   return useQuery<ActivityDetail | null>({
     queryKey,
@@ -210,7 +259,7 @@ export function useActivity(id: string) {
 
 /** The stored body for one activity, from the window that contains its day. */
 function readActivityBody(id: string): Activity | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getActivityBodies || !id) return null;
   // The store is keyed by id but queried by window, so scan the widest range
   // the app ever shows. The table holds one row per activity, not per day.
@@ -247,13 +296,13 @@ export function useActivityStreams(id: string) {
 export function useActivityIntervals(id: string) {
   const queryKey = queryKeys.activities.intervals(id);
 
-  const body = id ? (getRouteEngine()?.getIntervalBody(id) ?? null) : null;
-  useEngineBody(body !== null, () => getRouteEngine()?.syncActivityIntervals(id), queryKey, !!id);
+  const body = id ? (getEngine()?.getIntervalBody(id) ?? null) : null;
+  useEngineBody(body !== null, () => getEngine()?.syncActivityIntervals(id), queryKey, !!id);
 
   return useQuery<IntervalsDTO>({
     queryKey,
     queryFn: () => {
-      const stored = getRouteEngine()?.getIntervalBody(id);
+      const stored = getEngine()?.getIntervalBody(id);
       if (!stored) return EMPTY_INTERVALS;
       try {
         return JSON.parse(stored) as IntervalsDTO;

@@ -5,7 +5,7 @@
 //! (2) does the catalogue converge to the from-scratch batch answer? Both arms,
 //! so the current method and the unified base are measured side by side.
 //!
-//! Ignored by default — it drives detection dozens of times. Run explicitly, in
+//! Ignored by default, it drives detection dozens of times. Run explicitly, in
 //! RELEASE, for real budget numbers (debug is ~40x inflated):
 //!
 //!   cargo test -p veloqrs --features synthetic --release --test playback_vs_batch -- --ignored --nocapture
@@ -24,7 +24,7 @@ fn corpus() -> LifecycleCorpus {
 /// timing curve (does a single add get dearer as the library grows?), and
 /// whether the drip catalogue converges to the batch catalogue.
 #[test]
-#[ignore = "benchmark — run explicitly with --release"]
+#[ignore = "benchmark, run explicitly with --release"]
 fn playback_vs_batch_cold_set() {
     let corpus = corpus();
     let all = corpus.through_a();
@@ -86,8 +86,8 @@ fn playback_vs_batch_cold_set() {
     }
 }
 
-/// Target gate (B1 order-free incremental): the drip MUST converge to the
-/// batch catalogue. Green under B1 — the Unified cached incremental folds the
+/// Target gate (order-free incremental): the drip MUST converge to the
+/// batch catalogue. The Unified cached incremental folds the
 /// accumulated pool cluster by cluster, so the one-at-a-time drip lands on the
 /// same ground as the from-scratch batch. Ground-based so it survives id
 /// renumbering. This is the single most important gate in the suite.
@@ -95,7 +95,7 @@ fn playback_vs_batch_cold_set() {
 /// The corpus is deliberately small (24 activities): this default corpus is a
 /// single home geography = one cluster, and a single-cluster drip recomputes the
 /// whole cluster on every add (O(N) per add, O(N^2) over the drip) even with the
-/// cache — sub-linear single-cluster adds are B1b, not this task. The 60-activity
+/// cache, sub-linear single-cluster adds are B1b, not this task. The 60-activity
 /// version is the ignored `playback_vs_batch_cold_set` benchmark. The gate
 /// asserts CONVERGENCE, not speed, and 24 activities still form real corridors,
 /// so the correctness contract stays live without a ~140 s debug run in CI.
@@ -131,7 +131,7 @@ fn playback_converges_to_batch() {
 /// sizes, so the shape of the cost is visible: does add-1 get dearer as the
 /// library grows (the O(N)-per-add drip), and how does a bulk expand compare?
 #[test]
-#[ignore = "benchmark — run explicitly with --release"]
+#[ignore = "benchmark, run explicitly with --release"]
 fn add_cost_by_library_size() {
     let corpus = corpus();
     for arm in [Arm::Battery] {

@@ -278,7 +278,14 @@ object WidgetRenderer {
     v.setTextViewText(R.id.large_rhr_value, value(snap?.rhr))
     bindTrend(context, v, R.id.large_rhr_trend, snap?.rhr)
 
-    v.setOnClickPendingIntent(R.id.large_record, recordIntent(context))
+    // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
+    // with-android-widget.js writes this bool and drops that receiver together.
+    if (context.resources.getBoolean(R.bool.widget_record_enabled)) {
+      v.setViewVisibility(R.id.large_record, View.VISIBLE)
+      v.setOnClickPendingIntent(R.id.large_record, recordIntent(context))
+    } else {
+      v.setViewVisibility(R.id.large_record, View.GONE)
+    }
     return v
   }
 

@@ -1,10 +1,10 @@
 import { useMemo, useCallback, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import type { FrequentSection as NativeFrequentSection } from 'veloqrs';
+import type { Section as NativeSection } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -12,10 +12,7 @@ import type { FrequentSection } from '@/types';
  * a screen bundle skip this hook's own FFI calls. The bundle is re-read on the
  * same refresh key, so the stale-data guard below is not needed for it.
  */
-export function useSectionDataRefresh(
-  id: string | undefined,
-  preComputedSection?: NativeFrequentSection
-) {
+export function useSectionDataRefresh(id: string | undefined, preComputedSection?: NativeSection) {
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
   const skipOwnFfiCall = preComputedSection !== undefined;
@@ -40,7 +37,7 @@ export function useSectionDataRefresh(
     // Re-fetch fresh data from engine when refresh key changes
     // IMPORTANT: Use ALL fresh data, not just polyline - activityIds may have changed
     if (sectionRefreshKey > 0) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
         if (fresh && fresh.encodedPolyline && fresh.encodedPolyline.byteLength > 0) {

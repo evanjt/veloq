@@ -283,6 +283,7 @@
       android:id="@+id/large_record"
       android:layout_width="20dp"
       android:layout_height="20dp"
+      android:visibility="gone"
       android:src="@drawable/widget_record_glyph"
       android:contentDescription="@null" />
   </LinearLayout>

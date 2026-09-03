@@ -4,13 +4,13 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { navigateTo } from '@/shared/app/navigation';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, shadows, opacity } from '@/theme';
+import { brand, colors, darkColors, spacing, shadows, opacity, ink } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 function getTrendIcon(trend?: number): string {
@@ -110,7 +110,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
             </Text>
             {section.hasRecentPR ? (
               <View style={styles.prChip}>
-                <MaterialCommunityIcons name="trophy" size={10} color="#FFFFFF" />
+                <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
               </View>
             ) : null}
           </View>

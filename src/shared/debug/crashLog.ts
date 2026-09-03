@@ -97,7 +97,9 @@ export function installGlobalCrashHandler() {
         stack: err?.stack ? String(err.stack) : undefined,
         fatal: !!isFatal,
       });
-    } catch {}
+    } catch {
+      // Recording the crash must never mask the crash itself.
+    }
     prev?.(error, isFatal);
   });
 }

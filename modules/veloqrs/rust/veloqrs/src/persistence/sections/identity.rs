@@ -1,7 +1,7 @@
-//! Assign-once section identity: the stateful half of B2.
+//! Assign-once section identity: the stateful half of the identity layer.
 //!
 //! tracematch emits GROUND (sections with throwaway positional ids that
-//! renumber on every detect, root R2). This layer owns the id over time: an
+//! renumber on every detect). This layer owns the id over time: an
 //! opaque `s_<ts>__<rand>` id assigned once and carried forward with its ground,
 //! plus the hysteresis debounce that stops a single add flipping the visible
 //! catalogue while it still converges to the batch. It generalises the one thing
@@ -27,9 +27,9 @@
 //!   batch re-clustering dropped whose track still matches the new geometry.
 //!   A mint/restore takes the fresh batch payload under the same identity rule.
 //!
-//! INTENT SUPPRESSION generalises the custom-section rule that already dodges the
-//! R2 crash: before the plan runs, any candidate whose ground is owned by a
-//! durable-intent DB row (accepted / trimmed / renamed / set-ref / merged /
+//! INTENT SUPPRESSION generalises the custom-section rule that already dodges
+//! the id collision: before the plan runs, any candidate whose ground is owned
+//! by a durable-intent DB row (accepted / trimmed / renamed / set-ref / merged /
 //! custom, the rows the detection wipe spares) is dropped, and any registry row
 //! whose id has passed to such a durable row is relinquished. So auto detection
 //! never re-emits, and never collides on `UNIQUE sections.id` with, a section the
@@ -43,15 +43,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
+use crate::persistence::sections::geometry;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
     SectionConfig, shares_ground,
 };
 
-/// `identity_state.key` for the section registry blob (B4 migration 013).
+/// `identity_state.key` for the section registry blob.
 pub(crate) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Write what was around a change into an event's details: `around` is the
@@ -136,7 +137,7 @@ pub(crate) struct SectionLifecycleEvent {
 /// reseed, dropping graves, tombstones, and debounce streaks on every
 /// restart. rmp's length-prefixed arrays recover a skipped trailing field
 /// through its serde default. Version 3 reshaped the hysteresis debounce
-/// record (the D5 streak ledger holds both directions' streaks in place of
+/// record (the streak ledger holds both directions' streaks in place of
 /// one kind + one streak), which rmp encodes positionally, so a v2 blob
 /// reseeds rather than misreading a kind byte as a streak.
 pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
@@ -147,17 +148,32 @@ pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
 ///
 /// A non-zero floor was trialled to tame the synthetic marginal-capture
 /// pathology, a short senior prior with marginal one-sided overlap capturing or
-/// blocking a dominant candidate (`tracematch/tests/b2_inheritance_stress.rs`),
+/// blocking a dominant candidate (`tracematch/tests/inheritance_stress.rs`),
 /// which at defaults can mint a duplicate every detect on an unchanged catalogue.
 /// But 0.4 failed to generalise: on GeoLife dense-urban data (204 trajectories)
 /// it broke ~7 legitimate low-overlap carries into mints/merges and worsened
 /// churn, WITHOUT reducing the real duplication. Constants discipline: a value
 /// that fails generalisation does not ship. The duplication family, visible-
 /// catalogue inflation from the re-cut debounce holding stale covered geometry
-/// (see the seam note in `section_identity_apply_into`), is a FOLD-level fix in
-/// the pure layer (task pending), not a merge floor. Kept as an explicit knob so
-/// GATE-2 can revisit with a TARGETED trigger, not a blanket floor.
+/// (see the seam note in `section_identity_apply_into`), was a FOLD-level fix in
+/// the pure layer, landed, not a merge floor. Kept as an explicit knob so a
+/// revisit can carry a TARGETED trigger, not a blanket floor.
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
+
+/// Least share of a candidate's metres a CONTAINED prior must carry to stay its
+/// merge successor. SHIPS AT 0.0 (off): every contained prior keeps the tier and
+/// seniority decides, so a short senior can take a much longer candidate's
+/// ground and the section that described it retires into the short one, keeping
+/// its name, birth date and PR era over ground that is no longer the same.
+///
+/// The guard is a tier demotion, not a filter, which is what separates it from
+/// [`MERGE_MUTUAL_FLOOR`]: a dwarfed prior still competes, so it keeps its own
+/// ground wherever that ground is still detected. No value ships because none
+/// has survived a corpus pass, and for a contained prior the mutual overlap IS
+/// roughly the length ratio, so a ratio at R is close to a floor at 1/R and 0.4
+/// already failed to generalise on GeoLife. Sweep it in `unified_lab` with
+/// `--hyst-ratio` before moving this line.
+const MERGE_SIZE_RATIO: f64 = 0.0;
 
 /// One visible or tombstoned section the registry manages: the durable opaque id
 /// the DB carries, and the full payload persisted under it. Keyed elsewhere by
@@ -172,11 +188,12 @@ pub(crate) struct IdentityRow {
 }
 
 /// The engine-held section identity registry: the pure churn brain plus the
-/// veloqrs payloads it carries. In-memory pre-B4 (reseeded from the DB on open);
-/// B4 persists the whole blob so a debounce survives an app kill. Serde-derived
-/// now so that migration is a straight `serde` of this type. `Default` is hand
-/// written (below) so the hysteresis tunables, the merge floor especially, are
-/// an explicit knob at the one construction site, not a buried derive.
+/// veloqrs payloads it carries. The whole blob is persisted so a debounce
+/// survives an app kill, and it reseeds from the DB rows when there is none.
+/// Serde-derived so that migration is a straight `serde` of this type.
+/// `Default` is hand written (below) so the hysteresis tunables, the merge
+/// floor especially, are an explicit knob at the one construction site, not a
+/// buried derive.
 ///
 /// `#[serde(default)]` so a field added in a later version deserialises from an
 /// older blob (paired with the version tag on the persisted bytes, which reseeds
@@ -211,11 +228,13 @@ impl Default for SectionIdentity {
     fn default() -> Self {
         Self {
             // The one place the registry's hysteresis is tuned. k and the
-            // dissolve/re-cut thresholds ride the pure-layer defaults; the merge
-            // floor is stated EXPLICITLY at [`MERGE_MUTUAL_FLOOR`] (0.0 today) so
-            // a GATE-2 change is a one-line edit here, not a hunt through derives.
+            // dissolve/re-cut thresholds ride the pure-layer defaults. Both
+            // merge guards are stated EXPLICITLY, [`MERGE_MUTUAL_FLOOR`] and
+            // [`MERGE_SIZE_RATIO`], each 0.0 today, so changing one is a
+            // one-line edit here, not a hunt through derives.
             hysteresis: HysteresisState::new(HysteresisParams {
                 merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                merge_size_ratio: MERGE_SIZE_RATIO,
                 ..HysteresisParams::default()
             }),
             rows: BTreeMap::new(),
@@ -227,18 +246,23 @@ impl Default for SectionIdentity {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Every section id the database holds, whatever its state.
     /// Every id the database holds or has held: the live rows, the rows the
-    /// view hides, and every id the ledger or the geometry versions name. A
-    /// content id retired by a merge or a delete never comes back for the
-    /// same ground, or its history would read as one section.
+    /// view hides, and every id the ledger, the geometry versions, the pins or
+    /// the cutover archive name. A content id retired by a merge or a delete
+    /// never comes back for the same ground, or its history would read as one
+    /// section. The pins and the archive outlive the `sections` wipe, so a mint
+    /// that skipped them could re-issue an id a dead pin still claims.
     fn stored_section_ids(&self) -> BTreeSet<String> {
         self.db
             .prepare(
                 "SELECT id FROM sections
                  UNION SELECT section_id FROM section_history
-                 UNION SELECT section_id FROM section_geometry",
+                 UNION SELECT section_id FROM section_geometry
+                 UNION SELECT section_id FROM section_pins
+                 UNION SELECT section_id FROM section_catalogue_archive
+                 UNION SELECT section_id FROM section_catalogue_archive_members",
             )
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| row.get::<_, String>(0))
@@ -247,15 +271,20 @@ impl PersistentRouteEngine {
             .unwrap_or_default()
     }
 
+    /// Read accessor for tests: every id a mint has to avoid.
+    pub fn section_ids_a_mint_must_avoid(&self) -> BTreeSet<String> {
+        self.stored_section_ids()
+    }
+
     /// Read accessor for tests/measurement: the number of visible registry rows.
     pub fn section_identity_visible_len(&self) -> usize {
         self.identity.rows.len()
     }
 
     /// The last RAW detection catalogue applied, before the identity/hysteresis
-    /// remap. This is the B1 convergence truth, order-free and tracking the
+    /// remap. This is the convergence truth, order-free and tracking the
     /// batch every step, as opposed to the DAMPED `get_sections()` view, which
-    /// can lag it by up to `k` steps while a dissolve debounces. The B1 parity
+    /// can lag it by up to `k` steps while a dissolve debounces. The parity
     /// gates compare this so a legitimate hysteresis lag is not read as a
     /// detection desync.
     pub fn raw_detection_catalogue(&self) -> &[FrequentSection] {
@@ -343,8 +372,8 @@ impl PersistentRouteEngine {
     }
 
     /// Restore the section registry from its persisted blob. Returns false, so
-    /// the caller reseeds from the DB rows, when there is no blob (fresh or
-    /// pre-B4 install), the version byte does not match, or it fails to decode.
+    /// the caller reseeds from the DB rows, when there is no blob (a fresh
+    /// install), the version byte does not match, or it fails to decode.
     /// Treating an UNREADABLE blob exactly like a missing one is crash-consistency
     /// healing, not just the migration path: a torn or stale blob self-heals to a
     /// reseed, never a failed load. On a clean restore the exact debounce +
@@ -363,7 +392,7 @@ impl PersistentRouteEngine {
             return false;
         };
         let Some(body) = codec::untag_blob(SECTION_IDENTITY_BLOB_VERSION, &bytes) else {
-            log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
+            log::warn!("veloqrs: [section_identity_restore] blob version mismatch, reseeding");
             return false;
         };
         match codec::deserialize_gps_composite::<SectionIdentity>(body) {
@@ -379,7 +408,7 @@ impl PersistentRouteEngine {
                 true
             }
             Err(e) => {
-                log::warn!("tracematch: [section_identity_restore] decode failed, reseeding: {e}");
+                log::warn!("veloqrs: [section_identity_restore] decode failed, reseeding: {e}");
                 false
             }
         }
@@ -396,7 +425,7 @@ impl PersistentRouteEngine {
     /// next apply's ground remap heals.
     pub(crate) fn section_identity_persist(&self) {
         let Some(blob) = self.section_identity_blob() else {
-            log::warn!("tracematch: [section_identity_persist] serialisation failed");
+            log::warn!("veloqrs: [section_identity_persist] serialisation failed");
             return;
         };
         if let Err(e) = self.db.execute(
@@ -405,7 +434,7 @@ impl PersistentRouteEngine {
              ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
             rusqlite::params![SECTION_IDENTITY_KEY, blob],
         ) {
-            log::warn!("tracematch: [section_identity_persist] {e}");
+            log::warn!("veloqrs: [section_identity_persist] {e}");
         }
     }
 
@@ -493,9 +522,11 @@ impl PersistentRouteEngine {
         let config = self.section_config.clone();
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
-        // ground must not be re-emitted (that is the UNIQUE-id collision the R2
-        // crash rides), and any registry id that has passed to one is relinquished.
+        // ground must not be re-emitted (that is the UNIQUE-id collision that
+        // crashes the save), and any registry id that has passed to one is
+        // relinquished.
         let (intent_grounds, intent_ids) = self.durable_intent_rows();
+        let accepted_bounds = self.accepted_section_bounds();
 
         // RELINQUISH: a row whose real id now belongs to a durable-intent DB row
         // has handed identity ownership to that row. Stop carrying it (and stop
@@ -543,7 +574,11 @@ impl PersistentRouteEngine {
         // it is the collision. This is the custom-section rule generalised.
         let raw: Vec<FrequentSection> = raw
             .into_iter()
-            .filter(|s| !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds))
+            .filter(|s| {
+                !s.is_user_defined
+                    && !ground_owned_by_intent(&s.polyline, &intent_grounds)
+                    && !bbox_dominated(&s.polyline, &accepted_bounds)
+            })
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
@@ -552,17 +587,43 @@ impl PersistentRouteEngine {
         //
         // COMPETITION NOTE. A prior mid re-cut debounce competes in
         // `plan_identity` on the batch geometry it is re-cutting TO (its
-        // pending target), not its frozen footprint, the FOLD-level fix an
-        // older note here still called pending. Residual exposure, verified
-        // and deliberately open: the FIRST divergent step competes on the held
-        // footprint (the pending target only exists from the following step),
-        // a dissolve-pending prior competes on its stale ground and a foreign
-        // capture resets its dissolve streak, and a marginal one-sided senior
-        // capture needs no debounce at all, the merge floor is that clause's
-        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
+        // pending target), not its frozen footprint: the FOLD-level fix the
+        // [`MERGE_MUTUAL_FLOOR`] note points at. Two residual exposures, each
+        // re-checked against the pure layer on 2026-08-31. STILL OPEN: the
+        // FIRST divergent step competes on the held footprint, because a target
+        // is only written after the plan it would have fed, and a
+        // dissolve-pending prior with no re-cut behind it carries no target at
+        // all, so it competes on its stale ground. ACCEPTED: a marginal
+        // one-sided senior capture needs no debounce, the merge floor is its
+        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]). The
+        // streaks are NOT an exposure. Since the two-streak ledger, a re-cut
+        // debounce carries the dissolve streak through and a dissolve debounce
+        // carries the re-cut streak through, so no capture erases the absence
+        // evidence a rotation accumulated.
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
-        let (out, resolutions) = identity.hysteresis.step_assign(&candidates);
+        // The registry's half of the agreement floor. The pure layer adopts an
+        // agreeing extent only while the passes hold; members are this side's
+        // evidence, and a prior member with no qualifying pass on the new line
+        // would leave the section silently, since the graft below can only
+        // keep what still matches. Reporting the loss makes it a debounced
+        // re-cut the ledger narrates instead.
+        let rows = &identity.rows;
+        let loses_a_member = |pid: &str, j: usize| -> bool {
+            let Some(row) = rows.get(pid) else {
+                return false;
+            };
+            let cand = &raw[j];
+            row.section.activity_ids.iter().any(|aid| {
+                !cand.activity_ids.contains(aid)
+                    && self.get_gps_track(aid).is_some_and(|track| {
+                        compute_section_portions(aid, &track, &cand.polyline, &config).is_empty()
+                    })
+            })
+        };
+        let (out, resolutions) = identity
+            .hysteresis
+            .step_assign_guarded(&candidates, &loses_a_member);
 
         // Activities new since the last apply, and their tracks, for the fold.
         // Read up front so the reconcile below borrows nothing from `self`.
@@ -611,6 +672,10 @@ impl PersistentRouteEngine {
         // identity blob is the known one, task #13). Loud in tests via
         // `debug_assert`, degraded to a safe mint in release so a corrupt blob
         // re-mints a fresh id rather than bricking the engine.
+        // One scan for the whole batch. This reads six tables, and the closure
+        // below runs once per minted section.
+        let stored_ids = self.stored_section_ids();
+
         for (j, section) in raw.into_iter().enumerate() {
             let pid = resolutions[j].id.clone();
             let membership_ok = match resolutions[j].fate {
@@ -701,7 +766,7 @@ impl PersistentRouteEngine {
                 // Every id the database holds or has held, the rows the
                 // view hides (disabled, superseded, accepted) and the
                 // retired included: a mint must never land on one of them.
-                let mut taken: BTreeSet<String> = self.stored_section_ids();
+                let mut taken: BTreeSet<String> = stored_ids.clone();
                 taken.extend(self.sections.iter().map(|s| s.id.clone()));
                 taken.extend(new_rows.values().map(|r| r.real_id.clone()));
                 taken.extend(old_rows.values().map(|r| r.real_id.clone()));
@@ -1016,8 +1081,9 @@ impl PersistentRouteEngine {
     /// detection apply. Called by remove_activity. Ground is untouched: only the
     /// gone activity leaves; the section's geometry and other members stay.
     pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
-        /// Whether the section carried the activity at all.
-        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> bool {
+        /// Whether the section carried the activity at all, and how many
+        /// passes left with it.
+        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> (bool, u32) {
             let ids_before = section.activity_ids.len();
             section.activity_ids.retain(|a| a != activity_id);
             let before = section.activity_portions.len();
@@ -1026,14 +1092,28 @@ impl PersistentRouteEngine {
                 .retain(|p| p.activity_id != activity_id);
             let dropped = (before - section.activity_portions.len()) as u32;
             section.visit_count = section.visit_count.saturating_sub(dropped);
-            dropped > 0 || section.activity_ids.len() != ids_before
+            (
+                dropped > 0 || section.activity_ids.len() != ids_before,
+                dropped,
+            )
         }
         let mut moved = false;
-        for row in self.identity.rows.values_mut() {
-            moved |= drop_from(&mut row.section, activity_id);
+        // The pure layer holds its own count per visible id, and reads a
+        // batch that counts fewer passes on an unchanged line as a re-cut.
+        // Telling it what left keeps a deletion from narrating one.
+        let mut dropped_by_pid: Vec<(String, u32)> = Vec::new();
+        for (pid, row) in self.identity.rows.iter_mut() {
+            let (touched, dropped) = drop_from(&mut row.section, activity_id);
+            moved |= touched;
+            if dropped > 0 {
+                dropped_by_pid.push((pid.clone(), dropped));
+            }
+        }
+        for (pid, dropped) in dropped_by_pid {
+            self.identity.hysteresis.drop_visits(&pid, dropped);
         }
         for row in self.identity.graves.values_mut() {
-            moved |= drop_from(&mut row.section, activity_id);
+            moved |= drop_from(&mut row.section, activity_id).0;
         }
         moved |= self.identity.seen.remove(activity_id);
         for section in &mut self.sections {
@@ -1050,7 +1130,7 @@ impl PersistentRouteEngine {
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
     /// section's current ground so the emitter never re-detects it (invariant 6).
     /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
-    /// failure logs rather than propagates, the worst case is the pre-B4
+    /// failure logs rather than propagates, the worst case is the older
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
     /// call this BEFORE the row is gone.
     pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
@@ -1081,7 +1161,7 @@ impl PersistentRouteEngine {
                 created_at = excluded.created_at",
             rusqlite::params![section_id, kind, polyline_json],
         ) {
-            log::warn!("tracematch: [record_section_intent] {section_id} ({kind}): {e}");
+            log::warn!("veloqrs: [record_section_intent] {section_id} ({kind}): {e}");
         }
     }
 
@@ -1093,8 +1173,31 @@ impl PersistentRouteEngine {
             "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
             rusqlite::params![section_id],
         ) {
-            log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
+            log::warn!("veloqrs: [clear_section_intent] {section_id}: {e}");
         }
+    }
+
+    /// Bounding boxes of the accepted sections. A candidate mostly inside one of
+    /// these is the same corridor drawn coarsely, so it is suppressed before the
+    /// registry sees it rather than dropped at save, where it would leave a row
+    /// behind with no catalogue entry.
+    fn accepted_section_bounds(&self) -> Vec<AcceptedBounds> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+             FROM sections WHERE is_user_defined = 1 AND bounds_min_lat IS NOT NULL",
+        ) else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| {
+            Ok(AcceptedBounds {
+                min_lat: row.get(0)?,
+                max_lat: row.get(1)?,
+                min_lng: row.get(2)?,
+                max_lng: row.get(3)?,
+            })
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
     }
 
     /// Grounds (polylines) and ids of the durable-intent DB rows the emitter must
@@ -1114,7 +1217,9 @@ impl PersistentRouteEngine {
         let mut ids = BTreeSet::new();
         {
             let mut stmt = match self.db.prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                        rep_start_index, rep_end_index
+                 FROM sections
                  WHERE section_type = 'custom'
                     OR original_polyline_json IS NOT NULL
                     OR is_user_defined = 1",
@@ -1122,20 +1227,33 @@ impl PersistentRouteEngine {
                 Ok(s) => s,
                 Err(_) => return (grounds, ids),
             };
-            let rows = stmt.query_map([], |row| {
+            // Collected before resolving: the rebuild queries the same
+            // connection this statement is still walking.
+            let rows: Vec<_> = match stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, Option<Vec<u8>>>(1)?,
                     row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<u32>>(4)?,
+                    row.get::<_, Option<u32>>(5)?,
                 ))
-            });
-            if let Ok(iter) = rows {
-                for (id, blob, json) in iter.flatten() {
-                    ids.insert(id);
-                    if let Ok(pts) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
-                        if !pts.is_empty() {
-                            grounds.push(pts);
-                        }
+            }) {
+                Ok(iter) => iter.flatten().collect(),
+                Err(_) => return (grounds, ids),
+            };
+            drop(stmt);
+            for (id, blob, json, rep_id, start, end) in rows {
+                ids.insert(id);
+                // The blob is a cache. A cleared one still has to yield the
+                // ground, or the corridor the user shaped is re-emitted under
+                // a second id on the next detect.
+                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                if let Ok(pts) =
+                    geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
+                {
+                    if !pts.is_empty() {
+                        grounds.push(pts);
                     }
                 }
             }
@@ -1165,6 +1283,36 @@ impl PersistentRouteEngine {
         }
         (grounds, ids)
     }
+}
+
+/// Bounding box of an accepted section, in degrees.
+struct AcceptedBounds {
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+}
+
+/// Whether most of a candidate's bounding box sits inside an accepted section's.
+fn bbox_dominated(polyline: &[GpsPoint], accepted: &[AcceptedBounds]) -> bool {
+    if accepted.is_empty() || polyline.len() < 2 {
+        return false;
+    }
+    let b = tracematch::geo_utils::compute_bounds(polyline);
+    let area = (b.max_lat - b.min_lat) * (b.max_lng - b.min_lng);
+    if area <= 0.0 {
+        return false;
+    }
+    accepted.iter().any(|a| {
+        let min_lat = b.min_lat.max(a.min_lat);
+        let max_lat = b.max_lat.min(a.max_lat);
+        let min_lng = b.min_lng.max(a.min_lng);
+        let max_lng = b.max_lng.min(a.max_lng);
+        if min_lat >= max_lat || min_lng >= max_lng {
+            return false;
+        }
+        ((max_lat - min_lat) * (max_lng - min_lng)) / area > 0.45
+    })
 }
 
 /// Whether a candidate polyline is the same corridor as any durable-intent
@@ -1205,7 +1353,7 @@ fn fold_new_activities(
 /// the junction rows `save_sections` writes stay coherent; a member whose
 /// track genuinely left the adopted ground stays dropped.
 fn graft_prior_members(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     section: &mut FrequentSection,
     prior: &FrequentSection,
     config: &SectionConfig,
@@ -1277,4 +1425,90 @@ fn mint_content_id(section: &FrequentSection, taken: &BTreeSet<String>, seq: &mu
     let id = format!("s_{}__{:06}", ts, *seq);
     *seq += 1;
     id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::codec;
+    use tempfile::TempDir;
+
+    fn track() -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.000_1,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// An engine holding one stored stream and one durable-intent row whose
+    /// line is a real slice of it.
+    fn engine_with_durable_row(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("intent.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .add_activity("a1".into(), track(), "Ride".into())
+            .expect("add_activity");
+        let line = track()[0..12].to_vec();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      original_polyline_json)
+                 VALUES ('s_trimmed', 'auto', 'Trimmed', 'Ride', NULL, ?, 1200.0,
+                         'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0, '[]')",
+                rusqlite::params![codec::serialize_track_points(&line)],
+            )
+            .expect("insert the durable row");
+        engine
+    }
+
+    /// Scenario: a trimmed section keeps its ground through a detect, and the
+    /// registry learns which ground that is by reading the row. A cleared
+    /// cache is what the read has to survive.
+    ///
+    /// Expected behaviour: the ground comes back rebuilt from the triple. An
+    /// empty one would let the detector re-emit the corridor the user already
+    /// shaped, under a second id.
+    #[test]
+    fn a_durable_intent_ground_rebuilds_after_the_cache_is_cleared() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_durable_row(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
+                [],
+            )
+            .expect("clear the cached geometry");
+
+        let (grounds, ids) = engine.durable_intent_rows();
+
+        assert!(ids.contains("s_trimmed"), "the id is read from the row");
+        assert_eq!(
+            grounds.iter().map(|g| g.len()).collect::<Vec<_>>(),
+            vec![12],
+            "the ground has to be rebuilt from the triple, not dropped"
+        );
+    }
+
+    /// The cached blob is still the first answer, so the ordinary read costs
+    /// no rebuild.
+    #[test]
+    fn a_durable_intent_ground_reads_the_cache_when_it_is_there() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_durable_row(&dir);
+
+        let (grounds, _) = engine.durable_intent_rows();
+
+        assert_eq!(
+            grounds.iter().map(|g| g.len()).collect::<Vec<_>>(),
+            vec![12]
+        );
+    }
 }

@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 /**
  * Returns the number of days of cached activity data.
@@ -22,7 +22,7 @@ export function useCacheDays(preComputedActivityCount?: number): number {
 
   return useMemo(() => {
     // Check if we have any activities in the engine
-    const activityCount = preComputedActivityCount ?? getRouteEngine()?.getActivityCount() ?? 0;
+    const activityCount = preComputedActivityCount ?? getEngine()?.getActivityCount() ?? 0;
 
     if (activityCount === 0 || !oldest || !newest) {
       return 90; // Default when no data

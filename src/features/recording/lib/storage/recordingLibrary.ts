@@ -16,7 +16,7 @@ const LIBRARY_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
 const LEGACY_UPLOADS_DIR = `${FileSystem.documentDirectory}pending_uploads/`;
 
-/** Automatic retries before an entry parks as 'failed' (manual retry only). Files are never deleted. */
+/** Automatic retries before an entry parks as 'failed' (manual retry only). A failed upload never loses its FIT. */
 const MAX_AUTO_RETRIES = 5;
 const BACKOFF_BASE_MS = 30_000;
 const BACKOFF_CAP_MS = 60 * 60 * 1000;
@@ -106,8 +106,10 @@ export interface SaveRecordingParams {
 
 /**
  * Persist a completed recording: FIT file (+ optional streams sidecar for the
- * detail view) plus an index entry. This is the durable copy - upload is an
- * optional step over it and nothing here is ever deleted by retry logic.
+ * detail view) plus an index entry. The FIT is the durable copy until the upload
+ * succeeds, and no retry ever deletes it. Once intervals.icu holds the activity
+ * the FIT has no reader left, and `discardRecordingFit` takes it. The sidecar
+ * stays: it is what the detail view renders from.
  */
 export async function saveRecording(
   params: SaveRecordingParams
@@ -321,6 +323,31 @@ export function nextPendingUpload(now = Date.now()): Promise<RecordingLibraryEnt
   return withLibraryLock(async () => {
     const entries = await loadIndex();
     return entries.find((e) => isRetryEligible(e, now)) ?? null;
+  });
+}
+
+// ─── Deletion ─────────────────────────────────────────────────────────────────
+
+/**
+ * Drop the FIT bytes once intervals.icu has the activity. The file exists to be
+ * uploaded, so keeping it grows the device by every recording the athlete has
+ * ever made. The streams sidecar and the index entry stay, which is what the
+ * library and its detail view read.
+ *
+ * Best effort by design: the upload succeeded either way, and a delete that
+ * throws must not turn a finished upload into a retry.
+ */
+export function discardRecordingFit(id: string): Promise<void> {
+  return withLibraryLock(async () => {
+    const entries = await loadIndex();
+    const entry = entries.find((e) => e.id === id);
+    if (!entry) return;
+    try {
+      await FileSystem.deleteAsync(entry.fitPath, { idempotent: true });
+      log.log(`Discarded FIT for uploaded recording ${id}`);
+    } catch {
+      // The next discard, or the user's own delete, gets it.
+    }
   });
 }
 

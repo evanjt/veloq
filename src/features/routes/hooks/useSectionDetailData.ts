@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import type {
   ActivityMetrics,
-  FrequentSection as NativeFrequentSection,
   MergeCandidate,
   NearbySectionSummary,
+  Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
 } from 'veloqrs';
@@ -21,7 +21,7 @@ export const NEARBY_RADIUS_METERS = 500;
  */
 export interface SectionDetailBundle {
   activityCount: number;
-  section: NativeFrequentSection | undefined;
+  section: NativeSection | undefined;
   nearby: NearbySectionSummary[];
   mergeCandidates: MergeCandidate[];
   excludedActivityIds: string[];
@@ -32,7 +32,7 @@ export interface SectionDetailBundle {
 }
 
 function fetchSectionDetailData(sectionId: string): SectionDetailBundle | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine || !sectionId) return null;
 
   try {
@@ -116,7 +116,7 @@ export function useSectionDetailPerformance(
 
   return useMemo(() => {
     if (!enabled || !sectionId) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     try {
       return engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null;

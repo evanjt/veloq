@@ -1,4 +1,4 @@
-//! Suite #2 — arrival order & re-ingest idempotency.
+//! Suite #2, arrival order & re-ingest idempotency.
 //!
 //! Invariant 4: the catalogue is a pure function of the activity SET, never of
 //! arrival order or how many times a member was ingested. `order_free_cold_batch`
@@ -13,7 +13,7 @@
 //! remains. The processed set therefore has to have eviction paths, or a mutated
 //! or removed activity would freeze out of the catalogue forever: `add_activity`
 //! evicts an id whose track genuinely changed, and `remove_activity` clears the
-//! set outright. These tests pin both halves — inert when nothing changed,
+//! set outright. These tests pin both halves, inert when nothing changed,
 //! re-derived when something did.
 //!
 //! Idempotency is a method-agnostic persistence behaviour, so the re-ingest
@@ -59,7 +59,7 @@ fn deterministic_shuffle(n: usize) -> Vec<usize> {
     sorted.sort_unstable();
     assert!(
         sorted.into_iter().eq(0..n),
-        "(37*i+11) mod {n} is not a permutation — pick a multiplier coprime to n"
+        "(37*i+11) mod {n} is not a permutation, pick a multiplier coprime to n"
     );
     perm
 }
@@ -69,11 +69,11 @@ fn deterministic_shuffle(n: usize) -> Vec<usize> {
 /// crash mid-drip is itself a finding and is surfaced, not swallowed.
 ///
 /// Reads the raw (pre-hysteresis) catalogue: invariant 4 (order-free) is a
-/// property of DETECTION, which the raw catalogue is. Since B2 the damped visible
-/// view is deliberately path-dependent — the debounce state at the end of a drip
+/// property of DETECTION, which the raw catalogue is. The damped visible view
+/// is deliberately path-dependent, the debounce state at the end of a drip
 /// depends on the arrival order, so its final catalogue can differ fwd-vs-rev even
 /// though detection converged to the same set. Comparing the damped view here
-/// would gate B2's intentional path-dependence as a B1 order violation.
+/// would gate that intentional path-dependence as an order violation.
 fn drip(arm: Arm, pool: &[&LifecycleActivity], order: &[usize]) -> SectionSnapshot {
     let (mut engine, _dir) = fresh_engine_for(arm);
     for &i in order {
@@ -90,7 +90,7 @@ fn activity_by_id<'a>(pool: &[&'a LifecycleActivity], id: &str) -> &'a Lifecycle
         .expect("section activity id must be in the ingested pool")
 }
 
-/// Same activity, track shifted ~2.2 km north — clearly different ground that
+/// Same activity, track shifted ~2.2 km north, clearly different ground that
 /// cannot ground-match the original corridor (50 m tolerance).
 fn with_shifted_track(a: &LifecycleActivity, dlat_deg: f64) -> LifecycleActivity {
     LifecycleActivity {
@@ -112,7 +112,7 @@ fn with_shifted_track(a: &LifecycleActivity, dlat_deg: f64) -> LifecycleActivity
 }
 
 // ============================================================================
-// Curiosity 1 — DRIP ORDER (forward / reversed / shuffle)
+// Curiosity 1. DRIP ORDER (forward / reversed / shuffle)
 // ============================================================================
 
 /// Invariant 4 (order-free incremental): the one-at-a-time drip lands on the
@@ -144,10 +144,10 @@ fn drip_order_is_set_invariant() {
 }
 
 // ============================================================================
-// Curiosity 2 — RE-INGEST SAME ID, SAME TRACK (idempotency)
+// Curiosity 2. RE-INGEST SAME ID, SAME TRACK (idempotency)
 // ============================================================================
 
-/// Guard: re-ingesting an unchanged activity is idempotent — the catalogue is
+/// Guard: re-ingesting an unchanged activity is idempotent, the catalogue is
 /// byte-identical. The re-added id is already processed and its track compares
 /// equal, so detection short-circuits and returns the existing sections
 /// untouched. Paired with `reingest_different_track_updates_catalogue`: a
@@ -181,7 +181,7 @@ fn reingest_same_id_is_idempotent() {
 }
 
 // ============================================================================
-// Curiosity 3 — SAME ID, DIFFERENT TRACK (mutation is ignored)
+// Curiosity 3. SAME ID, DIFFERENT TRACK (mutation is ignored)
 // ============================================================================
 
 /// Replacing a seen activity's track with different ground perturbs the
@@ -198,7 +198,8 @@ fn reingest_different_track_updates_catalogue() {
     // Freshness is a DETECTION property, so compare the RAW catalogue: an
     // append-only damped fold never drops the moved contributor from the section
     // it fed, so the visible view legitimately would not change on a single move
-    // (that member-level purge is B4). Detection re-derives immediately.
+    // (the damped view has no member-level purge). Detection re-derives
+    // immediately.
     let cold = raw_snapshot(&engine);
     let original = activity_by_id(
         &pool,
@@ -223,7 +224,7 @@ fn reingest_different_track_updates_catalogue() {
 }
 
 // ============================================================================
-// Curiosity 4 — REMOVE-THEN-RE-ADD ROUND TRIP
+// Curiosity 4. REMOVE-THEN-RE-ADD ROUND TRIP
 // ============================================================================
 
 /// A remove-then-re-add round trip passes THROUGH an effective removal: after
@@ -231,8 +232,8 @@ fn reingest_different_track_updates_catalogue() {
 /// re-add restores S0. `remove_activity` clears the processed set, so the
 /// after-remove detect re-derives the catalogue without the victim instead of
 /// short-circuiting on a stale processed mark. The S2 == S0 half asserts
-/// catalogue-signature EQUALITY, so it runs on the Battery (Unified) arm —
-/// mirroring `drip_order_is_set_invariant` — because the Control/Corridor
+/// catalogue-signature EQUALITY, so it runs on the Battery (Unified) arm,
+/// mirroring `drip_order_is_set_invariant`, because the Control/Corridor
 /// detector is run-to-run non-deterministic, which would make an exact-catalogue
 /// round-trip flaky for reasons orthogonal to removal freshness. (The
 /// evidence-purge view of the same rows is `remove_activity_purges_evidence` in
@@ -245,7 +246,7 @@ fn remove_readd_roundtrips_through_effective_removal() {
     ingest_step(&mut engine, "cold", &pool);
     // Detection-freshness gate, so read the RAW catalogue: the damped fold is
     // append-only and would keep the removed victim as a phantom member of a
-    // surviving section (member-level purge on remove is the B4 junction-FK fix),
+    // surviving section (member-level purge on remove is the junction-FK cascade),
     // but DETECTION re-derives the catalogue without it immediately.
     let s0 = raw_snapshot(&engine);
     let victim = activity_by_id(
@@ -269,7 +270,7 @@ fn remove_readd_roundtrips_through_effective_removal() {
         .any(|s| s.activity_ids.contains(&victim.id));
     assert!(
         !still_referenced,
-        "removed activity {} still contributes to the catalogue — removal never reached it",
+        "removed activity {} still contributes to the catalogue, removal never reached it",
         victim.id,
     );
 
@@ -284,11 +285,11 @@ fn remove_readd_roundtrips_through_effective_removal() {
 }
 
 // ============================================================================
-// Curiosity 5 — DUPLICATE ID INSIDE ONE BATCH
+// Curiosity 5. DUPLICATE ID INSIDE ONE BATCH
 // ============================================================================
 
 /// Guard: a duplicate id inside one batch collapses to a single stored activity
-/// (INSERT OR REPLACE) and never crashes — the direct, unconfounded effect of the
+/// (INSERT OR REPLACE) and never crashes, the direct, unconfounded effect of the
 /// duplicate. Catalogue equality is deliberately NOT asserted here: two fresh
 /// Control engines iterate a differently-seeded `activity_metadata` HashMap, so
 /// their catalogues can differ with no duplicate involved (the known Control

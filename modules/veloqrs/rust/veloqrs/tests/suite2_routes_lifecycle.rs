@@ -1,4 +1,4 @@
-//! Suite #2 — route grouping/matching lifecycle.
+//! Suite #2, route grouping/matching lifecycle.
 //!
 //! Routes are a SEPARATE pipeline from section detection. The harness
 //! `ingest_step` only drives `detect_sections_background`; route grouping is
@@ -12,7 +12,7 @@
 //! what that has to deliver: a deterministic byte-stable catalogue, an opaque id
 //! that survives a resync, and a chosen representative, custom name, and
 //! membership that survive with it. The one remaining red is the in-memory
-//! custom name (`#[ignore]`d, B4 owes the re-hydrate).
+//! custom name (`#[ignore]`d, the re-hydrate on recompute is still owed).
 //!
 //! Method-agnostic persistence behaviour, run on the fast Control arm.
 //!
@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 /// Cold set for the route lifecycle. Route grouping is O(N^2); this is enough
 /// repeats to form groups without a slow cold grouping in debug.
@@ -43,7 +43,7 @@ fn route_corpus(bucket_a_count: usize) -> LifecycleCorpus {
 }
 
 // ============================================================================
-// Route fingerprint — the identity + membership view the app renders
+// Route fingerprint, the identity + membership view the app renders
 // ============================================================================
 
 #[derive(Clone, PartialEq)]
@@ -86,7 +86,7 @@ impl RouteSnapshot {
 
 /// Trigger grouping and snapshot the visible route catalogue. `get_groups()`
 /// recomputes when dirty, so this is the route analogue of `snapshot`.
-fn route_snapshot(engine: &mut PersistentRouteEngine) -> RouteSnapshot {
+fn route_snapshot(engine: &mut PersistentEngine) -> RouteSnapshot {
     let groups = engine.get_groups().to_vec();
     RouteSnapshot {
         groups: groups
@@ -107,7 +107,7 @@ fn route_snapshot(engine: &mut PersistentRouteEngine) -> RouteSnapshot {
 }
 
 /// The most-travelled multi-member group (a real, editable route). None when the
-/// corpus produced only singletons — itself a finding.
+/// corpus produced only singletons, itself a finding.
 fn busiest_route(snap: &RouteSnapshot) -> Option<(String, RouteFingerprint)> {
     snap.groups
         .iter()
@@ -152,14 +152,15 @@ fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
 }
 
 // ============================================================================
-// Curiosity 0 — route grouping determinism
+// Curiosity 0, route grouping determinism
 // ============================================================================
 
-/// Gate (determinism): the WHOLE route catalogue — group ids and representatives
-/// included — is byte-stable across two fresh engines over the same set. Unlike
+/// Gate (determinism): the WHOLE route catalogue, group ids and representatives
+/// included, is byte-stable across two fresh engines over the same set. Unlike
 /// sections (whose signature is id-free), the route snapshot's signature carries
-/// the id, so identity has to be deterministic, not merely stable: B2 mints an
-/// ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into the id) and
+/// the id, so identity has to be deterministic, not merely stable: the registry
+/// mints an ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into
+/// the id) and
 /// a cold group's representative is already the sorted-min member, so the two
 /// catalogues match to the byte. A red is a seed-dependent value (the Union-Find
 /// root) leaking back into the id.
@@ -191,12 +192,13 @@ fn corpus_activity<'a>(corpus: &'a LifecycleCorpus, id: &str) -> &'a LifecycleAc
 }
 
 // ============================================================================
-// Curiosity 1 — ROUTE IDENTITY STABILITY across a resync
+// Curiosity 1. ROUTE IDENTITY STABILITY across a resync
 // ============================================================================
 
-/// A multi-member route has a STABLE, OPAQUE identity across a resync — an id
-/// that does not move with its membership. B2 mints an ordinal `r_<n>` rather
-/// than reusing the Union-Find root, so the id is never the group's MIN member
+/// A multi-member route has a STABLE, OPAQUE identity across a resync, an id
+/// that does not move with its membership. The registry mints an ordinal
+/// `r_<n>` rather than reusing the Union-Find root, so the id is never the
+/// group's MIN member
 /// id. A positional id would be re-keyed whenever a lower-id member joins,
 /// orphaning everything stored against it (the representative and name below).
 #[test]
@@ -222,12 +224,12 @@ fn route_identity_survives_resync() {
         .unwrap_or_default();
     assert_ne!(
         new_id, min_member,
-        "route identity is positional (the min-member id) after a resync — it is not a stable opaque id",
+        "route identity is positional (the min-member id) after a resync, it is not a stable opaque id",
     );
 }
 
 // ============================================================================
-// Curiosity 2 — REPRESENTATIVE SURVIVAL across a resync
+// Curiosity 2. REPRESENTATIVE SURVIVAL across a resync
 // ============================================================================
 
 /// A user-chosen route representative survives a resync. The incremental path
@@ -266,13 +268,13 @@ fn route_representative_survives_resync() {
 }
 
 // ============================================================================
-// Curiosity 3 — NAME SURVIVAL across a resync
+// Curiosity 3. NAME SURVIVAL across a resync
 // ============================================================================
 
 /// The `route_names` row survives a resync under the SAME id, and that id still
 /// addresses the route by membership. This is the durable half of route naming:
 /// the name is keyed by group_id, so a re-keyed group would orphan the row and
-/// lose the name from every surface. Stable identity (B2) is what keeps the two
+/// lose the name from every surface. Stable identity is what keeps the two
 /// lookups agreeing. The in-memory surface is gated separately below.
 #[test]
 fn route_name_row_survives_resync_under_the_stable_id() {
@@ -294,7 +296,7 @@ fn route_name_row_survives_resync_under_the_stable_id() {
             .get(&busiest_id)
             .map(|s| s.as_str()),
         Some("My Climb"),
-        "the route_names row was orphaned by the resync — the name is keyed to an id the regroup discarded",
+        "the route_names row was orphaned by the resync, the name is keyed to an id the regroup discarded",
     );
     let (anchored_id, _) = group_carrying(&after, &busiest.activity_ids)
         .expect("the named route survives by membership");
@@ -330,7 +332,7 @@ fn route_name_survives_resync() {
 }
 
 // ============================================================================
-// Curiosity 4 — does the processed-set short-circuit reach routes?
+// Curiosity 4, does the processed-set short-circuit reach routes?
 // ============================================================================
 
 /// Guard: a new activity on an existing route's ground joins that route on
@@ -360,20 +362,20 @@ fn route_membership_not_frozen() {
         .unwrap_or(false);
     assert!(
         grew,
-        "an identical-GPS repeat did NOT join the route on regroup — routes have frozen like sections",
+        "an identical-GPS repeat did NOT join the route on regroup, routes have frozen like sections",
     );
 }
 
 // ============================================================================
-// Curiosity 5 — FIRST / SINGLE ATTEMPT SAFETY of route highlights
+// Curiosity 5. FIRST / SINGLE ATTEMPT SAFETY of route highlights
 // ============================================================================
 
 /// Guard: route-highlight trend/delta are first/single-attempt safe and the
 /// trend is decoupled from the PR.
-///   - every trend is one of {-1, 0, 1} (never NaN — the field is an i8);
+///   - every trend is one of {-1, 0, 1} (never NaN, the field is an i8);
 ///   - the earliest attempt yields trend 0 (the n == 0 branch, no divide-by-n);
 ///   - a PR attempt (is_pr) can have trend != 1, i.e. being the fastest does NOT
-///     force "up" — proof that trend reads the running average of preceding
+///     force "up", proof that trend reads the running average of preceding
 ///     attempts (derivations.rs `avg = sum/n`, `speed > avg*1.01`) while is_pr
 ///     reads best moving time. The intentional split (see the activity-card note
 ///     in CLAUDE.md), verified here rather than a fixed third-attempt value,
@@ -427,7 +429,7 @@ fn route_highlights_trend_is_running_average_safe() {
     );
     assert!(
         highlights.iter().any(|h| h.is_pr && h.trend != 1),
-        "a PR attempt should be able to have trend != 1 — trend must not be derived from the PR",
+        "a PR attempt should be able to have trend != 1, trend must not be derived from the PR",
     );
 
     // Single-attempt (singleton) route: exercised safely, trend 0, is_pr true.

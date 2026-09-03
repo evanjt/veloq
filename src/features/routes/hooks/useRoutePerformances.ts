@@ -5,8 +5,8 @@
  */
 
 import { useMemo } from 'react';
-import { useEngineGroups } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineGroups } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type {
@@ -153,6 +153,7 @@ export function useRoutePerformances(
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
+    bestActivityId: string | null;
     bestForward: DirectionBestRecord | null;
     bestReverse: DirectionBestRecord | null;
   } => {
@@ -162,6 +163,7 @@ export function useRoutePerformances(
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
+      bestActivityId: null,
       bestForward: null,
       bestReverse: null,
     };
@@ -172,7 +174,7 @@ export function useRoutePerformances(
       // Get typed performance data directly from Rust engine (now includes metrics)
       let result = preComputed?.result;
       if (!result) {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return emptyResult;
         result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
       }
@@ -202,6 +204,7 @@ export function useRoutePerformances(
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
+        bestActivityId: result.best?.activityId ?? null,
         bestForward: toDirectionBest(result.bestForward),
         bestReverse: toDirectionBest(result.bestReverse),
       };
@@ -215,6 +218,7 @@ export function useRoutePerformances(
     activityMetrics,
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
+    bestActivityId,
     bestForward: rustBestForward,
     bestReverse: rustBestReverse,
   } = rustData;
@@ -270,12 +274,10 @@ export function useRoutePerformances(
     // Sort by date (oldest first for charting)
     points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
 
-    // Find best (shortest time) - overall
-    const validPoints = points.filter((p) => p.duration > 0);
-    const bestPoint =
-      validPoints.length > 0
-        ? validPoints.reduce((best, p) => (p.duration < best.duration ? p : best), validPoints[0])
-        : null;
+    // The engine ranks the attempts. Find its pick among the plotted points.
+    const bestPoint = bestActivityId
+      ? (points.find((p) => p.activityId === bestActivityId) ?? null)
+      : null;
 
     return {
       performances: points,
@@ -283,7 +285,15 @@ export function useRoutePerformances(
       bestForwardRecord: rustBestForward,
       bestReverseRecord: rustBestReverse,
     };
-  }, [engineGroup, activityId, matchInfoMap, activityMetrics, rustBestForward, rustBestReverse]);
+  }, [
+    engineGroup,
+    activityId,
+    matchInfoMap,
+    activityMetrics,
+    bestActivityId,
+    rustBestForward,
+    rustBestReverse,
+  ]);
 
   // avg_speed now comes pre-computed from Rust's DirectionStats - no TS
   // augmentation needed.

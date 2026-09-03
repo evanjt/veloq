@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,16 +16,19 @@ import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,
+  accountChangeAction,
   confirmAccountChange,
   getCachedAthleteId,
   DEMO_ATHLETE_ID,
   useApiKeyLogin,
   useOAuthLogin,
   useBackupRestore,
+  useSessionExpiryNotice,
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
   BackupRestoreBanner,
+  SessionExpiredNotice,
 } from '@/features/auth';
 
 const VELOQ_URLS = {
@@ -37,8 +40,6 @@ export default function LoginScreen() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
-  const sessionExpired = useAuthStore((state) => state.sessionExpired);
-  const clearSessionExpired = useAuthStore((state) => state.clearSessionExpired);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
   const { importDatabaseBackup, importing: isRestoring } = useImportDatabaseBackup();
@@ -53,25 +54,26 @@ export default function LoginScreen() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const { handleApiKeyLogin, isApiKeyLoading } = useApiKeyLogin({ setError });
-  const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError });
-
-  // Show session expired message if redirected here due to token expiry
-  useEffect(() => {
-    if (sessionExpired) {
-      const message =
-        sessionExpired === 'token_revoked' ? t('login.sessionRevoked') : t('login.sessionExpired');
+  // An expired session is not a failed login, so it never takes the red slot.
+  // The two do not stack either: whichever arrived last is the one on screen.
+  const [sessionNotice, dismissSessionNotice] = useSessionExpiryNotice();
+  const reportError = useCallback(
+    (message: string | null) => {
+      if (message) dismissSessionNotice();
       setError(message);
-      clearSessionExpired();
-    }
-  }, [sessionExpired, t, clearSessionExpired]);
+    },
+    [dismissSessionNotice]
+  );
+
+  const { handleApiKeyLogin, isApiKeyLoading } = useApiKeyLogin({ setError: reportError });
+  const { handleOAuthLogin, isLoading } = useOAuthLogin({ setError: reportError });
 
   const handleTryDemo = async () => {
     // Warn before destroying a real account's cached data. Engine holds at
     // most one account at a time, so leftover real-user data has to be
     // wiped before demo can populate. Same dialog as account-switch on login.
     const cachedId = await getCachedAthleteId();
-    if (cachedId && cachedId !== DEMO_ATHLETE_ID) {
+    if (cachedId && accountChangeAction(cachedId, DEMO_ATHLETE_ID) === 'confirm-then-wipe') {
       const proceed = await confirmAccountChange({
         cachedAthleteId: cachedId,
         incomingKind: 'demo',
@@ -117,7 +119,9 @@ export default function LoginScreen() {
 
         {/* Main Login Section */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          {error && (
+          {sessionNotice && <SessionExpiredNotice notice={sessionNotice} />}
+
+          {error && !sessionNotice && (
             <View style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
               <Text style={styles.errorText} testID="login-error-text">

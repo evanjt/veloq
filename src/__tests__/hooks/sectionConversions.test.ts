@@ -115,12 +115,14 @@ jest.mock('@/shared/ffi/ffiConversions', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Helper: build a minimal NativeFrequentSection-like object
+// Both producers send the one section record: the in-memory catalogue
+// (getSections, getSectionById) and the database (getSectionsForActivity).
 // ---------------------------------------------------------------------------
 
-function makeNativeFrequentSection(overrides: Record<string, unknown> = {}) {
+function makeCatalogueSection(overrides: Record<string, unknown> = {}) {
   return {
     id: 'section-1',
+    sectionType: 'auto',
     sportType: 'Ride',
     encodedPolyline: encodeCoords([
       { latitude: 48.0, longitude: 11.0 },
@@ -141,12 +143,14 @@ function makeNativeFrequentSection(overrides: Record<string, unknown> = {}) {
     version: 2,
     updatedAt: '2026-01-15T10:00:00Z',
     createdAt: '2026-01-01T08:00:00Z',
+    isUserDefined: false,
+    disabled: false,
+    supersededBy: null,
     ...overrides,
   };
 }
 
-// A minimal NativeSection-like object (from getSectionsForActivity, many optional fields)
-function makeNativeSection(overrides: Record<string, unknown> = {}) {
+function makeDatabaseSection(overrides: Record<string, unknown> = {}) {
   return {
     id: 'section-2',
     sectionType: 'custom',
@@ -154,6 +158,8 @@ function makeNativeSection(overrides: Record<string, unknown> = {}) {
     encodedPolyline: encodeCoords([{ latitude: 47.0, longitude: 10.0 }]),
     representativeActivityId: null,
     activityIds: ['act-3'],
+    activityPortions: [],
+    routeIds: null,
     visitCount: 1,
     distanceMeters: 500,
     name: null,
@@ -161,6 +167,10 @@ function makeNativeSection(overrides: Record<string, unknown> = {}) {
     observationCount: null,
     averageSpread: null,
     pointDensity: null,
+    createdAt: '',
+    isUserDefined: false,
+    disabled: false,
+    supersededBy: null,
     ...overrides,
   };
 }
@@ -170,12 +180,12 @@ function makeNativeSection(overrides: Record<string, unknown> = {}) {
 // ---------------------------------------------------------------------------
 
 describe('convertNativeSectionToApp', () => {
-  it('converts a full NativeFrequentSection with all fields', () => {
-    const native = makeNativeFrequentSection();
+  it('converts a full catalogue section with all fields', () => {
+    const native = makeCatalogueSection();
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.id).toBe('section-1');
-    expect(result.sectionType).toBe('auto'); // FfiFrequentSection defaults to 'auto'
+    expect(result.sectionType).toBe('auto');
     expect(result.sportType).toBe('Ride');
     expect(result.polyline).toHaveLength(2);
     expect(result.representativeActivityId).toBe('act-1');
@@ -194,8 +204,22 @@ describe('convertNativeSectionToApp', () => {
     expect(result.routeIds).toEqual(['route-1']);
   });
 
+  it('carries the elevation loss the engine recorded', () => {
+    const native = makeCatalogueSection({ elevationGainM: 12, elevationLossM: 640 });
+    const result = convertNativeSectionToApp(native as any);
+
+    expect(result.elevationGainM).toBe(12);
+    expect(result.elevationLossM).toBe(640);
+  });
+
+  it('leaves elevationLossM undefined when the engine has none', () => {
+    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+
+    expect(result.elevationLossM).toBeUndefined();
+  });
+
   it('converts activityPortions with direction casting', () => {
-    const native = makeNativeFrequentSection({
+    const native = makeCatalogueSection({
       activityPortions: [
         { activityId: 'a1', direction: 'same', startIndex: 0, endIndex: 5 },
         { activityId: 'a2', direction: 'reverse', startIndex: 3, endIndex: 8 },
@@ -208,57 +232,69 @@ describe('convertNativeSectionToApp', () => {
     expect(result.activityPortions![1].direction).toBe('reverse');
   });
 
-  it('converts NativeSection with sectionType "custom"', () => {
-    const native = makeNativeSection({ sectionType: 'custom' });
+  it('gives a database section an empty portion list, never a missing one', () => {
+    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+
+    expect(result.activityPortions).toEqual([]);
+  });
+
+  it('defaults routeIds to an empty array when the producer has none', () => {
+    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+
+    expect(result.routeIds).toEqual([]);
+  });
+
+  it('converts a database section with sectionType "custom"', () => {
+    const native = makeDatabaseSection({ sectionType: 'custom' });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.sectionType).toBe('custom');
   });
 
   it('defaults sectionType to "auto" for any non-"custom" value', () => {
-    const native = makeNativeSection({ sectionType: 'something_else' });
+    const native = makeDatabaseSection({ sectionType: 'something_else' });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.sectionType).toBe('auto');
   });
 
   it('uses empty string for representativeActivityId when null', () => {
-    const native = makeNativeFrequentSection({ representativeActivityId: null });
+    const native = makeCatalogueSection({ representativeActivityId: null });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.representativeActivityId).toBe('');
   });
 
   it('defaults confidence to 0 when null', () => {
-    const native = makeNativeSection();
+    const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.confidence).toBe(0);
   });
 
   it('defaults pointDensity to empty array when null', () => {
-    const native = makeNativeSection();
+    const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.pointDensity).toEqual([]);
   });
 
   it('returns empty string for createdAt when input has no createdAt (bug fix)', () => {
-    const native = makeNativeSection();
+    const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.createdAt).toBe('');
   });
 
   it('preserves name as undefined when null', () => {
-    const native = makeNativeFrequentSection({ name: null });
+    const native = makeCatalogueSection({ name: null });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.name).toBeUndefined();
   });
 
   it('decodes encodedPolyline to RoutePoint array', () => {
-    const native = makeNativeFrequentSection({
+    const native = makeCatalogueSection({
       encodedPolyline: encodeCoords([
         { latitude: 1.0, longitude: 2.0 },
         { latitude: 3.0, longitude: 4.0 },
@@ -285,7 +321,7 @@ describe('convertNativeSectionToApp', () => {
     withElevation.set(base);
     withElevation.set(suffix, base.length);
 
-    const native = makeNativeFrequentSection({ encodedPolyline: withElevation.buffer });
+    const native = makeCatalogueSection({ encodedPolyline: withElevation.buffer });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.polyline).toHaveLength(2);

@@ -6,7 +6,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { useRouteDetailData } from '@/features/routes/hooks/useRouteDetailData';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
@@ -170,7 +170,7 @@ export default function RouteDetailScreen() {
         isDark={isDark}
         insetTop={insets.top}
         onBack={() => router.back()}
-        loading={getRouteEngine() == null}
+        loading={getEngine() == null}
         notFoundMessage={t('routeDetail.routeNotFound')}
       />
     );

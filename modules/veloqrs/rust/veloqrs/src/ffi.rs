@@ -82,6 +82,12 @@ pub struct FetchAndStoreResult {
 pub struct ActivitySportMapping {
     pub activity_id: String,
     pub sport_type: String,
+    /// Start of the activity, epoch seconds, or `None` when the caller does
+    /// not know it. It decides whether the sync downloads every series or only
+    /// the three the track needs (`B140`), and the engine cannot supply it:
+    /// `activities.start_date` is filled by the metrics sync, which lands
+    /// after this one on a first run.
+    pub start_date: Option<i64>,
 }
 
 /// Validate a backup database file without touching the global engine.
@@ -213,8 +219,18 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
         return;
     };
 
-    // Build sport type lookup
+    // Build sport type lookup, and alongside it the set of activities inside
+    // the stream retention window, which is what the fetch widens for.
     let sport_map_start = Instant::now();
+    let wide_ids: std::collections::HashSet<String> =
+        crate::persistence::with_persistent_engine(|engine| {
+            sport_types
+                .iter()
+                .filter(|m| engine.inside_stream_window(m.start_date))
+                .map(|m| m.activity_id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
     let sport_map: HashMap<String, String> = sport_types
         .into_iter()
         .map(|m| (m.activity_id, m.sport_type))
@@ -256,8 +272,11 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
 
         // Fetch GPS data
         let fetch_start = Instant::now();
-        let fetch_results =
-            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids_clone.clone(), None));
+        let fetch_results = crate::runtime::block_on(fetcher.fetch_activity_maps(
+            activity_ids_clone.clone(),
+            wide_ids,
+            None,
+        ));
         let fetch_success_count = fetch_results.iter().filter(|r| r.success).count();
         info!(
             "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",
@@ -321,6 +340,22 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
                                         )]) {
                                             log::warn!(
                                                 "[Elevation] {} stored without provenance: {}",
+                                                result.activity_id,
+                                                e
+                                            );
+                                        }
+                                        // Empty unless the fetch was widened.
+                                        // The track is already down, so a
+                                        // failure here costs the series and
+                                        // not the activity.
+                                        if !result.streams.is_empty()
+                                            && let Err(e) = engine.store_activity_streams(
+                                                &result.activity_id,
+                                                &result.streams,
+                                            )
+                                        {
+                                            log::warn!(
+                                                "[Streams] {} stored without its series: {}",
                                                 result.activity_id,
                                                 e
                                             );
@@ -540,6 +575,46 @@ pub struct ElevationBackfillProgress {
     pub percent: u32,
 }
 
+/// Tell the engine what TypeScript sees on the network.
+///
+/// `Q65` put the network lifecycle in Rust, and nothing in the crate can see
+/// the network itself, so this is the whole of its connectivity input. Call it
+/// from the same place that calls `onlineManager.setOnline`, on every
+/// transition and on foreground, so there is one debounce and one edge rather
+/// than two.
+///
+/// The value is advisory and only ever a reason to refuse work: a state
+/// nobody has refreshed for fifteen minutes expires back to "try", and an
+/// install that never calls this behaves exactly as it did before.
+#[uniffi::export]
+pub fn set_network_online(online: bool) {
+    init_logging();
+    crate::net::connectivity::set_online(online);
+}
+
+/// What was last pushed to [`set_network_online`], and how many seconds ago.
+///
+/// `null` means nothing has ever been pushed. For the debug screen and for
+/// tests that need to see the push landed, not for scheduling: everything
+/// that schedules reads the state in Rust.
+#[uniffi::export]
+pub fn get_network_push() -> Option<NetworkPush> {
+    crate::net::connectivity::last_push().map(|(online, age)| NetworkPush {
+        online,
+        age_seconds: age.as_secs().try_into().unwrap_or(u32::MAX),
+    })
+}
+
+/// The last connectivity state TypeScript pushed, with its age.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NetworkPush {
+    /// What was pushed.
+    pub online: bool,
+    /// Seconds since the push. Past the staleness window the engine ignores
+    /// the value and tries anyway.
+    pub age_seconds: u32,
+}
+
 /// Start the elevation backfill on a background thread.
 ///
 /// Returns false when nothing is outstanding, when a run is already in flight,
@@ -553,12 +628,18 @@ pub fn start_elevation_backfill() -> bool {
 /// How many stored tracks the backfill still has to ask upstream about.
 /// Zero means the library has been fully asked, so the launch trigger can
 /// stop attempting runs for this install.
+///
+/// Raises rather than answering zero when it cannot answer at all. The launch
+/// trigger stamps the app version on a zero and the cutover trigger reads one
+/// as permission to cut, so an absent engine or a locked database has to reach
+/// the caller as the null its delegate already handles.
 #[uniffi::export]
-pub fn get_elevation_backfill_remaining() -> u32 {
-    crate::persistence::with_persistent_engine(|e| e.elevation_backfill_remaining())
-        .unwrap_or(0)
-        .try_into()
-        .unwrap_or(u32::MAX)
+pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
+    let remaining = crate::objects::error::with_engine(|e| e.elevation_backfill_remaining())?
+        .map_err(|e| crate::VeloqError::Database {
+            msg: format!("{}", e),
+        })?;
+    Ok(remaining.try_into().unwrap_or(u32::MAX))
 }
 
 /// Read the elevation backfill's progress. Safe to poll at any time.
@@ -648,6 +729,11 @@ pub fn get_cutover_diff() -> Option<String> {
 ///
 /// Used for illustrations and previews. Takes JSON-encoded inputs and returns
 /// JSON-encoded FrequentSection array.
+///
+/// Untimed, unlike the real detect and the section preview, which both read
+/// the stored streams. Its only caller draws the synthetic detection
+/// illustration in settings, whose traces carry neither elevation nor time,
+/// so the lift veto takes its early exit whatever is passed here.
 #[uniffi::export]
 pub fn detect_sections_standalone(
     tracks_json: String,

@@ -50,7 +50,7 @@ import {
   SectionTrimOverlay,
   SportTypeSelector,
 } from '@/features/routes';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { ScreenErrorBoundary } from '@/shared/ui';
@@ -113,8 +113,6 @@ export default function SectionDetailScreen() {
     setHighlightedActivityId,
     highlightedActivityPoints,
     setHighlightedActivityPoints,
-    isScrubbing,
-    setIsScrubbing,
     mapReady,
     setMapReady,
     mergeTarget,
@@ -243,13 +241,6 @@ export default function SectionDetailScreen() {
     [setHighlightedActivityId, setHighlightedActivityPoints]
   );
 
-  const handleScrubChange = useCallback(
-    (scrubbing: boolean) => {
-      setIsScrubbing(scrubbing);
-    },
-    [setIsScrubbing]
-  );
-
   const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
     useSectionActivityData(
       section,
@@ -353,7 +344,7 @@ export default function SectionDetailScreen() {
         isDark={isDark}
         insetTop={insets.top}
         onBack={() => router.back()}
-        loading={getRouteEngine() == null}
+        loading={getEngine() == null}
         notFoundMessage={t('sections.sectionNotFound')}
       />
     );
@@ -398,7 +389,6 @@ export default function SectionDetailScreen() {
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
-            isScrubbing={isScrubbing}
             nearbyPolylines={nearbyPolylines}
             onNearbyPress={
               isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
@@ -438,7 +428,6 @@ export default function SectionDetailScreen() {
               originalDistance={section.distanceMeters}
               isSaving={isTrimSaving}
               canReset={canResetBounds}
-              initiallyExpanded={!canResetBounds}
               isExpandMode={isExpandMode}
               sectionStartInWindow={sectionStartInWindow}
               sectionEndInWindow={sectionEndInWindow}
@@ -487,7 +476,6 @@ export default function SectionDetailScreen() {
               excludedActivityIds={excludedActivityIds}
               sectionTimeRange={sectionTimeRange}
               onActivitySelect={handleActivitySelect}
-              onScrubChange={handleScrubChange}
               onExcludeActivity={handleExcludeActivity}
               onIncludeActivity={handleIncludeActivity}
               onSetAsReference={handleSetAsReference}

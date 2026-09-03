@@ -1,4 +1,4 @@
-//! Activity indicators: materialized PR and trend badges.
+//! Activity indicators: materialised PR and trend badges.
 //!
 //! Computed once after sync/detection, stored in `activity_indicators` table.
 //! Feed card rendering reads from this table - no on-demand computation needed.
@@ -6,13 +6,17 @@
 use rusqlite::{Result as SqlResult, params};
 use std::collections::HashMap;
 
-use super::{PersistentRouteEngine, codec};
+use super::{PersistentEngine, codec};
+
+/// A traversal has to beat, or miss, the running average by this fraction
+/// before the feed card calls it a move. Matches the section ranking deadband.
+const TREND_DEADBAND: f64 = 0.02;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
 const INDICATOR_ALGORITHM_VERSION: i32 = 5;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
     ///
     /// Called after:
@@ -38,7 +42,7 @@ impl PersistentRouteEngine {
         let backfilled = self.backfill_null_lap_times()?;
         if backfilled > 0 {
             log::info!(
-                "tracematch: [indicators] Backfilled lap_time for {} section portions from time streams",
+                "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
                 backfilled
             );
         }
@@ -59,7 +63,7 @@ impl PersistentRouteEngine {
         tx.commit()?;
 
         log::info!(
-            "tracematch: [indicators] Recomputed {} section indicators (v{})",
+            "veloqrs: [indicators] Recomputed {} section indicators (v{})",
             section_count,
             INDICATOR_ALGORITHM_VERSION
         );
@@ -201,19 +205,13 @@ impl PersistentRouteEngine {
             let mut count = 0u32;
 
             for (activity_id, lap_time) in &traversals {
-                let is_pr = (*lap_time - best_time).abs() < 0.001; // float epsilon
+                let is_pr = crate::persistence::records::is_personal_record(*lap_time, best_time);
 
                 let trend: i8 = if count == 0 {
                     0
                 } else {
                     let avg = running_sum / count as f64;
-                    if *lap_time < avg * 0.98 {
-                        1 // 2%+ faster
-                    } else if *lap_time > avg * 1.02 {
-                        -1 // 2%+ slower
-                    } else {
-                        0
-                    }
+                    crate::trend::classify_time(avg, *lap_time, TREND_DEADBAND).unwrap_or(0)
                 };
 
                 // PR forces trend to 1 (improving by definition)
@@ -310,12 +308,12 @@ impl PersistentRouteEngine {
 
         if stored_version < INDICATOR_ALGORITHM_VERSION {
             log::info!(
-                "tracematch: [indicators] Version mismatch (stored={}, current={}) - recomputing",
+                "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
                 stored_version,
                 INDICATOR_ALGORITHM_VERSION
             );
             if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("tracematch: [indicators] Recomputation failed: {}", e);
+                log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
             }
         }
 
@@ -334,7 +332,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(&sql) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("tracematch: [indicators] read failed: {}", e);
+                log::warn!("veloqrs: [indicators] read failed: {}", e);
                 return vec![];
             }
         };
@@ -357,39 +355,9 @@ impl PersistentRouteEngine {
         }) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                log::warn!("tracematch: [indicators] query failed: {}", e);
+                log::warn!("veloqrs: [indicators] query failed: {}", e);
                 vec![]
             }
-        }
-    }
-
-    /// Read pre-computed indicators for a single activity.
-    pub fn get_indicators_for_activity(
-        &self,
-        activity_id: &str,
-    ) -> Vec<crate::FfiActivityIndicator> {
-        let mut stmt = match self.db.prepare(
-            "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
-             FROM activity_indicators
-             WHERE activity_id = ?",
-        ) {
-            Ok(s) => s,
-            Err(_) => return vec![],
-        };
-
-        match stmt.query_map([activity_id], |row| {
-            Ok(crate::FfiActivityIndicator {
-                activity_id: row.get(0)?,
-                indicator_type: row.get(1)?,
-                target_id: row.get(2)?,
-                target_name: row.get(3)?,
-                direction: row.get(4)?,
-                lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                trend: row.get(6)?,
-            })
-        }) {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(_) => vec![],
         }
     }
 

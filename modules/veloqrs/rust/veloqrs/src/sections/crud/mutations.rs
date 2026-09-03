@@ -1,16 +1,14 @@
-//! Section mutations: create, rename, reference, delete, save, activity matching.
+//! Section mutations: create, rename, reference, delete, activity matching.
 //!
 //! Covers create/save operations, reference-activity selection (including complex
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{
-    BatchAttachSummary, CreateSectionParams, IndexActivitySummary, Section, SectionType,
-};
+use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use super::compute_section_portions;
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
@@ -26,7 +24,7 @@ pub(super) struct ExclusionSnapshot {
     pub(super) partial: Vec<(String, Vec<u32>)>,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Exclude an activity from a section's analysis.
     /// Sets the `excluded` flag to 1 on the junction table row(s).
     pub fn exclude_activity_from_section(
@@ -114,7 +112,6 @@ impl PersistentRouteEngine {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let rand_suffix: u32 = (ts % 100000) as u32;
 
         // Determine section type based on whether source_activity_id is provided
         let (section_type, id_prefix) = if params.source_activity_id.is_some() {
@@ -123,10 +120,37 @@ impl PersistentRouteEngine {
             (SectionType::Auto, "auto")
         };
 
-        let id = format!("{}_{}__{:05}", id_prefix, ts, rand_suffix);
+        // The trailing number disambiguates draws that share a millisecond. It
+        // was `ts % 100000`, a second reading of the same clock, so it carried no
+        // information and two calls inside one millisecond minted the same id.
+        // The `custom_` prefix is load-bearing in five places, so the shape stays
+        // and only the number is earned, the way `content_id_for` earns its own.
+        let mut id = String::new();
+        for n in 0..100_000u32 {
+            let candidate = format!("{}_{}__{:05}", id_prefix, ts, n);
+            let taken: bool = self
+                .db
+                .query_row(
+                    "SELECT 1 FROM sections WHERE id = ?",
+                    params![candidate],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(|e| format!("Failed to check section id: {}", e))?
+                .is_some();
+            if !taken {
+                id = candidate;
+                break;
+            }
+        }
+        if id.is_empty() {
+            return Err(format!(
+                "Failed to create section: every id for millisecond {} is taken",
+                ts
+            ));
+        }
         let created_at = chrono::Utc::now().to_rfc3339();
-        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let polyline_blob = crate::persistence::codec::serialize_track_points(&params.polyline);
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -142,14 +166,40 @@ impl PersistentRouteEngine {
                 (None, None, None, None)
             };
 
+        // A cut from a stored ride is a slice of that ride, and the reference
+        // triple is what a reader re-slices from. Without it the blob is the
+        // only copy of a line the source activity still holds. The caller's
+        // range is inclusive, the map hands `slice(start, end + 1)` to the
+        // polyline above, while the triple is half-open, so the end moves on
+        // by one crossing over. A range that spans one point is not a line and
+        // indexes nothing worth rebuilding.
+        let spans_a_line = matches!(
+            (params.start_index, params.end_index),
+            (Some(start), Some(end)) if end > start
+        );
+        let reference = crate::persistence::sections::geometry::reference(
+            params.source_activity_id.as_deref(),
+            params.start_index.filter(|_| spans_a_line),
+            params
+                .end_index
+                .filter(|_| spans_a_line)
+                .map(|end| end.saturating_add(1)),
+        );
+        let geometry_source = if reference.is_some() {
+            crate::persistence::sections::SOURCE_EXACT
+        } else {
+            crate::persistence::sections::SOURCE_CONSENSUS
+        };
+
         self.db
             .execute(
                 "INSERT INTO sections (
                     id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
                     representative_activity_id, source_activity_id, start_index, end_index,
+                    rep_start_index, rep_end_index, geometry_source,
                     created_at, is_user_defined,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     id,
                     section_type.as_str(),
@@ -162,6 +212,9 @@ impl PersistentRouteEngine {
                     params.source_activity_id,
                     params.start_index,
                     params.end_index,
+                    reference.map(|(_, start, _)| start),
+                    reference.map(|(_, _, end)| end),
+                    geometry_source,
                     created_at,
                     1,
                     bounds_min_lat,
@@ -182,12 +235,12 @@ impl PersistentRouteEngine {
         // get_sections() reflects it without a reload.
         self.refresh_section_in_memory(&id);
 
-        // Refresh the materialized activity_indicators table so feed cards
+        // Refresh the materialised activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [create_section] indicator recompute failed: {}",
+                "veloqrs: [create_section] indicator recompute failed: {}",
                 e
             );
         }
@@ -330,16 +383,18 @@ impl PersistentRouteEngine {
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         if section_type == "custom" {
-            // For custom sections, update polyline from new activity's track using indices
+            // The stored range is the one the athlete drew, and the map writes
+            // it inclusive, so the cut runs one past the end. A stream shorter
+            // than the range is clamped rather than refused: the athlete asked
+            // for this activity's line and the part of it that exists is it.
             let start = start_index.unwrap_or(0) as usize;
-            let end = end_index.unwrap_or(track.len() as u32) as usize;
-            let polyline: Vec<GpsPoint> = track
-                .get(start..end.min(track.len()))
-                .unwrap_or(&[])
-                .to_vec();
+            let end = end_index
+                .map(|end| end as usize + 1)
+                .unwrap_or(track.len())
+                .min(track.len());
+            let polyline: Vec<GpsPoint> = track.get(start..end).unwrap_or(&[]).to_vec();
 
-            let polyline_blob = crate::persistence::codec::serialize_points(&polyline)
-                .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+            let polyline_blob = crate::persistence::codec::serialize_track_points(&polyline);
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -405,7 +460,7 @@ impl PersistentRouteEngine {
             let new_distance = calculate_route_distance(&new_polyline);
 
             log::info!(
-                "tracematch: [set_section_reference] section={} activity={} \
+                "veloqrs: [set_section_reference] section={} activity={} \
                  track_points={} portion_points={} current_distance={:.0}m new_distance={:.0}m",
                 section_id,
                 activity_id,
@@ -421,7 +476,7 @@ impl PersistentRouteEngine {
             let max_allowed_distance = current_distance * 3.0;
             if new_distance > max_allowed_distance {
                 log::warn!(
-                    "tracematch: [set_section_reference] Extracted portion ({:.0}m) exceeds 3x \
+                    "veloqrs: [set_section_reference] Extracted portion ({:.0}m) exceeds 3x \
                      original section length ({:.0}m). Keeping original polyline, only updating \
                      representative_activity_id.",
                     new_distance,
@@ -462,8 +517,8 @@ impl PersistentRouteEngine {
                         .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                 }
 
-                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
-                    .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+                let polyline_blob =
+                    crate::persistence::codec::serialize_track_points(&new_polyline);
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db
@@ -769,14 +824,14 @@ impl PersistentRouteEngine {
             match self.recompute_activity_indicators() {
                 Ok(()) => summary.indicators_recomputed = true,
                 Err(e) => log::warn!(
-                    "tracematch: [index_new_activity] indicator recompute failed: {}",
+                    "veloqrs: [index_new_activity] indicator recompute failed: {}",
                     e
                 ),
             }
         }
 
         log::info!(
-            "tracematch: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
+            "veloqrs: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
             activity_id,
             summary.matched_sections,
             summary.inserted_portions,
@@ -869,7 +924,7 @@ impl PersistentRouteEngine {
         match self.attach_activity_junctions(activity_id) {
             Ok(counts) => counts,
             Err(e) => {
-                log::warn!("tracematch: [attach] {} failed: {}", activity_id, e);
+                log::warn!("veloqrs: [attach] {} failed: {}", activity_id, e);
                 (0, 0)
             }
         }
@@ -886,7 +941,7 @@ impl PersistentRouteEngine {
             match self.recompute_activity_indicators() {
                 Ok(()) => (false, true),
                 Err(e) => {
-                    log::warn!("tracematch: [attach] indicator recompute failed: {}", e);
+                    log::warn!("veloqrs: [attach] indicator recompute failed: {}", e);
                     (false, false)
                 }
             }
@@ -914,7 +969,7 @@ impl PersistentRouteEngine {
         summary.indicators_recomputed = indicators;
 
         log::info!(
-            "tracematch: [attach] {}/{} activities attached ({} portions, regrouped={})",
+            "veloqrs: [attach] {}/{} activities attached ({} portions, regrouped={})",
             summary.attached_activities,
             activity_ids.len(),
             summary.inserted_portions,
@@ -947,7 +1002,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
+            "veloqrs: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
             activity_ids.len(),
             section_id,
             sport_type
@@ -976,7 +1031,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Found {} matching activities for section {}",
+            "veloqrs: [match_activities_to_section] Found {} matching activities for section {}",
             match_count,
             section_id
         );
@@ -1041,93 +1096,14 @@ impl PersistentRouteEngine {
         self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the
-        // materialized indicators table so feed cards stop showing chips
+        // materialised indicators table so feed cards stop showing chips
         // for a section the user just removed.
         if let Err(e) = self.recompute_activity_indicators() {
             log::warn!(
-                "tracematch: [delete_section] indicator recompute failed: {}",
+                "veloqrs: [delete_section] indicator recompute failed: {}",
                 e
             );
         }
-
-        Ok(())
-    }
-
-    /// Save a section (insert or update).
-    /// Used by section detection to persist auto-detected sections.
-    pub fn save_section(&mut self, section: &Section) -> Result<(), String> {
-        let polyline_blob = crate::persistence::codec::serialize_points(&section.polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
-        let point_density_blob = match section.point_density.as_ref() {
-            Some(pd) => Some(
-                crate::persistence::codec::serialize(pd)
-                    .map_err(|e| format!("Failed to encode point density: {}", e))?,
-            ),
-            None => None,
-        };
-
-        // Compute bounds from polyline
-        let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
-            if section.polyline.len() >= 2 {
-                let bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
-                (
-                    Some(bounds.min_lat),
-                    Some(bounds.max_lat),
-                    Some(bounds.min_lng),
-                    Some(bounds.max_lng),
-                )
-            } else {
-                (None, None, None, None)
-            };
-
-        self.db
-            .execute(
-                "INSERT OR REPLACE INTO sections (
-                    id, section_type, name, sport_type, polyline_json, distance_meters,
-                    representative_activity_id, confidence, observation_count, average_spread,
-                    point_density_json, scale, version, is_user_defined, stability,
-                    source_activity_id, start_index, end_index, created_at, updated_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    polyline_blob, point_density_blob
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                params![
-                    section.id,
-                    section.section_type.as_str(),
-                    section.name,
-                    section.sport_type,
-                    crate::persistence::codec::NO_POLYLINE_JSON,
-                    section.distance_meters,
-                    section.representative_activity_id,
-                    section.confidence,
-                    section.observation_count,
-                    section.average_spread,
-                    None::<String>, // point_density_json: legacy column, blob is authoritative
-                    section.scale,
-                    section.version.unwrap_or(1),
-                    if section.is_user_defined { 1 } else { 0 },
-                    section.stability,
-                    section.source_activity_id,
-                    section.start_index,
-                    section.end_index,
-                    section.created_at,
-                    section.updated_at,
-                    bounds_min_lat,
-                    bounds_max_lat,
-                    bounds_min_lng,
-                    bounds_max_lng,
-                    polyline_blob,
-                    point_density_blob,
-                ],
-            )
-            .map_err(|e| format!("Failed to save section: {}", e))?;
-
-        // Update junction table
-        for activity_id in &section.activity_ids {
-            self.add_section_activity(&section.id, activity_id)?;
-        }
-
-        // Invalidate cache so next fetch gets fresh data
-        self.invalidate_section_cache(&section.id);
 
         Ok(())
     }

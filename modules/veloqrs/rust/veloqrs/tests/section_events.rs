@@ -1,4 +1,4 @@
-//! The D5 emitter: the identity apply turns fired lifecycle changes into
+//! The lifecycle emitter: the identity apply turns fired changes into
 //! `section_history` and `section_geometry` rows, written inside the same
 //! transaction as the catalogue save. Contracts:
 //! - a mint writes one `formed` event with the birth geometry as version 1,
@@ -100,7 +100,7 @@ fn section_on(snap: &SectionSnapshot, ground: &[GpsPoint]) -> Option<(String, Se
         .map(|(id, f)| (id.clone(), f.clone()))
 }
 
-fn kinds(engine: &veloqrs::PersistentRouteEngine, id: &str) -> Vec<String> {
+fn kinds(engine: &veloqrs::PersistentEngine, id: &str) -> Vec<String> {
     engine
         .section_history(id)
         .into_iter()
@@ -516,7 +516,7 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
     });
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     // One second per point on every stream, so junction rows carry lap times.
-    let timed = |engine: &mut veloqrs::PersistentRouteEngine, acts: &[&LifecycleActivity]| {
+    let timed = |engine: &mut veloqrs::PersistentEngine, acts: &[&LifecycleActivity]| {
         let mut ids = Vec::new();
         let mut times: Vec<u32> = Vec::new();
         let mut offsets = Vec::new();
@@ -624,7 +624,7 @@ fn a_promotion_mutation_drops_the_pin() {
     let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
     let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
 
-    let pin = |engine: &mut veloqrs::PersistentRouteEngine| {
+    let pin = |engine: &mut veloqrs::PersistentEngine| {
         engine
             .revert_section_to_version(&id, 1)
             .expect("revert pins");

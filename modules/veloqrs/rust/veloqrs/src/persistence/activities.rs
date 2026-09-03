@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use super::codec;
 use super::codec::{TrackRead, TrackWalk};
-use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
@@ -51,7 +51,7 @@ impl ElevationStateCounts {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -217,7 +217,7 @@ impl PersistentRouteEngine {
             return Ok(());
         }
 
-        // R6 freshness: an add that REPLACES a previously-synced activity with a
+        // An add that REPLACES a previously-synced activity with a
         // DIFFERENT track is a GPS mutation the catalogue must re-derive. Detect
         // it here, before the store overwrites the old track, so the ids can be
         // evicted from the processed set after commit (below). A verbatim
@@ -228,8 +228,8 @@ impl PersistentRouteEngine {
             .filter(|(id, coords, _)| {
                 self.activity_metadata.contains_key(id)
                     && self
-                        .load_gps_track_from_db(id)
-                        .map(|stored| stored != *coords)
+                        .load_gps_track_blob(id)
+                        .map(|stored| !codec::track_matches(&stored, coords))
                         .unwrap_or(true)
             })
             .map(|(id, _, _)| id.clone())
@@ -391,7 +391,7 @@ impl PersistentRouteEngine {
         // aborting the whole apply on a foreign-key violation.
         self.section_identity_purge_activity(id);
 
-        // R6 freshness: the removed activity may have contributed to any section,
+        // The removed activity may have contributed to any section,
         // so the next detect must re-derive the catalogue without it. Its id is
         // now gone from `activity_metadata`, so it can never re-enter
         // `new_activity_ids`, a targeted eviction can't defeat the
@@ -457,6 +457,7 @@ impl PersistentRouteEngine {
              DELETE FROM activity_heatmap;
              DELETE FROM time_streams;
              DELETE FROM stream_bodies;
+             DELETE FROM activity_streams;
              DELETE FROM interval_bodies;
              DELETE FROM curve_bodies;
              DELETE FROM calendar_event_bodies;
@@ -561,8 +562,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // Delete activities older than 90 days
     /// let deleted = engine.cleanup_old_activities(90).unwrap();
     /// println!("Deleted {} old activities", deleted);
@@ -575,7 +576,7 @@ impl PersistentRouteEngine {
         // If retention_days is 0, keep all activities
         if retention_days == 0 {
             log::info!(
-                "tracematch: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
+                "veloqrs: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
             );
             return Ok(0);
         }
@@ -609,7 +610,7 @@ impl PersistentRouteEngine {
             self.sections_dirty = true;
 
             log::info!(
-                "tracematch: [PersistentEngine] Cleaned up {} activities older than {} days",
+                "veloqrs: [PersistentEngine] Cleaned up {} activities older than {} days",
                 deleted,
                 retention_days
             );
@@ -626,8 +627,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // User expanded cache from 90 days to 1 year
     /// engine.mark_for_recomputation();
     /// // Next access to groups/sections will re-compute with improved data
@@ -637,7 +638,7 @@ impl PersistentRouteEngine {
         if !self.groups_dirty && !self.sections_dirty {
             self.groups_dirty = true;
             self.sections_dirty = true;
-            log::info!("tracematch: [PersistentEngine] Marked for re-computation (cache expanded)");
+            log::info!("veloqrs: [PersistentEngine] Marked for re-computation (cache expanded)");
         }
     }
 
@@ -693,8 +694,7 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
-        let track_data = codec::serialize_points(coords)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        let track_data = codec::serialize_track_points(coords);
         self.db.execute(
             "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
              VALUES (?, ?, ?)",
@@ -768,8 +768,10 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        let points_blob = codec::serialize_points(&sig.points)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        // One codec for stored GPS, ~3 B/point against postcard's 25 (`Q15`,
+        // `B137`). Every earlier container still reads, so no bulk rewrite
+        // runs: a row moves when its activity is next stored.
+        let points_blob = codec::serialize_track_points(&sig.points);
         self.db.execute(
             "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -843,82 +845,6 @@ impl PersistentRouteEngine {
             .locate_in_envelope_intersecting(&search_bounds)
             .map(|b| b.activity_id.clone())
             .collect()
-    }
-
-    /// Get all activities with complete metadata for map display.
-    /// Queries the database for metadata fields (date, name, distance, duration).
-    /// Get activities filtered by date range and sport types.
-    /// - start_ts: Unix timestamp (seconds) for start of range
-    /// - end_ts: Unix timestamp (seconds) for end of range
-    /// - sport_types: Optional list of sport types to include (empty = all)
-    pub fn get_map_activities_filtered(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-        sport_types: &[String],
-    ) -> Vec<MapActivityComplete> {
-        // Build query based on filters
-        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                                 COALESCE(start_date, 0) as start_date,
-                                 COALESCE(name, '') as name,
-                                 COALESCE(distance_meters, 0.0) as distance_meters,
-                                 COALESCE(duration_secs, 0) as duration_secs
-                          FROM activities
-                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
-
-        let query = if sport_types.is_empty() {
-            base_query.to_string()
-        } else {
-            let placeholders = sport_types
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("{} AND sport_type IN ({})", base_query, placeholders)
-        };
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
-                return Vec::new();
-            }
-        };
-
-        // Build params
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start_ts), Box::new(end_ts)];
-        for sport in sport_types {
-            params.push(Box::new(sport.clone()));
-        }
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-        let results = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(MapActivityComplete {
-                activity_id: row.get(0)?,
-                sport_type: row.get(1)?,
-                bounds: crate::FfiBounds {
-                    min_lat: row.get(2)?,
-                    max_lat: row.get(3)?,
-                    min_lng: row.get(4)?,
-                    max_lng: row.get(5)?,
-                },
-                date: row.get(6)?,
-                name: row.get(7)?,
-                distance: row.get(8)?,
-                duration: row.get(9)?,
-            })
-        });
-
-        match results {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!(
-                    "[PersistentEngine] Failed to query filtered activities: {}",
-                    e
-                );
-                Vec::new()
-            }
-        }
     }
 
     /// Get a signature, loading from DB if not cached.
@@ -1296,37 +1222,20 @@ impl PersistentRouteEngine {
         self.track(id).into_option("get_gps_track", id)
     }
 
-    /// Get all GPS tracks from database for tile generation.
-    /// Returns a vector of track point arrays, suitable for heatmap rendering.
-    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
-        let mut tracks: Vec<Vec<GpsPoint>> = Vec::new();
-        let mut total_points = 0usize;
-        let walk = self.for_each_track(|_, points| {
-            if points.is_empty() {
-                return;
-            }
-            total_points += points.len();
-            tracks.push(points.to_vec());
-        });
-        if walk.corrupt > 0 || walk.is_incomplete() {
-            log::warn!(
-                "[get_all_tracks] {} tracks, {} total points, {} corrupt, {} unreadable rows: the result is incomplete",
-                tracks.len(),
-                total_points,
-                walk.corrupt,
-                walk.failed
-            );
-        } else {
-            log::info!(
-                "[get_all_tracks] {} tracks, {} total points",
-                tracks.len(),
-                total_points
-            );
-        }
-        tracks
+    /// Load original GPS track from database (separate function to avoid borrow issues)
+    /// The stored bytes, undecoded. The mutation check compares encodings
+    /// rather than points, so it must not go through a decode that would erase
+    /// which container the row is in.
+    fn load_gps_track_blob(&self, activity_id: &str) -> Option<Vec<u8>> {
+        self.db
+            .query_row(
+                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .ok()
     }
 
-    /// Load original GPS track from database (separate function to avoid borrow issues)
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
         self.track(activity_id)
             .into_option("load_gps_track_from_db", activity_id)
@@ -1451,23 +1360,6 @@ impl PersistentRouteEngine {
             .filter(|id| !cached_in_sqlite.contains(*id))
             .cloned()
             .collect()
-    }
-
-    /// Check if a specific activity has a time stream (in memory or SQLite).
-    pub fn has_time_stream(&self, activity_id: &str) -> bool {
-        // First check memory cache
-        if self.time_streams.contains(activity_id) {
-            return true;
-        }
-        // Then check SQLite
-        let mut stmt = match self
-            .db
-            .prepare("SELECT 1 FROM time_streams WHERE activity_id = ? LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        stmt.exists(params![activity_id]).unwrap_or(false)
     }
 
     /// Ensure time stream is loaded into memory (from SQLite if needed).

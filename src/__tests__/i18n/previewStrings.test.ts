@@ -12,8 +12,6 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const SETTINGS_KEYS = [
   'previewSections',
-  'previewIntro',
-  'previewPickArea',
   'previewAreaFallback',
   'previewAreaVisits',
   'previewAreaSections',
@@ -37,6 +35,8 @@ const SETTINGS_KEYS = [
   'previewDiscard',
   'previewKeepTitle',
   'previewKeepWarning',
+  'previewKeepRefusedTitle',
+  'previewKeepRefused',
 ] as const;
 
 const SECTIONS_KEYS = ['elevationGain', 'avgGrade'] as const;

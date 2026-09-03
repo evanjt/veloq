@@ -188,7 +188,7 @@ export function DetectionIllustration({
 
     const run = async () => {
       try {
-        const { getNativeModule } = require('@/shared/native/routeEngine');
+        const { getNativeModule } = require('@/shared/native/engine');
         const mod = getNativeModule();
         if (!mod) {
           setHighlights(FALLBACK);
@@ -204,26 +204,6 @@ export function DetectionIllustration({
           samplePoints: 50,
           detectionMode: 'discovery',
           includePotentials: false,
-          scalePresets: [
-            {
-              name: 'short',
-              minLength: 50,
-              maxLength: 500,
-              minActivities: Math.max(minActivities, 2),
-            },
-            {
-              name: 'medium',
-              minLength: 500,
-              maxLength: 2000,
-              minActivities: Math.max(minActivities, 2),
-            },
-            {
-              name: 'long',
-              minLength: 2000,
-              maxLength: 50000,
-              minActivities: Math.max(minActivities, 2),
-            },
-          ],
           preserveHierarchy: true,
           enableDensitySplits: false,
           divergenceThreshold,

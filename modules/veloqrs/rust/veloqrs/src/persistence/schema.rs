@@ -5,13 +5,13 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, codec, sections};
+use super::{PersistentEngine, codec, sections};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 20;
+    pub(super) const SCHEMA_VERSION: i32 = 21;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -20,10 +20,11 @@ impl PersistentRouteEngine {
     /// M14: untyped activity bodies.
     /// M15: untyped curve, interval and calendar bodies.
     /// M16: bounded activity stream body cache.
-    /// M17: section history, geometry versions and pins (B4 core).
+    /// M17: section history, geometry versions and pins.
     /// M18: persisted evidence cache.
     /// M19: section enrichment and ranking columns.
     /// M20: settled FIT verdict, replacing the has_sets bit a failure poisoned.
+    /// M21: durable per-activity stream store, sized by the athlete.
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
     /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
@@ -57,10 +58,11 @@ impl PersistentRouteEngine {
             include_str!("../migrations/018_evidence_cache.sql"),
             include_str!("../migrations/019_enrichment.sql"),
             include_str!("../migrations/020_fit_status_failures.sql"),
+            include_str!("../migrations/021_activity_streams.sql"),
         ]
     }
 
-    /// Initialize the database schema using migrations.
+    /// Initialise the database schema using migrations.
     pub(super) fn init_schema(conn: &mut Connection) -> SqlResult<()> {
         // Create schema_info table if not exists (for app-level version tracking)
         conn.execute(
@@ -81,21 +83,13 @@ impl PersistentRouteEngine {
             .unwrap_or(0);
 
         log::info!(
-            "tracematch: [Schema] Current version: {}, Target version: {}",
+            "veloqrs: [Schema] Current version: {}, Target version: {}",
             current_version,
             Self::SCHEMA_VERSION
         );
 
-        // Handle pre-migration databases: if tables exist but no migration state,
-        // we need to migrate the old blob-based sections before running migrations
-        if current_version < 2 {
-            Self::migrate_legacy_sections(conn)?;
-
-            // Migrate legacy section_names table if it exists (must run before SQL migrations)
-            Self::migrate_legacy_section_names(conn)?;
-        }
-
         // Run all pending migrations
+        let migrations_started = std::time::Instant::now();
         Self::migrations().to_latest(conn).map_err(|e| {
             rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -115,17 +109,15 @@ impl PersistentRouteEngine {
             [],
         )?;
 
-        log::info!(
-            "tracematch: [Schema] Migration complete. Now at version {}",
-            Self::SCHEMA_VERSION
-        );
+        let migrations_ms = crate::elapsed_ms(migrations_started);
+        let hooks_started = std::time::Instant::now();
 
         if current_version < 12 {
             Self::migrate_polyline_json_to_blob(conn)?;
             Self::migrate_route_group_ids_to_blob(conn)?;
         }
 
-        // Phase 3 (B4): the visit_count denormalisation column and its recompute
+        // The visit_count denormalisation column and its recompute
         // triggers live here rather than in 017.sql because ADD COLUMN is not
         // idempotent under the raw repeated apply that migration_017_is_rerunnable
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
@@ -135,6 +127,7 @@ impl PersistentRouteEngine {
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_sections_geometry_provenance(conn)?;
+        Self::backfill_custom_section_reference(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
         Self::ensure_gps_track_elevation_state(conn)?;
         Self::ensure_section_elevation_columns(conn)?;
@@ -154,7 +147,7 @@ impl PersistentRouteEngine {
                 )?;
                 if needs_population > 0 {
                     log::info!(
-                        "tracematch: [Migration] Populating performance cache for {} section portions...",
+                        "veloqrs: [Migration] Populating performance cache for {} section portions...",
                         needs_population
                     );
                     Self::populate_performance_cache(conn)?;
@@ -171,12 +164,26 @@ impl PersistentRouteEngine {
             }
         }
 
+        // The first launch after an update is the one a user waits on, and a
+        // field report of a slow one is unactionable without a split between
+        // the SQL chain and these hooks. Only an upgrade reports: an ordinary
+        // launch migrates nothing, so a timing there would read as one.
+        if current_version < Self::SCHEMA_VERSION {
+            log::info!(
+                "veloqrs: [Schema] Migration complete from version {} to {}, migrations {}ms, hooks {}ms",
+                current_version,
+                Self::SCHEMA_VERSION,
+                migrations_ms,
+                crate::elapsed_ms(hooks_started)
+            );
+        }
+
         Ok(())
     }
 
-    /// Migrate legacy blob-based sections to the new format.
-    /// This runs BEFORE the migration system to handle pre-migration databases.
-    ///
+    /// Move section geometry out of `polyline_json` and into the blob columns.
+    /// A post-migration hook, so it runs after the SQL chain, for databases
+    /// below version 12.
     fn migrate_polyline_json_to_blob(conn: &Connection) -> SqlResult<()> {
         let mut stmt = conn.prepare(
             "SELECT id, polyline_json, point_density_json FROM sections WHERE polyline_blob IS NULL AND polyline_json IS NOT NULL",
@@ -191,7 +198,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converting {} section polylines from JSON to binary...",
+            "veloqrs: [Migration] Converting {} section polylines from JSON to binary...",
             rows.len()
         );
 
@@ -204,7 +211,7 @@ impl PersistentRouteEngine {
             let polyline_blob: Option<Vec<u8>> =
                 serde_json::from_str::<Vec<GpsPoint>>(polyline_json)
                     .ok()
-                    .and_then(|pts| super::codec::serialize_points(&pts).ok());
+                    .map(|pts| super::codec::serialize_track_points(&pts));
 
             let density_blob: Option<Vec<u8>> = density_json
                 .as_deref()
@@ -216,7 +223,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converted {}/{} section polylines to binary",
+            "veloqrs: [Migration] Converted {}/{} section polylines to binary",
             converted,
             rows.len()
         );
@@ -236,7 +243,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converting {} route group activity_ids from JSON to binary...",
+            "veloqrs: [Migration] Converting {} route group activity_ids from JSON to binary...",
             rows.len()
         );
 
@@ -254,7 +261,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Converted {}/{} route group activity_ids to binary",
+            "veloqrs: [Migration] Converted {}/{} route group activity_ids to binary",
             converted,
             rows.len()
         );
@@ -307,6 +314,67 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Every index on `sections` as `CREATE INDEX IF NOT EXISTS`, so a rebuild
+    /// can replay what a migration added without naming it here. Indexes
+    /// SQLite made itself for a UNIQUE or PRIMARY KEY have no `sql` and come
+    /// back with the table definition.
+    fn sections_index_ddl(conn: &Connection) -> SqlResult<Vec<String>> {
+        conn.prepare(
+            "SELECT sql FROM sqlite_master
+             WHERE type = 'index' AND tbl_name = 'sections' AND sql IS NOT NULL",
+        )?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .map(|sql| sql.map(|sql| sql.replacen("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", 1)))
+        .collect()
+    }
+
+    /// Add to `to` any column `from` carries that the rebuild's fixed DDL does
+    /// not name, so a migration written after this hook keeps its data and its
+    /// indexes. NOT NULL without a default cannot be added to a populated
+    /// table, so that column is added nullable rather than failing the swap.
+    fn carry_forward_columns(conn: &Connection, from: &str, to: &str) -> SqlResult<()> {
+        let existing: Vec<String> = conn
+            .prepare(&format!("PRAGMA table_info({to})"))?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<SqlResult<_>>()?;
+        let source: Vec<(String, String, i64, Option<String>)> = conn
+            .prepare(&format!("PRAGMA table_info({from})"))?
+            .query_map([], |row| {
+                Ok((row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+            })?
+            .collect::<SqlResult<_>>()?;
+        for (name, kind, notnull, default) in source {
+            if existing.contains(&name) {
+                continue;
+            }
+            let mut ddl = format!("ALTER TABLE {to} ADD COLUMN \"{name}\" {kind}");
+            if let Some(default) = &default {
+                ddl.push_str(&format!(" DEFAULT {default}"));
+                if notnull != 0 {
+                    ddl.push_str(" NOT NULL");
+                }
+            }
+            conn.execute(&ddl, [])?;
+            log::info!("veloqrs: [Schema] carried {name} through the sections rebuild");
+        }
+        Ok(())
+    }
+
+    /// Columns the two tables share, in the destination's order.
+    fn shared_columns(conn: &Connection, from: &str, to: &str) -> SqlResult<String> {
+        let names = |table: &str| -> SqlResult<Vec<String>> {
+            conn.prepare(&format!("PRAGMA table_info({table})"))?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .collect()
+        };
+        let source = names(from)?;
+        let shared: Vec<String> = names(to)?
+            .into_iter()
+            .filter(|name| source.contains(name))
+            .collect();
+        Ok(shared.join(", "))
+    }
+
     /// Rebuild `sections` so `polyline_json` is nullable. The blob has been
     /// the geometry since 0.3.0 and the column has carried a placeholder
     /// since; a NOT NULL column that every write must fill with nothing is a
@@ -335,16 +403,10 @@ impl PersistentRouteEngine {
     /// One transaction: a leftover from a torn run is dropped first, the old
     /// table survives any failure, and the swap is atomic.
     fn rebuild_sections_nullable(conn: &Connection) -> SqlResult<()> {
-        const COLUMNS: &str = "id, section_type, name, sport_type, polyline_json, distance_meters,
-             representative_activity_id, confidence, observation_count, average_spread,
-             point_density_json, scale, version, is_user_defined, stability,
-             source_activity_id, start_index, end_index, created_at, updated_at,
-             bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-             original_polyline_json, disabled, superseded_by, consensus_state_blob,
-             polyline_blob, point_density_blob, visit_count, rep_start_index,
-             rep_end_index, geometry_source, elevation_gain_m, avg_grade_percent,
-             activity_count, sport_types, elevation_loss_m, max_grade_percent, straightness,
-             klass, is_lift, rank_score, sport_rank_score";
+        // Both the copied columns and the replayed indexes are read off the
+        // live table, so a column or index a later migration adds survives a
+        // rebuild that predates it.
+        let index_ddl = Self::sections_index_ddl(conn)?;
         let tx = conn.unchecked_transaction()?;
         tx.execute_batch(
             "DROP TABLE IF EXISTS sections_rebuild;
@@ -398,8 +460,10 @@ impl PersistentRouteEngine {
                  sport_rank_score REAL
              );",
         )?;
+        Self::carry_forward_columns(&tx, "sections", "sections_rebuild")?;
+        let columns = Self::shared_columns(&tx, "sections", "sections_rebuild")?;
         tx.execute(
-            &format!("INSERT INTO sections_rebuild ({COLUMNS}) SELECT {COLUMNS} FROM sections"),
+            &format!("INSERT INTO sections_rebuild ({columns}) SELECT {columns} FROM sections"),
             [],
         )?;
         // The visit_count triggers name `sections` in their bodies, and a
@@ -421,6 +485,9 @@ impl PersistentRouteEngine {
              CREATE INDEX IF NOT EXISTS idx_sections_disabled ON sections(disabled);
              CREATE INDEX IF NOT EXISTS idx_sections_superseded ON sections(superseded_by);",
         )?;
+        for ddl in &index_ddl {
+            tx.execute_batch(ddl)?;
+        }
         tx.commit()?;
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_summary_denormalisation(conn)?;
@@ -430,7 +497,7 @@ impl PersistentRouteEngine {
             })?;
         if violations > 0 {
             log::warn!(
-                "tracematch: [Schema] {} foreign key rows dangling after the sections rebuild",
+                "veloqrs: [Schema] {} foreign key rows dangling after the sections rebuild",
                 violations
             );
         }
@@ -499,6 +566,37 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Move a hand-cut section's source range across to the reference triple.
+    ///
+    /// `create_section` wrote `source_activity_id`, `start_index` and
+    /// `end_index` and left the triple the resolver reads empty, so every
+    /// section the athlete cut from a ride reads as having no provenance and
+    /// cannot re-slice the stream it came from. The source range is inclusive
+    /// and the triple is half-open, hence the `+ 1`. Scoped to rows that carry
+    /// a source range that spans more than one point and no triple, which no
+    /// other writer produces, and rerunnable because the same predicate stops
+    /// matching once it has run.
+    fn backfill_custom_section_reference(conn: &Connection) -> SqlResult<()> {
+        let repaired = conn.execute(
+            "UPDATE sections
+                SET rep_start_index = start_index,
+                    rep_end_index = end_index + 1,
+                    geometry_source = 'exact'
+              WHERE source_activity_id IS NOT NULL
+                AND source_activity_id <> ''
+                AND start_index IS NOT NULL
+                AND end_index > start_index
+                AND rep_start_index IS NULL",
+            [],
+        )?;
+        if repaired > 0 {
+            log::info!(
+                "veloqrs: [Migration] Gave {repaired} hand-cut sections their reference triple"
+            );
+        }
+        Ok(())
+    }
+
     /// Give every pre-ledger section a birth geometry version and one backdated
     /// event, so the first change to it has a prior to sit beside. One-shot and
     /// non-fatal: this runs on the open that quarantines a database it cannot
@@ -510,9 +608,9 @@ impl PersistentRouteEngine {
             // later open can improve on, so the marker still lands and the
             // count is the only record that it was passed over.
             Ok((seeded, skipped)) => log::info!(
-                "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
+                "veloqrs: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
             ),
-            Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
+            Err(e) => log::warn!("veloqrs: [Migration] Baseline geometry seeding failed: {e}"),
         }
     }
 
@@ -553,13 +651,13 @@ impl PersistentRouteEngine {
              )",
         ) {
             log::warn!(
-                "tracematch: [Migration] ensure_catalogue_archive failed: {}",
+                "veloqrs: [Migration] ensure_catalogue_archive failed: {}",
                 e
             );
         }
     }
 
-    /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the
+    /// Add the visit_count column, backfill it once, and create the
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
     /// on that first add (a fresh column is all-zero), and the triggers use
@@ -731,17 +829,48 @@ impl PersistentRouteEngine {
         if !has_columns {
             return Ok(());
         }
+        // The triple arrived later than the blob. A database old enough to
+        // reach here without it has nothing to rebuild from, so the read is
+        // the blob alone on that path and the resolver's on every other.
+        let has_reference = conn
+            .prepare("SELECT rep_start_index FROM sections LIMIT 0")
+            .is_ok();
 
         // Every clock-minted auto id with the line to anchor it, oldest
         // first so a shared cell resolves in first-seen order.
-        let mut stmt = conn.prepare(
-            "SELECT id, sport_type, polyline_blob, polyline_json FROM sections
+        type ClockMinted = (
+            String,
+            String,
+            Option<Vec<u8>>,
+            Option<String>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+        );
+        let mut stmt = conn.prepare(if has_reference {
+            "SELECT id, sport_type, polyline_blob, polyline_json,
+                    representative_activity_id, rep_start_index, rep_end_index
+             FROM sections
              WHERE id GLOB 's_[0-9]*__[0-9]*'
-             ORDER BY created_at, id",
-        )?;
-        let rows: Vec<(String, String, Option<Vec<u8>>, Option<String>)> = stmt
+             ORDER BY created_at, id"
+        } else {
+            "SELECT id, sport_type, polyline_blob, polyline_json,
+                    NULL, NULL, NULL
+             FROM sections
+             WHERE id GLOB 's_[0-9]*__[0-9]*'
+             ORDER BY created_at, id"
+        })?;
+        let rows: Vec<ClockMinted> = stmt
             .query_map([], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -753,8 +882,14 @@ impl PersistentRouteEngine {
             .filter_map(|r| r.ok())
             .collect();
         let mut renames: Vec<(String, String)> = Vec::new();
-        for (old, sport, blob, json) in rows {
-            let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+        for (old, sport, blob, json, rep_id, start, end) in rows {
+            // The blob is a cache, and the new id is a function of the line.
+            // A cleared cache would leave the row on its clock-minted id for
+            // ever, which is the one id two devices can never agree on.
+            let reference = sections::geometry::reference(rep_id.as_deref(), start, end);
+            let Ok(polyline) =
+                sections::geometry::line(conn, blob.as_deref(), json.as_deref(), reference)
+            else {
                 continue;
             };
             let Some(new) = sections::content_id_for(&polyline, &sport, &taken) else {
@@ -796,7 +931,7 @@ impl PersistentRouteEngine {
         tx.commit()?;
         if !renames.is_empty() {
             log::info!(
-                "tracematch: [Schema] Re-keyed {} sections to content ids",
+                "veloqrs: [Schema] Re-keyed {} sections to content ids",
                 renames.len()
             );
         }
@@ -937,233 +1072,9 @@ impl PersistentRouteEngine {
         }
         if promoted > 0 {
             log::info!(
-                "tracematch: [Schema] Promoted {promoted} legacy section names to named intents"
+                "veloqrs: [Schema] Promoted {promoted} legacy section names to named intents"
             );
         }
-        Ok(())
-    }
-
-    /// SAFE MIGRATION STRATEGY:
-    /// 1. Create new tables with _new suffix (don't touch old data)
-    /// 2. Copy all data to new tables
-    /// 3. Verify data integrity (count matches)
-    /// 4. Only then rename tables (atomic operation)
-    /// 5. Drop old tables last
-    fn migrate_legacy_sections(conn: &Connection) -> SqlResult<()> {
-        // Check if sections table exists with old blob-based schema
-        let has_old_schema = conn.prepare("SELECT data FROM sections LIMIT 0").is_ok();
-
-        if !has_old_schema {
-            return Ok(()); // Either new DB or already migrated
-        }
-
-        log::info!(
-            "tracematch: [Migration] Detected legacy blob-based sections, starting safe migration..."
-        );
-
-        // Count original records for validation
-        let original_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
-            .unwrap_or(0);
-
-        log::info!(
-            "tracematch: [Migration] Found {} sections to migrate",
-            original_count
-        );
-
-        // Load old sections from blob format (keep in memory)
-        let old_sections: Vec<(String, Vec<String>, serde_json::Value)> = {
-            let mut stmt = conn.prepare("SELECT id, data FROM sections")?;
-            stmt.query_map([], |row| {
-                let id: String = row.get(0)?;
-                let data_blob: Vec<u8> = row.get(1)?;
-                let json: serde_json::Value =
-                    serde_json::from_slice(&data_blob).unwrap_or(serde_json::Value::Null);
-                let activity_ids: Vec<String> = json
-                    .get("activity_ids")
-                    .and_then(|v| serde_json::from_value(v.clone()).ok())
-                    .unwrap_or_default();
-                Ok((id, activity_ids, json))
-            })?
-            .filter_map(|r| r.ok())
-            .filter(|(id, _, _)| !id.is_empty())
-            .collect()
-        };
-
-        // Create new tables with _new suffix (preserves old data until verified)
-        conn.execute_batch(
-            "DROP TABLE IF EXISTS sections_new;
-             DROP TABLE IF EXISTS section_activities_new;
-
-             CREATE TABLE sections_new (
-                 id TEXT PRIMARY KEY,
-                 section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
-                 name TEXT,
-                 sport_type TEXT NOT NULL,
-                 polyline_json TEXT NOT NULL,
-                 distance_meters REAL NOT NULL,
-                 representative_activity_id TEXT,
-                 confidence REAL,
-                 observation_count INTEGER,
-                 average_spread REAL,
-                 point_density_json TEXT,
-                 scale TEXT,
-                 version INTEGER DEFAULT 1,
-                 is_user_defined INTEGER DEFAULT 0,
-                 stability REAL,
-                 source_activity_id TEXT,
-                 start_index INTEGER,
-                 end_index INTEGER,
-                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                 updated_at TEXT
-             );
-
-             CREATE TABLE section_activities_new (
-                 section_id TEXT NOT NULL,
-                 activity_id TEXT NOT NULL,
-                 direction TEXT NOT NULL DEFAULT 'same',
-                 start_index INTEGER NOT NULL DEFAULT 0,
-                 end_index INTEGER NOT NULL DEFAULT 0,
-                 distance_meters REAL NOT NULL DEFAULT 0,
-                 PRIMARY KEY (section_id, activity_id, start_index)
-             );",
-        )?;
-
-        // Migrate data to new tables
-        let mut migrated_count = 0;
-        let mut total_associations = 0;
-
-        for (id, activity_ids, json) in &old_sections {
-            let polyline_json = json
-                .get("polyline")
-                .map(|v| v.to_string())
-                .unwrap_or_else(|| "[]".to_string());
-
-            conn.execute(
-                "INSERT INTO sections_new (
-                    id, section_type, name, sport_type, polyline_json, distance_meters,
-                    representative_activity_id, confidence, observation_count, average_spread,
-                    point_density_json, scale, version, is_user_defined, stability, created_at
-                ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
-                params![
-                    id,
-                    json.get("name").and_then(|v| v.as_str()),
-                    json.get("sport_type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(""),
-                    polyline_json,
-                    json.get("distance_meters")
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0),
-                    json.get("representative_activity_id")
-                        .and_then(|v| v.as_str()),
-                    json.get("confidence").and_then(|v| v.as_f64()),
-                    json.get("observation_count")
-                        .and_then(|v| v.as_u64())
-                        .map(|v| v as i64),
-                    json.get("average_spread").and_then(|v| v.as_f64()),
-                    json.get("point_density").map(|v| v.to_string()),
-                    json.get("scale").and_then(|v| v.as_str()),
-                    json.get("version").and_then(|v| v.as_u64()).unwrap_or(1) as i64,
-                    if json
-                        .get("is_user_defined")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false)
-                    {
-                        1
-                    } else {
-                        0
-                    },
-                    json.get("stability").and_then(|v| v.as_f64()),
-                ],
-            )?;
-            migrated_count += 1;
-
-            // Migrate activity associations (with default portion values for legacy data)
-            for activity_id in activity_ids {
-                conn.execute(
-                    "INSERT OR IGNORE INTO section_activities_new (section_id, activity_id, direction, start_index, end_index, distance_meters) VALUES (?, ?, 'same', 0, 0, 0)",
-                    params![id, activity_id],
-                )?;
-                total_associations += 1;
-            }
-        }
-
-        // Verify migration - count must match
-        let new_count: i64 =
-            conn.query_row("SELECT COUNT(*) FROM sections_new", [], |row| row.get(0))?;
-
-        if new_count != migrated_count as i64 {
-            log::error!(
-                "tracematch: [Migration] FAILED: Count mismatch! Expected {}, got {}. Rolling back.",
-                migrated_count,
-                new_count
-            );
-            conn.execute_batch(
-                "DROP TABLE IF EXISTS sections_new;
-                 DROP TABLE IF EXISTS section_activities_new;",
-            )?;
-            return Err(rusqlite::Error::QueryReturnedNoRows); // Signal failure
-        }
-
-        log::info!(
-            "tracematch: [Migration] Verified {} sections and {} associations in new tables",
-            new_count,
-            total_associations
-        );
-
-        // Atomic swap: rename old tables to _old, new tables to final names
-        conn.execute_batch(
-            "ALTER TABLE sections RENAME TO sections_old;
-             ALTER TABLE sections_new RENAME TO sections;
-             ALTER TABLE section_activities_new RENAME TO section_activities;
-
-             -- Create indexes on new tables
-             CREATE INDEX IF NOT EXISTS idx_section_activities_activity ON section_activities(activity_id);
-             CREATE INDEX IF NOT EXISTS idx_sections_type ON sections(section_type);
-             CREATE INDEX IF NOT EXISTS idx_sections_sport ON sections(sport_type);
-
-             -- Only drop old table after everything succeeded
-             DROP TABLE IF EXISTS sections_old;"
-        )?;
-
-        log::info!(
-            "tracematch: [Migration] Successfully migrated {} sections to new schema",
-            new_count
-        );
-
-        Ok(())
-    }
-
-    /// Migrate custom section names from legacy section_names table.
-    /// This table stored user-overridden names separately from the blob data.
-    fn migrate_legacy_section_names(conn: &Connection) -> SqlResult<()> {
-        // Check if legacy section_names table exists
-        let table_exists = conn.prepare("SELECT 1 FROM section_names LIMIT 0").is_ok();
-
-        if !table_exists {
-            return Ok(()); // Table doesn't exist, nothing to migrate
-        }
-
-        log::info!("tracematch: [Migration] Migrating legacy section_names table...");
-
-        // Update sections with custom names from the legacy table
-        let count = conn.execute(
-            "UPDATE sections
-             SET name = (SELECT custom_name FROM section_names WHERE section_names.section_id = sections.id)
-             WHERE name IS NULL
-               AND EXISTS (SELECT 1 FROM section_names WHERE section_names.section_id = sections.id)",
-            [],
-        )?;
-
-        log::info!(
-            "tracematch: [Migration] Updated {} sections with custom names",
-            count
-        );
-
-        // Drop the legacy table
-        conn.execute("DROP TABLE IF EXISTS section_names", [])?;
-
         Ok(())
     }
 
@@ -1178,7 +1089,7 @@ impl PersistentRouteEngine {
 
         let total_sections = section_ids.len();
         log::info!(
-            "tracematch: [Migration] Found {} sections needing performance cache population",
+            "veloqrs: [Migration] Found {} sections needing performance cache population",
             total_sections
         );
 
@@ -1188,7 +1099,7 @@ impl PersistentRouteEngine {
         for (section_idx, section_id) in section_ids.iter().enumerate() {
             if section_idx % 10 == 0 && section_idx > 0 {
                 log::info!(
-                    "tracematch: [Migration] Progress: {}/{} sections, {} portions populated",
+                    "veloqrs: [Migration] Progress: {}/{} sections, {} portions populated",
                     section_idx,
                     total_sections,
                     populated_portions
@@ -1273,7 +1184,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Performance cache population complete: {}/{} portions populated",
+            "veloqrs: [Migration] Performance cache population complete: {}/{} portions populated",
             populated_portions,
             total_portions
         );
@@ -1296,7 +1207,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Populating bounds for {} sections...",
+            "veloqrs: [Migration] Populating bounds for {} sections...",
             sections.len()
         );
 
@@ -1322,7 +1233,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Populated bounds for {}/{} sections",
+            "veloqrs: [Migration] Populated bounds for {}/{} sections",
             populated,
             sections.len()
         );
@@ -1342,7 +1253,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Backfilling activity_count for {} route groups...",
+            "veloqrs: [Migration] Backfilling activity_count for {} route groups...",
             groups.len()
         );
 
@@ -1357,7 +1268,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Migration] Backfilled activity_count for {} route groups",
+            "veloqrs: [Migration] Backfilled activity_count for {} route groups",
             groups.len()
         );
 
@@ -1367,10 +1278,10 @@ impl PersistentRouteEngine {
     /// Populate all performance caches for migration from schema v3 to v4.
     /// Consolidates zone distributions, FTP history, and heatmap intensity.
     fn populate_all_performance_caches(conn: &Connection) -> SqlResult<()> {
-        log::info!("tracematch: [Migration] Populating all performance caches...");
+        log::info!("veloqrs: [Migration] Populating all performance caches...");
 
         // Part 1: Zone distribution cache
-        log::info!("tracematch: [Migration]   - Populating zone cache from JSON blobs...");
+        log::info!("veloqrs: [Migration]   - Populating zone cache from JSON blobs...");
         let mut stmt = conn.prepare(
             "SELECT activity_id, power_zone_times, hr_zone_times FROM activity_metrics
              WHERE power_zone_times IS NOT NULL OR hr_zone_times IS NOT NULL",
@@ -1413,7 +1324,7 @@ impl PersistentRouteEngine {
         }
 
         // Part 2: FTP history cache
-        log::info!("tracematch: [Migration]   - Populating FTP history cache...");
+        log::info!("veloqrs: [Migration]   - Populating FTP history cache...");
         conn.execute("DELETE FROM ftp_history", [])?;
         conn.execute(
             "INSERT INTO ftp_history (date, ftp, activity_id, sport_type)
@@ -1425,7 +1336,7 @@ impl PersistentRouteEngine {
         )?;
 
         // Part 3: Heatmap intensity cache
-        log::info!("tracematch: [Migration]   - Populating heatmap intensity cache...");
+        log::info!("veloqrs: [Migration]   - Populating heatmap intensity cache...");
         conn.execute("DELETE FROM activity_heatmap", [])?;
         conn.execute(
             "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
@@ -1445,7 +1356,7 @@ impl PersistentRouteEngine {
             [],
         )?;
 
-        log::info!("tracematch: [Migration] All performance caches populated successfully");
+        log::info!("veloqrs: [Migration] All performance caches populated successfully");
         Ok(())
     }
 }

@@ -263,7 +263,7 @@ tags:
     timeout: 2000
 
 # Routes toggle is only mounted when the engine has detected at least one
-# route — demo fixtures may not produce any in the time we get here. Treat
+# route, demo fixtures may not produce any in the time we get here. Treat
 # the routes-toggle interactions as best-effort.
 - extendedWaitUntil:
     visible:
@@ -348,7 +348,7 @@ tags:
 
 # =============================================================================
 # Map Controls (compass, location, fit)
-# Note: 3D mode skipped — Map3DWebView (WebGL WebView) crashes on emulator
+# Note: 3D mode skipped. Map3DWebView (WebGL WebView) crashes on emulator
 # =============================================================================
 
 - tapOn:

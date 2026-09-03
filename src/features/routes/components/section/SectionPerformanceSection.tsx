@@ -26,7 +26,6 @@ export interface SectionPerformanceSectionProps {
   bestForwardRecord: DirectionBestRecord | null;
   bestReverseRecord: DirectionBestRecord | null;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange?: (scrubbing: boolean) => void;
   onExcludeActivity?: (activityId: string) => void;
   onIncludeActivity?: (activityId: string) => void;
   onSetAsReference?: (activityId: string) => void;
@@ -48,7 +47,6 @@ export function SectionPerformanceSection({
   bestForwardRecord,
   bestReverseRecord,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -61,8 +59,7 @@ export function SectionPerformanceSection({
   onTimeRangeChange,
 }: SectionPerformanceSectionProps) {
   const { t } = useTranslation();
-
-  if (chartData.length < 1) return null;
+  const hasEfforts = chartData.length > 0;
 
   return (
     <View style={styles.chartSection}>
@@ -99,30 +96,39 @@ export function SectionPerformanceSection({
           ))}
         </View>
       </View>
-      <SectionScatterChart
-        chartData={chartData}
-        activityType={sportType as ActivityType}
-        isDark={isDark}
-        bestForwardRecord={bestForwardRecord}
-        bestReverseRecord={bestReverseRecord}
-        forwardStats={forwardStats}
-        reverseStats={reverseStats}
-        onActivitySelect={onActivitySelect}
-        onScrubChange={onScrubChange}
-        onExcludeActivity={onExcludeActivity}
-        onIncludeActivity={onIncludeActivity}
-        onSetAsReference={onSetAsReference}
-        referenceActivityId={referenceActivityId}
-        showExcluded={showExcluded}
-        hasExcluded={hasExcluded}
-        onToggleShowExcluded={onToggleShowExcluded}
-        highlightedActivityId={highlightedActivityId}
-      />
-      <ScatterLegend
-        isDark={isDark}
-        showReverse={!!bestReverseRecord}
-        showThisActivity={!!highlightedActivityId}
-      />
+      {hasEfforts ? (
+        <>
+          <SectionScatterChart
+            chartData={chartData}
+            activityType={sportType as ActivityType}
+            isDark={isDark}
+            bestForwardRecord={bestForwardRecord}
+            bestReverseRecord={bestReverseRecord}
+            forwardStats={forwardStats}
+            reverseStats={reverseStats}
+            onActivitySelect={onActivitySelect}
+            onExcludeActivity={onExcludeActivity}
+            onIncludeActivity={onIncludeActivity}
+            onSetAsReference={onSetAsReference}
+            referenceActivityId={referenceActivityId}
+            showExcluded={showExcluded}
+            hasExcluded={hasExcluded}
+            onToggleShowExcluded={onToggleShowExcluded}
+            highlightedActivityId={highlightedActivityId}
+          />
+          <ScatterLegend
+            isDark={isDark}
+            showReverse={!!bestReverseRecord}
+            showThisActivity={!!highlightedActivityId}
+          />
+        </>
+      ) : (
+        <View testID="section-performance-empty" style={styles.emptyState}>
+          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+            {t('sections.noActivitiesFound')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -165,5 +171,18 @@ const styles = StyleSheet.create({
   },
   pillTextActive: {
     color: colors.primary,
+  },
+  emptyState: {
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  emptyText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  emptyTextDark: {
+    color: darkColors.textSecondary,
   },
 });

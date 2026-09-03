@@ -37,7 +37,7 @@ use tracematch::sections::{
     GROUND_TOL_M, NamedCandidate, score_named_candidate, select_candidate, shares_ground, trim_core,
 };
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
 /// One named-corridor intent with its current resolution.
 #[derive(Debug, Clone)]
@@ -119,7 +119,7 @@ struct VisibleRow {
     bbox: (f64, f64, f64, f64),
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Bring the overlay up to date with the DB. Returns whether a recompute
     /// ran, so `&mut` callers holding derived caches (the section LRU) know
     /// to drop them. The recompute itself only SELECTs, so it never moves the

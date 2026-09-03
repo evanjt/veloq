@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Engine orphan report: public PersistentRouteEngine methods whose only
- * callers are tests. Such a method is dead app surface — the app cannot
+ * Engine orphan report: public PersistentEngine methods whose only
+ * callers are tests. Such a method is dead app surface, the app cannot
  * reach it, tests keep it compiling, and its semantics can silently drift
  * from the path the app actually uses (the rename_section case: promoted
  * on rename, no FFI caller, deleted 2026-07-28).
@@ -28,7 +28,7 @@ function rustFiles(dir) {
   return out;
 }
 
-// Public methods declared inside `impl PersistentRouteEngine` blocks.
+// Public methods declared inside `impl PersistentEngine` blocks.
 // Brace-count from each impl header; collect `pub fn` names in that span.
 function engineMethods() {
   const methods = new Map(); // name -> file
@@ -38,7 +38,7 @@ function engineMethods() {
     let depth = 0;
     let inImpl = false;
     for (const line of lines) {
-      if (!inImpl && /^impl\s+PersistentRouteEngine\b/.test(line)) {
+      if (!inImpl && /^impl\s+PersistentEngine\b/.test(line)) {
         inImpl = true;
         depth = 0;
       }
@@ -84,7 +84,7 @@ for (const [name, file] of [...methods.entries()].sort()) {
 }
 
 console.log(`Engine methods scanned: ${methods.size}`);
-console.log(`\n=== TEST-ONLY METHODS (${testOnly.length}) — the rename_section class ===`);
+console.log(`\n=== TEST-ONLY METHODS (${testOnly.length}), the rename_section class ===`);
 for (const t of testOnly) console.log(`  ${t.name}  (${t.file}, ${t.inTests} test call sites)`);
 console.log(`\n=== NO CALLERS AT ALL (${orphans.length}) ===`);
 for (const o of orphans) console.log(`  ${o.name}  (${o.file})`);

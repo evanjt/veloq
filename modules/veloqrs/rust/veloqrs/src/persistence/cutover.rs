@@ -8,8 +8,9 @@
 //! Revert: restore the archive as pinned sections. There is no other detector
 //! to go back to, so the config stays as it is.
 
+use crate::persistence::sections::geometry;
 use crate::persistence::{
-    PersistentRouteEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
+    PersistentEngine, codec, settings_keys, suspend_detection, with_persistent_engine,
 };
 use log::info;
 use rusqlite::params;
@@ -76,6 +77,67 @@ pub fn cutover_phase() -> &'static str {
     *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Moves the phase and times each one on the way past.
+///
+/// A cutover is a run the user waits through at launch, and a field report of a
+/// slow one names no phase. Timing rides on the transition rather than on a
+/// wrapper around each step so a phase added later is timed by construction,
+/// and the drop closes the open phase when a run fails partway, which is the
+/// run whose duration matters most.
+struct PhaseClock {
+    phase: &'static str,
+    started: std::time::Instant,
+    run_started: std::time::Instant,
+}
+
+impl PhaseClock {
+    fn new() -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            phase: PHASE_IDLE,
+            started: now,
+            run_started: now,
+        }
+    }
+
+    /// Close the phase in progress and open `next`.
+    fn enter(&mut self, next: &'static str) {
+        self.close();
+        self.phase = next;
+        self.started = std::time::Instant::now();
+        set_phase(next);
+    }
+
+    /// Close the phase in progress and settle on a terminal phase, which has no
+    /// duration of its own.
+    fn finish(mut self, terminal: &'static str) {
+        self.close();
+        self.phase = PHASE_IDLE;
+        set_phase(terminal);
+    }
+
+    fn close(&mut self) {
+        if self.phase == PHASE_IDLE {
+            return;
+        }
+        info!(
+            "veloqrs: [cutover] Phase {} took {}ms",
+            self.phase,
+            crate::elapsed_ms(self.started)
+        );
+    }
+
+    fn run_ms(&self) -> u64 {
+        crate::elapsed_ms(self.run_started)
+    }
+}
+
+impl Drop for PhaseClock {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
 /// What a run did. `NotOwed` is a success with nothing to do, which a bare
 /// string return cannot express: the caller needs to tell it apart from a
 /// completed migration and from a failure.
@@ -108,7 +170,7 @@ pub fn start_cutover() -> bool {
         // taking it again.
         let outcome = run_cutover_claimed();
         if let Err(ref e) = outcome {
-            log::warn!("tracematch: [cutover] Run failed: {}", e);
+            log::warn!("veloqrs: [cutover] Run failed: {}", e);
         }
     });
     true
@@ -147,13 +209,13 @@ pub enum CutoverState {
     Reverted,
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Called from `load()`. Reads the cutover token and sets the
     /// process-global pending flag. Nothing slow, nothing fallible beyond
     /// a missing settings table (which returns None).
     pub(super) fn check_cutover_state(&self) {
         if self.cutover_is_owed() {
-            info!("tracematch: [cutover] Cutover to Unified is owed");
+            info!("veloqrs: [cutover] Cutover to Unified is owed");
         }
     }
 
@@ -204,30 +266,28 @@ impl PersistentRouteEngine {
     }
 }
 
-/// (min_lat, max_lat, min_lng, max_lng) over a polyline. None on an empty one,
-/// which leaves the columns NULL exactly as an undrawable section has them.
-fn bounds_of(points: &[tracematch::GpsPoint]) -> Option<(f64, f64, f64, f64)> {
-    let first = points.first()?;
-    let mut bounds = (
-        first.latitude,
-        first.latitude,
-        first.longitude,
-        first.longitude,
-    );
-    for p in points.iter().skip(1) {
-        bounds.0 = bounds.0.min(p.latitude);
-        bounds.1 = bounds.1.max(p.latitude);
-        bounds.2 = bounds.2.min(p.longitude);
-        bounds.3 = bounds.3.max(p.longitude);
-    }
-    Some(bounds)
-}
-
 // ───────────────────────────────────────────────────────────────────
 // Archive
 // ───────────────────────────────────────────────────────────────────
 
-impl PersistentRouteEngine {
+/// One section the archive is about to snapshot, read before its line is
+/// resolved.
+struct ArchivableSection {
+    id: String,
+    name: Option<String>,
+    sport_type: String,
+    blob: Option<Vec<u8>>,
+    json: Option<String>,
+    distance_meters: f64,
+    visit_count: Option<u32>,
+    created_at: Option<String>,
+    bounds: (Option<f64>, Option<f64>, Option<f64>, Option<f64>),
+    rep_activity_id: Option<String>,
+    rep_start: Option<u32>,
+    rep_end: Option<u32>,
+}
+
+impl PersistentEngine {
     /// Step 1: snapshot every auto section about to be wiped, and its
     /// members. The row predicate is `write_catalogue`'s DELETE predicate:
     /// exactly the rows the coming detect destroys, no more.
@@ -254,25 +314,84 @@ impl PersistentRouteEngine {
                 params![CUTOVER_ID],
                 |row| row.get(0),
             )?;
-            info!("tracematch: [cutover] Reusing archive of {} sections", kept);
+            info!("veloqrs: [cutover] Reusing archive of {} sections", kept);
             return Ok(kept);
         }
 
-        let count = tx.execute(
-            "INSERT INTO section_catalogue_archive
-                 (token, section_id, name, sport_type, polyline_blob,
-                  polyline_json, distance_meters, visit_count, created_at,
-                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-             SELECT ?, id, name, sport_type, polyline_blob,
-                    polyline_json, distance_meters, visit_count, created_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+        // Row by row rather than INSERT..SELECT, so each line is resolved the
+        // way a read resolves it. The archive carries no reference triple of
+        // its own, so a copied-across empty blob is the restore target gone
+        // and nothing in the archive can rebuild it.
+        let mut stmt = tx.prepare(
+            "SELECT id, name, sport_type, polyline_blob, polyline_json,
+                    distance_meters, visit_count, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    representative_activity_id, rep_start_index, rep_end_index
              FROM sections
              WHERE section_type = 'auto'
                AND original_polyline_json IS NULL
                AND is_user_defined = 0
                AND disabled = 0",
-            params![CUTOVER_ID],
         )?;
+        let archivable: Vec<ArchivableSection> = stmt
+            .query_map([], |row| {
+                Ok(ArchivableSection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    sport_type: row.get(2)?,
+                    blob: row.get(3)?,
+                    json: row.get(4)?,
+                    distance_meters: row.get(5)?,
+                    visit_count: row.get(6)?,
+                    created_at: row.get(7)?,
+                    bounds: (row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?),
+                    rep_activity_id: row.get(12)?,
+                    rep_start: row.get(13)?,
+                    rep_end: row.get(14)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(stmt);
+
+        let mut count = 0u32;
+        for section in archivable {
+            let reference = geometry::reference(
+                section.rep_activity_id.as_deref(),
+                section.rep_start,
+                section.rep_end,
+            );
+            let line = geometry::line(
+                &tx,
+                section.blob.as_deref(),
+                section.json.as_deref(),
+                reference,
+            )
+            .unwrap_or_default();
+            let blob = (!line.is_empty())
+                .then(|| codec::serialize_track_points(&line))
+                .or(section.blob);
+            count += tx.execute(
+                "INSERT INTO section_catalogue_archive
+                     (token, section_id, name, sport_type, polyline_blob,
+                      polyline_json, distance_meters, visit_count, created_at,
+                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    CUTOVER_ID,
+                    section.id,
+                    section.name,
+                    section.sport_type,
+                    blob,
+                    section.distance_meters,
+                    section.visit_count,
+                    section.created_at,
+                    section.bounds.0,
+                    section.bounds.1,
+                    section.bounds.2,
+                    section.bounds.3,
+                ],
+            )? as u32;
+        }
 
         // Every portion, excluded ones included: an exclusion is a user
         // decision and restoring without it would silently re-admit a
@@ -295,10 +414,10 @@ impl PersistentRouteEngine {
 
         tx.commit()?;
         info!(
-            "tracematch: [cutover] Archived {} auto sections and {} members under token '{}'",
+            "veloqrs: [cutover] Archived {} auto sections and {} members under token '{}'",
             count, members, CUTOVER_ID
         );
-        Ok(count as u32)
+        Ok(count)
     }
 
     /// Step 2: persist the canonical config and write the token, atomically
@@ -342,7 +461,7 @@ impl PersistentRouteEngine {
         // reference alive under a Unified label. Ids still carry; the first
         // Unified batch is simply believed.
         self.section_identity_reseed_decisive();
-        info!("tracematch: [cutover] Committed switch to Unified, token in flight");
+        info!("veloqrs: [cutover] Committed switch to Unified, token in flight");
         Ok(())
     }
 
@@ -353,7 +472,7 @@ impl PersistentRouteEngine {
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![CUTOVER_KEY, CUTOVER_ID],
         )?;
-        info!("tracematch: [cutover] Token promoted to '{}'", CUTOVER_ID);
+        info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
 
@@ -387,11 +506,11 @@ impl PersistentRouteEngine {
 
         self.set_setting(CUTOVER_DIFF_KEY, &json)
             .unwrap_or_else(|e| {
-                log::warn!("tracematch: [cutover] Failed to persist diff: {}", e);
+                log::warn!("veloqrs: [cutover] Failed to persist diff: {}", e);
             });
 
         info!(
-            "tracematch: [cutover] Diff stored: {} current, {} new, {} changed, {} gone",
+            "veloqrs: [cutover] Diff stored: {} current, {} new, {} changed, {} gone",
             counts.current, counts.new, counts.changed, counts.gone
         );
         Ok(json)
@@ -448,118 +567,6 @@ impl PersistentRouteEngine {
         rows.collect()
     }
 
-    /// Restore the archived catalogue as pinned (accepted) sections and
-    /// switch the config back to Corridor. The token becomes `reverted` so
-    /// the cutover does not re-fire.
-    pub fn restore_from_archive(&mut self) -> rusqlite::Result<u32> {
-        let archived = self.load_archived_sections(CUTOVER_ID)?;
-
-        let tx = self.db.unchecked_transaction()?;
-
-        // Take the Unified catalogue out first. Without this both catalogues
-        // stand at once: the ids do not collide (pooled Unified mints
-        // `sec_all_*`, the archive holds `sec_ride_*`), so every uncarried
-        // Unified row would survive beside the restored one over the same
-        // ground. The predicate is `write_catalogue`'s, so a custom, accepted
-        // or disabled row is spared exactly as it is by a detect.
-        tx.execute(
-            "DELETE FROM sections
-             WHERE section_type = 'auto' AND original_polyline_json IS NULL
-               AND is_user_defined = 0 AND disabled = 0",
-            [],
-        )?;
-
-        // A carried id can survive the delete as a pinned row the user
-        // accepted after the cutover. Its geometry and its portions belong to
-        // the Unified cut, so replacing the row wholesale is what puts the
-        // archived state back; the cascade takes its stale portions with it.
-        let mut clear_one = tx.prepare("DELETE FROM sections WHERE id = ?")?;
-        for s in &archived {
-            clear_one.execute(params![s.id])?;
-        }
-        drop(clear_one);
-
-        // Bounds come back with the row. `write_catalogue` dedupes fresh auto
-        // detections against accepted bounds and skips any row whose
-        // `bounds_min_lat` is NULL, so a restore without them switches off the
-        // very guard that stops the next detect re-cutting this ground.
-        let mut insert = tx.prepare(
-            "INSERT INTO sections
-                 (id, section_type, name, sport_type, polyline_json,
-                  polyline_blob, distance_meters, visit_count, is_user_defined,
-                  created_at, updated_at,
-                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-             VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, 1, ?, datetime('now'), ?, ?, ?, ?)",
-        )?;
-
-        let mut restored = 0u32;
-        for s in &archived {
-            let blob = codec::serialize_points(&s.polyline)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
-            let bounds = bounds_of(&s.polyline);
-            let affected = insert.execute(params![
-                s.id,
-                s.name,
-                s.sport_type,
-                codec::NO_POLYLINE_JSON,
-                blob,
-                s.distance_meters,
-                s.visit_count,
-                s.created_at,
-                bounds.map(|b| b.0),
-                bounds.map(|b| b.1),
-                bounds.map(|b| b.2),
-                bounds.map(|b| b.3),
-            ])?;
-            restored += affected as u32;
-        }
-        drop(insert);
-
-        // The members, or the restored rows are geometry with no traversals:
-        // a card claiming visits over a detail screen listing none.
-        let restored_members = tx.execute(
-            "INSERT OR REPLACE INTO section_activities
-                 (section_id, activity_id, direction, start_index, end_index,
-                  distance_meters, lap_time, lap_pace, excluded, avg_hr)
-             SELECT m.section_id, m.activity_id, m.direction, m.start_index,
-                    m.end_index, m.distance_meters, m.lap_time, m.lap_pace,
-                    m.excluded, m.avg_hr
-             FROM section_catalogue_archive_members m
-             WHERE m.token = ?
-               AND m.section_id IN (SELECT id FROM sections)
-               AND m.activity_id IN (SELECT id FROM activities)",
-            params![CUTOVER_ID],
-        )?;
-
-        // The processed set still names every activity the Unified detect
-        // folded. Left alone, the next detect short-circuits and re-emits that
-        // catalogue instead of cutting a Corridor one.
-        tx.execute("DELETE FROM processed_activities", [])?;
-
-        // Mark as reverted so the cutover does not re-fire.
-        tx.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            params![CUTOVER_KEY, CUTOVER_REVERTED],
-        )?;
-
-        tx.commit()?;
-
-        // Reload so in-memory state sees the restored, pinned sections.
-        if let Err(e) = self.load_sections() {
-            log::warn!(
-                "tracematch: [cutover] Failed to reload sections after restore: {}",
-                e
-            );
-        }
-
-        info!(
-            "tracematch: [cutover] Restored {} sections and {} members from archive, config back to Corridor",
-            restored, restored_members
-        );
-        Ok(restored)
-    }
-
-    /// The stored diff payload, if any. None before the cutover has run.
     /// Which claims the change card may make, each backed by the tables and
     /// code that deliver it. A flag is false until its feature ships, so the
     /// card never says more than the build can show.
@@ -580,6 +587,7 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// The stored diff payload, if any. None before the cutover has run.
     pub fn cutover_diff(&self) -> Option<String> {
         self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()
     }
@@ -616,6 +624,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // A failure anywhere below leaves the phase saying so, because every
     // success path overwrites it before returning.
     set_phase(PHASE_FAILED);
+    let mut clock = PhaseClock::new();
 
     // Check whether the cutover is actually owed.
     let owed = with_persistent_engine(|e| e.cutover_is_owed()).ok_or("no engine")?;
@@ -633,17 +642,17 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // its Corridor catalogue after the cutover has finished, over a config
     // and a token that both say Unified. Drive it to its end first; the
     // suspension keeps the slot empty once it drains.
-    set_phase(PHASE_DRAINING);
+    clock.enter(PHASE_DRAINING);
     drain_detection_slot()?;
 
     // Step 1: archive. Additive and idempotent per token, so a crash here
     // leaves the user on Corridor with an intact catalogue and the cutover
     // still owed.
-    set_phase(PHASE_ARCHIVING);
+    clock.enter(PHASE_ARCHIVING);
     let archived = with_persistent_engine(|e| e.archive_current_catalogue())
         .ok_or("no engine")?
         .map_err(|e| format!("archive failed: {}", e))?;
-    info!("tracematch: [cutover] Archived {} sections", archived);
+    info!("veloqrs: [cutover] Archived {} sections", archived);
 
     // Step 2: commit the switch. Config, in-flight token and the cleared
     // processed set land together, so a crash after this point resumes rather
@@ -654,7 +663,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
 
     // Step 3: cold detect through the unchecked path, since the guard we hold
     // would otherwise refuse our own run.
-    set_phase(PHASE_DETECTING);
+    clock.enter(PHASE_DETECTING);
     // The pool as it stood when the detect was spawned. A sync running
     // alongside a multi-minute cut adds activities the detect never saw, and
     // the apply below clears `sections_dirty` for all of them.
@@ -685,7 +694,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     // Step 4: diff, then promote the token. The promotion is last, so any
     // failure above leaves the token in flight and the whole run is retried
     // from the top on the next launch.
-    set_phase(PHASE_DIFFING);
+    clock.enter(PHASE_DIFFING);
     let diff = with_persistent_engine(|e| e.build_cutover_diff())
         .ok_or("no engine")?
         .map_err(|e| format!("diff failed: {}", e))?;
@@ -694,8 +703,9 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
         .ok_or("no engine")?
         .map_err(|e| format!("token promotion failed: {}", e))?;
 
-    set_phase(PHASE_COMPLETE);
-    info!("tracematch: [cutover] Cutover complete");
+    let run_ms = clock.run_ms();
+    clock.finish(PHASE_COMPLETE);
+    info!("veloqrs: [cutover] Cutover complete in {}ms", run_ms);
     Ok(CutoverOutcome::Completed(diff))
 }
 
@@ -713,5 +723,140 @@ fn drain_detection_slot() -> Result<(), String> {
             Ok(DetectionPoll::Applied) | Ok(DetectionPoll::Died) => continue,
             Err(e) => return Err(format!("could not drain the detection slot: {}", e)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::persistence::{PersistentEngine, codec};
+    use tempfile::TempDir;
+    use tracematch::GpsPoint;
+
+    fn track() -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.000_1,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// An engine holding one stored stream and one archivable auto section
+    /// whose line is a real slice of it.
+    fn engine_with_archivable_section(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("archive.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .add_activity("a1".into(), track(), "Ride".into())
+            .expect("add_activity");
+        let line = track()[0..12].to_vec();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES ('s_auto', 'auto', 'Auto', 'Ride', NULL, ?, 1200.0,
+                         'a1', 0, 12, 'exact', '2026-01-01T00:00:00Z', 0,
+                         46.0, 46.1, 7.0, 7.1)",
+                rusqlite::params![codec::serialize_track_points(&line)],
+            )
+            .expect("insert the section");
+        engine
+    }
+
+    fn archived_line(engine: &PersistentEngine) -> Vec<GpsPoint> {
+        let blob: Option<Vec<u8>> = engine
+            .db
+            .query_row(
+                "SELECT polyline_blob FROM section_catalogue_archive WHERE section_id = 's_auto'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("archived row");
+        codec::decode_polyline_row(blob.as_deref(), None).unwrap_or_default()
+    }
+
+    /// Scenario: the cutover archives the outgoing catalogue after a clear.
+    /// Expected behaviour: the archive holds a real line, rebuilt from the
+    /// triple. An empty one is the restore target gone, and no triple in the
+    /// archive can undo it.
+    #[test]
+    fn the_archive_keeps_a_line_the_cache_no_longer_holds() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
+                [],
+            )
+            .expect("clear the cached geometry");
+
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        assert_eq!(
+            archived_line(&engine).len(),
+            12,
+            "the archive has to snapshot the rebuilt line, not the cleared blob"
+        );
+    }
+
+    /// The cached blob is still what the archive copies when it is there.
+    #[test]
+    fn the_archive_copies_the_cached_line_when_it_is_there() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        assert_eq!(archived_line(&engine).len(), 12);
+    }
+
+    fn archived_blob(engine: &PersistentEngine) -> Vec<u8> {
+        engine
+            .db
+            .query_row(
+                "SELECT polyline_blob FROM section_catalogue_archive WHERE section_id = 's_auto'",
+                [],
+                |row| row.get::<_, Option<Vec<u8>>>(0),
+            )
+            .expect("archived row")
+            .expect("archived blob")
+    }
+
+    /// Scenario: the archive is one of the stores `Q15` named and it was still
+    /// on postcard after `B125` moved the tracks (`B137`).
+    ///
+    /// Expected behaviour: a line the archive rebuilds is written in the
+    /// quantised container, and it still reads back as the same line, because
+    /// the reader was never narrowed to one container.
+    #[test]
+    fn the_archive_writes_the_quantised_container() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = NULL, polyline_json = NULL",
+                [],
+            )
+            .expect("clear the cached geometry");
+
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        let blob = archived_blob(&engine);
+        assert_eq!(blob[0], 0xC0, "the archived blob is not the polyline tag");
+        assert!(
+            blob.len()
+                < codec::serialize_points(&archived_line(&engine))
+                    .expect("postcard")
+                    .len(),
+            "the archived blob is no smaller than postcard for the same line"
+        );
+        assert_eq!(archived_line(&engine).len(), 12);
     }
 }

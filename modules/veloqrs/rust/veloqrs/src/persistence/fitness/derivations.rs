@@ -8,9 +8,9 @@ use chrono::{DateTime, Datelike};
 use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
     // ========================================================================
@@ -270,7 +270,7 @@ impl PersistentRouteEngine {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
-        // for activities without time streams, matching the strict behavior).
+        // for activities without time streams, matching the strict behaviour).
         let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {
@@ -676,104 +676,6 @@ impl PersistentRouteEngine {
     // Activity Section Highlights (batch PR detection)
     // ========================================================================
 
-    /// Batch-query section highlights (PRs) for a list of activity IDs.
-    /// Now reads from the materialized `activity_indicators` table.
-    /// Kept for backwards compatibility - new code should use `get_activity_indicators()`.
-    pub fn get_activity_section_highlights(
-        &self,
-        activity_ids: &[String],
-    ) -> Vec<crate::FfiActivitySectionHighlight> {
-        if activity_ids.is_empty() {
-            return vec![];
-        }
-
-        // Read from materialized table
-        let indicators = self.get_activity_indicators(activity_ids);
-
-        // Also need start_index/end_index from section_activities for map highlighting
-        let placeholders: String = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        // Fastest lap first, so the highlighted stretch is the one the badge is
-        // about. Mirrors the effective time the indicators are computed from.
-        let idx_sql = format!(
-            "SELECT sa.activity_id, sa.section_id, sa.start_index, sa.end_index
-             FROM section_activities sa
-             JOIN activities a ON a.id = sa.activity_id
-             WHERE sa.activity_id IN ({}) AND sa.excluded = 0
-             ORDER BY COALESCE(sa.lap_time,
-                      CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
-                           THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
-                           ELSE NULL END) ASC",
-            placeholders
-        );
-
-        let mut idx_map: HashMap<(String, String), (u32, u32)> = HashMap::new();
-        if let Ok(mut stmt) = self.db.prepare(&idx_sql) {
-            let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-                .iter()
-                .map(|id| id as &dyn rusqlite::types::ToSql)
-                .collect();
-            if let Ok(rows) = stmt.query_map(params.as_slice(), |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, u32>(2)?,
-                    row.get::<_, u32>(3)?,
-                ))
-            }) {
-                for r in rows.flatten() {
-                    idx_map.entry((r.0, r.1)).or_insert((r.2, r.3));
-                }
-            }
-        }
-
-        // Convert indicators to the old FfiActivitySectionHighlight format
-        // Merge by (activity_id, section_id) - pick PR over trend, best trend wins
-        let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> =
-            HashMap::new();
-
-        for ind in indicators {
-            // Only section indicators
-            if ind.indicator_type != "section_pr" && ind.indicator_type != "section_trend" {
-                continue;
-            }
-
-            let is_pr = ind.indicator_type == "section_pr";
-            let (start_index, end_index) = idx_map
-                .get(&(ind.activity_id.clone(), ind.target_id.clone()))
-                .copied()
-                .unwrap_or((0, 0));
-
-            let key = (ind.activity_id.clone(), ind.target_id.clone());
-            let entry = highlight_map
-                .entry(key)
-                .or_insert(crate::FfiActivitySectionHighlight {
-                    activity_id: ind.activity_id.clone(),
-                    section_id: ind.target_id.clone(),
-                    section_name: ind.target_name.clone(),
-                    lap_time: ind.lap_time,
-                    is_pr,
-                    trend: ind.trend,
-                    start_index,
-                    end_index,
-                });
-
-            // PR always wins over trend
-            if is_pr && !entry.is_pr {
-                entry.is_pr = true;
-                entry.trend = 1;
-                entry.lap_time = ind.lap_time;
-            } else if !entry.is_pr && ind.trend > entry.trend {
-                entry.trend = ind.trend;
-            }
-        }
-
-        highlight_map.into_values().collect()
-    }
-
     /// Batch-query route highlights for a list of activity IDs.
     /// Computes inline from in-memory groups + activity_metrics - no table read.
     pub fn get_activity_route_highlights(
@@ -914,8 +816,10 @@ impl PersistentRouteEngine {
                 group_cache.get(&cache_key)
             {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
-                let is_pr =
-                    moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
+                let is_pr = crate::persistence::records::is_personal_record(
+                    moving_time as f64,
+                    *best_moving_time as f64,
+                );
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {
@@ -1042,11 +946,8 @@ impl PersistentRouteEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // PR tolerance: 0.5% relative - matches route PR detection behavior
-            // and adapts to section length (5s sprint vs 30min climb).
-            let is_pr = trav.lap_time > 0.0
-                && best_time < f64::MAX
-                && ((trav.lap_time - best_time) / best_time).abs() < 0.005;
+            let is_pr =
+                crate::persistence::records::matches_personal_record(trav.lap_time, best_time);
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),

@@ -29,7 +29,7 @@ use rusqlite::types::ValueRef;
 use tracematch::matching::calculate_route_distance;
 use tracematch::scenarios::LifecycleActivity;
 use tracematch::{GpsPoint, shares_ground};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 const DAY: i64 = 86_400;
@@ -80,7 +80,7 @@ fn act(id: String, day: i64, pts: Vec<GpsPoint>) -> LifecycleActivity {
     }
 }
 
-/// `count` laterally jittered rides of one corridor, every second day —
+/// `count` laterally jittered rides of one corridor, every second day,
 /// wide enough that even a short corpus spans past the occasion floor's
 /// one-stay window (these scenarios exercise durable ownership, not
 /// occasion support).
@@ -188,7 +188,7 @@ fn rows_for(dump: &[String], ids: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn assert_graves_eq_tombstones(engine: &PersistentRouteEngine, ctx: &str) {
+fn assert_graves_eq_tombstones(engine: &PersistentEngine, ctx: &str) {
     let mut graves: Vec<String> = engine
         .section_identity_grave_rows()
         .into_iter()
@@ -207,7 +207,7 @@ fn assert_graves_eq_tombstones(engine: &PersistentRouteEngine, ctx: &str) {
 /// pure layer holds under its join id. Frozen rows hold the prior geometry on
 /// both sides, adopted rows the batch candidate's, so the equality covers every
 /// carry fate without naming them.
-fn assert_registry_mirrors_pure(engine: &PersistentRouteEngine, ctx: &str) {
+fn assert_registry_mirrors_pure(engine: &PersistentEngine, ctx: &str) {
     let rows = engine.section_identity_mirror_rows();
     let mut pids: Vec<String> = rows.iter().map(|(pid, _, _, _)| pid.clone()).collect();
     pids.sort();
@@ -287,7 +287,7 @@ fn double_apply_is_a_no_op() {
 /// detect, three drain applies so A's dissolve debounce runs to its tombstone.
 /// Returns everything the graves contracts assert against.
 struct GravesRun {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     dir: tempfile::TempDir,
     ground_a: Vec<GpsPoint>,
     rides_a: Vec<LifecycleActivity>,
@@ -421,7 +421,7 @@ fn grave_restore_survives_restart() {
     } = run;
     drop(engine);
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     assert_eq!(
         engine.section_identity_fingerprint(),
@@ -519,7 +519,7 @@ fn durable_claim_mid_tombstone_clears_the_grave() {
 /// shows exactly the durable row (or nothing, for disable/delete).
 fn run_promotion_case<M>(label: &str, visible_after: bool, mutate: M)
 where
-    M: FnOnce(&mut PersistentRouteEngine, &str, &SectionFingerprint) -> Result<(), String>,
+    M: FnOnce(&mut PersistentEngine, &str, &SectionFingerprint) -> Result<(), String>,
 {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let ground = corridor_ground(0.0);
@@ -545,9 +545,7 @@ where
 
     let filler = filler_act(label, 90);
     let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-        panic!(
-            "{label}: the first resync after promotion failed (the R2 UNIQUE-collision class): {e}"
-        )
+        panic!("{label}: the first resync after promotion failed (the UNIQUE-collision class): {e}")
     });
 
     assert!(
@@ -653,7 +651,7 @@ fn merge_relinquishes_both_identities() {
 
     let filler = filler_act("merge", 90);
     let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-        panic!("the first resync after merge failed (the R2 UNIQUE-collision class): {e}")
+        panic!("the first resync after merge failed (the UNIQUE-collision class): {e}")
     });
 
     let snap = step.snapshot;
@@ -782,7 +780,7 @@ fn mirror_rows_equal_pure_grounds() {
 
 /// Scenario: one engine simultaneously holds an accepted row, a trimmed row, a
 /// custom row, and a disabled row on distinct corridors, plus one live auto
-/// corridor, then runs two full detect+apply cycles (the R2 crash class: the
+/// corridor, then runs two full detect+apply cycles (the crash class: the
 /// ownership predicates drifting apart).
 /// Expected behaviour: no UNIQUE collision, every durable row and its junction
 /// rows byte-unchanged, custom and accepted still on the read path, the
@@ -848,9 +846,7 @@ fn durable_rows_never_collide() {
     for pass in 1..=2 {
         let filler = filler_act("durable", 90 + pass);
         let step = try_ingest_step(&mut engine, "resync", &[&filler]).unwrap_or_else(|e| {
-            panic!(
-                "resync {pass} with all durable kinds failed (the R2 UNIQUE-collision class): {e}"
-            )
+            panic!("resync {pass} with all durable kinds failed (the UNIQUE-collision class): {e}")
         });
         assert_eq!(
             rows_for(&sections_dump(&db), &durable),

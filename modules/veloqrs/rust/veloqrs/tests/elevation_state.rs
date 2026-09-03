@@ -15,7 +15,7 @@ use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 const UNKNOWN: u8 = 0;
 const FETCHED: u8 = 1;
@@ -31,11 +31,11 @@ fn flat_track(seed: f64) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn engine_at(path: &Path) -> PersistentRouteEngine {
-    PersistentRouteEngine::new(path.to_str().expect("utf-8 path")).expect("open engine")
+fn engine_at(path: &Path) -> PersistentEngine {
+    PersistentEngine::new(path.to_str().expect("utf-8 path")).expect("open engine")
 }
 
-fn seeded_engine(ids: &[&str]) -> (TempDir, PathBuf, PersistentRouteEngine) {
+fn seeded_engine(ids: &[&str]) -> (TempDir, PathBuf, PersistentEngine) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
     let mut engine = engine_at(&path);

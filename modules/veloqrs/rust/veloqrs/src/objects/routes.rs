@@ -27,10 +27,6 @@ impl RouteManager {
         with_engine(|e| e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from))
     }
 
-    fn get_summaries(&self) -> Result<Vec<crate::GroupSummary>, VeloqError> {
-        with_engine(|e| e.get_group_summaries())
-    }
-
     fn get_summaries_with_count(&self) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
         with_engine(|e| crate::FfiGroupSummariesResult {
             total_count: e.get_group_count(),
@@ -142,7 +138,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -156,7 +152,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }

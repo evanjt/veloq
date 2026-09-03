@@ -219,19 +219,19 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       } else if (isRecovery) {
         key = 'REC';
         label = 'Rec';
-        color = '#4CAF50';
+        color = colors.chartPaceCurve;
       } else if (isWarmup) {
         key = 'WU';
         label = 'WU';
-        color = '#22C55E';
+        color = colors.chartBandWarmup;
       } else if (isCooldown) {
         key = 'CD';
         label = 'CD';
-        color = '#8B5CF6';
+        color = colors.chartBandCooldown;
       } else {
         key = interval.type;
         label = interval.type.slice(0, 3);
-        color = '#808080';
+        color = colors.chartBandNeutral;
       }
 
       if (chipMap.has(key)) {

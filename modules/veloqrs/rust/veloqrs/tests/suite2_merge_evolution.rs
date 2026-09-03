@@ -159,7 +159,7 @@ fn merge_leaves_no_orphaned_junction_rows() {
 /// id merely reappeared as a fresh auto section, so this asserts the honest
 /// signal: the surviving section must be user-defined and still hold the union
 /// of both members. That is the merge being recorded as durable user intent and
-/// stable identity (B2) stopping the wipe from undoing it.
+/// stable identity stopping the wipe from undoing it.
 #[test]
 fn merge_survives_resync() {
     let corpus = corpus();
@@ -294,7 +294,7 @@ fn a_cross_sport_corridor_is_one_section_headed_by_its_own_traffic() {
 }
 
 // ============================================================================
-// Curiosity 3: EVOLUTION / AUTO-MORPH (the headline, invariant 7 / B2)
+// Curiosity 3: EVOLUTION / AUTO-MORPH (the headline, invariant 7)
 // ============================================================================
 
 /// Track the section that best matches `corridor` in a snapshot: its id,
@@ -337,9 +337,9 @@ fn unpinned_corridor_never_loses_visits_as_it_grows() {
     );
 }
 
-/// Invariant 7 / B2 hysteresis: an unpinned section keeps its identity as its
+/// Invariant 7, hysteresis: an unpinned section keeps its identity as its
 /// extent evolves. Asserts `identity_retention >= 0.85` across both the big
-/// expand (a->b) and the single add (b->c) — B2's assign-once identity layer
+/// expand (a->b) and the single add (b->c). The assign-once identity layer
 /// carries the id with the corridor, so a growing set adds sections instead of
 /// reshuffling ids off their ground.
 #[test]

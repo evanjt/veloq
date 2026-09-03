@@ -1,4 +1,4 @@
-# Map Visual Validation — cross-platform rendering proof
+# Map Visual Validation, cross-platform rendering proof
 #
 # Exercises every map context (regional, activity detail, section detail,
 # route detail) with HARD assertions on toggle presence and functionality.
@@ -19,7 +19,7 @@ tags:
 # PHASE 1: Ensure section detection has run (prerequisite for all section tests)
 # ============================================================================
 
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -36,7 +36,7 @@ tags:
     timeout: 45000
 
 # ============================================================================
-# PHASE 2: Regional/Global Map — toggle every layer
+# PHASE 2: Regional/Global Map, toggle every layer
 # ============================================================================
 
 - runFlow:
@@ -47,7 +47,7 @@ tags:
       id: "map-screen"
     timeout: 30000
 
-# Activities toggle — HARD assert (always present in demo mode)
+# Activities toggle. HARD assert (always present in demo mode)
 - assertVisible:
     id: "map-toggle-activities"
 
@@ -92,7 +92,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1000
 
-# --- Routes toggle (best-effort — may not exist in demo) ---
+# --- Routes toggle (best-effort, may not exist in demo) ---
 - extendedWaitUntil:
     visible:
       id: "map-toggle-routes"
@@ -166,7 +166,7 @@ tags:
     optional: true
 
 # ============================================================================
-# PHASE 3: Activity Detail Map — section overlays, 3D, gradient
+# PHASE 3: Activity Detail Map, section overlays, 3D, gradient
 # ============================================================================
 
 - openLink: "veloq://activity/demo-test-0"
@@ -257,11 +257,11 @@ tags:
     optional: true
 
 # ============================================================================
-# PHASE 4: Section Detail Map — 2D, 3D, style toggle, fullscreen
+# PHASE 4: Section Detail Map, 2D, 3D, style toggle, fullscreen
 # ============================================================================
 
 # Navigate to section detail via sections list
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -358,11 +358,11 @@ tags:
     optional: true
 
 # ============================================================================
-# PHASE 5: Route Detail Map — route lines, traces, fullscreen
+# PHASE 5: Route Detail Map, route lines, traces, fullscreen
 # ============================================================================
 
 # Navigate to routes list
-- openLink: "veloq://routes?tab=routes"
+- openLink: "veloq://insights?tab=routes"
 - runFlow:
     when:
       visible: "Open"

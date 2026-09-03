@@ -1,7 +1,7 @@
-//! Suite #2 — engine-side evidence-cache coherence (B1 Phase 2).
+//! Suite #2, engine-side evidence-cache coherence.
 //!
 //! Phase 2 makes the engine USE tracematch's cached cluster-recompute
-//! incremental: `PersistentRouteEngine` holds a per-(sport, cluster) evidence
+//! incremental: `PersistentEngine` holds a per-(sport, cluster) evidence
 //! cache in memory and folds only the activities a sync newly sees, recomputing
 //! just the touched cluster(s). tracematch proves the cached fold equals the
 //! batch; THIS suite proves the ENGINE never desyncs that cache from the DB it
@@ -16,7 +16,7 @@
 //! cache. Two corpora: a SINGLE home cluster (every add recomputes the one
 //! cluster) and a MULTI-cluster two-geography drip (each add bounces between
 //! disjoint clusters, so the cache must recompute only the touched one and reuse
-//! the other verbatim — the desync that Phase 2's whole point is to get right).
+//! the other verbatim, the desync that Phase 2's whole point is to get right).
 //!
 //! Also: a restart (cold cache, catalogue in the DB) must cold-rebatch the full
 //! pool, and an apply failure must drop the cache so the next detect rebuilds
@@ -36,7 +36,7 @@ use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus}
 const GROUND_BAR: f64 = 0.95;
 
 /// A cold-only corpus at a chosen origin/seed. The default deltas are huge
-/// (bucket_e = 396), so zero them — every drip here uses bucket A only.
+/// (bucket_e = 396), so zero them, every drip here uses bucket A only.
 fn cold_corpus(origin_lat: f64, seed: u64, n: usize) -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig {
         origin: GpsPoint::with_elevation(origin_lat, 8.55, 410.0),
@@ -64,16 +64,17 @@ fn namespaced(prefix: &str, acts: &[&LifecycleActivity]) -> Vec<LifecycleActivit
 }
 
 /// The from-scratch batch catalogue over `activities`: a fresh Battery engine,
-/// one batch ingest, the RAW detection catalogue. This is the B1 convergence
+/// one batch ingest, the RAW detection catalogue. This is the convergence
 /// ground truth the cached drip must match at every step.
 ///
 /// Reads the raw (pre-hysteresis) catalogue, not the damped visible view: this
-/// suite is the B1 evidence-cache parity contract (detection == batch), and since
-/// B2 the damped view legitimately lags the raw batch by up to `k` steps while a
+/// suite is the evidence-cache parity contract (detection == batch), and the
+/// damped view legitimately lags the raw batch by up to `k` steps while a
 /// dissolve debounces (a drip that has seen a section dissolve holds it a few more
-/// detects, so its DAMPED count can exceed the batch's — that is B2 working, not a
-/// cache desync). DETECTION stays order-free every step, so both sides compare the
-/// raw catalogue. B2 identity stability is gated separately (suite2_battery et al.,
+/// detects, so its DAMPED count can exceed the batch's, that is hysteresis
+/// working, not a cache desync). DETECTION stays order-free every step, so both
+/// sides compare the raw catalogue. Identity stability is gated separately
+/// (suite2_battery et al.,
 /// on the visible view). A one-step batch from empty has no lag, so its raw and
 /// damped views are identical anyway.
 fn batch_snapshot(activities: &[&LifecycleActivity]) -> SectionSnapshot {
@@ -92,7 +93,7 @@ fn assert_ground_match(step: usize, batch: &SectionSnapshot, drip: &SectionSnaps
     let drip_in_batch = ground_survival(drip, batch);
     assert!(
         batch_in_drip >= GROUND_BAR && drip_in_batch >= GROUND_BAR,
-        "step {step}: engine-cached drip desynced from batch — batch ground in drip {:.0}%, \
+        "step {step}: engine-cached drip desynced from batch, batch ground in drip {:.0}%, \
          drip ground in batch {:.0}% (want >= {:.0}% both ways); {} batch sections vs {} drip sections",
         batch_in_drip * 100.0,
         drip_in_batch * 100.0,
@@ -103,12 +104,12 @@ fn assert_ground_match(step: usize, batch: &SectionSnapshot, drip: &SectionSnaps
 }
 
 // ============================================================================
-// Gate 1 — SINGLE-CLUSTER drip == batch at every step
+// Gate 1. SINGLE-CLUSTER drip == batch at every step
 //
 // One home geography: every add touches the single cluster, so the cache
 // recomputes the whole cluster each time. This is the tightest test of the
 // cache producing the same catalogue as a fresh batch as the pool grows one at
-// a time. (Single-cluster adds stay O(N) — sub-linear is B1b — so keep N small.)
+// a time. (Single-cluster adds stay O(N), sub-linear is B1b, so keep N small.)
 // ============================================================================
 
 #[test]
@@ -144,12 +145,12 @@ fn single_cluster_drip_matches_batch_every_step() {
 }
 
 // ============================================================================
-// Gate 2 — MULTI-CLUSTER interleaved drip == batch at every step
+// Gate 2. MULTI-CLUSTER interleaved drip == batch at every step
 //
 // Two geographies ~220 km apart (disjoint clusters). The drip ALTERNATES
 // between them, so consecutive adds land in different clusters. This is the
 // Phase-2 correctness contract: folding a geo-2 activity must recompute ONLY
-// geo 2's cluster and reuse geo 1's verbatim — never disturb the untouched
+// geo 2's cluster and reuse geo 1's verbatim, never disturb the untouched
 // cluster, never double-fold, never let the cache drift from the batch. At
 // every interleaved step the accumulated set's from-scratch batch must match.
 // ============================================================================
@@ -208,13 +209,13 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
 }
 
 // ============================================================================
-// Gate 3 — RESTART cold-rebatches the full pool
+// Gate 3. RESTART cold-rebatches the full pool
 //
-// The cache is in-memory only (B4 owns persistence), so a fresh engine after a
+// The cache is in-memory only, so a fresh engine after a
 // restart starts cold while the catalogue lives in the DB. The risk: a cold
 // cache plus one new activity must fold the WHOLE pool (cold-rebatch = batch),
 // not just the one new id onto an empty cache (which would collapse the
-// catalogue). Drip, drop, reopen + load, add one more, detect — the result must
+// catalogue). Drip, drop, reopen + load, add one more, detect, the result must
 // match the batch over the full post-add set.
 // ============================================================================
 
@@ -232,7 +233,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
     // Production restart: new() + load() hydrates the catalogue from the DB but
     // comes up with an EMPTY evidence cache.
     let path = dir.path().join("lifecycle.db");
-    let mut e2 = veloqrs::PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut e2 = veloqrs::PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     e2.load().expect("load after reopen");
     assert_eq!(
         snapshot(&mut e2).catalogue_signature(),
@@ -254,7 +255,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
 }
 
 // ============================================================================
-// Gate 4 — APPLY FAILURE drops the cache, next detect recovers
+// Gate 4. APPLY FAILURE drops the cache, next detect recovers
 //
 // The consistency rule: the cache must never get ahead of the applied DB. If
 // `apply_sections` fails, the sections roll back and the cache is dropped, so
@@ -341,7 +342,7 @@ fn apply_failure_drops_cache_then_recovers() {
         assert_ground_match(full.len(), &batch, &recovered);
     } else {
         // The platform ignored the read-only (e.g. running as root): the apply
-        // succeeded and advanced the cache. Correctness must still hold — the
+        // succeeded and advanced the cache. Correctness must still hold, the
         // catalogue matches the batch over the full set.
         let drip = raw_snapshot(&engine);
         assert_ground_match(full.len(), &batch, &drip);

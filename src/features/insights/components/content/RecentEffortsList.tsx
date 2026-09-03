@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, ink } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
@@ -64,7 +64,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               </Text>
               {isPR ? (
                 <View style={styles.prBadge}>
-                  <MaterialCommunityIcons name="trophy" size={10} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="trophy" size={10} color={ink.white} />
                   <Text style={styles.prText}>PR</Text>
                 </View>
               ) : delta != null ? (
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   prText: {
-    color: '#FFFFFF',
+    color: ink.white,
     fontSize: 10,
     fontWeight: '700',
   },

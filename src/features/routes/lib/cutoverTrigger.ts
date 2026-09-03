@@ -11,13 +11,13 @@
  * one question, and would outlive the quarantine that resets the real one.
  */
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 /** In-process guard so the engine retry ladder cannot fire two runs at once. */
 let inFlight: Promise<boolean> | null = null;
 
 function attempt(): boolean {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return false;
 
   try {

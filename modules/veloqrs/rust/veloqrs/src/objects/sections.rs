@@ -14,7 +14,7 @@ impl SectionManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
+    fn get_all(&self) -> Result<Vec<crate::FfiSection>, VeloqError> {
         // Read lock: get_visible_sections() only borrows in-memory state (no
         // self.db), so concurrent reads are sound and no longer serialize on the
         // engine write lock - this is the hot Routes/section-list path. Corridor
@@ -24,7 +24,7 @@ impl SectionManager {
             e.get_visible_sections()
                 .into_iter()
                 .map(|s| {
-                    let mut f = crate::FfiFrequentSection::from(s);
+                    let mut f = crate::FfiSection::from(s);
                     if !s.is_user_defined {
                         if let Some(n) = names.get(&s.id) {
                             f.name = Some(n.clone());
@@ -40,7 +40,7 @@ impl SectionManager {
         &self,
         sport_type: Option<String>,
         min_visits: Option<u32>,
-    ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
+    ) -> Result<Vec<crate::FfiSection>, VeloqError> {
         // Read lock: get_sections_filtered() filters the in-memory Vec only.
         // Corridor names from the cached overlay, as in get_all.
         with_engine_read(|e| {
@@ -48,7 +48,7 @@ impl SectionManager {
             e.get_sections_filtered(sport_type.as_deref(), min_visits)
                 .into_iter()
                 .map(|s| {
-                    let mut f = crate::FfiFrequentSection::from(s);
+                    let mut f = crate::FfiSection::from(s);
                     if !s.is_user_defined {
                         if let Some(n) = names.get(&s.id) {
                             f.name = Some(n.clone());
@@ -82,52 +82,10 @@ impl SectionManager {
         })
     }
 
-    fn get_by_id(
-        &self,
-        section_id: String,
-    ) -> Result<Option<crate::FfiFrequentSection>, VeloqError> {
+    fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiSection>, VeloqError> {
         with_engine(|e| {
             e.get_section_by_id(&section_id)
-                .map(crate::FfiFrequentSection::from)
-        })
-    }
-
-    fn get_summaries(
-        &self,
-        sport_type: Option<String>,
-    ) -> Result<Vec<crate::SectionSummary>, VeloqError> {
-        with_engine(|e| match sport_type {
-            Some(ref sport) => e.get_section_summaries_for_sport(sport),
-            None => e.get_section_summaries(),
-        })
-    }
-
-    fn get_ranked(
-        &self,
-        sport_type: String,
-        limit: u32,
-    ) -> Result<Vec<crate::FfiRankedSection>, VeloqError> {
-        with_engine(|e| e.get_ranked_sections(&sport_type, limit))
-    }
-
-    /// Ranked sections for multiple sports in a single engine lock. Collapses
-    /// the per-sport `getRankedSections` loop in `computeInsightsData.ts`.
-    fn get_ranked_batch(
-        &self,
-        sport_types: Vec<String>,
-        limit: u32,
-    ) -> Result<Vec<crate::FfiRankedSectionsBySport>, VeloqError> {
-        with_engine(|e| {
-            sport_types
-                .into_iter()
-                .map(|sport| {
-                    let sections = e.get_ranked_sections(&sport, limit);
-                    crate::FfiRankedSectionsBySport {
-                        sport_type: sport,
-                        sections,
-                    }
-                })
-                .collect()
+                .map(crate::FfiSection::from)
         })
     }
 
@@ -235,21 +193,6 @@ impl SectionManager {
                 })
                 .collect()
         })
-    }
-
-    /// Tier 5.5: re-derive a section's consensus polyline from its
-    /// current activity traces. Useful for a "refine this section" UI
-    /// without triggering a full corpus-wide detection. Returns the new
-    /// polyline shape (point count + distance) so the caller can confirm
-    /// the refinement landed; None when the section doesn't exist, is
-    /// user-defined, or has no activities to learn from. The full polyline
-    /// is persisted via the standard save path so subsequent
-    /// get_sections() reads pick up the change.
-    fn recalculate_polyline(
-        &self,
-        section_id: String,
-    ) -> Result<Option<crate::FfiSectionRecalcResult>, VeloqError> {
-        with_engine(|e| e.recalculate_section_polyline(&section_id))
     }
 
     fn get_excluded_performances(
@@ -403,7 +346,7 @@ impl SectionManager {
             // Recompute indicators since exclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -418,7 +361,7 @@ impl SectionManager {
             // Recompute indicators since inclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -441,7 +384,7 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_lap] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_lap] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -460,7 +403,7 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_lap] Indicator recomputation failed: {}",
+                    "veloqrs: [include_lap] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -722,27 +665,6 @@ impl SectionManager {
         })?
     }
 
-    fn import_disabled_ids(&self, ids: Vec<String>) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            e.import_disabled_ids(&ids)
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
-    fn import_superseded_map(
-        &self,
-        entries: Vec<crate::FfiSupersededEntry>,
-    ) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            let map: Vec<(String, Vec<String>)> = entries
-                .into_iter()
-                .map(|entry| (entry.custom_section_id, entry.auto_section_ids))
-                .collect();
-            e.import_superseded_map(&map)
-                .map_err(|e| VeloqError::Database { msg: e })
-        })?
-    }
-
     /// Get ALL section summaries including disabled/superseded (for restore UI).
     fn get_all_summaries_including_hidden(
         &self,
@@ -754,50 +676,11 @@ impl SectionManager {
                 e.get_all_section_summaries(None)
                     .into_iter()
                     .filter(|s| {
-                        crate::persistence::PersistentRouteEngine::summary_covers_sport(s, sport)
+                        crate::persistence::PersistentEngine::summary_covers_sport(s, sport)
                     })
                     .collect()
             }
             None => e.get_all_section_summaries(None),
-        })
-    }
-
-    fn extract_traces_batch(
-        &self,
-        activity_ids: Vec<String>,
-        section_polyline_flat: Vec<f64>,
-    ) -> Result<Vec<crate::FfiBatchTrace>, VeloqError> {
-        with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
-                .chunks(2)
-                .filter(|c| c.len() == 2)
-                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
-                .collect();
-            if polyline.len() < 2 {
-                return vec![];
-            }
-            let polyline_tree = tracematch::sections::build_rtree(&polyline);
-            activity_ids
-                .iter()
-                .filter_map(|id| {
-                    let track = engine.get_gps_track(id)?;
-                    if track.len() < 3 {
-                        return None;
-                    }
-                    let trace = tracematch::sections::extract_activity_trace(
-                        &track,
-                        &polyline,
-                        &polyline_tree,
-                    );
-                    if trace.is_empty() {
-                        return None;
-                    }
-                    Some(crate::FfiBatchTrace {
-                        activity_id: id.clone(),
-                        encoded_coords: crate::coords::encode(&trace),
-                    })
-                })
-                .collect()
         })
     }
 
@@ -872,7 +755,7 @@ impl SectionManager {
             engine
                 .rematch_activity_to_section(&activity_id, &section_id)
                 .unwrap_or_else(|e| {
-                    log::warn!("tracematch: [rematch] {}", e);
+                    log::warn!("veloqrs: [rematch] {}", e);
                     false
                 })
         })
@@ -913,30 +796,14 @@ impl SectionManager {
         })?
     }
 
-    /// Batch-query section highlights (PRs) for a list of activity IDs.
-    fn get_activity_section_highlights(
-        &self,
-        activity_ids: Vec<String>,
-    ) -> Result<Vec<crate::FfiActivitySectionHighlight>, VeloqError> {
-        with_engine(|e| e.get_activity_section_highlights(&activity_ids))
-    }
-
     /// Read pre-computed indicators for a batch of activity IDs.
     /// Returns section PRs, route PRs, section trends, and route trends
-    /// from the materialized `activity_indicators` table.
+    /// from the materialised `activity_indicators` table.
     fn get_activity_indicators(
         &self,
         activity_ids: Vec<String>,
     ) -> Result<Vec<crate::FfiActivityIndicator>, VeloqError> {
         with_engine(|e| e.get_activity_indicators(&activity_ids))
-    }
-
-    /// Read pre-computed indicators for a single activity.
-    fn get_indicators_for_activity(
-        &self,
-        activity_id: String,
-    ) -> Result<Vec<crate::FfiActivityIndicator>, VeloqError> {
-        with_engine(|e| e.get_indicators_for_activity(&activity_id))
     }
 
     /// Get section encounters for an activity: one entry per (section, direction).
@@ -946,17 +813,6 @@ impl SectionManager {
         activity_id: String,
     ) -> Result<Vec<crate::FfiSectionEncounter>, VeloqError> {
         with_engine(|e| e.get_activity_section_encounters(&activity_id))
-    }
-
-    /// Recompute all activity indicators (PRs and trends).
-    /// Call after sync, section detection, route grouping, or exclude/include changes.
-    fn recompute_indicators(&self) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.recompute_activity_indicators()
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("recompute_indicators failed: {}", err),
-                })
-        })?
     }
 
     /// Given an activity and a list of section IDs, return the subset where

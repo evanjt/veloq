@@ -9,9 +9,9 @@ mod performances;
 use crate::ActivityMetrics;
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Activity Metrics & Route Performances
     // ========================================================================
@@ -202,11 +202,6 @@ impl PersistentRouteEngine {
         self.invalidate_perf_cache();
 
         Ok(())
-    }
-
-    /// Get activity metrics for a specific activity.
-    pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
-        self.activity_metrics.get(activity_id)
     }
 
     // =========================================================================

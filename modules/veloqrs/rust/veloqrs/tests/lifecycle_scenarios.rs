@@ -7,18 +7,18 @@
 //! cold-after-wipe).
 //!
 //! Test naming convention:
-//! - `scenario_*_baseline` — default-on. Prints perf + behaviour metrics for
+//! - `scenario_*_baseline`, default-on. Prints perf + behaviour metrics for
 //!   the perf doc, asserts only weak invariants (no section disappears
 //!   entirely, sport types stay stable, ingestion succeeds). Captures
 //!   current behaviour without gating future work.
-//! - `scenario_*_stable` — `#[ignore]`. Strict invariants the codebase
+//! - `scenario_*_stable`, `#[ignore]`. Strict invariants the codebase
 //!   should satisfy after Tier 2.1's incremental-consensus rewrite ships.
 //!   These are the explicit success gate for that work.
 //!
 //! Two purposes:
-//! 1. **Performance baseline** — every step prints its timing to stdout. The
+//! 1. **Performance baseline**, every step prints its timing to stdout. The
 //!    perf doc is regenerated from the captured output.
-//! 2. **Correctness regression net** — the `_stable` tests document the
+//! 2. **Correctness regression net**, the `_stable` tests document the
 //!    behaviour we want; the `_baseline` tests document what we have. The
 //!    delta between them is the work Tier 2.1 must close.
 
@@ -27,10 +27,10 @@ use std::time::Instant;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 // ============================================================================
-// Snapshot types — what we record per step
+// Snapshot types, what we record per step
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,7 +52,7 @@ impl SectionSnapshot {
     }
 }
 
-fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
+fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections();
     SectionSnapshot {
         sections: sections
@@ -105,7 +105,7 @@ impl StepMeasurement {
 // Engine helpers
 // ============================================================================
 
-fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
+fn fresh_engine() -> (PersistentEngine, TempDir) {
     // RUST_LOG=info on the test command line activates the timing
     // breakdown log lines from tracematch + veloqrs (no-op when unset
     // because the global init is gated). is_test=true keeps the output
@@ -113,12 +113,12 @@ fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
 }
 
 fn ingest_step(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     label: &str,
     activities: &[&LifecycleActivity],
 ) -> StepMeasurement {
@@ -169,7 +169,7 @@ fn ingest_step(
 }
 
 // ============================================================================
-// Behaviour metrics — measured, not asserted (printed for the perf doc)
+// Behaviour metrics, measured, not asserted (printed for the perf doc)
 // ============================================================================
 
 #[derive(Debug, Default)]
@@ -275,7 +275,7 @@ fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnapshot)
 // ============================================================================
 
 /// Every section's sport_type must remain stable across an incremental add.
-/// This is a baseline correctness property — even today, sport_type churn
+/// This is a baseline correctness property, even today, sport_type churn
 /// would indicate a serious bug.
 fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) {
     for (id, prev) in &before.sections {
@@ -290,7 +290,7 @@ fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) 
 }
 
 // ============================================================================
-// Scenario A — cold start (no comparisons; just baseline)
+// Scenario A, cold start (no comparisons; just baseline)
 // ============================================================================
 
 #[test]
@@ -317,7 +317,7 @@ fn scenario_a_cold_start_90d_baseline() {
 }
 
 // ============================================================================
-// Scenario B — expand 90d → 1y
+// Scenario B, expand 90d → 1y
 // ============================================================================
 
 #[test]
@@ -347,11 +347,11 @@ fn scenario_b_expand_to_1y_baseline() {
     assert_sport_types_stable(&step_a.snapshot, &step_b.snapshot);
 }
 
-// B1's order-free batch is non-monotone (a full re-detect on the expand can
-// reshuffle raw sections), so this was #[ignore] after B1. B2's hysteresis damps
-// that: the visible catalogue `get_sections()` reads carries stable ids, holds a
-// debounced dissolve, and only ever appends members on an add, so the expand no
-// longer removes an activity or regresses the count. Green as a B2 headline gate.
+// The order-free batch is non-monotone (a full re-detect on the expand can
+// reshuffle raw sections). Hysteresis damps that: the visible catalogue
+// `get_sections()` reads carries stable ids, holds a debounced dissolve, and
+// only ever appends members on an add, so the expand no longer removes an
+// activity or regresses the count.
 #[test]
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
@@ -380,7 +380,7 @@ fn scenario_b_expand_to_1y_stable() {
 }
 
 // ============================================================================
-// Scenario C — single-activity add
+// Scenario C, single-activity add
 // ============================================================================
 
 #[test]
@@ -415,11 +415,11 @@ fn scenario_c_single_add_baseline() {
 }
 
 // The single add re-runs full order-free detection, whose raw batch is
-// non-monotone (an add can dissolve a section). B2's hysteresis is exactly what
+// non-monotone (an add can dissolve a section). Hysteresis is exactly what
 // makes the VISIBLE view stable across that: a debounce (streak 1 < k=3) never
 // dissolves on one add, and the append-only fold only adds the new activity to
 // the corridors it traverses. `assert_single_add_stability` holds on the damped
-// `get_sections()` view. Green as a B2 headline gate.
+// `get_sections()` view.
 #[test]
 fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {
@@ -444,7 +444,7 @@ fn scenario_c_single_add_stable() {
 }
 
 // ============================================================================
-// Scenario D — small batch (3 activities)
+// Scenario D, small batch (3 activities)
 // ============================================================================
 
 #[test]
@@ -520,7 +520,7 @@ fn scenario_d_small_batch_stable() {
 /// Every member a section lost across a step is explained by a lifecycle
 /// event the ledger fired for that section during the step.
 fn assert_losses_are_fired_events(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     before: &SectionSnapshot,
     after: &SectionSnapshot,
     events_before: &BTreeMap<String, usize>,
@@ -552,7 +552,7 @@ fn assert_losses_are_fired_events(
 }
 
 // ============================================================================
-// Scenario E — year expansion (~550 activities, crosses BATCH_CAP=500)
+// Scenario E, year expansion (~550 activities, crosses BATCH_CAP=500)
 // ============================================================================
 
 #[test]
@@ -598,7 +598,7 @@ fn scenario_e_year_expansion_baseline() {
 }
 
 // ============================================================================
-// Scenario F — full-rebuild convergence (incremental sequence vs single-shot)
+// Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
 #[test]

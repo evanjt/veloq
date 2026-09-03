@@ -4,13 +4,13 @@
 //! arrives over the same corridor (the background push handler path).
 //! Expected behaviour: index_new_activity attaches the activity to the
 //! existing sections via junction rows, regroups incrementally, and is
-//! idempotent on re-delivery — all without a full re-detection.
+//! idempotent on re-delivery, all without a full re-detection.
 
 #![cfg(feature = "synthetic")]
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 #[test]
 fn indexes_new_activity_against_existing_sections() {
@@ -27,7 +27,7 @@ fn indexes_new_activity_against_existing_sections() {
         ..LifecycleConfig::default()
     });
 
-    let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine = PersistentEngine::new(db_path_str).unwrap();
 
     for activity in corpus.through_a() {
         engine
@@ -114,7 +114,7 @@ fn indexes_new_activity_against_existing_sections() {
 fn returns_empty_summary_for_unknown_or_tiny_activity() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("index_empty.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     let summary = engine.index_new_activity("does-not-exist").unwrap();
     assert_eq!(summary.matched_sections, 0);

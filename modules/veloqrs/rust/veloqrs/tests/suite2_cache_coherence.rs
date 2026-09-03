@@ -1,11 +1,11 @@
-//! Suite #2 — edit-teardown / cache coherence + custom-section lifecycle.
+//! Suite #2, edit-teardown / cache coherence + custom-section lifecycle.
 //!
-//! The B4 invalidation spec: after a mutation, the caches a section spans must
+//! The invalidation spec: after a mutation, the caches a section spans must
 //! agree.
-//!   PERF     — lap_time/lap_pace served by get_section_performances
-//!   SEAM     — in-memory get_sections() vs the DB get_sections_by_type(None) view
-//!   JUNCTION — section_activities membership (phantom / orphan rows)
-//!   BACKUP   — original_polyline_json (left set when it should be cleared)
+//!   PERF    , lap_time/lap_pace served by get_section_performances
+//!   SEAM    , in-memory get_sections() vs the DB get_sections_by_type(None) view
+//!   JUNCTION, section_activities membership (phantom / orphan rows)
+//!   BACKUP  , original_polyline_json (left set when it should be cleared)
 //!
 //! reset_section_bounds is the known-good template: it restores geometry, clears
 //! the backup, keeps the seam consistent, and (being deletable again) survives
@@ -34,14 +34,14 @@ use lifecycle_support::*;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use veloqrs::sections::CreateSectionParams;
-use veloqrs::{ActivityMetrics, PersistentRouteEngine};
+use veloqrs::{ActivityMetrics, PersistentEngine};
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
 }
 
 /// A fresh engine cold-detected over bucket A, plus the busiest section id.
-fn cold() -> (PersistentRouteEngine, tempfile::TempDir, String) {
+fn cold() -> (PersistentEngine, tempfile::TempDir, String) {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let step = ingest_step(&mut engine, "cold", &corpus.through_a());
@@ -63,7 +63,7 @@ fn poly_len_m(line: &[GpsPoint]) -> f64 {
 
 /// Seed metrics + a 1 s-per-point time stream for every activity so
 /// get_section_performances returns populated records.
-fn seed_perf(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivity]) {
+fn seed_perf(engine: &mut PersistentEngine, activities: &[&LifecycleActivity]) {
     let mut metrics = Vec::new();
     let mut ids = Vec::new();
     let mut times: Vec<u32> = Vec::new();
@@ -95,7 +95,7 @@ fn seed_perf(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivit
 
 /// Touch one unrelated activity's metrics purely for the invalidate_perf_cache
 /// side effect, forcing the next perf read to recompute instead of serve cache.
-fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str) {
+fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
     engine
         .set_activity_metrics(vec![ActivityMetrics {
             activity_id: activity_id.to_string(),
@@ -113,7 +113,7 @@ fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str
 }
 
 /// Draw a custom section over the middle half of a ride activity's track.
-fn create_custom(engine: &mut PersistentRouteEngine, corpus: &LifecycleCorpus) -> String {
+fn create_custom(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) -> String {
     let src = corpus
         .through_a()
         .into_iter()
@@ -143,7 +143,7 @@ fn create_custom(engine: &mut PersistentRouteEngine, corpus: &LifecycleCorpus) -
 /// A custom section survives resync with its geometry and membership intact. Its
 /// timestamp id never collides with a detected id and section_type='custom' is
 /// never wiped, so the wipe-rebuild cannot touch it. This is the behaviour stable
-/// identity (B2) gives every user-honoured section.
+/// identity gives every user-honoured section.
 #[test]
 fn custom_section_survives_resync_intact() {
     let corpus = corpus();
@@ -187,7 +187,7 @@ fn delete_section_cascade_is_enforced() {
     let ghost = engine.add_section_activity("ghost_section_xyz", "ghost_activity");
     assert!(
         ghost.is_err(),
-        "a junction row was inserted for a non-existent section — FK not enforced, delete leaves orphans"
+        "a junction row was inserted for a non-existent section. FK not enforced, delete leaves orphans"
     );
 }
 

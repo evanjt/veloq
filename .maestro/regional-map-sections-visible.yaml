@@ -1,4 +1,4 @@
-# Regional Map — Sections must render at all zoom levels
+# Regional Map. Sections must render at all zoom levels
 #
 # Bug 4: User reports sections do not show on the global map at any zoom
 # level despite multiple work-package iterations. This flow proves the
@@ -7,7 +7,7 @@
 # is reachable on the map.
 #
 # The existing regional-map-toggles.yaml only conditionally taps the
-# sections toggle (`when: visible: id: "map-toggle-sections"`) — that
+# sections toggle (`when: visible: id: "map-toggle-sections"`), that
 # silently passes when sections are missing, which is exactly the bug.
 # This flow makes the assertion HARD so the failure surfaces.
 
@@ -24,7 +24,7 @@ tags:
 # regularSections.length > 0 (empty list renders as `sections-list-empty`).
 # This ensures the engine has actually detected sections before we check
 # the regional map, rather than passing vacuously on an empty FlatList.
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"

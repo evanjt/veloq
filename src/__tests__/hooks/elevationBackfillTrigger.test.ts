@@ -7,7 +7,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 
 const mockVersion = { current: '0.3.1' };
@@ -23,11 +23,11 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
 }));
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const VERSION_KEY = 'veloq-elevation-backfill-version';
 
@@ -35,7 +35,7 @@ function engineWith(start: jest.Mock, remaining: jest.Mock) {
   return {
     startElevationBackfill: start,
     getElevationBackfillRemaining: remaining,
-  } as unknown as ReturnType<typeof getRouteEngine>;
+  } as unknown as ReturnType<typeof getEngine>;
 }
 
 describe('startElevationBackfillAfterUpdate', () => {
@@ -48,7 +48,7 @@ describe('startElevationBackfillAfterUpdate', () => {
     mockVersion.current = '0.3.1';
     start = jest.fn().mockReturnValue(true);
     remaining = jest.fn().mockReturnValue(5);
-    mockGetRouteEngine.mockReturnValue(engineWith(start, remaining));
+    mockGetEngine.mockReturnValue(engineWith(start, remaining));
   });
 
   it('starts a run while tracks still lack elevation, without stamping', async () => {
@@ -101,7 +101,7 @@ describe('startElevationBackfillAfterUpdate', () => {
   });
 
   it('leaves the version unstamped when the engine is unavailable', async () => {
-    mockGetRouteEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue(null);
 
     await expect(startElevationBackfillAfterUpdate()).resolves.toBe(false);
 
@@ -126,5 +126,97 @@ describe('startElevationBackfillAfterUpdate', () => {
 
     start.mockReset().mockReturnValue(true);
     await expect(startElevationBackfillAfterUpdate()).resolves.toBe(true);
+  });
+});
+
+/**
+ * Scenario: a pass ends partial because the connection was down, and the app
+ * stays open for hours afterwards.
+ * Expected behaviour: coming back to the foreground tries again, spaced further
+ * apart each time so a dead connection is not asked once a minute forever. The
+ * launch attempt arms the first wait, so a foreground straight after launch
+ * does not double up on it.
+ */
+describe('resumeElevationBackfill', () => {
+  let start: jest.Mock;
+  let remaining: jest.Mock;
+  let now: number;
+  let trigger: typeof import('@/features/routes/lib/elevationBackfillTrigger');
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.resetModules();
+    await AsyncStorage.clear();
+    mockVersion.current = '0.3.1';
+    now = 1_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    start = jest.fn().mockReturnValue(true);
+    remaining = jest.fn().mockReturnValue(5);
+    // Resetting the registry hands the trigger a fresh copy of the engine
+    // mock, so the outer handle is not the one it will call.
+    const fresh = require('@/shared/native/engine').getEngine as jest.Mock;
+    fresh.mockReturnValue(engineWith(start, remaining));
+    trigger = require('@/features/routes/lib/elevationBackfillTrigger');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  /** Foreground until it accepts a run, and report how long that took. */
+  async function waitForNextRun(): Promise<number> {
+    const before = start.mock.calls.length;
+    const startedAt = now;
+    for (let step = 0; step < 200; step += 1) {
+      await trigger.resumeElevationBackfill();
+      if (start.mock.calls.length > before) return now - startedAt;
+      now += 60_000;
+    }
+    throw new Error('the backfill was never attempted again');
+  }
+
+  it('does not re-attempt straight after the launch pass', async () => {
+    await trigger.startElevationBackfillAfterUpdate();
+    expect(start).toHaveBeenCalledTimes(1);
+
+    await trigger.resumeElevationBackfill();
+
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('attempts again once the wait has passed', async () => {
+    await trigger.startElevationBackfillAfterUpdate();
+
+    expect(await waitForNextRun()).toBeGreaterThan(0);
+    expect(start).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits longer after each attempt that leaves work owing', async () => {
+    await trigger.startElevationBackfillAfterUpdate();
+
+    const waits = [await waitForNextRun(), await waitForNextRun(), await waitForNextRun()];
+
+    expect(waits[1]).toBeGreaterThan(waits[0]);
+    expect(waits[2]).toBeGreaterThan(waits[1]);
+  });
+
+  it('caps the wait rather than growing it without bound', async () => {
+    await trigger.startElevationBackfillAfterUpdate();
+
+    let last = 0;
+    for (let i = 0; i < 12; i += 1) last = await waitForNextRun();
+
+    expect(last).toBeLessThanOrEqual(30 * 60_000);
+  });
+
+  it('stops asking once the library has been fully asked', async () => {
+    remaining.mockReturnValue(0);
+    await trigger.startElevationBackfillAfterUpdate();
+    expect(start).not.toHaveBeenCalled();
+
+    now += 60 * 60_000;
+    await trigger.resumeElevationBackfill();
+
+    expect(start).not.toHaveBeenCalled();
   });
 });

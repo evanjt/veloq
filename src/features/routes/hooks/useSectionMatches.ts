@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import type { Section as NativeSection } from 'veloqrs';
@@ -97,7 +97,7 @@ export function useSectionMatches(
     }
 
     function trySubscribe() {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       unsubscribeRef.current = engine.subscribe('sections', () => refreshRef.current());
@@ -146,7 +146,7 @@ export function useSectionMatches(
   const sectionCount = useMemo(() => {
     if (preComputed) return preComputed.sectionCount;
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       return engine?.getSectionCount() ?? 0;
     } catch {
       return 0;
@@ -167,7 +167,7 @@ export function useSectionMatches(
     if (preComputed) {
       nativeSections = preComputed.sections;
     } else {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         return [];
       }

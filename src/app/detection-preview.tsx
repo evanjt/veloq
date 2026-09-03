@@ -1,8 +1,17 @@
 /**
  * Detection preview: test new section settings on one riding area before
- * applying them everywhere. The five sliders are pure local state; nothing
- * touches the engine until the Preview button runs a sandboxed detect, and
- * only Keep writes the config and re-analyses the library.
+ * applying them everywhere. The screen opens on the live catalogue for the
+ * chosen area, so the map shows what the detector holds today. The five
+ * sliders are pure local state; nothing is cut until the Preview button runs a
+ * sandboxed detect against that catalogue, and only Keep writes the config and
+ * re-analyses the library.
+ *
+ * Nothing here scrolls vertically. Tuning a slider you cannot see the map for
+ * defeats the screen, so the map and the controls share one fixed column and
+ * the panel is sized to fit rather than to scroll. That is what the intro
+ * paragraph, the picker label and the standalone Preview button cost, and why
+ * they are gone: once a run has produced a result, Preview joins Discard and
+ * Keep in the one decision row.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -10,7 +19,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -21,10 +29,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
+import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
+import { usePreviewCurrentSections } from '@/features/routes/hooks/usePreviewCurrentSections';
 import {
   PreviewCentrePicker,
   PreviewDiffStrip,
@@ -32,7 +42,7 @@ import {
   PreviewParamPanel,
   PreviewSectionPopover,
 } from '@/features/routes/components';
-import { getRouteEngine, UNIFIED_CONFIG } from '@/shared/native/routeEngine';
+import { getEngine, UNIFIED_CONFIG } from '@/shared/native/engine';
 import type {
   PreviewCentre,
   PreviewParams,
@@ -44,9 +54,10 @@ export default function DetectionPreviewScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const client = useMemo(() => getRouteEngine(), []);
+  const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
   const { status, progress, result, suspended, start, cancel } = usePreviewDetect(client);
+  const { forceRescan } = useSectionRescan();
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const [params, setParams] = useState<PreviewParams>(() => {
@@ -72,7 +83,11 @@ export default function DetectionPreviewScreen() {
   const danger = isDark ? darkColors.error : colors.error;
 
   const selectedCentre = centre ?? centres[0] ?? null;
+  const currentSections = usePreviewCurrentSections(client, selectedCentre);
   const running = status === 'running';
+  // The engine reports a percentage for a bounded job, so draw it. Clamped
+  // because a phase that finishes ahead of its own estimate can overshoot.
+  const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
 
   const handlePreview = useCallback(() => {
     if (!selectedCentre || running) return;
@@ -89,12 +104,23 @@ export default function DetectionPreviewScreen() {
           const config = client?.getSectionConfig();
           if (!client || !config) return;
           client.setSectionConfig({ ...config, ...params });
-          client.forceRedetectSections();
+          // Through the rescan hook, not the client: the re-cut is global and
+          // the athlete has to be able to see it run, and the hook is what
+          // starts the poll every progress indicator reads.
+          //
+          // The engine refuses a re-cut while a detect runs or the elevation
+          // backfill holds detection. The config above is already written and
+          // the evidence cache already cleared, so closing here would report a
+          // change that never ran. Stay, say why, and let Keep be pressed again.
+          if (!forceRescan()) {
+            Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
+            return;
+          }
           router.back();
         },
       },
     ]);
-  }, [t, client, params]);
+  }, [t, client, params, forceRescan]);
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
@@ -121,9 +147,10 @@ export default function DetectionPreviewScreen() {
         </Text>
       </View>
 
-      <View style={styles.map}>
+      <View style={styles.map} testID="preview-map">
         <PreviewMapView
           result={result}
+          currentSections={currentSections}
           centre={selectedCentre}
           selectedId={selected?.id ?? null}
           showCurrent={showCurrent}
@@ -139,16 +166,10 @@ export default function DetectionPreviewScreen() {
         )}
       </View>
 
-      <ScrollView
-        style={styles.panel}
-        contentContainerStyle={[styles.panelContent, { paddingBottom: insets.bottom + spacing.lg }]}
-        showsVerticalScrollIndicator={false}
+      <View
+        style={[styles.panel, { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }]}
+        testID="preview-control-panel"
       >
-        <Text style={[styles.intro, { color: textSecondary }]}>{t('settings.previewIntro')}</Text>
-
-        <Text style={[styles.sectionLabel, { color: textSecondary }]}>
-          {t('settings.previewPickArea')}
-        </Text>
         <View style={styles.pickerWrap}>
           <PreviewCentrePicker
             centres={centres}
@@ -163,76 +184,95 @@ export default function DetectionPreviewScreen() {
         {result && <PreviewDiffStrip counts={result.counts} />}
 
         {running ? (
-          <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
-            <ActivityIndicator size="small" color={textSecondary} />
-            <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
-              {progress?.phase === 'loading'
-                ? t('settings.previewRunning', { count: progress.total })
-                : (progress?.displayName ?? t('settings.previewRun'))}
-            </Text>
+          <View>
+            <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
+              <ActivityIndicator size="small" color={textSecondary} />
+              <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
+                {progress?.phase === 'loading'
+                  ? t('settings.previewRunning', { count: progress.total })
+                  : (progress?.displayName ?? t('settings.previewRun'))}
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: border }]}>
+              <View
+                testID="preview-progress-fill"
+                style={[
+                  styles.progressFill,
+                  { backgroundColor: brand.tealLight, width: `${runPercent}%` },
+                ]}
+              />
+            </View>
           </View>
         ) : (
-          <Pressable
-            style={[
-              styles.runBtn,
-              selectedCentre
-                ? { backgroundColor: brand.tealLight }
-                : {
-                    backgroundColor: surface,
-                    borderColor: border,
-                    borderWidth: StyleSheet.hairlineWidth,
-                  },
-            ]}
-            onPress={handlePreview}
-            disabled={!selectedCentre}
-            testID="preview-run-button"
-          >
-            <MaterialCommunityIcons
-              name="magnify-scan"
-              size={18}
-              color={selectedCentre ? colors.textOnDark : textSecondary}
-            />
-            <Text
+          // One row, so a result does not cost a second. Keep takes the accent
+          // once there is something to keep, and Preview steps back to
+          // secondary rather than competing with it.
+          <View style={styles.actionRow}>
+            {result && (
+              <Pressable
+                style={[styles.actionBtn, { backgroundColor: surface, borderColor: border }]}
+                onPress={handleDiscard}
+                testID="preview-discard-button"
+              >
+                <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
+                  {t('settings.previewDiscard')}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
               style={[
-                styles.runText,
-                { color: selectedCentre ? colors.textOnDark : textSecondary },
+                styles.actionBtn,
+                selectedCentre && !result
+                  ? { backgroundColor: brand.tealLight, borderColor: brand.tealLight }
+                  : { backgroundColor: surface, borderColor: border },
               ]}
+              onPress={handlePreview}
+              disabled={!selectedCentre}
+              testID="preview-run-button"
             >
-              {t('settings.previewRun')}
-            </Text>
-          </Pressable>
+              <MaterialCommunityIcons
+                name="magnify-scan"
+                size={18}
+                color={selectedCentre && !result ? colors.textOnDark : textSecondary}
+              />
+              <Text
+                style={[
+                  styles.runText,
+                  { color: selectedCentre && !result ? colors.textOnDark : textSecondary },
+                ]}
+                numberOfLines={1}
+              >
+                {t('settings.previewRun')}
+              </Text>
+            </Pressable>
+            {result && (
+              <Pressable
+                style={[styles.actionBtn, styles.keepBtn]}
+                onPress={handleKeep}
+                testID="preview-keep-button"
+              >
+                <Text style={[styles.runText, styles.keepText]} numberOfLines={1}>
+                  {t('settings.previewKeep')}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         )}
 
         {status === 'error' && (
           <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
+        )}
+        {status === 'pool_unusable' && (
+          <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
+            {t('settings.previewPoolUnusable')}
+          </Text>
         )}
         {suspended && (
           <Text style={[styles.notice, { color: textSecondary }]}>
             {t('settings.previewSuspended')}
           </Text>
         )}
-
-        {result && (
-          <View style={styles.decisionRow}>
-            <Pressable
-              style={[styles.decisionBtn, { backgroundColor: surface, borderColor: border }]}
-              onPress={handleDiscard}
-              testID="preview-discard-button"
-            >
-              <Text style={[styles.runText, { color: textSecondary }]}>
-                {t('settings.previewDiscard')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.decisionBtn, styles.keepBtn]}
-              onPress={handleKeep}
-              testID="preview-keep-button"
-            >
-              <Text style={[styles.runText, styles.keepText]}>{t('settings.previewKeep')}</Text>
-            </Pressable>
-          </View>
-        )}
-      </ScrollView>
+      </View>
     </ScreenSafeAreaView>
   );
 }
@@ -257,7 +297,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   map: {
-    height: '38%',
+    height: '30%',
   },
   popover: {
     position: 'absolute',
@@ -265,30 +305,47 @@ const styles = StyleSheet.create({
     right: spacing.md,
     bottom: spacing.md,
   },
-  panel: { flex: 1 },
-  panelContent: {
+  panel: {
+    flex: 1,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    gap: spacing.md,
-  },
-  intro: {
-    ...typography.bodySmall,
-    lineHeight: 18,
-  },
-  sectionLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   pickerWrap: {
     marginHorizontal: -spacing.md,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 2,
+    marginTop: spacing.xs,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   runBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: layout.borderRadius,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: layout.minTapTarget,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.borderRadius,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   runText: {
     ...typography.body,
@@ -297,17 +354,6 @@ const styles = StyleSheet.create({
   notice: {
     ...typography.bodySmall,
     textAlign: 'center',
-  },
-  decisionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  decisionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   keepBtn: {
     backgroundColor: brand.tealLight,

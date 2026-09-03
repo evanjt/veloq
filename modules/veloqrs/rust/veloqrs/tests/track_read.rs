@@ -12,7 +12,7 @@ use std::cell::Cell;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::codec::{TrackRead, encode_polyline};
 
 // ------------------------------------------------------------ allocator
@@ -63,13 +63,18 @@ fn pt(lat: f64, lng: f64, ele: Option<f64>) -> GpsPoint {
     }
 }
 
+/// Real exports carry 6-decimal coordinates and 1-decimal elevations, and the
+/// store quantises to exactly that, so the fixture is built by rounding rather
+/// than by accumulating floats. An accumulated `46.2 + 3 * 0.000_09` is
+/// 46.200270000000004, which no export ever sends and which the store rounds.
 fn track(n: usize, with_elevation: bool) -> Vec<GpsPoint> {
+    let dec = |v: f64, places: usize| -> f64 { format!("{v:.places$}").parse().unwrap() };
     (0..n)
         .map(|i| {
             pt(
-                46.2 + i as f64 * 0.000_09,
-                7.36 - i as f64 * 0.000_113,
-                with_elevation.then_some(500.0 + i as f64 * 0.7),
+                dec(46.2 + i as f64 * 0.000_09, 6),
+                dec(7.36 - i as f64 * 0.000_113, 6),
+                with_elevation.then_some(dec(500.0 + i as f64 * 0.7, 1)),
             )
         })
         .collect()
@@ -138,7 +143,7 @@ fn rmp_blob(points: &[GpsPoint]) -> Vec<u8> {
 // ------------------------------------------------------------ setup
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     path: PathBuf,
     _tmp: TempDir,
@@ -147,7 +152,7 @@ struct Setup {
 fn setup() -> Setup {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine new");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
     Setup {
         engine,
@@ -192,8 +197,18 @@ impl Setup {
 
     /// A second engine over the same file, with empty caches, so a read comes
     /// from the stored bytes.
-    fn reopen(&self) -> PersistentRouteEngine {
-        PersistentRouteEngine::new(self.path.to_str().unwrap()).expect("engine reopen")
+    fn reopen(&self) -> PersistentEngine {
+        PersistentEngine::new(self.path.to_str().unwrap()).expect("engine reopen")
+    }
+
+    fn signature_blob(&self, id: &str) -> Vec<u8> {
+        self.raw
+            .query_row(
+                "SELECT points FROM signatures WHERE activity_id = ?",
+                params![id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .expect("signature blob")
     }
 
     fn set_signature_blob(&self, id: &str, bytes: &[u8]) {
@@ -491,6 +506,61 @@ fn a_corrupt_signature_yields_no_signature_at_all() {
     assert!(fresh.get_signature("a2").is_none());
 }
 
+/// Scenario: a signature is stored after the move to the quantised codec
+/// (`B137`, the second of the stores `Q15` named).
+///
+/// Expected behaviour: the row carries the quantised container, not postcard,
+/// and reads back on the grid. Roughly 3 B/point against postcard's 25, so the
+/// assertion is on the size as well as on the tag: a writer that fell back
+/// would still round-trip and would still be wrong.
+#[test]
+fn a_stored_signature_is_written_in_the_quantised_container() {
+    let mut s = setup();
+    s.add("a1", track(400, true));
+
+    // A signature is a reduced line, not the whole track, so the size is
+    // measured against what the blob actually carries.
+    let blob = s.signature_blob("a1");
+    let stored = veloqrs::persistence::codec::deserialize_points(&blob).expect("decode");
+    assert_eq!(blob[0], 0xC0, "the signature blob is not the polyline tag");
+    assert!(!stored.is_empty(), "the fixture stored no signature points");
+    let postcard = veloqrs::persistence::codec::serialize_points(&stored).expect("postcard");
+    assert!(
+        blob.len() < postcard.len(),
+        "{} B is not smaller than postcard's {} B for the same {} points",
+        blob.len(),
+        postcard.len(),
+        stored.len()
+    );
+
+    let mut fresh = s.reopen();
+    assert_eq!(
+        fresh.get_signature("a1").expect("stored signature").points,
+        stored
+    );
+}
+
+/// A signature written by an earlier release is postcard, and route grouping
+/// still has to read it. The codec moved, the reader did not narrow.
+#[test]
+fn a_legacy_postcard_signature_still_reads() {
+    let mut s = setup();
+    let points = track(40, true);
+    s.add("a1", points.clone());
+    let legacy = veloqrs::persistence::codec::serialize_points(&points).expect("postcard encode");
+    s.set_signature_blob("a1", &legacy);
+
+    let mut fresh = s.reopen();
+    assert_eq!(
+        fresh
+            .get_signature("a1")
+            .expect("stored signature")
+            .points
+            .len(),
+        points.len()
+    );
+}
+
 /// Scenario: the heatmap walks the whole library.
 /// Expected behaviour: peak live memory tracks one decoded track, not all of
 /// them, so nothing the callback saw survives the call.
@@ -528,5 +598,32 @@ fn for_each_track_holds_one_track_at_a_time() {
     assert!(
         live_bytes() - baseline < one_track,
         "the walk left a track behind"
+    );
+}
+
+/// Scenario: a track is stored and read back after the move to the quantised
+/// codec (`B125`).
+///
+/// Expected behaviour: a 6-decimal coordinate survives exactly, and anything
+/// finer is rounded to the grid rather than kept. The store has one encoding,
+/// so this is the guarantee, not an accident of what was written last.
+#[test]
+fn a_stored_track_reads_back_on_the_quantisation_grid() {
+    let mut s = setup();
+    s.add(
+        "a1",
+        vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.1234561_7, 7.6543214_2, Some(1234.56)),
+        ],
+    );
+
+    let read = s.engine.tracks_batch(&["a1".to_string()]);
+    assert_eq!(
+        read[0].1,
+        TrackRead::Present(vec![
+            pt(46.123456, 7.654321, Some(1234.5)),
+            pt(46.123456, 7.654321, Some(1234.6)),
+        ])
     );
 }

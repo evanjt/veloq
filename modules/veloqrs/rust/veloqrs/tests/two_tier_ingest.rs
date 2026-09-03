@@ -12,11 +12,11 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRouteEngine {
+fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEngine {
     let path = dir.path().join("two_tier.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
 
     for activity in corpus.through_a() {
         engine
@@ -164,7 +164,7 @@ fn is_open_line(polyline: &[tracematch::GpsPoint]) -> bool {
 /// Per section `activity_id` appears in: (stored rows, the detector's own
 /// pass count over the stored line, whether the line is open).
 fn passes_per_section(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     activity_id: &str,
 ) -> Vec<(usize, usize, bool)> {
     let config = engine.get_section_config();
@@ -190,7 +190,7 @@ fn passes_per_section(
 }
 
 fn store(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     id: &str,
     points: Vec<tracematch::GpsPoint>,
     a: &tracematch::scenarios::LifecycleActivity,
@@ -262,7 +262,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
 
     let batch_dir = TempDir::new().unwrap();
     let batch_path = batch_dir.path().join("batch.db");
-    let mut batch = PersistentRouteEngine::new(batch_path.to_str().unwrap()).unwrap();
+    let mut batch = PersistentEngine::new(batch_path.to_str().unwrap()).unwrap();
     for activity in corpus.through_a() {
         let id = activity.id.clone();
         store(&mut batch, &id, activity.gps_points.clone(), activity);
@@ -327,7 +327,7 @@ fn beside(line: &[tracematch::GpsPoint], metres: f64) -> Vec<tracematch::GpsPoin
 /// A straight open line from the catalogue: ends further apart than four
 /// fifths of its length, so a sideways copy stays sideways along its whole
 /// extent.
-fn straight_section(engine: &mut PersistentRouteEngine) -> (String, Vec<tracematch::GpsPoint>) {
+fn straight_section(engine: &mut PersistentEngine) -> (String, Vec<tracematch::GpsPoint>) {
     let ids: Vec<String> = engine.get_sections().iter().map(|s| s.id.clone()).collect();
     ids.iter()
         .filter_map(|id| engine.get_section_by_id(id))

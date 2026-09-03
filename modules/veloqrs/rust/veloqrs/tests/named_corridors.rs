@@ -15,7 +15,7 @@ use lifecycle_support::*;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Distinctive name that can never collide with the generated
 /// "<section_word> N" pattern.
@@ -29,12 +29,12 @@ fn corpus() -> LifecycleCorpus {
 
 /// The one name read used everywhere: today the DB row, after D1 the
 /// resolution overlay behind the same call.
-fn section_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
+fn section_name(engine: &PersistentEngine, id: &str) -> Option<String> {
     engine.get_section(id).and_then(|s| s.name)
 }
 
 /// Name as the list UI reads it, via the summaries path.
-fn summary_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
+fn summary_name(engine: &PersistentEngine, id: &str) -> Option<String> {
     engine
         .get_section_summaries()
         .into_iter()
@@ -43,11 +43,7 @@ fn summary_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
 }
 
 /// Ids of visible sections currently carrying `name`.
-fn sections_named(
-    engine: &PersistentRouteEngine,
-    snap: &SectionSnapshot,
-    name: &str,
-) -> Vec<String> {
+fn sections_named(engine: &PersistentEngine, snap: &SectionSnapshot, name: &str) -> Vec<String> {
     snap.sections
         .keys()
         .filter(|id| section_name(engine, id).as_deref() == Some(name))
@@ -57,7 +53,7 @@ fn sections_named(
 
 /// Exactly one visible section carries `NAME`, and it sits on `fp`'s ground.
 fn assert_single_carrier(
-    engine: &PersistentRouteEngine,
+    engine: &PersistentEngine,
     snap: &SectionSnapshot,
     fp: &SectionFingerprint,
     ctx: &str,
@@ -230,7 +226,7 @@ fn junction_corpus() -> JunctionCorpus {
 /// Cold-ingest the trunk, name its section, then feed the branch chunks.
 /// Returns the engine and the final snapshot.
 fn run_junction_scenario() -> (
-    PersistentRouteEngine,
+    PersistentEngine,
     tempfile::TempDir,
     SectionSnapshot,
     Vec<GpsPoint>,
@@ -274,7 +270,7 @@ fn trunk_pieces(snap: &SectionSnapshot, trunk: &[GpsPoint]) -> Vec<(String, f64)
 }
 
 // ============================================================================
-// GUARDS — green before D1, load-bearing after it. Never ignored.
+// GUARDS, green before D1, load-bearing after it. Never ignored.
 // ============================================================================
 
 #[test]
@@ -362,7 +358,7 @@ fn restore_list_names_a_disabled_corridor() {
 
 /// The suppression-trap regression. After D1 a name becomes a
 /// `section_intents` row, and `durable_intent_rows` treats every intent row
-/// as a suppression ground unless it filters by kind — under which bug this
+/// as a suppression ground unless it filters by kind, under which bug this
 /// corridor would never re-emerge. Green today because naming writes no
 /// intent; must stay green forever.
 #[test]
@@ -424,7 +420,7 @@ fn accepted_section_name_stays_row_local_across_restart() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let section = engine
         .get_section(&id)
@@ -454,7 +450,7 @@ fn row_name_beats_corridor_name_on_same_section() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(
         section_name(&engine, &id).as_deref(),
@@ -477,7 +473,7 @@ fn name_readable_after_restart_without_sync() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(
         section_name(&engine, &id).as_deref(),
@@ -512,7 +508,7 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
         engine.remove_activity(aid).expect("remove_activity");
     }
     // The debounced dissolve needs a few steps to retire the visible row.
-    // Drain only with activities that lend the footprint no ground —
+    // Drain only with activities that lend the footprint no ground,
     // orphaned ground re-queues, so any lingering passes over the
     // corridor are an honest low-visit section and it would never
     // dissolve. Empty steps keep the re-detect cadence.
@@ -542,7 +538,7 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
 }
 
 // ============================================================================
-// Durability contracts — the reason names are intents, not row data.
+// Durability contracts, the reason names are intents, not row data.
 // ============================================================================
 
 /// A full cache clear plus re-detect loses every auto row and its name today.
@@ -590,7 +586,7 @@ fn name_survives_restart_and_resync() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
     assert_single_carrier(&engine, &after, &fp, "after restart + resync");
@@ -851,7 +847,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
         .expect("seed a legacy user name");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     let listed = engine.get_named_corridors();
     assert_eq!(
@@ -866,7 +862,7 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
     drop(engine);
 
     let engine = {
-        let mut e = PersistentRouteEngine::new(path.to_str().unwrap()).expect("second reopen");
+        let mut e = PersistentEngine::new(path.to_str().unwrap()).expect("second reopen");
         e.load().expect("load again");
         e
     };
@@ -929,7 +925,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
         .expect("plant the named row");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     engine
         .clear_routes_and_sections()
@@ -949,7 +945,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
         )
         .expect("flip to disabled");
     }
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     engine
         .clear_routes_and_sections()
@@ -1007,7 +1003,7 @@ fn two_names_one_section_keeps_both() {
         .expect("plant the second intent");
     }
 
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
     let listed = engine.get_named_corridors();
     assert_eq!(listed.len(), 2, "both intents must persist");
@@ -1077,7 +1073,7 @@ fn accepting_a_named_section_keeps_the_name() {
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
     assert_eq!(section_name(&engine, &id).as_deref(), Some(NAME));
     let _ = snapshot(&mut engine);
@@ -1085,7 +1081,7 @@ fn accepting_a_named_section_keeps_the_name() {
 
 /// Generated-shaped names ("Section 7") are the engine's own labels, not
 /// user data: writing one to an auto section stays row-local and must never
-/// mint a durable intent — a backup restore replays every generated name
+/// mint a durable intent, a backup restore replays every generated name
 /// through this path.
 #[test]
 fn generated_shaped_names_stay_row_local() {

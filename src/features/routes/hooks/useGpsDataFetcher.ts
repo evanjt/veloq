@@ -10,9 +10,9 @@
 
 import { useCallback } from 'react';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/shared/native/routeEngine';
+import { getNativeModule } from '@/shared/native/engine';
 import {
-  routeEngine,
+  engine,
   getDownloadProgress,
   startFetchAndStore,
   takeFetchAndStoreResult,
@@ -21,6 +21,7 @@ import {
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -70,19 +71,19 @@ async function pollTileGeneration(
   rangeStart = 75,
   rangeEnd = 100
 ): Promise<void> {
-  const status = routeEngine.pollTileGeneration();
+  const status = engine.pollTileGeneration();
   if (status !== 'running' || !isMountedRef.current) return;
 
-  const initial = routeEngine.getHeatmapTileProgress();
+  const initial = engine.getHeatmapTileProgress();
   const tileTotal = initial && initial.length >= 2 ? initial[1] : 0;
   const maxPollTime = tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
 
   const startTime = Date.now();
   while (isMountedRef.current) {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    const s = routeEngine.pollTileGeneration();
+    const s = engine.pollTileGeneration();
     if (updateProgress) {
-      const progress = routeEngine.getHeatmapTileProgress();
+      const progress = engine.getHeatmapTileProgress();
       if (progress && progress.length >= 2) {
         const [processed, total] = progress;
         if (total > 0) {
@@ -256,13 +257,13 @@ export function useGpsDataFetcher() {
         }
 
         // Add to engine
-        await nativeModule.routeEngine.addActivities(ids, allCoords, offsets, sportTypes);
+        await nativeModule.engine.addActivities(ids, allCoords, offsets, sportTypes);
 
         // Sync activity metrics for performance calculations
         const syncedActivities = activities.filter((a) => ids.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
-        routeEngine.setActivityMetrics(metrics);
-        routeEngine.triggerRefresh('activities');
+        engine.setActivityMetrics(metrics);
+        engine.triggerRefresh('activities');
 
         // Persist synthetic time streams so save_sections() can compute lap_time/lap_pace
         // during detection. Without this, the section detail chart is blank in demo mode
@@ -275,12 +276,12 @@ export function useGpsDataFetcher() {
           })
           .filter((s) => s.times.length > 0);
         if (demoTimeStreams.length > 0) {
-          routeEngine.setTimeStreams(demoTimeStreams);
+          engine.setTimeStreams(demoTimeStreams);
         }
 
         // Demo: detection 25-75%, tiles 75-100%. The engine starts the
         // run itself when the batch lands; this only follows it.
-        const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
+        const started = nativeModule.engine.pollSectionDetection() === 'running';
 
         if (started) {
           const pollInterval = 500;
@@ -289,10 +290,10 @@ export function useGpsDataFetcher() {
           let timedOut = false;
 
           while (isMountedRef.current && !abortSignal.aborted) {
-            const status = nativeModule.routeEngine.pollSectionDetection();
+            const status = nativeModule.engine.pollSectionDetection();
 
             if (status === 'running') {
-              const progress = nativeModule.routeEngine.getSectionDetectionProgress();
+              const progress = nativeModule.engine.getSectionDetectionProgress();
               if (progress) {
                 updateProgress({
                   status: 'computing',
@@ -334,10 +335,10 @@ export function useGpsDataFetcher() {
               while (Date.now() - bgStart < bgMaxTime) {
                 await new Promise((resolve) => setTimeout(resolve, 2000));
                 try {
-                  const s = bgModule.routeEngine.pollSectionDetection();
+                  const s = bgModule.engine.pollSectionDetection();
                   if (s === 'complete') {
-                    routeEngine.triggerRefresh('sections');
-                    routeEngine.triggerRefresh('groups');
+                    engine.triggerRefresh('sections');
+                    engine.triggerRefresh('groups');
                     if (__DEV__) {
                       console.log(
                         `[fetchDemoGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
@@ -354,8 +355,8 @@ export function useGpsDataFetcher() {
           }
         }
 
-        routeEngine.triggerRefresh('groups');
-        routeEngine.triggerRefresh('sections');
+        engine.triggerRefresh('groups');
+        engine.triggerRefresh('sections');
 
         await pollTileGeneration(isMountedRef, updateProgress);
 
@@ -463,6 +464,7 @@ export function useGpsDataFetcher() {
       const sportTypes: ActivitySportMapping[] = activities.map((a) => ({
         activityId: a.id,
         sportType: a.type || 'Ride',
+        startDate: activityStartEpoch(a.start_date_local),
       }));
 
       if (__DEV__) {
@@ -587,7 +589,7 @@ export function useGpsDataFetcher() {
         const metrics = syncedActivities.map(toActivityMetrics);
 
         const t0 = Date.now();
-        routeEngine.setActivityMetrics(metrics);
+        engine.setActivityMetrics(metrics);
         if (__DEV__) {
           console.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
         }
@@ -597,8 +599,8 @@ export function useGpsDataFetcher() {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         const t1 = Date.now();
-        routeEngine.triggerRefresh('activities');
-        routeEngine.triggerRefresh('groups');
+        engine.triggerRefresh('activities');
+        engine.triggerRefresh('groups');
         if (__DEV__) {
           console.log(`[fetchApiGps] ⏱ triggerRefresh: ${Date.now() - t1}ms`);
         }
@@ -614,9 +616,7 @@ export function useGpsDataFetcher() {
       const routeMatchingOn = isRouteMatchingEnabled();
       const needsDetection =
         routeMatchingOn &&
-        (result.syncedIds.length > 0 ||
-          routeEngine.getStats()?.sectionsDirty === true ||
-          hasExpanded);
+        (result.syncedIds.length > 0 || engine.getStats()?.sectionsDirty === true || hasExpanded);
 
       // API: detection 50-75%, tiles 75-100%
       if (needsDetection && isMountedRef.current) {
@@ -633,7 +633,7 @@ export function useGpsDataFetcher() {
         // The engine starts detection itself at the end of a stored batch
         // (and a cutover re-cuts everything at its own end), so this only
         // follows a run that is under way.
-        const started = nativeModule.routeEngine.pollSectionDetection() === 'running';
+        const started = nativeModule.engine.pollSectionDetection() === 'running';
 
         if (started) {
           const pollInterval = 500;
@@ -642,10 +642,10 @@ export function useGpsDataFetcher() {
           let timedOut = false;
 
           while (isMountedRef.current && !abortSignal.aborted) {
-            const status = nativeModule.routeEngine.pollSectionDetection();
+            const status = nativeModule.engine.pollSectionDetection();
 
             if (status === 'running') {
-              const progress = nativeModule.routeEngine.getSectionDetectionProgress();
+              const progress = nativeModule.engine.getSectionDetectionProgress();
               if (progress) {
                 updateProgress({
                   status: 'computing',
@@ -706,10 +706,10 @@ export function useGpsDataFetcher() {
               while (Date.now() - bgStart < bgMaxTime) {
                 await new Promise((resolve) => setTimeout(resolve, 2000));
                 try {
-                  const s = bgModule.routeEngine.pollSectionDetection();
+                  const s = bgModule.engine.pollSectionDetection();
                   if (s === 'complete') {
-                    routeEngine.triggerRefresh('sections');
-                    routeEngine.triggerRefresh('groups');
+                    engine.triggerRefresh('sections');
+                    engine.triggerRefresh('groups');
                     if (__DEV__) {
                       console.log(
                         `[fetchApiGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
@@ -737,8 +737,8 @@ export function useGpsDataFetcher() {
           }
         }
 
-        routeEngine.triggerRefresh('groups');
-        routeEngine.triggerRefresh('sections');
+        engine.triggerRefresh('groups');
+        engine.triggerRefresh('sections');
 
         await pollTileGeneration(isMountedRef, updateProgress);
       }
@@ -748,20 +748,20 @@ export function useGpsDataFetcher() {
       // Rust does the fetching and persisting; this only waits for the drain.
       if (isMountedRef.current && !abortSignal.aborted) {
         try {
-          const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+          const needingStreams = engine.getActivitiesNeedingTimeStreams();
           if (needingStreams.length > 0) {
             if (__DEV__) {
               console.log(
                 `[fetchApiGps] Backfilling time streams for ${needingStreams.length} activities`
               );
             }
-            routeEngine.syncTimeStreams(needingStreams);
+            engine.syncTimeStreams(needingStreams);
             const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
             while (
               Date.now() < deadline &&
               isMountedRef.current &&
               !abortSignal.aborted &&
-              routeEngine.getMissingTimeStreams(needingStreams).length > 0
+              engine.getMissingTimeStreams(needingStreams).length > 0
             ) {
               await new Promise((resolve) => setTimeout(resolve, STREAM_BACKFILL_POLL_MS));
             }

@@ -12,7 +12,7 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::{GpsPoint, PersistentRouteEngine};
+use veloqrs::{GpsPoint, PersistentEngine};
 
 const SPORT: &str = "Ride";
 const POPULATION: usize = 120;
@@ -69,10 +69,10 @@ fn insert_traversal(db: &Connection, section_id: &str, activity_id: &str, date: 
 /// `POPULATION` sections ridden in the last few days, plus one ridden three
 /// times and then abandoned a year ago. The neglected one ranks last: recency
 /// carries the largest single weight in the relevance score.
-fn seeded() -> (PersistentRouteEngine, TempDir) {
+fn seeded() -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     let db = Connection::open(&path).expect("raw open");
 
     let now = chrono::Utc::now().timestamp();
@@ -102,7 +102,7 @@ fn seeded() -> (PersistentRouteEngine, TempDir) {
     (engine, tmp)
 }
 
-fn ids(engine: &PersistentRouteEngine, limit: u32) -> Vec<String> {
+fn ids(engine: &PersistentEngine, limit: u32) -> Vec<String> {
     engine
         .get_ranked_sections(SPORT, limit)
         .into_iter()

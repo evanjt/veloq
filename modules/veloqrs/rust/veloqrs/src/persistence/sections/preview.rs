@@ -16,7 +16,7 @@ use std::thread;
 use std::time::Instant;
 use tracematch::sections::{RECUT_AGREEMENT, Tunables, mutual_overlap, shares_ground};
 
-use super::super::{PersistentRouteEngine, SectionDetectionProgress};
+use super::super::{PersistentEngine, SectionDetectionProgress};
 
 /// Bin edge for the ~5 km centre grid, in degrees of latitude.
 const BIN_DEG: f64 = 0.045;
@@ -60,6 +60,8 @@ pub enum PreviewOutcome {
     Complete(String),
     /// Cancelled cooperatively; nothing to take.
     Cancelled,
+    /// Too much of the pool is unreadable for a real detect to cut over it.
+    PoolUnusable { readable: usize, unreadable: u32 },
 }
 
 /// One poll of a preview handle.
@@ -67,6 +69,8 @@ pub enum PreviewPoll {
     Running,
     Complete,
     Cancelled,
+    /// The run refused the pool the real detect would also refuse.
+    PoolUnusable,
     /// The worker died without sending (panic, failed open).
     Died,
 }
@@ -94,11 +98,13 @@ impl SectionPreviewHandle {
         match self.outcome {
             Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
             Some(PreviewOutcome::Cancelled) => PreviewPoll::Cancelled,
+            Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
             None => match self.receiver.try_recv() {
                 Ok(o) => {
                     self.outcome = Some(o);
                     match self.outcome {
                         Some(PreviewOutcome::Complete(_)) => PreviewPoll::Complete,
+                        Some(PreviewOutcome::PoolUnusable { .. }) => PreviewPoll::PoolUnusable,
                         _ => PreviewPoll::Cancelled,
                     }
                 }
@@ -253,6 +259,17 @@ struct PreviewPayload {
     sections: Vec<PayloadSection>,
 }
 
+/// Does an auto section's ground fall inside a component's padded box? The
+/// preview run and the catalogue the screen opens on both scope by this, so
+/// the two can never disagree about what belongs to the area.
+fn within_component(section: &FrequentSection, padded_bbox: DegreeBox) -> bool {
+    let b = tracematch::geo_utils::compute_bounds(&section.polyline);
+    b.min_lat <= padded_bbox.1
+        && padded_bbox.0 <= b.max_lat
+        && b.min_lng <= padded_bbox.3
+        && padded_bbox.2 <= b.max_lng
+}
+
 /// Diff two catalogues. `proposed` is the new state, `live` is the old.
 /// Used by both the preview and the cutover.
 pub(crate) fn diff_catalogues_public(
@@ -362,7 +379,7 @@ fn diff_catalogues(
     (counts, rows)
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Ranked riding areas at ~5 km. The sections substrate (bounds cache +
     /// visit counts) speaks for the catalogue when any auto section carries
     /// bounds; otherwise activity boxes stand in, with the (0, 0, 0, 0)
@@ -467,6 +484,57 @@ impl PersistentRouteEngine {
         centres
     }
 
+    /// The live auto catalogue for the riding area containing (lat, lng), in
+    /// the preview's own section shape. Scoped by the same component and
+    /// padded box a run uses, so what the screen shows on open is exactly the
+    /// catalogue the next run will diff against.
+    ///
+    /// Reads only what is already persisted, so it costs one bounds sweep and
+    /// a pin lookup rather than a detect. Returns None when no activity's
+    /// padded box contains the point.
+    pub fn preview_current(&self, lat: f64, lng: f64) -> Option<String> {
+        let boxes: Vec<(String, tracematch::Bounds)> = self
+            .activity_metadata
+            .values()
+            .map(|m| (m.id.clone(), m.bounds))
+            .collect();
+        let (_component_ids, padded_bbox) =
+            cluster_for(&boxes, lat, lng, Tunables::DEFAULT.cluster_gap_m)?;
+
+        let pinned: HashSet<String> = self
+            .db
+            .prepare("SELECT section_id FROM section_pins")
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.flatten().collect())
+                    .ok()
+            })
+            .unwrap_or_default();
+
+        let rows: Vec<PayloadSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .filter(|s| within_component(s, padded_bbox))
+            .map(|s| PayloadSection {
+                id: s.id.clone(),
+                live_id: Some(s.id.clone()),
+                status: "unchanged",
+                name: s.name.clone(),
+                sport: s.sport_type.clone(),
+                polyline: encoded_polyline(&s.polyline),
+                visits: s.visit_count,
+                distance_m: s.distance_meters,
+                elevation_gain_m: s.elevation_gain_m,
+                avg_grade_percent: s.avg_grade_percent,
+                pinned: pinned.contains(&s.id),
+            })
+            .collect();
+
+        serde_json::to_string(&rows).ok()
+    }
+
     /// Start a preview run over the component containing (lat, lng).
     ///
     /// Snapshots everything the worker needs from memory under the read lock,
@@ -510,13 +578,7 @@ impl PersistentRouteEngine {
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
-            .filter(|s| {
-                let b = tracematch::geo_utils::compute_bounds(&s.polyline);
-                b.min_lat <= padded_bbox.1
-                    && padded_bbox.0 <= b.max_lat
-                    && b.min_lng <= padded_bbox.3
-                    && padded_bbox.2 <= b.max_lng
-            })
+            .filter(|s| within_component(s, padded_bbox))
             .cloned()
             .collect();
 
@@ -545,7 +607,7 @@ impl PersistentRouteEngine {
                     c
                 }
                 Err(e) => {
-                    log::error!("tracematch: [SectionPreview] Failed to open read-only DB: {e:?}");
+                    log::error!("veloqrs: [SectionPreview] Failed to open read-only DB: {e:?}");
                     return;
                 }
             };
@@ -593,21 +655,42 @@ impl PersistentRouteEngine {
             }
 
             log::info!(
-                "tracematch: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
+                "veloqrs: [SectionPreview] Pool loaded: {} tracks ({} empty, {} unreadable) of {} component ids",
                 pool.tracks.len(),
                 pool.empty,
                 pool.unreadable,
                 component_ids.len()
             );
 
+            // Same gate as the real detect, so a preview never proposes
+            // sections a Keep would refuse to cut. Read-only, so the refusal
+            // is reported to the caller and nothing is recorded.
+            if !super::detection::pool_is_usable(pool.readable, pool.unreadable as usize) {
+                log::error!(
+                    "veloqrs: [SectionPreview] Refusing the preview: {} of {} stored tracks in the component are unreadable",
+                    pool.unreadable,
+                    pool.readable + pool.unreadable as usize
+                );
+                progress_worker.set_phase("aborted", 0);
+                tx.send(PreviewOutcome::PoolUnusable {
+                    readable: pool.readable,
+                    unreadable: pool.unreadable,
+                })
+                .ok();
+                return;
+            }
+
             progress_worker.set_phase("analyzing", pool.tracks.len() as u32);
 
-            // Seconds stay empty to mirror the real detect, which passes
-            // none; if that call ever carries real seconds this one must
-            // change with it or proposals stop matching what a Keep applies.
+            // The same seconds the real detect reads, loaded the same way.
+            // A preview that judged the lift veto on geometry alone would
+            // propose ground a Keep then refuses, or hide ground it cuts.
+            let seconds = super::track_pool::load_seconds_chunked(&conn, &pool.tracks);
+            let seconds_view = super::track_pool::seconds_view(&seconds);
+
             let detection = tracematch::detect_sections_unified_dated(
                 &pool.tracks,
-                &[],
+                &seconds_view,
                 &sport_map,
                 &start_epochs,
                 &effective_config,
@@ -649,7 +732,7 @@ impl PersistentRouteEngine {
                     tx.send(PreviewOutcome::Complete(json)).ok();
                 }
                 Err(e) => {
-                    log::error!("tracematch: [SectionPreview] Payload serialisation failed: {e}");
+                    log::error!("veloqrs: [SectionPreview] Payload serialisation failed: {e}");
                 }
             }
         });

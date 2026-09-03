@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -20,10 +20,10 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
 
   const queryKey = queryKeys.charts.paceCurve.bySport(sport, days, gap);
 
-  const body = getRouteEngine()?.getPaceCurveBody(sport, days, gap) ?? null;
+  const body = getEngine()?.getPaceCurveBody(sport, days, gap) ?? null;
   useEngineBody(
     body !== null,
-    () => getRouteEngine()?.syncPaceCurve(sport, days, gap),
+    () => getEngine()?.syncPaceCurve(sport, days, gap),
     queryKey,
     enabled
   );
@@ -31,7 +31,7 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const result = useQuery<PaceCurve>({
     queryKey,
     queryFn: () => {
-      const stored = getRouteEngine()?.getPaceCurveBody(sport, days, gap);
+      const stored = getEngine()?.getPaceCurveBody(sport, days, gap);
       const parsed = stored ? parsePaceCurveBody(stored, sport) : null;
       return parsed ?? emptyPaceCurve(sport);
     },
@@ -49,7 +49,7 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     const key = `${sport}:${cs}`;
     if (lastSnapshotted.current === key) return;
     lastSnapshotted.current = key;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
     const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
     engine.savePaceSnapshot(sport, cs, result.data?.dPrime, result.data?.r2, todayTs);

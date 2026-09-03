@@ -13,13 +13,13 @@ Przeglądaj swoje aktywności na interaktywnych mapach z terenem 3D, mapami ciep
 Automatycznie wykrywaj powtarzające się trasy i odcinki w historii aktywności. Porównuj wysiłki w czasie, aby śledzić postępy na ulubionych podjazdach i trasach.
 
 <b>Wykresy i analiza</b>
-Tętno, moc, tempo, wysokość i kadencja — wszystko zsynchronizowane z mapą. Przeglądaj rozkłady stref, TSS, współczynnik intensywności i podsumowania okrążeń.
+Tętno, moc, tempo, wysokość i kadencja, wszystko zsynchronizowane z mapą. Przeglądaj rozkłady stref, TSS, współczynnik intensywności i podsumowania okrążeń.
 
 <b>Kondycja</b>
 Śledź swoją formę dzięki śledzeniu CTL/ATL/TSB i wizualnym strefom. Monitoruj HRV, tętno spoczynkowe, sen i samopoczucie. Przeglądaj krzywe mocy i tempa według dyscypliny.
 
 <b>Prywatność</b>
-Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach — żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.
+Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach, żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 

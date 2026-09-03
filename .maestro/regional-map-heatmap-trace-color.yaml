@@ -1,7 +1,7 @@
-# Regional Map — Heatmap trace colour (US-R3)
+# Regional Map. Heatmap trace colour (US-R3)
 # When an activity is selected AND heatmap is on, its polyline is drawn in
 # the brand teal (#0D9488). With heatmap off it falls back to the sport colour.
-# Screenshot-based assertion: basemap tiles don't need to load — the polyline
+# Screenshot-based assertion: basemap tiles don't need to load, the polyline
 # colour is a MapLibre expression, not tile-derived.
 
 appId: com.veloq.app.dev
@@ -35,7 +35,7 @@ tags:
     timeout: 2500
 
 # Select the first visible activity marker via the demo fixture's known
-# coordinates. Tapping a marker on the map is fragile — easier to deep-link
+# coordinates. Tapping a marker on the map is fragile, easier to deep-link
 # into an activity and back to map with it pre-selected. Instead, tap the
 # fit-all button then toggle heatmap.
 - tapOn:

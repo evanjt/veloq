@@ -44,8 +44,6 @@ export interface InsightsConfig {
     /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
-    /** HRV - minimum days of data in the rolling window. */
-    minHrvDataPoints: number;
   };
 
   /** G2 - proximity gate. */
@@ -124,7 +122,6 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     minProgressChangePct: 15,
     signalFloorDelta: 0.5,
     signalCeilingDelta: 2.0,
-    minHrvDataPoints: 5,
   },
 
   proximity: {

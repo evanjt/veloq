@@ -17,7 +17,7 @@ use rusqlite::Connection;
 use std::path::Path;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::sections::DetectorGeneration;
 
 const SID: &str = "s_1700000000000__ab12cd34";
@@ -33,11 +33,11 @@ fn poly(seed: u32) -> Vec<GpsPoint> {
         .collect()
 }
 
-fn engine_at(path: &Path) -> PersistentRouteEngine {
-    PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine")
+fn engine_at(path: &Path) -> PersistentEngine {
+    PersistentEngine::new(path.to_str().unwrap()).expect("open engine")
 }
 
-fn fresh() -> (PersistentRouteEngine, TempDir) {
+fn fresh() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine_at(&dir.path().join("routes.db"));
     (engine, dir)
@@ -86,7 +86,7 @@ fn generation(method: &str, digest: &str) -> DetectorGeneration {
     }
 }
 
-fn kinds_of(engine: &PersistentRouteEngine, sid: &str) -> Vec<String> {
+fn kinds_of(engine: &PersistentEngine, sid: &str) -> Vec<String> {
     engine
         .section_history(sid)
         .into_iter()

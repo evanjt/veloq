@@ -15,14 +15,20 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
-import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import {
+  startElevationBackfillAfterUpdate,
+  resumeElevationBackfill,
+} from '@/features/routes/lib/elevationBackfillTrigger';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
-import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+import {
+  initializeTileCacheSettings,
+  migrateTileCacheSettings,
+} from '@/features/maps/lib/storage/tileCacheSettings';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -46,7 +52,13 @@ import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
-import { ShaderWarmup, OfflineBanner, BottomTabBar, GlobalErrorBoundary } from '@/shared/ui';
+import {
+  ShaderWarmup,
+  OfflineBanner,
+  SyncErrorBanner,
+  BottomTabBar,
+  GlobalErrorBoundary,
+} from '@/shared/ui';
 import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
@@ -54,9 +66,8 @@ import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/wh
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
-import { rememberCachedAthleteId } from '@/shared/storage';
-import { migrateSettingsToSqlite } from '@/shared/storage';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
   onAppForeground,
@@ -70,8 +81,7 @@ import {
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
 
-// Register background insight task at module scope (required by TaskManager)
-import '@/features/insights/backgroundInsightTask';
+// Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
 enableFreeze(true);
 if (!__DEV__) {
@@ -108,12 +118,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useEffect(() => {
     if (isAuthenticated) {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (engine) {
         const dbPath = getRouteDbPath();
         if (!dbPath) {
           if (__DEV__) {
-            console.warn('[RouteEngine] Cannot initialize - document directory not available.');
+            console.warn('[Engine] Cannot initialize - document directory not available.');
           }
           return;
         }
@@ -135,7 +145,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             ) {
               if (__DEV__) {
                 console.log(
-                  `[RouteEngine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
+                  `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
                 );
               }
               engine.clear();
@@ -149,7 +159,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             markEngineReady();
             if (__DEV__) {
               console.log(
-                `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
+                `[Engine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
               );
             }
             // Set name translations for auto-generated route/section names
@@ -210,15 +220,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           } else if (attempt < 2) {
             // Retry once after delay - handles transient FS issues on first launch
             if (__DEV__) {
-              console.warn(
-                `[RouteEngine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
-              );
+              console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
             }
             setTimeout(() => tryInit(attempt + 1), 500);
           } else {
             if (__DEV__) {
               console.warn(
-                `[RouteEngine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
+                `[Engine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
               );
             }
             setEngineInitFailed(true);
@@ -246,6 +254,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
       if (state === 'active') {
         onAppForeground();
+        // A pass left partial by a moment without a connection would otherwise
+        // wait for the app to be killed and reopened, and the detector cutover
+        // waits behind it. The trigger spaces these itself, so calling it on
+        // every foreground is cheap.
+        if (!useAuthStore.getState().isDemoMode) {
+          resumeElevationBackfill().catch(() => {});
+        }
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
@@ -298,7 +313,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return () => clearTimeout(timer);
     } else if (isAuthenticated && inLoginScreen) {
       // Check for athlete ID mismatch (restored backup from different account)
-      const engine = getRouteEngine();
+      const engine = getEngine();
       const backupAthleteId = engine?.getSetting('__athlete_id');
       const currentAthleteId = useAuthStore.getState().athleteId;
       if (
@@ -369,9 +384,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <View style={{ flex: 1 }}>{children}</View>;
 }
 
-// Set to true when capturing screenshots (hides status bar)
-const SCREENSHOT_MODE = __DEV__ && false;
-
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -398,7 +410,8 @@ export default function RootLayout() {
           initializeRouteSettings(),
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
-          initializeTileCacheStore(),
+          migrateTileCacheSettings(),
+          initializeTileCacheSettings(),
           initializeWhatsNewStore(),
           initializeInsightsStore(),
           initializeRecordingPreferences(),
@@ -413,7 +426,7 @@ export default function RootLayout() {
         const support = useSupportStore.getState();
         if (support.isLoaded && !support.isLegacyPurchaser) {
           try {
-            const eng = getRouteEngine();
+            const eng = getEngine();
             if (eng && eng.getActivityCount() > 0) {
               support.setLegacyPurchaser();
             }
@@ -514,11 +527,7 @@ export default function RootLayout() {
             <TopSafeAreaProvider>
               <MapPreferencesProvider>
                 <PaperProvider theme={theme}>
-                  <StatusBar
-                    style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    hidden={SCREENSHOT_MODE}
-                    animated
-                  />
+                  <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} animated />
                   <AuthGate>
                     {startupError ? (
                       <View
@@ -541,7 +550,7 @@ export default function RootLayout() {
                             gap: 8,
                           }}
                         >
-                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <ActivityIndicator size="small" color={amberBanner.light.border} />
                           <Text
                             style={{
                               flex: 1,
@@ -574,6 +583,7 @@ export default function RootLayout() {
                       </View>
                     ) : null}
                     <OfflineBanner />
+                    <SyncErrorBanner />
                     <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />

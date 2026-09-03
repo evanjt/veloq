@@ -3,15 +3,16 @@ export { useRouteMatch } from './useRouteMatch';
 export { useRoutePerformances } from './useRoutePerformances';
 export { useRouteProcessing } from './useRouteProcessing';
 export { useRouteSignatures, type RouteSignature } from './useRouteSignatures';
-export { useEngineSections, useEngineSectionCount } from './useRouteEngine';
+export { useEngineSections, useEngineSectionCount } from './useEngine';
 export { useSectionMatches } from './useSectionMatches';
 export {
   useSectionPerformances,
   type SectionLap,
   type SectionPerformanceRecord,
 } from './useSectionPerformances';
+export { useSectionEfficiencyTrend } from './useSectionEfficiencyTrend';
 export { useCustomSections } from './useCustomSections';
-export { useUnifiedSections } from './useUnifiedSections';
+export { useSections } from './useSections';
 export { useRouteDataSync } from './useRouteDataSync';
 export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';

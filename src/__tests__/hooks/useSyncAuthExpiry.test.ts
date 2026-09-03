@@ -43,7 +43,7 @@ describe('useSyncAuthExpiry', () => {
 
     renderHook(() => useSyncAuthExpiry());
 
-    expect(handleSessionExpired).toHaveBeenCalledWith('token_expired');
+    expect(handleSessionExpired).toHaveBeenCalledWith('signed_out');
   });
 
   it('tears down once while the state stays authExpired', () => {

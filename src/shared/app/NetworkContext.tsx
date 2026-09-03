@@ -1,22 +1,40 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { AppState } from 'react-native';
 import * as Network from 'expo-network';
+import { onlineManager } from '@tanstack/react-query';
+
+import { getEngine } from '@/shared/native/engine';
 
 interface NetworkContextValue {
   /** Whether device has network connectivity */
   isOnline: boolean;
-  /** Whether internet is reachable (null if unknown) */
-  isInternetReachable: boolean | null;
-  /** Connection type (wifi, cellular, etc.) */
-  connectionType: string | null;
 }
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
 
+/**
+ * Hand the edge to Rust as well as to TanStack.
+ *
+ * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
+ * the network, so this is its only input. It rides the debounced edge below
+ * rather than the raw one, so the app runs one debounce rather than two.
+ *
+ * A push that cannot land is not worth failing over: the provider mounts
+ * before `initWithPath`, the value is advisory in Rust, and it expires there,
+ * so a dropped push costs a deferred pass at worst.
+ */
+function pushToEngine(online: boolean): void {
+  try {
+    getEngine()?.setNetworkOnline(online);
+  } catch {
+    // The native module is not loaded yet. The next edge or foreground
+    // re-states it, and until then Rust behaves as it did before it had one.
+  }
+}
+
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [networkState, setNetworkState] = useState<NetworkContextValue>({
     isOnline: true, // Assume online initially
-    isInternetReachable: null,
-    connectionType: null,
   });
 
   // Debounce timer for going-offline transitions (3s delay prevents OfflineBanner flashing)
@@ -39,20 +57,19 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
       if (isOnline) {
         // Going online: update immediately
-        setNetworkState({
-          isOnline: true,
-          isInternetReachable: state.isInternetReachable ?? null,
-          connectionType: state.type ?? null,
-        });
+        setNetworkState({ isOnline: true });
+        // TanStack has no React Native connectivity source of its own, so
+        // without this it believes it is permanently online and
+        // `refetchOnReconnect` never fires.
+        onlineManager.setOnline(true);
+        pushToEngine(true);
       } else {
         // Going offline: debounce by 3s to avoid flashing during brief hiccups
         offlineTimerRef.current = setTimeout(() => {
           if (cancelled) return;
-          setNetworkState({
-            isOnline: false,
-            isInternetReachable: state.isInternetReachable ?? null,
-            connectionType: state.type ?? null,
-          });
+          setNetworkState({ isOnline: false });
+          onlineManager.setOnline(false);
+          pushToEngine(false);
         }, 3000);
       }
     };
@@ -83,7 +100,26 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         clearTimeout(offlineTimerRef.current);
       }
       subscription.remove();
+      // Nothing is watching the network any more, so leaving the manager
+      // offline would strand every query behind `networkMode`.
+      onlineManager.setOnline(true);
+      pushToEngine(true);
     };
+  }, []);
+
+  // The push is a value Rust holds, not a subscription, so it goes stale
+  // while the app is backgrounded and no listener fires. Re-stating what we
+  // already know on every foreground is what keeps Rust from refusing work on
+  // a connection that came back while nobody was watching.
+  const onlineRef = useRef(networkState.isOnline);
+  useEffect(() => {
+    onlineRef.current = networkState.isOnline;
+  });
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (status) => {
+      if (status === 'active') pushToEngine(onlineRef.current);
+    });
+    return () => subscription.remove();
   }, []);
 
   return <NetworkContext.Provider value={networkState}>{children}</NetworkContext.Provider>;

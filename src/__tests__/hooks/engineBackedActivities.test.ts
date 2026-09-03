@@ -4,20 +4,27 @@
  * a corrupt row must not take the feed down.
  */
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import {
   useActivities,
+  useInfiniteActivities,
   resetActivityWindowRequests,
 } from '@/features/activity/hooks/useActivities';
+import { emitSyncSettled } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: jest.fn(),
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
+}));
+
+let mockIsOnline = true;
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: mockIsOnline }),
 }));
 
 const engine = {
@@ -27,7 +34,7 @@ const engine = {
   subscribe: jest.fn(() => () => {}),
 };
 
-const mockGetRouteEngine = getRouteEngine as jest.MockedFunction<typeof getRouteEngine>;
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 let client: QueryClient;
 
@@ -39,9 +46,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetActivityWindowRequests();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  mockGetRouteEngine.mockReturnValue(engine as unknown as ReturnType<typeof getRouteEngine>);
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getActivityBodies.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
+  engine.syncActivitiesWindow.mockReturnValue(true);
+  mockIsOnline = true;
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
 });
 
@@ -88,6 +97,99 @@ describe('useActivities', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
   });
 
+  it('re-asks for a window the engine refused', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+
+    const { rerender, unmount } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+    unmount();
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    rerender({});
+    renderHook(() => useActivities(opts), { wrapper });
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('re-asks for a window whose request threw', async () => {
+    engine.syncActivitiesWindow.mockImplementation(() => {
+      throw new Error('offline');
+    });
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+
+    const first = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    renderHook(() => useActivities(opts), { wrapper });
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('asks again on the reconnect edge', async () => {
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    mockIsOnline = false;
+    act(() => rerender({}));
+    mockIsOnline = true;
+    act(() => rerender({}));
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps an accepted window to one ask while the connection holds', async () => {
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    act(() => rerender({}));
+    act(() => rerender({}));
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks again when the launch sync releases the exclusive slot', async () => {
+    // The ordinary refusal is the launch sync holding the slot, not an offline
+    // failure, and that ends without the user touching anything.
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    act(() => emitSyncSettled());
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+    expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-01-01', '2024-06-01');
+  });
+
+  it('does not re-ask a window the engine already accepted', async () => {
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    act(() => emitSyncSettled());
+    act(() => emitSyncSettled());
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops asking once the hook is gone', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
+    const { unmount } = renderHook(() => useActivities(opts), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+    unmount();
+
+    act(() => emitSyncSettled());
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
+  });
+
   it('reads a window as end-of-day inclusive', async () => {
     renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), { wrapper });
 
@@ -122,5 +224,30 @@ describe('useOldestActivityDate', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
+  });
+});
+
+describe('useInfiniteActivities', () => {
+  it('re-asks for the feed pages when the launch sync releases the slot', async () => {
+    engine.syncActivitiesWindow.mockReturnValue(false);
+    renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    engine.syncActivitiesWindow.mockReturnValue(true);
+    act(() => emitSyncSettled());
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+  });
+
+  it('re-asks for the feed window on the reconnect edge', async () => {
+    const { rerender } = renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    mockIsOnline = false;
+    act(() => rerender({}));
+    mockIsOnline = true;
+    act(() => rerender({}));
+
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 });

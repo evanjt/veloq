@@ -18,10 +18,10 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter, getSectionStyle } from '@/features/routes';
+import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
@@ -126,9 +126,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        getRouteEngine()?.enableSection(sectionId);
+        getEngine()?.enableSection(sectionId);
       } else {
-        getRouteEngine()?.disableSection(sectionId);
+        getEngine()?.disableSection(sectionId);
       }
     },
     []
@@ -413,7 +413,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // FlatList render item
   const renderEncounterItem = useCallback(
     ({ item, index }: { item: SectionEncounter; index: number }) => {
-      const style = getSectionStyle(index);
       const rowKey = `${item.sectionId}-${item.direction}`;
       // When scrubbing we know the exact row under the finger (rowKey); fall
       // back to sectionId comparison when the highlight comes from elsewhere
@@ -427,7 +426,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           activityId={activityId}
           sportType={sportType}
           index={index}
-          style={style}
           isHighlighted={isHighlighted}
           isDark={isDark}
           isMetric={isMetric}

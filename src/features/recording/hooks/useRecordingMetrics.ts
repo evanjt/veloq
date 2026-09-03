@@ -118,17 +118,12 @@ export function useRecordingMetrics(): {
 
     // Lap metrics
     const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
-    // Cumulative distance at the start of the in-progress lap is the distance at
-    // the end of the last completed lap. endTime is a seconds value, so find the
-    // first sample at/after that boundary time (mirroring addLap) rather than
-    // indexing the distance stream by seconds.
-    let lapStartDistance = 0;
-    if (lastLap) {
-      const lapStartIdx = streams.time.findIndex((tt) => tt >= lastLap.endTime);
-      lapStartDistance = lapStartIdx >= 0 ? (streams.distance[lapStartIdx] ?? 0) : 0;
-    }
+    // The lap stores the stream index it was pressed at, so the in-progress lap
+    // starts at the sample after it. Lap time runs on the moving clock.
+    const lapStartDistance =
+      lastLap && lastLap.endIndex >= 0 ? (streams.distance[lastLap.endIndex] ?? 0) : 0;
     const lapDistance = distance - lapStartDistance;
-    const lapStartSeconds = lastLap ? lastLap.endTime : 0;
+    const lapStartSeconds = lastLap ? lastLap.movingEndTime : 0;
     const movingSeconds = elapsedSeconds - Math.floor(pausedDuration / 1000);
     const lapTime = Math.max(0, movingSeconds - lapStartSeconds);
 

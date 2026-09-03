@@ -18,12 +18,15 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { darkColors } from '@/theme';
+import { darkColors, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
 import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
@@ -34,8 +37,10 @@ import type {
 } from '@/features/maps/hooks/useWebViewBridge';
 import { REGION_CHANGE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
 import {
   buildApplyScript,
+  buildBundledAssetReplyScript,
   buildClusterExpansionZoomScript,
   buildClusterLeavesScript,
   buildFitBoundsScript,
@@ -66,6 +71,9 @@ const log = debug.create('MapSurface');
  * surfaces are mounted at once.
  */
 export const MAP_SURFACE_TEST_ID = 'maplibre-map';
+
+/** The state shown when the page cannot draw a basemap at all. */
+export const MAP_SURFACE_UNAVAILABLE_TEST_ID = 'map-unavailable';
 
 /** Long-press duration, matching the platform default for a press-and-hold. */
 const LONG_PRESS_MS = 500;
@@ -135,6 +143,8 @@ export interface MapSurfaceProps {
   /** Serve heatmap PNG tiles from the device for the `heatmap-file` protocol. */
   serveHeatmapTiles?: boolean;
   onMapReady?: () => void;
+  /** The page cannot render a basemap. Fires once per failure, with the reason. */
+  onMapFailed?: (reason: string) => void;
   onPress?: (event: MapPressEvent) => void;
   onLongPress?: (event: MapPressEvent) => void;
   onRegionIsChanging?: (state: MapCameraState, isUserInteraction: boolean) => void;
@@ -184,6 +194,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     pitchEnabled = false,
     serveHeatmapTiles = false,
     onMapReady,
+    onMapFailed,
     onPress,
     onLongPress,
     onRegionIsChanging,
@@ -193,8 +204,11 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   },
   ref
 ) {
+  const { t } = useTranslation();
   const webViewRef = useRef<WebView>(null);
   const readyRef = useRef(false);
+  const failedRef = useRef(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   // Last spec actually sent, so a re-render only ships what moved.
   const sentSourcesRef = useRef<Record<string, string>>({});
@@ -208,6 +222,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // Callbacks live in refs so the bridge handler map stays stable.
   const callbacksRef = useRef({
     onMapReady,
+    onMapFailed,
     onPress,
     onLongPress,
     onRegionIsChanging,
@@ -216,6 +231,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   });
   callbacksRef.current = {
     onMapReady,
+    onMapFailed,
     onPress,
     onLongPress,
     onRegionIsChanging,
@@ -307,6 +323,17 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const sendPatchRef = useRef(sendPatch);
   sendPatchRef.current = sendPatch;
 
+  // The page reports its own failure, and the WebView reports the ones the page
+  // never got far enough to see. Either way the surface says so once, until a
+  // load arrives and clears it.
+  const reportFailure = useCallback((reason: string) => {
+    if (failedRef.current) return;
+    failedRef.current = true;
+    setUnavailable(true);
+    log.log(`basemap unavailable: ${reason}`);
+    callbacksRef.current.onMapFailed?.(reason);
+  }, []);
+
   const resolvePending = useCallback((requestId: string, value: unknown) => {
     const resolver = pendingRef.current.get(requestId);
     if (!resolver) return;
@@ -331,12 +358,17 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       console: (data) => log.log(data.message),
       mapReady: () => {
         readyRef.current = true;
+        failedRef.current = false;
+        setUnavailable(false);
         sentSourcesRef.current = {};
         sentLayersRef.current = '';
         sentMarkersRef.current = '';
         sentImagesRef.current = '';
         sendPatchRef.current();
         callbacksRef.current.onMapReady?.();
+      },
+      mapFailed: (data) => {
+        reportFailure(String(data.reason ?? 'unknown'));
       },
       mapClick: (data) => {
         const event = toPressEvent(data);
@@ -365,6 +397,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       clusterLeaves: (data) => resolvePending(data.requestId as string, data.features ?? []),
       clusterExpansionZoom: (data) => resolvePending(data.requestId as string, data.zoom ?? null),
       projected: (data) => resolvePending(data.requestId as string, data.points ?? []),
+      bundledAssetRequest: (data) => {
+        const requestId = data.requestId as string;
+        const path = data.path as string;
+        if (!requestId || !path) return;
+        inject(buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path)));
+      },
       heatmapTileRequest: async (data) => {
         const requestId = data.requestId as string;
         const tilePath = data.tilePath as string;
@@ -388,7 +426,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         }
       },
     }),
-    [inject, resolvePending, serveHeatmapTiles]
+    [inject, reportFailure, resolvePending, serveHeatmapTiles]
   );
 
   const handleMessage = useWebViewBridge(handlers);
@@ -485,7 +523,20 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           onMessage={handleMessage}
           onContentProcessDidTerminate={handleCrash}
           onRenderProcessGone={handleCrash}
+          onError={(event) => reportFailure(event.nativeEvent?.description ?? 'webview load error')}
+          onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
         />
+        {unavailable && (
+          <View style={styles.unavailable} testID={MAP_SURFACE_UNAVAILABLE_TEST_ID}>
+            <MaterialCommunityIcons
+              name="map-marker-off-outline"
+              size={40}
+              color={darkColors.textSecondary}
+            />
+            <Text style={styles.unavailableTitle}>{t('maps.unavailableTitle')}</Text>
+            <Text style={styles.unavailableHint}>{t('maps.unavailableHint')}</Text>
+          </View>
+        )}
       </View>
     </ComponentErrorBoundary>
   );
@@ -499,5 +550,27 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  unavailable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: darkColors.background,
+  },
+  unavailableTitle: {
+    ...typography.cardTitle,
+    color: darkColors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  unavailableHint: {
+    ...typography.bodySmall,
+    color: darkColors.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });

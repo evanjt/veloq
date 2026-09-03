@@ -12,6 +12,15 @@ exports[`Tier 0.6 contract: computeInsightsFromData produces a stable, ranked in
     ],
   },
   {
+    "category": "section_trend",
+    "hasNavigationTarget": true,
+    "id": "section_trend-sec-run-climb-A",
+    "priority": 2,
+    "sectionRefIds": [
+      "sec-run-climb-A",
+    ],
+  },
+  {
     "category": "hrv_trend",
     "hasNavigationTarget": true,
     "id": "hrv_trend",
@@ -39,15 +48,6 @@ exports[`Tier 0.6 contract: computeInsightsFromData produces a stable, ranked in
     "priority": 3,
     "sectionRefIds": [
       "sec-ride-flat-B",
-    ],
-  },
-  {
-    "category": "section_trend",
-    "hasNavigationTarget": true,
-    "id": "section_trend-sec-run-flat-B",
-    "priority": 3,
-    "sectionRefIds": [
-      "sec-run-flat-B",
     ],
   },
 ]

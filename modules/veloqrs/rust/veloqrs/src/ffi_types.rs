@@ -369,38 +369,6 @@ impl From<FfiRouteGroup> for tracematch::RouteGroup {
 // Section Detection Types
 // ============================================================================
 
-/// Scale preset for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiScalePreset {
-    pub name: String,
-    pub min_length: f64,
-    pub max_length: f64,
-    pub min_activities: u32,
-}
-
-impl From<tracematch::ScalePreset> for FfiScalePreset {
-    fn from(s: tracematch::ScalePreset) -> Self {
-        Self {
-            name: s.name.to_string(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
-impl From<FfiScalePreset> for tracematch::ScalePreset {
-    fn from(s: FfiScalePreset) -> Self {
-        Self {
-            name: s.name.parse().unwrap_or_default(),
-            min_length: s.min_length,
-            max_length: s.max_length,
-            min_activities: s.min_activities,
-        }
-    }
-}
-
 /// Section config for FFI
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -413,7 +381,6 @@ pub struct FfiSectionConfig {
     pub sample_points: u32,
     pub detection_mode: String,
     pub include_potentials: bool,
-    pub scale_presets: Vec<FfiScalePreset>,
     pub preserve_hierarchy: bool,
     pub jaccard_threshold: f64,
     pub min_routes: u32,
@@ -435,11 +402,6 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.parse().unwrap_or_default(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(tracematch::ScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,
@@ -465,12 +427,6 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.to_string(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .iter()
-                .cloned()
-                .map(FfiScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,
@@ -495,11 +451,6 @@ impl Default for FfiSectionConfig {
             sample_points: c.sample_points,
             detection_mode: c.detection_mode.to_string(),
             include_potentials: c.include_potentials,
-            scale_presets: c
-                .scale_presets
-                .into_iter()
-                .map(FfiScalePreset::from)
-                .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
             jaccard_threshold: c.jaccard_threshold,
             min_routes: c.min_routes,
@@ -535,47 +486,6 @@ impl From<tracematch::SectionPortion> for FfiSectionPortion {
     }
 }
 
-/// Frequent section for FFI
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiFrequentSection {
-    pub id: String,
-    pub name: Option<String>,
-    pub sport_type: String,
-    pub encoded_polyline: Vec<u8>,
-    pub representative_activity_id: String,
-    pub activity_ids: Vec<String>,
-    pub activity_portions: Vec<FfiSectionPortion>,
-    pub route_ids: Vec<String>,
-    pub visit_count: u32,
-    pub distance_meters: f64,
-    pub confidence: f64,
-    pub observation_count: u32,
-    pub average_spread: f64,
-    pub point_density: Vec<u32>,
-    pub scale: Option<String>,
-    pub is_user_defined: bool,
-    pub stability: f64,
-    pub version: u32,
-    pub updated_at: Option<String>,
-    pub created_at: Option<String>,
-    pub elevation_gain_m: Option<f64>,
-    pub avg_grade_percent: Option<f64>,
-    pub elevation_loss_m: Option<f64>,
-    pub max_grade_percent: Option<f64>,
-    pub straightness: Option<f64>,
-    pub klass: Option<String>,
-    pub is_lift: bool,
-    pub rank_score: Option<f64>,
-    pub sport_rank_score: Option<f64>,
-}
-
-impl From<tracematch::FrequentSection> for FfiFrequentSection {
-    fn from(s: tracematch::FrequentSection) -> Self {
-        Self::from(&s)
-    }
-}
-
 /// A named corridor: a durable user name keyed to ground, with its current
 /// resolution onto the visible catalogue. `section_id` is None while the
 /// name is dormant (no visible section covers its ground).
@@ -607,49 +517,6 @@ impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
     }
 }
 
-// Borrow-based conversion so get-all / get-filtered paths don't deep-copy the
-// large `activity_traces` HashMap that the FFI struct never carries.
-impl From<&tracematch::FrequentSection> for FfiFrequentSection {
-    fn from(s: &tracematch::FrequentSection) -> Self {
-        Self {
-            id: s.id.clone(),
-            name: s.name.clone(),
-            sport_type: s.sport_type.clone(),
-            encoded_polyline: crate::coords::encode(&s.polyline),
-            representative_activity_id: s.representative_activity_id.clone(),
-            activity_ids: s.activity_ids.clone(),
-            activity_portions: s
-                .activity_portions
-                .iter()
-                .cloned()
-                .map(FfiSectionPortion::from)
-                .collect(),
-            route_ids: s.route_ids.clone(),
-            visit_count: s.visit_count,
-            distance_meters: s.distance_meters,
-            confidence: s.confidence,
-            observation_count: s.observation_count,
-            average_spread: s.average_spread,
-            point_density: s.point_density.clone(),
-            scale: s.scale.map(|s| s.to_string()),
-            is_user_defined: s.is_user_defined,
-            stability: s.stability,
-            version: s.version,
-            updated_at: s.updated_at.clone(),
-            created_at: s.created_at.clone(),
-            elevation_gain_m: s.elevation_gain_m,
-            avg_grade_percent: s.avg_grade_percent,
-            elevation_loss_m: s.enrichment.elevation_loss_m,
-            max_grade_percent: s.enrichment.max_grade_percent,
-            straightness: s.enrichment.straightness,
-            klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
-            is_lift: s.enrichment.is_lift,
-            rank_score: s.rank.as_ref().map(|r| r.score),
-            sport_rank_score: s.rank.as_ref().map(|r| r.sport_score),
-        }
-    }
-}
-
 // ============================================================================
 // Unified Section Type
 // ============================================================================
@@ -667,6 +534,9 @@ pub struct FfiSection {
     pub distance_meters: f64,
     pub representative_activity_id: Option<String>,
     pub activity_ids: Vec<String>,
+    /// Each activity's portion of the section. Only the in-memory catalogue
+    /// carries these, so the database path sends an empty list.
+    pub activity_portions: Vec<FfiSectionPortion>,
     pub visit_count: u32,
     // Auto-specific metadata (None for custom sections)
     pub confidence: Option<f64>,
@@ -710,6 +580,7 @@ impl From<crate::sections::Section> for FfiSection {
             distance_meters: s.distance_meters,
             representative_activity_id: s.representative_activity_id,
             activity_ids: s.activity_ids,
+            activity_portions: Vec::new(),
             visit_count: s.visit_count,
             confidence: s.confidence,
             observation_count: s.observation_count,
@@ -737,6 +608,63 @@ impl From<crate::sections::Section> for FfiSection {
             disabled: s.disabled,
             superseded_by: s.superseded_by,
         }
+    }
+}
+
+/// The in-memory catalogue reaches TypeScript as the same record the database
+/// path sends. Fields the catalogue does not model are the same "not set" the
+/// database uses: a visible catalogue section is never disabled or superseded,
+/// and it has no custom-section source slice.
+impl From<&tracematch::FrequentSection> for FfiSection {
+    fn from(s: &tracematch::FrequentSection) -> Self {
+        Self {
+            id: s.id.clone(),
+            section_type: crate::sections::SectionType::Auto.as_str().to_string(),
+            name: s.name.clone(),
+            sport_type: s.sport_type.clone(),
+            encoded_polyline: crate::coords::encode(&s.polyline),
+            distance_meters: s.distance_meters,
+            representative_activity_id: Some(s.representative_activity_id.clone()),
+            activity_ids: s.activity_ids.clone(),
+            activity_portions: s
+                .activity_portions
+                .iter()
+                .cloned()
+                .map(FfiSectionPortion::from)
+                .collect(),
+            visit_count: s.visit_count,
+            confidence: Some(s.confidence),
+            observation_count: Some(s.observation_count),
+            average_spread: Some(s.average_spread),
+            point_density: Some(s.point_density.clone()),
+            scale: s.scale.map(|sc| sc.to_string()),
+            is_user_defined: s.is_user_defined,
+            stability: Some(s.stability),
+            elevation_gain_m: s.elevation_gain_m,
+            avg_grade_percent: s.avg_grade_percent,
+            version: Some(s.version),
+            updated_at: s.updated_at.clone(),
+            created_at: s.created_at.clone().unwrap_or_default(),
+            route_ids: Some(s.route_ids.clone()),
+            source_activity_id: None,
+            start_index: None,
+            end_index: None,
+            disabled: false,
+            superseded_by: None,
+            elevation_loss_m: s.enrichment.elevation_loss_m,
+            max_grade_percent: s.enrichment.max_grade_percent,
+            straightness: s.enrichment.straightness,
+            klass: s.enrichment.klass.map(|k| k.as_str().to_string()),
+            is_lift: s.enrichment.is_lift,
+            rank_score: s.rank.as_ref().map(|r| r.score),
+            sport_rank_score: s.rank.as_ref().map(|r| r.sport_score),
+        }
+    }
+}
+
+impl From<tracematch::FrequentSection> for FfiSection {
+    fn from(s: tracematch::FrequentSection) -> Self {
+        Self::from(&s)
     }
 }
 
@@ -1147,6 +1075,7 @@ pub struct FfiSectionWithPolyline {
     pub disabled: bool,
     pub superseded_by: Option<String>,
     pub elevation_gain_m: Option<f64>,
+    pub elevation_loss_m: Option<f64>,
     pub avg_grade_percent: Option<f64>,
     pub max_grade_percent: Option<f64>,
     pub klass: Option<String>,
@@ -1194,7 +1123,7 @@ pub struct FfiRankedSection {
     pub median_recent_secs: f64,
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
-    pub trend: i32,
+    pub trend: i8,
     /// Whether the most recent effort is the all-time best time
     pub latest_is_pr: bool,
 }
@@ -1279,8 +1208,9 @@ pub struct FfiWorkoutSection {
     pub last_time_secs: Option<f64>,
     pub days_since_last: Option<i32>,
     pub pr_days_ago: Option<i32>,
-    /// "improving" | "stable" | "declining" - empty string when insufficient data
-    pub trend: String,
+    /// -1 = declining, 0 = stable, 1 = improving. None when there is not
+    /// enough history to say.
+    pub trend: Option<i8>,
 }
 
 // ============================================================================
@@ -1718,7 +1648,7 @@ pub struct FfiSectionDetailData {
     /// Total activities held by the engine
     pub activity_count: u32,
     /// The section itself, or `None` when the ID is unknown
-    pub section: Option<FfiFrequentSection>,
+    pub section: Option<FfiSection>,
     /// Sections within the requested radius, for the map overlay
     pub nearby: Vec<FfiNearbySectionSummary>,
     /// Sections this one could merge with
@@ -1814,14 +1744,6 @@ pub struct FfiMapScreenData {
 // ============================================================================
 // Helper functions
 // ============================================================================
-
-/// Get default scale presets
-pub fn default_scale_presets() -> Vec<FfiScalePreset> {
-    tracematch::ScalePreset::default_presets()
-        .into_iter()
-        .map(FfiScalePreset::from)
-        .collect()
-}
 
 // ============================================================================
 // Aerobic Efficiency Types
@@ -2227,6 +2149,115 @@ mod tests {
         assert!((decoded[1].longitude + 73.9).abs() < 1e-5);
     }
 
+    fn frequent_section_fixture() -> tracematch::FrequentSection {
+        tracematch::FrequentSection {
+            id: "section_777".to_string(),
+            name: Some("Catalogue Section".to_string()),
+            sport_type: "Run".to_string(),
+            polyline: vec![
+                tracematch::GpsPoint::new(40.0, -74.0),
+                tracematch::GpsPoint::new(40.1, -73.9),
+            ],
+            representative_activity_id: "act_rep".to_string(),
+            representative_range: None,
+            activity_ids: vec!["act_1".to_string(), "act_2".to_string()],
+            activity_portions: vec![tracematch::SectionPortion {
+                activity_id: "act_1".to_string(),
+                start_index: 4,
+                end_index: 40,
+                distance_meters: 900.0,
+                direction: tracematch::Direction::Forward,
+            }],
+            route_ids: vec!["route_9".to_string()],
+            visit_count: 6,
+            distance_meters: 950.0,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.75,
+            observation_count: 8,
+            average_spread: 12.0,
+            point_density: vec![3, 5],
+            scale: None,
+            is_user_defined: true,
+            stability: 0.6,
+            elevation_gain_m: Some(30.0),
+            avg_grade_percent: Some(3.0),
+            enrichment: Default::default(),
+            rank: None,
+            version: 4,
+            updated_at: Some("2024-06-01T00:00:00Z".to_string()),
+            created_at: Some("2024-01-01T00:00:00Z".to_string()),
+            consensus_state: None,
+        }
+    }
+
+    /// The catalogue and the database reach TypeScript as the same record, so
+    /// the conversion there does not have to sniff which fields are present.
+    #[test]
+    fn a_catalogue_section_reaches_ffi_as_the_one_section_record() {
+        let ffi = FfiSection::from(&frequent_section_fixture());
+
+        assert_eq!(ffi.id, "section_777");
+        assert_eq!(ffi.section_type, "auto");
+        assert_eq!(ffi.name, Some("Catalogue Section".to_string()));
+        assert_eq!(ffi.sport_type, "Run");
+        assert_eq!(ffi.distance_meters, 950.0);
+        assert_eq!(
+            ffi.representative_activity_id,
+            Some("act_rep".to_string()),
+            "the catalogue's non-optional id must not arrive as None"
+        );
+        assert_eq!(ffi.activity_ids, vec!["act_1", "act_2"]);
+        assert_eq!(ffi.route_ids, Some(vec!["route_9".to_string()]));
+        assert_eq!(ffi.visit_count, 6);
+        assert_eq!(ffi.confidence, Some(0.75));
+        assert_eq!(ffi.observation_count, Some(8));
+        assert_eq!(ffi.average_spread, Some(12.0));
+        assert_eq!(ffi.point_density, Some(vec![3, 5]));
+        assert!(ffi.is_user_defined);
+        assert_eq!(ffi.stability, Some(0.6));
+        assert_eq!(ffi.elevation_gain_m, Some(30.0));
+        assert_eq!(ffi.avg_grade_percent, Some(3.0));
+        assert_eq!(ffi.version, Some(4));
+        assert_eq!(ffi.updated_at, Some("2024-06-01T00:00:00Z".to_string()));
+        assert_eq!(ffi.created_at, "2024-01-01T00:00:00Z");
+
+        assert_eq!(ffi.activity_portions.len(), 1);
+        assert_eq!(ffi.activity_portions[0].activity_id, "act_1");
+        assert_eq!(ffi.activity_portions[0].start_index, 4);
+        assert_eq!(ffi.activity_portions[0].end_index, 40);
+
+        // Only visible sections reach this path, and the catalogue carries no
+        // custom-section fields at all.
+        assert!(!ffi.disabled);
+        assert_eq!(ffi.superseded_by, None);
+        assert_eq!(ffi.source_activity_id, None);
+        assert_eq!(ffi.start_index, None);
+        assert_eq!(ffi.end_index, None);
+
+        let decoded = crate::coords::decode(&ffi.encoded_polyline);
+        assert_eq!(decoded.len(), 2);
+        assert!((decoded[0].latitude - 40.0).abs() < 1e-5);
+        assert!((decoded[1].longitude + 73.9).abs() < 1e-5);
+    }
+
+    /// `created_at` is optional in the catalogue and required on the record.
+    #[test]
+    fn a_catalogue_section_without_a_created_at_reaches_ffi_empty() {
+        let ffi = FfiSection::from(&tracematch::FrequentSection {
+            created_at: None,
+            ..frequent_section_fixture()
+        });
+        assert_eq!(ffi.created_at, "");
+    }
+
+    /// A database section has no portions, and an empty list is the answer
+    /// rather than a missing field.
+    #[test]
+    fn a_database_section_reaches_ffi_with_no_portions() {
+        let ffi = FfiSection::from(section_fixture(crate::sections::SectionType::Auto));
+        assert!(ffi.activity_portions.is_empty());
+    }
+
     #[test]
     fn section_type_reaches_ffi_as_its_own_tag() {
         // A conversion that hardcoded either tag would still satisfy the
@@ -2421,7 +2452,7 @@ pub struct FfiActivityRouteHighlight {
 }
 
 // ============================================================================
-// Materialized Activity Indicator (from activity_indicators table)
+// Materialised Activity Indicator (from activity_indicators table)
 // ============================================================================
 
 /// Pre-computed PR or trend indicator for an activity.

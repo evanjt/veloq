@@ -10,13 +10,13 @@ import { useEffect } from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Athlete } from '@/types';
 
 function readAthlete(): Athlete | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
   const json = engine.getAthleteProfile();
   if (!json) return null;

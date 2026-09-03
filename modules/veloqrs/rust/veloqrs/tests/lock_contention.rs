@@ -13,9 +13,9 @@
 //!    and call `get_sections` (in-memory read, the cheapest case).
 //! 4. Record each reader call's wall-clock latency and report p50/p95/p99/max.
 //!
-//! Caveat: this test wraps a `PersistentRouteEngine` in
-//! `Arc<RwLock<PersistentRouteEngine>>` directly rather than going through
-//! the global `PERSISTENT_ENGINE` singleton — the lock primitive is
+//! Caveat: this test wraps a `PersistentEngine` in
+//! `Arc<RwLock<PersistentEngine>>` directly rather than going through
+//! the global `PERSISTENT_ENGINE` singleton, the lock primitive is
 //! identical, so the contention semantics are too. Going through the FFI
 //! init path would require process-global state setup that doesn't compose
 //! with `cargo test`'s parallel-test default.
@@ -28,12 +28,12 @@ use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn build_scenario_b_engine() -> (Arc<RwLock<PersistentRouteEngine>>, TempDir) {
+fn build_scenario_b_engine() -> (Arc<RwLock<PersistentEngine>>, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("contention.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
 
     let cfg = LifecycleConfig {
         bucket_a_count: 60,

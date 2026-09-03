@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';

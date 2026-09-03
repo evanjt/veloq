@@ -506,11 +506,41 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   if (rewritten.sources) {
     for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
       if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
-        delete source.url;
-        source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
+        // Point the source at the TileJSON through the protocol, rather than at a
+        // tile path built here. The origin serves tiles from a dated snapshot
+        // segment the TileJSON names, and answers the unversioned path with an
+        // empty body, so a template written here draws nothing. The handler
+        // rewrites the TileJSON's own template back onto the protocol.
+        source.url = 'cached-vector://tiles.openfreemap.org/planet';
+        delete source.tiles;
         source.maxzoom = 14;
       }
     }
+  }
+  return rewritten;
+}
+
+/**
+ * Point the sprite and the glyphs at the app bundle.
+ *
+ * The handler falls back to the network for anything not bundled, so a style
+ * keeps every label it had online and gains the Latin ones offline. Only pages
+ * that register the `bundled` protocol may be rewritten.
+ */
+export function rewriteBundledAssets<T extends object>(style: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rewritten: any = JSON.parse(JSON.stringify(style));
+  if (typeof rewritten.sprite === 'string') {
+    rewritten.sprite = rewritten.sprite.replace(
+      /^https:\/\/tiles\.openfreemap\.org\//,
+      'bundled://'
+    );
+  }
+  if (typeof rewritten.glyphs === 'string') {
+    rewritten.glyphs = rewritten.glyphs.replace(
+      /^https:\/\/tiles\.openfreemap\.org\//,
+      'bundled://'
+    );
   }
   return rewritten;
 }

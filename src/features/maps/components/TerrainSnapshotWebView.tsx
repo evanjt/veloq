@@ -34,10 +34,17 @@ import {
   emitSnapshotComplete,
   emitSnapshotFailed,
   onClearTileCache,
+  onTileCacheBudget,
   onTileCacheStatsRequest,
   emitTileCacheStats,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import { applyTileCacheBudgetScript } from '@/features/maps/lib/tileCacheBudget';
+import {
+  buildSnapshotWorkerHtml,
+  buildBundledAssetReplyScript,
+} from '@/features/maps/lib/htmlBuilders';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
+import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -59,7 +66,6 @@ const MAX_SNAPSHOT_RETRIES = 1;
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
   retryFailed: () => void;
-  preloadTiles: (script: string) => void;
 }
 
 interface WorkerState {
@@ -88,7 +94,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }));
     }
     const workers = workersRef.current;
-    const workerHtmls = useMemo(() => workers.map((w) => buildSnapshotWorkerHtml(w.id)), [workers]);
+    const tileCacheBudgetMb = useTileCacheSettings((s) => s.budgetMb);
+    const workerHtmls = useMemo(
+      () => workers.map((w) => buildSnapshotWorkerHtml(w.id, tileCacheBudgetMb)),
+      [workers, tileCacheBudgetMb]
+    );
 
     const queueRef = useRef<SnapshotRequest[]>([]);
     const queueTotalRef = useRef(0);
@@ -242,6 +252,17 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           if (!workers[data.workerId]) return;
           if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
         },
+        bundledAssetRequest: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          const worker = workers[data.workerId];
+          if (!worker) return;
+          const requestId = data.requestId as string;
+          const path = data.path as string;
+          if (!requestId || !path) return;
+          worker.webViewRef.current?.injectJavaScript(
+            buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path))
+          );
+        },
         mapReady: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
           const worker = workers[data.workerId];
@@ -389,6 +410,15 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       });
     }, [workers]);
 
+    // A changed ceiling reaches the pages that are already open.
+    useEffect(() => {
+      return onTileCacheBudget((budgetMb) => {
+        for (const worker of workers) {
+          worker.webViewRef.current?.injectJavaScript(applyTileCacheBudgetScript(budgetMb));
+        }
+      });
+    }, [workers]);
+
     // Listen for tile cache stats requests from settings
     useEffect(() => {
       return onTileCacheStatsRequest(() => {
@@ -492,13 +522,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           }
           updateProgress();
           processNext();
-        },
-        preloadTiles: (script: string) => {
-          // Find an idle worker to run the preload script
-          const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-          if (worker?.webViewRef.current) {
-            worker.webViewRef.current.injectJavaScript(script);
-          }
         },
       }),
       [processNext, updateProgress]

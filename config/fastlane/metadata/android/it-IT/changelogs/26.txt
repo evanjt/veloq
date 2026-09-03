@@ -3,4 +3,4 @@ v0.3.7
 • Rilevamento sezioni ridisegnato con tre metodi tra cui scegliere: Corridoio, Griglia di densità e Grafo di flusso
 • Ogni metodo ha i propri cursori e un'anteprima dal vivo
 • Il pulsante di rianalisi si evidenzia quando cambiano le impostazioni
-• Corretto: pagine di sezione vuote — attività corrispondenti e storico ricompaiono
+• Corretto: pagine di sezione vuote, attività corrispondenti e storico ricompaiono

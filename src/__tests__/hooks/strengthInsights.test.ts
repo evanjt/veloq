@@ -54,7 +54,7 @@ describe('generateStrengthInsights', () => {
 
     const result = generateStrengthInsights(monthly, weekly, Date.now(), t);
     const balance = result.find((insight) => insight.category === 'strength_balance');
-    expect(balance!.navigationTarget).toBe('/routes?tab=strength');
+    expect(balance!.navigationTarget).toBe('/insights?tab=strength');
     expect(balance!.title).toContain('Quadriceps');
   });
 
@@ -71,7 +71,7 @@ describe('generateStrengthInsights', () => {
     ];
 
     const result = generateStrengthInsights(monthly, weekly, Date.now(), t);
-    const progression = result.find((insight) => insight.category === 'strength_progression');
+    const progression = result.find((insight) => insight.id === 'strength_progression-hamstring');
     expect(progression!.title).toContain('Hamstrings');
     expect(progression!.supportingData?.sparklineData).toEqual([2, 3, 6, 7]);
   });

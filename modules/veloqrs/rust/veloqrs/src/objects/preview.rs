@@ -52,6 +52,17 @@ impl SectionPreview {
         })
     }
 
+    /// The live auto catalogue for the riding area containing (lat, lng), as
+    /// a JSON array in the same section shape a run's payload carries. Scoped
+    /// by the same component the run uses, so the screen opens on exactly the
+    /// catalogue the next run will diff against. None when no activity covers
+    /// the point.
+    pub fn current(&self, lat: f64, lng: f64) -> Result<Option<String>, VeloqError> {
+        // Write lock, not read: this queries SQLite for pin intent and the
+        // read lock is memory-only by invariant.
+        with_engine(|e| e.preview_current(lat, lng))
+    }
+
     /// Resolve the whole geo component containing (lat, lng) and start the
     /// pure preview detect over it. Only the five exposed fields of `config`
     /// overlay the engine's live config. Returns false when a preview or real
@@ -64,7 +75,7 @@ impl SectionPreview {
         config: crate::FfiSectionConfig,
     ) -> Result<bool, VeloqError> {
         if crate::persistence::detection_suspended() {
-            info!("tracematch: [SectionPreview] Start refused: detection is suspended");
+            info!("veloqrs: [SectionPreview] Start refused: detection is suspended");
             return Ok(false);
         }
 
@@ -81,12 +92,13 @@ impl SectionPreview {
         if let Some(handle) = slot.as_mut() {
             match handle.poll_status() {
                 PreviewPoll::Running => {
-                    info!(
-                        "tracematch: [SectionPreview] Start refused: a preview is already running"
-                    );
+                    info!("veloqrs: [SectionPreview] Start refused: a preview is already running");
                     return Ok(false);
                 }
-                PreviewPoll::Complete | PreviewPoll::Cancelled | PreviewPoll::Died => {
+                PreviewPoll::Complete
+                | PreviewPoll::Cancelled
+                | PreviewPoll::PoolUnusable
+                | PreviewPoll::Died => {
                     *slot = None;
                 }
             }
@@ -100,7 +112,7 @@ impl SectionPreview {
                 .lock()
                 .map_err(|_| VeloqError::LockFailed)?;
             if detect_guard.is_some() {
-                info!("tracematch: [SectionPreview] Start refused: a real detect is running");
+                info!("veloqrs: [SectionPreview] Start refused: a real detect is running");
                 return Ok(false);
             }
         }
@@ -116,17 +128,17 @@ impl SectionPreview {
         match with_engine_read(|e| e.preview_detect_background(lat, lng, overlay))? {
             Some(handle) => {
                 *slot = Some(handle);
-                info!("tracematch: [SectionPreview] Preview started");
+                info!("veloqrs: [SectionPreview] Preview started");
                 Ok(true)
             }
             None => {
-                info!("tracematch: [SectionPreview] Start refused: no activity covers the point");
+                info!("veloqrs: [SectionPreview] Start refused: no activity covers the point");
                 Ok(false)
             }
         }
     }
 
-    /// "idle" | "running" | "complete" | "cancelled" | "error"
+    /// "idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"
     pub fn poll(&self) -> Result<String, VeloqError> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
@@ -143,9 +155,16 @@ impl SectionPreview {
                 *slot = None;
                 "cancelled".to_string()
             }
+            PreviewPoll::PoolUnusable => {
+                *slot = None;
+                log::error!(
+                    "veloqrs: [SectionPreview] Preview refused: too much of the pool is unreadable to detect over"
+                );
+                "pool_unusable".to_string()
+            }
             PreviewPoll::Died => {
                 *slot = None;
-                log::error!("tracematch: [SectionPreview] Preview thread died without a result");
+                log::error!("veloqrs: [SectionPreview] Preview thread died without a result");
                 "error".to_string()
             }
         })
@@ -194,7 +213,7 @@ impl SectionPreview {
             .map_err(|_| VeloqError::LockFailed)?;
         if let Some(handle) = slot.as_ref() {
             handle.request_cancel();
-            info!("tracematch: [SectionPreview] Cancel requested");
+            info!("veloqrs: [SectionPreview] Cancel requested");
         }
         Ok(())
     }

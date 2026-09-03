@@ -75,7 +75,7 @@ impl Drop for DetectionSuspendGuard {
 /// overlapping backfills both have to finish before detection resumes.
 pub fn suspend_detection() -> DetectionSuspendGuard {
     DETECTION_SUSPENSIONS.fetch_add(1, Ordering::SeqCst);
-    log::info!("tracematch: [conditioning] detection suspended");
+    log::info!("veloqrs: [conditioning] detection suspended");
     DetectionSuspendGuard { _private: () }
 }
 
@@ -176,17 +176,20 @@ pub fn maybe_condition_backfill() -> bool {
     try_start_conditioning()
 }
 
-fn try_start_conditioning() -> bool {
+/// Start a conditioning run unless one is already in flight. The whole
+/// single-flight decision lives here, so this is the only start path.
+pub fn try_start_conditioning() -> bool {
     if detection_suspended() {
         return false;
     }
-    {
-        let guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            return false;
-        }
+    // Held across check, spawn and install. Releasing it to spawn lets a
+    // loser start a second worker that rewrites `route_groups` on its own
+    // connection beside the winner, with both track pools resident.
+    let mut guard = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if guard.is_some() {
+        return false;
     }
 
     let handle = with_persistent_engine(|engine| engine.detect_sections_background());
@@ -195,20 +198,17 @@ fn try_start_conditioning() -> bool {
         return false;
     };
 
-    {
-        let mut guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if guard.is_some() {
-            // Lost the start race. Drop our handle: the orphaned worker's
-            // sends fail harmlessly and the winning run covers the pool.
-            return false;
-        }
-        *guard = Some(handle);
+    // A suspension taken while the engine lock was held gives back a dead
+    // handle. Installing it would occupy the slot with a run that never ran.
+    if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
+        return false;
     }
 
+    *guard = Some(handle);
+    drop(guard);
+
     spawn_conditioning_driver();
-    log::info!("tracematch: [conditioning] backfill run started");
+    log::info!("veloqrs: [conditioning] backfill run started");
     true
 }
 
@@ -222,7 +222,7 @@ fn spawn_conditioning_driver() {
             match poll_detection_once() {
                 Ok(DetectionPoll::Running) => continue,
                 Ok(DetectionPoll::Applied) => {
-                    log::info!("tracematch: [conditioning] run applied");
+                    log::info!("veloqrs: [conditioning] run applied");
                     // Adds that landed during the run get their run now,
                     // threshold or not: a flush this run refused was kept
                     // for exactly this moment.
@@ -233,7 +233,7 @@ fn spawn_conditioning_driver() {
                 }
                 Ok(DetectionPoll::Idle) | Ok(DetectionPoll::Died) => break,
                 Err(e) => {
-                    log::warn!("tracematch: [conditioning] driver poll failed: {}", e);
+                    log::warn!("veloqrs: [conditioning] driver poll failed: {}", e);
                     break;
                 }
             }
@@ -245,13 +245,12 @@ fn spawn_conditioning_driver() {
 mod tests {
     use super::*;
 
-    /// Suspension and the cadence counter are process-wide, so the tests that
-    /// touch them run one at a time.
-    static SERIAL: Mutex<()> = Mutex::new(());
-
-    fn serial() -> std::sync::MutexGuard<'static, ()> {
-        SERIAL.lock().unwrap_or_else(|e| e.into_inner())
-    }
+    use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+    use crate::persistence::with_persistent_engine;
+    use crate::test_globals::{
+        clear_detection_handle, drain_detection, seeded_global_engine,
+        serial_global_state as serial,
+    };
 
     #[test]
     fn batch_fires_at_threshold_and_resets() {
@@ -352,20 +351,40 @@ mod tests {
     #[test]
     fn a_batch_end_flushes_whatever_is_pending_and_nothing_else() {
         let _serial = serial();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let pending_now = || {
+            CONDITIONER
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .adds_pending
+        };
         {
             let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
             c.adds_pending = 0;
         }
         assert!(!condition_pending(), "nothing pending, nothing to flush");
-        note_stored(3);
-        // No engine in a unit test, so the start is refused; the pending
-        // count survives for the flush that follows the active run.
-        assert!(!condition_pending());
-        let pending = CONDITIONER
+
+        // A run already in the slot refuses the start. The pending count has
+        // to survive that refusal, because the driver flushes it when the
+        // active run applies.
+        let running =
+            with_persistent_engine(|engine| engine.detect_sections_background()).expect("engine");
+        *SECTION_DETECTION_HANDLE
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending;
-        assert_eq!(pending, 3);
+            .unwrap_or_else(|e| e.into_inner()) = Some(running);
+
+        note_stored(3);
+        assert!(!condition_pending(), "a refused flush starts nothing");
+        assert_eq!(pending_now(), 3, "a refused flush keeps its count");
+
+        drain_detection();
+
+        assert!(condition_pending(), "the flush fires once the slot frees");
+        assert_eq!(pending_now(), 0, "a flush that started zeroes its count");
+
+        drain_detection();
+        assert!(!condition_pending(), "nothing left to flush");
     }
 
     #[test]

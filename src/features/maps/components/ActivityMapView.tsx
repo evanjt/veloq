@@ -28,6 +28,7 @@ import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
 import {
   SectionCreationOverlay,
@@ -46,9 +47,10 @@ import {
   SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
-
-const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
 const OVERLAY_IMAGES = [TROPHY_ICON];
+
+/** The 2D layer, held transparent until the surface reports one way or the other. */
+export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -98,6 +100,9 @@ interface ActivityMapViewProps {
   onStyleChange?: (style: MapStyleType) => void;
   /** Called when attribution text changes (due to style or viewport change) */
   onAttributionChange?: (attribution: string) => void;
+  /** Measured height the attribution pill claims, so a parent drawing in the
+   *  same corner can pad itself clear of however many rows it wraps to. */
+  onAttributionClearanceChange?: (clearance: number) => void;
   /** Enable section creation mode */
   creationMode?: boolean;
   /** Current section creation state (parent-controlled) */
@@ -154,6 +159,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   on3DModeChange,
   onStyleChange,
   onAttributionChange,
+  onAttributionClearanceChange,
   creationMode = false,
   creationState: externalCreationState,
   creationError,
@@ -176,6 +182,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -211,12 +218,14 @@ export const ActivityMapView = memo(function ActivityMapView({
   const {
     surfaceRef,
     mapReady,
+    mapFailed,
     bounds,
     currentCenterRef,
     currentZoomRef,
     bearingAnim,
     locationLoading,
     handleMapReady,
+    handleMapFailed,
     handleRegionIsChanging,
     handleRegionDidChange: handleCameraRegionDidChange,
     resetOrientation,
@@ -367,6 +376,22 @@ export const ActivityMapView = memo(function ActivityMapView({
     },
     [currentCenterRef, currentZoomRef]
   );
+
+  // The 3D layer is the only thing that can clear its own spinner, so a page
+  // that cannot render drops back to the 2D map rather than spinning forever.
+  // Same landing as the error boundary below.
+  const handleMap3DFailed = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+  }, []);
+
+  // The page drew, it just had no DEM tiles, so the "3D" view is the flat map
+  // with a wasted WebView on top of it. Same landing, plus a reason.
+  const handleTerrainUnavailable = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+    setTerrainUnavailable(true);
+  }, []);
 
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
@@ -612,17 +637,20 @@ export const ActivityMapView = memo(function ActivityMapView({
             isFullscreen && styles.hiddenLayer,
           ]}
         >
-          <View style={[styles.map, { opacity: mapReady ? 1 : 0 }]}>
+          <View
+            style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
+            testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
+          >
             <MapSurface
               ref={surfaceRef}
               mapStyle={mapStyle}
-              styleOptions={SURFACE_STYLE_OPTIONS}
               initialCamera={{ bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }}
               sources={sources}
               layers={layers}
               images={OVERLAY_IMAGES}
               interactiveLayers={SECTION_MARKER_LAYER_IDS}
               onMapReady={handleMapReady}
+              onMapFailed={handleMapFailed}
               onPress={handleSurfacePress}
               onRegionIsChanging={handleRegionIsChanging}
               onRegionDidChange={handleRegionDidChange}
@@ -665,6 +693,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
                 onMapReady={handleMap3DReady}
+                onMapFailed={handleMap3DFailed}
+                onTerrainUnavailable={handleTerrainUnavailable}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
@@ -680,9 +710,13 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D loading spinner */}
         {is3DMode && !is3DReady && !isFullscreen && (
-          <View style={styles.loadingOverlay}>
+          <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
+        )}
+
+        {terrainUnavailable && (
+          <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
         )}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
@@ -690,6 +724,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
+            onClearanceChange={onAttributionClearanceChange}
           />
         )}
       </View>

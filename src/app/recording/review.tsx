@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -8,44 +8,33 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-} from "react-native";
-import { Text } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
-import { useTheme, useMetricSystem } from "@/shared/app";
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  spacing,
-  layout,
-  typography,
-  brand,
-} from "@/theme";
-import { formatDistance, formatDuration } from "@/shared/format/format";
-import {
-  getActivityIcon,
-  getActivityColor,
-} from "@/features/activity/lib/activityUtils";
+} from 'react-native';
+import { Text } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { formatDistance, formatDuration } from '@/shared/format/format';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 
-import { useRecordingStore } from "@/features/recording/stores/RecordingStore";
-import { useReviewSave } from "@/features/recording/hooks/useReviewSave";
-import { useActivitySummary } from "@/features/recording/hooks/useActivitySummary";
-import { useDiscardWithAnimation } from "@/features/recording/hooks/useDiscardWithAnimation";
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
+import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
+import { useDiscardWithAnimation } from '@/features/recording/hooks/useDiscardWithAnimation';
 import {
   useActivityNameGeneration,
   getTimeOfDayKey,
-} from "@/features/recording/hooks/useActivityNameGeneration";
-import { ReviewMapHero } from "@/features/recording/components/ReviewMapHero";
-import { RpeSlider } from "@/features/recording/components/RpeSlider";
-import { ActivityTypePickerModal } from "@/features/recording/components/ActivityTypePickerModal";
-import { ActivityStatsCard } from "@/features/recording/components/ActivityStatsCard";
-import { SaveErrorBanner } from "@/features/recording/components/SaveErrorBanner";
-import type { ActivityType } from "@/types";
+} from '@/features/recording/hooks/useActivityNameGeneration';
+import { ReviewMapHero } from '@/features/recording/components/ReviewMapHero';
+import { RpeSlider } from '@/features/recording/components/RpeSlider';
+import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
+import { ActivityStatsCard } from '@/features/recording/components/ActivityStatsCard';
+import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
+import type { ActivityType } from '@/types';
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
 
 export default function ReviewScreen() {
@@ -62,7 +51,7 @@ export default function ReviewScreen() {
     notes?: string;
   }>();
 
-  const isManual = params.manual === "true";
+  const isManual = params.manual === 'true';
   const activityType = useRecordingStore((s) => s.activityType);
   const streams = useRecordingStore((s) => s.streams);
   const laps = useRecordingStore((s) => s.laps);
@@ -72,10 +61,10 @@ export default function ReviewScreen() {
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
-  const [notes, setNotes] = useState(params.notes ?? "");
+  const [notes, setNotes] = useState(params.notes ?? '');
   const [rpe, setRpe] = useState(5);
   const [selectedType, setSelectedType] = useState<ActivityType>(
-    activityType ?? ("Ride" as ActivityType),
+    activityType ?? ('Ride' as ActivityType)
   );
   const { name, setName } = useActivityNameGeneration({
     initialName: params.name,
@@ -85,7 +74,7 @@ export default function ReviewScreen() {
 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(
-    (streams.latlng?.length ?? 0) > 0 ? streams.latlng!.length - 1 : 0,
+    (streams.latlng?.length ?? 0) > 0 ? streams.latlng!.length - 1 : 0
   );
 
   const type = selectedType;
@@ -98,19 +87,18 @@ export default function ReviewScreen() {
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
-  const { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow } =
-    useActivitySummary({
-      streams,
-      startTime,
-      stopTime,
-      pausedDuration,
-      pauseIntervals,
-      trimStart,
-      trimEnd,
-      canTrim,
-      isManual,
-      params,
-    });
+  const { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow } = useActivitySummary({
+    streams,
+    startTime,
+    stopTime,
+    pausedDuration,
+    pauseIntervals,
+    trimStart,
+    trimEnd,
+    canTrim,
+    isManual,
+    params,
+  });
 
   // Save/upload orchestration extracted to useReviewSave
   const {
@@ -137,8 +125,7 @@ export default function ReviewScreen() {
   });
 
   // Hold-to-discard extracted to useDiscardWithAnimation
-  const { discardAnim, handleDiscardPressIn, handleDiscardPressOut } =
-    useDiscardWithAnimation();
+  const { discardAnim, handleDiscardPressIn, handleDiscardPressOut } = useDiscardWithAnimation();
 
   const handleTypeSelect = useCallback((item: ActivityType) => {
     setSelectedType(item);
@@ -154,9 +141,7 @@ export default function ReviewScreen() {
   }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark
-    ? darkColors.textSecondary
-    : colors.textSecondary;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
@@ -191,7 +176,7 @@ export default function ReviewScreen() {
             style={styles.backButton}
             disabled={isProcessing}
             accessibilityRole="button"
-            accessibilityLabel={t("common.back")}
+            accessibilityLabel={t('common.back')}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -200,17 +185,14 @@ export default function ReviewScreen() {
             />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>
-            {t("recording.reviewActivity", "Review Activity")}
+            {t('recording.reviewActivity', 'Review Activity')}
           </Text>
         </View>
       )}
 
       {/* Bottom sheet content */}
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Activity Name */}
@@ -226,7 +208,7 @@ export default function ReviewScreen() {
           ]}
           value={name}
           onChangeText={setName}
-          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey()}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, " $1").trim())}`}
+          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey()}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
           placeholderTextColor={textSecondary}
           editable={!isProcessing}
         />
@@ -241,8 +223,7 @@ export default function ReviewScreen() {
         {/* Trim delta feedback */}
         {trimDelta && (
           <Text style={[styles.trimDelta, { color: textSecondary }]}>
-            {t("recording.trimmed", "Trimmed")}:{" "}
-            {formatDistance(trimDelta.distance, isMetric)},{" "}
+            {t('recording.trimmed', 'Trimmed')}: {formatDistance(trimDelta.distance, isMetric)},{' '}
             {formatDuration(trimDelta.duration)}
           </Text>
         )}
@@ -250,35 +231,20 @@ export default function ReviewScreen() {
         {/* Activity Type (tappable) */}
         <TouchableOpacity
           testID="review-activity-type"
-          style={[
-            styles.typeChip,
-            { backgroundColor: surface, borderColor: border },
-          ]}
+          style={[styles.typeChip, { backgroundColor: surface, borderColor: border }]}
           onPress={() => !isProcessing && setShowTypeModal(true)}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons
-            name={getActivityIcon(type)}
-            size={20}
-            color={activityColor}
-          />
+          <MaterialCommunityIcons name={getActivityIcon(type)} size={20} color={activityColor} />
           <Text style={[styles.typeText, { color: textPrimary }]}>
             {t(`activityTypes.${type}`, type)}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-down"
-            size={18}
-            color={textSecondary}
-          />
+          <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
         </TouchableOpacity>
 
         {/* RPE Slider - only for GPS activities; not applicable to manual entries */}
         {!isManual && (
-          <RpeSlider
-            value={rpe}
-            onValueChange={setRpe}
-            textSecondary={textSecondary}
-          />
+          <RpeSlider value={rpe} onValueChange={setRpe} textSecondary={textSecondary} />
         )}
 
         {/* Notes */}
@@ -294,7 +260,7 @@ export default function ReviewScreen() {
           ]}
           value={notes}
           onChangeText={setNotes}
-          placeholder={t("recording.notesPlaceholder", "How did it feel?")}
+          placeholder={t('recording.notesPlaceholder', 'How did it feel?')}
           placeholderTextColor={textSecondary}
           multiline
           numberOfLines={3}
@@ -305,11 +271,7 @@ export default function ReviewScreen() {
         {/* Queued success message */}
         {queuedMessage && (
           <View style={styles.queuedBanner}>
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={18}
-              color={colors.success}
-            />
+            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
             <Text style={styles.queuedBannerText}>{queuedMessage}</Text>
           </View>
         )}
@@ -336,9 +298,7 @@ export default function ReviewScreen() {
             {isUploading ? (
               <ActivityIndicator size="small" color={colors.textOnDark} />
             ) : (
-              <Text style={styles.primaryBtnText}>
-                {t("common.save", "Save")}
-              </Text>
+              <Text style={styles.primaryBtnText}>{t('common.save', 'Save')}</Text>
             )}
           </TouchableOpacity>
 
@@ -350,13 +310,10 @@ export default function ReviewScreen() {
               {
                 borderColor: discardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [
-                    colorWithOpacity(colors.error, 0.3),
-                    colors.error,
-                  ],
+                  outputRange: [colorWithOpacity(colors.error, 0.3), colors.error],
                 }),
                 borderWidth: 1,
-                overflow: "hidden" as const,
+                overflow: 'hidden' as const,
               },
             ]}
             onTouchStart={isProcessing ? undefined : handleDiscardPressIn}
@@ -365,7 +322,7 @@ export default function ReviewScreen() {
           >
             <Animated.View
               style={{
-                position: "absolute" as const,
+                position: 'absolute' as const,
                 left: 0,
                 top: 0,
                 bottom: 0,
@@ -373,13 +330,11 @@ export default function ReviewScreen() {
                 opacity: 0.15,
                 width: discardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: ["0%", "100%"],
+                  outputRange: ['0%', '100%'],
                 }),
               }}
             />
-            <Text style={styles.dangerBtnText}>
-              {t("recording.discard", "Discard")}
-            </Text>
+            <Text style={styles.dangerBtnText}>{t('recording.discard', 'Discard')}</Text>
           </Animated.View>
         </View>
       </ScrollView>
@@ -401,16 +356,16 @@ const styles = StyleSheet.create({
   },
   // Non-GPS header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   backButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     ...typography.sectionTitle,
@@ -430,19 +385,19 @@ const styles = StyleSheet.create({
   },
   trimDelta: {
     ...typography.caption,
-    textAlign: "center",
+    textAlign: 'center',
     marginTop: spacing.xs,
   },
   // Activity type chip
   typeChip: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusSm,
     borderWidth: StyleSheet.hairlineWidth,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
     marginTop: spacing.md,
   },
   typeText: {
@@ -460,8 +415,8 @@ const styles = StyleSheet.create({
   },
   // Banners
   queuedBanner: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
     backgroundColor: colorWithOpacity(colors.success, 0.1),
     borderRadius: layout.borderRadiusSm,
@@ -482,8 +437,8 @@ const styles = StyleSheet.create({
   primaryBtn: {
     borderRadius: layout.borderRadiusSm,
     paddingVertical: spacing.sm + 2,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     minHeight: layout.minTapTarget,
   },
   primaryBtnText: {
@@ -493,8 +448,8 @@ const styles = StyleSheet.create({
   dangerBtn: {
     borderRadius: layout.borderRadiusSm,
     paddingVertical: spacing.sm + 2,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     minHeight: layout.minTapTarget,
   },
   dangerBtnText: {

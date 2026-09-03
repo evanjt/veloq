@@ -11,9 +11,9 @@ use crate::{
 use rusqlite::params;
 use std::collections::HashMap;
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Set time streams for activities from flat buffer.
     /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
     /// Persists to SQLite for offline access.
@@ -24,6 +24,24 @@ impl PersistentRouteEngine {
         offsets: &[u32],
     ) {
         let mut persisted_count = 0;
+        // Activities whose stream actually moved. The section evidence cache
+        // holds each cluster's last cut and the lift veto reads the stream
+        // when it has one, so a stream that lands after the cut has to take
+        // that cut with it. Nothing else does: the points did not change, so
+        // no cluster is marked dirty and the fold would reuse the cut verbatim.
+        //
+        // Eviction and not a bare `invalidate_evidence_cache`. Dropping the
+        // cache alone leaves every id in `processed_activities`, and a detect
+        // with no new ids and no dirty cluster short-circuits and re-emits the
+        // last batch, so the cut the veto made blind would stand anyway.
+        //
+        // Compared rather than assumed, because this is an exported call the
+        // sync reaches for whenever a screen wants lap times, and evicting on
+        // every write would cold-rebatch the pool on a routine sync. It costs
+        // nothing in the ingest path either way: streams are fetched in the
+        // same pass that added the activities, before any detect has marked
+        // them processed.
+        let mut moved: Vec<String> = Vec::new();
         for (i, activity_id) in activity_ids.iter().enumerate() {
             let start = offsets[i] as usize;
             let end = offsets
@@ -31,6 +49,10 @@ impl PersistentRouteEngine {
                 .map(|&o| o as usize)
                 .unwrap_or(all_times.len());
             let times = all_times[start..end].to_vec();
+
+            if self.load_time_stream(activity_id).as_deref() != Some(times.as_slice()) {
+                moved.push(activity_id.clone());
+            }
 
             // Persist to SQLite for offline access
             if self.store_time_stream(activity_id, &times).is_ok() {
@@ -41,10 +63,11 @@ impl PersistentRouteEngine {
             self.time_streams.put(activity_id.clone(), times);
         }
         log::debug!(
-            "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
+            "veloqrs: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
             activity_ids.len(),
             persisted_count
         );
+        self.evict_processed_activity_ids(&moved);
         self.invalidate_perf_cache();
         // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
         // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
@@ -99,7 +122,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
+            "veloqrs: [Backfill] Found {} section_activities with NULL lap_time, attempting backfill",
             null_portions.len()
         );
 
@@ -144,7 +167,7 @@ impl PersistentRouteEngine {
 
         if populated > 0 {
             log::info!(
-                "tracematch: [Backfill] Populated {}/{} NULL lap_time entries",
+                "veloqrs: [Backfill] Populated {}/{} NULL lap_time entries",
                 populated,
                 null_portions.len()
             );
@@ -827,7 +850,7 @@ impl PersistentRouteEngine {
             Some(g) => g,
             None => {
                 log::debug!(
-                    "tracematch: get_route_performances: group {} not found",
+                    "veloqrs: get_route_performances: group {} not found",
                     route_group_id
                 );
                 return RoutePerformanceResult {
@@ -846,7 +869,7 @@ impl PersistentRouteEngine {
         // Get match info for this route
         let match_info = self.activity_matches.get(route_group_id);
         log::debug!(
-            "tracematch: get_route_performances: group {} has {} activities, match_info: {}",
+            "veloqrs: get_route_performances: group {} has {} activities, match_info: {}",
             route_group_id,
             group.activity_ids.len(),
             match_info.map(|m| m.len()).unwrap_or(0)
@@ -902,7 +925,7 @@ impl PersistentRouteEngine {
                     match_percentage,
                 });
 
-                // Collect metrics for inline return (Issue C optimization)
+                // Collect metrics for inline return
                 metrics_list.push(metrics.clone());
             }
         }

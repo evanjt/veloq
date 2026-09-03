@@ -188,7 +188,7 @@ jobs:
           # continuations break. Every line must stand alone.
           script: |
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            .maestro/run-suite.sh gate-report.xml /tmp/maestro-debug --include-tags=tier0,tier1 --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=flaky --debug-output /tmp/maestro-debug-flaky --format junit --output flaky-report.xml --no-ansi || true
 
       - name: Collect Maestro artifacts
@@ -208,6 +208,10 @@ jobs:
           name: e2e-gate-debug
           path: /tmp/maestro-artifacts
           retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
 
       - name: Upload test report
         if: always()
@@ -217,6 +221,7 @@ jobs:
           path: |
             gate-report.xml
             flaky-report.xml
+            retry-reports/
           retention-days: 7
 
       - name: Publish test results
@@ -289,7 +294,7 @@ jobs:
           # One command per line: the action runs each line as a separate `sh -c`.
           script: |
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=pack-map --exclude-tags=flaky --debug-output /tmp/maestro-debug-map --format junit --output map-report.xml --no-ansi || "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=pack-map --exclude-tags=flaky --debug-output /tmp/maestro-debug-map --format junit --output map-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            .maestro/run-suite.sh map-report.xml /tmp/maestro-debug-map --include-tags=pack-map --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
       - name: Collect Maestro artifacts
         if: always()
@@ -306,13 +311,19 @@ jobs:
           name: e2e-map-debug
           path: /tmp/maestro-map-artifacts
           retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-map-report
-          path: map-report.xml
+          path: |
+            map-report.xml
+            retry-reports/
           retention-days: 7
 
       - name: Publish test results
@@ -326,3 +337,39 @@ jobs:
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'
         run: exit 1
+
+  # The only job branch protection should require. Every other job here can be
+  # skipped: a fork PR skips the build, and the map suite is path-filtered. A
+  # skipped job reports neutral, which GitHub renders as a passing check, so a
+  # PR that ran nothing looked identical to one that passed everything.
+  gate-required:
+    name: E2E Gate Required
+    needs: [changes, build-android-dev, gate, map-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check gate results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          BUILD: ${{ needs.build-android-dev.result }}
+          GATE: ${{ needs.gate.result }}
+          MAP_GATE: ${{ needs.map-gate.result }}
+          MAPS_CHANGED: ${{ needs.changes.outputs.maps }}
+        run: |
+          echo "changes=$CHANGES build-android-dev=$BUILD gate=$GATE map-gate=$MAP_GATE (maps changed: $MAPS_CHANGED)"
+          failed=0
+          for result in "$CHANGES" "$BUILD" "$GATE"; do
+            [ "$result" = success ] || failed=1
+          done
+          # map-gate is the one job allowed to be skipped, and only when the
+          # path filter says no map surface changed.
+          if [ "$MAPS_CHANGED" = true ]; then
+            [ "$MAP_GATE" = success ] || failed=1
+          elif [ "$MAP_GATE" != skipped ]; then
+            [ "$MAP_GATE" = success ] || failed=1
+          fi
+          if [ "$failed" = 1 ]; then
+            echo "::error::E2E gate did not pass. A skipped build or suite fails here rather than reporting green. Fork PRs skip the build by design, so they need a same-repo branch to merge."
+            exit 1
+          fi

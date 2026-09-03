@@ -2,7 +2,7 @@
 //! catalogue it produced, and the next process picks it up.
 //!
 //! Expected behaviour: a restart resumes warm under the same config, and
-//! goes cold — without complaint — under any other config or on a row it
+//! goes cold, without complaint, under any other config or on a row it
 //! cannot read. Being cold is only ever slow; adopting a cache that does not
 //! match the catalogue would be wrong.
 
@@ -14,7 +14,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
     LifecycleCorpus::generate(&LifecycleConfig {
@@ -37,15 +37,15 @@ fn unified_config() -> SectionConfig {
     }
 }
 
-fn open(dir: &TempDir) -> PersistentRouteEngine {
+fn open(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("evidence.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
     engine.set_section_config(unified_config());
     engine
 }
 
-fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) {
+fn ingest(engine: &mut PersistentEngine, activities: &[LifecycleActivity]) {
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -56,7 +56,7 @@ fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) 
     }
 }
 
-fn detect(engine: &mut PersistentRouteEngine) {
+fn detect(engine: &mut PersistentEngine) {
     let handle = engine.detect_sections_background();
     let (main, cache_update) = handle.recv_with_cache();
     let (sections, processed) = main.unwrap_or_default();
@@ -71,7 +71,7 @@ fn detect(engine: &mut PersistentRouteEngine) {
 /// Every section's member set, order-free. Ids are minted off the clock until
 /// they come from the ground, so two engines cutting the same catalogue at
 /// different moments agree on membership and not on ids.
-fn catalogue(engine: &mut PersistentRouteEngine) -> BTreeSet<BTreeSet<String>> {
+fn catalogue(engine: &mut PersistentEngine) -> BTreeSet<BTreeSet<String>> {
     engine
         .get_sections()
         .iter()
@@ -81,7 +81,7 @@ fn catalogue(engine: &mut PersistentRouteEngine) -> BTreeSet<BTreeSet<String>> {
 
 /// The catalogue including its ids, for the paths where nothing is re-cut and
 /// the ids must therefore be the ones already stored.
-fn catalogue_with_ids(engine: &mut PersistentRouteEngine) -> BTreeSet<(String, BTreeSet<String>)> {
+fn catalogue_with_ids(engine: &mut PersistentEngine) -> BTreeSet<(String, BTreeSet<String>)> {
     engine
         .get_sections()
         .iter()
@@ -99,7 +99,7 @@ fn cache_row(dir: &TempDir) -> Option<(String, usize)> {
     .ok()
 }
 
-fn seeded(dir: &TempDir) -> PersistentRouteEngine {
+fn seeded(dir: &TempDir) -> PersistentEngine {
     let pool = corpus();
     let mut engine = open(dir);
     ingest(&mut engine, &pool);
@@ -149,7 +149,7 @@ fn a_restart_under_another_config_starts_cold() {
     drop(first);
 
     let path = dir.path().join("evidence.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.set_section_config(SectionConfig {
         min_activities: unified_config().min_activities + 1,
         ..unified_config()
@@ -271,7 +271,7 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
 
     let fresh_dir = TempDir::new().unwrap();
     let path = fresh_dir.path().join("evidence.db");
-    let mut fresh = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut fresh = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     fresh.load().expect("load");
     fresh.set_section_config(SectionConfig {
         min_activities: unified_config().min_activities + 3,
@@ -286,4 +286,80 @@ fn a_config_change_drops_the_evidence_it_invalidates() {
         "a re-detect after a config change disagrees with an engine that \
          only ever knew the new config"
     );
+}
+
+/// A time stream reaches the engine after the points it belongs to: the ingest
+/// fetches streams in a second pass over the activities that landed, and an
+/// upgraded install backfills them later still. The cluster catalogues in the
+/// cache were cut with no stream to read, and a stream landing marks no
+/// cluster dirty, so a fold that kept them would reuse a cut the lift veto
+/// made blind to the times.
+#[test]
+fn a_time_stream_landing_late_drops_the_evidence_cut_without_it() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let mut engine = seeded(&dir);
+    assert!(
+        engine.evidence_cache_folded_count() > 0,
+        "the detect folded nothing, so the rest proves nothing"
+    );
+    assert!(cache_row(&dir).is_some(), "the apply wrote no evidence row");
+
+    let times: Vec<u32> = (0..pool[0].gps_points.len() as u32).collect();
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+
+    assert_eq!(
+        engine.evidence_cache_folded_count(),
+        0,
+        "the stream landed and the fold kept the evidence cut without it"
+    );
+    assert!(
+        cache_row(&dir).is_none(),
+        "the engine's cache went but the stored row stayed, so a restart \
+         picks the stale cut back up"
+    );
+}
+
+/// The other half of that rule. `set_time_streams` is an exported call and the
+/// sync reaches for it whenever a screen wants lap times, so a repeat write of
+/// a stream the engine already holds must cost nothing. Dropping the cache on
+/// every write would cold-rebatch the whole pool on a routine sync.
+#[test]
+fn rewriting_a_stream_the_engine_already_holds_keeps_the_evidence() {
+    let dir = TempDir::new().unwrap();
+    let pool = corpus();
+    let mut engine = seeded(&dir);
+
+    let times: Vec<u32> = (0..pool[0].gps_points.len() as u32).collect();
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+    let folded = engine.evidence_cache_folded_count();
+    detect(&mut engine);
+    let refolded = engine.evidence_cache_folded_count();
+    assert!(
+        refolded > folded,
+        "the re-detect did not refill the cache, so the next assertion is vacuous"
+    );
+
+    engine.set_time_streams_flat(&[pool[0].id.clone()], &times, &[0]);
+
+    assert_eq!(
+        engine.evidence_cache_folded_count(),
+        refolded,
+        "an identical stream dropped the cache and cold-rebatched the pool"
+    );
+    assert!(cache_row(&dir).is_some(), "the stored row went with it");
+}
+
+/// An empty batch is the shape a sync takes when every activity already has
+/// its stream, and it must not be the shape that drops the cache.
+#[test]
+fn a_stream_batch_with_nothing_in_it_keeps_the_evidence() {
+    let dir = TempDir::new().unwrap();
+    let mut engine = seeded(&dir);
+    let folded = engine.evidence_cache_folded_count();
+
+    engine.set_time_streams_flat(&[], &[], &[]);
+
+    assert_eq!(engine.evidence_cache_folded_count(), folded);
+    assert!(cache_row(&dir).is_some());
 }

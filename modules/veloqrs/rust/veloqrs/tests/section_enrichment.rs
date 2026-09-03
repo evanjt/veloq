@@ -9,9 +9,9 @@ use std::collections::BTreeMap;
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::persistence::PersistentRouteEngine;
+use veloqrs::persistence::PersistentEngine;
 
-fn ranked(engine: &PersistentRouteEngine) -> BTreeMap<String, (f64, f64, Option<String>)> {
+fn ranked(engine: &PersistentEngine) -> BTreeMap<String, (f64, f64, Option<String>)> {
     engine
         .get_sections()
         .iter()
@@ -74,7 +74,7 @@ fn a_detect_scores_every_section_and_the_scores_persist() {
 
     drop(engine);
     let path = dir.path().join("lifecycle.db");
-    let mut reopened = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    let mut reopened = PersistentEngine::new(path.to_str().unwrap()).expect("reopen");
     reopened.load().expect("load");
     assert_eq!(ranked(&reopened), scores, "scores must survive a reload");
 }

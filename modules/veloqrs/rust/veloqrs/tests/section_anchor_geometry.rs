@@ -6,7 +6,7 @@ use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::sections::CreateSectionParams;
 
 const ACTIVITY_ID: &str = "act-anchor";
@@ -26,14 +26,14 @@ fn stored_anchor(db: &Connection, section_id: &str) -> (String, u32, u32) {
     .expect("anchor columns")
 }
 
-fn stored_polyline(engine: &mut PersistentRouteEngine, section_id: &str) -> Vec<GpsPoint> {
+fn stored_polyline(engine: &mut PersistentEngine, section_id: &str) -> Vec<GpsPoint> {
     engine
         .get_section_by_id(section_id)
         .expect("section")
         .polyline
 }
 
-fn assert_anchor_matches_geometry(engine: &mut PersistentRouteEngine, db: &Connection, id: &str) {
+fn assert_anchor_matches_geometry(engine: &mut PersistentEngine, db: &Connection, id: &str) {
     let (activity_id, start, end) = stored_anchor(db, id);
     let track = engine.get_gps_track(&activity_id).expect("source track");
     let slice = &track[start as usize..=end as usize];
@@ -53,7 +53,7 @@ fn trim_and_expand_keep_the_anchor_matching_the_polyline() {
     let path = tmp.path().join("anchor.db");
     let path_str = path.to_str().unwrap().to_string();
 
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("engine");
+    let mut engine = PersistentEngine::new(&path_str).expect("engine");
     let track = straight_track(400);
     engine
         .add_activity(ACTIVITY_ID.to_string(), track.clone(), "Ride".to_string())
@@ -114,7 +114,7 @@ fn expand_rejects_a_range_outside_the_track() {
     let path = tmp.path().join("anchor_bounds.db");
     let path_str = path.to_str().unwrap().to_string();
 
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("engine");
+    let mut engine = PersistentEngine::new(&path_str).expect("engine");
     let track = straight_track(200);
     engine
         .add_activity(ACTIVITY_ID.to_string(), track.clone(), "Ride".to_string())

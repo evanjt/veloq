@@ -7,7 +7,6 @@
  */
 import { colors, mapLayerColors, mapPreviewColors } from '@/theme';
 import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import type { SectionMapLayers } from './useSectionMapLayers';
 
 export const NEARBY_LINE_LAYER_ID = 'nearby-line';
@@ -259,6 +258,3 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
 
   return layers;
 }
-
-/** Stable empty set for the placeholder path, so callers never pass undefined. */
-export const EMPTY_ENDPOINTS = EMPTY_FEATURE_COLLECTION;

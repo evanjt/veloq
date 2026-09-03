@@ -66,16 +66,6 @@ oslog = "0.2"
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }
 
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = "s"
-strip = false
-
-[profile.release-mobile]
-inherits = "release"
-panic = "abort"
-
 [dev-dependencies]
 tempfile = "3.27"
 env_logger = "0.11"
@@ -84,6 +74,10 @@ sha2 = "0.11"
 # Local mock HTTP server for request-path / endpoint tests (services mocked).
 httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+
+[[test]]
+name = "accepted_bounds_dedup"
+required-features = ["synthetic"]
 
 [[test]]
 name = "clear_resets_identity"
@@ -123,6 +117,10 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "section_sport_membership"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_blob_is_droppable"
 required-features = ["synthetic"]
 
 [[test]]
@@ -262,6 +260,10 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "custom_section_survives_clear"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_count_matches_the_list"
 required-features = ["synthetic"]
 
 [[test]]

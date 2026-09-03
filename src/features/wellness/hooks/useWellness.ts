@@ -12,7 +12,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { WellnessData } from '@/types';
 import type { TimeRange } from '@/shared/app/timeRange';
@@ -55,7 +55,7 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
  * is dropped rather than surfaced as a half-populated day.
  */
 function readWellness(oldest: string, newest: string): WellnessData[] {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine?.getWellnessBodies) return [];
 
   const out: WellnessData[] = [];
@@ -76,7 +76,7 @@ export function useWellness(range: TimeRange = '3m') {
   useWellnessInvalidation();
 
   return useQuery<WellnessData[]>({
-    queryKey: queryKeys.wellness.byRange(range),
+    queryKey: queryKeys.wellness.byRange(range, oldest, newest),
     queryFn: () => readWellness(oldest, newest),
     enabled: isAuthenticated,
     // SQLite is the source, so staleness is decided by the sync, not a clock.

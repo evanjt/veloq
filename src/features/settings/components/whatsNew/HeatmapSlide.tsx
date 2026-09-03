@@ -12,30 +12,15 @@ import {
 } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, contributionRamp } from '@/theme';
 
 const COLS = 7;
 const ROWS = 5;
 const CELL_SIZE = 16;
 const GAP = 3;
 
-// Dark theme intensity colors (GitHub-style green scale)
-const INTENSITY_COLORS = [
-  '#161B22', // No activity
-  '#0E4429', // Light
-  '#006D32', // Medium-light
-  '#26A641', // Medium
-  '#39D353', // High
-];
-
-// Light theme intensity colors
-const INTENSITY_COLORS_LIGHT = [
-  '#EBEDF0', // No activity
-  '#9BE9A8', // Light
-  '#40C463', // Medium-light
-  '#30A14E', // Medium
-  '#216E39', // High
-];
+const INTENSITY_COLORS = contributionRamp.dark;
+const INTENSITY_COLORS_LIGHT = contributionRamp.light;
 
 // Hardcoded intensity grid (5 rows x 7 cols)
 const GRID: number[][] = [
@@ -113,8 +98,8 @@ function getPointPos(
 // Which data point corresponds to the selected heatmap cell
 const SELECTED_DATA_INDEX = 18;
 
-const HRV_COLOR = '#EC4899'; // Pink
-const RHR_COLOR = '#EF4444'; // Red
+const HRV_COLOR = colors.chartHrv;
+const RHR_COLOR = colors.chartRhr;
 
 export function HeatmapSlide() {
   const { t } = useTranslation();

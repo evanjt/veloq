@@ -2,6 +2,7 @@
 
 pub mod conditioning;
 mod detection;
+pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
@@ -23,6 +24,7 @@ pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
 
 pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
+pub use detection::detection_workers_started;
 
 use crate::sections::assign_carried_exclusions;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
@@ -30,7 +32,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
+use super::{PersistentEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
 pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
@@ -240,7 +242,7 @@ fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
     }
 }
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
         self.sections.clear();
@@ -251,7 +253,7 @@ impl PersistentRouteEngine {
             .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
             .unwrap_or(0);
         log::info!(
-            "tracematch: [PersistentEngine] Loading sections: {} rows in DB",
+            "veloqrs: [PersistentEngine] Loading sections: {} rows in DB",
             count
         );
 
@@ -294,7 +296,7 @@ impl PersistentRouteEngine {
                     Ok(r) => r,
                     Err(e) => {
                         log::warn!(
-                            "tracematch: [PersistentEngine] Skipping malformed section_activities row during loading: {:?}",
+                            "veloqrs: [PersistentEngine] Skipping malformed section_activities row during loading: {:?}",
                             e
                         );
                         continue;
@@ -335,7 +337,7 @@ impl PersistentRouteEngine {
                             Ok(acc) => Some(acc),
                             Err(e) => {
                                 log::warn!(
-                                    "tracematch: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
+                                    "veloqrs: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
                                     id, e
                                 );
                                 None
@@ -343,9 +345,18 @@ impl PersistentRouteEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = codec::decode_polyline_row(
+                    // Both columns or neither: a half-range indexes nothing.
+                    let rep_start: Option<u32> = row.get(22)?;
+                    let rep_end: Option<u32> = row.get(23)?;
+                    let polyline: Vec<GpsPoint> = geometry::line(
+                        &self.db,
                         polyline_blob.as_deref(),
                         polyline_json.as_deref(),
+                        geometry::reference(
+                            representative_activity_id.as_deref(),
+                            rep_start,
+                            rep_end,
+                        ),
                     )
                     .unwrap_or_else(|e| {
                         log::error!(
@@ -372,9 +383,6 @@ impl PersistentRouteEngine {
                         .collect();
                     let visit_count = portions.len() as u32;
 
-                    // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
                     let representative_range = rep_start.zip(rep_end);
 
                     Ok(FrequentSection {
@@ -418,7 +426,7 @@ impl PersistentRouteEngine {
                 .filter_map(|r| match r {
                     Ok(v) => Some(v),
                     Err(e) => {
-                        log::warn!("tracematch: [PersistentEngine] Skipping malformed section row during loading: {:?}", e);
+                        log::warn!("veloqrs: [PersistentEngine] Skipping malformed section row during loading: {:?}", e);
                         None
                     }
                 })
@@ -427,7 +435,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Loaded {} sections into memory (from {} in DB)",
+            "veloqrs: [PersistentEngine] Loaded {} sections into memory (from {} in DB)",
             self.sections.len(),
             count
         );
@@ -441,7 +449,7 @@ impl PersistentRouteEngine {
                 .map(|s| s.id.as_str())
                 .collect();
             log::info!(
-                "tracematch: [PersistentEngine] First {} section IDs: {:?}",
+                "veloqrs: [PersistentEngine] First {} section IDs: {:?}",
                 section_ids.len(),
                 section_ids
             );
@@ -474,7 +482,7 @@ impl PersistentRouteEngine {
             self.processed_activity_ids.insert(row);
         }
         log::info!(
-            "tracematch: [PersistentEngine] Loaded {} processed activity IDs",
+            "veloqrs: [PersistentEngine] Loaded {} processed activity IDs",
             self.processed_activity_ids.len()
         );
         Ok(())
@@ -517,7 +525,7 @@ impl PersistentRouteEngine {
             self.sections[idx] = section;
             if !unchanged && let Err(err) = self.save_sections() {
                 log::warn!(
-                    "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                    "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
                     err
                 );
             }
@@ -560,7 +568,7 @@ impl PersistentRouteEngine {
         self.sections[idx] = updated;
         if let Err(err) = self.save_sections() {
             log::warn!(
-                "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
                 err
             );
         }
@@ -585,23 +593,46 @@ impl PersistentRouteEngine {
 
     /// Clear all processed activity IDs to force full re-detection.
     pub(crate) fn clear_processed_activity_ids(&mut self) {
+        // The evidence cache goes first and unconditionally. Its caller has
+        // already persisted the config that provoked the clear, so a cache
+        // folded under the old one is wrong from here on however the DELETE
+        // goes; dropping it only costs a cold rebatch.
+        self.invalidate_evidence_cache();
         // Only clear the in-memory set when the DB delete succeeds; otherwise
         // the rows reload on next start and memory would disagree with disk.
         match self.db.execute("DELETE FROM processed_activities", []) {
             Ok(_) => {
                 self.processed_activity_ids.clear();
-                // The processed set and the evidence cache are two shadows of the
-                // same "what has detection already folded" state; clear them in
-                // lockstep so the next detect cold-rebatches under the new base.
-                self.invalidate_evidence_cache();
+                self.pending_processed_clear = false;
                 log::info!(
-                    "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
+                    "veloqrs: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
                 );
             }
             Err(e) => {
-                log::warn!("tracematch: failed to clear processed activity IDs: {e:?}");
+                // Leaving the set intact would short-circuit the next detect on
+                // every activity it holds, under a config that no longer matches
+                // them. Flag it so the next detect retries before it reads.
+                self.pending_processed_clear = true;
+                log::warn!("veloqrs: failed to clear processed activity IDs: {e:?}");
             }
         }
+    }
+
+    /// Whether a processed-set clear is still owed. Exposed so a test can see
+    /// the flag without reaching into the engine's private state.
+    #[doc(hidden)]
+    pub fn processed_clear_pending(&self) -> bool {
+        self.pending_processed_clear
+    }
+
+    /// Re-run a clear whose DELETE failed. Called at the head of every detect,
+    /// which is the first moment the stale processed set would be read.
+    pub(crate) fn retry_pending_processed_clear(&mut self) {
+        if !self.pending_processed_clear {
+            return;
+        }
+        log::info!("veloqrs: retrying the processed-activity clear owed from a failed DELETE");
+        self.clear_processed_activity_ids();
     }
 
     /// Evict specific activity IDs from the processed set (DB + in memory) so a
@@ -617,7 +648,7 @@ impl PersistentRouteEngine {
         let tx = match self.db.unchecked_transaction() {
             Ok(tx) => tx,
             Err(e) => {
-                log::warn!("tracematch: processed-id eviction begin failed: {e:?}");
+                log::warn!("veloqrs: processed-id eviction begin failed: {e:?}");
                 return;
             }
         };
@@ -642,7 +673,7 @@ impl PersistentRouteEngine {
             // cache; the next detect cold-rebatches the correct pool.
             self.invalidate_evidence_cache();
         } else {
-            log::warn!("tracematch: processed-id eviction failed; in-memory set left intact");
+            log::warn!("veloqrs: processed-id eviction failed; in-memory set left intact");
         }
     }
 
@@ -910,15 +941,22 @@ impl PersistentRouteEngine {
                 .unwrap_or_default()
         };
 
-        // Decode polyline (blob authoritative, JSON fallback for legacy rows)
-        let polyline: Vec<GpsPoint> = match codec::decode_polyline_row(
+        // The cached blob first, then the reference triple, so a refresh after a
+        // cleared cache reads the same line the load does.
+        let polyline: Vec<GpsPoint> = match geometry::line(
+            &self.db,
             polyline_blob.as_deref(),
             polyline_json.as_deref(),
+            geometry::reference(
+                representative_activity_id.as_deref(),
+                rep_start_index,
+                rep_end_index,
+            ),
         ) {
             Ok(p) => p,
             Err(e) => {
                 log::error!(
-                    "tracematch: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
+                    "veloqrs: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
                     section_id,
                     e
                 );
@@ -967,7 +1005,7 @@ impl PersistentRouteEngine {
                 Ok(v) => Some(v),
                 Err(_) => {
                     log::warn!(
-                        "tracematch: [refresh_section_in_memory] Failed to parse scale '{}' for {}",
+                        "veloqrs: [refresh_section_in_memory] Failed to parse scale '{}' for {}",
                         s,
                         section_id
                     );
@@ -990,13 +1028,13 @@ impl PersistentRouteEngine {
         if let Some(existing) = self.sections.iter_mut().find(|s| s.id == section_id) {
             *existing = updated_section;
             log::debug!(
-                "tracematch: [refresh_section_in_memory] Updated section {} in memory",
+                "veloqrs: [refresh_section_in_memory] Updated section {} in memory",
                 section_id
             );
         } else {
             self.sections.push(updated_section);
             log::debug!(
-                "tracematch: [refresh_section_in_memory] Added section {} to memory",
+                "veloqrs: [refresh_section_in_memory] Added section {} to memory",
                 section_id
             );
         }
@@ -1008,16 +1046,28 @@ impl PersistentRouteEngine {
         self.sections.retain(|s| s.id != section_id);
         self.invalidate_perf_cache();
         log::debug!(
-            "tracematch: [remove_section_from_memory] Removed section {} from memory",
+            "veloqrs: [remove_section_from_memory] Removed section {} from memory",
             section_id
         );
     }
 
     /// Get section count directly from SQLite (no data loading).
     /// This is O(1) and doesn't require loading sections into memory.
+    ///
+    /// Counts what the section views show, so it carries the same visibility
+    /// predicate `get_section_summaries` and `get_sections_by_type` use. A
+    /// disabled or superseded section reaches no list, and every caller here
+    /// is asking whether the athlete has sections to look at.
     pub fn get_section_count(&self) -> u32 {
         self.db
-            .query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM sections WHERE {}",
+                    Self::VISIBLE_FILTER
+                ),
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0)
     }
 
@@ -1031,7 +1081,7 @@ impl PersistentRouteEngine {
         // separate DISTINCT.
         // `activity_count` and `sport_types` are denormalised onto the row and
         // kept by the junction triggers, so the list needs no GROUP BY.
-        let mut stmt = match self.db.prepare(
+        let mut stmt = match self.db.prepare(&format!(
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
@@ -1039,12 +1089,13 @@ impl PersistentRouteEngine {
                     elevation_gain_m, avg_grade_percent, activity_count, sport_types,
                     elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
              FROM sections
-             WHERE disabled = 0 AND superseded_by IS NULL",
-        ) {
+             WHERE {}",
+            Self::VISIBLE_FILTER
+        )) {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare section summaries query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare section summaries query: {}",
                     e
                 );
                 return Vec::new();
@@ -1119,12 +1170,13 @@ impl PersistentRouteEngine {
             .map(|iter| {
                 iter.filter_map(|r| {
                     r.map_err(|e| {
-                    log::error!(
-                        "tracematch: [PersistentEngine] get_section_summaries row parse error: {}",
+                        log::error!(
+                            "veloqrs: [PersistentEngine] get_section_summaries row parse error: {}",
+                            e
+                        );
                         e
-                    );
-                    e
-                }).ok()
+                    })
+                    .ok()
                 })
                 .collect()
             })
@@ -1141,7 +1193,7 @@ impl PersistentRouteEngine {
             .count();
         let custom_count = results.len() - auto_count;
         log::info!(
-            "tracematch: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
+            "veloqrs: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
             results.len(),
             auto_count,
             custom_count
@@ -1149,7 +1201,7 @@ impl PersistentRouteEngine {
         if custom_count > 0 {
             for s in results.iter().filter(|s| s.id.starts_with("custom_")) {
                 log::info!(
-                    "tracematch: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
+                    "veloqrs: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
                     s.id,
                     s.name,
                     s.visit_count,
@@ -1189,7 +1241,7 @@ impl PersistentRouteEngine {
         let cached = self.section_cache.get(&section_id.to_string()).cloned();
         if let Some(mut section) = cached {
             log::debug!(
-                "tracematch: [PersistentEngine] get_section_by_id cache hit for {}",
+                "veloqrs: [PersistentEngine] get_section_by_id cache hit for {}",
                 section_id
             );
             self.apply_named_overlay_to_frequent(&mut section);
@@ -1201,7 +1253,7 @@ impl PersistentRouteEngine {
             Some(s) => s,
             None => {
                 log::info!(
-                    "tracematch: [PersistentEngine] get_section_by_id: section {} not found in DB",
+                    "veloqrs: [PersistentEngine] get_section_by_id: section {} not found in DB",
                     section_id
                 );
                 return None;
@@ -1261,7 +1313,7 @@ impl PersistentRouteEngine {
         self.section_cache
             .put(section_id.to_string(), frequent.clone());
         log::info!(
-            "tracematch: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
+            "veloqrs: [PersistentEngine] get_section_by_id found and cached section {} (type={:?})",
             section_id,
             frequent.is_user_defined
         );
@@ -1282,7 +1334,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] get_section_portions query failed for {}: {}",
+                    "veloqrs: [PersistentEngine] get_section_portions query failed for {}: {}",
                     section_id,
                     e
                 );
@@ -1330,36 +1382,16 @@ impl PersistentRouteEngine {
     /// Get section polyline only (flat coordinates for map rendering).
     /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
     pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
-        let result: Option<Vec<f64>> = self
-            .db
-            .query_row(
-                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| {
-                    let blob: Option<Vec<u8>> = row.get(0)?;
-                    let json: Option<String> = row.get(1)?;
-                    match codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
-                        Ok(points) => Ok(Some(
-                            points
-                                .iter()
-                                .flat_map(|p| [p.latitude, p.longitude])
-                                .collect(),
-                        )),
-                        Err(e) => {
-                            log::error!(
-                                "tracematch: get_section_polyline decode error for {}: {}",
-                                section_id,
-                                e
-                            );
-                            Ok(None)
-                        }
-                    }
-                },
-            )
-            .ok()
-            .flatten();
-
-        result.unwrap_or_default()
+        match geometry::stored_line(&self.db, section_id) {
+            Ok(points) => points
+                .iter()
+                .flat_map(|p| [p.latitude, p.longitude])
+                .collect(),
+            Err(e) => {
+                log::error!("veloqrs: get_section_polyline decode error for {section_id}: {e}");
+                Vec::new()
+            }
+        }
     }
 
     /// Batch-load section polylines for multiple section IDs in a single query.
@@ -1374,7 +1406,9 @@ impl PersistentRouteEngine {
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_blob, polyline_json FROM sections WHERE id IN ({})",
+            "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                    rep_start_index, rep_end_index
+             FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
 
@@ -1382,7 +1416,7 @@ impl PersistentRouteEngine {
             Ok(s) => s,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to prepare batch section polyline query: {}",
+                    "veloqrs: [PersistentEngine] Failed to prepare batch section polyline query: {}",
                     e
                 );
                 return HashMap::new();
@@ -1399,9 +1433,16 @@ impl PersistentRouteEngine {
                 let section_id: String = row.get(0)?;
                 let polyline_blob: Option<Vec<u8>> = row.get(1)?;
                 let polyline_json: Option<String> = row.get(2)?;
-                let points =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .unwrap_or_default();
+                let rep: Option<String> = row.get(3)?;
+                let rep_start: Option<u32> = row.get(4)?;
+                let rep_end: Option<u32> = row.get(5)?;
+                let points = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .unwrap_or_default();
                 Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
@@ -1494,7 +1535,8 @@ impl PersistentRouteEngine {
                     s.visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
-                    s.polyline_json, s.polyline_blob
+                    s.polyline_json, s.polyline_blob,
+                    s.representative_activity_id, s.rep_start_index, s.rep_end_index
              FROM sections s
              WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
                AND s.bounds_min_lat IS NOT NULL",
@@ -1516,6 +1558,9 @@ impl PersistentRouteEngine {
                     row.get::<_, f64>(7)?,             // center_lng
                     row.get::<_, Option<String>>(8)?,  // polyline_json
                     row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
+                    row.get::<_, Option<String>>(10)?, // representative_activity_id
+                    row.get::<_, Option<u32>>(11)?,    // rep_start_index
+                    row.get::<_, Option<u32>>(12)?,    // rep_end_index
                 ))
             })
             .ok();
@@ -1535,16 +1580,23 @@ impl PersistentRouteEngine {
                     lng,
                     polyline_json,
                     polyline_blob,
+                    rep,
+                    rep_start,
+                    rep_end,
                 ) = row;
                 let dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if dist > radius_meters {
                     continue;
                 }
 
-                let encoded_polyline =
-                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
-                        .map(|points| crate::coords::encode(&points))
-                        .unwrap_or_default();
+                let encoded_polyline = geometry::line(
+                    &self.db,
+                    polyline_blob.as_deref(),
+                    polyline_json.as_deref(),
+                    geometry::reference(rep.as_deref(), rep_start, rep_end),
+                )
+                .map(|points| crate::coords::encode(&points))
+                .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
                     id,
@@ -1601,17 +1653,40 @@ impl PersistentRouteEngine {
         // detector change and has nothing to explain.
         if from_detect && let Some((from, to)) = self.detector_generation_change() {
             let mut stmt = tx.prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json, representative_activity_id,
+                        rep_start_index, rep_end_index
+                 FROM sections
                  WHERE section_type = 'auto' AND original_polyline_json IS NULL
                    AND is_user_defined = 0 AND disabled = 0",
             )?;
-            let priors: Vec<(String, Option<Vec<u8>>, Option<String>)> = stmt
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            type Prior = (
+                String,
+                Option<Vec<u8>>,
+                Option<String>,
+                Option<String>,
+                Option<u32>,
+                Option<u32>,
+            );
+            let priors: Vec<Prior> = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })?
                 .filter_map(|r| r.ok())
                 .collect();
             drop(stmt);
-            for (id, blob, json) in priors {
-                let prior = codec::decode_polyline_row(blob.as_deref(), json.as_deref())
+            for (id, blob, json, rep_id, start, end) in priors {
+                // The blob is a cache. The outgoing shape is the one thing the
+                // milestone exists to keep, so a cleared cache is rebuilt from
+                // the triple rather than milestoned as an empty line.
+                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                let prior = geometry::line(&tx, blob.as_deref(), json.as_deref(), reference)
                     .unwrap_or_default();
                 history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
             }
@@ -1646,31 +1721,6 @@ impl PersistentRouteEngine {
             "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],
         )?;
-
-        // Load bounding boxes of accepted sections to dedup new auto detections
-        struct AcceptedBounds {
-            min_lat: f64,
-            max_lat: f64,
-            min_lng: f64,
-            max_lng: f64,
-        }
-        let accepted_bounds: Vec<AcceptedBounds> = {
-            let mut stmt = tx.prepare(
-                "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                 FROM sections WHERE is_user_defined = 1
-                 AND bounds_min_lat IS NOT NULL",
-            )?;
-            stmt.query_map([], |row| {
-                Ok(AcceptedBounds {
-                    min_lat: row.get(0)?,
-                    max_lat: row.get(1)?,
-                    min_lng: row.get(2)?,
-                    max_lng: row.get(3)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect()
-        };
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
@@ -1782,7 +1832,7 @@ impl PersistentRouteEngine {
         };
 
         for section in sorted_sections {
-            // SB6: the portions that will actually become junction rows. A
+            // The portions that will actually become junction rows. A
             // section with none of them takes zero rows, so no visit_count
             // trigger fires and the catalogue gains a "0 visits" card over an
             // empty detail screen. Skip the row entirely rather than persist it.
@@ -1795,7 +1845,7 @@ impl PersistentRouteEngine {
                 .collect();
             if surviving.is_empty() {
                 log::warn!(
-                    "tracematch: [save_sections] skipping section {} - {} activity_ids, {} \
+                    "veloqrs: [save_sections] skipping section {} - {} activity_ids, {} \
                      portions, none of them pooled",
                     section.id,
                     section.activity_ids.len(),
@@ -1806,8 +1856,7 @@ impl PersistentRouteEngine {
 
             // Blob is the authoritative geometry; only legacy rows carry real
             // JSON, which readers use as a fallback.
-            let polyline_blob = codec::serialize_points(&section.polyline)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+            let polyline_blob = codec::serialize_track_points(&section.polyline);
             let point_density_blob = if section.point_density.is_empty() {
                 None
             } else {
@@ -1850,38 +1899,6 @@ impl PersistentRouteEngine {
                 } else {
                     (None, None, None, None)
                 };
-
-            // Skip new auto sections whose bbox is mostly covered by an accepted section
-            if !section.is_user_defined && !accepted_bounds.is_empty() {
-                if let (Some(mn_lat), Some(mx_lat), Some(mn_lng), Some(mx_lng)) = (
-                    bounds_min_lat,
-                    bounds_max_lat,
-                    bounds_min_lng,
-                    bounds_max_lng,
-                ) {
-                    let new_area = (mx_lat - mn_lat) * (mx_lng - mn_lng);
-                    if new_area > 0.0 {
-                        let dominated = accepted_bounds.iter().any(|ab| {
-                            let i_min_lat = mn_lat.max(ab.min_lat);
-                            let i_max_lat = mx_lat.min(ab.max_lat);
-                            let i_min_lng = mn_lng.max(ab.min_lng);
-                            let i_max_lng = mx_lng.min(ab.max_lng);
-                            if i_min_lat >= i_max_lat || i_min_lng >= i_max_lng {
-                                return false;
-                            }
-                            let intersection = (i_max_lat - i_min_lat) * (i_max_lng - i_min_lng);
-                            intersection / new_area > 0.45
-                        });
-                        if dominated {
-                            log::debug!(
-                                "save_sections: skipping auto section {} - overlaps accepted section",
-                                section.id
-                            );
-                            continue;
-                        }
-                    }
-                }
-            }
 
             // Serialise the consensus accumulator if present, as a
             // MessagePack blob (smaller + faster than JSON; matches the
@@ -1992,7 +2009,7 @@ impl PersistentRouteEngine {
         // back; a section that died has no rows and the updates are no-ops.
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
 
-        // B4: write the identity-registry blob in THIS transaction so the
+        // Write the identity-registry blob in THIS transaction so the
         // registry and the catalogue it describes commit (or roll back) together.
         if let Some(blob) = self.section_identity_blob() {
             tx.execute(
@@ -2003,7 +2020,7 @@ impl PersistentRouteEngine {
             )?;
         }
 
-        // D5: the emitter's fired lifecycle events, durable with the
+        // The emitter's fired lifecycle events, durable with the
         // catalogue they narrate. A geometry-bearing event versions its
         // polyline first and the history row links the version.
         for event in events {
@@ -2105,5 +2122,68 @@ mod tests {
         let mut counter = 0;
         assert_eq!(next_section_number(&mut taken, &mut counter), 3);
         assert_eq!(next_section_number(&mut taken, &mut counter), 4);
+    }
+
+    /// Scenario: the DELETE behind a forced re-detect fails, after the config
+    /// that provoked it has already been persisted.
+    /// Expected behaviour: the evidence cache goes anyway, the processed set is
+    /// left matching disk, and the clear is retried at the next detect.
+    #[test]
+    fn a_failed_processed_clear_drops_the_cache_and_is_retried() {
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
+        engine
+            .save_processed_activity_ids(&["a".to_string(), "b".to_string()])
+            .unwrap();
+        engine.cache_folded_ids.insert("a".to_string());
+
+        engine
+            .db
+            .execute("DROP TABLE processed_activities", [])
+            .unwrap();
+        engine.clear_processed_activity_ids();
+
+        assert!(engine.processed_clear_pending());
+        assert_eq!(engine.processed_activity_ids.len(), 2);
+        assert_eq!(engine.evidence_cache_folded_count(), 0);
+
+        engine
+            .db
+            .execute(
+                "CREATE TABLE processed_activities (activity_id TEXT PRIMARY KEY)",
+                [],
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO processed_activities (activity_id) VALUES ('a'), ('b')",
+                [],
+            )
+            .unwrap();
+
+        engine.retry_pending_processed_clear();
+
+        assert!(!engine.processed_clear_pending());
+        assert!(engine.processed_activity_ids.is_empty());
+        let remaining: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM processed_activities", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn retry_is_a_no_op_when_no_clear_is_owed() {
+        let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
+        engine
+            .save_processed_activity_ids(&["a".to_string()])
+            .unwrap();
+
+        engine.retry_pending_processed_clear();
+
+        assert!(!engine.processed_clear_pending());
+        assert_eq!(engine.processed_activity_ids.len(), 1);
     }
 }

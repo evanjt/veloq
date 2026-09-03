@@ -1,10 +1,10 @@
-import type { ActivityType } from "@/features/activity/types";
+import type { ActivityType } from '@/features/activity/types';
 
 /** Recording mode determines the UI and data collection approach */
-export type RecordingMode = "gps" | "indoor" | "manual";
+export type RecordingMode = 'gps' | 'indoor' | 'manual';
 
 /** Overall recording lifecycle state */
-export type RecordingStatus = "idle" | "recording" | "paused" | "stopped";
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
 /** GPS point collected during recording */
 export interface RecordingGpsPoint {
@@ -32,8 +32,11 @@ export interface RecordingStreams {
 /** A lap marker during recording */
 export interface RecordingLap {
   index: number;
-  startTime: number; // seconds since activity start
-  endTime: number; // seconds since activity start
+  startTime: number; // wall-clock seconds since activity start, same base as streams.time
+  endTime: number; // wall-clock seconds since activity start, same base as streams.time
+  startIndex: number; // first stream sample in the lap
+  endIndex: number; // last stream sample in the lap, -1 when the lap has no samples
+  movingEndTime: number; // cumulative moving seconds at the lap press
   distance: number; // meters
   avgSpeed: number; // m/s
   avgHeartrate: number | null;
@@ -57,12 +60,12 @@ export interface ManualActivityData {
 }
 
 export type RecordingUploadStatus =
-  | "localOnly"
-  | "pending"
-  | "uploading"
-  | "uploaded"
-  | "failed"
-  | "permissionBlocked";
+  | 'localOnly'
+  | 'pending'
+  | 'uploading'
+  | 'uploaded'
+  | 'failed'
+  | 'permissionBlocked';
 
 /** A recording saved permanently on device (FIT file + metadata + streams sidecar) */
 export interface RecordingLibraryEntry {
@@ -90,7 +93,7 @@ export interface RecordingBackup {
   activityType: ActivityType;
   mode: RecordingMode;
   /** Session state at save time. A 'stopped' backup restores to the review screen. */
-  status: "recording" | "paused" | "stopped";
+  status: 'recording' | 'paused' | 'stopped';
   startTime: number;
   stopTime: number | null;
   /** Includes any in-progress pause up to savedAt, so restore only credits savedAt→now. */
@@ -105,18 +108,18 @@ export interface RecordingBackup {
 
 /** Data field display configuration */
 export type DataFieldType =
-  | "speed"
-  | "avgSpeed"
-  | "distance"
-  | "heartrate"
-  | "power"
-  | "cadence"
-  | "elevation"
-  | "elevationGain"
-  | "pace"
-  | "avgPace"
-  | "timer"
-  | "movingTime"
-  | "lapTime"
-  | "lapDistance"
-  | "calories";
+  | 'speed'
+  | 'avgSpeed'
+  | 'distance'
+  | 'heartrate'
+  | 'power'
+  | 'cadence'
+  | 'elevation'
+  | 'elevationGain'
+  | 'pace'
+  | 'avgPace'
+  | 'timer'
+  | 'movingTime'
+  | 'lapTime'
+  | 'lapDistance'
+  | 'calories';

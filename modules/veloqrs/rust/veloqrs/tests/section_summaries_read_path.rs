@@ -1,7 +1,11 @@
-//! Read-path benchmark for `get_section_summaries` (B4 Phase 3).
+//! Read-path benchmark for `get_summaries_with_count`.
 //!
-//! The Routes list calls `get_section_summaries` on every open, so it must be a
-//! cheap, pure column read (<=30ms). This measures it two ways:
+//! The Routes list calls `get_summaries_with_count` on every open, so it must
+//! be a cheap, pure column read (<=30ms). The FFI object method needs the
+//! process-global engine, which a timing test must not take a write lock on, so
+//! this measures the same composition against a local engine: the count query
+//! plus the summaries query, and the sport-filtered variant the sport tabs use.
+//! This measures it two ways:
 //!
 //! - VELOQ_DB set -> the real device export (local only, never committed). This
 //!   is the authoritative number the brief asks for; it skips cleanly when the
@@ -16,7 +20,7 @@
 use rusqlite::{Connection, params};
 use std::time::Instant;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 /// Synthetic scale: enough sections and junction rows that an O(junction)
 /// aggregation is measurable, without being slow to build.
@@ -69,13 +73,24 @@ fn seed_synthetic(path: &str) {
     tx.commit().expect("commit seed");
 }
 
-fn median_ms(engine: &mut PersistentRouteEngine, iterations: u32) -> f64 {
+/// What `get_summaries_with_count` does, minus the global-engine lock.
+fn summaries_with_count(engine: &PersistentEngine, sport_type: Option<&str>) -> (u32, usize) {
+    let total_count = engine.get_section_count();
+    let summaries = match sport_type {
+        Some(sport) => engine.get_section_summaries_for_sport(sport),
+        None => engine.get_section_summaries(),
+    };
+    (total_count, summaries.len())
+}
+
+fn median_ms(engine: &mut PersistentEngine, sport_type: Option<&str>, iterations: u32) -> f64 {
     let mut samples: Vec<f64> = Vec::new();
     for _ in 0..iterations {
         let start = Instant::now();
-        let summaries = engine.get_section_summaries();
+        let (total_count, len) = summaries_with_count(engine, sport_type);
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-        assert!(!summaries.is_empty(), "benchmark DB produced no summaries");
+        assert!(total_count > 0, "benchmark DB holds no sections");
+        assert!(len > 0, "benchmark DB produced no summaries");
         samples.push(elapsed);
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -83,10 +98,10 @@ fn median_ms(engine: &mut PersistentRouteEngine, iterations: u32) -> f64 {
 }
 
 #[test]
-fn get_section_summaries_is_a_fast_column_read() {
+fn get_summaries_with_count_is_a_fast_column_read() {
     let (mut engine, _dir, label) = match std::env::var("VELOQ_DB") {
         Ok(p) if std::path::Path::new(&p).exists() => {
-            let mut e = PersistentRouteEngine::new(&p).expect("open device DB");
+            let mut e = PersistentEngine::new(&p).expect("open device DB");
             e.load().expect("load device DB");
             (e, None, format!("VELOQ_DB {p}"))
         }
@@ -95,10 +110,10 @@ fn get_section_summaries_is_a_fast_column_read() {
             let path = dir.path().join("bench.db");
             let path_str = path.to_str().unwrap().to_string();
             {
-                let _e = PersistentRouteEngine::new(&path_str).expect("migrate");
+                let _e = PersistentEngine::new(&path_str).expect("migrate");
             }
             seed_synthetic(&path_str);
-            let mut e = PersistentRouteEngine::new(&path_str).expect("reopen");
+            let mut e = PersistentEngine::new(&path_str).expect("reopen");
             e.load().expect("load synthetic DB");
             (
                 e,
@@ -110,15 +125,25 @@ fn get_section_summaries_is_a_fast_column_read() {
 
     let count = engine.get_section_summaries().len();
     // Warm any lazily-built caches, then measure a steady-state median.
-    let _ = median_ms(&mut engine, 3);
-    let median = median_ms(&mut engine, 15);
+    let _ = median_ms(&mut engine, None, 3);
+    let median = median_ms(&mut engine, None, 15);
     println!(
-        "[read-path] get_section_summaries: {median:.2}ms median over {count} sections ({label})"
+        "[read-path] get_summaries_with_count: {median:.2}ms median over {count} sections ({label})"
     );
 
     assert!(
         median <= 30.0,
-        "get_section_summaries took {median:.2}ms over {count} sections ({label}) — read path exceeds the 30ms budget"
+        "get_summaries_with_count took {median:.2}ms over {count} sections ({label}), read path exceeds the 30ms budget"
+    );
+
+    // The sport tabs pass a sport through, which filters the same summaries in
+    // Rust. It shares the budget, so measure it rather than assume it is free.
+    let sport_median = median_ms(&mut engine, Some("Ride"), 15);
+    println!("[read-path] get_summaries_with_count(Ride): {sport_median:.2}ms median ({label})");
+
+    assert!(
+        sport_median <= 30.0,
+        "get_summaries_with_count(Ride) took {sport_median:.2}ms over {count} sections ({label}), read path exceeds the 30ms budget"
     );
 }
 
@@ -131,10 +156,10 @@ fn visit_count_column_tracks_the_junction() {
     let path = dir.path().join("vc.db");
     let path_str = path.to_str().unwrap().to_string();
     {
-        let _e = PersistentRouteEngine::new(&path_str).expect("migrate");
+        let _e = PersistentEngine::new(&path_str).expect("migrate");
     }
     seed_synthetic(&path_str);
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("reopen");
+    let mut engine = PersistentEngine::new(&path_str).expect("reopen");
     engine.load().expect("load");
 
     let summaries = engine.get_section_summaries();
@@ -170,10 +195,10 @@ fn get_sections_reads_the_fixture_inside_its_budget() {
     let path = dir.path().join("sections_bench.db");
     let path_str = path.to_str().unwrap().to_string();
     {
-        let _engine = PersistentRouteEngine::new(&path_str).expect("create schema");
+        let _engine = PersistentEngine::new(&path_str).expect("create schema");
     }
     seed_synthetic(&path_str);
-    let mut engine = PersistentRouteEngine::new(&path_str).expect("open");
+    let mut engine = PersistentEngine::new(&path_str).expect("open");
     engine.load().expect("load");
     let mut samples = Vec::new();
     for _ in 0..5 {

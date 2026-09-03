@@ -11,10 +11,12 @@
  * state (refs, savedCameraRef, etc.) on the caller's side - pass only resolved
  * values here.
  */
+import { MAP_3D_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
+import { resolveStyleExpression, LIGHT_STYLE_URL, TERRAIN_STYLE_OPTIONS } from './styleResolution';
 import { consoleBridgeScript, mapLibreHead, tileProtocolsScript } from './shared';
+import { getTileCacheBudgetMb } from '@/features/maps/lib/storage/tileCacheSettings';
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */
@@ -104,6 +106,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   // Satellite and dark are inline objects on cached tile protocols; light is
   // URL-based so MapLibre resolves the TileJSON itself.
   const { styleJSON: styleConfig } = resolveStyleExpression(initStyle, {
+    ...TERRAIN_STYLE_OPTIONS,
     cacheVectorTiles: true,
   });
 
@@ -112,6 +115,61 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
   <div id="map"></div>
   <script>
 ${consoleBridgeScript()}
+
+    // The ready signal is the only thing that clears the loading spinner, so
+    // it is armed before anything that can throw. The renderer is inlined and
+    // the light style is still fetched at runtime, so the page has to be able
+    // to report its own failure without either of them.
+    var mapReadySent = false;
+    var mapFailedSent = false;
+
+    function sendMapReady() {
+      if (mapReadySent || mapFailedSent) return;
+      mapReadySent = true;
+      window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
+      }
+      reportTerrainState();
+    }
+
+    // The renderer ships in the app but the DEM tiles do not, so an offline 3D
+    // open draws a flat map that looks like broken 3D. Reported once, after
+    // the page has settled, so the caller can drop back to 2D and say why.
+    var terrainReportSent = false;
+
+    function reportTerrainState() {
+      if (terrainReportSent) return;
+      if (terrainDelivered > 0 || terrainFailed === 0) return;
+      terrainReportSent = true;
+      window._rn_log('sending terrainUnavailable - ' + terrainFailed + ' DEM tiles failed');
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'terrainUnavailable',
+          reason: 'no terrain tiles: ' + terrainFailed + ' failed, none delivered'
+        }));
+      }
+    }
+
+    function sendMapFailed(reason) {
+      if (mapReadySent || mapFailedSent) return;
+      mapFailedSent = true;
+      window._rn_log('sending mapFailed - ' + reason);
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'mapFailed',
+          reason: String(reason)
+        }));
+      }
+    }
+
+    if (window.addEventListener) {
+      window.addEventListener('error', function(e) {
+        sendMapFailed('page error: ' + ((e && e.message) || 'unknown'));
+      });
+    }
+
+    setTimeout(function() { sendMapFailed('ready timeout'); }, ${MAP_3D_READY_TIMEOUT_MS});
 
     const coordinates = ${coordsJSON};
     window._routeCoords = coordinates;
@@ -126,7 +184,7 @@ ${consoleBridgeScript()}
     const _hillshadePaint = ${initHillshadePaintJSON};
     const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
-${tileProtocolsScript()}
+${tileProtocolsScript({ tileCacheBudgetMb: getTileCacheBudgetMb() })}
 
     // Create map with appropriate style
     // Use saved camera state if available, otherwise use bounds or center/zoom
@@ -489,16 +547,6 @@ ${tileProtocolsScript()}
       // Terrain-first ready detection - only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
       // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
-      var mapReadySent = false;
-      function sendMapReady() {
-        if (mapReadySent) return;
-        mapReadySent = true;
-        window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-        }
-      }
-
       var terrainReady = false;
       var routeReady = coordinates.length === 0;
 
@@ -529,10 +577,14 @@ ${tileProtocolsScript()}
         }
       }, 4000);
 
-      // Preload adjacent DEM zoom levels after map settles - populates Cache API
-      // so zoom in/out has instant terrain. Uses cached-terrain:// protocol.
+      // Preload adjacent DEM zoom levels after map settles, through the same
+      // cache the cached-terrain protocol reads, so zoom in/out has terrain to
+      // hand and the bytes stay inside the eviction budget.
       map.once('idle', function() {
         setTimeout(function() {
+          // A DEM tile that fails after the ready signal still leaves a flat
+          // map, so the state is re-read once the page has stopped moving.
+          reportTerrainState();
           var z = Math.floor(map.getZoom());
           var b = map.getBounds();
           function lng2tile(lng, zoom) { return Math.floor((lng + 180) / 360 * Math.pow(2, zoom)); }
@@ -544,7 +596,7 @@ ${tileProtocolsScript()}
             var yMax = lat2tile(b.getSouth(), zl);
             for (var x = xMin; x <= xMax; x++) {
               for (var y = yMin; y <= yMax; y++) {
-                new Image().src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png';
+                window._prefetchTerrainTile('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png');
               }
             }
           });
@@ -554,6 +606,7 @@ ${tileProtocolsScript()}
 
     } catch(e) {
       window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
+      sendMapFailed('script error: ' + e.message);
     }
   </script>
 </body>

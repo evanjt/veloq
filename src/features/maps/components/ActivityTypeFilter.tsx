@@ -75,7 +75,7 @@ export const ACTIVITY_CATEGORIES: Record<
     types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'RollerSki'],
   },
   Water: {
-    color: activityTypeColors.Rowing || '#06B6D4',
+    color: activityTypeColors.Rowing || colors.swim,
     icon: 'rowing',
     labelKey: 'water',
     types: [
@@ -109,7 +109,7 @@ export const ACTIVITY_CATEGORIES: Record<
     ],
   },
   Racket: {
-    color: activityTypeColors.Tennis || '#22C55E',
+    color: activityTypeColors.Tennis || colors.success,
     icon: 'tennis',
     labelKey: 'racket',
     types: ['Tennis', 'Badminton', 'Pickleball', 'Racquetball', 'Squash', 'TableTennis'],

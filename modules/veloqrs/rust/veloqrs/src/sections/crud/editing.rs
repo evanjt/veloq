@@ -1,10 +1,11 @@
-//! Bounds editing, visibility state, imports, and schema initialisation.
+//! Bounds editing, visibility state, and imports.
 //!
 //! This submodule covers everything that changes a section's geometry
-//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus
-//! the one-off schema setup and the AsyncStorage → SQLite migration imports.
+//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus the
+//! AsyncStorage → SQLite migration imports. The schema itself is owned by
+//! `migrations/`, never by this file.
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
@@ -34,73 +35,7 @@ fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<(u32, u32)>
     found
 }
 
-impl PersistentRouteEngine {
-    /// Initialize the unified sections schema.
-    /// Call this during database initialization.
-    pub fn init_sections_schema(&self) -> Result<(), String> {
-        self.db
-            .execute_batch(
-                r#"
-                CREATE TABLE IF NOT EXISTS sections (
-                    id TEXT PRIMARY KEY,
-                    section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
-                    name TEXT,
-                    sport_type TEXT NOT NULL,
-                    polyline_json TEXT,
-                    distance_meters REAL NOT NULL,
-                    representative_activity_id TEXT,
-
-                    -- Auto-specific fields (nullable for custom)
-                    confidence REAL,
-                    observation_count INTEGER,
-                    average_spread REAL,
-                    point_density_json TEXT,
-                    scale TEXT,
-                    version INTEGER DEFAULT 1,
-                    is_user_defined INTEGER DEFAULT 0,
-                    stability REAL,
-
-                    -- Custom-specific fields (nullable for auto)
-                    source_activity_id TEXT,
-                    start_index INTEGER,
-                    end_index INTEGER,
-
-                    -- Timestamps
-                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at TEXT,
-
-                    -- Bounds (for map viewport filtering)
-                    bounds_min_lat REAL,
-                    bounds_max_lat REAL,
-                    bounds_min_lng REAL,
-                    bounds_max_lng REAL
-                );
-
-                -- Junction table for section-activity relationships (with portion details)
-                CREATE TABLE IF NOT EXISTS section_activities (
-                    section_id TEXT NOT NULL,
-                    activity_id TEXT NOT NULL,
-                    direction TEXT NOT NULL DEFAULT 'same',
-                    start_index INTEGER NOT NULL DEFAULT 0,
-                    end_index INTEGER NOT NULL DEFAULT 0,
-                    distance_meters REAL NOT NULL DEFAULT 0,
-                    PRIMARY KEY (section_id, activity_id, start_index),
-                    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_section_activities_activity
-                ON section_activities(activity_id);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_type
-                ON sections(section_type);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_sport
-                ON sections(sport_type);
-                "#,
-            )
-            .map_err(|e| format!("Failed to create sections schema: {}", e))
-    }
-
+impl PersistentEngine {
     /// The activity range a section's polyline is a slice of, when the section carries one.
     fn section_anchor(&self, section_id: &str) -> Option<(String, u32, u32)> {
         let (activity_id, start, end): (Option<String>, Option<u32>, Option<u32>) = self
@@ -187,8 +122,7 @@ impl PersistentRouteEngine {
 
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
-        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let trimmed_blob = crate::persistence::codec::serialize_track_points(&trimmed);
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         // Update section
@@ -312,8 +246,7 @@ impl PersistentRouteEngine {
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
 
-        let original_blob = crate::persistence::codec::serialize_points(&original)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let original_blob = crate::persistence::codec::serialize_track_points(&original);
 
         // Restore polyline and clear original backup
         self.db
@@ -404,8 +337,7 @@ impl PersistentRouteEngine {
 
         let distance = calculate_route_distance(&polyline);
         let bounds = tracematch::geo_utils::compute_bounds(&polyline);
-        let blob = crate::persistence::codec::serialize_points(&polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let blob = crate::persistence::codec::serialize_track_points(&polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
         let source = if reference.is_some() {
             crate::persistence::sections::SOURCE_EXACT
@@ -556,8 +488,7 @@ impl PersistentRouteEngine {
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
-        let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
-            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let polyline_blob = crate::persistence::codec::serialize_track_points(&new_polyline);
 
         // Update section
         self.db
@@ -715,40 +646,5 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to clear superseded: {}", e))?;
         self.refresh_superseded_ids();
         Ok(())
-    }
-
-    /// Import disabled section IDs from AsyncStorage migration.
-    pub fn import_disabled_ids(&mut self, ids: &[String]) -> Result<u32, String> {
-        if ids.is_empty() {
-            return Ok(0);
-        }
-        let mut count = 0u32;
-        for id in ids {
-            let rows = self
-                .db
-                .execute("UPDATE sections SET disabled = 1 WHERE id = ?", params![id])
-                .map_err(|e| format!("Failed to import disabled: {}", e))?;
-            count += rows as u32;
-        }
-        Ok(count)
-    }
-
-    /// Import superseded mappings from AsyncStorage migration.
-    pub fn import_superseded_map(&mut self, map: &[(String, Vec<String>)]) -> Result<u32, String> {
-        let mut count = 0u32;
-        for (custom_id, auto_ids) in map {
-            for auto_id in auto_ids {
-                let rows = self
-                    .db
-                    .execute(
-                        "UPDATE sections SET superseded_by = ? WHERE id = ?",
-                        params![custom_id, auto_id],
-                    )
-                    .map_err(|e| format!("Failed to import superseded: {}", e))?;
-                count += rows as u32;
-            }
-        }
-        self.refresh_superseded_ids();
-        Ok(count)
     }
 }

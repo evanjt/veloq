@@ -1,7 +1,10 @@
 /**
- * The elevation backfill status line ships six strings. Every locale needs a
- * real translation with the interpolation placeholders intact, otherwise the
- * line reads as English or renders a raw `{{value}}`.
+ * The elevation backfill status line ships eleven strings: seven of status, and
+ * four that say why the download is happening and what waits on it. Every
+ * locale needs a real translation with the interpolation placeholders intact,
+ * otherwise the line reads as English or renders a raw `{{count}}`. The retry
+ * line counts activity tracks, so it is pluralised rather than one sentence for
+ * every count.
  */
 
 import * as fs from 'fs';
@@ -14,13 +17,19 @@ const KEYS = [
   'elevationBackfillProgress',
   'elevationBackfillComplete',
   'elevationBackfillPartial',
-  'elevationBackfillRetrying',
+  'elevationBackfillRetrying_one',
+  'elevationBackfillRetrying_other',
   'elevationBackfillFailed',
+  'elevationBackfillExplainer',
+  'elevationBackfillWhy',
+  'elevationBackfillWhyTitle',
+  'elevationBackfillWhyBody',
 ] as const;
 
 const PLACEHOLDERS: Record<string, string[]> = {
   elevationBackfillProgress: ['{{completed}}', '{{total}}'],
-  elevationBackfillRetrying: ['{{value}}'],
+  elevationBackfillRetrying_one: ['{{count}}'],
+  elevationBackfillRetrying_other: ['{{count}}'],
 };
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];

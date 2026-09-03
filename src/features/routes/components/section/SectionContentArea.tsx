@@ -7,6 +7,7 @@ import { colors, darkColors } from '@/theme';
 import { SectionPerformanceSection } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
+import { SectionEfficiencyCard } from './SectionEfficiencyCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
@@ -36,7 +37,6 @@ export interface SectionContentAreaProps {
   excludedActivityIds: Set<string>;
   sectionTimeRange: SectionTimeRange;
   onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
-  onScrubChange: (scrubbing: boolean) => void;
   onExcludeActivity: (activityId: string) => void;
   onIncludeActivity: (activityId: string) => void;
   onSetAsReference: (activityId: string) => void;
@@ -66,7 +66,6 @@ export function SectionContentArea({
   excludedActivityIds,
   sectionTimeRange,
   onActivitySelect,
-  onScrubChange,
   onExcludeActivity,
   onIncludeActivity,
   onSetAsReference,
@@ -102,7 +101,9 @@ export function SectionContentArea({
         >
           <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
           <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-            {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
+            {t('sections.similarNearbyCount', {
+              count: mergeCandidates.length,
+            })}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -122,7 +123,6 @@ export function SectionContentArea({
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}
         onActivitySelect={onActivitySelect}
-        onScrubChange={onScrubChange}
         onExcludeActivity={onExcludeActivity}
         onIncludeActivity={onIncludeActivity}
         onSetAsReference={onSetAsReference}
@@ -145,6 +145,9 @@ export function SectionContentArea({
         sportType={effectiveSportType ?? section.sportType}
         isDark={isDark}
       />
+
+      {/* Aerobic efficiency across matched efforts, when the engine has it */}
+      <SectionEfficiencyCard sectionId={section.id} isDark={isDark} />
 
       {/* Calendar performance history */}
       {calendarSummary && (

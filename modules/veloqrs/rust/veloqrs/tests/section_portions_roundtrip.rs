@@ -3,10 +3,10 @@
 //!
 //! The bug: `split_section_by_density` in tracematch's postprocess used
 //! to construct split sections with `activity_portions: Vec::new()` and
-//! a comment "Will be recomputed later if needed" — but the
+//! a comment "Will be recomputed later if needed", but the
 //! recomputation never happened. save_sections then iterated empty
 //! portions and inserted 0 junction rows. On reload, the section
-//! appeared with 0 attached activities — "0 sections attached" in the
+//! appeared with 0 attached activities, "0 sections attached" in the
 //! UI.
 //!
 //! This test runs the full pipeline on a dataset designed to trigger
@@ -22,7 +22,7 @@
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 #[test]
 fn detection_save_reload_preserves_activity_portions() {
@@ -32,10 +32,10 @@ fn detection_save_reload_preserves_activity_portions() {
 
     // ---- Build & run detection -------------------------------------
     {
-        let mut engine = PersistentRouteEngine::new(db_path_str).unwrap();
+        let mut engine = PersistentEngine::new(db_path_str).unwrap();
 
         // Lifecycle corpus produces tracks that overlap heavily on a
-        // shared corridor, plus some parallel streets — exactly the
+        // shared corridor, plus some parallel streets, exactly the
         // shape that triggers `split_high_variance_sections` (the
         // postprocess phase where Bug A lived).
         let corpus = LifecycleCorpus::generate(&LifecycleConfig {
@@ -74,7 +74,7 @@ fn detection_save_reload_preserves_activity_portions() {
     }
 
     // ---- Reload from disk and inspect ------------------------------
-    let mut engine2 = PersistentRouteEngine::new(db_path_str).unwrap();
+    let mut engine2 = PersistentEngine::new(db_path_str).unwrap();
     engine2.load().unwrap();
     let sections = engine2.get_sections().to_vec();
 
@@ -89,19 +89,19 @@ fn detection_save_reload_preserves_activity_portions() {
     // Bug A invariant: every saved section must have non-empty
     // activity_portions if it has any activity_ids. The defensive
     // warning in save_sections will fire if this is violated, but
-    // the durable contract is in the junction table — empty portions
+    // the durable contract is in the junction table, empty portions
     // → no rows → activity_ids reloaded as empty.
     let mut sections_with_portions = 0usize;
     for section in sections.iter() {
         assert!(
             !section.activity_ids.is_empty(),
-            "section {} reloaded with empty activity_ids — junction table \
+            "section {} reloaded with empty activity_ids, junction table \
              didn't get any rows for it. Bug A may have regressed.",
             section.id
         );
         assert!(
             !section.activity_portions.is_empty(),
-            "section {} has activity_ids {:?} but empty activity_portions — \
+            "section {} has activity_ids {:?} but empty activity_portions, \
              this is exactly the Bug A symptom (sections shown but with \
              '0 sections attached' in the UI).",
             section.id,
@@ -110,7 +110,7 @@ fn detection_save_reload_preserves_activity_portions() {
         sections_with_portions += 1;
 
         // Every activity in activity_ids should have at least one portion.
-        // (The reverse — portions referencing non-listed activities —
+        // (The reverse, portions referencing non-listed activities,
         // shouldn't happen either.)
         for activity_id in &section.activity_ids {
             let portions_for_activity: Vec<_> = section
@@ -121,7 +121,7 @@ fn detection_save_reload_preserves_activity_portions() {
             assert!(
                 !portions_for_activity.is_empty(),
                 "section {} lists activity {} in activity_ids but has \
-                 no matching portion — partial mismatch indicates a \
+                 no matching portion, partial mismatch indicates a \
                  portion-computation bug in the split or detection \
                  code path.",
                 section.id,

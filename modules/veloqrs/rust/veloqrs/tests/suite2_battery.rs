@@ -1,9 +1,10 @@
-//! Suite #2 — Battery.
+//! Suite #2. Battery.
 //!
 //! The new base (`DetectionMethod::Unified`) driven through the same journeys
 //! as the Control baseline (Suite #1), over the shared harness. Every check
 //! here is live: the identity, order-freedom, and incremental-persistence
-//! invariants B1/B2 deliver are asserted, not printed.
+//! invariants the detection and identity layers deliver are asserted, not
+//! printed.
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_battery`
 
@@ -64,7 +65,7 @@ fn expand_window_discontinuity_is_measured() {
     }
 }
 
-/// Invariant 4 — order-free catalogue. A single cold batch must yield the same
+/// Invariant 4, order-free catalogue. A single cold batch must yield the same
 /// catalogue no matter the ingest order. This is the property that makes
 /// incremental == batch and lets an expand ADD rather than reshuffle, so it is
 /// the foundation the whole redesign stands on. Battery (unified) is order-free
@@ -85,11 +86,7 @@ fn order_free_cold_batch() {
         println!(
             "[{}] order-free cold batch: {}  ({} vs {} sections)",
             arm.label(),
-            if same {
-                "YES"
-            } else {
-                "NO — order-dependent"
-            },
+            if same { "YES" } else { "NO, order-dependent" },
             s1.count(),
             s2.count(),
         );
@@ -102,8 +99,8 @@ fn order_free_cold_batch() {
     }
 }
 
-/// Invariant (B2 identity layer): the Battery keeps section identity across an
-/// expand — most cold-catalogue ids still address the same ground afterwards.
+/// Invariant (identity layer): the Battery keeps section identity across an
+/// expand, most cold-catalogue ids still address the same ground afterwards.
 /// The assign-once identity layer carries the id with the corridor, so widening
 /// the sync window adds sections instead of renumbering them.
 #[test]

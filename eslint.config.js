@@ -16,6 +16,7 @@ module.exports = [
       'modules/veloqrs/src/generated/**',
       'modules/veloqrs/rust/**',
       'src/__tests__/bindings/ffi-exports.generated.ts',
+      'src/features/maps/assets/*.generated.ts',
       'coverage/**',
       'dist/**',
       '.expo/**',
@@ -63,13 +64,40 @@ module.exports = [
     },
   },
   {
+    // Colour lives in src/theme. A raw hex in a component is a token that was
+    // never named, and it is invisible to a theme change.
+    files: ['src/**/*.tsx'],
+    ignores: ['src/__tests__/**', 'src/features/maps/styles/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+          message: 'Raw hex colour. Use a token from src/theme, or add one there.',
+        },
+      ],
+    },
+  },
+  {
     // Node scripts and Jest setup run outside the app bundle.
-    files: ['config/**/*.js', 'scripts/**', 'src/plugins/**', '*.config.js', 'react-native.config.js'],
+    files: [
+      'config/**/*.js',
+      'scripts/**',
+      'src/plugins/**',
+      '*.config.js',
+      'react-native.config.js',
+    ],
     languageOptions: {
       globals: { ...globals.node, ...globals.jest },
       sourceType: 'commonjs',
     },
     rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' },
+  },
+  {
+    // CLI tools under the native module. Console output is their product.
+    // `scripts/**` above resolves from this directory and never reaches them.
+    files: ['modules/veloqrs/scripts/**'],
+    rules: { 'no-console': 'off' },
   },
   {
     files: ['scripts/**/*.mjs'],

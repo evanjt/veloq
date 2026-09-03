@@ -5,8 +5,8 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import { useGroupSummaries } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useGroupSummaries } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import { toActivityType, type ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {
@@ -81,7 +81,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   // Rename a route - uses Rust engine as single source of truth
   // The engine will persist the name and fire 'groups' event to trigger refresh
   const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       throw new Error('Route engine not initialized');
     }
@@ -135,35 +135,4 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   }, [summaries, type, totalCount, renameRoute]);
 
   return result;
-}
-
-/**
- * Get all route display names.
- * Names are now stored persistently in Rust (user-set or auto-generated on creation).
- * Used for uniqueness validation when renaming routes.
- * Returns a map of routeId -> displayName for all routes.
- */
-export function getAllRouteDisplayNames(): Record<string, string> {
-  const engine = getRouteEngine();
-  if (!engine) return {};
-
-  // Use lightweight summaries - names are stored in customName field
-  const { summaries } = engine.getGroupSummaries();
-
-  const result: Record<string, string> = {};
-  for (const summary of summaries) {
-    // Names are stored in Rust (user-set or auto-generated on creation/migration)
-    result[summary.groupId] = summary.customName ?? summary.groupId;
-  }
-
-  return result;
-}
-
-/**
- * Get the display name for a specific route by ID.
- * Computes the index based on sorted position within sport type.
- */
-export function getRouteDisplayName(routeId: string): string | null {
-  const allNames = getAllRouteDisplayNames();
-  return allNames[routeId] ?? null;
 }

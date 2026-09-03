@@ -1,9 +1,9 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback } from 'react';
 
-import type { RecordingStreams } from "@/features/recording/types";
-import { elevationGain } from "@/shared/math";
-import { pausedSecondsBetween, type PauseInterval } from "../lib/pausedTime";
-import { parseManualSummary } from "../lib/parseManualSummary";
+import type { RecordingStreams } from '@/features/recording/types';
+import { elevationGain } from '@/shared/math';
+import { pausedSecondsBetween, type PauseInterval } from '../lib/pausedTime';
+import { parseManualSummary } from '../lib/parseManualSummary';
 
 export interface ActivitySummary {
   duration: number;
@@ -116,11 +116,7 @@ export function useActivitySummary({
             0,
             s.time[s.time.length - 1] -
               s.time[0] -
-              pausedSecondsBetween(
-                pauseIntervals,
-                s.time[0],
-                s.time[s.time.length - 1],
-              ),
+              pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1])
           )
         : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
@@ -131,16 +127,12 @@ export function useActivitySummary({
     // Average heartrate
     const hrValues = s.heartrate.filter((v) => v > 0);
     const avgHr =
-      hrValues.length > 0
-        ? hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length
-        : null;
+      hrValues.length > 0 ? hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length : null;
 
     // Average power
     const pwrValues = s.power.filter((v) => v > 0);
     const avgPwr =
-      pwrValues.length > 0
-        ? pwrValues.reduce((sum, v) => sum + v, 0) / pwrValues.length
-        : null;
+      pwrValues.length > 0 ? pwrValues.reduce((sum, v) => sum + v, 0) / pwrValues.length : null;
 
     return {
       duration: elapsed,
@@ -167,12 +159,10 @@ export function useActivitySummary({
 
   // Compute trim delta when trimming is active
   const trimDelta = useMemo<TrimDelta | null>(() => {
-    if (!canTrim || (trimStart === 0 && trimEnd === streams.latlng.length - 1))
-      return null;
+    if (!canTrim || (trimStart === 0 && trimEnd === streams.latlng.length - 1)) return null;
 
     const fullDist =
-      (streams.distance[streams.distance.length - 1] ?? 0) -
-      (streams.distance[0] ?? 0);
+      (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);
     const fullElapsed =
       startTime && streams.time.length >= 2
         ? Math.max(
@@ -182,8 +172,8 @@ export function useActivitySummary({
               pausedSecondsBetween(
                 pauseIntervals,
                 streams.time[0],
-                streams.time[streams.time.length - 1],
-              ),
+                streams.time[streams.time.length - 1]
+              )
           )
         : 0;
 
@@ -192,34 +182,15 @@ export function useActivitySummary({
 
     if (distDelta === 0 && durationDelta === 0) return null;
     return { distance: distDelta, duration: durationDelta };
-  }, [
-    canTrim,
-    trimStart,
-    trimEnd,
-    streams,
-    startTime,
-    pauseIntervals,
-    summary,
-  ]);
+  }, [canTrim, trimStart, trimEnd, streams, startTime, pauseIntervals, summary]);
 
   // Pauses inside the window actually saved, whether trimmed or whole.
   const pausedSecondsInWindow = useMemo(() => {
     if (isManual) return 0;
     const s = canTrim ? getTrimmedStreams() : streams;
     if (s.time.length < 2) return pausedDuration / 1000;
-    return pausedSecondsBetween(
-      pauseIntervals,
-      s.time[0],
-      s.time[s.time.length - 1],
-    );
-  }, [
-    isManual,
-    canTrim,
-    getTrimmedStreams,
-    streams,
-    pauseIntervals,
-    pausedDuration,
-  ]);
+    return pausedSecondsBetween(pauseIntervals, s.time[0], s.time[s.time.length - 1]);
+  }, [isManual, canTrim, getTrimmedStreams, streams, pauseIntervals, pausedDuration]);
 
   return { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow };
 }

@@ -30,7 +30,7 @@ const RUST_OBJECTS_DIR = path.resolve(
  * Looks for: import { fn1, fn2, ... } from './generated/veloqrs'
  */
 function extractGeneratedImports(): Set<string> {
-  const files = ['index.ts', 'RouteEngineClient.ts'];
+  const files = ['index.ts', 'EngineClient.ts'];
   const imports = new Set<string>();
 
   for (const file of files) {
@@ -85,6 +85,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   DetectionManager: 'detection.rs',
   StrengthManager: 'strength.rs',
   HeatmapManager: 'tiles.rs',
+  BasemapManager: 'basemap.rs',
   SyncManager: 'sync.rs',
   SectionPreview: 'preview.rs',
 };
@@ -97,12 +98,16 @@ describe('FFI Binding Validation', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
-      // detection, elevation backfill start, progress and remaining, and the
+      // detection, elevation backfill start, progress and remaining, the
       // six detector-cutover calls: pending, running, start, progress, diff
-      // and change-card support). Adjust if a new
-      // standalone is added - but prefer putting engine-coupled logic on a
+      // and change-card support, and the two connectivity calls). Adjust if a
+      // new standalone is added - but prefer putting engine-coupled logic on a
       // UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(15);
+      //
+      // The connectivity pair is standalone on purpose. It is a process-wide
+      // value the network provider pushes before `initWithPath` has run, so
+      // an engine method would drop the very first edge.
+      expect(STANDALONE_EXPORTS.length).toBe(17);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -121,6 +126,8 @@ describe('FFI Binding Validation', () => {
       expect(names.has('start_detector_cutover')).toBe(true);
       expect(names.has('get_cutover_progress')).toBe(true);
       expect(names.has('get_cutover_diff')).toBe(true);
+      expect(names.has('set_network_online')).toBe(true);
+      expect(names.has('get_network_push')).toBe(true);
       // A whole-catalogue rollback is not offered: the detector keeps moving,
       // so restoring is per section.
       expect(names.has('restore_from_cutover_archive')).toBe(false);
@@ -228,7 +235,7 @@ describe('FFI Binding Validation', () => {
       __dirname,
       '../../../modules/veloqrs/rust/veloqrs/src/objects/strength.rs'
     );
-    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'RouteEngineClient.ts');
+    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'EngineClient.ts');
 
     it('Rust StrengthManager exposes bulk_insert_exercise_sets', () => {
       const source = fs.readFileSync(STRENGTH_RS, 'utf-8');

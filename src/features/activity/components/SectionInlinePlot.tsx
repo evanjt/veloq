@@ -34,7 +34,6 @@ interface SectionInlinePlotProps {
   activityId: string;
   sportType?: string;
   index: number;
-  style: { color: string };
   isHighlighted: boolean;
   isDark: boolean;
   isMetric: boolean;

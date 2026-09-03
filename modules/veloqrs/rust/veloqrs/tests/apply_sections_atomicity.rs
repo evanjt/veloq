@@ -1,13 +1,13 @@
-//! Tier 0.5 — `apply_sections` atomicity + the B2 identity remap.
+//! Tier 0.5, `apply_sections` atomicity + the identity remap.
 //!
 //! Originally this locked in the rollback contract by handing `apply_sections`
 //! a section vec with DUPLICATE ids to force a `UNIQUE constraint failed:
-//! sections.id` and check the transaction rolled back. Since B2 that trigger is
+//! sections.id` and check the transaction rolled back. That trigger is now
 //! void BY DESIGN: the identity registry drops the detector's throwaway ids and
 //! assigns its own stable ones (or carries the existing stable id onto surviving
 //! ground), so no caller-supplied duplicate can ever reach `save_sections`. That
-//! collision is exactly the R2 crash B2 exists to eliminate, so the first test
-//! now asserts the remap makes a duplicate-id vec HARMLESS.
+//! collision is exactly the crash the registry exists to eliminate, so the
+//! first test now asserts the remap makes a duplicate-id vec HARMLESS.
 //!
 //! The rollback-on-real-failure contract itself is unchanged and still covered:
 //! `suite2_engine_cache::apply_failure_drops_cache_then_recovers` forces a genuine
@@ -21,12 +21,12 @@ use std::collections::BTreeMap;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn engine_with_b_state() -> (PersistentRouteEngine, TempDir) {
+fn engine_with_b_state() -> (PersistentEngine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("atomicity.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
 
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -64,7 +64,7 @@ fn engine_with_b_state() -> (PersistentRouteEngine, TempDir) {
     (engine, dir)
 }
 
-fn fingerprint(engine: &mut PersistentRouteEngine) -> BTreeMap<String, (u32, usize, String)> {
+fn fingerprint(engine: &mut PersistentEngine) -> BTreeMap<String, (u32, usize, String)> {
     engine
         .get_sections()
         .into_iter()
@@ -87,10 +87,11 @@ fn apply_sections_remaps_duplicate_input_ids() {
         "expected B-state to produce sections; nothing to test"
     );
 
-    // Duplicate the first section's id into the second slot. Pre-B2 this hit the
-    // UNIQUE PK and rolled the apply back; under the identity registry the input
-    // ids are thrown away, so the two DISTINCT grounds simply carry their own
-    // stable ids and the apply succeeds — the R2 collision cannot occur.
+    // Duplicate the first section's id into the second slot. Before the
+    // registry this hit the UNIQUE PK and rolled the apply back; under the
+    // identity registry the input ids are thrown away, so the two DISTINCT
+    // grounds simply carry their own stable ids and the apply succeeds. The
+    // collision cannot occur.
     let mut broken: Vec<_> = engine.get_sections().to_vec();
     assert!(
         broken.len() >= 2,
@@ -138,7 +139,7 @@ fn apply_sections_preserves_db_after_failure_then_succeeds_on_retry() {
     broken[1].id = dup_id;
     let _ = engine.apply_sections(broken);
 
-    // Now re-run a real detection and apply — the engine must still be
+    // Now re-run a real detection and apply, the engine must still be
     // healthy enough to do this. If save_sections left the DB in a
     // partial state, this would error.
     let handle = engine.detect_sections_background();

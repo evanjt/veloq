@@ -13,7 +13,7 @@
 use tempfile::TempDir;
 use tracematch::SectionConfig;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 use veloqrs::persistence::WorkerPoll;
 
 fn corpus() -> Vec<LifecycleActivity> {
@@ -31,9 +31,9 @@ fn corpus() -> Vec<LifecycleActivity> {
     .collect()
 }
 
-fn seeded(dir: &TempDir) -> PersistentRouteEngine {
+fn seeded(dir: &TempDir) -> PersistentEngine {
     let path = dir.path().join("final_cache.db");
-    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("engine");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     engine.load().expect("load");
     engine.set_section_config(SectionConfig::default());
     for a in corpus() {

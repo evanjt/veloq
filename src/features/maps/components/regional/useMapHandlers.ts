@@ -12,7 +12,8 @@ import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialI
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
+import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem, FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
@@ -44,7 +45,7 @@ const GPS_WAIT_POLL_MS = 250;
 async function waitForGpsTrack(activityId: string): Promise<[number, number][] | null> {
   const deadline = Date.now() + GPS_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const points = getRouteEngine()?.getGpsTrack(activityId);
+    const points = getEngine()?.getGpsTrack(activityId);
     if (points && points.length > 0) {
       return points.map((p) => [p.latitude, p.longitude] as [number, number]);
     }
@@ -179,7 +180,7 @@ export function useMapHandlers({
 
       // Load route data after popup is shown (non-blocking)
       requestAnimationFrame(() => {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         const localTrack = engine?.getGpsTrack(activity.id);
 
         if (localTrack && localTrack.length > 0) {
@@ -206,7 +207,13 @@ export function useMapHandlers({
           // activity's GPS, then read it back the same way as any other.
           startFetchAndStore(
             [activity.id],
-            [{ activityId: activity.id, sportType: activity.type }]
+            [
+              {
+                activityId: activity.id,
+                sportType: activity.type,
+                startDate: activityStartEpoch(activity.date),
+              },
+            ]
           );
           setSelected({ activity, mapData: null, isLoading: true });
           waitForGpsTrack(activity.id).then((coords) => {
