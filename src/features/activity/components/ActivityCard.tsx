@@ -23,6 +23,7 @@ import { colors, darkColors, typography, spacing, shadows, layout, brand, ink } 
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityMapPreview } from './ActivityMapPreview';
+import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
@@ -171,6 +172,10 @@ export const ActivityCard = React.memo(
     const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
     const theme = getGradientTheme(isDark, mapStyle);
     const hasGpsData = activity.stream_types?.includes('latlng');
+    // The preview draws the map credit in the same corner as the stat rows.
+    // Start from the single-line estimate so the first paint is already clear,
+    // then take the measured height once the pill has laid out.
+    const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
 
     // Extract PR section GPS track indices for gold highlighting on map preview
     const prSectionIndices = useMemo(() => {
@@ -409,6 +414,7 @@ export const ActivityCard = React.memo(
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
               prSectionIndices={prSectionIndices}
+              onAttributionClearanceChange={setAttributionClearance}
             />
 
             {/* Pressable overlay for tap/long-press */}
@@ -489,7 +495,10 @@ export const ActivityCard = React.memo(
             </LinearGradient>
 
             {/* Bottom: all stats unified */}
-            <View style={styles.bottomSection}>
+            <View
+              testID="activity-card-bottom"
+              style={[styles.bottomSection, { paddingBottom: attributionClearance }]}
+            >
               <LinearGradient
                 colors={theme.bottom as [string, string, string]}
                 style={StyleSheet.absoluteFill}
