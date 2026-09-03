@@ -26,6 +26,7 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { getEngine } from '@/shared/native/engine';
+import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
@@ -114,19 +115,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
 
-  // Compute query cache stats
-  const queryCacheStats = useMemo(() => {
-    const queries = queryClient.getQueryCache().getAll();
-    return {
-      activities: queries.filter(
-        (q) => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite'
-      ).length,
-      wellness: queries.filter((q) => q.queryKey[0] === 'wellness').length,
-      curves: queries.filter((q) => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve')
-        .length,
-      totalQueries: queries.length,
-    };
-  }, [queryClient]); // Only recompute when queryClient changes, not on every activity sync
+  const totalQueries = useQueryCacheCount(queryClient);
 
   // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
   const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({
@@ -215,7 +204,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           routeMatchingEnabled={routeSettings.enabled}
           dateRangeText={dateRangeText}
           lastSync={cacheStats.lastSync}
-          totalQueries={queryCacheStats.totalQueries}
+          totalQueries={totalQueries}
           databaseSize={cacheSizes.routes}
           totalMapCache={totalMapCache}
           onClearMapCache={handleClearMapCache}
