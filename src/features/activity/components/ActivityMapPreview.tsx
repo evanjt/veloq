@@ -56,6 +56,12 @@ interface ActivityMapPreviewProps {
   snapshotReady?: boolean;
   /** GPS track index ranges for PR sections to highlight in gold */
   prSectionIndices?: { startIndex: number; endIndex: number }[];
+  /**
+   * Height the attribution pill claims above the preview's bottom edge, zero
+   * when no basemap is drawn and so no credit is owed. The card paints its
+   * stat rows over this corner and pads itself clear of whatever comes back.
+   */
+  onAttributionClearanceChange?: (clearance: number) => void;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -66,6 +72,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   snapshotReady = false,
   startupTrack,
   prSectionIndices,
+  onAttributionClearanceChange,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
   // Read focus locally so a tab switch re-renders only this leaf preview, not the
@@ -236,6 +243,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     attributionRef.current?.setAttribution(attribution);
   }, [attribution]);
 
+  // Without a basemap there is no credit to leave room for, so the card gets
+  // its bottom band back rather than holding a gap for a pill that is gone.
+  useEffect(() => {
+    if (!terrainImageUri) onAttributionClearanceChange?.(0);
+  }, [terrainImageUri, onAttributionClearanceChange]);
+
   // Request a basemap snapshot for every card with coordinates - the 3D
   // terrain drape when the activity qualifies, a flat top-down basemap
   // otherwise. FlatList windowing is the throttle: only near-viewport cards
@@ -353,7 +366,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
           </View>
         )}
-        <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
+        <AttributionOverlay
+          ref={attributionRef}
+          initialAttribution={attribution}
+          onClearanceChange={onAttributionClearanceChange}
+        />
       </View>
     );
   }
