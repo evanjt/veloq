@@ -32,7 +32,8 @@ export interface UseReviewSaveArgs {
   };
   notes: string;
   startTime: number | null;
-  pausedDuration: number;
+  /** Paused seconds inside the window being saved, not the whole session. */
+  pausedSecondsInWindow: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
@@ -77,7 +78,7 @@ export function useReviewSave({
   summary,
   notes,
   startTime,
-  pausedDuration,
+  pausedSecondsInWindow,
   laps,
   pairedEventId,
   getTrimmedStreams,
@@ -129,7 +130,9 @@ export function useReviewSave({
           description: notes || undefined,
         });
         queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.activities.infinite.all,
+        });
         await clearRecordingBackup();
         setIsUploading(false);
         finishAndGoHome(null);
@@ -160,7 +163,7 @@ export function useReviewSave({
           streams: trimmedStreams,
           laps,
           name,
-          pausedTimeSeconds: pausedDuration / 1000,
+          pausedTimeSeconds: pausedSecondsInWindow,
         });
 
         const entry = await saveRecording({
@@ -203,7 +206,9 @@ export function useReviewSave({
       switch (result.outcome) {
         case 'uploaded':
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-          queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.activities.infinite.all,
+          });
           setIsUploading(false);
           finishAndGoHome(null);
           return;
@@ -260,7 +265,7 @@ export function useReviewSave({
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     t,

@@ -20,6 +20,7 @@ function isValidBackup(value: unknown): value is RecordingBackup {
   if (typeof obj.startTime !== 'number' || !Number.isFinite(obj.startTime)) return false;
   if (obj.stopTime !== null && typeof obj.stopTime !== 'number') return false;
   if (typeof obj.pausedDuration !== 'number') return false;
+  if (obj.pauseIntervals !== undefined && !Array.isArray(obj.pauseIntervals)) return false;
   if (typeof obj.savedAt !== 'number') return false;
   if (typeof obj.streams !== 'object' || obj.streams === null) return false;
   const streams = obj.streams as Record<string, unknown>;
@@ -41,6 +42,7 @@ export function buildRecordingBackup(state: {
   startTime: number | null;
   stopTime: number | null;
   pausedDuration: number;
+  pauseIntervals?: RecordingBackup['pauseIntervals'];
   streams: RecordingBackup['streams'];
   laps: RecordingBackup['laps'];
   pairedEventId: number | null;
@@ -60,6 +62,15 @@ export function buildRecordingBackup(state: {
     startTime,
     stopTime: state.stopTime,
     pausedDuration: state.pausedDuration + ongoingPause,
+    pauseIntervals: ongoingPause
+      ? [
+          ...(state.pauseIntervals ?? []),
+          {
+            start: (state._pauseStart! - startTime) / 1000,
+            end: (now - startTime) / 1000,
+          },
+        ]
+      : (state.pauseIntervals ?? []),
     streams: state.streams,
     laps: state.laps,
     pairedEventId: state.pairedEventId,

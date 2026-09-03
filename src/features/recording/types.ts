@@ -98,6 +98,8 @@ export interface RecordingBackup {
   stopTime: number | null;
   /** Includes any in-progress pause up to savedAt, so restore only credits savedAt→now. */
   pausedDuration: number;
+  /** Pauses as elapsed seconds since startTime. Absent in backups written before B4. */
+  pauseIntervals?: { start: number; end: number }[];
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
