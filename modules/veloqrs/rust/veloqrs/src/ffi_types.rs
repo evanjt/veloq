@@ -377,18 +377,7 @@ pub struct FfiSectionConfig {
     pub min_section_length: f64,
     pub max_section_length: f64,
     pub min_activities: u32,
-    pub cluster_tolerance: f64,
-    pub sample_points: u32,
-    pub detection_mode: String,
-    pub include_potentials: bool,
-    pub preserve_hierarchy: bool,
-    pub jaccard_threshold: f64,
-    pub min_routes: u32,
-    pub enable_density_splits: bool,
-    pub merge_distance_multiplier: f64,
-    pub min_cell_visits: u32,
     pub divergence_threshold: f64,
-    pub min_corridor_tracks: u32,
 }
 
 impl From<FfiSectionConfig> for tracematch::SectionConfig {
@@ -398,18 +387,7 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.parse().unwrap_or_default(),
-            include_potentials: c.include_potentials,
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
             // Pooling is not a user setting, so it stays off the FFI record.
             pool_sports: tracematch::SectionConfig::default().pool_sports,
         }
@@ -423,18 +401,7 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.to_string(),
-            include_potentials: c.include_potentials,
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
@@ -447,18 +414,7 @@ impl Default for FfiSectionConfig {
             min_section_length: c.min_section_length,
             max_section_length: c.max_section_length,
             min_activities: c.min_activities,
-            cluster_tolerance: c.cluster_tolerance,
-            sample_points: c.sample_points,
-            detection_mode: c.detection_mode.to_string(),
-            include_potentials: c.include_potentials,
-            preserve_hierarchy: c.preserve_hierarchy,
-            jaccard_threshold: c.jaccard_threshold,
-            min_routes: c.min_routes,
-            enable_density_splits: c.enable_density_splits,
-            merge_distance_multiplier: c.merge_distance_multiplier,
-            min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
-            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
