@@ -11,6 +11,10 @@ import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPr
 import type { Activity } from '@/types';
 
 let mockMapStyle = 'light';
+let mockTerrain3DMode = 'never';
+const mockCached = new Set<string>();
+const mockKey = (id: string, style: string, is3D: boolean) =>
+  is3D ? `${id}_${style}_3d` : `${id}_${style}`;
 
 // react-native-iap reaches for NitroModules at import time, and the shared UI
 // barrel pulls it in transitively.
@@ -21,16 +25,15 @@ jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => mockMapStyle,
-    getTerrain3DMode: () => 'never',
+    getTerrain3DMode: () => mockTerrain3DMode,
   }),
 }));
 
 jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
-  hasTerrainPreview: () => true,
-  getTerrainPreviewUri: () => 'file:///snapshots/demo-1-light.png',
-  isTerrainPreviewDirty: () => false,
-  clearTerrainPreviewDirty: jest.fn(),
-  deleteTerrainPreviewsForActivity: jest.fn(),
+  hasTerrainPreview: (id: string, style: string, is3D: boolean) =>
+    mockCached.has(mockKey(id, style, is3D)),
+  getTerrainPreviewUri: (id: string, style: string, is3D: boolean) =>
+    `file:///snapshots/${mockKey(id, style, is3D)}.jpg`,
   isPrioritySnapshot: () => false,
   clearPrioritySnapshot: jest.fn(),
   isTerrainCacheInitialized: () => true,
@@ -71,6 +74,10 @@ const activity = {
 describe('ActivityMapPreview', () => {
   beforeEach(() => {
     mockMapStyle = 'light';
+    mockTerrain3DMode = 'never';
+    mockCached.clear();
+    mockCached.add(mockKey('demo-1', 'light', false));
+    mockCached.add(mockKey('demo-1', 'satellite', false));
   });
 
   it('credits the basemap under the cached snapshot', () => {
@@ -89,5 +96,30 @@ describe('ActivityMapPreview', () => {
     const text = getByTestId('map-attribution-text').props.children as string;
     expect(text).toContain('swisstopo');
     expect(text).toContain('EOX');
+  });
+
+  it('queues a render when the activity is cached flat and the card wants the drape', () => {
+    mockTerrain3DMode = 'always';
+    const requestSnapshot = jest.fn();
+    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+
+    render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+
+    expect(requestSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ activityId: 'demo-1', flat: false })
+    );
+  });
+
+  it('serves the cached flat render without queuing anything', () => {
+    const requestSnapshot = jest.fn();
+    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+
+    render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+
+    expect(requestSnapshot).not.toHaveBeenCalled();
   });
 });

@@ -13,9 +13,6 @@ import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
   getTerrainPreviewUri,
-  isTerrainPreviewDirty,
-  clearTerrainPreviewDirty,
-  deleteTerrainPreviewsForActivity,
   isPrioritySnapshot,
   clearPrioritySnapshot,
   isTerrainCacheInitialized,
@@ -44,6 +41,9 @@ import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivityMapPreview');
 
+/** How long a card holds the skeleton before it falls back to the route line. */
+const SNAPSHOT_SKELETON_MS = 2000;
+
 interface ActivityMapPreviewProps {
   activity: Activity;
   height?: number;
@@ -56,6 +56,12 @@ interface ActivityMapPreviewProps {
   snapshotReady?: boolean;
   /** GPS track index ranges for PR sections to highlight in gold */
   prSectionIndices?: { startIndex: number; endIndex: number }[];
+  /**
+   * Height the attribution pill claims above the preview's bottom edge, zero
+   * when no basemap is drawn and so no credit is owed. The card paints its
+   * stat rows over this corner and pads itself clear of whatever comes back.
+   */
+  onAttributionClearanceChange?: (clearance: number) => void;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -66,6 +72,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   snapshotReady = false,
   startupTrack,
   prSectionIndices,
+  onAttributionClearanceChange,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
   // Read focus locally so a tab switch re-renders only this leaf preview, not the
@@ -87,50 +94,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     if (cacheReady) return;
     return onTerrainCacheReady(() => setCacheReady(true));
   }, [cacheReady]);
-
-  // Cached basemap snapshot for this activity+style (3D drape or flat)
-  const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
-    if (hasTerrainPreview(activity.id, mapStyle)) {
-      return getTerrainPreviewUri(activity.id, mapStyle);
-    }
-    return null;
-  });
-
-  // The snapshot pipeline gave up on this activity (retries exhausted /
-  // timeout) - drop from the loading state to the route-line fallback.
-  const [snapshotFailed, setSnapshotFailed] = useState(false);
-
-  // Reset image when map style or 3D preference changes
-  useEffect(() => {
-    if (hasTerrainPreview(activity.id, mapStyle)) {
-      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
-    } else {
-      setTerrainImageUri(null);
-    }
-  }, [mapStyle, activity.id, cacheReady]);
-
-  // Subscribe to snapshot completion/failure events for this activity
-  useEffect(() => {
-    return subscribeSnapshot(activity.id, (uri) => {
-      setSnapshotFailed(false);
-      setTerrainImageUri(uri);
-    });
-  }, [activity.id]);
-
-  useEffect(() => {
-    return subscribeSnapshotFailure(activity.id, () => {
-      setSnapshotFailed(true);
-    });
-  }, [activity.id]);
-
-  // Local safety net: if no snapshot arrives (pool crashed, request dropped
-  // from a full queue), fall back rather than spin forever. A later completion
-  // event flips the card back to the image.
-  useEffect(() => {
-    if (terrainImageUri || snapshotFailed) return;
-    const timer = setTimeout(() => setSnapshotFailed(true), 45_000);
-    return () => clearTimeout(timer);
-  }, [terrainImageUri, snapshotFailed]);
 
   // Container width for the static route preview (Skia needs explicit size).
   const [boxW, setBoxW] = useState(0);
@@ -217,6 +180,52 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     [flat, lngLatCoords, terrainCameraResult]
   );
 
+  // Cached basemap snapshot for this activity, style and render. The drape and
+  // the flat basemap are two entries, so a 3D toggle is a miss rather than a
+  // flag the process has to survive.
+  const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() =>
+    hasTerrainPreview(activity.id, mapStyle, !flat)
+      ? getTerrainPreviewUri(activity.id, mapStyle, !flat)
+      : null
+  );
+
+  // The snapshot pipeline gave up on this activity (retries exhausted /
+  // timeout) - drop from the loading state to the route-line fallback.
+  const [snapshotFailed, setSnapshotFailed] = useState(false);
+
+  // Reset image when map style or 3D preference changes
+  useEffect(() => {
+    if (hasTerrainPreview(activity.id, mapStyle, !flat)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle, !flat));
+    } else {
+      setTerrainImageUri(null);
+    }
+  }, [mapStyle, activity.id, cacheReady, flat]);
+
+  // Subscribe to snapshot completion/failure events for this activity
+  useEffect(() => {
+    return subscribeSnapshot(activity.id, (uri) => {
+      setSnapshotFailed(false);
+      setTerrainImageUri(uri);
+    });
+  }, [activity.id]);
+
+  useEffect(() => {
+    return subscribeSnapshotFailure(activity.id, () => {
+      setSnapshotFailed(true);
+    });
+  }, [activity.id]);
+
+  // The queue is two workers deep at 8 s each, so any card past the first few
+  // waits longer than a person will. Show the route line rather than a spinner
+  // once the skeleton has had its moment; a later completion event flips the
+  // card to the image.
+  useEffect(() => {
+    if (terrainImageUri || snapshotFailed) return;
+    const timer = setTimeout(() => setSnapshotFailed(true), SNAPSHOT_SKELETON_MS);
+    return () => clearTimeout(timer);
+  }, [terrainImageUri, snapshotFailed]);
+
   // The snapshot generator sets `attributionControl: false`, so nothing is
   // drawn into the image. Attribution is a licence condition, so the card
   // overlays it over the result.
@@ -236,6 +245,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     attributionRef.current?.setAttribution(attribution);
   }, [attribution]);
 
+  // Without a basemap there is no credit to leave room for, so the card gets
+  // its bottom band back rather than holding a gap for a pill that is gone.
+  useEffect(() => {
+    if (!terrainImageUri) onAttributionClearanceChange?.(0);
+  }, [terrainImageUri, onAttributionClearanceChange]);
+
   // Request a basemap snapshot for every card with coordinates - the 3D
   // terrain drape when the activity qualifies, a flat top-down basemap
   // otherwise. FlatList windowing is the throttle: only near-viewport cards
@@ -248,14 +263,8 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     // the priority set.
     if (isPrioritySnapshot(activity.id)) clearPrioritySnapshot(activity.id);
 
-    // If dirty (style/3D changed in detail view), delete old preview first
-    if (isTerrainPreviewDirty(activity.id)) {
-      deleteTerrainPreviewsForActivity(activity.id).then(() => {
-        clearTerrainPreviewDirty(activity.id);
-      });
-      // Fall through to request new snapshot below
-    } else if (hasTerrainPreview(activity.id, mapStyle)) {
-      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
+    if (hasTerrainPreview(activity.id, mapStyle, !flat)) {
+      setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle, !flat));
       return;
     }
 
@@ -353,7 +362,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
           </View>
         )}
-        <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
+        <AttributionOverlay
+          ref={attributionRef}
+          initialAttribution={attribution}
+          onClearanceChange={onAttributionClearanceChange}
+        />
       </View>
     );
   }

@@ -1,7 +1,12 @@
 /**
- * Tests for sync progress notification functions.
- * Verifies that sync notifications use the correct identifier, channel, and sticky flag,
- * and that the notification handler differentiates sync from insight notifications.
+ * Scenario: expo-notifications reads the Android channel from the trigger and
+ * nowhere else. A channel named in `content` with `trigger: null` is dropped,
+ * and the notification lands on expo's own fallback channel, which is
+ * hardcoded IMPORTANCE_HIGH. Every sync progress re-post was a heads-up
+ * banner because of it.
+ *
+ * Expected behaviour: the channel travels in the trigger, so it is the shape
+ * the library consumes rather than the shape the code happened to produce.
  */
 
 import * as Notifications from 'expo-notifications';
@@ -11,6 +16,8 @@ import {
   updateSyncNotification,
   dismissSyncNotification,
   initializeNotifications,
+  presentInsightNotification,
+  presentActivityNotification,
 } from '@/features/settings/lib/notificationService';
 
 jest.mock('expo-notifications', () => ({
@@ -18,7 +25,7 @@ jest.mock('expo-notifications', () => ({
   dismissNotificationAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
-  AndroidImportance: { DEFAULT: 3, LOW: 2 },
+  AndroidImportance: { DEFAULT: 3, HIGH: 4, LOW: 2 },
   getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
   addNotificationResponseReceivedListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
@@ -32,6 +39,21 @@ jest.mock('@/theme', () => ({
   brand: { tealLight: '#0D9488' },
 }));
 
+const lastCall = () => {
+  const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
+  return calls[calls.length - 1][0];
+};
+
+async function onPlatform(os: string, run: () => Promise<void>) {
+  const original = Platform.OS;
+  (Platform as { OS: string }).OS = os;
+  try {
+    await run();
+  } finally {
+    (Platform as { OS: string }).OS = original;
+  }
+}
+
 describe('updateSyncNotification', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -39,42 +61,67 @@ describe('updateSyncNotification', () => {
     await updateSyncNotification('Downloading GPS data... 5/20');
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        identifier: 'sync-progress',
-        trigger: null,
-      })
+      expect.objectContaining({ identifier: 'sync-progress' })
     );
   });
 
   it('sets sticky: true so Android users cannot swipe away', async () => {
     await updateSyncNotification('Downloading...');
 
-    const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-    expect(call.content.sticky).toBe(true);
+    expect(lastCall().content.sticky).toBe(true);
   });
 
-  it('uses veloq-sync channel on Android', async () => {
-    const origPlatform = Platform.OS;
-    (Platform as { OS: string }).OS = 'android';
+  it('names veloq-sync in the trigger, which is where Android reads it', async () => {
+    await onPlatform('android', () => updateSyncNotification('Downloading...'));
 
-    await updateSyncNotification('Downloading...');
-
-    const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-    expect(call.content.channelId).toBe('veloq-sync');
-
-    (Platform as { OS: string }).OS = origPlatform;
+    expect(lastCall().trigger).toEqual({ channelId: 'veloq-sync' });
   });
 
-  it('omits channelId on iOS', async () => {
-    const origPlatform = Platform.OS;
-    (Platform as { OS: string }).OS = 'ios';
+  it('leaves the trigger null on iOS, which has no channels', async () => {
+    await onPlatform('ios', () => updateSyncNotification('Downloading...'));
 
-    await updateSyncNotification('Downloading...');
+    expect(lastCall().trigger).toBeNull();
+    expect(lastCall().content.channelId).toBeUndefined();
+  });
 
-    const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-    expect(call.content.channelId).toBeUndefined();
+  it('re-posting keeps naming the channel, so no update falls back', async () => {
+    await onPlatform('android', async () => {
+      await updateSyncNotification('1/20');
+      await updateSyncNotification('2/20');
+      await updateSyncNotification('3/20');
+    });
 
-    (Platform as { OS: string }).OS = origPlatform;
+    const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(3);
+    for (const [request] of calls) {
+      expect(request.trigger).toEqual({ channelId: 'veloq-sync' });
+    }
+  });
+});
+
+describe('the insight notifications name their own channel too', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('sends an insight on veloq-insights', async () => {
+    await onPlatform('android', () => presentInsightNotification('PR', 'A new best'));
+
+    expect(lastCall().trigger).toEqual({ channelId: 'veloq-insights' });
+  });
+
+  it('sends an activity notification on veloq-insights', async () => {
+    await onPlatform('android', () => presentActivityNotification('a1', 'Ride', 'Done'));
+
+    expect(lastCall().trigger).toEqual({ channelId: 'veloq-insights' });
+  });
+
+  it('leaves both triggers null on iOS', async () => {
+    await onPlatform('ios', async () => {
+      await presentInsightNotification('PR', 'A new best');
+      await presentActivityNotification('a1', 'Ride', 'Done');
+    });
+
+    const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
+    for (const [request] of calls) expect(request.trigger).toBeNull();
   });
 });
 

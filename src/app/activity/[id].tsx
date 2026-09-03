@@ -46,7 +46,6 @@ import {
   getCameraOverride,
   deleteCameraOverride,
 } from '@/features/maps/lib/storage/terrainCameraOverrides';
-import { invalidateTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
@@ -337,7 +336,6 @@ export default function ActivityDetailScreen() {
       setIs3DMapActive(is3D);
       if (activity?.id) {
         setActivityOverride(activity.id, { terrain3D: is3D });
-        invalidateTerrainPreview(activity.id);
       }
     },
     [activity?.id, setActivityOverride]
@@ -348,7 +346,6 @@ export default function ActivityDetailScreen() {
     (style: MapStyleType) => {
       if (activity?.id) {
         setActivityOverride(activity.id, { style });
-        invalidateTerrainPreview(activity.id);
       }
     },
     [activity?.id, setActivityOverride]
