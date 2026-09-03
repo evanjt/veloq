@@ -10,6 +10,15 @@ const CHANNEL_ID = 'veloq-insights';
 const SYNC_CHANNEL_ID = 'veloq-sync';
 const SYNC_NOTIFICATION_ID = 'sync-progress';
 
+/**
+ * expo-notifications reads the Android channel from the trigger and nowhere
+ * else. A `channelId` in `content` is dropped, and a null trigger falls back
+ * to expo's own channel, whose importance is hardcoded HIGH: that is how every
+ * sync progress re-post became a heads-up banner. iOS has no channels, so the
+ * trigger stays null and the notification is still immediate.
+ */
+const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { channelId } : null);
+
 /** Set up notification handlers and channels. Call once at app startup. */
 export function initializeNotifications(): void {
   // Configure how notifications appear when app is in foreground
@@ -94,9 +103,8 @@ export async function presentInsightNotification(
       body,
       data: data ?? {},
       priority: 'high',
-      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
-    trigger: null, // immediate
+    trigger: immediatelyOn(CHANNEL_ID),
   });
 }
 
@@ -119,9 +127,8 @@ export async function presentActivityNotification(
       body,
       data: data ?? {},
       priority: 'high',
-      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
-    trigger: null,
+    trigger: immediatelyOn(CHANNEL_ID),
   });
 }
 
@@ -134,9 +141,8 @@ export async function updateSyncNotification(body: string): Promise<void> {
         title: 'Veloq',
         body,
         sticky: true, // Android: can't swipe away during sync
-        ...(Platform.OS === 'android' ? { channelId: SYNC_CHANNEL_ID } : {}),
       },
-      trigger: null,
+      trigger: immediatelyOn(SYNC_CHANNEL_ID),
     });
   } catch (e) {
     if (__DEV__) console.warn('[SyncNotification] Failed to update:', e);
