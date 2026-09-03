@@ -8,7 +8,12 @@
 import { renderHook } from '@testing-library/react-native';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getEngine } from '@/shared/native/engine';
-import type { FfiActivityMetrics, FfiRoutePerformance, FfiRoutePerformanceResult } from 'veloqrs';
+import type {
+  FfiActivityMetrics,
+  FfiRouteGroup,
+  FfiRoutePerformance,
+  FfiRoutePerformanceResult,
+} from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
