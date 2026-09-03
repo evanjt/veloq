@@ -26,7 +26,7 @@
     "test:perf": "jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint . --no-warn-ignored --max-warnings 1156",
+    "lint": "eslint . --no-warn-ignored --max-warnings 1154",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
