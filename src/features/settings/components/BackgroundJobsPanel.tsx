@@ -30,12 +30,12 @@ const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommuni
     cutover: 'autorenew',
   };
 
-const TITLE_KEYS: Record<BackgroundJobId, string> = {
+const TITLE_KEYS = {
   sync: 'backgroundJobs.sync',
   detection: 'backgroundJobs.detection',
   elevationBackfill: 'backgroundJobs.elevationBackfill',
   cutover: 'backgroundJobs.cutover',
-};
+} as const satisfies Record<BackgroundJobId, string>;
 
 /** The detail line under a job's title: what it is doing, or what waits. */
 function useDetail(job: BackgroundJob): string {
