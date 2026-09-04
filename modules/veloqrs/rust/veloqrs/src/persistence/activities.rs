@@ -1491,7 +1491,7 @@ mod tests {
         let commits = commit_counter::watch(&engine);
         engine.remove_activity("a1").unwrap();
 
-        assert!(commit_counter::count(&commits) <= 1);
+        assert_eq!(commit_counter::count(&commits), 1);
         assert!(engine.db.is_autocommit());
     }
 }

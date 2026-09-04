@@ -544,10 +544,10 @@ mod tests {
         assert_eq!(super::super::commit_counter::count(&commits), 1);
     }
 
-    /// Nothing to write is still one prune at most, never one per skipped
+    /// Nothing to write is still one prune per call, never one per skipped
     /// series.
     #[test]
-    fn a_body_with_nothing_storable_is_at_most_one_commit() {
+    fn a_body_with_nothing_storable_is_one_commit_per_call() {
         let (_dir, engine) = engine();
         let commits = super::super::commit_counter::watch(&engine);
 
@@ -563,7 +563,7 @@ mod tests {
             )
             .unwrap();
 
-        assert!(super::super::commit_counter::count(&commits) <= 2);
+        assert_eq!(super::super::commit_counter::count(&commits), 2);
         assert!(engine.stored_stream_kinds("a1").unwrap().is_empty());
     }
 
