@@ -205,6 +205,7 @@ impl PersistentEngine {
             );
             return cached;
         }
+        self.note_performance_computation();
 
         // Find the section (in-memory for auto, fallback to DB for custom)
         let section = match self.sections.iter().find(|s| s.id == section_id) {

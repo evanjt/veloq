@@ -537,6 +537,275 @@ fn insights_falls_back_to_the_engine_sport_types() {
     assert_eq!(bundle.sport_types, s.engine.get_available_sport_types());
 }
 
+/// `populated()` plus a third outing over the same line. A section earns a PR
+/// slot only once three activities have travelled it.
+fn populated_with_pr_candidate(third_date: i64) -> Setup {
+    let mut s = populated();
+    s.engine
+        .add_activity("a3".to_string(), line(46.2, 7.35, 60), "Ride".to_string())
+        .expect("add a3");
+    s.engine
+        .set_activity_metrics_extended(vec![metrics("a3", third_date)])
+        .expect("set metrics a3");
+    insert_traversal(&s.raw, "auto1", "a3", 190.0);
+    s
+}
+
+/// Move the whole window so `end` is the call's present.
+fn insights_params_ending(end: i64) -> veloqrs::FfiInsightsParams {
+    let mut p = insights_params();
+    p.current_end = end;
+    p.current_start = end - 7 * 86_400;
+    p.prev_start = end - 14 * 86_400;
+    p.prev_end = end - 7 * 86_400;
+    p.chronic_start = end - 35 * 86_400;
+    p.today_start = end - 86_400;
+    p
+}
+
+#[test]
+fn insights_computes_no_performances_when_nothing_is_recent() {
+    let mut s = populated_with_pr_candidate(1_700_100_000);
+    let p = insights_params_ending(1_700_200_000 + 400 * 86_400);
+
+    let bundle = s.engine.insights_data(&p);
+
+    assert!(bundle.recent_prs.is_empty());
+    assert_eq!(s.engine.performance_computations(), 0);
+}
+
+#[test]
+fn insights_computes_performances_for_a_section_visited_this_week() {
+    let mut s = populated_with_pr_candidate(1_700_150_000);
+    let p = insights_params_ending(1_700_200_000);
+
+    let bundle = s.engine.insights_data(&p);
+
+    assert!(s.engine.performance_computations() > 0);
+    assert_eq!(
+        bundle
+            .recent_prs
+            .iter()
+            .map(|pr| pr.section_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["auto1"]
+    );
+}
+
+#[test]
+fn insights_computes_performances_for_a_section_visited_on_the_window_edge() {
+    let end = 1_700_200_000;
+    // The oldest date the seven-day window still holds.
+    let mut s = populated_with_pr_candidate(end - 7 * 86_400);
+    let p = insights_params_ending(end);
+
+    let bundle = s.engine.insights_data(&p);
+
+    assert!(s.engine.performance_computations() > 0);
+    assert_eq!(bundle.recent_prs.len(), 1);
+}
+
+#[test]
+fn insights_computes_no_performances_on_an_empty_library() {
+    let mut s = setup();
+
+    let bundle = s.engine.insights_data(&insights_params());
+
+    assert!(bundle.recent_prs.is_empty());
+    assert_eq!(s.engine.performance_computations(), 0);
+}
+
+// ============================================================================
+// Insights: activity patterns
+// ============================================================================
+
+fn pattern_metrics(
+    id: &str,
+    date: i64,
+    moving_time: u32,
+    distance: f64,
+) -> veloqrs::FfiActivityMetrics {
+    veloqrs::FfiActivityMetrics {
+        activity_id: id.to_string(),
+        name: format!("Fixture {}", id),
+        date,
+        distance,
+        moving_time,
+        elapsed_time: moving_time,
+        elevation_gain: 0.0,
+        avg_hr: None,
+        avg_power: None,
+        sport_type: "Ride".to_string(),
+        training_load: Some(distance / 500.0),
+        ftp: None,
+        power_zone_times: None,
+        hr_zone_times: None,
+    }
+}
+
+const WEEK: i64 = 7 * 86_400;
+/// A Tuesday, so the two groups sit on different days of the week.
+const PATTERN_EPOCH: i64 = 1_672_704_000;
+
+/// A year of riding in two shapes: a short midweek ride and a long weekend
+/// one. Big enough for k-means to emit patterns, which an empty library is
+/// not, so the memo is tested against a real answer.
+fn pattern_library() -> Setup {
+    let mut s = setup();
+    let mut rows = Vec::new();
+    for week in 0..52i64 {
+        rows.push(pattern_metrics(
+            &format!("short{}", week),
+            PATTERN_EPOCH + week * WEEK,
+            3_600,
+            30_000.0,
+        ));
+        rows.push(pattern_metrics(
+            &format!("long{}", week),
+            PATTERN_EPOCH + week * WEEK + 5 * 86_400,
+            10_800,
+            90_000.0,
+        ));
+    }
+    s.engine
+        .set_activity_metrics_extended(rows)
+        .expect("set pattern metrics");
+    s
+}
+
+/// Every field of every pattern, ordered by the day the pattern sits on.
+/// `cluster_id` is a label k-means hands out in the order it happened to seed,
+/// which depends on the order the metric map yields its rows, so it is the one
+/// field that cannot be compared between two engines.
+fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
+    let mut shaped: Vec<String> = patterns
+        .iter()
+        .map(|p| {
+            format!(
+                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{:?}",
+                p.sport_type,
+                p.primary_day,
+                p.season_label,
+                p.activity_count,
+                p.avg_duration_secs,
+                p.avg_tss,
+                p.avg_distance_meters,
+                p.confidence,
+                p.days_since_last,
+                p.common_sections
+            )
+        })
+        .collect();
+    shaped.sort();
+    shaped
+}
+
+#[test]
+fn insights_clusters_once_per_call_and_reuses_it_while_metrics_hold() {
+    let mut s = pattern_library();
+    let p = insights_params_ending(PATTERN_EPOCH + 52 * WEEK);
+
+    let first = s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 1);
+    assert!(!first.all_patterns.is_empty());
+
+    let second = s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 1);
+    assert_eq!(
+        pattern_shape(&second.all_patterns),
+        pattern_shape(&first.all_patterns)
+    );
+}
+
+#[test]
+fn insights_memoised_patterns_match_a_cold_engine() {
+    let p = insights_params_ending(PATTERN_EPOCH + 52 * WEEK);
+
+    let mut warm = pattern_library();
+    warm.engine.insights_data(&p);
+    let memoised = warm.engine.insights_data(&p);
+
+    let mut cold = pattern_library();
+    let computed = cold.engine.insights_data(&p);
+
+    assert!(!computed.all_patterns.is_empty());
+    assert_eq!(
+        pattern_shape(&memoised.all_patterns),
+        pattern_shape(&computed.all_patterns)
+    );
+    assert_eq!(
+        pattern_shape(memoised.today_pattern.as_slice()),
+        pattern_shape(computed.today_pattern.as_slice())
+    );
+}
+
+#[test]
+fn insights_clusters_again_once_the_newest_activity_moves() {
+    let mut s = pattern_library();
+    let p = insights_params_ending(PATTERN_EPOCH + 53 * WEEK);
+
+    s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 1);
+
+    // Same row count, newer date: the clusters can move, so the memo must not
+    // answer this one.
+    s.engine
+        .set_activity_metrics_extended(vec![pattern_metrics(
+            "long51",
+            PATTERN_EPOCH + 52 * WEEK + 5 * 86_400,
+            10_800,
+            90_000.0,
+        )])
+        .expect("re-date long51");
+    s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 2);
+}
+
+#[test]
+fn insights_clusters_again_once_the_day_turns_over() {
+    let mut s = pattern_library();
+    let end = PATTERN_EPOCH + 53 * WEEK;
+
+    s.engine.insights_data(&insights_params_ending(end));
+    assert_eq!(s.engine.pattern_computations(), 1);
+
+    // Same rows, next day. A pattern reports how long since it was last
+    // ridden, so yesterday's answer is not today's.
+    s.engine
+        .insights_data(&insights_params_ending(end + 86_400));
+    assert_eq!(s.engine.pattern_computations(), 2);
+}
+
+#[test]
+fn insights_reuses_the_clustering_across_calls_on_the_same_day() {
+    let mut s = pattern_library();
+    let end = PATTERN_EPOCH + 53 * WEEK;
+
+    s.engine.insights_data(&insights_params_ending(end));
+    s.engine.insights_data(&insights_params_ending(end + 3_600));
+    assert_eq!(s.engine.pattern_computations(), 1);
+}
+
+#[test]
+fn insights_clusters_again_once_an_activity_is_added() {
+    let mut s = pattern_library();
+    let p = insights_params_ending(PATTERN_EPOCH + 53 * WEEK);
+
+    s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 1);
+
+    s.engine
+        .set_activity_metrics_extended(vec![pattern_metrics(
+            "short52",
+            PATTERN_EPOCH + 52 * WEEK,
+            3_600,
+            30_000.0,
+        )])
+        .expect("add short52");
+    s.engine.insights_data(&p);
+    assert_eq!(s.engine.pattern_computations(), 2);
+}
+
 // ============================================================================
 // Section detail
 // ============================================================================
