@@ -4,7 +4,7 @@
  * section refreshes and after a revert or unpin.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import type { RoutePoint } from '@/types';
 
@@ -69,10 +69,6 @@ export function useSectionLedger(sectionId: string | undefined, refreshKey = 0):
       pinnedVersion: engine.getPinnedSectionVersion(sectionId),
     };
   }, [sectionId, refreshKey, tick]);
-
-  useEffect(() => {
-    // A refresh from elsewhere on the screen re-reads on the next render.
-  }, [refreshKey]);
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {
