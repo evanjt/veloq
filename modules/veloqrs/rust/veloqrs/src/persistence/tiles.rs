@@ -182,6 +182,10 @@ impl PersistentEngine {
                 );
             }
             tx.send(run.generated).ok();
+            // The worker owns no engine lock, so the announcement is safe to
+            // make from here. A screen waiting on the pass hears it instead of
+            // draining this receiver on a timer.
+            crate::objects::observer::notify(|o| o.tiles_generated());
         });
 
         Some(TileGenerationHandle {
