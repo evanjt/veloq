@@ -224,10 +224,10 @@ impl DetectionManager {
             )
         })?;
         // The funnel refuses with a dead handle when a backfill takes the
-        // suspension between the check above and here. Installing it would
-        // occupy the slot with a run that never happened.
-        if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
-            info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
+        // suspension, or the detector cutover is still owed. Installing it
+        // would occupy the slot with a run that never happened.
+        if crate::persistence::sections::detection_was_refused(&handle) {
+            info!("veloqrs: [DetectionManager] Start refused: detection is held");
             return Ok(false);
         }
 
@@ -302,8 +302,8 @@ impl DetectionManager {
                 crate::persistence::sections::detection::ApplyOn::Worker,
             )
         })?;
-        if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
-            info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
+        if crate::persistence::sections::detection_was_refused(&handle) {
+            info!("veloqrs: [DetectionManager] Force redetect refused: detection is held");
             return Ok(false);
         }
 

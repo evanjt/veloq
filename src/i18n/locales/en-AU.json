@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
     "sortSignature": "Signature",
+    "standingBest": "Your fastest of {{total}}",
+    "standingRank": "Ranked {{rank}} of {{total}}, {{gap}} off your best",
+    "standingRankPercentile": "Ranked {{rank}} of {{total}}, faster than {{percent}}% of them, {{gap}} off your best",
     "thisMayTakeMoment": "This might take a tick...",
     "visits": "visits",
     "waiting": "Hang on..."
@@ -1035,6 +1038,7 @@
     "defaultName": "Section {{number}}",
     "deleteSection": "Delete Section",
     "deleteSectionConfirm": "You sure you want to chuck this section? Can't undo this one.",
+    "detectionPaused": "Detection paused while your sections migrate",
     "disabled": "Disabled",
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",

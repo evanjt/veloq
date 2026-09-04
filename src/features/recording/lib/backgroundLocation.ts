@@ -4,25 +4,68 @@ import * as Location from 'expo-location';
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import {
+  buildRecordingBackup,
+  loadRecordingBackup,
+  saveRecordingBackup,
+} from './storage/recordingBackup';
 
 const log = debug.create('BackgroundLocation');
 
 export const BACKGROUND_LOCATION_TASK = 'veloq-background-location';
 
-// Must be called at module scope (top level, not inside a component)
-TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
-  if (error) {
-    log.error('Background location error:', error.message);
-    return;
-  }
+// True once this runtime has rehydrated a session from disk. A headless
+// runtime is torn down with the batch, so the flag is only ever set for the
+// batches that follow the restoring one inside the same runtime.
+let restoredFromBackup = false;
 
-  const { locations } = data as { locations: Location.LocationObject[] };
+// Use require to avoid a circular dependency - this runs outside the React tree
+function recordingStore() {
+  return require('@/features/recording/stores/RecordingStore').useRecordingStore;
+}
+
+/**
+ * Rehydrate a session that only exists on disk. Android can kill the process
+ * while the foreground service keeps the location request alive, and the next
+ * batch is then delivered by loading the bundle headlessly, where the store is
+ * a fresh `idle`. The gap is not credited as paused time for a recording
+ * session: the rider was moving, and the fixes in the batch carry their own
+ * timestamps. A paused session reopens its pause at the last save, so the gap
+ * is credited when it resumes or stops.
+ */
+async function restoreSessionFromBackup(): Promise<boolean> {
+  const backup = await loadRecordingBackup();
+  if (!backup) return false;
+  if (backup.status !== 'recording' && backup.status !== 'paused') return false;
+
+  const store = recordingStore();
+  store
+    .getState()
+    .startRecording(backup.activityType, backup.mode, backup.pairedEventId ?? undefined);
+  store.setState({
+    status: backup.status,
+    startTime: backup.startTime,
+    pausedDuration: backup.pausedDuration,
+    pauseIntervals: backup.pauseIntervals ?? [],
+    streams: backup.streams,
+    laps: backup.laps,
+    _pauseStart: backup.status === 'paused' ? backup.savedAt : null,
+  });
+  log.log('Restored a recording from its backup in a headless runtime');
+  return true;
+}
+
+export async function handleBackgroundLocations(
+  locations: Location.LocationObject[]
+): Promise<void> {
   if (!locations || locations.length === 0) return;
 
-  // Use require to avoid circular dependency - this runs outside React tree
-  const { useRecordingStore } = require('@/features/recording/stores/RecordingStore');
-  const { addGpsPoint, setRawLocationFix, status } = useRecordingStore.getState();
+  const store = recordingStore();
+  if (store.getState().status === 'idle' && !restoredFromBackup) {
+    restoredFromBackup = await restoreSessionFromBackup();
+  }
 
+  const { addGpsPoint, setRawLocationFix, status } = store.getState();
   if (status !== 'recording' && status !== 'paused') return;
 
   const rejectThreshold = getAccuracyRejectThreshold();
@@ -45,7 +88,25 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     if (status === 'recording') addGpsPoint(point);
   }
 
+  // A headless runtime has no screen and no periodic timer, so each batch
+  // persists itself or the next kill loses everything since the last one.
+  if (restoredFromBackup) {
+    const backup = buildRecordingBackup(store.getState());
+    if (backup) await saveRecordingBackup(backup);
+  }
+
   log.log(`Background: processed ${locations.length} location(s)`);
+}
+
+// Must be called at module scope (top level, not inside a component)
+TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
+  if (error) {
+    log.error('Background location error:', error.message);
+    return;
+  }
+
+  const { locations } = data as { locations: Location.LocationObject[] };
+  await handleBackgroundLocations(locations);
 });
 
 export async function startBackgroundLocation(options?: {

@@ -18,6 +18,12 @@ jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
 }));
+// The feed suspends its snapshot pool when it is not the focused tab, and
+// this test renders the screen on its own rather than inside a navigator.
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useIsFocused: () => true,
+}));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useTopSafeArea: () => ({ screenEdges: [] }),
   useScreenSafeAreaEdges: () => [],

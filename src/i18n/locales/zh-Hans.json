@@ -1017,6 +1017,9 @@
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
     "sortSignature": "标志路段",
+    "standingBest": "{{total}} 次中最快的一次",
+    "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
+    "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
     "thisMayTakeMoment": "这可能需要一点时间...",
     "visits": "访问",
     "waiting": "等待中..."
@@ -1035,6 +1038,7 @@
     "defaultName": "路段 {{number}}",
     "deleteSection": "删除路段",
     "deleteSectionConfirm": "确定要删除此路段吗？此操作无法撤销。",
+    "detectionPaused": "路段迁移期间已暂停检测",
     "disabled": "已禁用",
     "removeSection": "移除路段",
     "removeSectionConfirm": "此路段将不再显示在活动详情或洞察中。您可以从路段列表中恢复它。",

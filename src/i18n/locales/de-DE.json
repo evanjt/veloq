@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Name A-Z",
     "sortNearby": "In der Nähe",
     "sortSignature": "Signatur",
+    "standingBest": "Deine schnellste von {{total}}",
+    "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
+    "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
     "thisMayTakeMoment": "Dies kann einen Moment dauern...",
     "visits": "Besuche",
     "waiting": "Warte..."
@@ -1035,6 +1038,7 @@
     "defaultName": "Abschnitt {{number}}",
     "deleteSection": "Abschnitt löschen",
     "deleteSectionConfirm": "Möchtest du diesen Abschnitt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "detectionPaused": "Erkennung pausiert, während deine Abschnitte migriert werden",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entfernen",
     "removeSectionConfirm": "Dieser Abschnitt wird nicht mehr in Aktivitätsdetails oder Insights angezeigt. Du kannst ihn aus der Abschnittsliste wiederherstellen.",

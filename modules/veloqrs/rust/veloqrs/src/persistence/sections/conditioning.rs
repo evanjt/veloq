@@ -200,9 +200,10 @@ pub fn try_start_conditioning() -> bool {
         return false;
     };
 
-    // A suspension taken while the engine lock was held gives back a dead
-    // handle. Installing it would occupy the slot with a run that never ran.
-    if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
+    // A suspension or an owed cutover taken while the engine lock was held
+    // gives back a dead handle. Installing it would occupy the slot with a run
+    // that never ran.
+    if crate::persistence::sections::detection_was_refused(&handle) {
         return false;
     }
 

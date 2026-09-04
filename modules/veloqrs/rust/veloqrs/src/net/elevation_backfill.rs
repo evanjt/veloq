@@ -210,8 +210,11 @@ static BACKFILL: BackfillState = BackfillState {
     phase: Mutex::new(BACKFILL_PHASE_IDLE),
 };
 
-fn set_phase(phase: &'static str) {
+pub(crate) fn set_phase(phase: &'static str) {
     *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    // The guard above is a temporary of the statement it is in, so the
+    // announcement is made with the phase lock already released.
+    crate::objects::observer::notify(|o| o.backfill_phase(phase.to_string()));
 }
 
 /// What a poller sees while the backfill runs and after it settles.

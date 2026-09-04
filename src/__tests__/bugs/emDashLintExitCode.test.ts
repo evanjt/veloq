@@ -8,6 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { initFixtureRepo } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,8 +38,7 @@ function fixture(files: Record<string, string | Buffer>): string {
     mkdirSync(join(full, '..'), { recursive: true });
     writeFileSync(full, contents);
   }
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['add', '-A'], { cwd: root });
+  initFixtureRepo(root);
   return root;
 }
 

@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Próximos",
     "sortSignature": "Assinatura",
+    "standingBest": "O teu mais rápido de {{total}}",
+    "standingRank": "{{rank}}.º de {{total}}, {{gap}} do teu melhor",
+    "standingRankPercentile": "{{rank}}.º de {{total}}, mais rápido do que {{percent}}% deles, {{gap}} do teu melhor",
     "thisMayTakeMoment": "Isto pode demorar um momento...",
     "visits": "visitas",
     "waiting": "A aguardar..."
@@ -1035,6 +1038,7 @@
     "defaultName": "Troço {{number}}",
     "deleteSection": "Eliminar troço",
     "deleteSectionConfirm": "Tem a certeza de que pretende eliminar este troço? Esta ação não pode ser anulada.",
+    "detectionPaused": "Deteção em pausa enquanto as suas secções são migradas",
     "disabled": "Desativada",
     "removeSection": "Remover secção",
     "removeSectionConfirm": "Esta secção não aparecerá nos detalhes da atividade nem nos insights. Pode restaurá-la a partir da lista de secções.",

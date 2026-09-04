@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useIsFocused } from 'expo-router';
 import {
   View,
   FlatList,
@@ -98,6 +99,9 @@ export default function FeedScreen() {
   // so the pool always mounts; deferred so initial renders settle first
   // (cards check the cache before requesting anyway).
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
+  // The feed stays mounted behind every other tab, and so did its two snapshot
+  // WebViews. They come down while it is offscreen and the queue waits.
+  const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
@@ -596,7 +600,7 @@ export default function FeedScreen() {
             showRetry={false}
             onError={() => setSnapshotWebViewReady(false)}
           >
-            <TerrainSnapshotWebView ref={snapshotRef} />
+            <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
           </ComponentErrorBoundary>
         )}
       </ScreenSafeAreaView>

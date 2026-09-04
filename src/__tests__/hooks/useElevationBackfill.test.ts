@@ -23,10 +23,25 @@ interface Progress {
   percent: number;
 }
 
+const listeners = new Map<string, Set<() => void>>();
+
 function engineReporting(progress: () => Progress | null) {
   return {
     getElevationBackfillProgress: () => progress(),
+    subscribe: (event: string, callback: () => void) => {
+      const forEvent = listeners.get(event) ?? new Set<() => void>();
+      forEvent.add(callback);
+      listeners.set(event, forEvent);
+      return () => forEvent.delete(callback);
+    },
   } as unknown as ReturnType<typeof getEngine>;
+}
+
+/** Stands in for the phase transition Rust announces off the JS thread. */
+function announce(event: string) {
+  act(() => {
+    listeners.get(event)?.forEach((listener) => listener());
+  });
 }
 
 function progress(phase: string, over: Partial<Progress> = {}): Progress {
@@ -37,6 +52,7 @@ describe('useElevationBackfill', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    listeners.clear();
   });
 
   afterEach(() => {
@@ -143,6 +159,65 @@ describe('useElevationBackfill', () => {
     act(() => {
       jest.advanceTimersByTime(2000);
     });
+
+    expect(read).toHaveBeenCalledTimes(callsAtUnmount);
+  });
+
+  it('makes no engine calls while nothing is running', () => {
+    const read = jest.fn(() => progress('idle'));
+    mockGetEngine.mockReturnValue(engineReporting(read));
+
+    renderHook(() => useElevationBackfill());
+    const callsAtMount = read.mock.calls.length;
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(callsAtMount).toBe(1);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads the snapshot when the engine announces a phase', () => {
+    let phase = 'idle';
+    mockGetEngine.mockReturnValue(
+      engineReporting(() => progress(phase, { completed: 0, total: 12 }))
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+    expect(result.current.isRunning).toBe(false);
+
+    phase = 'fetching';
+    announce('backfillPhase');
+
+    expect(result.current).toMatchObject({ phase: 'fetching', total: 12, isRunning: true });
+  });
+
+  it('stops reading once the run reaches a terminal phase', () => {
+    let phase = 'fetching';
+    const read = jest.fn(() => progress(phase, { completed: 3, total: 12 }));
+    mockGetEngine.mockReturnValue(engineReporting(read));
+
+    const { result } = renderHook(() => useElevationBackfill());
+    phase = 'complete';
+    announce('backfillPhase');
+    expect(result.current.phase).toBe('complete');
+
+    const callsAtSettle = read.mock.calls.length;
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(read).toHaveBeenCalledTimes(callsAtSettle);
+  });
+
+  it('hears nothing more once unmounted', () => {
+    const read = jest.fn(() => progress('idle'));
+    mockGetEngine.mockReturnValue(engineReporting(read));
+
+    const { unmount } = renderHook(() => useElevationBackfill());
+    unmount();
+    const callsAtUnmount = read.mock.calls.length;
+    announce('backfillPhase');
 
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
   });

@@ -10,6 +10,7 @@ import * as Location from 'expo-location'; // 30 seconds
 import { normalizeBounds } from '@/shared/geo/polyline';
 import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
+import { waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { startFetchAndStore } from 'veloqrs';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
@@ -33,26 +34,6 @@ import {
 } from '@/features/maps/lib/mapBudgets';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000;
-
-/** How long to wait for a single on-demand GPS download before giving up. */
-const GPS_WAIT_TIMEOUT_MS = 15_000;
-const GPS_WAIT_POLL_MS = 250;
-
-/**
- * Poll the engine for an activity's track after asking Rust to download it.
- * Rust cannot push into the JS listener map, so arrival is observed.
- */
-async function waitForGpsTrack(activityId: string): Promise<[number, number][] | null> {
-  const deadline = Date.now() + GPS_WAIT_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const points = getEngine()?.getGpsTrack(activityId);
-    if (points && points.length > 0) {
-      return points.map((p) => [p.latitude, p.longitude] as [number, number]);
-    }
-    await new Promise((resolve) => setTimeout(resolve, GPS_WAIT_POLL_MS));
-  }
-  return null;
-}
 
 /** State for spider/fan-out expansion of clusters at max zoom */
 export interface SpiderState {

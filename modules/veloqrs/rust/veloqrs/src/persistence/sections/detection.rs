@@ -464,6 +464,22 @@ fn save_groups_txn(
 /// reports the unknown-phase 50 rather than pretending to progress.
 pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 
+/// Phase reported by a handle that was refused because the detector cutover
+/// is still owed. Distinct from [`DETECTION_PHASE_SUSPENDED`] so the sections
+/// page can say which of the two is holding detection, and weighted the same
+/// way: neither is a run phase.
+pub const DETECTION_PHASE_CUTOVER_OWED: &str = "cutover_owed";
+
+/// Whether a handle came back refused rather than running. A refused handle
+/// has no worker behind it, so installing it in the shared slot would occupy
+/// the slot with a run that never happened.
+pub fn detection_was_refused(handle: &SectionDetectionHandle) -> bool {
+    matches!(
+        handle.get_progress().0.as_str(),
+        DETECTION_PHASE_SUSPENDED | DETECTION_PHASE_CUTOVER_OWED
+    )
+}
+
 /// Which thread applies a finished run.
 ///
 /// The apply is a hot save plus an indicator recompute, hundreds of
@@ -540,13 +556,13 @@ impl PersistentEngine {
     /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
     /// "error". A refusal is therefore visible to the caller and distinct from
     /// a run that completed and changed nothing, which reports "complete".
-    fn refused_detection_handle() -> SectionDetectionHandle {
+    fn refused_detection_handle(phase: &str) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         drop(tx);
         drop(cache_tx);
         let progress = SectionDetectionProgress::new();
-        progress.set_phase(DETECTION_PHASE_SUSPENDED, 0);
+        progress.set_phase(phase, 0);
         SectionDetectionHandle {
             receiver: rx,
             final_update: std::sync::Mutex::new(None),
@@ -603,7 +619,15 @@ impl PersistentEngine {
             log::info!(
                 "veloqrs: [SectionDetection] Refused: detection is suspended for a backfill"
             );
-            return Self::refused_detection_handle();
+            return Self::refused_detection_handle(DETECTION_PHASE_SUSPENDED);
+        }
+        // SB12: every apply stamps this build's detector on the catalogue, so
+        // a detect that beats the cutover retires the migration over a
+        // catalogue nothing has captured. Refuse until the cutover has run.
+        // `..._unchecked` is how the cutover's own cold detect gets past.
+        if self.cutover_is_owed() {
+            log::info!("veloqrs: [SectionDetection] Refused: a detector cutover is owed");
+            return Self::refused_detection_handle(DETECTION_PHASE_CUTOVER_OWED);
         }
         self.detect_sections_background_unchecked_applying(apply_on)
     }

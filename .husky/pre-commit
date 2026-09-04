@@ -7,6 +7,11 @@ set -e
 ./scripts/check-no-private-data.sh
 npx lint-staged
 
+# The tree as it stands now, after lint-staged has had its turn. A gate that
+# shells out to git can be handed this repository's index and stage its own
+# fixture over it, which check-commit-index.sh runs too early to see.
+staged_tree=$(./scripts/check-staged-tree.sh record)
+
 # The four gates below are independent. Run them together and report every
 # failure, rather than stopping at the first and paying the wait again.
 logs=$(mktemp -d)
@@ -23,6 +28,8 @@ gate tsc npx tsc --noEmit
 gate lint npm run lint:cached
 gate test npm test
 wait
+
+./scripts/check-staged-tree.sh verify "$staged_tree"
 
 failed=0
 for rc in "$logs"/*.rc; do

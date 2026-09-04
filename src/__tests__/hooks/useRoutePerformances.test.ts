@@ -152,11 +152,13 @@ describe('a sport filter over a screen bundle', () => {
     activityMetrics: [bundledMetrics('a1', 3600)],
     best: bundledPerformance('a1', 3600),
     currentRank: 1,
+    attemptCount: 1,
   };
   const unfiltered: FfiRoutePerformanceResult = {
     ...filtered,
     performances: [bundledPerformance('a1', 3600), bundledPerformance('a2', 3000)],
     activityMetrics: [bundledMetrics('a1', 3600), bundledMetrics('a2', 3000)],
+    attemptCount: 2,
   };
 
   it('reads the engine once across re-renders that rebuild the bundle object', () => {

@@ -148,6 +148,10 @@ fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
         avg_hr: None,
         avg_power: None,
         sport_type: a.sport_type.clone(),
+        training_load: None,
+        ftp: None,
+        power_zone_times: None,
+        hr_zone_times: None,
     }
 }
 

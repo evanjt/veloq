@@ -1017,6 +1017,9 @@
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
     "sortSignature": "シグネチャ",
+    "standingBest": "{{total}} 回中の自己最速",
+    "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
+    "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
     "thisMayTakeMoment": "少々お待ちください...",
     "visits": "訪問",
     "waiting": "待機中..."
@@ -1035,6 +1038,7 @@
     "defaultName": "区間 {{number}}",
     "deleteSection": "セクションを削除",
     "deleteSectionConfirm": "このセクションを削除してもよろしいですか？この操作は元に戻せません。",
+    "detectionPaused": "セクションの移行中は検出を一時停止しています",
     "disabled": "無効",
     "removeSection": "セクションを削除",
     "removeSectionConfirm": "このセクションはアクティビティ詳細やインサイトに表示されなくなります。セクションリストから復元できます。",

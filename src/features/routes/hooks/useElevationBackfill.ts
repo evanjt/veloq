@@ -2,7 +2,9 @@
  * Reads the elevation backfill's progress for the Settings status line.
  *
  * The backfill runs on its own in Rust, so this hook only observes: it never
- * starts a run. Polls while mounted, at the same cadence as the section rescan.
+ * starts a run. Rust announces each phase it enters, so an idle library costs
+ * one read at mount and nothing after it. The count inside a run has no event
+ * of its own, so a live run is polled and only a live run is.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -11,6 +13,9 @@ import { getEngine } from '@/shared/native/engine';
 import type { ElevationBackfillPhase } from 'veloqrs';
 
 const POLL_INTERVAL_MS = 500;
+
+/** The channel `EngineObserver.backfill_phase` lands on. */
+const PHASE_CHANNEL = 'backfillPhase';
 
 const PHASES: ElevationBackfillPhase[] = ['idle', 'fetching', 'complete', 'partial', 'failed'];
 
@@ -77,10 +82,27 @@ export function useElevationBackfill(): ElevationBackfillState {
         stateRef.current = next;
         setState(next);
       }
+      return next;
     };
-    tick();
-    const timer = setInterval(tick, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
+
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const follow = (running: boolean) => {
+      if (running && timer === undefined) {
+        timer = setInterval(tick, POLL_INTERVAL_MS);
+      } else if (!running && timer !== undefined) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+    };
+    follow(stateRef.current.isRunning);
+
+    const engine = getEngine();
+    const unsubscribe = engine?.subscribe(PHASE_CHANNEL, () => follow(tick().isRunning));
+
+    return () => {
+      follow(false);
+      unsubscribe?.();
+    };
   }, []);
 
   return state;

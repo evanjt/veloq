@@ -27,11 +27,35 @@ const ALLOWED = [
   'src/features/maps/assets/maplibreRenderer.generated.ts',
 ];
 
+// `cwd` does not decide which repository git reads. The pre-commit hook exports
+// GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
+// with --root would list the repository's own files instead. Drop them.
+const GIT_ENV = (() => {
+  const env = { ...process.env };
+  for (const key of [
+    'GIT_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_WORK_TREE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_COMMON_DIR',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_PREFIX',
+    'GIT_CEILING_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  return env;
+})();
+
 const rootFlag = process.argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
 function tracked() {
-  const out = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' });
+  const out = execFileSync('git', ['ls-files', '-z'], {
+    cwd: root,
+    env: GIT_ENV,
+    encoding: 'utf8',
+  });
   return out.split('\0').filter(Boolean);
 }
 

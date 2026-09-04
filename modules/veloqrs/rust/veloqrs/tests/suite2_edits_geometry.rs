@@ -102,6 +102,10 @@ fn seed_metrics_and_streams(engine: &mut PersistentEngine, activities: &[&Lifecy
             avg_hr: None,
             avg_power: None,
             sport_type: a.sport_type.clone(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         });
     }
     offsets.push(times.len() as u32);
@@ -229,6 +233,10 @@ fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
             avg_hr: None,
             avg_power: None,
             sport_type: "Ride".to_string(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         }])
         .expect("set_activity_metrics");
 }

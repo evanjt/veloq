@@ -35,6 +35,7 @@ import {
   getStyleIcon,
   MapSurface,
   type MapSurfaceRef,
+  type MapCameraState,
 } from '@/features/maps/components';
 import { Map3DWebView, type Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
@@ -155,6 +156,16 @@ export const SectionMapView = memo(function SectionMapView({
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
   const activityColor = getActivityColor(validSportType);
   const surfaceRef = useRef<MapSurfaceRef>(null);
+  // The surface is unmounted while the 3D layer covers it, so the viewport it
+  // settled on is what a remount opens with, not the section fit again.
+  const settledCameraRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  const [cameraOnHide, setCameraOnHide] = useState<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+  const handleRegionDidChange = useCallback((state: MapCameraState) => {
+    settledCameraRef.current = { center: state.center, zoom: state.zoom };
+  }, []);
 
   // Interactive-mode state
   const [is3DMode, setIs3DMode] = useState(false);
@@ -184,6 +195,13 @@ export const SectionMapView = memo(function SectionMapView({
 
   const hasRoute = sectionCoords.length > 0;
   const isDark = isDarkStyle(currentMapStyle);
+
+  // The 2D surface comes down once the 3D layer covers it, so where it was is
+  // captured on the way out and handed back to the remount.
+  const show2DSurface = !(is3DMode && is3DReady);
+  useEffect(() => {
+    if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
+  }, [show2DSurface]);
 
   // Stop in-flight animations on unmount
   useEffect(() => {
@@ -435,7 +453,9 @@ export const SectionMapView = memo(function SectionMapView({
     <MapSurface
       ref={surfaceRef}
       mapStyle={currentMapStyle}
-      initialCamera={{ ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }}
+      initialCamera={
+        cameraOnHide ?? { ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }
+      }
       sources={inlineSources}
       layers={inlineLayers}
       interactiveLayers={NEARBY_INTERACTIVE_LAYERS}
@@ -444,6 +464,7 @@ export const SectionMapView = memo(function SectionMapView({
       rotateEnabled={interactive}
       onPress={handleSurfacePress}
       onBearingChange={interactive ? handleBearingChange : undefined}
+      onRegionDidChange={handleRegionDidChange}
     />
   );
 
@@ -459,10 +480,9 @@ export const SectionMapView = memo(function SectionMapView({
         // Interactive map with control stack and optional 3D
         <View style={[styles.outerContainer, { height }]}>
           <View testID="section-map-container" style={styles.container}>
-            {/* 2D Map layer - hidden when 3D is ready */}
-            <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
-              {mapContent}
-            </View>
+            {/* 2D Map layer. Unmounted once the 3D layer covers it, because a
+                hidden WebView holds its GL context and tile textures. */}
+            {show2DSurface && <View style={styles.mapLayer}>{mapContent}</View>}
 
             {/* 3D Map layer */}
             {is3DMode && hasRoute && (

@@ -17,10 +17,6 @@ export const styles = StyleSheet.create({
   map3DLayer: {
     zIndex: 1,
   },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
-  },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 2,

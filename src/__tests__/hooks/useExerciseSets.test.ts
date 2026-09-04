@@ -3,11 +3,11 @@
  * downloads the FIT file in the background.
  *
  * Expected behaviour: a settled activity is never re-requested, an unsettled one
- * asks Rust once and reads back what lands, and a download that never settles
- * stops polling rather than running a timer for as long as the screen is open.
+ * asks Rust once and then waits for the engine to announce the parse, and no
+ * engine call is made on a timer while it waits.
  */
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
@@ -19,12 +19,26 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
 
+const listeners = new Map<string, Set<(payload?: { activityId: string }) => void>>();
+
 const engine = {
   getExerciseSets: jest.fn(),
   isFitProcessed: jest.fn(),
   fetchAndParseExerciseSets: jest.fn(),
   bulkInsertExerciseSets: jest.fn(),
+  subscribe: jest.fn((event: string, cb: (payload?: { activityId: string }) => void) => {
+    const subscribers = listeners.get(event) ?? new Set<typeof cb>();
+    listeners.set(event, subscribers);
+    subscribers.add(cb);
+    return () => {
+      subscribers.delete(cb);
+    };
+  }),
 };
+
+function announce(activityId: string) {
+  listeners.get('fitParsed')?.forEach((cb) => cb({ activityId }));
+}
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
@@ -48,6 +62,7 @@ const aSet = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  listeners.clear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getExerciseSets.mockReturnValue([]);
@@ -79,15 +94,57 @@ it('does not re-download an activity that has already settled', async () => {
   expect(engine.fetchAndParseExerciseSets).not.toHaveBeenCalled();
 });
 
-it('asks Rust for an unsettled activity and reads back what lands', async () => {
+it('asks Rust for an unsettled activity and reads back what the parse announces', async () => {
   const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
   await waitFor(() => expect(result.current.data).toEqual([]));
 
-  // The background download finishes and the next poll reads the stored sets.
   engine.getExerciseSets.mockReturnValue([aSet]);
-  await waitFor(() => expect(result.current.data).toHaveLength(1), { timeout: 5000 });
+  act(() => announce('act1'));
+  await waitFor(() => expect(result.current.data).toHaveLength(1));
+});
+
+it('ignores a parse announced for another activity', async () => {
+  const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+
+  await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
+  const reads = engine.getExerciseSets.mock.calls.length;
+
+  act(() => announce('act2'));
+  await waitFor(() => expect(result.current.isFetching).toBe(false));
+  expect(engine.getExerciseSets).toHaveBeenCalledTimes(reads);
+});
+
+it('makes no engine call between the request and the announcement', async () => {
+  jest.useFakeTimers();
+  try {
+    const { result } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+
+    await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('act1'));
+    const reads = engine.getExerciseSets.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+
+    expect(engine.getExerciseSets).toHaveBeenCalledTimes(reads);
+    expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1);
+    expect(result.current.data).toEqual([]);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('stops listening once the card unmounts', async () => {
+  const { unmount } = renderHook(() => useExerciseSets('act1', 'WeightTraining'), { wrapper });
+
+  await waitFor(() =>
+    expect(engine.subscribe).toHaveBeenCalledWith('fitParsed', expect.any(Function))
+  );
+  unmount();
+
+  expect(listeners.get('fitParsed')?.size ?? 0).toBe(0);
 });
 
 it('skips the download entirely for a non-strength activity', async () => {

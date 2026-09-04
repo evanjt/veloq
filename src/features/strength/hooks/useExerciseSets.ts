@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
@@ -15,24 +15,22 @@ function isDemo(): boolean {
   return useAuthStore.getState().isDemoMode;
 }
 
-/** How long to keep asking the engine for a fetch it started, before giving up. */
-const FIT_POLL_INTERVAL_MS = 1500;
-const FIT_POLL_LIMIT = 40;
-
 /**
  * Fetch and cache exercise set data for a WeightTraining activity.
  *
  * On first view Rust downloads the FIT file in the background, parses it and
- * writes the sets to SQLite. The download used to run on this thread, which
- * froze the UI for as long as the network took, so the query reads what is
- * stored and polls while a fetch is in flight.
+ * writes the sets to SQLite. The query reads what is stored, asks for a fetch
+ * when nothing is, and then waits for the engine to announce the parse rather
+ * than re-reading on a timer.
  *
  * A row in the engine's FIT status table means the activity has settled: parsed,
  * or genuinely carrying no sets, or absent upstream. A download that failed for
- * any other reason records nothing, so the next visit tries again.
+ * any other reason records nothing and announces nothing, so the next visit
+ * tries again.
  */
 export function useExerciseSets(activityId: string, activityType: string) {
-  const pollsRef = useRef(0);
+  const enabled = activityType === 'WeightTraining' && !!activityId;
+  const queryClient = useQueryClient();
 
   const query = useQuery<ExerciseSet[]>({
     queryKey: queryKeys.strength.exerciseSets(activityId),
@@ -64,7 +62,6 @@ export function useExerciseSets(activityId: string, activityType: string) {
           return engine.getExerciseSets(activityId);
         }
 
-        pollsRef.current += 1;
         engine.fetchAndParseExerciseSets(activityId);
         return [];
       } catch (err) {
@@ -72,22 +69,22 @@ export function useExerciseSets(activityId: string, activityType: string) {
         return [];
       }
     },
-    enabled: activityType === 'WeightTraining' && !!activityId,
+    enabled,
     staleTime: Infinity, // exercise data never changes
     gcTime: 1000 * 60 * 60 * 2, // 2 hours in memory
-    // Keep reading while the background download is in flight. Bounded, so a
-    // black-hole network costs one minute of polling and not a live timer for
-    // as long as the screen is open.
-    refetchInterval: (query) =>
-      (query.state.data?.length ?? 0) === 0 && pollsRef.current < FIT_POLL_LIMIT
-        ? FIT_POLL_INTERVAL_MS
-        : false,
   });
 
-  // A remount asks again, which is what makes a transient failure recoverable.
   useEffect(() => {
-    pollsRef.current = 0;
-  }, [activityId]);
+    const engine = enabled ? getEngine() : null;
+    if (!engine) return undefined;
+
+    return engine.subscribe('fitParsed', (payload) => {
+      if (payload && 'activityId' in payload && payload.activityId !== activityId) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.strength.exerciseSets(activityId),
+      });
+    });
+  }, [activityId, enabled, queryClient]);
 
   return query;
 }

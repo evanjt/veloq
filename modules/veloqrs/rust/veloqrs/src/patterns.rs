@@ -83,7 +83,11 @@ pub fn compute_activity_patterns(
 
     let mut patterns = Vec::new();
 
-    for (sport_type, indices) in &by_sport {
+    let mut sports: Vec<&String> = by_sport.keys().collect();
+    sports.sort();
+
+    for sport_type in sports {
+        let indices = &by_sport[sport_type];
         if indices.len() < MIN_CLUSTER_SIZE {
             continue;
         }
@@ -183,7 +187,7 @@ fn extract_features(
     // training load in SQLite, so the table stays the authority here.
     let training_loads = load_training_loads(db);
 
-    activity_metrics
+    let mut features: Vec<ActivityFeature> = activity_metrics
         .values()
         .filter(|m| m.moving_time > 0 && m.distance > 0.0)
         .map(|m| {
@@ -199,7 +203,17 @@ fn extract_features(
                 distance_meters: m.distance,
             }
         })
-        .collect()
+        .collect();
+
+    // The k-means++ seed and every cluster label are positions in this vector,
+    // so a map order would hand the same library different patterns in each
+    // process.
+    features.sort_unstable_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then_with(|| a.activity_id.cmp(&b.activity_id))
+    });
+    features
 }
 
 /// Load training_load values from activity_metrics SQLite table.
@@ -757,9 +771,11 @@ fn compute_season_label(features: &[&&ActivityFeature]) -> String {
     }
 
     let total = features.len() as f64;
+    // Ties break on the season name, or the winner is whichever season the map
+    // happens to yield first and `RandomState` makes that different per map.
     let dominant = season_counts
         .iter()
-        .max_by_key(|&(_, &c)| c)
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
         .map(|(s, &c)| (s.clone(), c));
 
     match dominant {
@@ -1019,6 +1035,226 @@ fn month_from_timestamp(ts: i64) -> u8 {
 mod tests {
     use super::*;
 
+    /// A Tuesday, so the two weekly groups sit on different days.
+    const FIXTURE_EPOCH: i64 = 1_704_153_600;
+    const FIXTURE_WEEK: i64 = 7 * 86_400;
+
+    fn metrics(
+        id: &str,
+        sport: &str,
+        date: i64,
+        moving_time: u32,
+        distance: f64,
+    ) -> ActivityMetrics {
+        ActivityMetrics {
+            activity_id: id.to_string(),
+            name: format!("Fixture {}", id),
+            date,
+            distance,
+            moving_time,
+            elapsed_time: moving_time,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: sport.to_string(),
+            training_load: Some(distance / 500.0),
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        }
+    }
+
+    /// A year of two ride shapes and two run shapes, four clusters in all.
+    fn fixture_rows() -> Vec<ActivityMetrics> {
+        let mut rows = Vec::new();
+        for week in 0..52i64 {
+            let monday = FIXTURE_EPOCH + week * FIXTURE_WEEK;
+            rows.push(metrics(
+                &format!("short{}", week),
+                "Ride",
+                monday,
+                3_600,
+                30_000.0,
+            ));
+            rows.push(metrics(
+                &format!("long{}", week),
+                "Ride",
+                monday + 5 * 86_400,
+                10_800,
+                90_000.0,
+            ));
+            rows.push(metrics(
+                &format!("jog{}", week),
+                "Run",
+                monday + 86_400,
+                1_800,
+                5_000.0,
+            ));
+            rows.push(metrics(
+                &format!("far{}", week),
+                "Run",
+                monday + 3 * 86_400,
+                7_200,
+                21_000.0,
+            ));
+        }
+        rows
+    }
+
+    fn as_map(rows: Vec<ActivityMetrics>) -> HashMap<String, ActivityMetrics> {
+        rows.into_iter()
+            .map(|m| (m.activity_id.clone(), m))
+            .collect()
+    }
+
+    /// Every field a caller can see, in the order the patterns are returned.
+    fn shapes(patterns: &[crate::FfiActivityPattern]) -> Vec<String> {
+        patterns
+            .iter()
+            .map(|p| {
+                format!(
+                    "{}/{}/{}/{}/{}/{}/{}/{}/{}",
+                    p.sport_type,
+                    p.cluster_id,
+                    p.primary_day,
+                    p.season_label,
+                    p.activity_count,
+                    p.avg_duration_secs,
+                    p.avg_tss,
+                    p.avg_distance_meters,
+                    p.confidence
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn patterns_do_not_depend_on_the_metric_map_order() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = fixture_rows();
+
+        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        assert!(
+            baseline.len() >= 2,
+            "fixture must cluster into something to compare, got {:?}",
+            baseline
+        );
+
+        for shift in 1..12usize {
+            let mut ordered = rows.clone();
+            ordered.rotate_left(shift * 7);
+            if shift % 2 == 1 {
+                ordered.reverse();
+            }
+            assert_eq!(
+                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                baseline,
+                "map order {} changed the patterns",
+                shift
+            );
+        }
+    }
+
+    /// Every activity of a week lands on the one timestamp, so only the
+    /// activity id can order them.
+    fn same_date_rows() -> Vec<ActivityMetrics> {
+        let mut rows = Vec::new();
+        for week in 0..52i64 {
+            let day = FIXTURE_EPOCH + week * FIXTURE_WEEK;
+            rows.push(metrics(
+                &format!("a{:02}", week),
+                "Ride",
+                day,
+                3_600,
+                30_000.0,
+            ));
+            rows.push(metrics(
+                &format!("b{:02}", week),
+                "Ride",
+                day,
+                10_800,
+                90_000.0,
+            ));
+        }
+        rows
+    }
+
+    #[test]
+    fn a_shared_date_is_broken_by_the_activity_id() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = same_date_rows();
+
+        let baseline = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+        assert!(!baseline.is_empty(), "fixture must produce a pattern");
+
+        for shift in 1..12usize {
+            let mut ordered = rows.clone();
+            ordered.rotate_left(shift * 5);
+            if shift % 2 == 1 {
+                ordered.reverse();
+            }
+            assert_eq!(
+                shapes(&compute_activity_patterns(&db, &as_map(ordered))),
+                baseline,
+                "map order {} changed the patterns",
+                shift
+            );
+        }
+    }
+
+    #[test]
+    fn features_come_back_in_date_then_activity_id_order() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = same_date_rows();
+        let mut ordered: Vec<(i64, String)> = rows
+            .iter()
+            .map(|m| (m.date, m.activity_id.clone()))
+            .collect();
+        ordered.sort();
+        let expected: Vec<String> = ordered.into_iter().map(|(_, id)| id).collect();
+
+        for _ in 0..8 {
+            let extracted = extract_features(&db, &as_map(rows.clone()));
+            let ids: Vec<String> = extracted.iter().map(|f| f.activity_id.clone()).collect();
+            assert_eq!(ids, expected);
+        }
+    }
+
+    #[test]
+    fn patterns_of_a_single_activity_are_empty() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let rows = vec![metrics("solo", "Ride", FIXTURE_EPOCH, 3_600, 30_000.0)];
+        assert!(compute_activity_patterns(&db, &as_map(rows)).is_empty());
+    }
+
+    #[test]
+    fn patterns_of_an_empty_library_are_empty() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        assert!(compute_activity_patterns(&db, &HashMap::new()).is_empty());
+    }
+
+    #[test]
+    fn a_sport_under_the_cluster_floor_contributes_nothing() {
+        let db = Connection::open_in_memory().expect("in-memory db");
+        let mut rows = fixture_rows();
+        let with_rides_only = shapes(&compute_activity_patterns(&db, &as_map(rows.clone())));
+
+        for i in 0..MIN_CLUSTER_SIZE - 1 {
+            rows.push(metrics(
+                &format!("swim{}", i),
+                "Swim",
+                FIXTURE_EPOCH + (i as i64) * FIXTURE_WEEK,
+                2_400,
+                2_000.0,
+            ));
+        }
+
+        assert_eq!(
+            shapes(&compute_activity_patterns(&db, &as_map(rows))),
+            with_rides_only
+        );
+    }
+
     #[test]
     fn test_day_of_week_from_timestamp() {
         // 2024-01-01 is a Monday
@@ -1210,5 +1446,97 @@ mod tests {
         assert!((normalised[0][3] - 0.5).abs() < 1e-10);
         // Day 3 / 6.0 = 0.5
         assert!((normalised[0][0] - 0.5).abs() < 1e-10);
+    }
+
+    /// B238: the dominant season was picked with `max_by_key` over a `HashMap`,
+    /// so two seasons on an equal count were decided by the iteration order,
+    /// which `RandomState` makes different for every map.
+    fn feature_on(id: &str, date: i64) -> ActivityFeature {
+        ActivityFeature {
+            activity_id: id.to_string(),
+            sport_type: "Ride".to_string(),
+            day_of_week: 0,
+            date,
+            duration_secs: 3_600,
+            tss: 50.0,
+            distance_meters: 30_000.0,
+        }
+    }
+
+    /// January is winter, July is summer, and nothing else appears, so the
+    /// two-season branch runs on a dead tie.
+    fn tied_two_season_features() -> Vec<ActivityFeature> {
+        let winter = 1_704_153_600; // 2024-01-02
+        let summer = winter + 181 * 86_400;
+        vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("s1", summer),
+            feature_on("s2", summer + 86_400),
+        ]
+    }
+
+    #[test]
+    fn a_tied_season_label_is_the_same_on_every_map() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        let first = compute_season_label(&features);
+        for _ in 0..200 {
+            assert_eq!(
+                compute_season_label(&features),
+                first,
+                "the tie is broken by the map's iteration order"
+            );
+        }
+        assert!(first == "summer" || first == "winter");
+    }
+
+    #[test]
+    fn a_tie_is_broken_on_the_season_name() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "summer");
+    }
+
+    #[test]
+    fn a_dominant_season_still_wins_outright() {
+        let winter = 1_704_153_600;
+        let summer = winter + 181 * 86_400;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("w3", winter + 2 * 86_400),
+            feature_on("s1", summer),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "winter");
+    }
+
+    /// Three seasons with no majority is the branch the current fixtures land
+    /// in, and it must keep answering "all" whatever the tie does.
+    #[test]
+    fn three_seasons_without_a_majority_are_all() {
+        let winter = 1_704_153_600;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("sp1", winter + 90 * 86_400),
+            feature_on("su1", winter + 181 * 86_400),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "all");
+    }
+
+    #[test]
+    fn no_features_are_all() {
+        let features: Vec<&&ActivityFeature> = Vec::new();
+        assert_eq!(compute_season_label(&features), "all");
     }
 }

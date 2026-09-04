@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Nombre A-Z",
     "sortNearby": "Cercanos",
     "sortSignature": "Firma",
+    "standingBest": "Tu más rápido de {{total}}",
+    "standingRank": "Puesto {{rank}} de {{total}}, {{gap}} de tu mejor marca",
+    "standingRankPercentile": "Puesto {{rank}} de {{total}}, más rápido que el {{percent}} % de ellos, {{gap}} de tu mejor marca",
     "thisMayTakeMoment": "Esto puede tardar un momento...",
     "visits": "visitas",
     "waiting": "Esperando..."
@@ -1035,6 +1038,7 @@
     "defaultName": "Sección {{number}}",
     "deleteSection": "Eliminar sección",
     "deleteSectionConfirm": "¿Estás seguro de que quieres eliminar esta sección? Esta acción no se puede deshacer.",
+    "detectionPaused": "Detección en pausa mientras se migran tus secciones",
     "disabled": "Desactivada",
     "removeSection": "Eliminar sección",
     "removeSectionConfirm": "Esta sección no aparecerá en los detalles de actividad ni en las estadísticas. Puedes restaurarla desde la lista de secciones.",
