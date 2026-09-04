@@ -25,6 +25,7 @@ import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
+import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('GpsDataFetcher');
@@ -59,46 +60,29 @@ function scalePercent(rustPercent: number, rangeStart: number, rangeEnd: number)
 }
 
 /**
- * Poll heatmap tile generation until complete, surfacing progress to
- * the sync banner. Foreground wait is capped at 5 s regardless of tile
- * count - tile generation continues on a Rust background thread after
- * the cap and the map view picks up fresh tiles as they render.
+ * Wait for the heatmap tile pass, surfacing it to the sync banner.
+ *
+ * Rust announces the pass when it finishes. The foreground wait is capped:
+ * tile generation continues on a Rust background thread after the cap and the
+ * map view picks up fresh tiles as they render.
  */
-async function pollTileGeneration(
+async function waitForTilePass(
   isMountedRef: React.MutableRefObject<boolean>,
   updateProgress?: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void,
   rangeStart = 75,
   rangeEnd = 100
 ): Promise<void> {
-  const status = engine.pollTileGeneration();
-  if (status !== 'running' || !isMountedRef.current) return;
-
-  const initial = engine.getHeatmapTileProgress();
-  const tileTotal = initial && initial.length >= 2 ? initial[1] : 0;
-  const maxPollTime = tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
-
-  const startTime = Date.now();
-  while (isMountedRef.current) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const s = engine.pollTileGeneration();
-    if (updateProgress) {
-      const progress = engine.getHeatmapTileProgress();
-      if (progress && progress.length >= 2) {
-        const [processed, total] = progress;
-        if (total > 0) {
-          const tilePct = Math.min(100, Math.round((processed / total) * 100));
-          updateProgress({
-            status: 'computing',
-            completed: 0,
-            total: 0,
-            percent: scalePercent(tilePct, rangeStart, rangeEnd),
-            message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
-          });
-        }
-      }
-    }
-    if (s !== 'running' || Date.now() - startTime > maxPollTime) break;
-  }
+  await awaitTilePass((processed, total) => {
+    if (!updateProgress || !isMountedRef.current || total === 0) return;
+    const tilePct = Math.min(100, Math.round((processed / total) * 100));
+    updateProgress({
+      status: 'computing',
+      completed: 0,
+      total: 0,
+      percent: scalePercent(tilePct, rangeStart, rangeEnd),
+      message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
+    });
+  });
 }
 
 /**
@@ -357,7 +341,7 @@ export function useGpsDataFetcher() {
         engine.triggerRefresh('groups');
         engine.triggerRefresh('sections');
 
-        await pollTileGeneration(isMountedRef, updateProgress);
+        await waitForTilePass(isMountedRef, updateProgress);
 
         if (isMountedRef.current) {
           updateProgress({
@@ -739,7 +723,7 @@ export function useGpsDataFetcher() {
         engine.triggerRefresh('groups');
         engine.triggerRefresh('sections');
 
-        await pollTileGeneration(isMountedRef, updateProgress);
+        await waitForTilePass(isMountedRef, updateProgress);
       }
 
       // Backfill: time streams for existing activities with NULL lap_time.
