@@ -585,15 +585,8 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
     // An unreadable count is not a drained one: a pass that cannot see its own
     // queue ends partial, so the next launch asks again rather than the run
     // claiming a library it never checked.
-    let (remaining, fetched) = with_persistent_engine(|engine| {
-        let remaining = engine.elevation_backfill_remaining().ok();
-        let fetched = engine
-            .elevation_state_counts()
-            .map(|c| c.fetched)
-            .unwrap_or(0);
-        (remaining, fetched)
-    })
-    .unwrap_or((None, 0));
+    let remaining =
+        with_persistent_engine(|engine| engine.elevation_backfill_remaining().ok()).unwrap_or(None);
     let drained = remaining == Some(0);
 
     // The terminal phase lands before the guard releases, so there is no
@@ -605,13 +598,15 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
         BACKFILL_PHASE_PARTIAL
     });
 
-    // The terminal cut fires on the pass that drains the queue, provided the
-    // library carries any elevation at all. `fetched > 0` rather than this
-    // pass's own count: an earlier pass may have elevated tracks and then died
-    // before its cut, and this pass has to make good on that even when
-    // everything it asked about itself turned out unavailable. The guard is
-    // still held here, so nothing else can claim the detection slot first.
-    if drained && outcome.queued > 0 && fetched > 0 && terminal_cut() {
+    // The terminal cut fires on the pass that drains the queue, whatever the
+    // queue turned out to hold. It used to also require the library to carry
+    // some elevation, which excluded a library upstream has altitude for
+    // nothing: the queue drains honestly, elevates nothing, and the cut never
+    // fired, leaving the cutover owed and detection refused (`B252`).
+    // `terminal_cut` re-checks whether a cutover is owed and falls through to a
+    // plain re-cut when it is not, so the drained queue is the whole condition.
+    // The guard is still held here, so nothing else can claim the slot first.
+    if drained && outcome.queued > 0 && terminal_cut() {
         outcome.detects_started = 1;
         BACKFILL.detects.fetch_add(1, Ordering::Relaxed);
     }
