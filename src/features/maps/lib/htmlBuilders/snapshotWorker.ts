@@ -30,6 +30,56 @@ import {
 const SNAPSHOT_HEIGHT = 240;
 
 /**
+ * The page's animation frame loop, and the rule for when it runs.
+ *
+ * MapLibre paints when something asks it to, so a capture needs a frame in
+ * flight to capture. That is a reason to drive one while a request is being
+ * rendered and no reason at all to drive one between requests: the pool stays
+ * mounted for as long as the feed is focused, so an idle feed with every
+ * preview cached held two GL contexts at display refresh for nothing.
+ *
+ * Every request ends by posting its result, so wrapping the bridge is what
+ * stops the loop. That covers the hard timeout and the error paths without a
+ * stop call at each of them. A request superseded by a newer one aborts
+ * without posting, and the newer one's result stops the loop instead.
+ */
+export function heartbeatScript(): string {
+  return `
+    window._heartbeat = (function() {
+      var running = false;
+      function tick() {
+        if (!running) return;
+        requestAnimationFrame(tick);
+      }
+      return {
+        start: function() {
+          if (running) return;
+          running = true;
+          requestAnimationFrame(tick);
+        },
+        stop: function() { running = false; },
+        isRunning: function() { return running; }
+      };
+    })();
+
+    (function() {
+      var bridge = window.ReactNativeWebView;
+      if (!bridge) return;
+      var post = bridge.postMessage.bind(bridge);
+      bridge.postMessage = function(payload) {
+        try {
+          var type = JSON.parse(payload).type;
+          if (type === 'snapshot' || type === 'snapshotError') window._heartbeat.stop();
+        } catch (e) {
+          // A payload that is not our JSON is not a result. Leave the loop be.
+        }
+        return post(payload);
+      };
+    })();
+  `;
+}
+
+/**
  * Build the complete HTML string for a terrain snapshot worker WebView.
  *
  * The `workerId` is embedded directly into the page so postMessage
@@ -198,13 +248,7 @@ ${cacheEvictionScript(tileCacheBudgetMb)}
       }
     });
 
-    // rAF heartbeat - confirms rendering loop is alive
-    var _rafCount = 0;
-    function rafHeartbeat() {
-      _rafCount++;
-      requestAnimationFrame(rafHeartbeat);
-    }
-    requestAnimationFrame(rafHeartbeat);
+${heartbeatScript()}
   </script>
 </body>
 </html>`;
