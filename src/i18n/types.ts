@@ -127,7 +127,6 @@ export interface TranslationResource {
     hide: string;
     confirm: string;
     back: string;
-    ok: string;
     done: string;
     clearSearch: string;
     pullToRefresh: string;
@@ -379,7 +378,6 @@ export interface TranslationResource {
 
   alerts: {
     cacheCleared: string;
-    cacheCorruptionMessage: string;
     error: string;
     clearCacheTitle: string;
     clearCacheMessage: string;

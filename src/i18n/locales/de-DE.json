@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache geleert",
-    "cacheCorruptionMessage": "Der lokale Datencache war beschädigt und wurde geleert. Deine Daten werden vom Server aktualisiert.",
     "clearCacheMessage": "Dies löscht alle zwischengespeicherten Aktivitätsdaten, Aktivitätsspuren und Routenabgleich-Daten und startet das Neuladen. Dies kann einige Minuten dauern.",
     "clearCacheTitle": "Cache löschen & neu laden",
     "clearReload": "Löschen & neu laden",
@@ -311,7 +310,6 @@
     "hideDetails": "Details ausblenden",
     "loading": "Laden...",
     "loadingMore": "Mehr laden...",
-    "ok": "OK",
     "or": "oder",
     "pullToRefresh": "Zum Aktualisieren ziehen",
     "reset": "Zurücksetzen",

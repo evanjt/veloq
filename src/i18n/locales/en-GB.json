@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache Cleared",
-    "cacheCorruptionMessage": "Local data cache was corrupted and has been cleared. Your data will be refreshed from the server.",
     "clearCacheMessage": "This will clear all cached activity data, activity tracks, and route matching data, then start reloading. This may take a few minutes.",
     "clearCacheTitle": "Clear & Reload Cache",
     "clearReload": "Clear & Reload",
@@ -311,7 +310,6 @@
     "hideDetails": "Hide details",
     "loading": "Loading...",
     "loadingMore": "Loading more...",
-    "ok": "OK",
     "or": "or",
     "pullToRefresh": "Pull to refresh",
     "reset": "Reset",

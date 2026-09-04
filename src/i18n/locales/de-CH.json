@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache gleert",
-    "cacheCorruptionMessage": "De lokal Date-Cache isch kaputt gsi und isch gleert worde. Dini Date werded vom Server aktualisiert.",
     "clearCacheMessage": "Löscht alls und started nöi. Cha es bitzeli gaa.",
     "clearCacheTitle": "Cache lösche?",
     "clearReload": "Jetzt lösche!",
@@ -311,7 +310,6 @@
     "hideDetails": "Details verberge",
     "loading": "Momäntli, Siech...",
     "loadingMore": "Lade no meh...",
-    "ok": "OK",
     "or": "oder",
     "pullToRefresh": "Züüch abe zum Lade",
     "reset": "Zruggsetze",

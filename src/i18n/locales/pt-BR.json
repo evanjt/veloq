@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache limpo",
-    "cacheCorruptionMessage": "O cache de dados local estava corrompido e foi limpo. Seus dados serão atualizados do servidor.",
     "clearCacheMessage": "Isso limpara todos os dados de atividades em cache, trilhas de atividade e dados de correspondencia de rotas, depois comecara a recarregar. Pode levar alguns minutos.",
     "clearCacheTitle": "Limpar e recarregar cache",
     "clearReload": "Limpar e recarregar",
@@ -311,7 +310,6 @@
     "hideDetails": "Ocultar detalhes",
     "loading": "Carregando...",
     "loadingMore": "Carregando mais...",
-    "ok": "OK",
     "or": "ou",
     "pullToRefresh": "Puxe para atualizar",
     "reset": "Redefinir",

@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache gewist",
-    "cacheCorruptionMessage": "De lokale datacache was beschadigd en is gewist. Je gegevens worden bijgewerkt vanaf de server.",
     "clearCacheMessage": "Dit wist alle gecachte activiteitsgegevens, sporen en route-matching gegevens, en start het herladen. Dit kan enkele minuten duren.",
     "clearCacheTitle": "Cache wissen & herladen",
     "clearReload": "Wissen & herladen",
@@ -311,7 +310,6 @@
     "hideDetails": "Details verbergen",
     "loading": "Laden...",
     "loadingMore": "Meer laden...",
-    "ok": "OK",
     "or": "of",
     "pullToRefresh": "Trek om te vernieuwen",
     "reset": "Resetten",

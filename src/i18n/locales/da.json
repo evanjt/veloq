@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache ryddet",
-    "cacheCorruptionMessage": "Det lokale datacache var beskadiget og er blevet ryddet. Dine data vil blive opdateret fra serveren.",
     "clearCacheMessage": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter.",
     "clearCacheTitle": "Ryd og genindlæs cache",
     "clearReload": "Ryd og genindlæs",
@@ -311,7 +310,6 @@
     "hideDetails": "Skjul detaljer",
     "loading": "Indlæser...",
     "loadingMore": "Indlæser flere...",
-    "ok": "OK",
     "or": "eller",
     "pullToRefresh": "Træk ned for at opdatere",
     "reset": "Nulstil",
