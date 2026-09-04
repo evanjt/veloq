@@ -12,7 +12,7 @@ use tracematch::GpsPoint;
 // ============================================================================
 
 /// Stores the non-GPS data needed for performance comparison.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityMetrics {
     pub activity_id: String,
@@ -33,6 +33,14 @@ pub struct ActivityMetrics {
     pub avg_power: Option<u16>,
     /// Sport type (e.g., "Ride", "Run")
     pub sport_type: String,
+    /// Training load / TSS (optional)
+    pub training_load: Option<f64>,
+    /// FTP used for this activity (optional)
+    pub ftp: Option<u16>,
+    /// Power zone times in seconds per zone (optional)
+    pub power_zone_times: Option<Vec<u32>>,
+    /// HR zone times in seconds per zone (optional)
+    pub hr_zone_times: Option<Vec<u32>>,
 }
 
 // ============================================================================

@@ -34,7 +34,6 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   const { data: activities, isLoading: loadingActivities } = useActivities({
     days,
-    includeStats: true,
     enabled: isAuthenticated,
   });
 

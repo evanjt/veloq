@@ -86,7 +86,6 @@ export function SyncDebugTab() {
   const { data: apiActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: false,
   });
 
   // Engine data (refreshes on subscription trigger)

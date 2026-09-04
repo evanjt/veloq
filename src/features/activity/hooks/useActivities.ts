@@ -86,8 +86,6 @@ interface UseActivitiesOptions {
   oldest?: string;
   /** End date (YYYY-MM-DD) - defaults to today */
   newest?: string;
-  /** Include additional stats fields (eFTP, zone times) - use for performance page */
-  includeStats?: boolean;
   /** Whether to enable the query (default: true) */
   enabled?: boolean;
 }
@@ -97,7 +95,7 @@ interface UseActivitiesOptions {
  * Use this for specific date range queries (e.g., stats page, wellness).
  */
 export function useActivities(options: UseActivitiesOptions = {}) {
-  const { days, oldest, newest, includeStats = false, enabled = true } = options;
+  const { days, oldest, newest, enabled = true } = options;
   const athleteId = useAuthStore((s) => s.athleteId);
 
   // Calculate date range
@@ -137,12 +135,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
-    queryKey: queryKeys.activities.list(
-      athleteId ?? 'anon',
-      queryOldest!,
-      queryNewest!,
-      includeStats
-    ),
+    queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest!, queryNewest!),
     queryFn: () => readActivities(queryOldest!, queryNewest!),
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
@@ -164,15 +157,14 @@ const PAGE_SIZE_DAYS = 30;
  * background refetch picks up new activities. Persisted to AsyncStorage
  * so the feed renders immediately on subsequent opens.
  */
-export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
-  const { includeStats = false } = options;
+export function useInfiniteActivities() {
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEngineChannel('activities', queryKeys.activities.infinite.all);
 
   const query = useInfiniteQuery<Activity[], Error>({
-    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon', includeStats),
+    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon'),
     queryFn: ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
         oldest: string;

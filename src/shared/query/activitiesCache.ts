@@ -8,10 +8,9 @@ import { queryKeys } from './queryKeys';
  * won't help because it refetches with the stored params - `resetQueries`
  * is needed to re-evaluate `initialPageParam` with today's date.
  *
- * Every cached variant is scanned rather than one reconstructed key. The
+ * Every cached key is scanned rather than one reconstructed key. The
  * persisted-cache callback runs before `AuthStore` finishes reading SecureStore,
- * so an athlete id is not available yet, and the feed is cached under both the
- * `stats` and `base` variants.
+ * so an athlete id is not available yet.
  *
  * Lives in shared/query because it operates on the shared `queryKeys.activities`
  * surface and is consumed by the shared query-client cache lifecycle.

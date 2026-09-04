@@ -19,7 +19,7 @@ use crate::governor;
 use crate::governor::{AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
-use crate::net::types::ManualActivityBody;
+use crate::net::types::{ActivityRecord, ManualActivityBody};
 use crate::persistence::PersistentEngine;
 use crate::persistence::bodies::CurveKind;
 use once_cell::sync::Lazy;
@@ -683,6 +683,38 @@ async fn sync_activities(transport: &Transport, athlete_id: &str) -> Result<(), 
     .await
 }
 
+/// One activity's metrics row from the record the page carried. The stats
+/// fields ride the same response, so the row is complete when it is written
+/// and nothing has to read the body back to fill it in.
+fn activity_metrics_row(record: ActivityRecord, date: i64) -> crate::ActivityMetrics {
+    crate::ActivityMetrics {
+        activity_id: record.id,
+        name: record.name.unwrap_or_default(),
+        date,
+        distance: record.distance.unwrap_or(0.0),
+        moving_time: record.moving_time.unwrap_or(0).max(0) as u32,
+        elapsed_time: record.elapsed_time.unwrap_or(0).max(0) as u32,
+        elevation_gain: record.total_elevation_gain.unwrap_or(0.0),
+        avg_hr: record.average_heartrate.map(|v| v.round() as u16),
+        avg_power: record
+            .icu_average_watts
+            .or(record.average_watts)
+            .map(|v| v.round() as u16),
+        sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
+        training_load: record.icu_training_load,
+        ftp: record.icu_ftp.map(|v| v.round().max(0.0) as u16),
+        power_zone_times: record.icu_zone_times.map(|zones| {
+            zones
+                .iter()
+                .map(|z| z.secs.unwrap_or(0).max(0) as u32)
+                .collect()
+        }),
+        hr_zone_times: record
+            .icu_hr_zone_times
+            .map(|zones| zones.iter().map(|&s| s.max(0) as u32).collect()),
+    }
+}
+
 /// Persist one date window of activities. The default sync covers 90 days; the
 /// feed asks for older windows as the reader scrolls past it.
 async fn sync_activity_window(
@@ -713,21 +745,7 @@ async fn sync_activity_window(
             continue;
         };
         bodies.push((record.id.clone(), date, body));
-        metrics.push(crate::ActivityMetrics {
-            activity_id: record.id,
-            name: record.name.unwrap_or_default(),
-            date,
-            distance: record.distance.unwrap_or(0.0),
-            moving_time: record.moving_time.unwrap_or(0).max(0) as u32,
-            elapsed_time: record.elapsed_time.unwrap_or(0).max(0) as u32,
-            elevation_gain: record.total_elevation_gain.unwrap_or(0.0),
-            avg_hr: record.average_heartrate.map(|v| v.round() as u16),
-            avg_power: record
-                .icu_average_watts
-                .or(record.average_watts)
-                .map(|v| v.round() as u16),
-            sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
-        });
+        metrics.push(activity_metrics_row(record, date));
     }
 
     crate::persistence::with_persistent_engine_blocking(move |engine| {
@@ -1374,6 +1392,66 @@ mod tests {
         assert!(svc.build_transport().is_ok());
         svc.clear_credentials();
         assert!(svc.build_transport().is_err());
+    }
+
+    #[test]
+    fn the_metrics_row_carries_the_stats_the_page_fetched() {
+        let record: ActivityRecord = serde_json::from_value(json!({
+            "id": "a1",
+            "name": "Ride",
+            "type": "Ride",
+            "start_date_local": "2026-01-02T08:00:00",
+            "moving_time": 3600,
+            "icu_training_load": 88.0,
+            "icu_ftp": 250.4,
+            "icu_zone_times": [{"id": "Z1", "secs": 10}, {"id": "Z2", "secs": 20}],
+            "icu_hr_zone_times": [11, 22],
+        }))
+        .expect("record");
+
+        let row = activity_metrics_row(record, 1_767_340_800);
+
+        assert_eq!(row.training_load, Some(88.0));
+        assert_eq!(row.ftp, Some(250));
+        assert_eq!(row.power_zone_times, Some(vec![10, 20]));
+        assert_eq!(row.hr_zone_times, Some(vec![11, 22]));
+    }
+
+    #[test]
+    fn an_activity_with_no_stats_leaves_them_unset() {
+        let record: ActivityRecord = serde_json::from_value(json!({
+            "id": "a2",
+            "start_date_local": "2026-01-02T08:00:00",
+        }))
+        .expect("record");
+
+        let row = activity_metrics_row(record, 1_767_340_800);
+
+        assert_eq!(row.training_load, None);
+        assert_eq!(row.ftp, None);
+        assert_eq!(row.power_zone_times, None);
+        assert_eq!(row.hr_zone_times, None);
+        assert_eq!(row.sport_type, "Ride");
+    }
+
+    // A zone series in a shape we do not model is worth less than the
+    // activity, so it is dropped rather than failing the whole page.
+    #[test]
+    fn an_unmodelled_zone_shape_does_not_cost_the_page_its_metrics() {
+        let record: ActivityRecord = serde_json::from_value(json!({
+            "id": "a3",
+            "start_date_local": "2026-01-02T08:00:00",
+            "icu_training_load": 42.0,
+            "icu_zone_times": 120,
+            "icu_hr_zone_times": "nope",
+        }))
+        .expect("record");
+
+        let row = activity_metrics_row(record, 1_767_340_800);
+
+        assert_eq!(row.training_load, Some(42.0));
+        assert_eq!(row.power_zone_times, None);
+        assert_eq!(row.hr_zone_times, None);
     }
 
     #[test]

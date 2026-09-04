@@ -170,10 +170,10 @@ impl From<crate::ActivityMetrics> for FfiActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
-            training_load: None,
-            ftp: None,
-            power_zone_times: None,
-            hr_zone_times: None,
+            training_load: m.training_load,
+            ftp: m.ftp,
+            power_zone_times: m.power_zone_times,
+            hr_zone_times: m.hr_zone_times,
         }
     }
 }
@@ -191,6 +191,10 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
             avg_hr: m.avg_hr,
             avg_power: m.avg_power,
             sport_type: m.sport_type,
+            training_load: m.training_load,
+            ftp: m.ftp,
+            power_zone_times: m.power_zone_times,
+            hr_zone_times: m.hr_zone_times,
         }
     }
 }
@@ -1824,6 +1828,10 @@ mod tests {
             avg_hr: Some(145),
             avg_power: Some(200),
             sport_type: "Ride".to_string(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         }
     }
 
@@ -1920,7 +1928,8 @@ mod tests {
         assert_eq!(ffi.avg_hr, Some(145));
         assert_eq!(ffi.avg_power, Some(200));
         assert_eq!(ffi.sport_type, "Ride");
-        // These four have no source field and must not invent a value.
+        // The fixture carries none of the four, and the conversion must not
+        // invent one.
         assert!(ffi.training_load.is_none());
         assert!(ffi.ftp.is_none());
         assert!(ffi.power_zone_times.is_none());

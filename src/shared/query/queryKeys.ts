@@ -12,12 +12,11 @@
 export const queryKeys = {
   activities: {
     all: ['activities'] as const,
-    list: (athleteId: string, oldest: string, newest: string, includeStats: boolean) =>
-      ['activities', athleteId, oldest, newest, includeStats ? 'stats' : 'base'] as const,
+    list: (athleteId: string, oldest: string, newest: string) =>
+      ['activities', athleteId, oldest, newest] as const,
     infinite: {
       all: ['activities-infinite'] as const,
-      byAthlete: (athleteId: string, includeStats: boolean) =>
-        ['activities-infinite', athleteId, includeStats ? 'stats' : 'base'] as const,
+      byAthlete: (athleteId: string) => ['activities-infinite', athleteId] as const,
     },
     detail: (id: string) => ['activity', id] as const,
     streams: (id: string) => ['activity-streams-v3', id] as const,
