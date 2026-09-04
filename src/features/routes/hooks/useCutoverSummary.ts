@@ -7,12 +7,19 @@
  * catalogue the user is watching being rebuilt.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
 import type { CutoverCounts, CutoverPhase } from 'veloqrs';
 
-const POLL_INTERVAL_MS = 500;
+/** Rust announces the commit here, and the diff is read on that alone. */
+const CHANNEL = 'cutoverSettled';
+
+/**
+ * The phases inside a run carry no event, so a run in flight is followed on a
+ * timer. Nothing in flight means nothing to follow and no call is made.
+ */
+const PHASE_POLL_MS = 500;
 
 const PHASES: CutoverPhase[] = [
   'idle',
@@ -45,20 +52,18 @@ function narrowPhase(phase: string): CutoverPhase {
 }
 
 /**
- * `needDiff` is what keeps the parser off the poll. Parsing walks every section,
- * and a settled diff does not change until the next run, so it is read once per
- * settle and carried after that. The caller re-arms it when a run takes the slot.
+ * A full snapshot: the phase, and the stored diff once the slot is free.
+ * Parsing the diff walks every section, so this runs at mount and on the
+ * settle only.
  */
-function read(previous: CutoverSummary, needDiff: boolean): CutoverSummary {
+function read(sawRun: boolean): CutoverSummary {
   const engine = getEngine();
-  const sawRun = previous.sawRun;
   if (!engine) return { ...IDLE, sawRun };
   try {
     const progress = engine.getCutoverProgress?.();
     if (!progress) return { ...IDLE, sawRun };
     const phase = narrowPhase(progress.phase);
     if (progress.running) return { phase, isRunning: true, counts: null, sawRun: true };
-    if (!needDiff) return { phase, isRunning: false, counts: previous.counts, sawRun };
     return {
       phase,
       isRunning: false,
@@ -70,41 +75,45 @@ function read(previous: CutoverSummary, needDiff: boolean): CutoverSummary {
   }
 }
 
-function same(a: CutoverSummary, b: CutoverSummary): boolean {
-  return (
-    a.phase === b.phase &&
-    a.isRunning === b.isRunning &&
-    a.sawRun === b.sawRun &&
-    a.counts?.current === b.counts?.current &&
-    a.counts?.proposed === b.counts?.proposed &&
-    a.counts?.unchanged === b.counts?.unchanged &&
-    a.counts?.changed === b.counts?.changed &&
-    a.counts?.new === b.counts?.new &&
-    a.counts?.gone === b.counts?.gone
-  );
+/**
+ * The phase alone, carrying the counts through untouched. Returns the same
+ * object when nothing moved, so a run that sits in one phase re-renders
+ * nothing.
+ */
+function phaseOnly(previous: CutoverSummary): CutoverSummary {
+  const engine = getEngine();
+  if (!engine) return previous;
+  try {
+    const progress = engine.getCutoverProgress?.();
+    if (!progress) return previous;
+    const phase = narrowPhase(progress.phase);
+    if (phase === previous.phase && progress.running === previous.isRunning) return previous;
+    return {
+      phase,
+      isRunning: progress.running,
+      counts: progress.running ? null : previous.counts,
+      sawRun: previous.sawRun,
+    };
+  } catch {
+    return previous;
+  }
 }
 
 export function useCutoverSummary(): CutoverSummary {
-  const [state, setState] = useState<CutoverSummary>(() => read(IDLE, true));
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  const needDiffRef = useRef(false);
+  const [state, setState] = useState<CutoverSummary>(() => read(false));
 
   useEffect(() => {
-    const tick = () => {
-      const next = read(stateRef.current, needDiffRef.current);
-      // Arm the next settle's read while the run still holds the slot, so the
-      // numbers it produces are picked up on the edge and only then.
-      needDiffRef.current = next.isRunning;
-      if (!same(stateRef.current, next)) {
-        stateRef.current = next;
-        setState(next);
-      }
-    };
-    tick();
-    const timer = setInterval(tick, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
+    // The event fires only for a run that reached a terminal phase, so hearing
+    // it is itself proof of a run, including one that started before the mount.
+    const off = getEngine()?.subscribe?.(CHANNEL, () => setState(read(true)));
+    return () => off?.();
   }, []);
+
+  const running = state.isRunning;
+  useEffect(() => {
+    const timer = running ? setInterval(() => setState(phaseOnly), PHASE_POLL_MS) : undefined;
+    return () => clearInterval(timer);
+  }, [running]);
 
   return state;
 }

@@ -16,6 +16,7 @@ import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import { extractPushPayload } from './lib/pushPayload';
 import { replaceActivityTrayEntry, trayActionFor } from './lib/traySweep';
 import { appendTaskRun } from './lib/taskRunLog';
+import { awaitActivityBody } from './lib/awaitActivityBody';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
 import {
@@ -66,14 +67,6 @@ const GPS_DOWNLOAD_POLL_MS = 250;
 
 /** Max time to wait for the engine to store the activity's detail body. */
 const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
-const ACTIVITY_DETAIL_POLL_MS = 250;
-
-/**
- * How far back to look for the activity the push is about. A webhook fires on a
- * fresh activity, so a month is generous, and a bounded window keeps the scan
- * off a year of stored bodies.
- */
-const ACTIVITY_LOOKBACK_DAYS = 30;
 
 /**
  * Read notification preferences directly from AsyncStorage.
@@ -105,52 +98,6 @@ async function waitForDownloadCompletion(
     await sleep(GPS_DOWNLOAD_POLL_MS);
   }
   return false;
-}
-
-/** The engine methods the activity-body lookup needs. */
-interface ActivityBodyReader {
-  getActivityBodies: (oldestTs: number, newestTs: number) => string[];
-  syncActivityDetail: (activityId: string) => boolean;
-}
-
-/** The stored body for one activity, or null if the engine has not got it. */
-function readStoredActivity(
-  engine: ActivityBodyReader,
-  activityId: string
-): Record<string, unknown> | null {
-  const newest = Math.floor(Date.now() / 1000) + 86_400;
-  const oldest = newest - ACTIVITY_LOOKBACK_DAYS * 86_400;
-  for (const body of engine.getActivityBodies(oldest, newest)) {
-    try {
-      const parsed = JSON.parse(body) as Record<string, unknown>;
-      if (parsed?.id === activityId) return parsed;
-    } catch {
-      // A body that will not parse is not the one we are after.
-    }
-  }
-  return null;
-}
-
-/**
- * The activity's metadata, asking the engine to fetch it when it is not already
- * stored. The engine owns the request; this waits for the body to land because
- * the notification cannot be written without a name and a type.
- */
-async function loadActivityMetadata(
-  engine: ActivityBodyReader,
-  activityId: string
-): Promise<Record<string, unknown> | null> {
-  const stored = readStoredActivity(engine, activityId);
-  if (stored) return stored;
-
-  engine.syncActivityDetail(activityId);
-  const deadline = Date.now() + ACTIVITY_DETAIL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    await sleep(ACTIVITY_DETAIL_POLL_MS);
-    const found = readStoredActivity(engine, activityId);
-    if (found) return found;
-  }
-  return null;
 }
 
 /**
@@ -208,7 +155,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       engine,
     } = require('veloqrs');
 
-    const activity = await loadActivityMetadata(engine, activityId);
+    const activity = await awaitActivityBody(engine, activityId, ACTIVITY_DETAIL_TIMEOUT_MS);
     if (!activity) return null;
 
     const activityInfo: ActivityInfo = {

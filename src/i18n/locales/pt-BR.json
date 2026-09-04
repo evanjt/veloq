@@ -1038,6 +1038,7 @@
     "defaultName": "Trecho {{number}}",
     "deleteSection": "Excluir seção",
     "deleteSectionConfirm": "Tem certeza de que deseja excluir esta seção? Esta ação não pode ser desfeita.",
+    "detectionPaused": "Detecção pausada enquanto suas seções são migradas",
     "disabled": "Desativada",
     "removeSection": "Remover seção",
     "removeSectionConfirm": "Esta seção não aparecerá nos detalhes da atividade nem nos insights. Você pode restaurá-la a partir da lista de seções.",

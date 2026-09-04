@@ -1038,6 +1038,7 @@
     "defaultName": "Sezione {{number}}",
     "deleteSection": "Elimina sezione",
     "deleteSectionConfirm": "Sei sicuro di voler eliminare questa sezione? Questa azione non può essere annullata.",
+    "detectionPaused": "Rilevamento in pausa mentre le tue sezioni vengono migrate",
     "disabled": "Disattivata",
     "removeSection": "Rimuovi sezione",
     "removeSectionConfirm": "Questa sezione non apparirà nei dettagli dell'attività o negli insights. Puoi ripristinarla dall'elenco delle sezioni.",
