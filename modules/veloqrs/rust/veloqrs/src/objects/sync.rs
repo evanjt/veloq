@@ -454,6 +454,22 @@ where
     }
 }
 
+/// Store one activity's `time` stream, then tell whoever is waiting for it.
+///
+/// The announcement is made after the engine lock is released, and only when
+/// the write landed: a cold start has nowhere to put the stream, and a screen
+/// told it had arrived would read a gap that is still there.
+pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
+    let id = activity_id.clone();
+    let stored = crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.set_time_streams_flat(&[id], &times, &[0]);
+    })
+    .await;
+    if stored.is_some() {
+        observer::notify(|o| o.time_streams_stored(vec![activity_id]));
+    }
+}
+
 /// Whether a store attempt put a body where a reader can find it. `None` is a
 /// cold start with nowhere to write, `Some(false)` is a write that failed.
 fn landed(stored: Option<bool>) -> bool {
@@ -1118,10 +1134,7 @@ impl SyncManager {
             for activity_id in missing {
                 match endpoints::fetch_time_stream(&transport, &activity_id, Lane::Backfill).await {
                     Ok(times) if !times.is_empty() => {
-                        crate::persistence::with_persistent_engine_blocking(move |engine| {
-                            engine.set_time_streams_flat(&[activity_id], &times, &[0]);
-                        })
-                        .await;
+                        store_time_stream(activity_id, times).await;
                     }
                     Ok(_) => {}
                     // One activity without streams must not stop the batch;

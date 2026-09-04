@@ -423,9 +423,16 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
                     crate::governor::Lane::Backfill,
                 )) {
                     Ok(times) if !times.is_empty() => {
-                        crate::persistence::with_persistent_engine(|engine| {
+                        let stored = crate::persistence::with_persistent_engine(|engine| {
                             engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
                         });
+                        // Announced with the engine lock released, and only
+                        // when the write landed.
+                        if stored.is_some() {
+                            crate::objects::observer::notify(|o| {
+                                o.time_streams_stored(vec![activity_id.clone()])
+                            });
+                        }
                     }
                     Ok(_) => {}
                     Err(e) => info!(
