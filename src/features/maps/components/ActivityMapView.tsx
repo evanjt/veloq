@@ -30,6 +30,7 @@ import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
 import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
+import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
   SectionCreationOverlay,
   type CreationState,
@@ -228,6 +229,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     handleMapFailed,
     handleRegionIsChanging,
     handleRegionDidChange: handleCameraRegionDidChange,
+    settledCameraRef,
     resetOrientation,
     handleGetLocation,
   } = useMapCamera({
@@ -402,6 +404,16 @@ export const ActivityMapView = memo(function ActivityMapView({
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);
+
+  // The 3D layer draws over the 2D one once it is ready, and fullscreen draws
+  // over both, so in either case the inline 2D surface is invisible and comes
+  // down rather than being hidden. Where it was is captured on the way out, so
+  // the remount opens there instead of fitting the track again.
+  const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen;
+  const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
+  useEffect(() => {
+    if (!show2DSurface) setCamera2DOnHide(settledCameraRef.current);
+  }, [show2DSurface, settledCameraRef]);
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -629,34 +641,34 @@ export const ActivityMapView = memo(function ActivityMapView({
   return (
     <View style={[styles.outerContainer, { height }]}>
       <View style={styles.container}>
-        {/* 2D Map layer - hidden when 3D is ready */}
-        <View
-          style={[
-            styles.mapLayer,
-            is3DMode && is3DReady && styles.hiddenLayer,
-            isFullscreen && styles.hiddenLayer,
-          ]}
-        >
-          <View
-            style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
-            testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
-          >
-            <MapSurface
-              ref={surfaceRef}
-              mapStyle={mapStyle}
-              initialCamera={{ bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }}
-              sources={sources}
-              layers={layers}
-              images={OVERLAY_IMAGES}
-              interactiveLayers={SECTION_MARKER_LAYER_IDS}
-              onMapReady={handleMapReady}
-              onMapFailed={handleMapFailed}
-              onPress={handleSurfacePress}
-              onRegionIsChanging={handleRegionIsChanging}
-              onRegionDidChange={handleRegionDidChange}
-            />
+        {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
+            one being looked at: a hidden WebView keeps its GL context and its
+            tile textures, which is the whole cost of having it. */}
+        {show2DSurface && (
+          <View style={styles.mapLayer}>
+            <View
+              style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
+              testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
+            >
+              <MapSurface
+                ref={surfaceRef}
+                mapStyle={mapStyle}
+                initialCamera={
+                  camera2DOnHide ?? { bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }
+                }
+                sources={sources}
+                layers={layers}
+                images={OVERLAY_IMAGES}
+                interactiveLayers={SECTION_MARKER_LAYER_IDS}
+                onMapReady={handleMapReady}
+                onMapFailed={handleMapFailed}
+                onPress={handleSurfacePress}
+                onRegionIsChanging={handleRegionIsChanging}
+                onRegionDidChange={handleRegionDidChange}
+              />
+            </View>
           </View>
-        </View>
+        )}
 
         {/* 3D Map layer */}
         {/* Error boundary prevents a 3D crash from taking out the entire map */}

@@ -43,6 +43,13 @@ static CUTOVER_RUNNING: AtomicBool = AtomicBool::new(false);
 /// different ids, and the card must not claim otherwise.
 pub const CONTENT_DERIVED_IDS: bool = true;
 
+/// Digest of the configuration this build's corpus figures were measured at.
+/// The parameters are per device and no server holds them, so two devices
+/// only cut a library the same way while both sit on this one.
+fn validated_config_digest() -> String {
+    super::sections::section_config_digest(&tracematch::sections::SectionConfig::default())
+}
+
 /// The claims the change card is allowed to make on this build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChangeCardSupport {
@@ -583,7 +590,11 @@ impl PersistentEngine {
             revert: true,
             retired: true,
             pinned_survive: true,
-            same_on_every_device: CONTENT_DERIVED_IDS,
+            // Reproducible ids are half of it. The other half is the config,
+            // which the user's own sliders move and nothing syncs.
+            same_on_every_device: CONTENT_DERIVED_IDS
+                && super::sections::section_config_digest(&self.section_config)
+                    == validated_config_digest(),
         }
     }
 

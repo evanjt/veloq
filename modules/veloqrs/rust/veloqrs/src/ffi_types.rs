@@ -950,6 +950,11 @@ pub struct FfiRoutePerformanceResult {
     pub reverse_stats: Option<FfiDirectionStats>,
     /// Current activity's rank (1 = fastest), if current_activity_id was provided
     pub current_rank: Option<u32>,
+    /// Attempts with a moving time, over the same population as `current_rank`
+    pub attempt_count: u32,
+    /// Share of those attempts slower than the current one, 0 to 100.
+    /// `None` for a lone attempt or an activity that is not on the route.
+    pub percentile_rank: Option<f64>,
 }
 
 impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
@@ -971,6 +976,8 @@ impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
             forward_stats: r.forward_stats.map(FfiDirectionStats::from),
             reverse_stats: r.reverse_stats.map(FfiDirectionStats::from),
             current_rank: r.current_rank,
+            attempt_count: r.attempt_count,
+            percentile_rank: r.percentile_rank,
         }
     }
 }
@@ -2011,6 +2018,8 @@ mod tests {
                 avg_speed: Some(3.1),
             }),
             current_rank: Some(3),
+            attempt_count: 2,
+            percentile_rank: Some(50.0),
         };
 
         let ffi = FfiRoutePerformanceResult::from(result);
@@ -2020,6 +2029,8 @@ mod tests {
         assert_eq!(ffi.activity_metrics.len(), 1);
         assert_eq!(ffi.activity_metrics[0].moving_time, 3500);
         assert_eq!(ffi.best.as_ref().unwrap().activity_id, "act_best");
+        assert_eq!(ffi.attempt_count, 2);
+        assert_eq!(ffi.percentile_rank, Some(50.0));
         assert_eq!(ffi.best_forward.as_ref().unwrap().activity_id, "act_fwd");
         assert_eq!(ffi.best_reverse.as_ref().unwrap().activity_id, "act_rev");
         assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
