@@ -79,7 +79,11 @@ fn seed_engine() {
         for i in 0..4 {
             let id = format!("ride_{i}");
             engine
-                .add_activity(id.clone(), line_track(f64::from(i) * 0.00002), "Ride".into())
+                .add_activity(
+                    id.clone(),
+                    line_track(f64::from(i) * 0.00002),
+                    "Ride".into(),
+                )
                 .expect("add activity");
             engine
                 .update_activity_metadata(
