@@ -581,3 +581,47 @@ fn refuse_the_archive(path: &std::path::Path) {
         )
         .expect("install the refusal");
 }
+
+/// Content-derived ids make one cut reproducible. They do not make two devices
+/// cut the same way: the parameters are per device and no server holds them,
+/// so the row is only honest while the config is the one the build was
+/// validated at.
+#[test]
+fn identical_sections_is_claimed_only_at_the_validated_configuration() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+
+    with_persistent_engine(|engine| {
+        engine.set_section_config(tracematch::sections::SectionConfig::default());
+        assert!(
+            engine.change_card_support().same_on_every_device,
+            "a default install is at the validated configuration"
+        );
+
+        let mut strict = engine.get_section_config();
+        strict.proximity_threshold = 75.0;
+        engine.set_section_config(strict);
+        assert!(
+            !engine.change_card_support().same_on_every_device,
+            "a device carrying its own proximity threshold cuts differently"
+        );
+
+        engine.set_section_config(tracematch::sections::SectionConfig {
+            min_activities: 4,
+            ..Default::default()
+        });
+        assert!(
+            !engine.change_card_support().same_on_every_device,
+            "any parameter away from the validated value breaks the claim"
+        );
+
+        engine.set_section_config(tracematch::sections::SectionConfig::default());
+        assert!(
+            engine.change_card_support().same_on_every_device,
+            "the claim comes back once the config is the validated one again"
+        );
+    })
+    .unwrap();
+}

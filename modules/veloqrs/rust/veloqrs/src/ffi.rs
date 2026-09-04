@@ -174,6 +174,63 @@ pub(crate) fn elevation_state_of(points: &[GpsPoint]) -> u8 {
     }
 }
 
+/// Store one downloaded track, attach it to the catalogue, then announce it.
+///
+/// Returns whether the track landed and how many portions attached. The
+/// announcement is made after `with_persistent_engine` returns: the binding
+/// blocks this thread until JavaScript answers, and a listener reading the
+/// engine under the write lock would deadlock.
+fn store_downloaded_track(
+    activity_id: &str,
+    coords: Vec<GpsPoint>,
+    sport: String,
+    streams: &[crate::net::types::StreamDto],
+) -> (bool, u32) {
+    let elevation_state = elevation_state_of(&coords);
+
+    // Store directly in engine, then attach: junction rows against the
+    // existing catalogue so visits and laps are current while the download
+    // runs. New sections wait for conditioning.
+    let (stored, attached_portions) = crate::persistence::with_persistent_engine(|engine| {
+        let ok = engine
+            .add_activity(activity_id.to_string(), coords, sport)
+            .is_ok();
+        if ok {
+            // The insert replaces the row and resets the column, so
+            // provenance is recorded after the points land.
+            if let Err(e) =
+                engine.record_elevation_state(&[(activity_id.to_string(), elevation_state)])
+            {
+                log::warn!(
+                    "[Elevation] {} stored without provenance: {}",
+                    activity_id,
+                    e
+                );
+            }
+            // Empty unless the fetch was widened. The track is already down,
+            // so a failure here costs the series and not the activity.
+            if !streams.is_empty()
+                && let Err(e) = engine.store_activity_streams(activity_id, streams)
+            {
+                log::warn!("[Streams] {} stored without its series: {}", activity_id, e);
+            }
+        }
+        let portions = if ok {
+            engine.attach_stored_activity(activity_id).1
+        } else {
+            0
+        };
+        (ok, portions)
+    })
+    .unwrap_or((false, 0));
+
+    if stored {
+        crate::objects::observer::notify(|o| o.gps_track_stored(activity_id.to_string()));
+    }
+
+    (stored, attached_portions)
+}
+
 /// Start a background fetch that downloads GPS data and stores it directly
 /// in the persistent engine. This eliminates the FFI round-trip where GPS
 /// data would otherwise be sent to TypeScript and back.
@@ -319,56 +376,13 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
 
                             // Capture point count before moving coords
                             let point_count = coords.len();
-                            let elevation_state = elevation_state_of(&coords);
 
-                            // Store directly in engine, then attach: junction
-                            // rows against the existing catalogue so visits
-                            // and laps are current while the download runs.
-                            // New sections wait for conditioning.
-                            let (stored, attached_portions) =
-                                crate::persistence::with_persistent_engine(|engine| {
-                                    let ok = engine
-                                        .add_activity(result.activity_id.clone(), coords, sport)
-                                        .is_ok();
-                                    if ok {
-                                        // The insert replaces the row and
-                                        // resets the column, so provenance is
-                                        // recorded after the points land.
-                                        if let Err(e) = engine.record_elevation_state(&[(
-                                            result.activity_id.clone(),
-                                            elevation_state,
-                                        )]) {
-                                            log::warn!(
-                                                "[Elevation] {} stored without provenance: {}",
-                                                result.activity_id,
-                                                e
-                                            );
-                                        }
-                                        // Empty unless the fetch was widened.
-                                        // The track is already down, so a
-                                        // failure here costs the series and
-                                        // not the activity.
-                                        if !result.streams.is_empty()
-                                            && let Err(e) = engine.store_activity_streams(
-                                                &result.activity_id,
-                                                &result.streams,
-                                            )
-                                        {
-                                            log::warn!(
-                                                "[Streams] {} stored without its series: {}",
-                                                result.activity_id,
-                                                e
-                                            );
-                                        }
-                                    }
-                                    let portions = if ok {
-                                        engine.attach_stored_activity(&result.activity_id).1
-                                    } else {
-                                        0
-                                    };
-                                    (ok, portions)
-                                })
-                                .unwrap_or((false, 0));
+                            let (stored, attached_portions) = store_downloaded_track(
+                                &result.activity_id,
+                                coords,
+                                sport,
+                                &result.streams,
+                            );
                             total_attached_portions += attached_portions;
 
                             let activity_time = elapsed_ms(activity_start);
@@ -423,9 +437,16 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
                     crate::governor::Lane::Backfill,
                 )) {
                     Ok(times) if !times.is_empty() => {
-                        crate::persistence::with_persistent_engine(|engine| {
+                        let stored = crate::persistence::with_persistent_engine(|engine| {
                             engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
                         });
+                        // Announced with the engine lock released, and only
+                        // when the write landed.
+                        if stored.is_some() {
+                            crate::objects::observer::notify(|o| {
+                                o.time_streams_stored(vec![activity_id.clone()])
+                            });
+                        }
                     }
                     Ok(_) => {}
                     Err(e) => info!(
@@ -755,8 +776,107 @@ pub fn detect_sections_standalone(
 
 #[cfg(test)]
 mod tests {
-    use super::{elevation_state_of, track_points};
-    use crate::persistence::{ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE};
+    use std::sync::{Arc, Mutex};
+
+    use super::{elevation_state_of, store_downloaded_track, track_points};
+    use crate::objects::observer::{EngineObserver, set_observer};
+    use crate::persistence::{
+        ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, PERSISTENT_ENGINE,
+    };
+    use crate::test_globals::{init_global_engine, serial_global_state};
+    use tracematch::GpsPoint;
+
+    /// Records each announced track, and what the engine looked like from
+    /// inside the announcement: whether the write lock was free, and how many
+    /// points the track held.
+    struct TrackRecorder {
+        seen: Mutex<Vec<(String, bool, usize)>>,
+    }
+
+    impl TrackRecorder {
+        fn new() -> Arc<Self> {
+            Arc::new(Self {
+                seen: Mutex::new(Vec::new()),
+            })
+        }
+
+        fn seen(&self) -> Vec<(String, bool, usize)> {
+            self.seen.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        }
+    }
+
+    impl EngineObserver for TrackRecorder {
+        fn gps_track_stored(&self, activity_id: String) {
+            // `try_write` and not `with_persistent_engine`: an announcement
+            // made under the lock must fail this test, not hang it.
+            let (free, points) = match PERSISTENT_ENGINE.try_write() {
+                Ok(mut guard) => {
+                    let points = guard
+                        .as_mut()
+                        .and_then(|engine| engine.get_gps_track(&activity_id))
+                        .map(|track| track.len())
+                        .unwrap_or(0);
+                    (true, points)
+                }
+                Err(_) => (false, 0),
+            };
+            self.seen
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push((activity_id, free, points));
+        }
+
+        fn sync_progress(&self) {}
+        fn sync_settled(&self) {}
+        fn body_stored(&self, _kind: String, _activity_id: String) {}
+        fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
+        fn fit_parsed(&self, _activity_id: String) {}
+        fn detection_applied(&self) {}
+        fn tiles_generated(&self) {}
+        fn backfill_phase(&self, _phase: String) {}
+        fn cutover_settled(&self) {}
+        fn preview_finished(&self) {}
+    }
+
+    fn downloaded_track(seed: f64) -> Vec<GpsPoint> {
+        (0..8)
+            .map(|i| GpsPoint::new(46.2 + seed + f64::from(i) * 0.001, 7.35 + seed))
+            .collect()
+    }
+
+    #[test]
+    fn a_downloaded_track_is_announced_with_the_lock_released() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_announce.db");
+        let recorder = TrackRecorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let (stored, _portions) =
+            store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[]);
+        set_observer(None);
+
+        assert!(stored, "the fixture track must store");
+        assert_eq!(
+            recorder.seen(),
+            vec![("a1".to_string(), true, 8)],
+            "the announcement names the activity, leaves the write lock free and follows the commit"
+        );
+    }
+
+    #[test]
+    fn a_re_ingested_track_is_announced_again() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("gps_reannounce.db");
+        let recorder = TrackRecorder::new();
+        set_observer(Some(recorder.clone()));
+
+        store_downloaded_track("a1", downloaded_track(0.0), "Ride".into(), &[]);
+        store_downloaded_track("a1", downloaded_track(0.5), "Ride".into(), &[]);
+        set_observer(None);
+
+        let ids: Vec<String> = recorder.seen().into_iter().map(|(id, _, _)| id).collect();
+        assert_eq!(ids, vec!["a1".to_string(), "a1".to_string()]);
+    }
 
     #[test]
     fn a_track_carrying_any_elevation_reads_as_fetched() {

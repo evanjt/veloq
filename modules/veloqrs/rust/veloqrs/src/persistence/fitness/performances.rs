@@ -13,6 +13,29 @@ use std::collections::HashMap;
 
 use super::super::PersistentEngine;
 
+/// Attempts on a route and where one of them sits among them.
+/// The count is the performances carrying a moving time; the percentile is the
+/// share of those slower than `current_activity_id`, `None` when it is not one
+/// of them or is the only one.
+fn attempt_standing(
+    performances: &[RoutePerformance],
+    current_activity_id: Option<&str>,
+) -> (u32, Option<f64>) {
+    let timed: Vec<&RoutePerformance> = performances.iter().filter(|p| p.moving_time > 0).collect();
+    let count = timed.len() as u32;
+    if count < 2 {
+        return (count, None);
+    }
+    let current = current_activity_id
+        .and_then(|id| timed.iter().find(|p| p.activity_id == id))
+        .map(|p| p.moving_time);
+    let percentile = current.map(|moving_time| {
+        let slower = timed.iter().filter(|p| p.moving_time > moving_time).count();
+        slower as f64 * 100.0 / count as f64
+    });
+    (count, percentile)
+}
+
 impl PersistentEngine {
     /// Set time streams for activities from flat buffer.
     /// Time streams are cumulative seconds at each GPS point, used for section performance calculations.
@@ -863,6 +886,8 @@ impl PersistentEngine {
                     forward_stats: None,
                     reverse_stats: None,
                     current_rank: None,
+                    attempt_count: 0,
+                    percentile_rank: None,
                 };
             }
         };
@@ -1033,6 +1058,8 @@ impl PersistentEngine {
             })
         };
 
+        let (attempt_count, percentile_rank) = attempt_standing(&performances, current_activity_id);
+
         RoutePerformanceResult {
             performances,
             activity_metrics: metrics_list,
@@ -1042,6 +1069,8 @@ impl PersistentEngine {
             forward_stats,
             reverse_stats,
             current_rank,
+            attempt_count,
+            percentile_rank,
         }
     }
 
@@ -1064,6 +1093,8 @@ impl PersistentEngine {
                     forward_stats: None,
                     reverse_stats: None,
                     current_rank: None,
+                    attempt_count: 0,
+                    percentile_rank: None,
                 };
             }
         };
@@ -1079,6 +1110,8 @@ impl PersistentEngine {
                 forward_stats: None,
                 reverse_stats: None,
                 current_rank: None,
+                attempt_count: 0,
+                percentile_rank: None,
             };
         }
 
@@ -1131,6 +1164,7 @@ impl PersistentEngine {
         }
 
         performances.sort_by_key(|p| p.date);
+        let (attempt_count, _) = attempt_standing(&performances, None);
 
         RoutePerformanceResult {
             performances,
@@ -1141,6 +1175,95 @@ impl PersistentEngine {
             forward_stats: None,
             reverse_stats: None,
             current_rank: None,
+            attempt_count,
+            percentile_rank: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::attempt_standing;
+    use crate::RoutePerformance;
+
+    fn perf(activity_id: &str, moving_time: u32) -> RoutePerformance {
+        RoutePerformance {
+            activity_id: activity_id.to_string(),
+            name: activity_id.to_string(),
+            date: 1_700_000_000,
+            speed: 1.0,
+            duration: moving_time,
+            moving_time,
+            distance: 1000.0,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            is_current: false,
+            direction: "same".to_string(),
+            match_percentage: None,
+        }
+    }
+
+    fn four() -> Vec<RoutePerformance> {
+        vec![
+            perf("a", 300),
+            perf("b", 320),
+            perf("c", 340),
+            perf("d", 360),
+        ]
+    }
+
+    #[test]
+    fn test_attempt_standing_fastest_of_four() {
+        // 3 of the 4 are slower
+        assert_eq!(attempt_standing(&four(), Some("a")), (4, Some(75.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_slowest_of_four() {
+        assert_eq!(attempt_standing(&four(), Some("d")), (4, Some(0.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_lone_attempt() {
+        assert_eq!(attempt_standing(&[perf("a", 300)], Some("a")), (1, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_ignores_zero_moving_time() {
+        let attempts = vec![perf("a", 300), perf("b", 0), perf("c", 340)];
+        assert_eq!(attempt_standing(&attempts, Some("a")), (2, Some(50.0)));
+    }
+
+    #[test]
+    fn test_attempt_standing_current_without_moving_time() {
+        let attempts = vec![perf("a", 300), perf("b", 0)];
+        assert_eq!(attempt_standing(&attempts, Some("b")), (1, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_current_off_the_route() {
+        let attempts = vec![perf("a", 300), perf("b", 320)];
+        assert_eq!(attempt_standing(&attempts, Some("z")), (2, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_without_a_current_activity() {
+        let attempts = vec![perf("a", 300), perf("b", 320)];
+        assert_eq!(attempt_standing(&attempts, None), (2, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_empty_route() {
+        assert_eq!(attempt_standing(&[], Some("a")), (0, None));
+    }
+
+    #[test]
+    fn test_attempt_standing_ties_are_not_slower() {
+        let attempts = vec![perf("a", 300), perf("b", 300), perf("c", 400)];
+        let (count, percentile) = attempt_standing(&attempts, Some("a"));
+        assert_eq!(count, 3);
+        // 1 of 3 is slower, the tie is not
+        assert!((percentile.unwrap() - 33.3333).abs() < 0.001);
     }
 }
