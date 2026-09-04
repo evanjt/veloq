@@ -909,6 +909,9 @@ export interface TranslationResource {
     sectionWord: string;
     setAsReference: string;
     setAsReferenceConfirm: string;
+    standingBest: string;
+    standingRank: string;
+    standingRankPercentile: string;
   };
 
   sectionHistory: {
