@@ -5,6 +5,7 @@
 use std::sync::{Mutex, MutexGuard};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
+use veloqrs::objects::observer::{EngineObserver, set_observer};
 use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::sections::DETECTOR_METHOD;
@@ -429,4 +430,154 @@ fn no_section_keeps_an_older_build_geometry_across_the_cutover() {
         "{} of {total} migrated sections carry a line no activity can re-slice",
         stranded.len()
     );
+}
+
+// ───────────────────────────────────────────────────────────────────
+// The settle announcement
+// ───────────────────────────────────────────────────────────────────
+
+/// What the engine looked like at the instant the observer was told.
+#[derive(Debug)]
+struct Settle {
+    running: bool,
+    phase: String,
+    lock_free: bool,
+    diff_readable: bool,
+}
+
+/// Records one snapshot per settle it is told about.
+struct SettleRecorder {
+    settles: Mutex<Vec<Settle>>,
+}
+
+impl SettleRecorder {
+    fn new() -> std::sync::Arc<Self> {
+        std::sync::Arc::new(Self {
+            settles: Mutex::new(Vec::new()),
+        })
+    }
+
+    fn count(&self) -> usize {
+        self.settles.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    fn with<R>(&self, f: impl FnOnce(&Settle) -> R) -> R {
+        let settles = self.settles.lock().unwrap_or_else(|e| e.into_inner());
+        f(settles.first().expect("no settle was announced"))
+    }
+}
+
+impl EngineObserver for SettleRecorder {
+    fn sync_progress(&self) {}
+    fn sync_settled(&self) {}
+    fn body_stored(&self, _kind: String, _activity_id: String) {}
+    fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
+    fn gps_track_stored(&self, _activity_id: String) {}
+    fn fit_parsed(&self, _activity_id: String) {}
+    fn detection_applied(&self) {}
+    fn tiles_generated(&self) {}
+    fn backfill_phase(&self, _phase: String) {}
+    fn cutover_settled(&self) {
+        // A blocking take would hang rather than fail if the run still held the
+        // engine, so the lock is probed and the diff read only if it is free.
+        let lock_free = veloqrs::persistence::PERSISTENT_ENGINE.try_write().is_ok();
+        let progress = veloqrs::ffi::get_cutover_progress();
+        self.settles
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Settle {
+                running: progress.running,
+                phase: progress.phase,
+                lock_free,
+                diff_readable: lock_free && veloqrs::ffi::get_cutover_diff().is_some(),
+            });
+    }
+    fn preview_finished(&self) {}
+}
+
+/// The change card hears the commit rather than polling for it. A completed
+/// run has to reach the observer exactly once, with the engine lock free
+/// (the binding blocks this thread until JavaScript returns), and with
+/// everything the card then reads already durable.
+#[test]
+fn a_completed_cutover_announces_the_settle_once_the_write_is_committed() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    let recorder = SettleRecorder::new();
+    set_observer(Some(recorder.clone()));
+    let outcome = veloqrs::persistence::cutover::run_cutover().expect("cutover");
+    set_observer(None);
+
+    assert!(matches!(outcome, CutoverOutcome::Completed(_)));
+    assert_eq!(recorder.count(), 1, "a completed run announces once");
+    recorder.with(|settle| {
+        assert!(settle.lock_free, "the announce came under the engine lock");
+        assert!(!settle.running, "the running flag was still up: {settle:?}");
+        assert_eq!(settle.phase, "complete");
+        assert!(settle.diff_readable, "the diff was not stored yet");
+    });
+}
+
+/// A run with nothing to migrate is not news. Announcing it would have the
+/// card report a rebuild that never happened.
+#[test]
+fn a_run_that_is_not_owed_announces_nothing() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    veloqrs::persistence::cutover::run_cutover().expect("first run");
+
+    let recorder = SettleRecorder::new();
+    set_observer(Some(recorder.clone()));
+    let outcome = veloqrs::persistence::cutover::run_cutover().expect("second run");
+    set_observer(None);
+
+    assert_eq!(outcome, CutoverOutcome::NotOwed);
+    assert_eq!(recorder.count(), 0, "a not-owed run announced a settle");
+}
+
+/// A failure partway is the one result the card has to be told about, since
+/// the failed line is all a user who never saw the run gets. The guard clears
+/// the flag and announces on every exit, not only the successful one.
+#[test]
+fn a_failed_cutover_announces_the_settle() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    refuse_the_archive(&path);
+
+    let recorder = SettleRecorder::new();
+    set_observer(Some(recorder.clone()));
+    let result = veloqrs::persistence::cutover::run_cutover();
+    set_observer(None);
+
+    assert!(result.is_err(), "the archive was supposed to be refused");
+    assert_eq!(recorder.count(), 1, "a failed run announces once");
+    recorder.with(|settle| {
+        assert!(settle.lock_free, "the announce came under the engine lock");
+        assert!(!settle.running, "the running flag was still up: {settle:?}");
+        assert_ne!(
+            settle.phase, "complete",
+            "a failed run announced as complete"
+        );
+    });
+
+    // The failure left the cutover owed, so a later launch retries it.
+    assert!(veloqrs::ffi::is_cutover_pending());
+}
+
+/// Refuses every archive insert, which fails the cutover at its first write.
+fn refuse_the_archive(path: &std::path::Path) {
+    rusqlite::Connection::open(path)
+        .expect("open")
+        .execute_batch(
+            "CREATE TRIGGER refuse_archive BEFORE INSERT ON section_catalogue_archive
+             BEGIN SELECT RAISE(ABORT, 'archive refused'); END",
+        )
+        .expect("install the refusal");
 }
