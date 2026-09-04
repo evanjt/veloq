@@ -65,15 +65,6 @@ fn ride(seed: f64) -> Vec<GpsPoint> {
         .collect()
 }
 
-/// The observer registry is process-wide, so a test that registers one runs
-/// alone. Without this, one test's `set_observer(None)` lands between another's
-/// registration and the pass it is waiting on.
-static SERIAL: Mutex<()> = Mutex::new(());
-
-fn serial() -> MutexGuard<'static, ()> {
-    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 fn seeded_engine() -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("heatmap.db");
