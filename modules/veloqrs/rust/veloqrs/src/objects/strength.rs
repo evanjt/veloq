@@ -465,6 +465,11 @@ impl StrengthManager {
             Ok(())
         })??;
 
+        // The caller reads the count back on this tick, so the card that asked
+        // is served. Every other card on the same activity is not, and the
+        // reader carries no timer to find out on its own.
+        observer::notify(|o| o.fit_parsed(activity_id.clone()));
+
         Ok(count)
     }
 
@@ -509,7 +514,13 @@ impl StrengthManager {
                     msg: format!("{}", err),
                 })?;
             Ok(())
-        })?
+        })??;
+
+        // Same reason as the import above, and it is the demo seed's only
+        // signal that its synthetic sets have landed.
+        observer::notify(|o| o.fit_parsed(activity_id.clone()));
+
+        Ok(())
     }
 
     /// Check if there are any strength activities with exercise data.
@@ -807,6 +818,41 @@ mod tests {
 
         assert!(recorder.events().is_empty());
         assert!(!with_engine(|e| e.is_fit_processed("a3").unwrap()).unwrap());
+    }
+
+    /// Both of these are called from TypeScript and return the verdict to the
+    /// caller, so the card that asked is served either way. Any other card on
+    /// the same activity, and the demo seed's own reader, hear nothing without
+    /// the announcement.
+    #[test]
+    fn test_importing_fit_bytes_announces_the_verdict() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_import.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        // Not a FIT file, so the parse fails and nothing is committed.
+        let manager = StrengthManager::new();
+        assert!(
+            manager
+                .import_sets_from_fit("a4".to_string(), b"not a fit file".to_vec())
+                .is_err()
+        );
+        assert!(
+            recorder.events().is_empty(),
+            "a parse that committed nothing has nothing to announce"
+        );
+
+        manager
+            .bulk_insert_exercise_sets("a5".to_string(), vec![])
+            .expect("an empty seed still settles the activity");
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a5"]);
+        assert!(
+            with_engine(|e| e.is_fit_processed("a5").unwrap()).unwrap(),
+            "the verdict must be committed before the announcement"
+        );
     }
 
     /// A settled verdict permanently excludes an activity from the retry paths,
