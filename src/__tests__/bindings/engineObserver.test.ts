@@ -11,7 +11,9 @@ import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 
 type Observer = Record<string, (...args: unknown[]) => void>;
 
-function clientWithFakeEngine(): { client: InstanceType<typeof EngineClient>; observer: Observer } {
+type Client = ReturnType<typeof EngineClient.getInstance>;
+
+function clientWithFakeEngine(): { client: Client; observer: Observer } {
   const client = EngineClient.getInstance();
   let registered: Observer | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
