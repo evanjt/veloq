@@ -12,6 +12,13 @@ const log = debug.create('RouteSettings');
 
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 
+/**
+ * The engine's own copy of the switch. Rust owns what the engine does, so the
+ * refusal lives there and this store writes through to it; the key is Rust's
+ * (`settings_keys::DETECTION_ENABLED`) and absent means on.
+ */
+const DETECTION_ENABLED_KEY = '__detection_enabled';
+
 interface RouteSettings {
   /** Whether route matching feature is enabled */
   enabled: boolean;
@@ -104,6 +111,12 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
       const { getEngine } = require('@/shared/native/engine');
       const engine = getEngine();
       if (engine) {
+        // The engine starts a conditioning detect at the end of every stored
+        // batch and used to know nothing about this switch, so with it off it
+        // kept cutting the catalogue while the screens looked away (`B258`).
+        // Written before the refresh below, so nothing can start a detect in
+        // the window between the two.
+        engine.setSetting?.(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
         if (!enabled) {
           // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
           engine.clearRoutesAndSections();

@@ -31,6 +31,11 @@ pub mod settings_keys {
     /// renumbering every section. Preferred by the loader; the individual keys remain as a
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
+
+    /// Whether the athlete wants section detection at all. Absent means yes:
+    /// the feature is on by default and an install that never touched the
+    /// switch must not read as opted out.
+    pub const DETECTION_ENABLED: &str = "__detection_enabled";
 }
 
 impl PersistentEngine {
@@ -58,6 +63,30 @@ impl PersistentEngine {
             params![key, value],
         )?;
         Ok(())
+    }
+
+    /// Whether section detection is switched on.
+    ///
+    /// The switch used to live in TypeScript alone, so the engine kept cutting
+    /// the catalogue on every sync while the screens looked away (`B258`).
+    /// Absent, unreadable or anything but "0" reads as on: the failure mode of
+    /// a lost setting has to be the feature working, not silently off.
+    pub fn detection_enabled(&self) -> bool {
+        !matches!(
+            self.get_setting(settings_keys::DETECTION_ENABLED)
+                .ok()
+                .flatten()
+                .as_deref(),
+            Some("0")
+        )
+    }
+
+    /// Turn section detection on or off for this library.
+    pub fn set_detection_enabled(&self, enabled: bool) -> SqlResult<()> {
+        self.set_setting(
+            settings_keys::DETECTION_ENABLED,
+            if enabled { "1" } else { "0" },
+        )
     }
 
     /// Delete a single setting.
