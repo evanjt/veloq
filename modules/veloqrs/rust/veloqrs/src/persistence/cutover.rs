@@ -612,14 +612,24 @@ pub fn run_cutover() -> Result<CutoverOutcome, String> {
 
 /// The run itself, with [`CUTOVER_RUNNING`] already claimed by the caller.
 fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
-    // Ensure we clear the flag on all exit paths.
-    struct RunGuard;
+    // Clears the flag and announces the settle on every exit path, so a failure
+    // partway is heard as well as a completion. Declared first, so it drops
+    // after the phase clock and the suspension and nothing holds the engine
+    // lock by then: the observer blocks this thread until JavaScript returns.
+    // `announce` is armed only once the run is owed, since a not-owed run
+    // rebuilt nothing to report.
+    struct RunGuard {
+        announce: bool,
+    }
     impl Drop for RunGuard {
         fn drop(&mut self) {
             CUTOVER_RUNNING.store(false, Ordering::SeqCst);
+            if self.announce {
+                crate::objects::observer::notify(|o| o.cutover_settled());
+            }
         }
     }
-    let _guard = RunGuard;
+    let mut guard = RunGuard { announce: false };
 
     // A failure anywhere below leaves the phase saying so, because every
     // success path overwrites it before returning.
@@ -632,6 +642,7 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
         set_phase(PHASE_IDLE);
         return Ok(CutoverOutcome::NotOwed);
     }
+    guard.announce = true;
 
     // Refuses every NEW start. A worker already in the slot is untouched by
     // it, which is what the drain below is for.
