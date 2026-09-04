@@ -1,4 +1,13 @@
-//! One-shot re-fetch of every stored track that does not yet carry elevation.
+//! One-shot fetch of the elevation every stored track is missing.
+//!
+//! The coordinates are already on the device, so the pass asks for
+//! `fixed_altitude,altitude` alone, about a fifth of the bytes the whole track
+//! costs, and splices the series onto the points already stored. Nothing about
+//! a track's geometry moves, so the catalogue derived from it is not
+//! invalidated. The stored `point_count` against the length of the series is
+//! the guard: equal is the same stream, unequal means intervals.icu
+//! re-processed that activity, and only then is the whole track fetched and
+//! replaced, which is what evicts it from the processed set.
 //!
 //! A partly elevated library is worse than a uniformly flat one. A lift
 //! candidate survives when its own track has no elevation, but a track without
@@ -13,11 +22,14 @@
 //! nothing else, because the next run re-derives the same queue from the column
 //! the completed work already advanced.
 //!
-//! Three rules make the pass terminate. Upstream that answers with coordinates
-//! but no usable altitude records `UNAVAILABLE`, so it leaves the queue
+//! Three rules make the pass terminate. Upstream that answers with an altitude
+//! series it cannot fill records `UNAVAILABLE`, so it leaves the queue
 //! permanently. A network failure or an empty response leaves the row
 //! untouched, so it can be asked again. A 401 ends the pass outright rather
-//! than spending the whole library on rejected requests.
+//! than spending the whole library on rejected requests. An elevation ask that
+//! comes back with nothing at all cannot tell the first case from the second,
+//! since the request carried no coordinates, so that activity alone is asked
+//! for whole and the coordinates settle it.
 //!
 //! A track the connection refused is re-asked inside the same pass, in
 //! [`BACKFILL_RETRY_ROUNDS`] rounds that wait longer each time, before it is
@@ -38,7 +50,7 @@
 //! migration. See [`terminal_cut`].
 
 use crate::governor::Lane;
-use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_streams};
+use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
 use crate::objects::detection::{DetectionPoll, poll_detection_once};
@@ -382,22 +394,55 @@ impl PersistentEngine {
 // The run
 // ============================================================================
 
+/// What the pass asks upstream for.
+///
+/// Elevation alone is the ordinary ask: the coordinates of every row in the
+/// queue are already stored, so re-downloading them costs about five times the
+/// bytes and risks replacing geometry the catalogue was derived from. The
+/// whole track is asked for only when the stored sample count no longer
+/// matches upstream.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Ask {
+    Elevation,
+    Track,
+}
+
 /// One track's fetch, reduced to what the store step needs.
 enum Fetched {
-    /// Points carrying at least one elevation.
+    /// An altitude series to splice onto the points already stored.
+    Altitudes(Vec<f64>),
+    /// A whole track, re-fetched because the stored one no longer matches.
     Elevated(Vec<GpsPoint>),
-    /// The response arrived, carried coordinates, and had no usable altitude
-    /// anywhere. Upstream has answered and the answer will not change.
+    /// The response arrived, carried an altitude series, and none of it was
+    /// usable. Upstream has answered and the answer will not change.
     NoAltitude,
-    /// The response arrived empty. A stored track exists, so upstream once had
-    /// coordinates for this activity; an empty body now is a transient answer,
+    /// The response carried no altitude series at all. A stored track exists,
+    /// so upstream once had this activity; nothing now is a transient answer,
     /// and the row stays as it is for the next run to retry.
     Empty,
     /// The request failed. The row stays as it is.
     Failed(NetError),
 }
 
-/// Reduce a parsed response to the store step's cases. Coordinates and
+/// Reduce an elevation-only response to the store step's cases.
+///
+/// A response with no altitude series at all cannot be read here: with the
+/// coordinates left out of the request there is nothing to tell "upstream has
+/// no altitude for this ride" from "upstream answered with nothing at all",
+/// and those end differently, one permanently and one on the next run. It
+/// comes back as [`Fetched::Empty`], which sends that activity to the whole
+/// track ask, where the coordinates settle it.
+fn reduce_altitudes(altitudes: Option<Vec<f64>>) -> Fetched {
+    let Some(altitudes) = altitudes else {
+        return Fetched::Empty;
+    };
+    if !altitudes.iter().any(|e| e.is_finite()) {
+        return Fetched::NoAltitude;
+    }
+    Fetched::Altitudes(altitudes)
+}
+
+/// Reduce a whole-track response to the store step's cases. Coordinates and
 /// altitude already share one index space, so a sample's elevation is the one
 /// at its own index or none at all.
 fn reduce(parsed: ParsedStreams) -> Fetched {
@@ -428,17 +473,25 @@ fn reduce(parsed: ParsedStreams) -> Fetched {
 }
 
 /// Fetch one batch, bounded to [`FETCH_CONCURRENCY`] requests in flight.
-async fn fetch_batch(transport: &Transport, ids: &[String]) -> Vec<(String, Fetched)> {
+async fn fetch_batch(transport: &Transport, ids: &[String], ask: Ask) -> Vec<(String, Fetched)> {
     use futures::stream::{self, StreamExt};
 
     stream::iter(ids.to_vec())
         .map(|id| async move {
-            let outcome =
-                match fetch_streams(transport, &id, Some(TRACK_STREAM_TYPES), Lane::Backfill).await
-                {
-                    Ok(parsed) => reduce(parsed),
+            let outcome = match ask {
+                Ask::Elevation => match fetch_altitude(transport, &id, Lane::Backfill).await {
+                    Ok(altitudes) => reduce_altitudes(altitudes),
                     Err(e) => Fetched::Failed(e),
-                };
+                },
+                Ask::Track => {
+                    match fetch_streams(transport, &id, Some(TRACK_STREAM_TYPES), Lane::Backfill)
+                        .await
+                    {
+                        Ok(parsed) => reduce(parsed),
+                        Err(e) => Fetched::Failed(e),
+                    }
+                }
+            };
             (id, outcome)
         })
         .buffer_unordered(FETCH_CONCURRENCY)
@@ -446,8 +499,8 @@ async fn fetch_batch(transport: &Transport, ids: &[String]) -> Vec<(String, Fetc
         .await
 }
 
-/// Re-fetch every stored track that does not carry elevation, then re-cut the
-/// catalogue once.
+/// Fetch the elevation every flat stored track is missing, splice it onto the
+/// points already held, then re-cut the catalogue once.
 ///
 /// Blocking, so a caller can drive it and see the outcome. Detection is
 /// suspended from before the first fetch until after the terminal phase is
@@ -669,8 +722,8 @@ struct Walk {
 /// the completed count from the first walk, and counting them again pushes the
 /// progress line past its own total.
 fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress: bool) -> Walk {
-    drain_queue_with(queue, count_progress, |ids| {
-        crate::runtime::block_on(fetch_batch(transport, ids))
+    drain_queue_with(queue, count_progress, |ids, ask| {
+        crate::runtime::block_on(fetch_batch(transport, ids, ask))
     })
 }
 
@@ -681,7 +734,7 @@ fn drain_queue(transport: &Transport, queue: &[(String, String)], count_progress
 fn drain_queue_with(
     queue: &[(String, String)],
     count_progress: bool,
-    mut fetch: impl FnMut(&[String]) -> Vec<(String, Fetched)>,
+    mut fetch: impl FnMut(&[String], Ask) -> Vec<(String, Fetched)>,
 ) -> Walk {
     let mut outcome = BackfillOutcome {
         queued: queue.len() as u32,
@@ -706,7 +759,7 @@ fn drain_queue_with(
         }
 
         let ids: Vec<String> = batch.iter().map(|(id, _)| id.clone()).collect();
-        let fetched = fetch(&ids);
+        let fetched = fetch(&ids, Ask::Elevation);
 
         // A rejected credential rejects every remaining request too. Spending
         // the rest of the library on 401s helps nobody, so the pass stops and
@@ -728,45 +781,35 @@ fn drain_queue_with(
             .map(|(id, sport)| (id.as_str(), sport.as_str()))
             .collect();
 
-        let mut to_store: Vec<(String, Vec<GpsPoint>, String)> = Vec::new();
-        let mut states: Vec<(String, u8)> = Vec::new();
-
+        let mut plan = Plan::default();
         for (id, result) in fetched {
-            match result {
-                Fetched::Elevated(points) => {
-                    let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
-                    to_store.push((id, points, sport.to_string()));
-                    consecutive_failures = 0;
-                }
-                Fetched::NoAltitude => {
-                    states.push((id, ELEVATION_STATE_UNAVAILABLE));
-                    outcome.unavailable += 1;
-                    consecutive_failures = 0;
-                }
-                Fetched::Empty => {
-                    log::info!("[Elevation] {} answered empty, left for the next run", id);
-                    outcome.failed += 1;
-                    BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
-                    // Upstream replied, so the connection is fine.
-                    consecutive_failures = 0;
-                }
-                Fetched::Failed(e) => {
-                    BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
-                    if is_connectivity(&e) {
-                        log::info!("[Elevation] {} refused, worth asking again: {}", id, e);
-                        let sport = sports.get(id.as_str()).copied().unwrap_or("Ride");
-                        refused.push((id, sport.to_string()));
-                        consecutive_failures += 1;
-                    } else {
-                        log::info!("[Elevation] {} left for the next run: {}", id, e);
-                        outcome.failed += 1;
-                        consecutive_failures = 0;
-                    }
-                }
+            if plan.sort(id, result, Ask::Elevation, &sports, &mut outcome) {
+                consecutive_failures = 0;
+            } else {
+                consecutive_failures += 1;
             }
         }
 
-        outcome.elevated += store_batch(&to_store, &states) as u32;
+        // A sample count that no longer matches the stored track means
+        // intervals.icu re-processed the activity, so its coordinates really
+        // did move and the catalogue has to be re-derived from what it holds
+        // now. That, and an unreadable answer, are the only reasons a whole
+        // track is ever downloaded again.
+        let (spliced, mut moved) = splice_batch(&plan.splice);
+        outcome.elevated += spliced;
+        moved.append(&mut plan.whole);
+        if !moved.is_empty() {
+            log::info!(
+                "[Elevation] {} tracks need the whole series, asking again",
+                moved.len()
+            );
+            for (id, result) in fetch(&moved, Ask::Track) {
+                plan.sort(id, result, Ask::Track, &sports, &mut outcome);
+            }
+        }
+        refused.append(&mut plan.refused);
+
+        outcome.elevated += store_batch(&plan.store, &plan.states) as u32;
         if count_progress {
             BACKFILL
                 .completed
@@ -789,6 +832,106 @@ fn drain_queue_with(
         refused,
         unasked: Vec::new(),
     }
+}
+
+/// What one batch decided to do, before the engine is touched.
+#[derive(Default)]
+struct Plan {
+    /// Altitude series to splice onto tracks already stored.
+    splice: Vec<(String, Vec<f64>)>,
+    /// Whole tracks to re-ingest, from the whole-track ask.
+    store: Vec<(String, Vec<GpsPoint>, String)>,
+    /// Activities the elevation ask could not settle, which the whole track
+    /// can.
+    whole: Vec<String>,
+    /// Provenance for activities whose points are not being written.
+    states: Vec<(String, u8)>,
+    /// Asked, and the connection refused. Worth asking again.
+    refused: Vec<(String, String)>,
+}
+
+impl Plan {
+    /// Sort one activity's answer into what the store step will do with it.
+    /// Returns whether the answer proves the connection is working, which is
+    /// what resets the consecutive-failure count.
+    fn sort(
+        &mut self,
+        id: String,
+        result: Fetched,
+        ask: Ask,
+        sports: &std::collections::HashMap<&str, &str>,
+        outcome: &mut BackfillOutcome,
+    ) -> bool {
+        let sport = |id: &str| sports.get(id).copied().unwrap_or("Ride").to_string();
+        match result {
+            Fetched::Altitudes(altitudes) => {
+                self.splice.push((id, altitudes));
+                true
+            }
+            Fetched::Elevated(points) => {
+                let sport = sport(&id);
+                self.store.push((id, points, sport));
+                true
+            }
+            Fetched::NoAltitude => {
+                self.states.push((id, ELEVATION_STATE_UNAVAILABLE));
+                outcome.unavailable += 1;
+                true
+            }
+            Fetched::Empty if ask == Ask::Elevation => {
+                // Nothing came back for an ask that left the coordinates out.
+                // The whole track tells an activity upstream has no altitude
+                // for from one it has nothing for at all.
+                self.whole.push(id);
+                true
+            }
+            Fetched::Empty => {
+                log::info!("[Elevation] {} answered empty, left for the next run", id);
+                outcome.failed += 1;
+                BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                // Upstream replied, so the connection is fine.
+                true
+            }
+            Fetched::Failed(e) => {
+                BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
+                if is_connectivity(&e) {
+                    log::info!("[Elevation] {} refused, worth asking again: {}", id, e);
+                    let sport = sport(&id);
+                    self.refused.push((id, sport));
+                    false
+                } else {
+                    log::info!("[Elevation] {} left for the next run: {}", id, e);
+                    outcome.failed += 1;
+                    true
+                }
+            }
+        }
+    }
+}
+
+/// Splice each fetched altitude series onto the track already stored.
+///
+/// Returns how many landed and the ids whose stored sample count no longer
+/// matches upstream, which are the only ones that need the whole track. The
+/// splice sets provenance in the same statement, so nothing here goes through
+/// `record_elevation_state`.
+fn splice_batch(splice: &[(String, Vec<f64>)]) -> (u32, Vec<String>) {
+    if splice.is_empty() {
+        return (0, Vec::new());
+    }
+    with_persistent_engine(|engine| {
+        let mut spliced = 0;
+        let mut moved = Vec::new();
+        for (id, altitudes) in splice {
+            match engine.splice_track_elevation(id, altitudes) {
+                Ok(true) => spliced += 1,
+                Ok(false) => moved.push(id.clone()),
+                Err(e) => log::warn!("[Elevation] splice of {} failed: {}", id, e),
+            }
+        }
+        (spliced, moved)
+    })
+    .unwrap_or((0, Vec::new()))
 }
 
 /// Re-ingest the elevated tracks and stamp provenance for the whole batch.
@@ -1225,7 +1368,7 @@ mod tests {
             connectivity::reset();
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1242,7 +1385,7 @@ mod tests {
             connectivity::set_online(false);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1265,7 +1408,7 @@ mod tests {
             connectivity::set_online(true);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(4 * BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(4 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 connectivity::set_online(false);
                 answer(ids)
@@ -1288,7 +1431,7 @@ mod tests {
             connectivity::set_online(false);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1296,7 +1439,7 @@ mod tests {
 
             connectivity::set_online(true);
             let mut asked_again = 0usize;
-            let second = drain_queue_with(&walk.unasked, true, |ids| {
+            let second = drain_queue_with(&walk.unasked, true, |ids, _ask| {
                 asked_again += ids.len();
                 connectivity::set_online(true);
                 answer(ids)
@@ -1322,7 +1465,7 @@ mod tests {
             connectivity::set_online_at(false, Instant::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
@@ -1413,7 +1556,7 @@ mod tests {
             connectivity::set_online_at(true, Instant::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
-            let walk = drain_queue_with(&queue(BATCH), true, |ids| {
+            let walk = drain_queue_with(&queue(BATCH), true, |ids, _ask| {
                 asked += ids.len();
                 answer(ids)
             });
