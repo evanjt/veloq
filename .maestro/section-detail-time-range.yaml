@@ -42,7 +42,7 @@ tags:
       notVisible:
         id: "sections-list"
     commands:
-      - takeScreenshot: "section-detail-no-sections"
+      - takeScreenshot: "screenshots/section-detail-no-sections"
 - runFlow:
     when:
       visible:
@@ -63,7 +63,7 @@ tags:
       visible:
         id: "section-detail-screen"
     commands:
-      - takeScreenshot: "section-detail-default-range"
+      - takeScreenshot: "screenshots/section-detail-default-range"
       - assertVisible:
           id: "section-time-range-1m"
       - assertVisible:
@@ -78,32 +78,32 @@ tags:
           id: "section-time-range-1m"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-detail-1M"
+      - takeScreenshot: "screenshots/section-detail-1M"
       - tapOn:
           id: "section-time-range-3m"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-detail-3M"
+      - takeScreenshot: "screenshots/section-detail-3M"
       - tapOn:
           id: "section-time-range-6m"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-detail-6M"
+      - takeScreenshot: "screenshots/section-detail-6M"
       - tapOn:
           id: "section-time-range-1y"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-detail-1Y"
+      - takeScreenshot: "screenshots/section-detail-1Y"
       - tapOn:
           id: "section-time-range-all"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "section-detail-all"
+      - takeScreenshot: "screenshots/section-detail-all"
       - assertNotVisible:
           text: "NaN"
       - assertNotVisible:
           text: "undefined"
       - scroll
-      - takeScreenshot: "section-detail-summary-history"
+      - takeScreenshot: "screenshots/section-detail-summary-history"
       - assertNotVisible:
           text: "NaN"

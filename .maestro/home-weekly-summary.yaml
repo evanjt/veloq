@@ -37,7 +37,7 @@ tags:
     timeout: 20000
     optional: true
 
-- takeScreenshot: "home-weekly-summary-year"
+- takeScreenshot: "screenshots/home-weekly-summary-year"
 
 - runFlow:
     when:
@@ -69,25 +69,25 @@ tags:
     id: "weekly-summary-range-6m"
 - assertVisible:
     id: "weekly-summary"
-- takeScreenshot: "home-weekly-summary-6m"
+- takeScreenshot: "screenshots/home-weekly-summary-6m"
 
 - tapOn:
     id: "weekly-summary-range-3m"
 - assertVisible:
     id: "weekly-summary"
-- takeScreenshot: "home-weekly-summary-3m"
+- takeScreenshot: "screenshots/home-weekly-summary-3m"
 
 - tapOn:
     id: "weekly-summary-range-month"
 - assertVisible:
     id: "weekly-summary"
-- takeScreenshot: "home-weekly-summary-month"
+- takeScreenshot: "screenshots/home-weekly-summary-month"
 
 - tapOn:
     id: "weekly-summary-range-week"
 - assertVisible:
     id: "weekly-summary"
-- takeScreenshot: "home-weekly-summary-week"
+- takeScreenshot: "screenshots/home-weekly-summary-week"
 
 # Navigate back to home to check SummaryCard components.
 # `veloq://` (root) lands on the feed reliably on iOS; on Android it can
@@ -119,6 +119,6 @@ tags:
       - assertVisible:
           id: "summary-card-sparkline"
           optional: true
-      - takeScreenshot: "summary-card-features"
+      - takeScreenshot: "screenshots/summary-card-features"
 
-- takeScreenshot: "weekly-summary-complete"
+- takeScreenshot: "screenshots/weekly-summary-complete"

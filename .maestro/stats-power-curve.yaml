@@ -20,7 +20,7 @@ tags:
     timeout: 10000
     optional: true
 
-- takeScreenshot: "stats-power-curve-chart-loaded"
+- takeScreenshot: "screenshots/stats-power-curve-chart-loaded"
 
 # If power curve is visible, check for values
 - assertVisible:
@@ -31,4 +31,4 @@ tags:
     id: "power-curve-watts"
     optional: true
 
-- takeScreenshot: "power-curve-complete"
+- takeScreenshot: "screenshots/power-curve-complete"

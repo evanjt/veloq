@@ -87,13 +87,13 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 15000
-- takeScreenshot: "smoke-build-home"
+- takeScreenshot: "screenshots/smoke-build-home"
 
 # Navigate to map tab and verify it renders
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-- takeScreenshot: "smoke-build-before-map-check"
+- takeScreenshot: "screenshots/smoke-build-before-map-check"
 - extendedWaitUntil:
     visible:
       id: "map-screen"
@@ -104,7 +104,7 @@ tags:
     start: 50%, 50%
     end: 30%, 40%
     duration: 600
-- takeScreenshot: "smoke-build-map-interacted"
+- takeScreenshot: "screenshots/smoke-build-map-interacted"
 
 # Return to home and confirm navigation still works
 - openLink: "veloq://"
@@ -119,4 +119,4 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "smoke-build-complete"
+- takeScreenshot: "screenshots/smoke-build-complete"

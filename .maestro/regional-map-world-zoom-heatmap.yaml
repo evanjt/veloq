@@ -26,7 +26,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 
-- takeScreenshot: "world-zoom-heatmap-initial"
+- takeScreenshot: "screenshots/world-zoom-heatmap-initial"
 
 # Fit-all → multi-continent bounds → minimum supported zoom. If the raster
 # layer gets culled at low zoom, this screenshot reveals it.
@@ -35,7 +35,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 2500
 
-- takeScreenshot: "world-zoom-heatmap-fit-all"
+- takeScreenshot: "screenshots/world-zoom-heatmap-fit-all"
 
 - assertNotVisible:
     text: "NaN"

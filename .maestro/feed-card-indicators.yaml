@@ -30,7 +30,7 @@ tags:
     end: 50%, 42%
     duration: 400
 
-- takeScreenshot: "feed-indicators-baseline"
+- takeScreenshot: "screenshots/feed-indicators-baseline"
 
 # ====================================================================
 # Coverage check: at least ONE pill of ANY kind across the first 5 cards.
@@ -69,7 +69,7 @@ tags:
       visible:
         id: "activity-card-demo-test-0-section-chip"
     commands:
-      - takeScreenshot: "feed-indicators-demo-0-chip"
+      - takeScreenshot: "screenshots/feed-indicators-demo-0-chip"
 
       # Tap chip → Sections tab
       - tapOn:
@@ -79,7 +79,7 @@ tags:
             id: "activity-sections-list"
           timeout: 20000
 
-      - takeScreenshot: "feed-indicators-sections-tab"
+      - takeScreenshot: "screenshots/feed-indicators-sections-tab"
 
       # If the feed showed a PR pill with count N, there should be N trophies.
       # demo-test-0 typically has 0 section PRs (visits=0 in current fixture),
@@ -103,14 +103,14 @@ tags:
       visible:
         id: "activity-card-demo-test-0-route-chip"
     commands:
-      - takeScreenshot: "feed-indicators-demo-0-route-chip"
+      - takeScreenshot: "screenshots/feed-indicators-demo-0-route-chip"
       - tapOn:
           id: "activity-card-demo-test-0-route-chip"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
           timeout: 20000
-      - takeScreenshot: "feed-indicators-route-tab"
+      - takeScreenshot: "screenshots/feed-indicators-route-tab"
 
 - assertNotVisible:
     text: "NaN"

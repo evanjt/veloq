@@ -67,7 +67,7 @@ onFlowComplete:
 - assertVisible:
     id: "recording-timer"
 
-- takeScreenshot: "recording-locked"
+- takeScreenshot: "screenshots/recording-locked"
 
 # Unlock by sliding the handle right
 # Swipe the full width of the track. A direction swipe anchored to the handle
@@ -97,7 +97,7 @@ onFlowComplete:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "recording-unlocked"
+- takeScreenshot: "screenshots/recording-unlocked"
 
 # Re-lock from the header chip
 - tapOn:
@@ -109,7 +109,7 @@ onFlowComplete:
       id: "unlock-track"
     timeout: 5000
 
-- takeScreenshot: "recording-relocked"
+- takeScreenshot: "screenshots/recording-relocked"
 
 # Clean up: unlock, pause, stop, discard
 # Swipe the full width of the track. A direction swipe anchored to the handle
@@ -162,4 +162,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-lock-complete"
+- takeScreenshot: "screenshots/recording-lock-complete"

@@ -18,6 +18,6 @@ tags:
       id: "routes-list"
     timeout: 15000
 
-- takeScreenshot: "routes-list-loaded"
+- takeScreenshot: "screenshots/routes-list-loaded"
 
-- takeScreenshot: "routes-list-complete"
+- takeScreenshot: "screenshots/routes-list-complete"

@@ -59,7 +59,7 @@ onFlowComplete:
     timeout: 8000
     optional: true
 
-- takeScreenshot: "settings-logout-dialog"
+- takeScreenshot: "screenshots/settings-logout-dialog"
 
 - runFlow:
     when:
@@ -79,7 +79,7 @@ onFlowComplete:
       id: "login-screen"
     timeout: 30000
 
-- takeScreenshot: "settings-logout-complete"
+- takeScreenshot: "screenshots/settings-logout-complete"
 
 # Re-enter demo mode for subsequent tests
 - tapOn:

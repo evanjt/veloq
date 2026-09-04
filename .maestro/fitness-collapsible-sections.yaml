@@ -27,7 +27,7 @@ tags:
 # Tap to expand it again
 - tapOn:
     id: "fitness-section-performance"
-- takeScreenshot: "fitness-collapsible-sections-performance-expanded"
+- takeScreenshot: "screenshots/fitness-collapsible-sections-performance-expanded"
 
 # Scroll further to check zones section (further down after performance expanded)
 - swipe:
@@ -45,6 +45,6 @@ tags:
 
 - tapOn:
     id: "fitness-section-zones"
-- takeScreenshot: "fitness-collapsible-sections-zones-expanded"
+- takeScreenshot: "screenshots/fitness-collapsible-sections-zones-expanded"
 
-- takeScreenshot: "fitness-collapsible-sections-complete"
+- takeScreenshot: "screenshots/fitness-collapsible-sections-complete"

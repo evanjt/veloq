@@ -33,6 +33,6 @@ tags:
     id: "settings-notifications-oauth-hint"
     optional: true
 
-- takeScreenshot: "settings-notifications"
+- takeScreenshot: "screenshots/settings-notifications"
 
-- takeScreenshot: "settings-notifications-complete"
+- takeScreenshot: "screenshots/settings-notifications-complete"

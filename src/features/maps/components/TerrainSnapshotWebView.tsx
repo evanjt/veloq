@@ -234,7 +234,14 @@ export const TerrainSnapshotWebView = forwardRef<
       failedRequestsRef.current.clear();
       for (const req of failed) {
         const key = requestKey(req);
-        if (idleRetriedRef.current.has(key)) continue;
+        // A key this drain has already spent its one retry on stays in the
+        // failed map. Dropping it here is what left a card with no route
+        // preview and no way back: pull-to-refresh then found nothing to
+        // retry, because the drain had thrown the request away.
+        if (idleRetriedRef.current.has(key)) {
+          failedRequestsRef.current.set(key, req);
+          continue;
+        }
         if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
         idleRetriedRef.current.add(key);
         // Already at the ladder's last rung, so this is one more render and
@@ -563,6 +570,11 @@ export const TerrainSnapshotWebView = forwardRef<
         if (failed.length === 0) return;
         if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
         failedRequestsRef.current.clear();
+        // The athlete asking again is the reset for the one silent retry per
+        // key, and the only thing that ever empties this set. Without it, it
+        // grows a key per activity and style the pool has failed on for the
+        // life of the screen.
+        idleRetriedRef.current.clear();
         for (const req of failed) {
           if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
           queueRef.current.push(req);

@@ -43,7 +43,7 @@ onFlowComplete:
       id: "recordings-list"
     timeout: 10000
 
-- takeScreenshot: "recordings-library"
+- takeScreenshot: "screenshots/recordings-library"
 
 # Back to the record screen
 - tapOn:

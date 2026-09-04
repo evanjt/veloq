@@ -11,6 +11,14 @@ use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::objects::observer::{EngineObserver, set_observer};
 
+/// Both tests install the process-global observer and drain the equally global
+/// tile-generation handle, so they cannot overlap: the winner would record the
+/// loser's announcement as a second one of its own.
+static SERIAL: Mutex<()> = Mutex::new(());
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Counts the announcements it hears, in order.
 struct Recorder {
     events: Mutex<Vec<String>>,

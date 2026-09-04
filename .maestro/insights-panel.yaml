@@ -27,7 +27,7 @@ tags:
       id: "insights-panel"
     timeout: 15000
 
-- takeScreenshot: "insights-panel-default"
+- takeScreenshot: "screenshots/insights-panel-default"
 
 # Exactly one body must render. Assert both directions so neither a missing
 # card list nor a missing empty state can slip through.
@@ -38,7 +38,7 @@ tags:
     commands:
       - assertVisible:
           id: "insights-empty"
-      - takeScreenshot: "insights-empty-state"
+      - takeScreenshot: "screenshots/insights-empty-state"
 
 - runFlow:
     when:
@@ -47,14 +47,14 @@ tags:
     commands:
       - assertVisible:
           id: "insights-card-list"
-      - takeScreenshot: "insights-cards-visible"
+      - takeScreenshot: "screenshots/insights-cards-visible"
       - swipe:
           start: 50%, 80%
           end: 50%, 30%
           duration: 400
       - assertVisible:
           id: "insights-card-list"
-      - takeScreenshot: "insights-cards-scrolled"
+      - takeScreenshot: "screenshots/insights-cards-scrolled"
 
 - assertNotVisible:
     text: "NaN"
