@@ -700,3 +700,58 @@ fn identical_sections_is_claimed_only_at_the_validated_configuration() {
     })
     .unwrap();
 }
+
+/// B239: `run_cutover_claimed` stamps `failed` up front and `PhaseClock::enter`
+/// overwrites it on the way through, so a run that died partway reported the
+/// step it died inside. The change card reads that string as "not failed" and
+/// shows the previous run's counts as this run's result.
+#[test]
+fn a_run_that_dies_partway_settles_on_failed() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    // Break step 1 from a second connection, so the run fails after the clock
+    // has already entered a phase and erased the up-front marker.
+    let db = rusqlite::Connection::open(&path).expect("open");
+    db.execute("DROP TABLE section_catalogue_archive", [])
+        .expect("drop the archive table");
+    drop(db);
+
+    let result = veloqrs::persistence::cutover::run_cutover();
+    assert!(result.is_err(), "the archive should have failed");
+
+    assert_eq!(veloqrs::persistence::cutover::cutover_phase(), "failed");
+    assert!(!veloqrs::persistence::cutover::cutover_running());
+    // The token was never promoted, so the next launch retries the whole run.
+    assert!(veloqrs::ffi::is_cutover_pending());
+}
+
+/// The failure marker must not fire on the two paths that are not failures.
+#[test]
+fn a_completed_run_settles_on_complete() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("cutover");
+
+    assert_eq!(veloqrs::persistence::cutover::cutover_phase(), "complete");
+    assert!(!veloqrs::persistence::cutover::cutover_running());
+}
+
+#[test]
+fn a_run_with_nothing_owed_settles_on_idle() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("first cutover");
+    let second = veloqrs::persistence::cutover::run_cutover().expect("second cutover");
+    assert_eq!(second, CutoverOutcome::NotOwed);
+
+    assert_eq!(veloqrs::persistence::cutover::cutover_phase(), "idle");
+}
