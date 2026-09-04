@@ -20,6 +20,8 @@ interface SectionsListHeaderProps {
   unacceptedAutoCount: number;
   acceptAllResult: number | null;
   isScanning: boolean;
+  /** The engine is refusing to detect until the detector migration has run. */
+  detectionHeld: boolean;
   onAcceptAll: () => void;
   onRescan: () => void;
 }
@@ -31,6 +33,7 @@ export function SectionsListHeader({
   unacceptedAutoCount,
   acceptAllResult,
   isScanning,
+  detectionHeld,
   onAcceptAll,
   onRescan,
 }: SectionsListHeaderProps) {
@@ -99,7 +102,7 @@ export function SectionsListHeader({
           )}
           <TouchableOpacity
             onPress={onRescan}
-            disabled={isScanning}
+            disabled={isScanning || detectionHeld}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -118,6 +121,18 @@ export function SectionsListHeader({
           </TouchableOpacity>
         </View>
       </View>
+      {detectionHeld && (
+        <View style={styles.pausedRow} testID="detection-paused">
+          <MaterialCommunityIcons
+            name="pause-circle-outline"
+            size={13}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
+            {t('sections.detectionPaused')}
+          </Text>
+        </View>
+      )}
     </>
   );
 }
@@ -160,5 +175,19 @@ const styles = StyleSheet.create({
   },
   summaryTextDark: {
     color: darkColors.textPrimary,
+  },
+  pausedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+  },
+  pausedText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  pausedTextDark: {
+    color: darkColors.textSecondary,
   },
 });
