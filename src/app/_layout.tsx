@@ -61,6 +61,7 @@ import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
+import { installRecordingSession } from '@/features/recording/lib/recordingSession';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
@@ -475,6 +476,10 @@ export default function RootLayout() {
     if (!appReady) return;
     handleInitialNotificationResponse();
   }, [appReady]);
+
+  // The recording session belongs to the store, not to the recording screen, so
+  // leaving that screen mid-ride no longer stops the GPS.
+  useEffect(() => installRecordingSession(), []);
 
   // Re-register push token on app open (refreshes TTL on server)
   // Also retry any failed unregister from a previous session
