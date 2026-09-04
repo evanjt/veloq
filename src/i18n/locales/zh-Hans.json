@@ -1017,6 +1017,9 @@
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
     "sortSignature": "标志路段",
+    "standingBest": "{{total}} 次中最快的一次",
+    "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
+    "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
     "thisMayTakeMoment": "这可能需要一点时间...",
     "visits": "访问",
     "waiting": "等待中..."
