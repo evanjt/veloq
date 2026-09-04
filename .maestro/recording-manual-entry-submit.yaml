@@ -71,7 +71,7 @@ onFlowComplete:
     charactersToErase: 10
 - inputText: "01:00:00"
 
-- takeScreenshot: "manual-entry-filled"
+- takeScreenshot: "screenshots/manual-entry-filled"
 
 # Submit to review screen. The button sits under the keyboard and the
 # tab bar until the form is scrolled.
@@ -93,7 +93,7 @@ onFlowComplete:
       id: "review-save-button"
     timeout: 10000
 
-- takeScreenshot: "manual-entry-review"
+- takeScreenshot: "screenshots/manual-entry-review"
 
 # Discard and return home
 - longPressOn:
@@ -104,4 +104,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "manual-entry-complete"
+- takeScreenshot: "screenshots/manual-entry-complete"

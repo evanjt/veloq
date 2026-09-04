@@ -36,14 +36,14 @@ tags:
       id: "activity-sections-list"
     timeout: 20000
 
-- takeScreenshot: "sections-scrub-before"
+- takeScreenshot: "screenshots/sections-scrub-before"
 
 - runFlow:
     when:
       visible:
         text: "No matched sections"
     commands:
-      - takeScreenshot: "sections-scrub-no-sections"
+      - takeScreenshot: "screenshots/sections-scrub-no-sections"
 
 # Long-press each rendered row. activateAfterLongPress fires the Pan gesture
 # at LONG_PRESS_DURATION (500ms), and the Rust-side haptic + row highlight
@@ -58,7 +58,7 @@ tags:
           id: "section-inline-plot-0"
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "sections-scrub-row-0"
+      - takeScreenshot: "screenshots/sections-scrub-row-0"
 
 - runFlow:
     when:
@@ -69,7 +69,7 @@ tags:
           id: "section-inline-plot-1"
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "sections-scrub-row-1"
+      - takeScreenshot: "screenshots/sections-scrub-row-1"
 
 - runFlow:
     when:
@@ -80,7 +80,7 @@ tags:
           id: "section-inline-plot-2"
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "sections-scrub-row-2"
+      - takeScreenshot: "screenshots/sections-scrub-row-2"
 
 # Tap somewhere neutral to release any open state, then verify the list
 # is still rendered and hasn't corrupted values.

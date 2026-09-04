@@ -19,7 +19,7 @@ tags:
     timeout: 45000
     optional: true
 
-- takeScreenshot: "map-controls-loaded"
+- takeScreenshot: "screenshots/map-controls-loaded"
 
 # =============================================================================
 # Activity Markers - Basic Interaction
@@ -44,7 +44,7 @@ tags:
     timeout: 3000
     optional: true
 
-- takeScreenshot: "map-activity-popup"
+- takeScreenshot: "screenshots/map-activity-popup"
 
 - tapOn:
     id: "activity-popup-zoom"
@@ -222,7 +222,7 @@ tags:
     id: "map-filter-hike"
     optional: true
 
-- takeScreenshot: "map-filter-applied"
+- takeScreenshot: "screenshots/map-filter-applied"
 
 - tapOn:
     id: "map-filter-clear"
@@ -292,7 +292,7 @@ tags:
 - tapOn:
     id: "map-toggle-activities"
 
-- takeScreenshot: "map-layers-toggled"
+- takeScreenshot: "screenshots/map-layers-toggled"
 
 # =============================================================================
 # Section/Route Popup Interaction
@@ -328,7 +328,7 @@ tags:
     id: "route-popup-close"
     optional: true
 
-- takeScreenshot: "map-section-route-popups"
+- takeScreenshot: "screenshots/map-section-route-popups"
 
 # =============================================================================
 # Toggle Stress Test
@@ -373,7 +373,7 @@ tags:
       id: "map-screen"
     timeout: 2000
 
-- takeScreenshot: "map-controls-used"
+- takeScreenshot: "screenshots/map-controls-used"
 
 # =============================================================================
 # Final State Validation
@@ -382,4 +382,4 @@ tags:
 - assertVisible:
     id: "map-screen"
 
-- takeScreenshot: "map-comprehensive-complete"
+- takeScreenshot: "screenshots/map-comprehensive-complete"
