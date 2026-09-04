@@ -22,6 +22,11 @@ export async function shareFile({ content, filename, mimeType }: ShareFileParams
   await FileSystem.writeAsStringAsync(fileUri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
+  await shareExistingFile(fileUri, mimeType);
+}
+
+/** Share a file already on disk, through the same lazy-loaded share sheet. */
+export async function shareExistingFile(fileUri: string, mimeType: string): Promise<void> {
   const Sharing = await getSharing();
   await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
 }

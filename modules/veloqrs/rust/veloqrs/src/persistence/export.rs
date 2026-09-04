@@ -493,3 +493,56 @@ fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
+
+// ============================================================================
+// Database backup
+// ============================================================================
+
+/// Pages copied per backup step, and the pause between steps. Small steps keep
+/// the source unlocked between them, so a write during the copy waits for one
+/// step and not for the whole file.
+const BACKUP_PAGES_PER_STEP: i32 = 100;
+const BACKUP_STEP_PAUSE: std::time::Duration = std::time::Duration::from_millis(10);
+
+/// Copy the database file to `dest_path` from a connection of its own.
+fn run_backup(db_path: &str, dest_path: &str) -> Result<(), String> {
+    let source = rusqlite::Connection::open(db_path)
+        .map_err(|e| format!("Failed to open backup source: {}", e))?;
+    // A write on the engine's connection locks the file for its commit. Wait
+    // it out rather than failing the backup on a transient busy.
+    source
+        .busy_timeout(std::time::Duration::from_secs(5))
+        .map_err(|e| format!("Failed to set backup busy timeout: {}", e))?;
+    let mut dest = rusqlite::Connection::open(dest_path)
+        .map_err(|e| format!("Failed to open backup destination: {}", e))?;
+    let copy = rusqlite::backup::Backup::new(&source, &mut dest)
+        .map_err(|e| format!("Failed to init backup: {}", e))?;
+    copy.run_to_completion(BACKUP_PAGES_PER_STEP, BACKUP_STEP_PAUSE, None)
+        .map_err(|e| format!("Backup failed: {}", e))
+}
+
+impl PersistentEngine {
+    /// Start an atomic SQLite backup on a background thread.
+    ///
+    /// The copy opens its own connection to the same file, so it never takes
+    /// the engine lock: a 400-activity library takes over a second to copy,
+    /// and on the calling thread that is a second of dropped frames. A write
+    /// landing mid-copy restarts it, which is how `sqlite3_backup` keeps the
+    /// copy a consistent snapshot rather than a torn one.
+    pub fn backup_database_background(&self, dest_path: &str) -> super::BackupHandle {
+        let db_path = self.db_path.clone();
+        let dest_path = dest_path.to_string();
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let result = run_backup(&db_path, &dest_path);
+            match &result {
+                Ok(()) => log::info!("[backup] Database backed up to {}", dest_path),
+                Err(e) => log::error!("[backup] Backup to {} failed: {}", dest_path, e),
+            }
+            tx.send(result).ok();
+        });
+
+        super::BackupHandle { receiver: rx }
+    }
+}

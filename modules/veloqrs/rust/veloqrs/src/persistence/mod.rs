@@ -436,6 +436,28 @@ impl SectionDetectionHandle {
     }
 }
 
+/// Handle for a background database backup.
+pub struct BackupHandle {
+    receiver: mpsc::Receiver<Result<(), String>>,
+}
+
+impl BackupHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<Result<(), String>> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
+    /// Block until the copy finishes, returning its outcome.
+    /// Test and bench path; production polls.
+    pub fn recv_blocking(&self) -> Option<Result<(), String>> {
+        self.receiver.recv().ok()
+    }
+}
+
 /// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
@@ -1792,6 +1814,9 @@ pub mod persistent_engine_ffi {
     /// Handle for tracking background tile generation.
     pub static TILE_GENERATION_HANDLE: Lazy<Mutex<Option<TileGenerationHandle>>> =
         Lazy::new(|| Mutex::new(None));
+
+    /// Handle for the running database backup, if any.
+    pub static BACKUP_HANDLE: Lazy<Mutex<Option<BackupHandle>>> = Lazy::new(|| Mutex::new(None));
 }
 
 /// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.

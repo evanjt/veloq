@@ -12,6 +12,8 @@ import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engi
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { setSetting } from '@/shared/storage';
+import { runDatabaseBackup } from '@/features/settings/lib/runBackup';
+import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
@@ -94,14 +96,9 @@ export async function exportDatabaseBackup(): Promise<void> {
 
   // Strip file:// prefix for Rust (expects plain filesystem path)
   const plainPath = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
-  engine.backupDatabase(plainPath);
+  await runDatabaseBackup(engine, plainPath);
 
-  // Share the file
-  const Sharing = await import('expo-sharing');
-  await Sharing.shareAsync(destPath, {
-    mimeType: 'application/octet-stream',
-    UTI: 'public.database',
-  });
+  await shareExistingFile(destPath, 'application/octet-stream');
 }
 
 export interface DatabaseRestoreResult {

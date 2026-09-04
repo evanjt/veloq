@@ -22,6 +22,7 @@ import { localBackend } from './backends/localBackend';
 import { webdavBackend } from './backends/webdavBackend';
 import { icloudBackend } from './backends/icloudBackend';
 import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
+import { runDatabaseBackup } from '../runBackup';
 
 const log = debug.create('AutoBackup');
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
@@ -184,8 +185,8 @@ export async function performBackup(force = false): Promise<boolean> {
     const tempPath = `${cacheDir}${tempFilename}`;
     const plainPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
 
-    // Create atomic SQLite snapshot
-    engine.backupDatabase(plainPath);
+    // Atomic SQLite snapshot, copied on a Rust thread
+    await runDatabaseBackup(engine, plainPath);
 
     // Verify snapshot was created
     const fileInfo = await FileSystem.getInfoAsync(tempPath);
