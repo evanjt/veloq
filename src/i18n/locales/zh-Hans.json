@@ -1039,6 +1039,7 @@
     "deleteSection": "删除路段",
     "deleteSectionConfirm": "确定要删除此路段吗？此操作无法撤销。",
     "detectionPaused": "路段迁移期间已暂停检测",
+    "detectionPausedElevation": "海拔数据下载期间已暂停检测",
     "disabled": "已禁用",
     "removeSection": "移除路段",
     "removeSectionConfirm": "此路段将不再显示在活动详情或洞察中。您可以从路段列表中恢复它。",
