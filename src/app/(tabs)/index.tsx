@@ -232,11 +232,10 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
-  // Batch-fetch section highlights (PRs) for visible activities
-  const highlightIds = useMemo(
-    () => filteredActivities.map((a: Activity) => a.id),
-    [filteredActivities]
-  );
+  // Batch-fetch section highlights (PRs) for the whole loaded feed. Keying this
+  // on the filtered list would re-read the bundle on every search keystroke,
+  // and each card looks its own id up in the returned map anyway.
+  const highlightIds = useMemo(() => allActivities.map((a: Activity) => a.id), [allActivities]);
   const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
     useActivitySectionHighlights(highlightIds);
 
