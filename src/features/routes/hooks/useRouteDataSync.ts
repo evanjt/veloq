@@ -12,6 +12,7 @@ import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
+import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
@@ -253,43 +254,21 @@ export function useRouteDataSync(
                 engine.triggerRefresh('sections');
               }
 
-              // Poll heatmap tile generation (runs on Rust background thread) and surface
-              // processed/total so the user sees forward motion instead of a frozen bar.
-              // Foreground wait capped at 5 s (Tier 1.2); Rust keeps rendering in background
-              // if we bail out early and the map will pick up tiles as they land.
-              const tileStatus = engine.pollTileGeneration();
-              if (
-                tileStatus === 'running' &&
-                isMountedRef.current &&
-                !abortController.signal.aborted
-              ) {
-                const initialTileProgress = engine.getHeatmapTileProgress();
-                const tileTotal =
-                  initialTileProgress && initialTileProgress.length >= 2
-                    ? initialTileProgress[1]
-                    : 0;
-                const maxPoll =
-                  tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
-                const tileStartTime = Date.now();
-                while (isMountedRef.current && !abortController.signal.aborted) {
-                  await new Promise((resolve) => setTimeout(resolve, 200));
-                  const s = engine.pollTileGeneration();
-                  const progress = engine.getHeatmapTileProgress();
-                  if (progress && progress.length >= 2 && progress[1] > 0) {
-                    const [processed, total] = progress;
-                    const tilePct = Math.min(100, Math.round((processed / total) * 100));
-                    const pct = 75 + Math.min(processed / total, 1) * 25;
-                    updateProgress({
-                      status: 'computing',
-                      completed: 0,
-                      total: 0,
-                      percent: Math.min(100, Math.round(pct)),
-                      message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
-                    });
-                  }
-                  if (s !== 'running' || Date.now() - tileStartTime > maxPoll) break;
-                }
-              }
+              // The heatmap tile pass runs on a Rust background thread and
+              // announces itself when it finishes. The foreground wait is
+              // capped: Rust keeps drawing after it and the map picks the
+              // tiles up as they land.
+              await awaitTilePass((processed, total) => {
+                if (!isMountedRef.current || abortController.signal.aborted || total === 0) return;
+                const tilePct = Math.min(100, Math.round((processed / total) * 100));
+                updateProgress({
+                  status: 'computing',
+                  completed: 0,
+                  total: 0,
+                  percent: Math.min(100, Math.round(75 + Math.min(processed / total, 1) * 25)),
+                  message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
+                });
+              });
             }
           } else if (__DEV__) {
             log.log('[RouteDataSync] No new activities to sync');
