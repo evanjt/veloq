@@ -71,6 +71,10 @@ interface UseRoutePerformancesResult {
   reverseStats: DirectionStats | null;
   /** Current activity's rank (1 = fastest) */
   currentRank: number | null;
+  /** Attempts on the route carrying a moving time, the population the rank is over */
+  attemptCount: number;
+  /** Share of those attempts slower than the current one, 0 to 100 */
+  percentileRank: number | null;
   /** Activity metrics inlined from route performances (avoids duplicate FFI call) */
   activityMetrics: Map<string, FfiActivityMetrics>;
 }
@@ -157,6 +161,8 @@ export function useRoutePerformances(
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
+    attemptCount: number;
+    percentileRank: number | null;
     bestActivityId: string | null;
     bestForward: DirectionBestRecord | null;
     bestReverse: DirectionBestRecord | null;
@@ -167,6 +173,8 @@ export function useRoutePerformances(
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
+      attemptCount: 0,
+      percentileRank: null,
       bestActivityId: null,
       bestForward: null,
       bestReverse: null,
@@ -208,6 +216,8 @@ export function useRoutePerformances(
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
+        attemptCount: result.attemptCount ?? 0,
+        percentileRank: result.percentileRank ?? null,
         bestActivityId: result.best?.activityId ?? null,
         bestForward: toDirectionBest(result.bestForward),
         bestReverse: toDirectionBest(result.bestReverse),
@@ -312,6 +322,8 @@ export function useRoutePerformances(
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
     currentRank: rustData.currentRank,
+    attemptCount: rustData.attemptCount,
+    percentileRank: rustData.percentileRank,
     activityMetrics: rustData.activityMetrics,
   };
 }
