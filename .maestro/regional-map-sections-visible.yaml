@@ -64,7 +64,7 @@ tags:
       - assertVisible:
           id: "map-toggle-sections"
 
-- takeScreenshot: "regional-map-sections-rendered"
+- takeScreenshot: "screenshots/regional-map-sections-rendered"
 
 - assertNotVisible:
     text: "NaN"

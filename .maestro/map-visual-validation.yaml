@@ -51,7 +51,7 @@ tags:
 - assertVisible:
     id: "map-toggle-activities"
 
-- takeScreenshot: "validation-regional-default"
+- takeScreenshot: "screenshots/validation-regional-default"
 
 # --- Sections toggle ---
 - extendedWaitUntil:
@@ -67,7 +67,7 @@ tags:
     id: "map-toggle-sections"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-sections-on"
+- takeScreenshot: "screenshots/validation-regional-sections-on"
 
 # Toggle sections OFF and back ON to verify round-trip
 - tapOn:
@@ -78,14 +78,14 @@ tags:
     id: "map-toggle-sections"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-sections-toggled"
+- takeScreenshot: "screenshots/validation-regional-sections-toggled"
 
 # --- Activities toggle ---
 - tapOn:
     id: "map-toggle-activities"
 - waitForAnimationToEnd:
     timeout: 1000
-- takeScreenshot: "validation-regional-activities-off"
+- takeScreenshot: "screenshots/validation-regional-activities-off"
 
 - tapOn:
     id: "map-toggle-activities"
@@ -108,7 +108,7 @@ tags:
           id: "map-toggle-routes"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-regional-routes-on"
+      - takeScreenshot: "screenshots/validation-regional-routes-on"
       - tapOn:
           id: "map-toggle-routes"
 
@@ -118,7 +118,7 @@ tags:
     optional: true
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "validation-regional-fit-all"
+- takeScreenshot: "screenshots/validation-regional-fit-all"
 
 # --- Activity marker popup ---
 - tapOn:
@@ -136,7 +136,7 @@ tags:
       visible:
         id: "activity-popup"
     commands:
-      - takeScreenshot: "validation-regional-activity-popup"
+      - takeScreenshot: "screenshots/validation-regional-activity-popup"
       - tapOn:
           id: "activity-popup-close"
 
@@ -156,7 +156,7 @@ tags:
       visible:
         id: "section-popup"
     commands:
-      - takeScreenshot: "validation-regional-section-popup"
+      - takeScreenshot: "screenshots/validation-regional-section-popup"
       - tapOn:
           id: "section-popup-close"
           optional: true
@@ -181,7 +181,7 @@ tags:
       id: "activity-detail-content"
     timeout: 15000
 
-- takeScreenshot: "validation-activity-map-2d"
+- takeScreenshot: "screenshots/validation-activity-map-2d"
 
 # --- Style toggle (proves map controls rendered) ---
 - extendedWaitUntil:
@@ -199,7 +199,7 @@ tags:
           id: "activity-map-style-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-activity-map-style-switched"
+      - takeScreenshot: "screenshots/validation-activity-map-style-switched"
       - tapOn:
           id: "activity-map-style-toggle"
 
@@ -213,7 +213,7 @@ tags:
           id: "activity-map-gradient-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-activity-map-gradient-on"
+      - takeScreenshot: "screenshots/validation-activity-map-gradient-on"
       - tapOn:
           id: "activity-map-gradient-toggle"
 
@@ -229,7 +229,7 @@ tags:
           visible:
             id: "activity-detail-content"
           timeout: 15000
-      - takeScreenshot: "validation-activity-map-3d"
+      - takeScreenshot: "screenshots/validation-activity-map-3d"
       # Toggle back to 2D
       - tapOn:
           id: "activity-map-3d-toggle"
@@ -250,7 +250,7 @@ tags:
       visible:
         id: "activity-sections-list"
     commands:
-      - takeScreenshot: "validation-activity-sections-visible"
+      - takeScreenshot: "screenshots/validation-activity-sections-visible"
 
 - assertNotVisible:
     text: "NaN"
@@ -299,7 +299,7 @@ tags:
     visible:
       id: "section-map-container"
     timeout: 10000
-- takeScreenshot: "validation-section-map-2d"
+- takeScreenshot: "screenshots/validation-section-map-2d"
 
 # --- Style toggle ---
 - runFlow:
@@ -311,7 +311,7 @@ tags:
           id: "section-map-style-toggle"
       - waitForAnimationToEnd:
           timeout: 2000
-      - takeScreenshot: "validation-section-map-style-switched"
+      - takeScreenshot: "screenshots/validation-section-map-style-switched"
       - tapOn:
           id: "section-map-style-toggle"
 
@@ -327,7 +327,7 @@ tags:
           visible:
             id: "section-map-container"
           timeout: 15000
-      - takeScreenshot: "validation-section-map-3d"
+      - takeScreenshot: "screenshots/validation-section-map-3d"
       # Toggle back
       - tapOn:
           id: "section-map-3d-toggle"
@@ -347,7 +347,7 @@ tags:
             id: "map-fullscreen-close"
           timeout: 10000
           optional: true
-      - takeScreenshot: "validation-section-map-fullscreen"
+      - takeScreenshot: "screenshots/validation-section-map-fullscreen"
       - tapOn:
           id: "map-fullscreen-close"
           optional: true
@@ -400,12 +400,12 @@ tags:
     visible:
       id: "route-map-container"
     timeout: 10000
-- takeScreenshot: "validation-route-map"
+- takeScreenshot: "screenshots/validation-route-map"
 
 # Route detail stats
 - assertVisible:
     id: "route-detail-stats"
-- takeScreenshot: "validation-route-detail"
+- takeScreenshot: "screenshots/validation-route-detail"
 
 - assertNotVisible:
     text: "NaN"
@@ -415,4 +415,4 @@ tags:
 # FINAL: Summary screenshot
 # ============================================================================
 
-- takeScreenshot: "validation-map-complete"
+- takeScreenshot: "screenshots/validation-map-complete"

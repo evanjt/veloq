@@ -29,7 +29,7 @@ tags:
     timeout: 10000
     optional: true
 
-- takeScreenshot: "section-management-detail"
+- takeScreenshot: "screenshots/section-management-detail"
 
 # Look for trim button
 - assertVisible:
@@ -46,18 +46,18 @@ tags:
     id: "section-trim-overlay"
     optional: true
 
-- takeScreenshot: "section-trim-active"
+- takeScreenshot: "screenshots/section-trim-active"
 
 # Try expand mode toggle
 - tapOn:
     id: "section-expand-toggle"
     optional: true
 
-- takeScreenshot: "section-expand-mode"
+- takeScreenshot: "screenshots/section-expand-mode"
 
 # Cancel trim
 - tapOn:
     id: "section-trim-cancel"
     optional: true
 
-- takeScreenshot: "section-management-complete"
+- takeScreenshot: "screenshots/section-management-complete"

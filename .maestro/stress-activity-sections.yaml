@@ -48,4 +48,4 @@ tags:
 - assertVisible:
     id: "activity-detail-screen"
 
-- takeScreenshot: "stress-activity-sections-complete"
+- takeScreenshot: "screenshots/stress-activity-sections-complete"

@@ -94,7 +94,7 @@ onFlowComplete:
 - assertVisible:
     id: "review-discard-button"
 
-- takeScreenshot: "recording-review-fields"
+- takeScreenshot: "screenshots/recording-review-fields"
 
 # Verify RPE rating section is visible
 - assertVisible:
@@ -104,7 +104,7 @@ onFlowComplete:
 - assertVisible:
     id: "review-trim"
 
-- takeScreenshot: "recording-review-rpe-and-trim"
+- takeScreenshot: "screenshots/recording-review-rpe-and-trim"
 
 # Clear the default name and enter a custom one with special characters
 - tapOn:
@@ -115,7 +115,7 @@ onFlowComplete:
 
 - inputText: "Test Ride 2025"
 
-- takeScreenshot: "recording-review-name-entered"
+- takeScreenshot: "screenshots/recording-review-name-entered"
 
 # Tap save, in demo mode this succeeds and navigates home
 - tapOn:
@@ -127,4 +127,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-review-complete"
+- takeScreenshot: "screenshots/recording-review-complete"

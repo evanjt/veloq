@@ -198,7 +198,7 @@ jobs:
           cp -r "$HOME/.maestro/tests" /tmp/maestro-artifacts/tests 2>/dev/null || true
           cp -r /tmp/maestro-debug /tmp/maestro-artifacts/debug 2>/dev/null || true
           cp -r /tmp/maestro-debug-flaky /tmp/maestro-artifacts/debug-flaky 2>/dev/null || true
-          cp -f "$GITHUB_WORKSPACE"/*.png /tmp/maestro-artifacts/ 2>/dev/null || true
+          cp -f "$GITHUB_WORKSPACE"/screenshots/*.png /tmp/maestro-artifacts/ 2>/dev/null || true
           find /tmp/maestro-artifacts -name '*.png' | head -50 || true
 
       - name: Upload Maestro debug output
@@ -302,7 +302,7 @@ jobs:
           mkdir -p /tmp/maestro-map-artifacts
           cp -r "$HOME/.maestro/tests" /tmp/maestro-map-artifacts/tests 2>/dev/null || true
           cp -r /tmp/maestro-debug-map /tmp/maestro-map-artifacts/debug 2>/dev/null || true
-          cp -f "$GITHUB_WORKSPACE"/*.png /tmp/maestro-map-artifacts/ 2>/dev/null || true
+          cp -f "$GITHUB_WORKSPACE"/screenshots/*.png /tmp/maestro-map-artifacts/ 2>/dev/null || true
 
       - name: Upload Maestro debug output
         if: always()

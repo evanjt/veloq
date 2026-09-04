@@ -67,6 +67,6 @@ tags:
     commands:
       - tapOn:
           id: "section-version-1-show"
-      - takeScreenshot: "section-history-version-overlay"
+      - takeScreenshot: "screenshots/section-history-version-overlay"
 
-- takeScreenshot: "section-history"
+- takeScreenshot: "screenshots/section-history"

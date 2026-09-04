@@ -26,7 +26,7 @@ tags:
 - assertVisible:
     id: "login-demo-button"
 
-- takeScreenshot: "auth-login-screen"
+- takeScreenshot: "screenshots/auth-login-screen"
 
 # Test: API key section is expandable
 - tapOn:
@@ -53,4 +53,4 @@ tags:
 - assertVisible:
     id: "demo-mode-banner"
 
-- takeScreenshot: "auth-demo-home"
+- takeScreenshot: "screenshots/auth-demo-home"

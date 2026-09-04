@@ -26,7 +26,7 @@ tags:
       id: "backup-now-button"
     timeout: 15000
 
-- takeScreenshot: "backup-screen-initial"
+- takeScreenshot: "screenshots/backup-screen-initial"
 
 # US-X3: warning must literally be on screen.
 - assertVisible:
@@ -47,7 +47,7 @@ tags:
       id: "backup-success-message"
     timeout: 30000
 
-- takeScreenshot: "backup-after-success"
+- takeScreenshot: "screenshots/backup-after-success"
 
 # A failure message must NOT appear.
 - assertNotVisible:

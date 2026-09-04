@@ -31,7 +31,7 @@ tags:
 - assertVisible:
     id: "activity-card-demo-test-0"
 
-- takeScreenshot: "pull-to-refresh-home"
+- takeScreenshot: "screenshots/pull-to-refresh-home"
 
 # Navigate to fitness screen
 - runFlow:
@@ -49,7 +49,7 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-- takeScreenshot: "pull-to-refresh-fitness"
+- takeScreenshot: "screenshots/pull-to-refresh-fitness"
 
 # Navigate to training screen
 - runFlow:
@@ -67,6 +67,6 @@ tags:
       id: "training-screen"
     timeout: 10000
 
-- takeScreenshot: "pull-to-refresh-training"
+- takeScreenshot: "screenshots/pull-to-refresh-training"
 
-- takeScreenshot: "pull-to-refresh-complete"
+- takeScreenshot: "screenshots/pull-to-refresh-complete"

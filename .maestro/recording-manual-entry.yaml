@@ -85,7 +85,7 @@ onFlowComplete:
 - assertVisible:
     id: "manual-entry-continue"
 
-- takeScreenshot: "recording-manual-entry-form"
+- takeScreenshot: "screenshots/recording-manual-entry-form"
 
 # Navigate back to record type picker then to home
 - back
@@ -99,4 +99,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-manual-entry-complete"
+- takeScreenshot: "screenshots/recording-manual-entry-complete"

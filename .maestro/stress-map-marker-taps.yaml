@@ -65,4 +65,4 @@ tags:
 - assertVisible:
     id: "map-screen"
 
-- takeScreenshot: "stress-map-marker-taps-complete"
+- takeScreenshot: "screenshots/stress-map-marker-taps-complete"

@@ -30,26 +30,26 @@ tags:
 # Routes toggle is data-conditional (routeCount > 0). Sections toggle likewise.
 # Take a screenshot of initial state, hardcoded assertion of presence is
 # fragile because demo mode may or may not detect routes by the time this runs.
-- takeScreenshot: "regional-map-default"
+- takeScreenshot: "screenshots/regional-map-default"
 
 # Activate heatmap and screenshot, trace colour should shift when selecting
 # an activity (covered separately; here we verify the toggle fires).
 - tapOn:
     id: "map-toggle-heatmap"
-- takeScreenshot: "regional-map-heatmap-on"
+- takeScreenshot: "screenshots/regional-map-heatmap-on"
 
 # Turn heatmap off again to confirm it's independent of activity layer.
 - tapOn:
     id: "map-toggle-heatmap"
-- takeScreenshot: "regional-map-heatmap-off"
+- takeScreenshot: "screenshots/regional-map-heatmap-off"
 
 # Activities toggle, off should hide traces.
 - tapOn:
     id: "map-toggle-activities"
-- takeScreenshot: "regional-map-activities-off"
+- takeScreenshot: "screenshots/regional-map-activities-off"
 - tapOn:
     id: "map-toggle-activities"
-- takeScreenshot: "regional-map-activities-on"
+- takeScreenshot: "screenshots/regional-map-activities-on"
 
 # Routes toggle (conditional, only present if routeCount > 0). Flow must not
 # fail if the toggle isn't rendered.
@@ -60,7 +60,7 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-routes"
-      - takeScreenshot: "regional-map-routes-toggled"
+      - takeScreenshot: "screenshots/regional-map-routes-toggled"
 
 # Sections toggle (conditional, only present if sections.length > 0)
 - runFlow:
@@ -70,7 +70,7 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-sections"
-      - takeScreenshot: "regional-map-sections-toggled"
+      - takeScreenshot: "screenshots/regional-map-sections-toggled"
 
 - assertNotVisible:
     text: "NaN"
