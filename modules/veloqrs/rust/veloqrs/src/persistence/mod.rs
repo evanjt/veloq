@@ -198,7 +198,7 @@ pub struct MapActivityComplete {
 pub struct SectionDetectionProgress {
     /// Current phase: "loading", "analyzing", "building_rtrees",
     /// "finding_overlaps", "clustering", "postprocessing", "saving",
-    /// "complete"
+    /// "diffing" (preview only), "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -260,6 +260,10 @@ impl SectionDetectionProgress {
             "postprocessing" => (0.75, 0.10),
             "saving" => (0.85, 0.08),
             "recomputing_indicators" => (0.93, 0.04),
+            // Preview only: the detect is already done and the catalogues are
+            // being compared, so the bar sits near the end rather than falling
+            // through to the unknown-phase 50.
+            "diffing" => (0.97, 0.03),
             "complete" => (1.0, 0.0),
             _ => return 50,
         };
@@ -2931,5 +2935,58 @@ pub(crate) mod commit_counter {
 
     pub(crate) fn count(commits: &Arc<AtomicUsize>) -> usize {
         commits.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg(test)]
+mod detection_progress_percent {
+    use super::SectionDetectionProgress;
+
+    /// Every phase a run can enter has to carry a weight. The `_` arm returns
+    /// 50 on purpose, for the refusal phases that are not a position in a run
+    /// (`suspended`, `cutover_owed`), so a run phase that falls through there
+    /// reads as half done wherever it actually is.
+    #[test]
+    fn every_run_phase_carries_a_weight_of_its_own() {
+        let progress = SectionDetectionProgress::new();
+        let run_phases = [
+            "loading",
+            "analyzing",
+            "building_rtrees",
+            "finding_overlaps",
+            "clustering",
+            "postprocessing",
+            "saving",
+            "recomputing_indicators",
+            "diffing",
+            "complete",
+        ];
+
+        let mut last = 0;
+        for phase in run_phases {
+            progress.set_phase(phase, 0);
+            let percent = progress.get_percent();
+            assert_ne!(
+                percent, 50,
+                "'{phase}' fell through to the unknown-phase sentinel"
+            );
+            assert!(
+                percent >= last,
+                "'{phase}' reads {percent}, behind the phase before it at {last}"
+            );
+            last = percent;
+        }
+        assert_eq!(last, 100, "the run ends at 100");
+    }
+
+    /// The refusal phases keep the sentinel: they are not a position in a run
+    /// and must not pretend to be one.
+    #[test]
+    fn a_phase_that_is_not_a_run_phase_still_reads_fifty() {
+        let progress = SectionDetectionProgress::new();
+        for phase in ["suspended", "cutover_owed", "aborted"] {
+            progress.set_phase(phase, 0);
+            assert_eq!(progress.get_percent(), 50, "'{phase}' is not a run phase");
+        }
     }
 }

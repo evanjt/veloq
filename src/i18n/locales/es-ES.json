@@ -1039,6 +1039,7 @@
     "deleteSection": "Eliminar sección",
     "deleteSectionConfirm": "¿Estás seguro de que quieres eliminar esta sección? Esta acción no se puede deshacer.",
     "detectionPaused": "Detección en pausa mientras se migran tus secciones",
+    "detectionPausedElevation": "Detección en pausa mientras se descarga la elevación",
     "disabled": "Desactivada",
     "removeSection": "Eliminar sección",
     "removeSectionConfirm": "Esta sección no aparecerá en los detalles de actividad ni en las estadísticas. Puedes restaurarla desde la lista de secciones.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "No se pudieron actualizar {{count}} recorridos de actividad. Se reintentarán más tarde.",
     "elevationBackfillFailed": "No se pudo ejecutar la actualización de altitud.",
     "elevationBackfillExplainer": "La detección de secciones mejorada se ejecuta cuando todos los recorridos tienen altitud.",
+    "elevationBackfillOutstanding_one": "{{count}} recorrido todavía necesita elevación.",
+    "elevationBackfillOutstanding_other": "{{count}} recorridos todavía necesitan elevación.",
     "elevationBackfillWhy": "Por qué hace falta",
     "elevationBackfillWhyTitle": "Por qué se añade la altitud",
     "elevationBackfillWhyBody": "El algoritmo de secciones mejorado y la detección de subidas leen una altitud que las versiones anteriores nunca descargaban. Veloq la descarga una vez para tus actividades existentes y después vuelve a detectar las secciones con el nuevo algoritmo.",
@@ -1566,5 +1569,22 @@
     "delete": "Eliminar nombre",
     "deleteTitle": "Eliminar nombre",
     "deleteConfirm": "¿Eliminar \"{{name}}\"? El tramo volverá a su nombre generado."
+  },
+  "backgroundJobs": {
+    "title": "Tareas en segundo plano",
+    "intro": "Tareas largas que la aplicación ejecuta sola. Continúan cuando sales de esta pantalla.",
+    "openLink": "Tareas en segundo plano",
+    "sync": "Sincronización de actividades",
+    "detection": "Detección de tramos",
+    "elevationBackfill": "Descarga de altimetría",
+    "cutover": "Reconstrucción de tramos",
+    "stateIdle": "Detenida",
+    "stateRunning": "En curso",
+    "stateComplete": "Finalizada",
+    "statePartial": "Finalizada, quedan reintentos",
+    "stateFailed": "Se detuvo antes de tiempo",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltan {{count}} por descargar"
   }
 }

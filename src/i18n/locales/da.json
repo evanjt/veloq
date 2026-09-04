@@ -1039,6 +1039,7 @@
     "deleteSection": "Slet sektion",
     "deleteSectionConfirm": "Er du sikker på, at du vil slette denne sektion? Denne handling kan ikke fortrydes.",
     "detectionPaused": "Registrering sat på pause, mens dine sektioner migreres",
+    "detectionPausedElevation": "Registrering sat på pause, mens højde hentes",
     "disabled": "Deaktiveret",
     "removeSection": "Fjern sektion",
     "removeSectionConfirm": "Denne sektion vises ikke i aktivitetsdetaljer eller indsigter. Du kan gendanne den fra sektionslisten.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
     "elevationBackfillFailed": "Højdeopdateringen kunne ikke køre.",
     "elevationBackfillExplainer": "Forbedret sektionsdetektering kører, når alle spor har højde.",
+    "elevationBackfillOutstanding_one": "{{count}} aktivitetsspor mangler stadig højde.",
+    "elevationBackfillOutstanding_other": "{{count}} aktivitetsspor mangler stadig højde.",
     "elevationBackfillWhy": "Hvorfor er det nødvendigt",
     "elevationBackfillWhyTitle": "Hvorfor højde bliver tilføjet",
     "elevationBackfillWhyBody": "Den forbedrede sektionsalgoritme og stigningsdetektering læser højde, som tidligere versioner aldrig hentede. Veloq henter den én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
@@ -1566,5 +1569,22 @@
     "delete": "Slet navn",
     "deleteTitle": "Slet navn",
     "deleteConfirm": "Slet \"{{name}}\"? Strækningen får sit genererede navn tilbage."
+  },
+  "backgroundJobs": {
+    "title": "Baggrundsopgaver",
+    "intro": "Lange opgaver, som appen kører af sig selv. De fortsætter, når du forlader denne skærm.",
+    "openLink": "Baggrundsopgaver",
+    "sync": "Synkronisering af aktiviteter",
+    "detection": "Registrering af sektioner",
+    "elevationBackfill": "Hentning af højdedata",
+    "cutover": "Genopbygning af sektioner",
+    "stateIdle": "Kører ikke",
+    "stateRunning": "Kører",
+    "stateComplete": "Færdig",
+    "statePartial": "Færdig, nogle skal forsøges igen",
+    "stateFailed": "Stoppet for tidligt",
+    "progressCount": "{{completed}} af {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "{{count}} mangler at blive hentet"
   }
 }

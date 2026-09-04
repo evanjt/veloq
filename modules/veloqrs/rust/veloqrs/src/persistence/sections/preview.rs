@@ -18,6 +18,21 @@ use tracematch::sections::{RECUT_AGREEMENT, Tunables, mutual_overlap, shares_gro
 
 use super::super::{PersistentEngine, SectionDetectionProgress};
 
+/// Tell the listener which phase a preview run entered.
+///
+/// The screen reads progress on the transition rather than on a timer, so a
+/// phase that is set without being announced leaves the button where it stood.
+/// The call blocks on JavaScript, so every site is on the worker thread and
+/// none is under the engine lock or the preview slot lock.
+fn notify_phase(phase: &str) {
+    crate::objects::observer::notify(|o| o.preview_phase(phase.to_string()));
+}
+
+fn announce_phase(progress: &SectionDetectionProgress, phase: &str, total: u32) {
+    progress.set_phase(phase, total);
+    notify_phase(phase);
+}
+
 /// Bin edge for the ~5 km centre grid, in degrees of latitude.
 const BIN_DEG: f64 = 0.045;
 
@@ -608,6 +623,10 @@ impl PersistentEngine {
         thread::spawn(move || {
             let _finish = PreviewFinished;
             let _suspend = suspend;
+            // The caller set "loading" before the spawn, but under the engine
+            // read lock and the preview slot lock. The notice blocks on
+            // JavaScript, so it is made here, off both.
+            notify_phase("loading");
             // A capture outlives the body's locals, so the sender moves into one
             // and drops before the finish notice.
             let sender = tx;
@@ -686,7 +705,7 @@ impl PersistentEngine {
                     pool.unreadable,
                     pool.readable + pool.unreadable as usize
                 );
-                progress_worker.set_phase("aborted", 0);
+                announce_phase(&progress_worker, "aborted", 0);
                 sender
                     .send(PreviewOutcome::PoolUnusable {
                         readable: pool.readable,
@@ -696,7 +715,7 @@ impl PersistentEngine {
                 return;
             }
 
-            progress_worker.set_phase("analyzing", pool.tracks.len() as u32);
+            announce_phase(&progress_worker, "analyzing", pool.tracks.len() as u32);
 
             // The same seconds the real detect reads, loaded the same way.
             // A preview that judged the lift veto on geometry alone would
@@ -720,7 +739,7 @@ impl PersistentEngine {
                 return;
             }
 
-            progress_worker.set_phase("diffing", 1);
+            announce_phase(&progress_worker, "diffing", 1);
             let (counts, sections) = diff_catalogues(&detection.sections, &live_scoped, &pinned);
 
             let payload = PreviewPayload {
@@ -741,7 +760,7 @@ impl PersistentEngine {
                 sections,
             };
 
-            progress_worker.set_phase("complete", 1);
+            announce_phase(&progress_worker, "complete", 1);
             progress_worker.increment();
             match serde_json::to_string(&payload) {
                 Ok(json) => {

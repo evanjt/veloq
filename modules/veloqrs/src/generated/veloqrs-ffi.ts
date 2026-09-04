@@ -343,6 +343,11 @@ interface NativeModuleInterface {
     sectionWord: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_set_observer(
+    ptr: bigint,
+    observer: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_settings(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -526,6 +531,72 @@ interface NativeModuleInterface {
     maxLng: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_clone_engineobserver(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_engineobserver(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_init_callback_vtable_engineobserver(
+    vtable: UniffiVTableCallbackInterfaceEngineObserver,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_progress(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_settled(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_body_stored(
+    ptr: bigint,
+    kind: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_time_streams_stored(
+    ptr: bigint,
+    activityIds: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_gps_track_stored(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_fit_parsed(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_detection_applied(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_tiles_generated(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_backfill_phase(
+    ptr: bigint,
+    phase: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_cutover_settled(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_phase(
+    ptr: bigint,
+    phase: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_finished(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_sectionpreview(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1592,6 +1663,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_observer(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength(): number;
@@ -1620,6 +1692,18 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_settled(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_body_stored(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_fit_parsed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_detection_applied(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_tiles_generated(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_backfill_phase(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_cutover_settled(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_phase(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_finished(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionpreview_current(): number;
@@ -1793,6 +1877,10 @@ interface NativeModuleInterface {
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_engineobserver_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_sectionpreview_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1939,6 +2027,65 @@ export type UniffiForeignFutureCompleteVoid = (
   callbackData: bigint,
   result: UniffiForeignFutureResultVoid,
 ) => void;
+type UniffiCallbackInterfaceEngineObserverMethod0 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod1 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod2 = (
+  uniffiHandle: bigint,
+  kind: Uint8Array,
+  activityId: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod3 = (
+  uniffiHandle: bigint,
+  activityIds: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod4 = (
+  uniffiHandle: bigint,
+  activityId: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod5 = (
+  uniffiHandle: bigint,
+  activityId: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod6 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod7 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod8 = (
+  uniffiHandle: bigint,
+  phase: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod9 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod10 = (
+  uniffiHandle: bigint,
+  phase: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceEngineObserverMethod11 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
+export type UniffiVTableCallbackInterfaceEngineObserver = {
+  uniffiFree: UniffiCallbackInterfaceFree;
+  uniffiClone: UniffiCallbackInterfaceClone;
+  syncProgress: UniffiCallbackInterfaceEngineObserverMethod0;
+  syncSettled: UniffiCallbackInterfaceEngineObserverMethod1;
+  bodyStored: UniffiCallbackInterfaceEngineObserverMethod2;
+  timeStreamsStored: UniffiCallbackInterfaceEngineObserverMethod3;
+  gpsTrackStored: UniffiCallbackInterfaceEngineObserverMethod4;
+  fitParsed: UniffiCallbackInterfaceEngineObserverMethod5;
+  detectionApplied: UniffiCallbackInterfaceEngineObserverMethod6;
+  tilesGenerated: UniffiCallbackInterfaceEngineObserverMethod7;
+  backfillPhase: UniffiCallbackInterfaceEngineObserverMethod8;
+  cutoverSettled: UniffiCallbackInterfaceEngineObserverMethod9;
+  previewPhase: UniffiCallbackInterfaceEngineObserverMethod10;
+  previewFinished: UniffiCallbackInterfaceEngineObserverMethod11;
+};
 
 // UniffiRustFutureContinuationCallback is generated as part of the component interface's
 // ffi_definitions. However, we need it in the runtime.

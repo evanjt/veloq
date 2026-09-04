@@ -119,6 +119,7 @@ export type EngineEvent =
   | 'tilesGenerated'
   | 'backfillPhase'
   | 'cutoverSettled'
+  | 'previewPhase'
   | 'previewFinished';
 
 /** What an announcement carries. Events with no subject carry nothing. */
@@ -142,6 +143,7 @@ interface EngineObserverBinding {
   tilesGenerated(): void;
   backfillPhase(phase: string): void;
   cutoverSettled(): void;
+  previewPhase(phase: string): void;
   previewFinished(): void;
 }
 
@@ -1170,6 +1172,7 @@ class EngineClient implements DelegateHost {
       tilesGenerated: () => post('tilesGenerated'),
       backfillPhase: (phase) => post('backfillPhase', { phase }),
       cutoverSettled: () => post('cutoverSettled'),
+      previewPhase: (phase) => post('previewPhase', { phase }),
       previewFinished: () => post('previewFinished'),
     };
   }

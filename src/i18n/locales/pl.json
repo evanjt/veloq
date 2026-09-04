@@ -1041,6 +1041,7 @@
     "deleteSection": "Usuń sekcję",
     "deleteSectionConfirm": "Czy na pewno chcesz usunąć tę sekcję? Tej operacji nie można cofnąć.",
     "detectionPaused": "Wykrywanie wstrzymane podczas migracji odcinków",
+    "detectionPausedElevation": "Wykrywanie wstrzymane podczas pobierania wysokości",
     "disabled": "Wyłączona",
     "removeSection": "Usuń sekcję",
     "removeSectionConfirm": "Ta sekcja nie będzie widoczna w szczegółach aktywności ani w statystykach. Możesz ją przywrócić z listy sekcji.",
@@ -1241,6 +1242,8 @@
     "elevationBackfillRetrying_other": "Nie udało się zaktualizować {{count}} śladów aktywności. Zostaną ponowione później.",
     "elevationBackfillFailed": "Nie udało się uruchomić aktualizacji wysokości.",
     "elevationBackfillExplainer": "Ulepszone wykrywanie sekcji uruchomi się, gdy wszystkie ślady będą miały wysokość.",
+    "elevationBackfillOutstanding_one": "{{count}} trasa nadal potrzebuje wysokości.",
+    "elevationBackfillOutstanding_other": "{{count}} tras nadal potrzebuje wysokości.",
     "elevationBackfillWhy": "Dlaczego to potrzebne",
     "elevationBackfillWhyTitle": "Dlaczego dodawana jest wysokość",
     "elevationBackfillWhyBody": "Ulepszony algorytm sekcji i wykrywanie podjazdów korzystają z wysokości, której wcześniejsze wersje nigdy nie pobierały. Veloq pobiera ją raz dla twoich istniejących aktywności, a potem wykrywa sekcje ponownie nowym algorytmem.",
@@ -1568,5 +1571,22 @@
     "delete": "Usuń nazwę",
     "deleteTitle": "Usuń nazwę",
     "deleteConfirm": "Usunąć \"{{name}}\"? Odcinek wróci do nazwy wygenerowanej."
+  },
+  "backgroundJobs": {
+    "title": "Zadania w tle",
+    "intro": "Długie zadania, które aplikacja wykonuje sama. Trwają dalej po opuszczeniu tego ekranu.",
+    "openLink": "Zadania w tle",
+    "sync": "Synchronizacja aktywności",
+    "detection": "Wykrywanie odcinków",
+    "elevationBackfill": "Pobieranie przewyższeń",
+    "cutover": "Przebudowa odcinków",
+    "stateIdle": "Nie działa",
+    "stateRunning": "W toku",
+    "stateComplete": "Zakończone",
+    "statePartial": "Zakończone, część do ponowienia",
+    "stateFailed": "Zatrzymane przedwcześnie",
+    "progressCount": "{{completed}} z {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Pozostało {{count}} do pobrania"
   }
 }

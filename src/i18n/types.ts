@@ -276,6 +276,8 @@ export interface TranslationResource {
     elevationBackfillRetrying_other: string;
     elevationBackfillFailed: string;
     elevationBackfillExplainer: string;
+    elevationBackfillOutstanding_one: string;
+    elevationBackfillOutstanding_other: string;
     elevationBackfillWhy: string;
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
@@ -1005,6 +1007,7 @@ export interface TranslationResource {
     splitWest: string;
     defaultName: string;
     detectionPaused: string;
+    detectionPausedElevation: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
@@ -1540,6 +1543,23 @@ export interface TranslationResource {
     tipLarge: string;
     shareCrashLog: string;
     noCrashLog: string;
+  };
+  backgroundJobs: {
+    title: string;
+    intro: string;
+    openLink: string;
+    sync: string;
+    detection: string;
+    elevationBackfill: string;
+    cutover: string;
+    stateIdle: string;
+    stateRunning: string;
+    stateComplete: string;
+    statePartial: string;
+    stateFailed: string;
+    progressCount: string;
+    progressPercent: string;
+    remaining: string;
   };
 }
 

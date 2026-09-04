@@ -39,6 +39,9 @@ pub trait EngineObserver: Send + Sync {
     fn backfill_phase(&self, phase: String);
     /// The section cutover committed.
     fn cutover_settled(&self);
+    /// A preview detection run entered `phase`. Four per run, so the screen
+    /// reads progress on a transition instead of on a timer.
+    fn preview_phase(&self, phase: String);
     /// A preview detection run finished.
     fn preview_finished(&self);
 }
@@ -134,6 +137,9 @@ pub(crate) mod recorder {
         }
         fn cutover_settled(&self) {
             self.push("cutover_settled");
+        }
+        fn preview_phase(&self, phase: String) {
+            self.push(&format!("preview_phase:{phase}"));
         }
         fn preview_finished(&self) {
             self.push("preview_finished");
