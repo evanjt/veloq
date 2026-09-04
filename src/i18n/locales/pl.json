@@ -1041,6 +1041,7 @@
     "deleteSection": "Usuń sekcję",
     "deleteSectionConfirm": "Czy na pewno chcesz usunąć tę sekcję? Tej operacji nie można cofnąć.",
     "detectionPaused": "Wykrywanie wstrzymane podczas migracji odcinków",
+    "detectionPausedElevation": "Wykrywanie wstrzymane podczas pobierania wysokości",
     "disabled": "Wyłączona",
     "removeSection": "Usuń sekcję",
     "removeSectionConfirm": "Ta sekcja nie będzie widoczna w szczegółach aktywności ani w statystykach. Możesz ją przywrócić z listy sekcji.",

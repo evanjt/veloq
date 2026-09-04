@@ -1039,6 +1039,7 @@
     "deleteSection": "Delete Section",
     "deleteSectionConfirm": "You sure you want to chuck this section? Can't undo this one.",
     "detectionPaused": "Detection paused while your sections migrate",
+    "detectionPausedElevation": "Detection paused while elevation downloads",
     "disabled": "Disabled",
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",

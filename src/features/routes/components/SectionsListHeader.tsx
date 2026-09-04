@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
+import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 
 interface SectionsListHeaderProps {
   searchQuery: string;
@@ -20,8 +21,8 @@ interface SectionsListHeaderProps {
   unacceptedAutoCount: number;
   acceptAllResult: number | null;
   isScanning: boolean;
-  /** The engine is refusing to detect until the detector migration has run. */
-  detectionHeld: boolean;
+  /** Why the engine is refusing to detect, or null when it is not. */
+  detectionHold: DetectionHold;
   onAcceptAll: () => void;
   onRescan: () => void;
 }
@@ -33,7 +34,7 @@ export function SectionsListHeader({
   unacceptedAutoCount,
   acceptAllResult,
   isScanning,
-  detectionHeld,
+  detectionHold,
   onAcceptAll,
   onRescan,
 }: SectionsListHeaderProps) {
@@ -102,7 +103,7 @@ export function SectionsListHeader({
           )}
           <TouchableOpacity
             onPress={onRescan}
-            disabled={isScanning || detectionHeld}
+            disabled={isScanning || detectionHold !== null}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -121,7 +122,7 @@ export function SectionsListHeader({
           </TouchableOpacity>
         </View>
       </View>
-      {detectionHeld && (
+      {detectionHold !== null && (
         <View style={styles.pausedRow} testID="detection-paused">
           <MaterialCommunityIcons
             name="pause-circle-outline"
@@ -129,7 +130,9 @@ export function SectionsListHeader({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>
-            {t('sections.detectionPaused')}
+            {detectionHold === 'elevation'
+              ? t('sections.detectionPausedElevation')
+              : t('sections.detectionPaused')}
           </Text>
         </View>
       )}
