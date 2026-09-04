@@ -687,11 +687,12 @@ impl PersistentEngine {
                     pool.readable + pool.unreadable as usize
                 );
                 progress_worker.set_phase("aborted", 0);
-                sender.send(PreviewOutcome::PoolUnusable {
-                    readable: pool.readable,
-                    unreadable: pool.unreadable,
-                })
-                .ok();
+                sender
+                    .send(PreviewOutcome::PoolUnusable {
+                        readable: pool.readable,
+                        unreadable: pool.unreadable,
+                    })
+                    .ok();
                 return;
             }
 

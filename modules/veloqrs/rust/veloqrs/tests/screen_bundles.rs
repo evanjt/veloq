@@ -857,7 +857,10 @@ fn startup_matches_the_calls_it_replaces() {
     assert_eq!(bundled, vec!["a1", "a2"]);
 
     for track in &preview_tracks {
-        let expected = s.engine.get_signature(&track.activity_id).expect("signature");
+        let expected = s
+            .engine
+            .get_signature(&track.activity_id)
+            .expect("signature");
         assert_eq!(
             veloqrs::coords::decode(&track.encoded_coords).len(),
             expected.points.len()
@@ -892,9 +895,13 @@ fn startup_still_answers_with_no_preview_ids() {
     let mut s = populated();
     let p = insights_params();
 
-    let bundle = s
-        .engine
-        .startup_data(p.current_start, p.current_end, p.prev_start, p.prev_end, &[]);
+    let bundle = s.engine.startup_data(
+        p.current_start,
+        p.current_end,
+        p.prev_start,
+        p.prev_end,
+        &[],
+    );
 
     assert!(bundle.preview_tracks.is_empty());
     assert_eq!(
