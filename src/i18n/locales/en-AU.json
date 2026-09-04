@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Sections that explain themselves",
       "sectionsBody": "Sections are now cut by one deterministic detector. Each one keeps a history you can read, revert and pin.",
+      "elevationLine": "Veloq downloads elevation once for your existing activities, then detects sections again with the new algorithm.",
       "rowDeterministic": "One deterministic matcher: the same rides give the same sections",
       "rowSameResult": "Adding rides one at a time or all at once gives the same result",
       "rowLedger": "A ledger shows how each section changed and what was around it",

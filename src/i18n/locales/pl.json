@@ -1430,6 +1430,7 @@
     "v040": {
       "sectionsTitle": "Odcinki, które się tłumaczą",
       "sectionsBody": "Odcinki wycina teraz jeden deterministyczny detektor. Każdy ma historię, którą można przeczytać, przywrócić i przypiąć.",
+      "elevationLine": "Veloq pobiera wysokość raz dla twoich istniejących aktywności, a potem wykrywa sekcje ponownie nowym algorytmem.",
       "rowDeterministic": "Jeden deterministyczny dopasowywacz: te same przejazdy dają te same odcinki",
       "rowSameResult": "Dodawanie przejazdów pojedynczo lub naraz daje ten sam wynik",
       "rowLedger": "Historia pokazuje, jak zmieniał się każdy odcinek i co było w pobliżu",

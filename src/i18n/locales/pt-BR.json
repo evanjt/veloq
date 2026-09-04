@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Trechos que se explicam",
       "sectionsBody": "Os trechos agora são cortados por um único detector determinístico. Cada um guarda um histórico que você pode ler, restaurar e fixar.",
+      "elevationLine": "O Veloq baixa a altitude uma vez para as suas atividades existentes e depois detecta os trechos de novo com o novo algoritmo.",
       "rowDeterministic": "Um só pareador determinístico: as mesmas pedaladas dão os mesmos trechos",
       "rowSameResult": "Adicionar atividades uma por uma ou todas de uma vez dá o mesmo resultado",
       "rowLedger": "Um histórico mostra como cada trecho mudou e o que estava por perto",

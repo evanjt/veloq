@@ -7,6 +7,9 @@
  * card names the phase, and once it settles it reports the stored diff, so
  * the numbers are the engine's rather than a promise. A failed run says so and
  * withholds the diff, which still describes the run before it.
+ *
+ * The elevation line is the tour's only word on the one-time download that
+ * precedes the re-cut, so it sits above the claims on every render.
  */
 
 import React, { useMemo } from 'react';
@@ -110,6 +113,16 @@ export function SectionChangeCardSlide() {
               })}`}
         </Text>
       )}
+      <View style={styles.row} testID="change-card-elevation">
+        <MaterialCommunityIcons
+          name="elevation-rise"
+          size={18}
+          color={isDark ? darkColors.primary : colors.primary}
+        />
+        <Text style={[styles.text, isDark && styles.textDark]}>
+          {t('whatsNew.v040.elevationLine')}
+        </Text>
+      </View>
       {rows.map((r) => (
         <View key={r.flag} style={styles.row} testID={`change-card-row-${r.flag}`}>
           <MaterialCommunityIcons
