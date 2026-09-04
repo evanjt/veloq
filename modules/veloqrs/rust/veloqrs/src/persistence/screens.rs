@@ -423,6 +423,47 @@ impl super::PersistentEngine {
         }
     }
 
+    /// The feed's first paint: the summary card and the preview tracks.
+    ///
+    /// Both are cheap, so this can run before the screen has anything to show.
+    /// Preview tracks come from the cached route signatures rather than the
+    /// full GPS track, which is a hundred points instead of four thousand.
+    pub fn startup_data(
+        &mut self,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        preview_activity_ids: &[String],
+    ) -> crate::FfiStartupData {
+        let summary_card = crate::FfiSummaryCardData {
+            current_week: self.get_period_stats(current_start, current_end),
+            prev_week: self.get_period_stats(prev_start, prev_end),
+            ftp_trend: self.get_ftp_trend(),
+            run_pace_trend: self.get_pace_trend("Run"),
+            swim_pace_trend: self.get_pace_trend("Swim"),
+        };
+
+        let preview_tracks = preview_activity_ids
+            .iter()
+            .filter_map(|id| {
+                let sig = self.get_signature(id)?;
+                if sig.points.is_empty() {
+                    return None;
+                }
+                Some(crate::FfiPreviewTrack {
+                    activity_id: id.clone(),
+                    encoded_coords: crate::coords::encode(&sig.points),
+                })
+            })
+            .collect();
+
+        crate::FfiStartupData {
+            summary_card,
+            preview_tracks,
+        }
+    }
+
     /// Everything the home-screen widget snapshot is composed from.
     ///
     /// The latest activity is picked here rather than by handing every metric

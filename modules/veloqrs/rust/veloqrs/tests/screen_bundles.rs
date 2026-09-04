@@ -538,6 +538,107 @@ fn insights_falls_back_to_the_engine_sport_types() {
 }
 
 // ============================================================================
+// Startup
+// ============================================================================
+
+#[test]
+fn startup_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    let p = insights_params();
+    let ids = vec!["a1".to_string(), "a2".to_string()];
+
+    // Destructured exhaustively: the bundle carries these two fields and
+    // nothing the feed does not paint.
+    let veloqrs::FfiStartupData {
+        summary_card,
+        preview_tracks,
+    } = s.engine.startup_data(
+        p.current_start,
+        p.current_end,
+        p.prev_start,
+        p.prev_end,
+        &ids,
+    );
+
+    assert_eq!(
+        summary_card.current_week.count,
+        s.engine
+            .get_period_stats(p.current_start, p.current_end)
+            .count
+    );
+    assert_eq!(
+        summary_card.prev_week.count,
+        s.engine.get_period_stats(p.prev_start, p.prev_end).count
+    );
+    assert_eq!(
+        summary_card.ftp_trend.latest_ftp,
+        s.engine.get_ftp_trend().latest_ftp
+    );
+    assert_eq!(
+        summary_card.run_pace_trend.latest_pace,
+        s.engine.get_pace_trend("Run").latest_pace
+    );
+    assert_eq!(
+        summary_card.swim_pace_trend.latest_pace,
+        s.engine.get_pace_trend("Swim").latest_pace
+    );
+
+    let bundled: Vec<&str> = preview_tracks
+        .iter()
+        .map(|t| t.activity_id.as_str())
+        .collect();
+    assert_eq!(bundled, vec!["a1", "a2"]);
+
+    for track in &preview_tracks {
+        let expected = s.engine.get_signature(&track.activity_id).expect("signature");
+        assert_eq!(
+            veloqrs::coords::decode(&track.encoded_coords).len(),
+            expected.points.len()
+        );
+    }
+}
+
+#[test]
+fn startup_skips_ids_with_no_signature() {
+    let mut s = populated();
+    let p = insights_params();
+    let ids = vec!["nope".to_string(), "a1".to_string()];
+
+    let bundle = s.engine.startup_data(
+        p.current_start,
+        p.current_end,
+        p.prev_start,
+        p.prev_end,
+        &ids,
+    );
+
+    let bundled: Vec<&str> = bundle
+        .preview_tracks
+        .iter()
+        .map(|t| t.activity_id.as_str())
+        .collect();
+    assert_eq!(bundled, vec!["a1"]);
+}
+
+#[test]
+fn startup_still_answers_with_no_preview_ids() {
+    let mut s = populated();
+    let p = insights_params();
+
+    let bundle = s
+        .engine
+        .startup_data(p.current_start, p.current_end, p.prev_start, p.prev_end, &[]);
+
+    assert!(bundle.preview_tracks.is_empty());
+    assert_eq!(
+        bundle.summary_card.current_week.count,
+        s.engine
+            .get_period_stats(p.current_start, p.current_end)
+            .count
+    );
+}
+
+// ============================================================================
 // Section detail
 // ============================================================================
 

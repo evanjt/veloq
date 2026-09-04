@@ -132,7 +132,7 @@ export default function InsightsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
-  const { insights, markAsSeen } = useInsights();
+  const { insights, todayPattern, markAsSeen } = useInsights();
   const hasStrength = useHasStrengthData();
   const { location: userLocation, requestPermission } = useUserLocation();
   const routeSortTouchedRef = useRef(false);
@@ -384,11 +384,12 @@ export default function InsightsScreen() {
       <InsightsPanel
         key="insights"
         insights={insights}
+        todayPattern={todayPattern}
         initialInsightId={insightId}
         onInsightOpened={handleInsightOpened}
       />
     ),
-    [insights, insightId, handleInsightOpened]
+    [insights, todayPattern, insightId, handleInsightOpened]
   );
 
   const routesPage = useMemo(
