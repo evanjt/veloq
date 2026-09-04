@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Tratti che si spiegano",
       "sectionsBody": "I tratti sono ora tagliati da un unico rilevatore deterministico. Ognuno conserva una cronologia da leggere, ripristinare e bloccare.",
+      "elevationLine": "Veloq scarica l'altitudine una volta per le tue attività esistenti, poi rileva di nuovo le sezioni con il nuovo algoritmo.",
       "rowDeterministic": "Un solo abbinatore deterministico: le stesse uscite danno gli stessi tratti",
       "rowSameResult": "Aggiungere le uscite una alla volta o tutte insieme dà lo stesso risultato",
       "rowLedger": "Una cronologia mostra come è cambiato ogni tratto e cosa c'era intorno",

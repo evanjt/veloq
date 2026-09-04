@@ -71,6 +71,15 @@ describe('SectionChangeCardSlide', () => {
     expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
   });
 
+  it('announces the one-time elevation download above the claims', () => {
+    (getEngine as jest.Mock).mockReturnValue({
+      getChangeCardSupport: () => ALL_BUT_DEVICE,
+    });
+    const { getByTestId, getByText } = render(<SectionChangeCardSlide />);
+    expect(getByTestId('change-card-elevation')).toBeTruthy();
+    expect(getByText('whatsNew.v040.elevationLine')).toBeTruthy();
+  });
+
   it('is registered as the 0.4.0 slide', () => {
     const since038 = getSlidesSince('0.3.8');
     expect(since038.some((s) => s.titleKey === 'whatsNew.v040.sectionsTitle')).toBe(true);
