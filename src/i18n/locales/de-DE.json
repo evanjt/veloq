@@ -1569,5 +1569,22 @@
     "delete": "Namen löschen",
     "deleteTitle": "Namen löschen",
     "deleteConfirm": "\"{{name}}\" löschen? Der Abschnitt erhält wieder seinen generierten Namen."
+  },
+  "backgroundJobs": {
+    "title": "Hintergrundaufgaben",
+    "intro": "Lange Aufgaben, die die App von selbst ausführt. Sie laufen weiter, wenn du diesen Bildschirm verlässt.",
+    "openLink": "Hintergrundaufgaben",
+    "sync": "Aktivitätssynchronisierung",
+    "detection": "Abschnittserkennung",
+    "elevationBackfill": "Höhendaten laden",
+    "cutover": "Abschnitte neu aufbauen",
+    "stateIdle": "Läuft nicht",
+    "stateRunning": "Läuft",
+    "stateComplete": "Abgeschlossen",
+    "statePartial": "Abgeschlossen, einige Wiederholungen offen",
+    "stateFailed": "Vorzeitig gestoppt",
+    "progressCount": "{{completed}} von {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "Noch {{count}} zu laden"
   }
 }

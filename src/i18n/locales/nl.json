@@ -1569,5 +1569,22 @@
     "delete": "Naam verwijderen",
     "deleteTitle": "Naam verwijderen",
     "deleteConfirm": "\"{{name}}\" verwijderen? Het stuk krijgt zijn gegenereerde naam terug."
+  },
+  "backgroundJobs": {
+    "title": "Achtergrondtaken",
+    "intro": "Lange taken die de app zelf uitvoert. Ze gaan door als je dit scherm verlaat.",
+    "openLink": "Achtergrondtaken",
+    "sync": "Activiteiten synchroniseren",
+    "detection": "Sectiedetectie",
+    "elevationBackfill": "Hoogtegegevens downloaden",
+    "cutover": "Secties opnieuw opbouwen",
+    "stateIdle": "Draait niet",
+    "stateRunning": "Bezig",
+    "stateComplete": "Klaar",
+    "statePartial": "Klaar, enkele opnieuw te proberen",
+    "stateFailed": "Voortijdig gestopt",
+    "progressCount": "{{completed}} van {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Nog {{count}} op te halen"
   }
 }

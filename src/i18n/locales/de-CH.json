@@ -1569,5 +1569,22 @@
     "delete": "Namen löschen",
     "deleteTitle": "Namen löschen",
     "deleteConfirm": "\"{{name}}\" löschen? Der Abschnitt erhält wieder seinen generierten Namen."
+  },
+  "backgroundJobs": {
+    "title": "Hintergrundufgabe",
+    "intro": "Langi Ufgabe, wo d App vo sich us macht. Si laufed wiiter, au wenn du de Bildschirm verlaasch.",
+    "openLink": "Hintergrundufgabe",
+    "sync": "Aktivitäte synchronisiere",
+    "detection": "Abschnitt erkenne",
+    "elevationBackfill": "Höhedate lade",
+    "cutover": "Abschnitt neu ufbaue",
+    "stateIdle": "Laufd nöd",
+    "stateRunning": "Laufd",
+    "stateComplete": "Fertig",
+    "statePartial": "Fertig, es paar chömed nomal dra",
+    "stateFailed": "Z früeh gstoppt",
+    "progressCount": "{{completed}} vo {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "No {{count}} z lade"
   }
 }

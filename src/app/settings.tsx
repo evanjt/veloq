@@ -285,6 +285,13 @@ export default function SettingsScreen() {
               onPress={nav('/detection-settings')}
               testID="settings-nav-detection"
             />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="progress-clock"
+              title={t('backgroundJobs.title')}
+              onPress={nav('/background-jobs')}
+              testID="settings-nav-background-jobs"
+            />
           </View>
 
           {/* Notifications & Storage */}

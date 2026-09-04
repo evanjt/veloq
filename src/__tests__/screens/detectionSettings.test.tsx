@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { render } from '@testing-library/react-native';
 import DetectionSettingsScreen from '@/app/detection-settings';
 
@@ -65,7 +66,13 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   }),
 }));
 
+// Hoisted past the mock factory as a declaration, so the factory can reach it.
+function mockJobsLink() {
+  return React.createElement(View, { testID: 'background-jobs-link' });
+}
+
 jest.mock('@/features/settings/components', () => ({
+  BackgroundJobsLink: mockJobsLink,
   DetectionIllustration: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
@@ -101,5 +108,10 @@ describe('detection settings screen', () => {
     const tree = render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
+  });
+
+  it('links out to the jobs area rather than being the only home for the backfill', () => {
+    const tree = render(<DetectionSettingsScreen />);
+    expect(tree.getByTestId('background-jobs-link')).toBeTruthy();
   });
 });
