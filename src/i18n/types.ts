@@ -725,6 +725,7 @@ export interface TranslationResource {
     v040: {
       sectionsTitle: string;
       sectionsBody: string;
+      elevationLine: string;
       rowDeterministic: string;
       rowSameResult: string;
       rowLedger: string;

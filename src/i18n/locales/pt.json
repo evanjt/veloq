@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Troços que se explicam",
       "sectionsBody": "Os troços passam a ser cortados por um único detetor determinístico. Cada um guarda um histórico que pode ler, repor e fixar.",
+      "elevationLine": "O Veloq descarrega a altitude uma vez para as tuas atividades existentes e depois deteta os troços de novo com o novo algoritmo.",
       "rowDeterministic": "Um só emparelhador determinístico: as mesmas saídas dão os mesmos troços",
       "rowSameResult": "Adicionar saídas uma a uma ou todas de uma vez dá o mesmo resultado",
       "rowLedger": "Um histórico mostra como cada troço mudou e o que esteve por perto",
