@@ -46,6 +46,33 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             Ok(DetectionPoll::Died)
         }
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
+            // A self-applying run saved itself on its own thread before it
+            // reported finished, so this poll has nothing to write. That is
+            // the whole point of the split: the tick that happens to observe
+            // completion is a JavaScript frame, and the apply is hundreds of
+            // milliseconds of hot save on a real library.
+            let worker_apply = handle_guard
+                .as_ref()
+                .map(|h| h.worker_apply())
+                .unwrap_or(crate::persistence::WorkerApply::Caller);
+            if worker_apply != crate::persistence::WorkerApply::Caller {
+                *handle_guard = None;
+                drop(handle_guard);
+                if worker_apply == crate::persistence::WorkerApply::Failed {
+                    // The result went into the failed attempt, so there is
+                    // nothing here to save. Applying the empty message the
+                    // worker sends behind it would wipe the catalogue.
+                    log::error!(
+                        "veloqrs: [DetectionManager] The run could not apply itself, the catalogue is unchanged"
+                    );
+                    return Err(VeloqError::Database {
+                        msg: "detection apply failed on the worker".to_string(),
+                    });
+                }
+                info!("veloqrs: [DetectionManager] Section detection complete");
+                return Ok(DetectionPoll::Applied);
+            }
+
             // Tier 1.1 split: hot save + processed_ids return synchronously
             // (sections are queryable immediately), then run the
             // indicator recompute under the engine lock as the deferred
@@ -191,7 +218,11 @@ impl DetectionManager {
             return Ok(false);
         }
 
-        let handle = with_engine(|e| e.detect_sections_background())?;
+        let handle = with_engine(|e| {
+            e.detect_sections_background_applying(
+                crate::persistence::sections::detection::ApplyOn::Worker,
+            )
+        })?;
         // The funnel refuses with a dead handle when a backfill takes the
         // suspension between the check above and here. Installing it would
         // occupy the slot with a run that never happened.
@@ -266,7 +297,11 @@ impl DetectionManager {
             e.clear_processed_activity_ids();
         })?;
 
-        let handle = with_engine(|e| e.detect_sections_background())?;
+        let handle = with_engine(|e| {
+            e.detect_sections_background_applying(
+                crate::persistence::sections::detection::ApplyOn::Worker,
+            )
+        })?;
         if handle.get_progress().0 == crate::persistence::sections::DETECTION_PHASE_SUSPENDED {
             info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
             return Ok(false);
@@ -332,6 +367,7 @@ mod tests {
     };
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::sync::Mutex;
+    use std::time::{Duration, Instant};
     use tempfile::TempDir;
 
     fn init_global_engine() -> TempDir {
@@ -447,6 +483,212 @@ mod tests {
             detection_workers_started() - before,
             0,
             "a refused run must not spawn a worker"
+        );
+    }
+
+    /// Watch a run to its end through its own progress, never through
+    /// `poll_detection_once`: the poll is what applied the result under the
+    /// old shape, so polling here would hide the thing under test. Returns
+    /// the last phase seen.
+    fn wait_for_the_run_to_apply(manager: &DetectionManager) -> String {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let phase = manager
+                .get_progress()
+                .expect("progress")
+                .map(|p| p.phase)
+                .unwrap_or_default();
+            if phase == "complete" || Instant::now() >= deadline {
+                return phase;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// Expected behaviour: a run applies its own result before it reports
+    /// finished, so the 500 ms tick that happens to observe completion has no
+    /// write to do on the thread that called it.
+    #[test]
+    fn a_run_applies_before_it_reports_finished() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start"), "the run starts");
+
+        let phase = wait_for_the_run_to_apply(&manager);
+        assert_eq!(
+            phase, "complete",
+            "the run has to apply itself with nothing polling it, it stalled at {:?}",
+            phase
+        );
+
+        let (poll, held) = timed_poll_to_completion();
+        assert_eq!(
+            poll,
+            DetectionPoll::Applied,
+            "the poll that observes completion still reports the run applied"
+        );
+        assert!(
+            held < Duration::from_millis(16),
+            "the poll that observes completion has to stay inside one frame, it held {:?}",
+            held
+        );
+
+        assert_eq!(
+            poll_detection_once().expect("second poll"),
+            DetectionPoll::Idle,
+            "the applied run leaves the slot free"
+        );
+    }
+
+    /// The poll that observes completion, timed. A `Running` poll or two can
+    /// precede it: the worker posts its result just after the last phase
+    /// marker, so the phase leads the channel by a hair.
+    fn timed_poll_to_completion() -> (DetectionPoll, Duration) {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let started = Instant::now();
+            let poll = poll_detection_once().expect("poll");
+            let held = started.elapsed();
+            if poll != DetectionPoll::Running || Instant::now() >= deadline {
+                return (poll, held);
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    /// A section standing on the fixture's own activities, so a catalogue can
+    /// be seeded without a detector run finding one.
+    fn seeded_section() -> crate::FrequentSection {
+        let activity_ids = vec!["a0".to_string(), "a1".to_string()];
+        crate::FrequentSection {
+            id: "seeded-1".to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline: (0..50)
+                .map(|i| tracematch::GpsPoint::new(46.2 + f64::from(i) * 0.0002, 7.35))
+                .collect(),
+            representative_activity_id: "a0".to_string(),
+            representative_range: None,
+            activity_portions: activity_ids
+                .iter()
+                .map(|id| crate::SectionPortion {
+                    activity_id: id.clone(),
+                    start_index: 0,
+                    end_index: 7,
+                    distance_meters: 1_000.0,
+                    direction: tracematch::Direction::Same,
+                })
+                .collect(),
+            activity_ids,
+            route_ids: Vec::new(),
+            visit_count: 2,
+            distance_meters: 1_000.0,
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.8,
+            observation_count: 2,
+            average_spread: 10.0,
+            point_density: vec![2; 50],
+            scale: Some(tracematch::sections::ScaleName::Medium),
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// A global engine holding a catalogue with every activity already
+    /// processed, which is what the no-new-activities echo needs: it re-sends
+    /// the last batch rather than folding anything.
+    fn engine_with_a_catalogue() -> TempDir {
+        let tmp = seeded_global_engine();
+        with_engine(|engine| {
+            engine
+                .apply_sections(vec![seeded_section()])
+                .expect("seed the catalogue");
+            let ids: Vec<String> = (0..6).map(|i| format!("a{}", i)).collect();
+            engine
+                .save_processed_activity_ids(&ids)
+                .expect("nothing is left unprocessed");
+        })
+        .expect("engine");
+        assert_eq!(
+            with_engine(|e| e.get_sections().len()).expect("engine"),
+            1,
+            "the fixture has to leave a catalogue for the echo to write"
+        );
+        tmp
+    }
+
+    /// Expected behaviour: the start that finds nothing new echoes the last
+    /// batch, which is still a full catalogue write. It applies on a thread
+    /// of its own too, so the poll behind it is as cheap as the first.
+    #[test]
+    fn a_run_with_nothing_new_applies_off_the_poller_as_well() {
+        let _serial = serial_global_state();
+        let _tmp = engine_with_a_catalogue();
+        clear_detection_handle();
+
+        let found = with_engine(|e| e.get_sections().len()).expect("engine");
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start"), "the echo run starts");
+        assert_eq!(
+            wait_for_the_run_to_apply(&manager),
+            "complete",
+            "the echo applies with nothing polling it"
+        );
+
+        let (poll, held) = timed_poll_to_completion();
+        assert_eq!(poll, DetectionPoll::Applied, "the echo reports applied");
+        assert!(
+            held < Duration::from_millis(16),
+            "the poll behind the echo has to stay inside one frame, it held {:?}",
+            held
+        );
+        assert_eq!(
+            with_engine(|e| e.get_sections().len()).expect("engine"),
+            found,
+            "the echo leaves the catalogue where it stood"
+        );
+    }
+
+    /// Expected behaviour: a run that could not apply itself reports the
+    /// failure. Its result went with the attempt, so saving the empty message
+    /// it sends behind would replace the catalogue with nothing.
+    #[test]
+    fn a_run_that_could_not_apply_itself_saves_nothing() {
+        let _serial = serial_global_state();
+        let _tmp = engine_with_a_catalogue();
+        clear_detection_handle();
+
+        let held = with_engine(|e| e.get_sections().len()).expect("engine");
+
+        *SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) =
+            Some(crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply());
+
+        assert!(
+            poll_detection_once().is_err(),
+            "the poll has to report an apply that never landed"
+        );
+        assert_eq!(
+            with_engine(|e| e.get_sections().len()).expect("engine"),
+            held,
+            "a failed apply leaves the catalogue alone"
+        );
+        assert_eq!(
+            poll_detection_once().expect("second poll"),
+            DetectionPoll::Idle,
+            "the failed run still frees the slot"
         );
     }
 

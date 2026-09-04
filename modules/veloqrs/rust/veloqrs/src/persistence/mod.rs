@@ -20,7 +20,7 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -322,6 +322,25 @@ pub struct SectionDetectionHandle {
     cache_receiver: mpsc::Receiver<CacheUpdate>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
+    /// Set by a self-applying worker once its own apply has landed. Present
+    /// only for the runs that apply on the worker, so the poll knows whether
+    /// the message on `receiver` is a result to save or a run already saved.
+    worker_applied: Option<Arc<AtomicBool>>,
+}
+
+/// What a poll that observes completion still has to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkerApply {
+    /// Nothing was applied on the worker: the caller applies the result it
+    /// received, which is what every blocking consumer does.
+    Caller,
+    /// The worker applied its own result before reporting finished, so the
+    /// message on the channel is a completion signal and nothing more.
+    Landed,
+    /// The worker was to apply and could not. Its result went with the
+    /// attempt, so the caller must report the failure rather than save the
+    /// empty message left behind.
+    Failed,
 }
 
 /// Non-blocking poll result that distinguishes a still-running worker from
@@ -335,6 +354,17 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
+    /// Whether this run applied its own result. Only meaningful once the
+    /// main channel has answered `Ready`: the worker sets the flag before it
+    /// sends.
+    pub fn worker_apply(&self) -> WorkerApply {
+        match &self.worker_applied {
+            None => WorkerApply::Caller,
+            Some(flag) if flag.load(Ordering::SeqCst) => WorkerApply::Landed,
+            Some(_) => WorkerApply::Failed,
+        }
+    }
+
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
         match self.receiver.try_recv() {
@@ -436,6 +466,27 @@ impl SectionDetectionHandle {
     }
 }
 
+#[cfg(test)]
+impl SectionDetectionHandle {
+    /// A finished run whose worker apply never landed, for the poll's
+    /// failure path: the channel carries the empty message the worker sends
+    /// after it applies, and the flag says the apply did not happen.
+    pub(crate) fn finished_without_its_worker_apply() -> Self {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        tx.send((Vec::new(), Vec::new())).ok();
+        drop(tx);
+        drop(cache_tx);
+        SectionDetectionHandle {
+            receiver: rx,
+            final_update: Mutex::new(None),
+            cache_receiver: cache_rx,
+            progress: SectionDetectionProgress::new(),
+            worker_applied: Some(Arc::new(AtomicBool::new(false))),
+        }
+    }
+}
+
 /// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
@@ -487,6 +538,7 @@ mod worker_poll_tests {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
+            worker_applied: None,
         };
 
         assert!(matches!(handle.poll_state(), WorkerPoll::Running));
@@ -503,6 +555,7 @@ mod worker_poll_tests {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
+            worker_applied: None,
         };
 
         tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();
