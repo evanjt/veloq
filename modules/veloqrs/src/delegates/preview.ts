@@ -84,6 +84,8 @@ export type PreviewPollStatus =
  * existing config and redetect methods the Keep path reuses.
  */
 export interface PreviewClient {
+  /** Listen on one engine channel; the returned function detaches. */
+  subscribe(event: string, callback: () => void): () => void;
   getPreviewCentres(limit: number): PreviewCentre[];
   getPreviewCurrentSections(lat: number, lng: number): PreviewSection[];
   startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
