@@ -18,9 +18,11 @@
 //   helper   the call is inside a module-local function that a hook or
 //            component calls directly at render. One hop only.
 //   memo     the call sits inside useMemo. Runs when the deps change, so it is
-//            fine with a stable key and the B164 shape with an unstable one.
-//            Reported, not failed: the trigger-counter hooks in useEngine.ts are
-//            this shape on purpose and a subscription is what changes the key.
+//            only as fresh as its key. Deps that name a subscription trigger,
+//            or a precomputed value the caller passes instead of the read, are
+//            the sanctioned shape and pass. Deps that name neither never re-run
+//            after a sync, so the screen shows what was true at mount: those
+//            fail.
 //   init     the call sits in a useState or useReducer lazy initialiser. Runs
 //            once per mount, before the first paint. Reported, not failed.
 //
@@ -29,7 +31,9 @@
 // boundary are not reported.
 //
 // `direct` and `helper` reads fail the run unless the file is in ALLOWLIST with
-// a reason. `memo` and `init` reads are printed under --verbose and never fail.
+// a reason, and so does an unkeyed `memo` read unless the file is in
+// MEMO_ALLOWLIST. Keyed `memo` and `init` reads are printed under --verbose and
+// never fail.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
@@ -57,6 +61,39 @@ const ALLOWLIST = new Map([
     'src/features/settings/components/StreamHistoryRow.tsx',
     'one re-read per engine open, nonce guarded',
   ],
+]);
+
+// A memo dep that makes the read re-run when the engine's data changes. A
+// subscription counter is the trigger, however the caller names it; a
+// precomputed value is the caller having already read it, so the memo's own
+// read is the fallback path and stays as stale as its input.
+const KEYED_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed/i;
+
+// Does a memo's dep list carry something that re-runs it after a sync?
+function memoIsKeyed(deps) {
+  if (!deps || deps === '(none)') return false;
+  const inner = deps.replace(/^\[|\]$/g, '').trim();
+  if (inner === '') return false;
+  return KEYED_DEP.test(inner);
+}
+
+// Files whose useMemo read is keyed on its inputs alone by design, with the
+// reason. Same rule as ALLOWLIST: an entry with an open audit item is a debt.
+const MEMO_ALLOWLIST = new Map([
+  // Feeds a useState initialiser and is named for it: one read per mount, with
+  // its own refresh path for everything after.
+  ['src/features/activity/hooks/useActivityBoundsCache.ts', 'initial value, refreshed elsewhere'],
+  // `wellnessData` is the dep that stands in for the trigger: it lands with
+  // each sync, and the sparklines are cut from the same rows.
+  ['src/features/home/hooks/useSummaryCardData.ts', 'wellnessData moves with every sync'],
+  // The five below read on a key that moves with the user's own input but not
+  // with the engine's, so a sync or a rematch does not reach them. Each is an
+  // open item in the audit.
+  ['src/features/routes/hooks/useExcludedActivities.ts', 'unkeyed, open in the audit'],
+  ['src/features/routes/hooks/useSectionChartDataEnriched.ts', 'unkeyed, open in the audit'],
+  ['src/features/settings/components/BackupSection.tsx', 'unkeyed, open in the audit'],
+  ['src/features/stats/components/ActivityHeatmap.tsx', 'unkeyed, open in the audit'],
+  ['src/features/strength/hooks/useMuscleDetail.ts', 'unkeyed, open in the audit'],
 ]);
 
 // Hooks whose callback React runs during render. useMemo runs it whenever the
@@ -168,9 +205,12 @@ function bindsEngine(id) {
       if (!ts.isVariableStatement(st)) continue;
       for (const d of st.declarationList.declarations) {
         if (!ts.isIdentifier(d.name) || d.name.text !== name) continue;
+        // The declaration is a handle only when the loader is the initialiser
+        // itself. A memo whose body happens to mention getEngine binds an
+        // array or a map, and its own methods are not engine reads.
         return (
           d.initializer !== undefined &&
-          /\b(?:getEngine|getNativeModule)\s*\(/.test(d.initializer.getText())
+          /^\(*(?:getEngine|getNativeModule)\s*\(/.test(d.initializer.getText())
         );
       }
     }
@@ -331,7 +371,8 @@ function scanFile(file) {
 function main() {
   const all = walk(SRC).flatMap(scanFile);
   const failing = all.filter((f) => f.kind === 'direct' || f.kind === 'helper');
-  const memo = all.filter((f) => f.kind === 'memo');
+  const memo = all.filter((f) => f.kind === 'memo' && memoIsKeyed(f.deps));
+  const unkeyedMemo = all.filter((f) => f.kind === 'memo' && !memoIsKeyed(f.deps));
   const init = all.filter((f) => f.kind === 'init');
 
   if (JSON_OUT) {
@@ -345,7 +386,7 @@ function main() {
     (f.deps ? `  deps ${f.deps.replace(/\s+/g, ' ')}` : '');
 
   if (VERBOSE && memo.length > 0) {
-    console.log('Engine reads inside useMemo (reported, not failed):');
+    console.log('Engine reads inside a keyed useMemo (reported, not failed):');
     for (const f of memo) console.log(fmt(f));
     console.log('');
   }
@@ -357,6 +398,8 @@ function main() {
 
   const allowed = failing.filter((f) => ALLOWLIST.has(f.file));
   const violations = failing.filter((f) => !ALLOWLIST.has(f.file));
+  const allowedMemo = unkeyedMemo.filter((f) => MEMO_ALLOWLIST.has(f.file));
+  const memoViolations = unkeyedMemo.filter((f) => !MEMO_ALLOWLIST.has(f.file));
 
   if (VERBOSE && allowed.length > 0) {
     console.log('Allowlisted render-time engine reads:');
@@ -364,10 +407,21 @@ function main() {
     console.log('');
   }
 
+  if (VERBOSE && allowedMemo.length > 0) {
+    console.log('Allowlisted unkeyed useMemo engine reads:');
+    for (const f of allowedMemo) console.log(`${fmt(f)}  (${MEMO_ALLOWLIST.get(f.file)})`);
+    console.log('');
+  }
+
   // An allowlist entry whose file exists but no longer holds a read is stale.
-  const stale = [...ALLOWLIST.keys()].filter(
-    (k) => existsSync(join(ROOT, k)) && !failing.some((f) => f.file === k)
-  );
+  const stale = [
+    ...[...ALLOWLIST.keys()].filter(
+      (k) => existsSync(join(ROOT, k)) && !failing.some((f) => f.file === k)
+    ),
+    ...[...MEMO_ALLOWLIST.keys()].filter(
+      (k) => existsSync(join(ROOT, k)) && !unkeyedMemo.some((f) => f.file === k)
+    ),
+  ];
   if (stale.length > 0) {
     console.error('Stale ALLOWLIST entries (no render-time read in the file any more):');
     for (const k of stale) console.error(`  ${k}`);
@@ -387,9 +441,20 @@ function main() {
     process.exit(1);
   }
 
+  if (memoViolations.length > 0) {
+    console.error('Engine reads inside a useMemo that nothing re-runs (stale after a sync):');
+    for (const f of memoViolations) console.error(fmt(f));
+    console.error('');
+    console.error('Fix: take a trigger from useEngineSubscription for the event that announces');
+    console.error('     this data and put it in the deps, or take the value precomputed from a');
+    console.error('     caller that already read it. If the read must stay unkeyed, add the file');
+    console.error('     to MEMO_ALLOWLIST in this script with the audit item and reason.');
+    process.exit(1);
+  }
+
   console.log('lint-render-engine-reads: OK');
   console.log(
-    `  render-time reads: 0, memo reads: ${memo.length}, initialiser reads: ${init.length}, allowlisted: ${allowed.length} in ${ALLOWLIST.size} file(s)`
+    `  render-time reads: 0, memo reads: ${memo.length}, unkeyed memo reads: ${allowedMemo.length}, initialiser reads: ${init.length}, allowlisted: ${allowed.length} in ${ALLOWLIST.size} file(s)`
   );
 }
 
