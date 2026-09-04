@@ -179,7 +179,8 @@ fn extract_features(
     db: &Connection,
     activity_metrics: &HashMap<String, ActivityMetrics>,
 ) -> Vec<ActivityFeature> {
-    // Load training_load from SQLite (not in in-memory ActivityMetrics struct)
+    // Rows written before the stats reached the metrics row still carry a
+    // training load in SQLite, so the table stays the authority here.
     let training_loads = load_training_loads(db);
 
     activity_metrics

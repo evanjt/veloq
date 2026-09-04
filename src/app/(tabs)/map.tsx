@@ -104,7 +104,6 @@ export default function MapScreen() {
   const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: false,
     enabled: isAuthenticated,
   });
 
