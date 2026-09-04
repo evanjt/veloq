@@ -1893,6 +1893,7 @@ mod body_count_tests {
         fn detection_applied(&self) {}
         fn tiles_generated(&self) {}
         fn backfill_phase(&self, _phase: String) {}
+        fn preview_phase(&self, _phase: String) {}
         fn cutover_settled(&self) {}
         fn preview_finished(&self) {}
     }
