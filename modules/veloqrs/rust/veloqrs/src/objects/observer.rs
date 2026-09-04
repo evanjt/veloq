@@ -196,6 +196,49 @@ mod tests {
         );
     }
 
+    /// A screen waiting on a `time` stream hears it land, so it never re-reads
+    /// the gap on a timer.
+    #[test]
+    fn a_stored_time_stream_is_announced_once_it_has_landed() {
+        use crate::objects::sync::store_time_stream;
+        use crate::test_globals::init_global_engine;
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("time_stream_announcement.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+        crate::runtime::block_on(store_time_stream("a1".into(), vec![0, 5, 10]));
+        crate::runtime::block_on(store_time_stream("a2".into(), vec![0, 7]));
+        set_observer(None);
+        crate::runtime::block_on(store_time_stream("a3".into(), vec![0, 9]));
+
+        assert_eq!(
+            recorder.events(),
+            vec!["time_streams_stored:a1", "time_streams_stored:a2"]
+        );
+    }
+
+    /// A cold start has nowhere to put the stream. Announcing it anyway would
+    /// tell the screen to stop waiting for something it will never read.
+    #[test]
+    fn a_stream_with_nowhere_to_land_is_not_announced() {
+        use crate::objects::sync::store_time_stream;
+        use crate::persistence::PERSISTENT_ENGINE;
+
+        let _guard = serial_global_state();
+        *PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner()) = None;
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+        crate::runtime::block_on(store_time_stream("a1".into(), vec![0, 5]));
+        set_observer(None);
+
+        assert!(
+            recorder.events().is_empty(),
+            "nothing may be announced, got {:?}",
+            recorder.events()
+        );
+    }
+
     /// The backfill sets its phase from a background thread, so the settings
     /// row hears the transition instead of re-reading the snapshot on a timer.
     #[test]

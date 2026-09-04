@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { engine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import { awaitTimeStreams } from '@/features/routes/lib/awaitTimeStreams';
 
 /** How long to wait for Rust to finish a time-stream batch before rendering
  *  whatever landed. Missing streams only cost precision, not correctness. */
 const TIME_STREAM_TIMEOUT_MS = 30_000;
-const TIME_STREAM_POLL_MS = 400;
 
 /**
  * Individual lap/traversal of a section
@@ -151,8 +151,9 @@ export interface UseSectionTimeStreamSyncResult {
  * Wait for the time streams a section's records depend on.
  *
  * `knownMissingIds` lets a caller that already read the gap skip the first
- * `getActivitiesMissingTimeStreams` round-trip. The poll that observes
- * completion still runs, since Rust cannot push into the JS listener map.
+ * `getActivitiesMissingTimeStreams` round-trip. Completion is announced by
+ * Rust as each stream lands, so nothing is read between the request and the
+ * answer.
  */
 export function useSectionTimeStreamSync(
   allActivityIds: string[],
@@ -185,15 +186,10 @@ export function useSectionTimeStreamSync(
 
     try {
       // Rust fetches the missing streams behind the shared governor and
-      // persists them. Completion is observed, since Rust cannot push into
-      // the JS listener map.
+      // persists them, announcing each one as it lands.
       engine.syncTimeStreams(missingIds);
 
-      const deadline = Date.now() + TIME_STREAM_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        if (engine.getActivitiesMissingTimeStreams(allActivityIds).length === 0) break;
-        await new Promise((resolve) => setTimeout(resolve, TIME_STREAM_POLL_MS));
-      }
+      await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS });
 
       setFetchComplete(true);
     } catch {
