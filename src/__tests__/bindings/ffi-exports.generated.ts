@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 17 standalone `#[uniffi::export]` functions plus
- * 229 methods inside `#[uniffi::export] impl` blocks across
+ * 230 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 246 exports (17 standalone + 229 methods)
+ * Total: 247 exports (17 standalone + 230 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -674,19 +674,28 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'VeloqEngine',
   },
   {
-    name: 'backup_database',
-    camelName: 'backupDatabase',
+    name: 'start_backup',
+    camelName: 'startBackup',
     file: 'objects/engine.rs',
-    line: 134,
+    line: 135,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    object: 'VeloqEngine',
+  },
+  {
+    name: 'poll_backup',
+    camelName: 'pollBackup',
+    file: 'objects/engine.rs',
+    line: 150,
+    paramCount: 0,
+    returnType: 'Result<String, VeloqError>',
     object: 'VeloqEngine',
   },
   {
     name: 'get_backup_metadata',
     camelName: 'getBackupMetadata',
     file: 'objects/engine.rs',
-    line: 154,
+    line: 178,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     object: 'VeloqEngine',
@@ -695,7 +704,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'bulk_export_gpx',
     camelName: 'bulkExportGpx',
     file: 'objects/engine.rs',
-    line: 181,
+    line: 205,
     paramCount: 1,
     returnType: 'Result<crate::persistence::export::BulkExportResult, VeloqError>',
     object: 'VeloqEngine',
@@ -704,7 +713,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'bulk_export_geojson',
     camelName: 'bulkExportGeojson',
     file: 'objects/engine.rs',
-    line: 192,
+    line: 216,
     paramCount: 1,
     returnType: 'Result<crate::persistence::export::BulkExportResult, VeloqError>',
     object: 'VeloqEngine',
@@ -2225,7 +2234,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1772,
+    line: 1827,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2308,7 +2317,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'strength',
   'heatmap',
   'sync',
-  'backupDatabase',
+  'startBackup',
+  'pollBackup',
   'getBackupMetadata',
   'bulkExportGpx',
   'bulkExportGeojson',
@@ -2562,7 +2572,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   strength: 'strength',
   heatmap: 'heatmap',
   sync: 'sync',
-  backup_database: 'backupDatabase',
+  start_backup: 'startBackup',
+  poll_backup: 'pollBackup',
   get_backup_metadata: 'getBackupMetadata',
   bulk_export_gpx: 'bulkExportGpx',
   bulk_export_geojson: 'bulkExportGeojson',

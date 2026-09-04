@@ -23,7 +23,8 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    backupDatabase: jest.fn(),
+    startBackup: jest.fn(),
+    pollBackup: () => 'complete',
     getBackupMetadata: () => ({
       schema_version: '14',
       activity_count: '312',
