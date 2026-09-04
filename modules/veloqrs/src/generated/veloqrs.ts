@@ -5525,6 +5525,15 @@ export type FfiRoutePerformanceResult = {
    * Current activity's rank (1 = fastest), if current_activity_id was provided
    */
   currentRank?: /*u32*/ number;
+  /**
+   * Attempts with a moving time, over the same population as `current_rank`
+   */
+  attemptCount: /*u32*/ number;
+  /**
+   * Share of those attempts slower than the current one, 0 to 100.
+   * `None` for a lone attempt or an activity that is not on the route.
+   */
+  percentileRank?: /*f64*/ number;
 };
 
 /**
@@ -5559,6 +5568,8 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
         forwardStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
         reverseStats: FfiConverterOptionalTypeFfiDirectionStats.read(from),
         currentRank: FfiConverterOptionalUInt32.read(from),
+        attemptCount: FfiConverterUInt32.read(from),
+        percentileRank: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5579,6 +5590,8 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
       FfiConverterOptionalTypeFfiDirectionStats.write(value.forwardStats, into);
       FfiConverterOptionalTypeFfiDirectionStats.write(value.reverseStats, into);
       FfiConverterOptionalUInt32.write(value.currentRank, into);
+      FfiConverterUInt32.write(value.attemptCount, into);
+      FfiConverterOptionalFloat64.write(value.percentileRank, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5601,7 +5614,9 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
         FfiConverterOptionalTypeFfiDirectionStats.allocationSize(
           value.reverseStats,
         ) +
-        FfiConverterOptionalUInt32.allocationSize(value.currentRank)
+        FfiConverterOptionalUInt32.allocationSize(value.currentRank) +
+        FfiConverterUInt32.allocationSize(value.attemptCount) +
+        FfiConverterOptionalFloat64.allocationSize(value.percentileRank)
       );
     }
   }

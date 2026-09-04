@@ -27,6 +27,8 @@ const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
   forwardStats: undefined,
   reverseStats: undefined,
   currentRank: undefined,
+  attemptCount: 0,
+  percentileRank: undefined,
 };
 
 export function getGroups(host: DelegateHost): FfiRouteGroup[] {

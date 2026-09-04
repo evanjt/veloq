@@ -17,6 +17,7 @@ import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
+import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -40,6 +41,8 @@ export function RoutePerformanceSection({
     forwardStats,
     reverseStats,
     currentRank,
+    attemptCount,
+    percentileRank,
   } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
@@ -61,6 +64,15 @@ export function RoutePerformanceSection({
     }));
   }, [performances]);
 
+  // The engine ranks and counts the attempts. Only the gap is subtracted here,
+  // off the same record the header already shows.
+  const standing = useMemo(() => {
+    const current = performances.find((p) => p.activityId === activityId);
+    const gapToBestSeconds =
+      current && best && best.movingTime > 0 ? current.movingTime - best.movingTime : null;
+    return { currentRank, attemptCount, percentileRank, gapToBestSeconds };
+  }, [performances, activityId, best, currentRank, attemptCount, percentileRank]);
+
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
       navigateTo(`/route/${routeGroup.id}`);
@@ -76,6 +88,7 @@ export function RoutePerformanceSection({
       ? formatDuration(best.duration)
       : null;
   const isCurrentBest = !!best && currentRank === 1;
+  const standingText = formatRouteStanding(standing, t);
 
   return (
     <View style={[styles.card, isDark && styles.cardDark]}>
@@ -118,6 +131,12 @@ export function RoutePerformanceSection({
           color={isDark ? darkColors.iconFaint : colors.iconFaint}
         />
       </Pressable>
+
+      {standingText && (
+        <Text testID="route-standing" style={[styles.standing, isDark && styles.textMuted]}>
+          {standingText}
+        </Text>
+      )}
 
       {chartData.length >= 1 && (
         <View style={styles.chartWrap}>
@@ -187,6 +206,12 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  standing: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   chartWrap: {
     paddingTop: spacing.sm,

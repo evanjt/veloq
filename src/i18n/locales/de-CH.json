@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Name A bis Z",
     "sortNearby": "In dr Nöchi",
     "sortSignature": "Signatur",
+    "standingBest": "Deine schnellste von {{total}}",
+    "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
+    "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
     "thisMayTakeMoment": "Cha es bitzeli gaa...",
     "visits": "Bsüech",
     "waiting": "Momäntli..."
