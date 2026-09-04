@@ -107,7 +107,9 @@ export function RegionalMapView({
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // Only load route signatures when the map tab is focused
-  // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
+  // This prevents 80+ getGpsTrack FFI calls when switching to other tabs.
+  // The same signal tears the surface down: a tab that is merely frozen keeps
+  // its GL context and its tile textures, which is 122 MB nobody can see.
   const pathname = usePathname();
   const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
   const routeSignatures = useRouteSignatures(isMapFocused);
@@ -169,7 +171,19 @@ export function RegionalMapView({
   // Stable callback for camera settle notifications (uses ref to avoid dep changes)
   const mapStyleRef = useRef(mapStyle);
   mapStyleRef.current = mapStyle;
+  // Where the surface was when the tab lost focus, so the rebuild on the way
+  // back opens there. Null until the camera has actually settled once, which
+  // leaves the first mount to the fit.
+  const settledCameraRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  const [cameraOnBlur, setCameraOnBlur] = useState<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!isMapFocused) setCameraOnBlur(settledCameraRef.current);
+  }, [isMapFocused]);
   const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
+    settledCameraRef.current = { center, zoom };
     if (mapStyleRef.current === 'satellite') {
       setCameraForAttribution({ center, zoom });
     }
@@ -441,7 +455,7 @@ export function RegionalMapView({
 
   return (
     <View style={styles.container}>
-      {show3D ? (
+      {!isMapFocused ? null : show3D ? (
         <ComponentErrorBoundary
           componentName="3D Map"
           showRetry={false}
@@ -480,7 +494,9 @@ export function RegionalMapView({
         <MapSurface
           ref={surfaceRef}
           mapStyle={mapStyle}
-          initialCamera={WORLD_CAMERA}
+          // Rebuilt on every return to the tab, so it opens where the user
+          // left it rather than back out at the world view.
+          initialCamera={cameraOnBlur ?? WORLD_CAMERA}
           sources={sources}
           layers={layers}
           interactiveLayers={REGIONAL_INTERACTIVE_LAYERS}
@@ -494,7 +510,9 @@ export function RegionalMapView({
 
       {/* Accessibility and test handle for cluster counts. Invisible to users -
           the map draws the glyphs itself, inside a canvas nothing else can see. */}
-      {!show3D && <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />}
+      {isMapFocused && !show3D && (
+        <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />
+      )}
 
       {/* Same idea for the sections layer: something outside the canvas that
           says whether sections are currently drawn. */}

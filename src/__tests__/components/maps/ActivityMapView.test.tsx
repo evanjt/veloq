@@ -89,6 +89,17 @@ describe('ActivityMapView', () => {
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
+  it('unmounts the inline surface while fullscreen holds its own', () => {
+    renderActivityMap({ enableFullscreen: true });
+    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+
+    fireEvent(screen.getByTestId('activity-map-fullscreen'), 'pressIn');
+    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+
+    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+  });
+
   it('reports style changes to the caller', () => {
     const onStyleChange = jest.fn();
     renderActivityMap({ onStyleChange });
@@ -260,6 +271,26 @@ describe('ActivityMapView', () => {
 
       post({ type: 'mapFailed', reason: 'load timeout' });
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+    });
+
+    it('unmounts the 2D surface once the terrain page is ready', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+
+      post({ type: 'mapReady' });
+
+      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.getAllByTestId('webview')).toHaveLength(1);
+    });
+
+    it('brings the 2D surface back when the terrain page has nothing to drape', () => {
+      renderActivityMap({ initial3DCamera: CAMERA_3D });
+      post({ type: 'mapReady' });
+
+      post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+
+      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.queryByTestId('webview')).toBeNull();
     });
 
     it('tolerates unmounting while the terrain page is still loading', () => {
