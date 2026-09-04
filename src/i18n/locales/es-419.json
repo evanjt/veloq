@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Nombre A-Z",
     "sortNearby": "Cercanos",
     "sortSignature": "Firma",
+    "standingBest": "Tu más rápido de {{total}}",
+    "standingRank": "Puesto {{rank}} de {{total}}, {{gap}} de tu mejor marca",
+    "standingRankPercentile": "Puesto {{rank}} de {{total}}, más rápido que el {{percent}} % de ellos, {{gap}} de tu mejor marca",
     "thisMayTakeMoment": "Esto puede tardar un momento...",
     "visits": "visitas",
     "waiting": "Esperando..."
