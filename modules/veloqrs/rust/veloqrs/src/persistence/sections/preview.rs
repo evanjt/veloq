@@ -54,6 +54,17 @@ pub struct PreviewOverlay {
     pub divergence_threshold: f64,
 }
 
+/// Announces the end of a preview run to the observer, whatever the run's
+/// outcome. Dropped last on the worker thread, so the sender is already gone
+/// and a dead worker reads as disconnected rather than as still running.
+struct PreviewFinished;
+
+impl Drop for PreviewFinished {
+    fn drop(&mut self) {
+        crate::objects::observer::notify(|o| o.preview_finished());
+    }
+}
+
 /// How a finished preview run ended.
 pub enum PreviewOutcome {
     /// The one JSON payload.
@@ -595,7 +606,11 @@ impl PersistentEngine {
         let suspend = super::conditioning::suspend_detection();
 
         thread::spawn(move || {
+            let _finish = PreviewFinished;
             let _suspend = suspend;
+            // A capture outlives the body's locals, so the sender moves into one
+            // and drops before the finish notice.
+            let sender = tx;
             let started = Instant::now();
 
             let conn = match Connection::open_with_flags(
@@ -646,11 +661,11 @@ impl PersistentEngine {
                 &progress_worker,
                 &cancel_worker,
             ) else {
-                tx.send(PreviewOutcome::Cancelled).ok();
+                sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             };
             if cancel_worker.load(Ordering::SeqCst) {
-                tx.send(PreviewOutcome::Cancelled).ok();
+                sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
 
@@ -672,7 +687,7 @@ impl PersistentEngine {
                     pool.readable + pool.unreadable as usize
                 );
                 progress_worker.set_phase("aborted", 0);
-                tx.send(PreviewOutcome::PoolUnusable {
+                sender.send(PreviewOutcome::PoolUnusable {
                     readable: pool.readable,
                     unreadable: pool.unreadable,
                 })
@@ -700,7 +715,7 @@ impl PersistentEngine {
             // Past this point the detect has already run to completion; a
             // cancel now discards the result rather than aborting work.
             if cancel_worker.load(Ordering::SeqCst) {
-                tx.send(PreviewOutcome::Cancelled).ok();
+                sender.send(PreviewOutcome::Cancelled).ok();
                 return;
             }
 
@@ -729,7 +744,7 @@ impl PersistentEngine {
             progress_worker.increment();
             match serde_json::to_string(&payload) {
                 Ok(json) => {
-                    tx.send(PreviewOutcome::Complete(json)).ok();
+                    sender.send(PreviewOutcome::Complete(json)).ok();
                 }
                 Err(e) => {
                     log::error!("veloqrs: [SectionPreview] Payload serialisation failed: {e}");
