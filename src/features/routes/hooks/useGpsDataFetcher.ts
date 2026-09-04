@@ -24,14 +24,10 @@ import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { activityStartEpoch } from '@/features/routes/lib/streamWindow';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
+import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('GpsDataFetcher');
-
-/** How long to let the Rust time-stream backfill drain before moving on. It
- *  resumes on the next sync, so a slow drain never blocks the banner. */
-const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
-const STREAM_BACKFILL_POLL_MS = 500;
 
 export interface GpsFetchResult {
   /** Activity IDs that were successfully synced */
@@ -748,26 +744,13 @@ export function useGpsDataFetcher() {
 
       // Backfill: time streams for existing activities with NULL lap_time.
       // Handles upgrade from versions that didn't fetch them during sync.
-      // Rust does the fetching and persisting; this only waits for the drain.
+      // Rust does the fetching and persisting and announces each stream; this
+      // only waits for the drain.
       if (isMountedRef.current && !abortSignal.aborted) {
         try {
-          const needingStreams = engine.getActivitiesNeedingTimeStreams();
-          if (needingStreams.length > 0) {
-            if (__DEV__) {
-              log.log(
-                `[fetchApiGps] Backfilling time streams for ${needingStreams.length} activities`
-              );
-            }
-            engine.syncTimeStreams(needingStreams);
-            const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
-            while (
-              Date.now() < deadline &&
-              isMountedRef.current &&
-              !abortSignal.aborted &&
-              engine.getMissingTimeStreams(needingStreams).length > 0
-            ) {
-              await new Promise((resolve) => setTimeout(resolve, STREAM_BACKFILL_POLL_MS));
-            }
+          const { total, remaining } = await backfillTimeStreams(() => {}, abortSignal);
+          if (__DEV__ && total > 0) {
+            log.log(`[fetchApiGps] Backfilled ${total - remaining}/${total} time streams`);
           }
         } catch {
           // Non-critical - will retry on next sync

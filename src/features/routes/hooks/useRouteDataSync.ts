@@ -11,14 +11,10 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
+import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
-
-/** How long to let the Rust time-stream backfill run before moving on. It
- *  resumes on the next sync, so a slow drain never blocks the banner. */
-const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
-const STREAM_BACKFILL_POLL_MS = 500;
 
 interface UseRouteDataSyncResult {
   /** Current sync progress */
@@ -300,49 +296,26 @@ export function useRouteDataSync(
           }
 
           // Backfill: time streams for activities with NULL lap_time (upgrade
-          // path). Rust fetches and persists them behind the shared governor,
-          // so this only reports progress while it drains.
+          // path). Rust fetches and persists them behind the shared governor
+          // and announces each one, so this only reports progress.
           if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
             try {
-              const needingStreams = engine.getActivitiesNeedingTimeStreams();
-              if (needingStreams.length > 0) {
-                if (__DEV__) {
-                  log.log(
-                    `[RouteDataSync] Backfilling time streams for ${needingStreams.length} activities`
-                  );
-                }
-                const totalStreams = needingStreams.length;
-                engine.syncTimeStreams(needingStreams);
-
-                const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
-                let remaining = totalStreams;
-                while (
-                  Date.now() < deadline &&
-                  isMountedRef.current &&
-                  !abortController.signal.aborted
-                ) {
-                  remaining = engine.getMissingTimeStreams(needingStreams).length;
-                  if (remaining === 0) break;
-                  if (isMountedRef.current) {
-                    updateProgress({
-                      status: 'fetching',
-                      completed: totalStreams - remaining,
-                      total: totalStreams,
-                      percent: 50,
-                      message: i18n.t('cache.fetchingTimeStreams', {
-                        percent: 50,
-                        completed: totalStreams - remaining,
-                        total: totalStreams,
-                      }),
-                    });
-                  }
-                  await new Promise((resolve) => setTimeout(resolve, STREAM_BACKFILL_POLL_MS));
-                }
-                if (__DEV__) {
-                  log.log(
-                    `[RouteDataSync] Backfilled ${totalStreams - remaining}/${totalStreams} time streams`
-                  );
-                }
+              const { total, remaining } = await backfillTimeStreams((completed, streams) => {
+                if (!isMountedRef.current) return;
+                updateProgress({
+                  status: 'fetching',
+                  completed,
+                  total: streams,
+                  percent: 50,
+                  message: i18n.t('cache.fetchingTimeStreams', {
+                    percent: 50,
+                    completed,
+                    total: streams,
+                  }),
+                });
+              }, abortController.signal);
+              if (__DEV__ && total > 0) {
+                log.log(`[RouteDataSync] Backfilled ${total - remaining}/${total} time streams`);
               }
             } catch {
               // Non-critical - will retry next sync
