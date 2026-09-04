@@ -18,6 +18,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import {
+  BackgroundJobsLink,
   CutoverStatus,
   DetectionIllustration,
   ElevationBackfillStatus,
@@ -210,6 +211,8 @@ export default function DetectionSettingsScreen() {
           <ElevationBackfillStatus />
 
           <CutoverStatus />
+
+          <BackgroundJobsLink />
         </View>
       </ScrollView>
     </ScreenSafeAreaView>

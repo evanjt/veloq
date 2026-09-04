@@ -1566,5 +1566,22 @@
     "delete": "Supprimer le nom",
     "deleteTitle": "Supprimer le nom",
     "deleteConfirm": "Supprimer \"{{name}}\" ? Le tronçon reprend son nom généré."
+  },
+  "backgroundJobs": {
+    "title": "Tâches en arrière-plan",
+    "intro": "Tâches longues que l'application exécute seule. Elles continuent quand vous quittez cet écran.",
+    "openLink": "Tâches en arrière-plan",
+    "sync": "Synchronisation des activités",
+    "detection": "Détection des sections",
+    "elevationBackfill": "Téléchargement du dénivelé",
+    "cutover": "Reconstruction des sections",
+    "stateIdle": "À l'arrêt",
+    "stateRunning": "En cours",
+    "stateComplete": "Terminée",
+    "statePartial": "Terminée, quelques reprises restantes",
+    "stateFailed": "Arrêtée prématurément",
+    "progressCount": "{{completed}} sur {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "{{count}} restantes à télécharger"
   }
 }

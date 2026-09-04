@@ -1541,6 +1541,23 @@ export interface TranslationResource {
     shareCrashLog: string;
     noCrashLog: string;
   };
+  backgroundJobs: {
+    title: string;
+    intro: string;
+    openLink: string;
+    sync: string;
+    detection: string;
+    elevationBackfill: string;
+    cutover: string;
+    stateIdle: string;
+    stateRunning: string;
+    stateComplete: string;
+    statePartial: string;
+    stateFailed: string;
+    progressCount: string;
+    progressPercent: string;
+    remaining: string;
+  };
 }
 
 /**
