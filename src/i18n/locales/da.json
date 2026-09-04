@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Navn A-Z",
     "sortNearby": "I nærheden",
     "sortSignature": "Signatur",
+    "standingBest": "Din hurtigste af {{total}}",
+    "standingRank": "Nr. {{rank}} af {{total}}, {{gap}} fra din bedste",
+    "standingRankPercentile": "Nr. {{rank}} af {{total}}, hurtigere end {{percent}} % af dem, {{gap}} fra din bedste",
     "thisMayTakeMoment": "Dette kan tage et øjeblik...",
     "visits": "besøg",
     "waiting": "Venter..."
