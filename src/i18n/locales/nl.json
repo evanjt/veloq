@@ -1239,6 +1239,8 @@
     "elevationBackfillRetrying_other": "{{count}} activiteitensporen konden niet worden bijgewerkt. Ze worden later opnieuw geprobeerd.",
     "elevationBackfillFailed": "De hoogte-update kon niet worden uitgevoerd.",
     "elevationBackfillExplainer": "De verbeterde sectiedetectie draait zodra alle sporen hoogte hebben.",
+    "elevationBackfillOutstanding_one": "{{count}} activiteitsspoor heeft nog hoogte nodig.",
+    "elevationBackfillOutstanding_other": "{{count}} activiteitssporen hebben nog hoogte nodig.",
     "elevationBackfillWhy": "Waarom dit nodig is",
     "elevationBackfillWhyTitle": "Waarom hoogte wordt toegevoegd",
     "elevationBackfillWhyBody": "Het verbeterde sectie-algoritme en de klimdetectie lezen hoogte die eerdere versies nooit ophaalden. Veloq haalt die één keer op voor je bestaande activiteiten en detecteert de secties daarna opnieuw met het nieuwe algoritme.",

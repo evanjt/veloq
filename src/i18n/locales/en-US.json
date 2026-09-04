@@ -1265,6 +1265,8 @@
     "elevationBackfillRetrying_other": "{{count}} activity tracks could not be updated. They will be retried later.",
     "elevationBackfillFailed": "The elevation update could not run.",
     "elevationBackfillExplainer": "Improved section detection runs once every track has elevation.",
+    "elevationBackfillOutstanding_one": "{{count}} activity track still needs elevation.",
+    "elevationBackfillOutstanding_other": "{{count}} activity tracks still need elevation.",
     "elevationBackfillWhy": "Why this is needed",
     "elevationBackfillWhyTitle": "Why elevation is being added",
     "elevationBackfillWhyBody": "The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.",

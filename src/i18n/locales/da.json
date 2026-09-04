@@ -1239,6 +1239,8 @@
     "elevationBackfillRetrying_other": "{{count}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
     "elevationBackfillFailed": "Højdeopdateringen kunne ikke køre.",
     "elevationBackfillExplainer": "Forbedret sektionsdetektering kører, når alle spor har højde.",
+    "elevationBackfillOutstanding_one": "{{count}} aktivitetsspor mangler stadig højde.",
+    "elevationBackfillOutstanding_other": "{{count}} aktivitetsspor mangler stadig højde.",
     "elevationBackfillWhy": "Hvorfor er det nødvendigt",
     "elevationBackfillWhyTitle": "Hvorfor højde bliver tilføjet",
     "elevationBackfillWhyBody": "Den forbedrede sektionsalgoritme og stigningsdetektering læser højde, som tidligere versioner aldrig hentede. Veloq henter den én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",

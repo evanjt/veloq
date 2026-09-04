@@ -25,9 +25,13 @@ interface Progress {
 
 const listeners = new Map<string, Set<() => void>>();
 
-function engineReporting(progress: () => Progress | null) {
+function engineReporting(
+  progress: () => Progress | null,
+  remaining: () => number | null = () => 0
+) {
   return {
     getElevationBackfillProgress: () => progress(),
+    getElevationBackfillRemaining: () => remaining(),
     subscribe: (event: string, callback: () => void) => {
       const forEvent = listeners.get(event) ?? new Set<() => void>();
       forEvent.add(callback);
@@ -220,5 +224,93 @@ describe('useElevationBackfill', () => {
     announce('backfillPhase');
 
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
+  });
+});
+
+/**
+ * At rest the phase is `idle` on every launch, because it is a process-global
+ * that only a pass moves. The outstanding count is the durable fact, and
+ * nothing read it (`B247`).
+ */
+describe('useElevationBackfill outstanding count', () => {
+  it('reads the count at rest', () => {
+    mockGetEngine.mockReturnValue(
+      engineReporting(
+        () => progress('idle'),
+        () => 12
+      )
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+
+    expect(result.current.phase).toBe('idle');
+    expect(result.current.remaining).toBe(12);
+  });
+
+  it('reads zero as zero, not as unknown', () => {
+    mockGetEngine.mockReturnValue(
+      engineReporting(
+        () => progress('idle'),
+        () => 0
+      )
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+
+    expect(result.current.remaining).toBe(0);
+  });
+
+  it('reads null when the engine cannot answer', () => {
+    mockGetEngine.mockReturnValue(
+      engineReporting(
+        () => progress('idle'),
+        () => null
+      )
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+
+    expect(result.current.remaining).toBeNull();
+  });
+
+  it('reads null with no engine at all', () => {
+    mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
+
+    const { result } = renderHook(() => useElevationBackfill());
+
+    expect(result.current.remaining).toBeNull();
+  });
+
+  it('does not count during a live pass, which reports its own progress', () => {
+    const remaining = jest.fn(() => 12);
+    mockGetEngine.mockReturnValue(
+      engineReporting(() => progress('fetching', { completed: 3, total: 20 }), remaining)
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+
+    expect(result.current.phase).toBe('fetching');
+    expect(result.current.remaining).toBeNull();
+    expect(remaining).not.toHaveBeenCalled();
+  });
+
+  it('re-counts when a pass announces it has finished', () => {
+    let phase = 'fetching';
+    let left = 12;
+    mockGetEngine.mockReturnValue(
+      engineReporting(
+        () => progress(phase, { completed: 12, total: 12 }),
+        () => left
+      )
+    );
+
+    const { result } = renderHook(() => useElevationBackfill());
+    expect(result.current.remaining).toBeNull();
+
+    phase = 'idle';
+    left = 0;
+    announce('backfillPhase');
+
+    expect(result.current.remaining).toBe(0);
   });
 });
