@@ -1444,7 +1444,14 @@
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
       "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse.",
-      "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement."
+      "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement.",
+      "settingsReset": "Vos réglages de détection des sections ont été remis aux valeurs validées : {{changes}}. Prévisualiser les changements de sections puis Conserver rétablit les précédents.",
+      "settingsResetChange": "{{label}} de {{from}} à {{to}}",
+      "settingsResetProximity": "proximité",
+      "settingsResetMinLength": "longueur minimale",
+      "settingsResetMaxLength": "section la plus longue",
+      "settingsResetMinActivities": "visites minimales",
+      "settingsResetDivergence": "bifurcation"
     }
   },
   "strength": {

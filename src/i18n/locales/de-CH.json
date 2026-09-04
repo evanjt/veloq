@@ -1444,7 +1444,14 @@
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
-      "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut."
+      "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut.",
+      "settingsReset": "Deine Einstellungen zur Abschnittserkennung wurden auf die validierten Werte zurückgesetzt: {{changes}}. Abschnittsänderungen ansehen und dann Behalten stellt die vorherigen wieder her.",
+      "settingsResetChange": "{{label}} {{from}} auf {{to}}",
+      "settingsResetProximity": "Nähe",
+      "settingsResetMinLength": "Mindestlänge",
+      "settingsResetMaxLength": "längster Abschnitt",
+      "settingsResetMinActivities": "Mindestbesuche",
+      "settingsResetDivergence": "Abzweigung"
     }
   },
   "strength": {

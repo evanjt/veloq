@@ -756,3 +756,120 @@ fn a_run_with_nothing_owed_settles_on_idle() {
 
     assert_eq!(veloqrs::persistence::cutover::cutover_phase(), "idle");
 }
+
+/// The blob 0.3.8's settings screen wrote: four sliders away from the
+/// validated values and four fields today's `SectionConfig` no longer has.
+const STRICT_038_BLOB: &str = r#"{"proximityThreshold":100.0,"minSectionLength":50.0,"maxSectionLength":200000.0,"minActivities":3,"divergenceThreshold":0.1,"minCorridorTracks":3,"minRoutes":2,"jaccardThreshold":0.5,"minCellVisits":2}"#;
+
+fn stored_section_config(path: &std::path::Path) -> tracematch::SectionConfig {
+    let db = rusqlite::Connection::open(path).expect("open");
+    let json: String = db
+        .query_row(
+            "SELECT value FROM settings WHERE key = '__section_config_json'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("config blob");
+    serde_json::from_str(&json).expect("config parses")
+}
+
+fn seed_strict_038_engine(path: &std::path::Path) {
+    seed_older_build_engine(path);
+    with_persistent_engine(|e| {
+        e.set_setting("__section_config_json", STRICT_038_BLOB)
+            .expect("write the 0.3.8 blob");
+    })
+    .unwrap();
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+}
+
+/// Scenario: an install upgrading from 0.3.8 carries the sliders that screen
+/// let the athlete move, and the detector is validated at one configuration.
+/// Expected behaviour: the flip leaves the stored config at the validated
+/// values and the diff names what it moved, so the card can say so.
+#[test]
+fn the_cutover_resets_a_strict_config_to_the_validated_defaults() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_strict_038_engine(&path);
+
+    let loaded = with_persistent_engine(|e| e.get_section_config()).unwrap();
+    assert_eq!(
+        loaded.proximity_threshold, 100.0,
+        "the 0.3.8 blob did not load"
+    );
+    assert_eq!(loaded.min_activities, 3);
+
+    let CutoverOutcome::Completed(diff_json) =
+        veloqrs::persistence::cutover::run_cutover().expect("cutover")
+    else {
+        panic!("the first run should complete");
+    };
+
+    let defaults = tracematch::SectionConfig::default();
+    assert_eq!(stored_section_config(&path), defaults);
+    assert_eq!(
+        with_persistent_engine(|e| e.get_section_config()).unwrap(),
+        defaults
+    );
+
+    let payload: serde_json::Value = serde_json::from_str(&diff_json).expect("diff parses");
+    let previous = &payload["settings_reset"]["previous"];
+    assert_eq!(previous["proximityThreshold"].as_f64(), Some(100.0));
+    assert_eq!(previous["minSectionLength"].as_f64(), Some(50.0));
+    assert_eq!(previous["minActivities"].as_u64(), Some(3));
+    assert_eq!(previous["divergenceThreshold"].as_f64(), Some(0.1));
+    let current = &payload["settings_reset"]["current"];
+    assert_eq!(current["proximityThreshold"].as_f64(), Some(200.0));
+    assert_eq!(current["minActivities"].as_u64(), Some(2));
+}
+
+/// A library already at the validated values has no settings change to
+/// report, or every upgrade would be told about a reset it did not have.
+#[test]
+fn a_cutover_already_at_the_defaults_reports_no_settings_change() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+    with_persistent_engine(|e| e.set_section_config(tracematch::SectionConfig::default())).unwrap();
+
+    let CutoverOutcome::Completed(diff_json) =
+        veloqrs::persistence::cutover::run_cutover().expect("cutover")
+    else {
+        panic!("the first run should complete");
+    };
+
+    let payload: serde_json::Value = serde_json::from_str(&diff_json).expect("diff parses");
+    assert!(
+        payload["settings_reset"].is_null(),
+        "a config at the defaults reported a reset: {}",
+        payload["settings_reset"]
+    );
+    assert_eq!(
+        stored_section_config(&path),
+        tracematch::SectionConfig::default()
+    );
+}
+
+/// The four fields 0.3.8 wrote and today's config lacks are dropped on load,
+/// never a parse failure that would silently fall back to the defaults.
+#[test]
+fn a_038_blob_with_retired_fields_still_loads() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_strict_038_engine(&path);
+
+    let loaded = with_persistent_engine(|e| e.get_section_config()).unwrap();
+    assert_eq!(loaded.proximity_threshold, 100.0);
+    assert_eq!(loaded.min_section_length, 50.0);
+    assert_eq!(loaded.max_section_length, 200_000.0);
+    assert_eq!(loaded.min_activities, 3);
+    assert_eq!(loaded.divergence_threshold, 0.1);
+    assert!(
+        loaded.pool_sports,
+        "a blob without pool_sports must default it on"
+    );
+}

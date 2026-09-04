@@ -42,10 +42,46 @@ interface FakeEngine {
   announce: (event: string) => void;
   liveListeners: () => number;
   getCutoverProgress: jest.Mock<Progress | null, []>;
-  getCutoverDiff: jest.Mock<{ counts: Counts } | null, []>;
+  getCutoverDiff: jest.Mock<Diff | null, []>;
 }
 
-function engine(progress: () => Progress | null, diff: () => { counts: Counts } | null) {
+interface Diff {
+  counts: Counts;
+  settingsReset?: SettingsReset | null;
+}
+
+type SettingsValues = Record<
+  | 'proximityThreshold'
+  | 'minSectionLength'
+  | 'maxSectionLength'
+  | 'minActivities'
+  | 'divergenceThreshold',
+  number
+>;
+
+interface SettingsReset {
+  previous: SettingsValues;
+  current: SettingsValues;
+}
+
+const RESET: SettingsReset = {
+  previous: {
+    proximityThreshold: 100,
+    minSectionLength: 50,
+    maxSectionLength: 200000,
+    minActivities: 3,
+    divergenceThreshold: 0.1,
+  },
+  current: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    maxSectionLength: 200000,
+    minActivities: 2,
+    divergenceThreshold: 0.15,
+  },
+};
+
+function engine(progress: () => Progress | null, diff: () => Diff | null) {
   const listeners = new Map<string, Set<() => void>>();
   return {
     announce: (event: string) =>
@@ -95,6 +131,7 @@ describe('useCutoverSummary', () => {
       phase: 'idle',
       isRunning: false,
       counts: null,
+      settingsReset: null,
       sawRun: false,
     });
   });
@@ -159,6 +196,38 @@ describe('useCutoverSummary', () => {
     expect(result.current.counts).toEqual(stored);
   });
 
+  it('carries the settings reset with the counts and withholds it while a run is in flight', () => {
+    let phase = 'detecting';
+    let running = true;
+    const fake = engine(
+      () => ({ phase, running }),
+      () => ({ counts: counts({ current: 4, proposed: 4 }), settingsReset: RESET })
+    );
+    const { result } = mount(fake);
+    expect(result.current.settingsReset).toBeNull();
+
+    phase = 'complete';
+    running = false;
+    fake.announce('cutoverSettled');
+    expect(result.current.settingsReset).toEqual(RESET);
+
+    phase = 'detecting';
+    running = true;
+    fake.announce('cutoverSettled');
+    expect(result.current.settingsReset).toBeNull();
+  });
+
+  it('reads a settled run without a reset as none', () => {
+    const { result } = mount(
+      engine(
+        () => ({ phase: 'complete', running: false }),
+        () => ({ counts: counts({ current: 4, proposed: 4 }), settingsReset: null })
+      )
+    );
+    expect(result.current.counts).not.toBeNull();
+    expect(result.current.settingsReset).toBeNull();
+  });
+
   it('treats an unknown phase as idle', () => {
     const { result } = mount(
       engine(
@@ -191,6 +260,7 @@ describe('useCutoverSummary', () => {
       phase: 'idle',
       isRunning: false,
       counts: null,
+      settingsReset: null,
       sawRun: false,
     });
   });

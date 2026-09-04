@@ -1444,7 +1444,14 @@
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
       "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi.",
-      "recutFailed": "La nuova analisi non è arrivata in fondo. I tuoi tratti sono invariati e riparte al prossimo avvio."
+      "recutFailed": "La nuova analisi non è arrivata in fondo. I tuoi tratti sono invariati e riparte al prossimo avvio.",
+      "settingsReset": "Le impostazioni di rilevamento delle sezioni sono state riportate ai valori validati: {{changes}}. Anteprima modifiche sezioni e poi Mantieni ripristina quelle precedenti.",
+      "settingsResetChange": "{{label}} da {{from}} a {{to}}",
+      "settingsResetProximity": "prossimità",
+      "settingsResetMinLength": "lunghezza minima",
+      "settingsResetMaxLength": "sezione più lunga",
+      "settingsResetMinActivities": "visite minime",
+      "settingsResetDivergence": "divergenza"
     }
   },
   "strength": {
