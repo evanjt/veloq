@@ -3,8 +3,8 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from './useRouteEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from './useEngine';
 import type { MergeCandidate } from 'veloqrs';
 
 interface UseMergeSectionsResult {
@@ -16,19 +16,27 @@ interface UseMergeSectionsResult {
   isMerging: boolean;
 }
 
-export function useMergeSections(sectionId: string | undefined): UseMergeSectionsResult {
+/**
+ * `preComputed` lets a caller that already read the candidates as part of a
+ * screen bundle skip this hook's own FFI call.
+ */
+export function useMergeSections(
+  sectionId: string | undefined,
+  preComputed?: MergeCandidate[]
+): UseMergeSectionsResult {
   const trigger = useEngineSubscription(['sections']);
   const [isMerging, setIsMerging] = useState(false);
 
   const candidates = useMemo(() => {
+    if (preComputed) return preComputed;
     if (!sectionId) return [];
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return [];
     return engine.getMergeCandidates(sectionId);
-  }, [sectionId, trigger]);
+  }, [sectionId, trigger, preComputed]);
 
   const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     setIsMerging(true);
     try {

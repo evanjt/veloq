@@ -16,10 +16,15 @@ tags:
     timeout: 15000
 
 # Scroll up to reveal hidden search bar (initially offset 78px below fold)
-- scrollUntilVisible:
-    element:
+# The search bar sits above the initial offset; a slow short drag scrolls
+# to it without triggering pull-to-refresh.
+- swipe:
+    start: 50%, 40%
+    end: 50%, 60%
+    duration: 800
+- extendedWaitUntil:
+    visible:
       id: "home-search-input"
-    direction: UP
     timeout: 5000
 
 - takeScreenshot: "home-search-before"

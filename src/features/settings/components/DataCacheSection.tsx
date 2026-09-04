@@ -7,14 +7,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
 import { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
-import { useSectionSummaries } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionSummaries } from '@/features/routes/hooks/useEngine';
 import { useTheme } from '@/shared/app';
 import { formatFullDate } from '@/shared/format/format';
 import { estimateRoutesDatabaseSize } from '@/shared/storage/gpsStorage';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import {
   emitClearTileCache,
   requestTileCacheStats,
@@ -25,9 +24,9 @@ import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import * as TileCacheService from '@/features/maps/lib/tileCacheService';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
@@ -60,8 +59,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const { totalCount: totalSections } = useSectionSummaries();
   const { settings: routeSettings } = useRouteSettings();
 
-  // Map tile cache stats
-  const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
+  // Map tile cache stats. Every map now caches through the WebView Cache API,
+  // so these numbers cover the whole app rather than a subset of it.
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
   const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
@@ -90,13 +89,9 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       .catch(() => setFreeStorage(null));
   }, []);
 
-  const totalMapCache =
-    nativeSizeEstimate + terrainCacheSize + heatmapCacheSize + (tileCacheStats?.totalBytes ?? 0);
-
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
-    await TileCacheService.clearAllPacks();
-    getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+    getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
     emitClearTileCache();
     setTerrainCacheSize(0);
     setHeatmapCacheSize(0);
@@ -118,19 +113,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
 
-  // Compute query cache stats
-  const queryCacheStats = useMemo(() => {
-    const queries = queryClient.getQueryCache().getAll();
-    return {
-      activities: queries.filter(
-        (q) => q.queryKey[0] === 'activities' || q.queryKey[0] === 'activities-infinite'
-      ).length,
-      wellness: queries.filter((q) => q.queryKey[0] === 'wellness').length,
-      curves: queries.filter((q) => q.queryKey[0] === 'powerCurve' || q.queryKey[0] === 'paceCurve')
-        .length,
-      totalQueries: queries.length,
-    };
-  }, [queryClient]); // Only recompute when queryClient changes, not on every activity sync
+  const totalQueries = useQueryCacheCount(queryClient);
 
   // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
   const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({
@@ -165,9 +148,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             // 3. Clear all caches (engine, tiles, filesystem)
             await clearCache();
             await clearTerrainPreviews();
-            await TileCacheService.clearAllPacks();
             emitClearTileCache();
-            getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+            getEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
             setHeatmapCacheSize(0);
             setTileCacheStats(null);
@@ -220,12 +202,10 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           routeMatchingEnabled={routeSettings.enabled}
           dateRangeText={dateRangeText}
           lastSync={cacheStats.lastSync}
-          totalQueries={queryCacheStats.totalQueries}
+          totalQueries={totalQueries}
           databaseSize={cacheSizes.routes}
-          totalMapCache={totalMapCache}
           onClearMapCache={handleClearMapCache}
           routesSize={cacheSizes.routes}
-          nativeSizeEstimate={nativeSizeEstimate}
           tileCacheStats={tileCacheStats}
           terrainCacheSize={terrainCacheSize}
           heatmapCacheSize={heatmapCacheSize}

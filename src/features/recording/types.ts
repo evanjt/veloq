@@ -32,8 +32,11 @@ export interface RecordingStreams {
 /** A lap marker during recording */
 export interface RecordingLap {
   index: number;
-  startTime: number; // seconds since activity start
-  endTime: number; // seconds since activity start
+  startTime: number; // wall-clock seconds since activity start, same base as streams.time
+  endTime: number; // wall-clock seconds since activity start, same base as streams.time
+  startIndex: number; // first stream sample in the lap
+  endIndex: number; // last stream sample in the lap, -1 when the lap has no samples
+  movingEndTime: number; // cumulative moving seconds at the lap press
   distance: number; // meters
   avgSpeed: number; // m/s
   avgHeartrate: number | null;
@@ -56,30 +59,6 @@ export interface ManualActivityData {
   commute?: boolean;
 }
 
-/** Response from intervals.icu file upload */
-export interface UploadResponse {
-  id: string;
-  name: string;
-  type: string;
-  start_date_local: string;
-}
-
-/** Target range for a workout step */
-export interface WorkoutTarget {
-  min: number;
-  max: number;
-  units: 'absolute' | 'percentFtp' | 'percentLthr' | 'percentThresholdPace';
-}
-
-/**
- * Upload lifecycle of a locally saved recording.
- * - localOnly: saved on device, auto-upload off or user opted out
- * - pending: waiting for (re)upload, eligible per backoff
- * - uploading: upload in flight
- * - uploaded: on intervals.icu; local copy kept
- * - failed: exhausted automatic retries or rejected by the server; manual retry only
- * - permissionBlocked: needs OAuth ACTIVITY:WRITE before it can upload
- */
 export type RecordingUploadStatus =
   | 'localOnly'
   | 'pending'
@@ -119,6 +98,8 @@ export interface RecordingBackup {
   stopTime: number | null;
   /** Includes any in-progress pause up to savedAt, so restore only credits savedAt→now. */
   pausedDuration: number;
+  /** Pauses as elapsed seconds since startTime. Older backups carry none. */
+  pauseIntervals?: { start: number; end: number }[];
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;

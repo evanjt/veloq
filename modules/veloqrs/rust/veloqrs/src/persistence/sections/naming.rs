@@ -1,21 +1,26 @@
 //! Section name persistence and migration helpers.
 
-use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
+use std::collections::{BTreeMap, HashMap};
 
-use super::super::{PersistentRouteEngine, get_section_word};
+use super::super::{PersistentEngine, get_section_word};
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Section Name Migration
     // ========================================================================
 
     /// Migration: Generate names for sections that don't have names.
     pub(super) fn migrate_section_names(&mut self) -> SqlResult<()> {
+        // Only auto sections are auto-named. Custom and accepted sections carry
+        // user-managed names, a custom section legitimately keeps a NULL name and
+        // must never be handed a generated "Section N" (they now share the
+        // in-memory catalogue with auto sections, so this filter is what keeps the
+        // migration from renaming them).
         let sections_without_names: Vec<(String, String)> = self
             .sections
             .iter()
-            .filter(|s| s.name.is_none())
+            .filter(|s| s.name.is_none() && !s.is_user_defined)
             .map(|s| (s.id.clone(), s.sport_type.clone()))
             .collect();
 
@@ -24,7 +29,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Migrating {} sections without names",
+            "veloqrs: [PersistentEngine] Migrating {} sections without names",
             sections_without_names.len()
         );
 
@@ -41,7 +46,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Section N" - still recognize for numbering
+                // Old pattern: "{Sport} Section N" - still recognise for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -89,7 +94,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Generated names for {} sections",
+            "veloqrs: [PersistentEngine] Generated names for {} sections",
             sections_without_names.len()
         );
 
@@ -110,9 +115,14 @@ impl PersistentRouteEngine {
             "VirtualRun",
         ];
 
-        // Find sections with old-style "{Sport} {Word} N" names
+        // Find sections with old-style "{Sport} {Word} N" names. Auto sections
+        // only: a user-managed (custom/accepted) name is never rewritten, even if
+        // it happens to match the old auto pattern.
         let mut renames: Vec<(String, String, u32)> = Vec::new(); // (section_id, new_name, number)
         for section in &self.sections {
+            if section.is_user_defined {
+                continue;
+            }
             if let Some(ref name) = section.name {
                 for sport in &sports {
                     let prefix = format!("{} {} ", sport, section_word);
@@ -145,7 +155,7 @@ impl PersistentRouteEngine {
         }
 
         // Resolve conflicts: if two old names map to same number, renumber the one with fewer activities
-        let mut number_to_sections: HashMap<u32, Vec<(String, u32)>> = HashMap::new();
+        let mut number_to_sections: BTreeMap<u32, Vec<(String, u32)>> = BTreeMap::new();
         for (id, _, num) in &renames {
             let activity_count = self
                 .sections
@@ -165,8 +175,8 @@ impl PersistentRouteEngine {
         let mut next_counter = renames.iter().map(|(_, _, n)| *n).max().unwrap_or(0);
 
         for (num, mut section_ids) in number_to_sections {
-            // Sort by activity count DESC - keep the one with most activities at this number
-            section_ids.sort_by(|a, b| b.1.cmp(&a.1));
+            // Most activities keeps the number, section id settles a draw.
+            section_ids.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
             for (i, (section_id, _)) in section_ids.iter().enumerate() {
                 let final_num = if i == 0 && !used_numbers.contains(&num) {
@@ -196,7 +206,7 @@ impl PersistentRouteEngine {
         }
 
         log::info!(
-            "tracematch: [PersistentEngine] Stripped sport prefixes from {} section names",
+            "veloqrs: [PersistentEngine] Stripped sport prefixes from {} section names",
             renames.len()
         );
 
@@ -207,48 +217,61 @@ impl PersistentRouteEngine {
     // Section Names
     // ========================================================================
 
-    /// Set the name for a section.
-    /// Pass None to clear the name.
+    /// Set the name for a section. Pass None to clear the name.
+    ///
+    /// User-owned rows (custom, accepted) keep their name on the row: they are
+    /// durable already. Naming an AUTO section records a durable named intent
+    /// instead, auto rows are wiped and re-cut by detection, so a row name
+    /// would die with the next apply. The routing decision reads the DB row,
+    /// not the in-memory copy, which can lag it transiently.
     pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {
+        let row: Option<(String, bool)> = self
+            .db
+            .query_row(
+                "SELECT section_type, is_user_defined FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        let Some((section_type, is_user_defined)) = row else {
+            return Ok(());
+        };
+        // A name is the user taking the section over; a pin holding an
+        // older line would fight that.
+        self.drop_section_pin(section_id);
+
+        if is_user_defined || section_type == "custom" {
+            self.db.execute(
+                "UPDATE sections SET name = ? WHERE id = ?",
+                params![name, section_id],
+            )?;
+            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                section.name = name.map(str::to_string);
+            }
+            return Ok(());
+        }
+
         match name {
-            Some(n) => {
-                self.db.execute(
-                    "UPDATE sections SET name = ? WHERE id = ?",
-                    params![n, section_id],
-                )?;
-                // Update in-memory section
-                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                    section.name = Some(n.to_string());
-                }
-            }
-            None => {
-                self.db.execute(
-                    "UPDATE sections SET name = NULL WHERE id = ?",
-                    params![section_id],
-                )?;
-                // Update in-memory section
-                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                    section.name = None;
-                }
-            }
+            Some(n) => self.upsert_named_intent_for(section_id, n)?,
+            None => self.delete_named_intent_for(section_id)?,
         }
         Ok(())
     }
 
-    /// Get the name for a section (if any).
-    pub fn get_section_name(&self, section_id: &str) -> Option<String> {
-        // Check in-memory sections first
-        self.sections
-            .iter()
-            .find(|s| s.id == section_id)
-            .and_then(|s| s.name.clone())
-    }
-
-    /// Get all section names.
+    /// Get all section names, with corridor-name precedence: a user-defined
+    /// row keeps its own name, an auto row shows its resolved corridor name
+    /// over the generated one.
     pub fn get_all_section_names(&self) -> HashMap<String, String> {
         self.sections
             .iter()
-            .filter_map(|s| s.name.as_ref().map(|n| (s.id.clone(), n.clone())))
+            .filter_map(|s| {
+                let name = if s.is_user_defined {
+                    s.name.clone()
+                } else {
+                    self.named_overlay_name(&s.id).or_else(|| s.name.clone())
+                };
+                name.map(|n| (s.id.clone(), n))
+            })
             .collect()
     }
 }

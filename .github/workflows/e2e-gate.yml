@@ -2,7 +2,9 @@ name: E2E Gate
 
 # PR-blocking E2E gate: runs the tier0+tier1 critical-path flows (the same set
 # as `npm run maestro:gate`) on every pull request. Heavier tiers stay in the
-# dispatch-only E2E workflow and the daily e2e-full run.
+# dispatch-only E2E workflow and the daily e2e-full run. The pack-map flows are
+# the one exception: they run here too, but only on pull requests that change a
+# map surface.
 
 on:
   pull_request:
@@ -20,6 +22,26 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  # The map flows are the slowest and most GPU-sensitive in the suite, so they
+  # run only when a pull request actually touches a map surface.
+  changes:
+    name: Detect Changed Areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      maps: ${{ steps.filter.outputs.maps }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            maps:
+              - 'src/features/maps/**'
+              - 'src/features/routes/components/*Map*'
+              - 'src/features/recording/components/RecordingMap.tsx'
+
   # Same build + cache key as e2e.yml build-android-dev, so gate runs and
   # dispatched E2E runs share the cached APK for identical source.
   build-android-dev:
@@ -166,7 +188,7 @@ jobs:
           # continuations break. Every line must stand alone.
           script: |
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            .maestro/run-suite.sh gate-report.xml /tmp/maestro-debug --include-tags=tier0,tier1 --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=flaky --debug-output /tmp/maestro-debug-flaky --format junit --output flaky-report.xml --no-ansi || true
 
       - name: Collect Maestro artifacts
@@ -186,6 +208,10 @@ jobs:
           name: e2e-gate-debug
           path: /tmp/maestro-artifacts
           retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
 
       - name: Upload test report
         if: always()
@@ -195,6 +221,7 @@ jobs:
           path: |
             gate-report.xml
             flaky-report.xml
+            retry-reports/
           retention-days: 7
 
       - name: Publish test results
@@ -220,3 +247,129 @@ jobs:
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'
         run: exit 1
+
+  # Path-filtered companion to the gate. Reuses the gate's APK artefact rather
+  # than building a second time.
+  map-gate:
+    name: Maestro Map Suite
+    needs: [changes, build-android-dev]
+    if: needs.changes.outputs.maps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download APK
+        uses: actions/download-artifact@v8
+        with:
+          name: android-gate-apk
+          path: /tmp/apk
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Run map flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
+          disable-animations: true
+          # One command per line: the action runs each line as a separate `sh -c`.
+          script: |
+            adb install "$(find /tmp/apk -name '*.apk' | head -1)"
+            .maestro/run-suite.sh map-report.xml /tmp/maestro-debug-map --include-tags=pack-map --exclude-tags=flaky || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Collect Maestro artifacts
+        if: always()
+        run: |
+          mkdir -p /tmp/maestro-map-artifacts
+          cp -r "$HOME/.maestro/tests" /tmp/maestro-map-artifacts/tests 2>/dev/null || true
+          cp -r /tmp/maestro-debug-map /tmp/maestro-map-artifacts/debug 2>/dev/null || true
+          cp -f "$GITHUB_WORKSPACE"/*.png /tmp/maestro-map-artifacts/ 2>/dev/null || true
+
+      - name: Upload Maestro debug output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-map-debug
+          path: /tmp/maestro-map-artifacts
+          retention-days: 7
+          # Maestro writes under a hidden .maestro/ directory, which
+          # upload-artifact skips by default. Without this the debug
+          # artefact is empty and every failure screenshot is lost.
+          include-hidden-files: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-map-report
+          path: |
+            map-report.xml
+            retry-reports/
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: map-report.xml
+          check_name: E2E Map Suite Results
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
+
+  # The only job branch protection should require. Every other job here can be
+  # skipped: a fork PR skips the build, and the map suite is path-filtered. A
+  # skipped job reports neutral, which GitHub renders as a passing check, so a
+  # PR that ran nothing looked identical to one that passed everything.
+  gate-required:
+    name: E2E Gate Required
+    needs: [changes, build-android-dev, gate, map-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check gate results
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          BUILD: ${{ needs.build-android-dev.result }}
+          GATE: ${{ needs.gate.result }}
+          MAP_GATE: ${{ needs.map-gate.result }}
+          MAPS_CHANGED: ${{ needs.changes.outputs.maps }}
+        run: |
+          echo "changes=$CHANGES build-android-dev=$BUILD gate=$GATE map-gate=$MAP_GATE (maps changed: $MAPS_CHANGED)"
+          failed=0
+          for result in "$CHANGES" "$BUILD" "$GATE"; do
+            [ "$result" = success ] || failed=1
+          done
+          # map-gate is the one job allowed to be skipped, and only when the
+          # path filter says no map surface changed.
+          if [ "$MAPS_CHANGED" = true ]; then
+            [ "$MAP_GATE" = success ] || failed=1
+          elif [ "$MAP_GATE" != skipped ]; then
+            [ "$MAP_GATE" = success ] || failed=1
+          fi
+          if [ "$failed" = 1 ]; then
+            echo "::error::E2E gate did not pass. A skipped build or suite fails here rather than reporting green. Fork PRs skip the build by design, so they need a same-repo branch to merge."
+            exit 1
+          fi

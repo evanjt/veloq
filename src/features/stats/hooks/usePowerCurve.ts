@@ -1,5 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineBody } from '@/shared/native/engineBodies';
+import { parsePowerCurveBody } from '@/features/stats/lib/curveBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PowerCurve } from '@/types';
 
@@ -12,15 +14,35 @@ interface UsePowerCurveOptions {
 
 export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
+  const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
 
-  return useQuery<PowerCurve>({
-    queryKey: queryKeys.charts.powerCurve.bySport(sport, days),
-    queryFn: () => intervalsApi.getPowerCurve({ sport, days }),
+  // The query is the only reader of the stored body. `null` is "never
+  // fetched", which is the cue to ask Rust for it; the empty curve is what the
+  // chart draws in the meantime.
+  const query = useQuery<PowerCurve | null>({
+    queryKey,
+    queryFn: () => {
+      const stored = getEngine()?.getPowerCurveBody(sport, days);
+      return stored ? parsePowerCurveBody(stored, sport) : null;
+    },
     enabled,
-    staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently
-    retry: 1, // Only retry once on failure
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
+  useEngineBody(
+    query.data !== null,
+    () => getEngine()?.syncPowerCurve(sport, days),
+    queryKey,
+    enabled && query.data !== undefined
+  );
+
+  return { ...query, data: query.data ?? emptyPowerCurve(sport) };
+}
+
+/** Rendered as "no data yet" rather than an error while the fetch is in flight. */
+function emptyPowerCurve(sport: string): PowerCurve {
+  return { type: 'power', sport, secs: [], watts: [] };
 }
 
 // Standard durations for power curve display (in seconds)

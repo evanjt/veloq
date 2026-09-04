@@ -9,13 +9,14 @@
 
 import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSectionPolyline } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionPolyline } from '@/features/routes/hooks/useEngine';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
+  brand,
   colors,
   darkColors,
   spacing,
@@ -24,10 +25,12 @@ import {
   shadows,
   mapPreviewColors,
   colorWithOpacity,
+  ink,
 } from '@/theme';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { formatDistance } from '@/shared/format/format';
+import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
+import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -58,6 +61,14 @@ interface SectionRowData {
   sportTypes?: string[];
   /** Whether this section has been accepted/pinned by the user */
   isUserDefined?: boolean;
+  /** Elevation gain in metres over the representative slice */
+  elevationGainM?: number;
+  /** Elevation loss in metres over the representative slice */
+  elevationLossM?: number;
+  /** Net grade percent over the representative slice */
+  avgGradePercent?: number;
+  /** climb, descent, rolling, flat or loop, absent when nothing says */
+  klass?: string;
 }
 
 interface SectionRowProps {
@@ -103,6 +114,19 @@ function normalizeSectionData(
         'isUserDefined' in section
           ? (section as { isUserDefined: boolean }).isUserDefined
           : undefined,
+      elevationGainM:
+        'elevationGainM' in section
+          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
+          : undefined,
+      elevationLossM:
+        'elevationLossM' in section
+          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
+          : undefined,
+      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
+      avgGradePercent:
+        'avgGradePercent' in section
+          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
+          : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -123,6 +147,19 @@ function normalizeSectionData(
         'isUserDefined' in section
           ? (section as { isUserDefined: boolean }).isUserDefined
           : undefined,
+      elevationGainM:
+        'elevationGainM' in section
+          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
+          : undefined,
+      elevationLossM:
+        'elevationLossM' in section
+          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
+          : undefined,
+      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
+      avgGradePercent:
+        'avgGradePercent' in section
+          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
+          : undefined,
     };
   }
   // Already normalized
@@ -131,10 +168,10 @@ function normalizeSectionData(
 
 // Activity trace colors - muted versions of the primary color
 const TRACE_COLORS = [
-  'rgba(252, 76, 2, 0.15)', // Primary orange, very muted
-  'rgba(252, 76, 2, 0.20)',
-  'rgba(252, 76, 2, 0.25)',
-  'rgba(252, 76, 2, 0.30)',
+  colorWithOpacity(brand.tealLight, 0.15),
+  colorWithOpacity(brand.tealLight, 0.2),
+  colorWithOpacity(brand.tealLight, 0.25),
+  colorWithOpacity(brand.tealLight, 0.3),
 ];
 
 const PREVIEW_WIDTH = 48;
@@ -157,6 +194,7 @@ export const SectionRow = memo(function SectionRow({
 
   // Normalize section data to common format
   const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
+  const elevation = useMemo(() => sectionElevation(section), [section]);
 
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
   // This is fast - Rust query with LRU caching
@@ -323,7 +361,7 @@ export const SectionRow = memo(function SectionRow({
             <Polyline
               points={sectionPolylineString}
               fill="none"
-              stroke="#000000"
+              stroke={ink.black}
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -354,7 +392,7 @@ export const SectionRow = memo(function SectionRow({
                   cx={polylinePoints.start.x}
                   cy={polylinePoints.start.y}
                   r={2}
-                  fill="#FFFFFF"
+                  fill={ink.white}
                 />
               </>
             )}
@@ -368,7 +406,12 @@ export const SectionRow = memo(function SectionRow({
                   r={3}
                   fill={colors.error}
                 />
-                <Circle cx={polylinePoints.end.x} cy={polylinePoints.end.y} r={2} fill="#FFFFFF" />
+                <Circle
+                  cx={polylinePoints.end.x}
+                  cy={polylinePoints.end.y}
+                  r={2}
+                  fill={ink.white}
+                />
               </>
             )}
           </Svg>
@@ -415,6 +458,18 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
+          {elevation && (
+            <View style={styles.gainChip}>
+              <MaterialCommunityIcons
+                name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
+                size={10}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+              <Text style={[styles.metaText, isDark && styles.textMuted]}>
+                {formatElevation(elevation.metres, isMetric)}
+              </Text>
+            </View>
+          )}
           {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
             <View style={styles.proximityTag}>
               <MaterialCommunityIcons
@@ -452,7 +507,7 @@ export const SectionRow = memo(function SectionRow({
       {/* Visit count badge */}
       <View style={styles.countBadge}>
         <Text style={styles.countText}>{section.visitCount}</Text>
-        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
+        <MaterialCommunityIcons name="chevron-right" size={16} color={ink.white} />
       </View>
     </TouchableOpacity>
   );
@@ -539,6 +594,11 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textSecondary,
   },
+  gainChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
   proximityTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -563,10 +623,10 @@ const styles = StyleSheet.create({
   customTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#A855F7',
+    color: colors.chartPurple,
   },
   customTagTextDark: {
-    color: '#C084FC',
+    color: darkColors.chartFatigue,
   },
   disabledTag: {
     flexDirection: 'row',

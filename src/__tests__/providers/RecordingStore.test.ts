@@ -534,7 +534,45 @@ describe('RecordingStore', () => {
       expect(laps).toHaveLength(1);
       expect(laps[0].index).toBe(0);
       expect(laps[0].startTime).toBe(0); // First lap starts at 0
-      expect(laps[0].endTime).toBe(5); // (6000 - 1000 - 0) / 1000 = 5s
+      expect(laps[0].endTime).toBe(5); // (6000 - 1000) / 1000 = 5s wall clock
+      expect(laps[0].movingEndTime).toBe(5);
+      expect(laps[0].startIndex).toBe(0);
+      expect(laps[0].endIndex).toBe(0);
+    });
+
+    it('measures lap distance and speed on the samples after a pause', () => {
+      const dateNowSpy = jest.spyOn(Date, 'now');
+      dateNowSpy.mockReturnValue(1000);
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+
+      const point = (timestamp: number, longitude: number) => ({
+        latitude: 45.0,
+        longitude,
+        altitude: 100,
+        accuracy: 5,
+        speed: 8,
+        heading: 0,
+        timestamp,
+      });
+
+      useRecordingStore.getState().addGpsPoint(point(2000, 10.0));
+      useRecordingStore.getState().addGpsPoint(point(3000, 10.0001));
+
+      dateNowSpy.mockReturnValue(4000);
+      useRecordingStore.getState().pauseRecording();
+      dateNowSpy.mockReturnValue(64000); // 60 s paused
+      useRecordingStore.getState().resumeRecording();
+
+      useRecordingStore.getState().addGpsPoint(point(65000, 10.0002));
+
+      dateNowSpy.mockReturnValue(66000);
+      useRecordingStore.getState().addLap();
+
+      const { laps, streams } = useRecordingStore.getState();
+      expect(laps[0].endTime).toBe(65); // wall clock
+      expect(laps[0].movingEndTime).toBe(5); // 65 s wall less 60 s paused
+      expect(laps[0].distance).toBeCloseTo(streams.distance[2], 6);
+      expect(laps[0].avgSpeed).toBeCloseTo(streams.distance[2] / 5, 6);
     });
 
     it('is ignored when not recording', () => {
@@ -567,6 +605,7 @@ describe('RecordingStore', () => {
       expect(laps).toHaveLength(2);
       // Second lap starts where first lap ended
       expect(laps[1].startTime).toBe(laps[0].endTime);
+      expect(laps[1].startIndex).toBe(laps[0].endIndex + 1);
       expect(laps[1].index).toBe(1);
     });
   });

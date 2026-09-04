@@ -8,23 +8,20 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine, getRouteDbPath, getNativeModule } from '@/shared/native/routeEngine';
+import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
-import { shareFile } from './shareFile';
-import { getSetting, setSetting } from '@/shared/storage';
+import { setSetting } from '@/shared/storage';
+import { runDatabaseBackup } from '@/features/settings/lib/runBackup';
+import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
-import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+import { migrateTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
-import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
-import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -36,65 +33,52 @@ import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { queryClient } from '@/shared/query/QueryProvider';
 import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import Constants from 'expo-constants';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
 
-const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 const log = debug.create('Backup');
 
 // ============================================================================
 // Shared helpers
 // ============================================================================
 
-/** Reinitialize all Zustand stores from storage (SQLite + AsyncStorage). */
+const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[] = [
+  ['initializeTheme', initializeTheme],
+  ['initializeLanguage', initializeLanguage],
+  ['initializeSportPreference', initializeSportPreference],
+  ['initializeHRZones', initializeHRZones],
+  ['initializeUnitPreference', initializeUnitPreference],
+  ['initializeRouteSettings', initializeRouteSettings],
+  ['initializeDashboardPreferences', initializeDashboardPreferences],
+  ['initializeDebugStore', initializeDebugStore],
+  ['migrateTileCacheSettings', migrateTileCacheSettings],
+  ['initializeWhatsNewStore', initializeWhatsNewStore],
+  ['initializeInsightsStore', initializeInsightsStore],
+  ['initializeRecordingPreferences', initializeRecordingPreferences],
+  ['initializeKnownSensors', initializeKnownSensors],
+  ['initializeUploadPermission', initializeUploadPermission],
+  ['initializeNotificationPreferences', initializeNotificationPreferences],
+  ['initializeNotificationPrompt', initializeNotificationPrompt],
+  ['initializeSupportStore', initializeSupportStore],
+  ['reloadCameraOverrides', reloadCameraOverrides],
+  ['reloadMapCameraState', reloadMapCameraState],
+];
+
+/**
+ * Reinitialize all Zustand stores from storage (SQLite + AsyncStorage).
+ *
+ * Settled, not all: one store failing to load must not leave the rest on
+ * pre-restore state.
+ */
 export async function reinitializeAllStores(): Promise<void> {
-  await Promise.all([
-    initializeTheme(),
-    initializeLanguage(),
-    initializeSportPreference(),
-    initializeHRZones(),
-    initializeUnitPreference(),
-    initializeRouteSettings(),
-    initializeDisabledSections(),
-    initializeSectionDismissals(),
-    initializeSupersededSections(),
-    initializePotentialSections(),
-    initializeDashboardPreferences(),
-    initializeDebugStore(),
-    initializeTileCacheStore(),
-    initializeWhatsNewStore(),
-    initializeInsightsStore(),
-    initializeRecordingPreferences(),
-    initializeKnownSensors(),
-    initializeUploadPermission(),
-    initializeNotificationPreferences(),
-    initializeNotificationPrompt(),
-    initializeSupportStore(),
-    reloadCameraOverrides(),
-    reloadMapCameraState(),
-  ]);
+  const results = await Promise.allSettled(STORE_INITIALISERS.map(([, init]) => init()));
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      log.error(`${STORE_INITIALISERS[index][0]} failed`, result.reason);
+    }
+  });
 }
 
-// ============================================================================
-// SQLite database backup (.veloqdb)
-// ============================================================================
-
-const DatabaseBackupMetadataSchema = z.object({
-  schema_version: z.coerce.string(),
-  activity_count: z.number(),
-  section_count: z.number(),
-  gps_track_count: z.number(),
-  oldest_date: z.number().nullable(),
-  newest_date: z.number().nullable(),
-  athlete_id: z.string().nullable(),
-});
-
-export type DatabaseBackupMetadata = z.infer<typeof DatabaseBackupMetadataSchema>;
-
-// Shape returned by the native `validateBackupDatabase` pre-restore probe.
-// Narrower than DatabaseBackupMetadataSchema: the probe only reads the three
-// fields it needs to gate the restore, so validate against exactly those.
 const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
@@ -103,7 +87,7 @@ const BackupValidationSchema = z.object({
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) throw new Error('Engine not initialized');
 
   const date = formatLocalDate(new Date());
@@ -112,23 +96,9 @@ export async function exportDatabaseBackup(): Promise<void> {
 
   // Strip file:// prefix for Rust (expects plain filesystem path)
   const plainPath = destPath.startsWith('file://') ? destPath.slice(7) : destPath;
-  engine.backupDatabase(plainPath);
+  await runDatabaseBackup(engine, plainPath);
 
-  // Share the file
-  const Sharing = await import('expo-sharing');
-  await Sharing.shareAsync(destPath, {
-    mimeType: 'application/octet-stream',
-    UTI: 'public.database',
-  });
-}
-
-/** Get metadata about the current database (for UI display). */
-export function getDatabaseBackupMetadata(): DatabaseBackupMetadata | null {
-  const engine = getRouteEngine();
-  if (!engine) return null;
-  const raw = engine.getBackupMetadata();
-  const result = DatabaseBackupMetadataSchema.safeParse(raw);
-  return result.success ? result.data : null;
+  await shareExistingFile(destPath, 'application/octet-stream');
 }
 
 export interface DatabaseRestoreResult {
@@ -154,12 +124,20 @@ export interface DatabaseRestoreResult {
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
   if (!dbPath) {
-    return { success: false, activityCount: 0, error: 'Cannot determine database path' };
+    return {
+      success: false,
+      activityCount: 0,
+      error: 'Cannot determine database path',
+    };
   }
 
   const fileInfo = await FileSystem.getInfoAsync(fileUri);
   if (!fileInfo.exists || fileInfo.size === 0) {
-    return { success: false, activityCount: 0, error: 'Backup file is empty or missing' };
+    return {
+      success: false,
+      activityCount: 0,
+      error: 'Backup file is empty or missing',
+    };
   }
 
   // Copy to a unique temp path so Rust can open it (fileUri may be a content://
@@ -190,7 +168,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       } catch (e) {
         await cleanupTemp();
         log.warn('Backup validation failed - refusing to restore', e);
-        return { success: false, activityCount: 0, error: 'Backup file is corrupt or unreadable' };
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup file is corrupt or unreadable',
+        };
       }
 
       backupAthleteId = backupMeta.athlete_id;
@@ -200,7 +182,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       if (backupMeta.activity_count <= 0) {
         await cleanupTemp();
         log.warn('Backup contains no activities - refusing to restore');
-        return { success: false, activityCount: 0, error: 'Backup file is empty or corrupt' };
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup file is empty or corrupt',
+        };
       }
 
       // Refuse a backup whose schema is newer than this build can open. We don't
@@ -241,7 +227,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     // Snapshot the live DB so a failed restore can roll back. destroyEngine first
     // so the snapshot is a clean, closed copy.
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) {
       engine.destroyEngine();
     }
@@ -249,7 +235,10 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
     const backupPath = `${dbPath}.bak`;
     if (liveExists) {
-      await FileSystem.copyAsync({ from: `file://${dbPath}`, to: `file://${backupPath}` });
+      await FileSystem.copyAsync({
+        from: `file://${dbPath}`,
+        to: `file://${backupPath}`,
+      });
     }
 
     // The engine quarantines an unopenable database (renames it aside and
@@ -273,7 +262,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
-        const ok = nativeModule.routeEngine.initWithPath(dbPath);
+        const ok = nativeModule.engine.initWithPath(dbPath);
         const newlyQuarantined = (await listQuarantined()).some((n) => !quarantinedBefore.has(n));
         if (!ok || newlyQuarantined) {
           throw new Error('Restored database could not be opened');
@@ -283,7 +272,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await reinitializeAllStores();
       await AsyncStorage.removeItem('veloq-query-cache');
 
-      const restoredEngine = getRouteEngine();
+      const restoredEngine = getEngine();
       const activityCount = restoredEngine?.getActivityCount() ?? 0;
 
       // Wake query-on-demand hooks so mounted screens re-query the restored data
@@ -293,31 +282,43 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
       // Restore succeeded - drop the rollback snapshot.
       if (liveExists) {
-        await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+        await FileSystem.deleteAsync(`file://${backupPath}`, {
+          idempotent: true,
+        });
       }
 
-      return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
+      return {
+        success: true,
+        activityCount,
+        athleteIdMismatch: false,
+        backupAthleteId,
+      };
     } catch (error) {
       // Restore failed after the live DB was overwritten - roll back to the
       // snapshot. Close the engine first: it may hold an open connection to
       // the file being replaced (and initWithPath below would otherwise
       // no-op on its already-initialized guard).
       try {
-        getRouteEngine()?.destroyEngine();
+        getEngine()?.destroyEngine();
       } catch {
         // Best-effort. Proceed with the rollback copy regardless.
       }
       if (liveExists) {
         try {
-          await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });
-          await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+          await FileSystem.copyAsync({
+            from: `file://${backupPath}`,
+            to: `file://${dbPath}`,
+          });
+          await FileSystem.deleteAsync(`file://${backupPath}`, {
+            idempotent: true,
+          });
         } catch {
           // Rollback copy failed - leave the .bak in place for manual recovery.
         }
       }
       try {
         if (nativeModule) {
-          nativeModule.routeEngine.initWithPath(dbPath);
+          nativeModule.engine.initWithPath(dbPath);
         }
       } catch {
         // Engine recovery failed - app may need restart
@@ -348,7 +349,9 @@ const LEGACY_BACKUP_VERSION = 2;
  * 'terrain-preview-cache-version', 'veloq-recording-library' (points at local
  * FIT files that are not in the backup), 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
- * stale timestamp could suppress a needed re-registration for a day).
+ * stale timestamp could suppress a needed re-registration for a day),
+ * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
+ * it onto another install would suppress that device's own backfill).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
@@ -362,7 +365,6 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-disabled-sections',
   'veloq-section-dismissals',
   'veloq-superseded-sections',
-  'veloq-potential-sections',
   'dashboard_preferences',
   'dashboard_summary_card',
   '@terrain_camera_overrides',
@@ -407,79 +409,22 @@ export interface RestoreResult {
   preferencesRestored: number;
 }
 
-export async function createBackup(): Promise<string> {
-  const engine = getRouteEngine();
-
-  // Collect custom sections (slim format - no polyline or distanceMeters)
-  const customSections: BackupCustomSection[] = [];
-  if (engine) {
-    const sections = engine.getSectionsByType('custom');
-    for (const s of sections) {
-      customSections.push({
-        name: s.name || '',
-        sportType: s.sportType,
-        sourceActivityId: s.sourceActivityId || '',
-        startIndex: s.startIndex ?? 0,
-        endIndex: s.endIndex ?? 0,
-      });
-    }
-  }
-
-  // Collect names
-  const sectionNames = engine?.getAllSectionNames() ?? {};
-  const routeNames = engine?.getAllRouteNames() ?? {};
-
-  // Collect preferences from SQLite first, then AsyncStorage fallback
-  const preferences: Record<string, unknown> = {};
-  for (const key of LEGACY_PREFERENCE_KEYS) {
-    try {
-      const value = await getSetting(key);
-      if (value !== null) {
-        try {
-          preferences[key] = JSON.parse(value);
-        } catch {
-          preferences[key] = value;
-        }
-      }
-    } catch {
-      // Skip unreadable keys
-    }
-  }
-
-  const backup: BackupData = {
-    version: LEGACY_BACKUP_VERSION,
-    exportedAt: new Date().toISOString(),
-    appVersion: APP_VERSION,
-    customSections,
-    sectionNames,
-    routeNames,
-    preferences,
-  };
-
-  return JSON.stringify(backup, null, 2);
-}
-
-export async function exportBackup(): Promise<void> {
-  const json = await createBackup();
-  const date = formatLocalDate(new Date());
-  await shareFile({
-    content: json,
-    filename: `veloq-backup-${date}.veloq`,
-    mimeType: 'application/json',
-  });
-}
-
 export async function restoreBackup(json: string): Promise<RestoreResult> {
-  let backup: BackupData;
+  let parsed: unknown;
   try {
-    backup = JSON.parse(json);
+    parsed = JSON.parse(json);
   } catch {
     throw new Error('Invalid backup file format');
   }
 
-  if (backup.version === undefined || backup.version === null) {
+  // The file is user-picked, so nothing about its shape is guaranteed. A bare
+  // `null` parses fine and then throws on any property access.
+  const envelope = z.object({ version: z.number() }).safeParse(parsed);
+  if (!envelope.success) {
     throw new Error('Corrupt backup: missing version field');
   }
+
+  const backup = parsed as BackupData;
 
   if (backup.version > LEGACY_BACKUP_VERSION) {
     throw new Error(
@@ -495,7 +440,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     preferencesRestored: 0,
   };
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
 
   // Restore custom sections
   if (engine && Array.isArray(backup.customSections) && backup.customSections.length > 0) {
@@ -587,7 +532,11 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
 
   // Restore preferences
   if (backup.preferences) {
+    // Only keys the export writes. Without this a hand-edited file can put any
+    // key into SQLite, and reinitializeAllStores then loads it into a store.
+    const restorable = new Set<string>(LEGACY_PREFERENCE_KEYS);
     for (const [key, value] of Object.entries(backup.preferences)) {
+      if (!restorable.has(key)) continue;
       try {
         const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
         await setSetting(key, stringValue);

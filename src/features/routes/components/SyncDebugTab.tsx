@@ -2,12 +2,12 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, ink } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
@@ -90,7 +90,7 @@ export function SyncDebugTab() {
   });
 
   // Engine data (refreshes on subscription trigger)
-  const engine = getRouteEngine();
+  const engine = getEngine();
   const engineActivityIds = useMemo(() => {
     return engine?.getActivityIds() ?? [];
   }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -118,12 +118,12 @@ export function SyncDebugTab() {
 
   // Traffic light color
   const alignmentColor = useMemo(() => {
-    if (alignment.apiCount === 0 && alignment.engineCount === 0) return '#9ca3af'; // gray
+    if (alignment.apiCount === 0 && alignment.engineCount === 0) return colors.iconNeutral;
     if (alignment.missingFromEngine.length === 0 && alignment.extraInEngine.length === 0) {
-      return '#22c55e'; // green
+      return colors.success;
     }
-    if (alignment.missingFromEngine.length <= 3) return '#f59e0b'; // yellow
-    return '#ef4444'; // red
+    if (alignment.missingFromEngine.length <= 3) return colors.warning;
+    return colors.error;
   }, [alignment]);
 
   // State for "Remove N Activities" stepper
@@ -174,10 +174,14 @@ export function SyncDebugTab() {
             setIsRemoving(true);
             let removed = 0;
             const removedIds: string[] = [];
+            const refused: string[] = [];
             for (const id of toRemove) {
-              if (engine.removeActivity(id)) {
+              const result = engine.removeActivity(id);
+              if (result.ok) {
                 removed++;
                 removedIds.push(id);
+              } else {
+                refused.push(`${id}: ${result.reason}`);
               }
             }
             // Clean up orphaned GPS track files
@@ -186,19 +190,17 @@ export function SyncDebugTab() {
             }
             setIsRemoving(false);
             if (removed === 0 && toRemove.length > 0) {
-              Alert.alert(
-                'Remove Failed',
-                'No activities were removed. The FFI bindings may be stale.\n\nRun: ./scripts/generate-bindings.sh && npx expo run:android'
-              );
+              Alert.alert('Remove Failed', `No activities were removed.\n\n${refused.join('\n')}`);
             } else {
               // Trigger background section detection to recompute groups + sections
               engine.startSectionDetection();
               // Invalidate cache + fire syncReset to trigger re-sync of removed activities
               queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
               engine.triggerRefresh('syncReset');
+              const refusalNote = refused.length > 0 ? `\n\nKept:\n${refused.join('\n')}` : '';
               Alert.alert(
                 'Done',
-                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.`
+                `Removed ${removed}/${toRemove.length} activities. Re-sync triggered.\n\nWatch Sync Status section for progress.${refusalNote}`
               );
             }
           },
@@ -427,7 +429,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={isRemoving || !apiActivities?.length}
           >
-            <MaterialCommunityIcons name="delete-outline" size={18} color="#fff" />
+            <MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>
               {isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
             </Text>
@@ -441,7 +443,7 @@ export function SyncDebugTab() {
             activeOpacity={0.7}
             disabled={!engine}
           >
-            <MaterialCommunityIcons name="nuke" size={18} color="#fff" />
+            <MaterialCommunityIcons name="nuke" size={18} color={ink.white} />
             <Text style={styles.dangerButtonText}>Hard Re-sync</Text>
           </TouchableOpacity>
           <Text style={[styles.hintText, { color: mutedColor }]}>
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
     borderRadius: 8,
   },
   dangerButtonDisabled: {
@@ -648,6 +650,6 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: ink.white,
   },
 });

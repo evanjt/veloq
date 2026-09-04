@@ -9,14 +9,21 @@ export {
   ACTIVITY_CATEGORIES,
 } from './ActivityTypeFilter';
 export { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+export {
+  MapSurface,
+  MAP_SURFACE_TEST_ID,
+  type MapSurfaceRef,
+  type MapSurfaceProps,
+  type MapCameraState,
+  type MapFeatureHit,
+  type MapPressEvent,
+} from './MapSurface';
 export { TerrainSnapshotWebView, type TerrainSnapshotWebViewRef } from './TerrainSnapshotWebView';
 export { BaseMapView, type BaseMapViewProps } from './BaseMapView';
 export { ActivityPopup, SectionPopup } from './regional';
 export * from './mapStyles';
 
 // Extracted components from ActivityMapView
-export { LocationHandler } from './LocationHandler';
-export { SectionCreationTools } from './SectionCreationTools';
 export {
   AttributionOverlay,
   type AttributionOverlayRef,

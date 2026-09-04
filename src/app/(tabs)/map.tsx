@@ -16,9 +16,8 @@ import { useEngineMapActivities } from '@/features/maps/hooks';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, ink, spacing, typography } from '@/theme';
 import {
-  getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
 } from '@/features/maps/components/ActivityTypeFilter';
@@ -102,11 +101,7 @@ export default function MapScreen() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const {
-    isLoading: isLoadingActivities,
-    isError: isActivitiesError,
-    refetch: refetchActivities,
-  } = useActivities({
+  const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
@@ -114,7 +109,7 @@ export default function MapScreen() {
   });
 
   // Get sync state from engine cache
-  const { isReady, progress, cacheStats } = useActivityBoundsCache();
+  const { isReady, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 
@@ -481,7 +476,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: ink.white,
   },
   chipTextInactive: {
     color: colors.textSecondary,

@@ -7,18 +7,18 @@
 //! cold-after-wipe).
 //!
 //! Test naming convention:
-//! - `scenario_*_baseline` — default-on. Prints perf + behaviour metrics for
+//! - `scenario_*_baseline`, default-on. Prints perf + behaviour metrics for
 //!   the perf doc, asserts only weak invariants (no section disappears
 //!   entirely, sport types stay stable, ingestion succeeds). Captures
 //!   current behaviour without gating future work.
-//! - `scenario_*_stable` — `#[ignore]`. Strict invariants the codebase
+//! - `scenario_*_stable`, `#[ignore]`. Strict invariants the codebase
 //!   should satisfy after Tier 2.1's incremental-consensus rewrite ships.
 //!   These are the explicit success gate for that work.
 //!
 //! Two purposes:
-//! 1. **Performance baseline** — every step prints its timing to stdout. The
+//! 1. **Performance baseline**, every step prints its timing to stdout. The
 //!    perf doc is regenerated from the captured output.
-//! 2. **Correctness regression net** — the `_stable` tests document the
+//! 2. **Correctness regression net**, the `_stable` tests document the
 //!    behaviour we want; the `_baseline` tests document what we have. The
 //!    delta between them is the work Tier 2.1 must close.
 
@@ -27,10 +27,10 @@ use std::time::Instant;
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 // ============================================================================
-// Snapshot types — what we record per step
+// Snapshot types, what we record per step
 // ============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,7 +52,7 @@ impl SectionSnapshot {
     }
 }
 
-fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
+fn snapshot(engine: &mut PersistentEngine) -> SectionSnapshot {
     let sections = engine.get_sections();
     SectionSnapshot {
         sections: sections
@@ -105,7 +105,7 @@ impl StepMeasurement {
 // Engine helpers
 // ============================================================================
 
-fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
+fn fresh_engine() -> (PersistentEngine, TempDir) {
     // RUST_LOG=info on the test command line activates the timing
     // breakdown log lines from tracematch + veloqrs (no-op when unset
     // because the global init is gated). is_test=true keeps the output
@@ -113,12 +113,12 @@ fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
-    let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("open engine");
     (engine, dir)
 }
 
 fn ingest_step(
-    engine: &mut PersistentRouteEngine,
+    engine: &mut PersistentEngine,
     label: &str,
     activities: &[&LifecycleActivity],
 ) -> StepMeasurement {
@@ -136,7 +136,7 @@ fn ingest_step(
     let ingest_ms = ingest_start.elapsed().as_millis();
 
     let detect_start = Instant::now();
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed_ids) = handle.recv().unwrap_or_default();
     let detection_ms = detect_start.elapsed().as_millis();
 
@@ -169,7 +169,7 @@ fn ingest_step(
 }
 
 // ============================================================================
-// Behaviour metrics — measured, not asserted (printed for the perf doc)
+// Behaviour metrics, measured, not asserted (printed for the perf doc)
 // ============================================================================
 
 #[derive(Debug, Default)]
@@ -275,7 +275,7 @@ fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnapshot)
 // ============================================================================
 
 /// Every section's sport_type must remain stable across an incremental add.
-/// This is a baseline correctness property — even today, sport_type churn
+/// This is a baseline correctness property, even today, sport_type churn
 /// would indicate a serious bug.
 fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) {
     for (id, prev) in &before.sections {
@@ -290,7 +290,7 @@ fn assert_sport_types_stable(before: &SectionSnapshot, after: &SectionSnapshot) 
 }
 
 // ============================================================================
-// Scenario A — cold start (no comparisons; just baseline)
+// Scenario A, cold start (no comparisons; just baseline)
 // ============================================================================
 
 #[test]
@@ -317,7 +317,7 @@ fn scenario_a_cold_start_90d_baseline() {
 }
 
 // ============================================================================
-// Scenario B — expand 90d → 1y
+// Scenario B, expand 90d → 1y
 // ============================================================================
 
 #[test]
@@ -347,11 +347,12 @@ fn scenario_b_expand_to_1y_baseline() {
     assert_sport_types_stable(&step_a.snapshot, &step_b.snapshot);
 }
 
+// The order-free batch is non-monotone (a full re-detect on the expand can
+// reshuffle raw sections). Hysteresis damps that: the visible catalogue
+// `get_sections()` reads carries stable ids, holds a debounced dissolve, and
+// only ever appends members on an add, so the expand no longer removes an
+// activity or regresses the count.
 #[test]
-#[ignore] // strict — B's 90/150 = 60% triggers FULL detection mode where
-// sections legitimately reshuffle. Stable activity_ids in FULL
-// mode is gated on Tier 2.1's incremental-consensus accumulator,
-// which would let FULL mode also reuse existing section IDs.
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -379,7 +380,7 @@ fn scenario_b_expand_to_1y_stable() {
 }
 
 // ============================================================================
-// Scenario C — single-activity add
+// Scenario C, single-activity add
 // ============================================================================
 
 #[test]
@@ -413,11 +414,13 @@ fn scenario_c_single_add_baseline() {
     assert_sport_types_stable(&step_b.snapshot, &step_c.snapshot);
 }
 
+// The single add re-runs full order-free detection, whose raw batch is
+// non-monotone (an add can dissolve a section). Hysteresis is exactly what
+// makes the VISIBLE view stable across that: a debounce (streak 1 < k=3) never
+// dissolves on one add, and the append-only fold only adds the new activity to
+// the corridors it traverses. `assert_single_add_stability` holds on the damped
+// `get_sections()` view.
 #[test]
-// Promoted to default-on after Tier 1.3: with the bbox pre-filter in
-// incremental detection plus correct processed_activity_ids tracking, a
-// single overlapping add no longer drops pre-existing activities from
-// other sections. This is the strict B1 invariant, locked in.
 fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -441,7 +444,7 @@ fn scenario_c_single_add_stable() {
 }
 
 // ============================================================================
-// Scenario D — small batch (3 activities)
+// Scenario D, small batch (3 activities)
 // ============================================================================
 
 #[test]
@@ -476,10 +479,12 @@ fn scenario_d_small_batch_baseline() {
     assert_sport_types_stable(&step_c.snapshot, &step_d.snapshot);
 }
 
+// A 3-activity batch is one detect. The hysteresis layer lets a section
+// change only through a debounced, fired event (a sustained re-cut,
+// dissolve or merge), so the only way a section may lose members across
+// the batch is through an event the ledger recorded for it this step. A
+// member dropped from a section whose line did not move is a silent loss.
 #[test]
-// Promoted to default-on after Tier 1.3 (see scenario_c_single_add_stable
-// for the same reasoning). A 3-activity incremental add must not perturb
-// pre-existing activity_ids on any pre-existing section.
 fn scenario_d_small_batch_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -498,16 +503,56 @@ fn scenario_d_small_batch_stable() {
         &corpus.bucket_b_delta.iter().collect::<Vec<_>>(),
     );
     let step_c = ingest_step(&mut engine, "D_strict_C", &[&corpus.bucket_c_single]);
+    let events_before: BTreeMap<String, usize> = step_c
+        .snapshot
+        .sections
+        .keys()
+        .map(|id| (id.clone(), engine.section_history(id).len()))
+        .collect();
     let step_d = ingest_step(
         &mut engine,
         "D_strict_add3",
         &corpus.bucket_d_delta.iter().collect::<Vec<_>>(),
     );
-    assert_no_activity_removed(&step_c.snapshot, &step_d.snapshot);
+    assert_losses_are_fired_events(&engine, &step_c.snapshot, &step_d.snapshot, &events_before);
+}
+
+/// Every member a section lost across a step is explained by a lifecycle
+/// event the ledger fired for that section during the step.
+fn assert_losses_are_fired_events(
+    engine: &PersistentEngine,
+    before: &SectionSnapshot,
+    after: &SectionSnapshot,
+    events_before: &BTreeMap<String, usize>,
+) {
+    for (id, prev) in &before.sections {
+        let fired: Vec<String> = engine
+            .section_history(id)
+            .into_iter()
+            .skip(events_before.get(id).copied().unwrap_or(0))
+            .map(|e| e.kind)
+            .collect();
+        match after.sections.get(id) {
+            None => assert!(
+                fired.iter().any(|k| k == "dissolved" || k == "merged"),
+                "section {id} left the catalogue without a fired retirement: {fired:?}"
+            ),
+            Some(now) => {
+                let removed: BTreeSet<&String> =
+                    prev.activity_ids.difference(&now.activity_ids).collect();
+                if !removed.is_empty() {
+                    assert!(
+                        fired.iter().any(|k| k == "recut"),
+                        "section {id} lost activities {removed:?} with no fired re-cut: {fired:?}"
+                    );
+                }
+            }
+        }
+    }
 }
 
 // ============================================================================
-// Scenario E — year expansion (~550 activities, crosses BATCH_CAP=500)
+// Scenario E, year expansion (~550 activities, crosses BATCH_CAP=500)
 // ============================================================================
 
 #[test]
@@ -553,7 +598,7 @@ fn scenario_e_year_expansion_baseline() {
 }
 
 // ============================================================================
-// Scenario F — full-rebuild convergence (incremental sequence vs single-shot)
+// Scenario F, full-rebuild convergence (incremental sequence vs single-shot)
 // ============================================================================
 
 #[test]

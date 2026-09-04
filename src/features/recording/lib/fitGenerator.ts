@@ -1,5 +1,4 @@
-import type { ActivityType } from '@/types';
-import type { RecordingStreams, RecordingLap } from '@/types';
+import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('FitGenerator');
@@ -41,8 +40,8 @@ const MANUFACTURER_DEVELOPMENT = 255;
 const PRODUCT_ID = 1; // App-specific, arbitrary for development manufacturer
 const APP_NAME = 'Veloq';
 const APP_VERSION_MAJOR = 0;
-const APP_VERSION_MINOR = 3;
-const SOFTWARE_VERSION = APP_VERSION_MAJOR * 100 + APP_VERSION_MINOR; // 0.3 → 3
+const APP_VERSION_MINOR = 4;
+const SOFTWARE_VERSION = APP_VERSION_MAJOR * 100 + APP_VERSION_MINOR; // 0.4 → 4
 
 // Sport types: [sport, sub_sport]
 const SPORT_MAP: Partial<Record<ActivityType, [number, number]>> = {
@@ -215,7 +214,7 @@ export async function generateFitFile(params: {
   /** Total paused seconds; subtracted from total_timer_time (active time per spec). */
   pausedTimeSeconds?: number;
 }): Promise<ArrayBuffer> {
-  const { activityType, startTime, streams, laps, name, pausedTimeSeconds = 0 } = params;
+  const { activityType, startTime, streams, laps, pausedTimeSeconds = 0 } = params;
   const writer = new FitWriter();
   const [sport, subSport] = getSport(activityType);
   const fitStartTime = dateToFitTimestamp(startTime);

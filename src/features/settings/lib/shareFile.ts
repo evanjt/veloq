@@ -22,25 +22,11 @@ export async function shareFile({ content, filename, mimeType }: ShareFileParams
   await FileSystem.writeAsStringAsync(fileUri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
-  const Sharing = await getSharing();
-  await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
+  await shareExistingFile(fileUri, mimeType);
 }
 
-interface ShareFileBase64Params {
-  base64: string;
-  filename: string;
-  mimeType: string;
-}
-
-export async function shareFileBase64({
-  base64,
-  filename,
-  mimeType,
-}: ShareFileBase64Params): Promise<void> {
-  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-  await FileSystem.writeAsStringAsync(fileUri, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+/** Share a file already on disk, through the same lazy-loaded share sheet. */
+export async function shareExistingFile(fileUri: string, mimeType: string): Promise<void> {
   const Sharing = await getSharing();
   await Sharing.shareAsync(fileUri, { mimeType, UTI: mimeType });
 }

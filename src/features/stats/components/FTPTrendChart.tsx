@@ -5,9 +5,10 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
+import { colors, typography, spacing, layout, chartStyles } from '@/theme';
 import type { eFTPPoint } from '@/types';
 import { formatMonth } from '@/shared/format/format';
+import { useChartColors } from '@/shared/charts';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */
@@ -17,11 +18,11 @@ interface FTPTrendChartProps {
 }
 
 // Chart color - yellow/gold for FTP
-const CHART_COLOR = '#FFB300';
 
 export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
 
   // All hooks must be called before any conditional returns
   const chartData = useMemo(() => {
@@ -86,7 +87,7 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
             {t('stats.estimatedFtp')}
           </Text>
           <View style={styles.ftpRow}>
-            <Text style={[styles.ftpValue, { color: CHART_COLOR }]}>{latestFTP}W</Text>
+            <Text style={[styles.ftpValue, { color: chartColors.ftp }]}>{latestFTP}W</Text>
             <View style={[styles.changeBadge, isImproving ? styles.positive : styles.negative]}>
               <Text style={styles.changeText}>
                 {isImproving ? '▲' : '▼'} {Math.abs(ftpChange)}W
@@ -115,16 +116,21 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
                 <LinearGradient
                   start={vec(0, chartBounds.top)}
                   end={vec(0, chartBounds.bottom)}
-                  colors={[CHART_COLOR + '60', CHART_COLOR + '10']}
+                  colors={[chartColors.ftp + '60', chartColors.ftp + '10']}
                 />
               </Area>
               <Line
                 points={points.y}
-                color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                color={chartColors.casing}
                 strokeWidth={2.5}
                 curveType="natural"
               />
-              <Line points={points.y} color={CHART_COLOR} strokeWidth={1.5} curveType="natural" />
+              <Line
+                points={points.y}
+                color={chartColors.ftp}
+                strokeWidth={1.5}
+                curveType="natural"
+              />
               {/* Latest point indicator */}
               {points.y.length > 0 &&
                 points.y[points.y.length - 1].x != null &&
@@ -134,7 +140,7 @@ export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
                       cx={points.y[points.y.length - 1].x!}
                       cy={points.y[points.y.length - 1].y!}
                       r={6}
-                      color={CHART_COLOR}
+                      color={chartColors.ftp}
                     />
                     <Circle
                       cx={points.y[points.y.length - 1].x!}

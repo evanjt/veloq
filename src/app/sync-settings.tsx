@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { SyncRangePanel } from '@/features/settings/components';
+import { ActivitySyncRow, SyncRangePanel } from '@/features/settings/components';
 
 export default function SyncSettingsScreen() {
   const { t } = useTranslation();
@@ -34,6 +34,8 @@ export default function SyncSettingsScreen() {
             </Text>
             <View style={styles.headerSpacer} />
           </View>
+
+          <ActivitySyncRow />
 
           <SyncRangePanel />
         </ScrollView>

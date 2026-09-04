@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, spacing, opacity } from '@/theme';
+import { colors, opacity, ink } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -134,14 +134,14 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
             {startPoint && (
               <>
                 <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
-                <Circle cx={startPoint.x} cy={startPoint.y} r={3} color="#FFFFFF" />
+                <Circle cx={startPoint.x} cy={startPoint.y} r={3} color={ink.white} />
               </>
             )}
             {/* End point */}
             {endPoint && (
               <>
                 <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
-                <Circle cx={endPoint.x} cy={endPoint.y} r={2} color="#FFFFFF" />
+                <Circle cx={endPoint.x} cy={endPoint.y} r={2} color={ink.white} />
               </>
             )}
           </Canvas>

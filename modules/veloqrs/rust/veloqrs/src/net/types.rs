@@ -5,17 +5,8 @@
 //! transforms in `src/api/intervals.ts` + `src/features/activity/lib/streams.ts`).
 //! Unknown JSON fields are ignored, so requesting a `fields=` subset is safe.
 
-use serde::{Deserialize, Deserializer, Serialize};
-
-/// Deserialize a Vec that the server may send as JSON `null` (e.g. unset zones)
-/// into an empty Vec. `#[serde(default)]` alone only covers a *missing* field.
-fn null_as_empty_vec<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Ok(Option::<Vec<T>>::deserialize(d)?.unwrap_or_default())
-}
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 // ===========================================================================
 // Activities
@@ -80,22 +71,44 @@ pub const ACTIVITY_STATS_EXTRA: &str =
     "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,icu_power_zones,icu_hr_zones";
 
 // ===========================================================================
-// Streams (parseStreams parity)
+// Streams
 // ===========================================================================
 
 /// One raw stream object from `streams.json`. `latlng` carries lat in `data`
 /// and lng in `data2`; numeric gaps come through as JSON null.
-#[derive(Debug, Clone, Deserialize)]
+///
+/// Serialised as well as deserialised, because a body rebuilt from the stored
+/// track is handed to the same `parseStreams` a live response goes through.
+/// `data2` is skipped when absent so a reconstruction is byte-shaped like a
+/// server response rather than carrying a null the wire never sends.
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StreamDto {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(default)]
     pub data: Vec<Option<f64>>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data2: Option<Vec<Option<f64>>>,
 }
 
-/// Parsed, app-facing streams. Mirrors `ActivityStreams` from the TS layer.
+/// One series whose sample count disagrees with the `latlng` index space. The
+/// server sends every series at the same length, so a disagreement means the
+/// response is malformed and the parsed values cannot be trusted positionally.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesLengthMismatch {
+    pub series: &'static str,
+    /// Samples the series carries.
+    pub len: usize,
+    /// Samples the `latlng` index space covers.
+    pub expected: usize,
+}
+
+/// Parsed, app-facing streams.
+///
+/// Every series shares one index space: when the response carries `latlng`,
+/// samples whose coordinate pair is null are dropped from all series alike, so
+/// `latlng[i]` and `altitude[i]` describe the same sample. Any series that did
+/// not line up with that space is listed in `misaligned`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParsedStreams {
     pub time: Vec<i64>,
@@ -111,6 +124,7 @@ pub struct ParsedStreams {
     pub temp: Vec<f64>,
     pub wbal: Vec<f64>,
     pub gap: Vec<f64>,
+    pub misaligned: Vec<SeriesLengthMismatch>,
 }
 
 /// Pace in minutes per `reference_meters`, from a speed in m/s. Mirrors
@@ -127,20 +141,156 @@ fn fill(v: &[Option<f64>]) -> Vec<f64> {
     v.iter().map(|x| x.unwrap_or(f64::NAN)).collect()
 }
 
-/// Convert raw stream objects into the parsed shape, applying the same rules as
-/// the TS `parseStreams`: zip latlng data/data2, prefer `fixed_altitude` over
-/// `altitude`, convert `ga_velocity` (m/s) to gap pace (min/km).
+/// A coordinate the engine will store. The validity mask, the parsed `latlng`
+/// and the stored track share this gate, so every series stays in the index
+/// space the stored points actually occupy.
+pub(crate) fn is_storable(lat: f64, lng: f64) -> bool {
+    lat.is_finite()
+        && lng.is_finite()
+        && (-90.0..=90.0).contains(&lat)
+        && (-180.0..=180.0).contains(&lng)
+}
+
+/// Sample validity taken from `latlng`: true where both lat and lng are present.
+/// `None` when the response carries no usable `latlng`, in which case every
+/// series keeps its own length.
+fn latlng_mask(raw: &[StreamDto], misaligned: &mut Vec<SeriesLengthMismatch>) -> Option<Vec<bool>> {
+    let s = raw.iter().find(|s| s.kind == "latlng")?;
+    let Some(lng) = s.data2.as_ref() else {
+        log::warn!(
+            "[Streams] latlng carries {} lat samples and no lng series",
+            s.data.len()
+        );
+        misaligned.push(SeriesLengthMismatch {
+            series: "latlng",
+            len: s.data.len(),
+            expected: 0,
+        });
+        return None;
+    };
+    let n = s.data.len().min(lng.len());
+    let longest = s.data.len().max(lng.len());
+    if longest != n {
+        log::warn!(
+            "[Streams] latlng carries {} lat and {} lng samples",
+            s.data.len(),
+            lng.len()
+        );
+        misaligned.push(SeriesLengthMismatch {
+            series: "latlng",
+            len: longest,
+            expected: n,
+        });
+    }
+    Some(
+        (0..n)
+            .map(|i| match (s.data[i], lng[i]) {
+                (Some(la), Some(lo)) => is_storable(la, lo),
+                _ => false,
+            })
+            .collect(),
+    )
+}
+
+/// One series reduced to the valid samples, gaps as NaN. A series whose length
+/// disagrees with the mask source is recorded in `misaligned` and logged before
+/// it is reduced, so a discarded tail or a padded gap never passes unremarked.
+fn select(
+    kind: &'static str,
+    mask: Option<&[bool]>,
+    v: &[Option<f64>],
+    misaligned: &mut Vec<SeriesLengthMismatch>,
+) -> Vec<f64> {
+    let Some(m) = mask else {
+        return fill(v);
+    };
+    if v.len() != m.len() {
+        log::warn!(
+            "[Streams] series {} carries {} samples, the latlng index space covers {}",
+            kind,
+            v.len(),
+            m.len()
+        );
+        misaligned.push(SeriesLengthMismatch {
+            series: kind,
+            len: v.len(),
+            expected: m.len(),
+        });
+    }
+    m.iter()
+        .enumerate()
+        .filter(|(_, keep)| **keep)
+        .map(|(i, _)| v.get(i).copied().flatten().unwrap_or(f64::NAN))
+        .collect()
+}
+
+/// Convert raw stream objects into the parsed shape: zip latlng data/data2,
+/// prefer `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s) to gap
+/// pace (min/km).
+///
+/// The `latlng` validity mask governs every series, so all of them come back the
+/// same length in one index space. TypeScript's `parseStreams` applies the same
+/// rule, so the chart cursor and the map cursor index the same samples.
+/// The series worth putting in the durable store, in the `latlng` index space
+/// the track is stored in and in the units the server sent.
+///
+/// `ParsedStreams` is not the source. It converts `ga_velocity` to pace and
+/// fills gaps with NaN, and a store holds what arrived rather than what a
+/// chart wanted. What it does share is the mask: every stored series is
+/// addressed by the same indices as the stored coordinates, which is the rule
+/// `C6` settled.
+///
+/// Dropped here: the series `gps_tracks` and `time_streams` already answer, a
+/// series whose length disagrees with the coordinates, and a series that is
+/// all gaps. A row of nothing reads downstream as "the ride had no power",
+/// which is a different claim from "nothing has been fetched yet".
+pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
+    const FROM_THE_TRACK: [&str; 4] = ["latlng", "altitude", "fixed_altitude", "time"];
+
+    let mut ignored = Vec::new();
+    let Some(mask) = latlng_mask(raw, &mut ignored) else {
+        return Vec::new();
+    };
+
+    raw.iter()
+        .filter(|s| !FROM_THE_TRACK.contains(&s.kind.as_str()))
+        .filter(|s| s.data.len() == mask.len())
+        .filter_map(|s| {
+            let data: Vec<Option<f64>> = mask
+                .iter()
+                .enumerate()
+                .filter(|(_, keep)| **keep)
+                .map(|(i, _)| s.data[i].filter(|v| v.is_finite()))
+                .collect();
+            data.iter().any(Option::is_some).then(|| StreamDto {
+                kind: s.kind.clone(),
+                data,
+                data2: None,
+            })
+        })
+        .collect()
+}
+
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
+    let mut misaligned = Vec::new();
+    let mask = latlng_mask(&raw, &mut misaligned);
+    let mask = mask.as_deref();
     for s in raw {
         match s.kind.as_str() {
-            "time" => out.time = s.data.iter().map(|x| x.unwrap_or(0.0) as i64).collect(),
+            // A NaN gap saturates to 0 on the cast.
+            "time" => {
+                out.time = select("time", mask, &s.data, &mut misaligned)
+                    .into_iter()
+                    .map(|x| x as i64)
+                    .collect()
+            }
             "latlng" => {
                 if let Some(lng) = &s.data2 {
                     let n = s.data.len().min(lng.len());
                     out.latlng = (0..n)
                         .filter_map(|i| match (s.data[i], lng[i]) {
-                            (Some(la), Some(lo)) => Some([la, lo]),
+                            (Some(la), Some(lo)) if is_storable(la, lo) => Some([la, lo]),
                             _ => None,
                         })
                         .collect();
@@ -148,71 +298,41 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
             }
             "altitude" => {
                 if !out.altitude_is_fixed {
-                    out.altitude = fill(&s.data);
+                    out.altitude = select("altitude", mask, &s.data, &mut misaligned);
                 }
             }
             "fixed_altitude" => {
-                out.altitude = fill(&s.data);
+                out.altitude = select("fixed_altitude", mask, &s.data, &mut misaligned);
                 out.altitude_is_fixed = true;
             }
-            "heartrate" => out.heartrate = fill(&s.data),
-            "watts" => out.watts = fill(&s.data),
-            "cadence" => out.cadence = fill(&s.data),
-            "velocity_smooth" => out.velocity_smooth = fill(&s.data),
-            "distance" => out.distance = fill(&s.data),
-            "grade_smooth" => out.grade_smooth = fill(&s.data),
-            "temp" => out.temp = fill(&s.data),
-            "w_bal" => out.wbal = fill(&s.data),
+            "heartrate" => out.heartrate = select("heartrate", mask, &s.data, &mut misaligned),
+            "watts" => out.watts = select("watts", mask, &s.data, &mut misaligned),
+            "cadence" => out.cadence = select("cadence", mask, &s.data, &mut misaligned),
+            "velocity_smooth" => {
+                out.velocity_smooth = select("velocity_smooth", mask, &s.data, &mut misaligned)
+            }
+            "distance" => out.distance = select("distance", mask, &s.data, &mut misaligned),
+            "grade_smooth" => {
+                out.grade_smooth = select("grade_smooth", mask, &s.data, &mut misaligned)
+            }
+            "temp" => out.temp = select("temp", mask, &s.data, &mut misaligned),
+            "w_bal" => out.wbal = select("w_bal", mask, &s.data, &mut misaligned),
             "ga_velocity" => {
-                out.gap = s
-                    .data
-                    .iter()
-                    .map(|x| pace_minutes_from_speed(x.unwrap_or(0.0), 1000.0))
+                out.gap = select("ga_velocity", mask, &s.data, &mut misaligned)
+                    .into_iter()
+                    .map(|x| pace_minutes_from_speed(x, 1000.0))
                     .collect()
             }
             _ => {}
         }
     }
+    out.misaligned = misaligned;
     out
 }
 
 // ===========================================================================
 // Intervals / laps
 // ===========================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct IntervalRecord {
-    #[serde(default)]
-    pub id: Option<i64>,
-    #[serde(rename = "type", default)]
-    pub interval_type: Option<String>,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub start_index: Option<i64>,
-    #[serde(default)]
-    pub end_index: Option<i64>,
-    #[serde(default)]
-    pub distance: Option<f64>,
-    #[serde(default)]
-    pub moving_time: Option<i64>,
-    #[serde(default)]
-    pub elapsed_time: Option<i64>,
-    #[serde(default)]
-    pub average_watts: Option<f64>,
-    #[serde(default)]
-    pub average_heartrate: Option<f64>,
-    #[serde(default)]
-    pub average_cadence: Option<f64>,
-    #[serde(default)]
-    pub zone: Option<i64>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct IntervalsRecord {
-    #[serde(default)]
-    pub icu_intervals: Vec<IntervalRecord>,
-}
 
 // ===========================================================================
 // Wellness
@@ -242,11 +362,47 @@ pub struct WellnessRecord {
     pub steps: Option<f64>,
     #[serde(default)]
     pub vo2max: Option<f64>,
+    #[serde(default)]
+    pub soreness: Option<i32>,
+    #[serde(default)]
+    pub fatigue: Option<i32>,
+    #[serde(default)]
+    pub stress: Option<i32>,
+    #[serde(default)]
+    pub mood: Option<i32>,
+    #[serde(default)]
+    pub motivation: Option<i32>,
 }
 
 // ===========================================================================
 // Athlete + sport settings
 // ===========================================================================
+
+/// The JSON body for a manual activity entry, an activity with no file behind
+/// it. Field names are the wire names, and an unset optional is omitted rather
+/// than sent as null, matching what the app has always posted.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ManualActivityBody {
+    #[serde(rename = "type")]
+    pub activity_type: String,
+    pub name: String,
+    pub start_date_local: String,
+    pub elapsed_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moving_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distance: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_elevation_gain: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub average_heartrate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Always sent, defaulted false by the caller.
+    pub trainer: bool,
+    /// Always sent, defaulted false by the caller.
+    pub commute: bool,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AthleteRecord {
@@ -257,145 +413,9 @@ pub struct AthleteRecord {
     pub sex: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct SportSettingsRecord {
-    #[serde(default)]
-    pub id: Option<i64>,
-    #[serde(default, deserialize_with = "null_as_empty_vec")]
-    pub types: Vec<String>,
-    #[serde(default)]
-    pub ftp: Option<f64>,
-    #[serde(default)]
-    pub indoor_ftp: Option<f64>,
-    #[serde(default)]
-    pub lthr: Option<f64>,
-    #[serde(default)]
-    pub max_hr: Option<f64>,
-    #[serde(default)]
-    pub threshold_pace: Option<f64>,
-    #[serde(default, deserialize_with = "null_as_empty_vec")]
-    pub hr_zones: Vec<f64>,
-    #[serde(default, deserialize_with = "null_as_empty_vec")]
-    pub power_zones: Vec<f64>,
-    #[serde(default, deserialize_with = "null_as_empty_vec")]
-    pub pace_zones: Vec<f64>,
-}
-
 // ===========================================================================
 // Power / pace curves
 // ===========================================================================
-
-#[derive(Debug, Clone, Deserialize)]
-struct CurveListDto<T> {
-    list: Vec<T>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct PowerCurveDto {
-    #[serde(default)]
-    secs: Vec<i64>,
-    #[serde(default)]
-    values: Vec<f64>,
-    #[serde(default)]
-    activity_id: Option<Vec<String>>,
-}
-
-/// Best-power-by-duration curve. `watts` is renamed from the server's `values`.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct PowerCurve {
-    pub secs: Vec<i64>,
-    pub watts: Vec<f64>,
-    pub activity_ids: Option<Vec<String>>,
-}
-
-/// Parse the `power-curves.json` body (takes `list[0]`, renames `values`).
-pub fn parse_power_curve(body: &[u8]) -> Result<PowerCurve, serde_json::Error> {
-    let dto: CurveListDto<PowerCurveDto> = serde_json::from_slice(body)?;
-    Ok(match dto.list.into_iter().next() {
-        Some(c) => PowerCurve {
-            secs: c.secs,
-            watts: c.values,
-            activity_ids: c.activity_id,
-        },
-        None => PowerCurve::default(),
-    })
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct PaceModelDto {
-    #[serde(rename = "type")]
-    kind: String,
-    #[serde(default)]
-    #[serde(rename = "criticalSpeed")]
-    critical_speed: Option<f64>,
-    #[serde(default, rename = "dPrime")]
-    d_prime: Option<f64>,
-    #[serde(default)]
-    r2: Option<f64>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct PaceCurveDto {
-    #[serde(default)]
-    distance: Vec<f64>,
-    #[serde(default)]
-    values: Vec<f64>,
-    #[serde(default)]
-    activity_id: Option<Vec<String>>,
-    #[serde(default)]
-    #[serde(rename = "paceModels")]
-    pace_models: Vec<PaceModelDto>,
-    #[serde(default)]
-    start_date_local: Option<String>,
-    #[serde(default)]
-    end_date_local: Option<String>,
-    #[serde(default)]
-    days: Option<i64>,
-}
-
-/// Best-pace-by-distance curve. `pace` (m/s) is computed as distance/time.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct PaceCurve {
-    pub distances: Vec<f64>,
-    pub times: Vec<f64>,
-    pub pace: Vec<f64>,
-    pub activity_ids: Option<Vec<String>>,
-    pub critical_speed: Option<f64>,
-    pub d_prime: Option<f64>,
-    pub r2: Option<f64>,
-    pub start_date: Option<String>,
-    pub end_date: Option<String>,
-    pub days: Option<i64>,
-}
-
-/// Parse the `pace-curves.json` body (takes `list[0]`, computes pace, extracts CS).
-pub fn parse_pace_curve(body: &[u8]) -> Result<PaceCurve, serde_json::Error> {
-    let dto: CurveListDto<PaceCurveDto> = serde_json::from_slice(body)?;
-    Ok(match dto.list.into_iter().next() {
-        Some(c) => {
-            let pace = c
-                .distance
-                .iter()
-                .zip(c.values.iter())
-                .map(|(d, t)| if *t > 0.0 { d / t } else { 0.0 })
-                .collect();
-            let cs = c.pace_models.iter().find(|m| m.kind == "CS");
-            PaceCurve {
-                distances: c.distance,
-                times: c.values,
-                pace,
-                activity_ids: c.activity_id,
-                critical_speed: cs.and_then(|m| m.critical_speed),
-                d_prime: cs.and_then(|m| m.d_prime),
-                r2: cs.and_then(|m| m.r2),
-                start_date: c.start_date_local,
-                end_date: c.end_date_local,
-                days: c.days,
-            }
-        }
-        None => PaceCurve::default(),
-    })
-}
 
 /// Find the oldest `start_date_local` in an activities list (the reduce in
 /// `getOldestActivityDate`). Returns None for an empty list.
@@ -406,10 +426,72 @@ pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
         .min()
 }
 
+/// The athlete's whole activity history, reduced to what the history slider
+/// needs: where it may reach back to, and how much sits in each year on the
+/// way. Both come from one response, so neither costs a request of its own.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ActivityHistorySummary {
+    pub oldest: Option<String>,
+    pub counts_by_year: BTreeMap<String, u32>,
+}
+
+/// Count activities per calendar year, keyed by the `YYYY` prefix of
+/// `start_date_local`. The history slider needs to say how much a widening
+/// would download, and the same response that carries the oldest date carries
+/// every start date, so this costs no extra request. A record with no start
+/// date is skipped: it cannot be placed on the timeline either.
+pub fn activity_counts_by_year(activities: &[ActivityRecord]) -> BTreeMap<String, u32> {
+    let mut counts = BTreeMap::new();
+    for a in activities {
+        let Some(date) = a.start_date_local.as_deref() else {
+            continue;
+        };
+        if date.len() < 4 || !date[..4].bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        *counts.entry(date[..4].to_string()).or_insert(0) += 1;
+    }
+    counts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn year_counts_bucket_every_dated_activity() {
+        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+            {"id": "a", "start_date_local": "2024-06-20T07:00:00"},
+            {"id": "b", "start_date_local": "2024-01-02T07:00:00"},
+            {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
+        ]))
+        .unwrap();
+        let counts = activity_counts_by_year(&acts);
+        assert_eq!(counts.get("2024"), Some(&2));
+        assert_eq!(counts.get("2025"), Some(&1));
+        assert_eq!(counts.len(), 2);
+    }
+
+    #[test]
+    fn year_counts_skip_what_cannot_be_placed() {
+        // A row with no start date is already dropped by the window sync, and
+        // a malformed one would bucket under a year that does not exist.
+        let acts: Vec<ActivityRecord> = serde_json::from_value(json!([
+            {"id": "a"},
+            {"id": "b", "start_date_local": "not-a-date"},
+            {"id": "c", "start_date_local": "2025-03-03T07:00:00"}
+        ]))
+        .unwrap();
+        let counts = activity_counts_by_year(&acts);
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts.get("2025"), Some(&1));
+    }
+
+    #[test]
+    fn year_counts_of_nothing_is_empty() {
+        assert!(activity_counts_by_year(&[]).is_empty());
+    }
 
     #[test]
     fn parses_activities_subset() {
@@ -468,6 +550,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_streams_drops_altitude_at_a_null_coordinate() {
+        // Distinct altitude per index, so a series that compacted independently
+        // of latlng would land on the wrong samples rather than the right ones.
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "latlng", "data": [42.5, null, 42.7, null, 42.9],
+             "data2": [1.1, null, 1.3, null, 1.5]},
+            {"type": "altitude", "data": [100.0, 200.0, 300.0, 400.0, 500.0]}
+        ]))
+        .unwrap();
+        let s = parse_streams(raw);
+        assert_eq!(s.latlng, vec![[42.5, 1.1], [42.7, 1.3], [42.9, 1.5]]);
+        assert_eq!(s.altitude, vec![100.0, 300.0, 500.0]);
+        assert!(s.misaligned.is_empty());
+    }
+
+    #[test]
+    fn parse_streams_leaves_altitude_empty_when_the_series_is_absent() {
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "latlng", "data": [42.5, 42.6], "data2": [1.1, 1.2]}
+        ]))
+        .unwrap();
+        let s = parse_streams(raw);
+        assert_eq!(s.latlng.len(), 2);
+        assert!(s.altitude.is_empty());
+        assert!(!s.altitude_is_fixed);
+    }
+
+    #[test]
     fn parse_streams_altitude_used_when_no_fixed() {
         let raw: Vec<StreamDto> =
             serde_json::from_value(json!([{"type": "altitude", "data": [10.0, 11.0]}])).unwrap();
@@ -488,55 +598,6 @@ mod tests {
         assert_eq!(w[0].resting_hr, Some(48.0));
         assert_eq!(w[0].sleep_secs, Some(27000.0));
         assert_eq!(w[0].ramp_rate, Some(1.2));
-    }
-
-    #[test]
-    fn parses_sport_settings_int_zones() {
-        let ss: Vec<SportSettingsRecord> = serde_json::from_value(json!([
-            {"id": 1473689, "types": ["Ride", "VirtualRide"], "ftp": 155, "lthr": 174,
-             "max_hr": 201, "hr_zones": [120, 140, 160, 175, 185, 195, 205],
-             "power_zones": [55, 75, 90, 105, 120, 150, 200], "pace_zones": null}
-        ]))
-        .unwrap();
-        assert_eq!(ss[0].id, Some(1473689));
-        assert_eq!(ss[0].types, vec!["Ride", "VirtualRide"]);
-        assert_eq!(ss[0].ftp, Some(155.0));
-        assert_eq!(ss[0].hr_zones.len(), 7);
-        assert!(ss[0].pace_zones.is_empty()); // null -> default empty
-    }
-
-    #[test]
-    fn power_curve_renames_values_to_watts() {
-        let body = json!({
-            "list": [{"secs": [1, 5, 60], "values": [800, 700, 400], "activity_id": ["x", "y", "z"]}],
-            "activities": {}
-        })
-        .to_string();
-        let pc = parse_power_curve(body.as_bytes()).unwrap();
-        assert_eq!(pc.secs, vec![1, 5, 60]);
-        assert_eq!(pc.watts, vec![800.0, 700.0, 400.0]);
-        assert_eq!(pc.activity_ids.as_ref().unwrap()[1], "y");
-    }
-
-    #[test]
-    fn pace_curve_computes_pace_and_extracts_cs() {
-        let body = json!({
-            "list": [{
-                "distance": [400.0, 1000.0, 0.0],
-                "values": [80.0, 220.0, 0.0],
-                "activity_id": ["a", "b", "c"],
-                "paceModels": [{"type": "CS", "criticalSpeed": 2.85, "dPrime": 250.6, "r2": 0.999}],
-                "start_date_local": "2026-05-01", "end_date_local": "2026-06-26", "days": 56
-            }]
-        })
-        .to_string();
-        let pc = parse_pace_curve(body.as_bytes()).unwrap();
-        assert_eq!(pc.distances, vec![400.0, 1000.0, 0.0]);
-        assert_eq!(pc.pace[0], 400.0 / 80.0); // 5 m/s
-        assert_eq!(pc.pace[2], 0.0); // div-by-zero guard
-        assert_eq!(pc.critical_speed, Some(2.85));
-        assert_eq!(pc.d_prime, Some(250.6));
-        assert_eq!(pc.days, Some(56));
     }
 
     #[test]
@@ -607,101 +668,6 @@ mod tests {
         assert_eq!(a.device_name.as_deref(), Some("Garmin"));
         assert_eq!(a.has_weather, Some(true));
         assert_eq!(a.stream_types.as_ref().unwrap().len(), 4);
-    }
-
-    #[test]
-    fn parses_intervals_envelope() {
-        // The intervals endpoint wraps the laps in `{analyzed, icu_groups,
-        // icu_intervals, id}`; each lap has a large key set with `type`/`zone`.
-        let body = json!({
-            "analyzed": true, "id": "i159922890", "icu_groups": [],
-            "icu_intervals": [{
-                "id": 5386051, "type": "RECOVERY", "label": null,
-                "start_index": 0, "end_index": 16, "distance": 120.0,
-                "moving_time": 17, "elapsed_time": 17, "average_watts": 90.0,
-                "average_heartrate": 110.0, "average_cadence": 70.0, "zone": 6,
-                "average_speed": 7.0, "decoupling": 1.2, "group_id": null,
-                "segment_effort_ids": [], "wbal_start": 20000, "wbal_end": 19500
-            }]
-        });
-        let rec: IntervalsRecord = serde_json::from_value(body).unwrap();
-        assert_eq!(rec.icu_intervals.len(), 1);
-        let iv = &rec.icu_intervals[0];
-        assert_eq!(iv.id, Some(5386051));
-        assert_eq!(iv.interval_type.as_deref(), Some("RECOVERY"));
-        assert_eq!(iv.label, None);
-        assert_eq!(iv.start_index, Some(0));
-        assert_eq!(iv.end_index, Some(16));
-        assert_eq!(iv.zone, Some(6));
-    }
-
-    #[test]
-    fn power_curve_reads_values_not_server_watts() {
-        // list[0] carries both `values` and a separate `watts` field plus many
-        // extras (ranks, powerModels, watts_per_kg). The TS client renames
-        // `values` -> watts, so the parse must read `values`, never the server's
-        // `watts` array. Distinct arrays prove which one is used.
-        let body = json!({
-            "list": [{
-                "secs": [1, 2, 3], "values": [508, 487, 487],
-                "watts": [999, 999, 999], "watts_per_kg": [7.1, 6.8, 6.8],
-                "activity_id": ["i1", "i1", "i2"], "ranks": [1, 2, 3],
-                "powerModels": [], "id": "x", "label": "1 year", "weight": 70
-            }],
-            "activities": {}
-        })
-        .to_string();
-        let pc = parse_power_curve(body.as_bytes()).unwrap();
-        assert_eq!(pc.secs, vec![1, 2, 3]);
-        assert_eq!(pc.watts, vec![508.0, 487.0, 487.0]); // from `values`, not `watts`
-        assert_eq!(pc.activity_ids.as_ref().unwrap()[2], "i2");
-    }
-
-    #[test]
-    fn pace_curve_ignores_extras_and_input_indexes() {
-        // The CS pace model carries an `inputPointIndexes` array alongside the
-        // scalars; the list entry carries label/id/training_load extras. Both
-        // must be ignored while pace = distance/time and the CS scalars extract.
-        let body = json!({
-            "list": [{
-                "distance": [100.0, 200.0, 0.0], "values": [20.0, 50.0, 0.0],
-                "activity_id": ["a", "b", "c"], "type": "Run",
-                "paceModels": [{"type": "CS", "criticalSpeed": 2.85,
-                    "dPrime": 250.6, "r2": 0.999, "inputPointIndexes": [41, 62, 67]}],
-                "start_date_local": "2026-05-01", "end_date_local": "2026-06-26",
-                "days": 56, "id": "x", "label": "56 days", "training_load": 40,
-                "weight": 68, "moving_time": [10, 20, 30]
-            }],
-            "activities": {}
-        })
-        .to_string();
-        let pc = parse_pace_curve(body.as_bytes()).unwrap();
-        assert_eq!(pc.pace[0], 100.0 / 20.0); // 5 m/s
-        assert_eq!(pc.pace[1], 200.0 / 50.0); // 4 m/s
-        assert_eq!(pc.pace[2], 0.0); // div-by-zero guard
-        assert_eq!(pc.critical_speed, Some(2.85));
-        assert_eq!(pc.d_prime, Some(250.6));
-        assert_eq!(pc.r2, Some(0.999));
-        assert_eq!(pc.days, Some(56));
-    }
-
-    #[test]
-    fn parses_sport_settings_all_zones_null() {
-        // A sport with no configured zones sends every zone array as JSON null
-        // (seen on Swim/Other in the live response). null_as_empty_vec turns each
-        // into an empty Vec rather than failing the deserialise.
-        let ss: Vec<SportSettingsRecord> = serde_json::from_value(json!([{
-            "id": 1473692, "types": ["Swim"], "ftp": null, "indoor_ftp": null,
-            "lthr": null, "max_hr": null, "threshold_pace": null,
-            "hr_zones": null, "power_zones": null, "pace_zones": null
-        }]))
-        .unwrap();
-        assert_eq!(ss[0].id, Some(1473692));
-        assert_eq!(ss[0].types, vec!["Swim"]);
-        assert_eq!(ss[0].ftp, None);
-        assert!(ss[0].hr_zones.is_empty());
-        assert!(ss[0].power_zones.is_empty());
-        assert!(ss[0].pace_zones.is_empty());
     }
 
     #[test]

@@ -1,6 +1,10 @@
+import type { EfficiencyTrend } from 'veloqrs';
+import type { StrengthSummary } from '@/features/strength/types';
+
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import {
   generatePeriodComparisonInsights,
@@ -8,6 +12,10 @@ import {
 } from '../generators/periodComparison';
 import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
 import { generateSectionTrendInsights } from '../generators/sectionTrend';
+import {
+  generateSectionChangedInsights,
+  type SectionChangeInput,
+} from '../generators/sectionChanged';
 import type {
   Insight,
   PeriodStats,
@@ -50,27 +58,25 @@ export interface InsightInputData {
   swimPaceTrend?: PaceTrend | null;
   recentPRs: SectionPR[];
   sectionTrends: SectionTrendData[];
+  sectionChanges?: SectionChangeInput[];
   formTsb: number | null;
   formCtl: number | null;
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: Array<{
-    date: string;
-    hrv?: number;
-    restingHR?: number;
-    sleepSecs?: number;
-    ctl?: number;
-    atl?: number;
-  }>;
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
-  efficiencyTrendSectionIds?: string[];
+  /** Efficiency trends from the engine, already filtered and capped. */
+  efficiencyTrends?: EfficiencyTrend[];
   /**
    * Bbox of activities in the last `activeWindowDays` - drives the proximity
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
    */
   activeRegion?: Bbox | null;
+  /** Four-week strength rollup. Null when the athlete logs no strength work. */
+  strengthMonthly?: StrengthSummary | null;
+  /** Per-week strength rollups backing the progression candidates. */
+  strengthWeekly?: StrengthSummary[];
 }
 
 // ---------------------------------------------------------------------------
@@ -79,9 +85,22 @@ export interface InsightInputData {
 
 export interface PipelineOutcome {
   kept: Insight[];
-  rejected: Array<{ insight: Insight; reason: GateReason }>;
+  rejected: { insight: Insight; reason: GateReason }[];
   scored: ScoredInsight[];
   capDropped: DropRecord[];
+  /**
+   * What the screen actually renders, in the order it renders it.
+   * `kept` is the pipeline's output, and consolidation runs after it: it drops
+   * on the section story cap and the duplicate-section rule, and reorders what
+   * is left. Null until consolidation has run for this generation.
+   */
+  consolidated: Insight[] | null;
+  consolidationDropped: ConsolidationDrop[];
+}
+
+export interface ConsolidationDrop {
+  insight: Insight;
+  reason: string;
 }
 
 /**
@@ -93,6 +112,17 @@ let _lastOutcome: PipelineOutcome | null = null;
 
 export function getLastInsightOutcome(): PipelineOutcome | null {
   return _lastOutcome;
+}
+
+/**
+ * Record what consolidation did to the pipeline's output. Called by
+ * `consolidateInsights`, which runs downstream of generation, so the debug
+ * panel sees the list the screen shows rather than the one the pipeline
+ * handed on.
+ */
+export function recordConsolidation(kept: Insight[], dropped: ConsolidationDrop[]): void {
+  if (!_lastOutcome) return;
+  _lastOutcome = { ..._lastOutcome, consolidated: kept, consolidationDropped: dropped };
 }
 
 function logInsightGeneration(outcome: PipelineOutcome): void {
@@ -136,7 +166,6 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
       process.env &&
       (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
     ) {
-      // eslint-disable-next-line no-console
       console.warn(`[insights/${label}] generator failed; isolating:`, err);
     }
     return fallback;
@@ -151,9 +180,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   //    from one yields zero insights for that category but does not kill
   //    the rest.
   candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
-  candidates.push(
-    ...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t))
-  );
+  candidates.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(now, t)));
   candidates.push(
     ...safeRun('periodComparison', () =>
       generatePeriodComparisonInsights(
@@ -177,6 +204,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       sectionName: s.sectionName,
       bestTimeSecs: s.bestTimeSecs,
       traversalCount: s.traversalCount,
+      daysSinceLast: s.daysSinceLast,
       sportType: s.sportType,
     }));
     const existingStalePrIds = new Set(candidates.map((i) => i.id));
@@ -188,7 +216,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
             ftpTrend: data.ftpTrend,
             runPaceTrend: data.paceTrend,
             swimPaceTrend: data.swimPaceTrend ?? null,
-            recentPRs: data.recentPRs,
             existingInsightIds: existingStalePrIds,
           },
           t,
@@ -210,16 +237,30 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     )
   );
 
-  const sectionIds = data.efficiencyTrendSectionIds;
-  if (sectionIds && sectionIds.length > 0) {
+  candidates.push(
+    ...safeRun('sectionChanged', () =>
+      generateSectionChangedInsights(data.sectionChanges ?? [], now, t)
+    )
+  );
+
+  const efficiencyTrends = data.efficiencyTrends;
+  if (efficiencyTrends && efficiencyTrends.length > 0) {
     candidates.push(
-      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(sectionIds, now, t))
+      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(efficiencyTrends, now, t))
+    );
+  }
+
+  if (data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
+    candidates.push(
+      ...safeRun('strength', () =>
+        generateStrengthInsights(data.strengthMonthly ?? null, data.strengthWeekly ?? [], now, t)
+      )
     );
   }
 
   // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
-  const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
+  const rejected: { insight: Insight; reason: GateReason }[] = [];
   const passed: Insight[] = [];
 
   for (const insight of candidates) {
@@ -243,7 +284,14 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   // 4. Diversity + surface cap (D9, D10)
   const { kept, dropped: capDropped } = applyMixAndCap(scored);
 
-  const outcome: PipelineOutcome = { kept, rejected, scored, capDropped };
+  const outcome: PipelineOutcome = {
+    kept,
+    rejected,
+    scored,
+    capDropped,
+    consolidated: null,
+    consolidationDropped: [],
+  };
   _lastOutcome = outcome;
   logInsightGeneration(outcome);
 

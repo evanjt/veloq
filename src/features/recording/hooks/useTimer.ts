@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
@@ -31,7 +31,7 @@ export function useTimer(): {
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const laps = useRecordingStore((s) => s.laps);
 
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Start/stop interval based on status
@@ -74,7 +74,7 @@ export function useTimer(): {
 
   // Lap time: seconds since last lap ended
   const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;
-  const lapStartSeconds = lastLap ? lastLap.endTime : 0;
+  const lapStartSeconds = lastLap ? lastLap.movingEndTime : 0;
   const lapTime = Math.max(0, movingTime - lapStartSeconds);
 
   return {

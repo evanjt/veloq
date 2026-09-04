@@ -73,7 +73,6 @@ interface MapsSectionProps {
 export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const showOverrides = true;
   const {
     preferences: mapPreferences,
     setDefaultStyle,

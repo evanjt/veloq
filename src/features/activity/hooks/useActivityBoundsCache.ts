@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/shared/format/format';
 
@@ -52,38 +52,33 @@ interface UseActivityBoundsCacheReturn {
  * Activity data is now provided by useEngineMapActivities hook.
  */
 export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
-  const [progress, setProgress] = useState<SyncProgress>({
+  const [progress] = useState<SyncProgress>({
     completed: 0,
     total: 0,
     status: 'idle',
   });
 
-  // Initialize activity count and date range synchronously from engine
-  const [activityCount, setActivityCount] = useState(() => {
+  // One stats read covers both the count and the persisted date range.
+  const initialStats = useMemo(() => {
     try {
-      const engine = getRouteEngine();
-      return engine ? engine.getActivityCount() : 0;
+      return getEngine()?.getStats() ?? null;
     } catch {
-      return 0;
+      return null;
     }
-  });
+  }, []);
+
+  const [activityCount, setActivityCount] = useState(() => initialStats?.activityCount ?? 0);
 
   // Track engine's actual date range (from persisted data)
   const [engineDateRange, setEngineDateRange] = useState<{
     oldest: string | null;
     newest: string | null;
   }>(() => {
-    try {
-      const engine = getRouteEngine();
-      const stats = engine?.getStats();
-      if (stats?.oldestDate && stats?.newestDate) {
-        return {
-          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
-          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
-        };
-      }
-    } catch {
-      // Ignore
+    if (initialStats?.oldestDate && initialStats?.newestDate) {
+      return {
+        oldest: formatLocalDate(new Date(Number(initialStats.oldestDate) * 1000)),
+        newest: formatLocalDate(new Date(Number(initialStats.newestDate) * 1000)),
+      };
     }
     return { oldest: null, newest: null };
   });
@@ -99,7 +94,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // empty. Using activityCount as the readiness gate strands new/cleared
   // installs on a perpetual "Loading activities..." screen because the
   // count never climbs above zero until a sync completes.
-  const [isSubscribed, setIsSubscribed] = useState(() => getRouteEngine() !== null);
+  const [isSubscribed, setIsSubscribed] = useState(() => getEngine() !== null);
 
   // Track mount state to prevent setState after unmount
   const isMountedRef = useRef(true);
@@ -118,7 +113,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // Helper to update both count and date range from engine stats
     const updateFromEngine = () => {
       if (cancelled || !isMountedRef.current) return;
-      const eng = getRouteEngine();
+      const eng = getEngine();
       if (!eng) {
         setActivityCount(0);
         setEngineDateRange({ oldest: null, newest: null });
@@ -137,7 +132,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       updateFromEngine();
@@ -194,7 +189,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const clearCache = useCallback(async () => {
     // Destroy and re-init engine to get a clean state.
     // DO NOT use engine.clear() - it corrupts sub-objects (strength() returns null).
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) {
       const dbPath = getRouteDbPath();
       engine.destroyEngine();
@@ -216,8 +211,10 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // Clear FileSystem caches (GPS tracks and bounds)
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
-    setActivityCount(0);
-    setEngineDateRange({ oldest: null, newest: null });
+    // Do not write the count and range down by hand. What survived a clear is
+    // the engine's answer, not this hook's assumption, and a clear that half
+    // failed must show what is really still there. The re-subscription below
+    // re-reads both, so the display follows the database rather than leading it.
     // Force engine re-subscription since destroy+reinit breaks the old subscription
     setEngineGeneration((g) => g + 1);
   }, []);

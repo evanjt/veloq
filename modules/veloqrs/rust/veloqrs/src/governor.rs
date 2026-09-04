@@ -102,8 +102,7 @@ pub fn parse_rate_headers(
     }
 }
 
-/// Request priority lane. The baseline policy ignores it; the rate-limit plan
-/// uses it to reserve headroom for interactive work over backfill.
+/// Request priority lane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lane {
     /// A user is waiting on this (a tapped screen, an upload).
@@ -112,18 +111,31 @@ pub enum Lane {
     Backfill,
 }
 
-/// Policy layered on top of the baseline pace. The baseline is an identity
-/// no-op (`NoopPolicy`); the rate-limit follow-up plan supplies a budget-aware
-/// implementation (a live budget cell from `X-RateLimit-*`, a reserve, and
-/// per-lane pacing). This is the seam the policy plugs into.
+/// Policy layered on top of the baseline pace. It decides both how long a lane
+/// waits before it may dispatch and how far behind existing traffic a lane is
+/// willing to queue.
 pub trait Policy: Send + Sync {
-    /// Extra delay to add before dispatching a request in `lane`. Baseline: zero.
+    /// Extra delay to add before dispatching a request in `lane`.
+    ///
+    /// This lengthens the shared interval, so it slows every lane behind this
+    /// request too. Use it to slow the process as a whole, never to demote one
+    /// lane relative to another.
     fn pace(&self, lane: Lane) -> Duration;
-    /// Observe a response's parsed budget so the policy can adapt. Baseline: ignore.
+
+    /// How far ahead the shared schedule may already run before a request in
+    /// `lane` waits for it to drain instead of claiming a slot behind it.
+    /// `None` never yields, which is the right answer for work a user is
+    /// waiting on. Defaults to `None`.
+    fn max_queue_ahead(&self, _lane: Lane) -> Option<Duration> {
+        None
+    }
+
+    /// Observe a response's parsed budget so the policy can adapt.
     fn observe(&self, budget: &RateBudget);
 }
 
-/// The baseline identity policy: no extra pacing, no budget tracking.
+/// The identity policy: no extra pacing, no yielding, no budget tracking. Used
+/// by tests that want the bare baseline pace.
 pub struct NoopPolicy;
 
 impl Policy for NoopPolicy {
@@ -131,6 +143,81 @@ impl Policy for NoopPolicy {
         Duration::ZERO
     }
     fn observe(&self, _budget: &RateBudget) {}
+}
+
+/// How far behind existing traffic a backfill request will queue before it
+/// parks and lets the schedule drain. Two dispatch slots at the baseline pace,
+/// so a lone backfill runs at full speed and a backfill competing with a tapped
+/// screen steps aside within one request.
+const BACKFILL_MAX_QUEUE_AHEAD: Duration = Duration::from_millis(250);
+
+/// The same limit once the 15-minute budget is nearly spent. Backfill then only
+/// takes slots the app has left completely idle.
+const BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET: Duration = Duration::from_millis(10);
+
+/// Requests of the 15-minute pool held for interactive work. Below this, the
+/// backfill stops competing for the remainder.
+const INTERACTIVE_RESERVE_15M: u32 = 200;
+
+/// Sentinel for a budget no response has reported yet.
+const BUDGET_UNKNOWN: u32 = u32::MAX;
+
+/// The shipped policy: interactive work never waits, backfill work fills the
+/// gaps between it.
+///
+/// Yielding is expressed as a queue limit rather than as extra pace, because
+/// pace lengthens the shared interval and would slow the tapped screen along
+/// with the backfill. A queue limit costs the backfill request alone: it holds
+/// no slot while it waits, so an interactive request that arrives meanwhile
+/// takes the slot the backfill would have had.
+pub struct YieldBackfillPolicy {
+    remaining_15m: std::sync::atomic::AtomicU32,
+}
+
+impl YieldBackfillPolicy {
+    pub fn new() -> Self {
+        Self {
+            remaining_15m: std::sync::atomic::AtomicU32::new(BUDGET_UNKNOWN),
+        }
+    }
+}
+
+impl Default for YieldBackfillPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Policy for YieldBackfillPolicy {
+    fn pace(&self, _lane: Lane) -> Duration {
+        Duration::ZERO
+    }
+
+    fn max_queue_ahead(&self, lane: Lane) -> Option<Duration> {
+        match lane {
+            Lane::Interactive => None,
+            Lane::Backfill => {
+                let remaining = self
+                    .remaining_15m
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                // An unknown budget is treated as healthy: the reserve is a
+                // refinement, and refusing to backfill until a header arrives
+                // would stall the first run indefinitely.
+                if remaining != BUDGET_UNKNOWN && remaining < INTERACTIVE_RESERVE_15M {
+                    Some(BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET)
+                } else {
+                    Some(BACKFILL_MAX_QUEUE_AHEAD)
+                }
+            }
+        }
+    }
+
+    fn observe(&self, budget: &RateBudget) {
+        if let Some(remaining) = budget.remaining_15m {
+            self.remaining_15m
+                .store(remaining, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 }
 
 /// The process-wide dispatch choke point. Every outbound intervals.icu request
@@ -144,6 +231,10 @@ pub struct Governor {
     min_interval: Duration,
     next_at: std::sync::Mutex<Option<Instant>>,
     policy: Box<dyn Policy>,
+    /// Acquires that actually parked waiting for a higher lane to drain. The
+    /// yield is otherwise only visible as elapsed time, which reads as load
+    /// rather than as policy.
+    yields: std::sync::atomic::AtomicU64,
 }
 
 impl Governor {
@@ -154,12 +245,18 @@ impl Governor {
             min_interval: Duration::from_secs_f64(1.0 / per_sec),
             next_at: std::sync::Mutex::new(None),
             policy,
+            yields: std::sync::atomic::AtomicU64::new(0),
         }
     }
 
     /// Acquire a dispatch slot for `lane`, awaiting until the shared pace allows.
     /// Never holds the scheduling lock across the await.
+    ///
+    /// A lane with a queue limit waits for the schedule to drain to that limit
+    /// before it claims anything, so it holds no slot while it waits and a
+    /// higher-priority request arriving meanwhile takes the slot ahead of it.
     pub async fn acquire(&self, lane: Lane) {
+        self.yield_to_higher_lanes(lane).await;
         let interval = self.min_interval + self.policy.pace(lane);
         let scheduled = {
             let mut next = self.next_at.lock().unwrap_or_else(|e| e.into_inner());
@@ -174,21 +271,65 @@ impl Governor {
         }
     }
 
+    /// Park until the schedule has drained to this lane's queue limit.
+    ///
+    /// Capped in total, so a process under sustained interactive load delays a
+    /// backfill request rather than parking it forever. The backfill is
+    /// resumable either way, but a request that never dispatches also never
+    /// reports a failure.
+    async fn yield_to_higher_lanes(&self, lane: Lane) {
+        let Some(max_ahead) = self.policy.max_queue_ahead(lane) else {
+            return;
+        };
+        let mut waited = Duration::ZERO;
+        while waited < MAX_LANE_YIELD {
+            let backlog = {
+                let next = self.next_at.lock().unwrap_or_else(|e| e.into_inner());
+                (*next).map_or(Duration::ZERO, |t| {
+                    t.saturating_duration_since(Instant::now())
+                })
+            };
+            if backlog <= max_ahead {
+                return;
+            }
+            if waited.is_zero() {
+                self.yields
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            let wait = (backlog - max_ahead).min(MAX_LANE_YIELD - waited);
+            tokio::time::sleep(wait).await;
+            waited += wait;
+        }
+    }
+
+    /// How many acquires have parked for a higher lane since this governor was
+    /// built. The one observable an idle schedule can be asserted on without
+    /// timing it.
+    pub fn yields(&self) -> u64 {
+        self.yields.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// Feed a response's rate budget to the policy.
     pub fn observe(&self, budget: &RateBudget) {
         self.policy.observe(budget);
     }
 }
 
+/// Longest a single request will park waiting for a busier lane to drain.
+const MAX_LANE_YIELD: Duration = Duration::from_secs(60);
+
 /// Largest sustained dispatch rate, under intervals.icu's 10 req/s per-IP cap.
 const MAX_DISPATCH_PER_SEC: u32 = 8;
 
-/// The shared process-wide governor. Ships with the baseline no-op policy; the
-/// rate-limit plan replaces the policy with a budget-aware one. Held in an `Arc`
-/// so transports clone a handle to the same limiter (and tests can inject a
-/// fast local one for isolation).
-pub static GOVERNOR: Lazy<Arc<Governor>> =
-    Lazy::new(|| Arc::new(Governor::new(MAX_DISPATCH_PER_SEC, Box::new(NoopPolicy))));
+/// The shared process-wide governor. Held in an `Arc` so transports clone a
+/// handle to the same limiter (and tests can inject a fast local one for
+/// isolation).
+pub static GOVERNOR: Lazy<Arc<Governor>> = Lazy::new(|| {
+    Arc::new(Governor::new(
+        MAX_DISPATCH_PER_SEC,
+        Box::new(YieldBackfillPolicy::new()),
+    ))
+});
 
 #[cfg(test)]
 mod tests {
@@ -312,6 +453,139 @@ mod tests {
                 start.elapsed()
             );
         });
+    }
+
+    /// Expected behaviour: a lane with no queue limit claims the next slot
+    /// immediately however long the schedule already is.
+    #[test]
+    fn interactive_never_yields() {
+        crate::runtime::block_on(async {
+            let gov = Governor::new(8, Box::new(YieldBackfillPolicy::new()));
+            // Build a backlog of roughly a second.
+            for _ in 0..8 {
+                gov.acquire(Lane::Interactive).await;
+            }
+            let start = Instant::now();
+            gov.acquire(Lane::Interactive).await;
+            assert!(
+                start.elapsed() < Duration::from_millis(400),
+                "interactive waited on the queue: {:?}",
+                start.elapsed()
+            );
+        });
+    }
+
+    /// Expected behaviour: a backfill request behind a long queue parks until
+    /// the queue has drained, rather than taking the slot at the back of it.
+    #[test]
+    fn backfill_parks_behind_a_busy_schedule() {
+        crate::runtime::block_on(async {
+            let gov = Arc::new(Governor::new(8, Box::new(YieldBackfillPolicy::new())));
+            // Eight interactive claims put the next free slot ~875ms out.
+            let mut claims = Vec::new();
+            for _ in 0..8 {
+                let g = gov.clone();
+                claims.push(crate::runtime::spawn(async move {
+                    g.acquire(Lane::Interactive).await
+                }));
+            }
+            // Let every claim land before measuring, so the schedule really is
+            // backed up rather than about to be.
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let start = Instant::now();
+            gov.acquire(Lane::Backfill).await;
+            assert!(
+                start.elapsed() >= Duration::from_millis(300),
+                "backfill queued behind interactive instead of parking: {:?}",
+                start.elapsed()
+            );
+            for c in claims {
+                c.await.unwrap();
+            }
+        });
+    }
+
+    /// Expected behaviour: with nothing else in flight the backfill pays no
+    /// yield at all, so a lone conversion runs at the full shared pace.
+    ///
+    /// The governor reports the yield itself. Reading it off the wall clock
+    /// made the test a load detector: one scheduling hiccup on a busy box put
+    /// an idle five-acquire loop over its bound, and because this lives in the
+    /// lib target its failure aborted the workspace run before any integration
+    /// binary started.
+    #[test]
+    fn backfill_alone_pays_no_yield() {
+        crate::runtime::block_on(async {
+            let gov = Governor::new(1000, Box::new(YieldBackfillPolicy::new()));
+            for _ in 0..5 {
+                gov.acquire(Lane::Backfill).await;
+            }
+            assert_eq!(
+                gov.yields(),
+                0,
+                "an idle schedule must not make backfill wait"
+            );
+        });
+    }
+
+    /// A counter wired to nothing also reads zero, so the same counter has to
+    /// move when the backfill really does park.
+    #[test]
+    fn a_busy_schedule_records_the_yield_it_costs() {
+        crate::runtime::block_on(async {
+            let gov = Arc::new(Governor::new(8, Box::new(YieldBackfillPolicy::new())));
+            let mut claims = Vec::new();
+            for _ in 0..8 {
+                let g = gov.clone();
+                claims.push(crate::runtime::spawn(async move {
+                    g.acquire(Lane::Interactive).await
+                }));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            assert_eq!(gov.yields(), 0, "interactive work has no queue limit");
+
+            gov.acquire(Lane::Backfill).await;
+            assert_eq!(gov.yields(), 1);
+
+            for c in claims {
+                c.await.unwrap();
+            }
+        });
+    }
+
+    #[test]
+    fn a_spent_budget_tightens_the_backfill_limit() {
+        let policy = YieldBackfillPolicy::new();
+        assert_eq!(
+            policy.max_queue_ahead(Lane::Backfill),
+            Some(BACKFILL_MAX_QUEUE_AHEAD),
+            "an unreported budget is treated as healthy"
+        );
+        assert_eq!(policy.max_queue_ahead(Lane::Interactive), None);
+
+        policy.observe(&RateBudget {
+            remaining_15m: Some(INTERACTIVE_RESERVE_15M - 1),
+            ..RateBudget::default()
+        });
+        assert_eq!(
+            policy.max_queue_ahead(Lane::Backfill),
+            Some(BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET)
+        );
+        assert_eq!(
+            policy.max_queue_ahead(Lane::Interactive),
+            None,
+            "the reserve exists for interactive work, so it never limits it"
+        );
+
+        policy.observe(&RateBudget {
+            remaining_15m: Some(INTERACTIVE_RESERVE_15M * 10),
+            ..RateBudget::default()
+        });
+        assert_eq!(
+            policy.max_queue_ahead(Lane::Backfill),
+            Some(BACKFILL_MAX_QUEUE_AHEAD),
+            "a refilled pool restores the normal limit"
+        );
     }
 
     #[test]

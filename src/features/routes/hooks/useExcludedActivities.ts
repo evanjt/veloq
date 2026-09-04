@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '../types';
 
-export function useExcludedActivities(id: string | undefined, sportFilter: string | undefined) {
+/**
+ * `preComputedExcludedIds` lets a caller that already read the exclusions as
+ * part of a screen bundle skip this hook's own FFI call.
+ */
+export function useExcludedActivities(
+  id: string | undefined,
+  sportFilter: string | undefined,
+  preComputedExcludedIds?: string[]
+) {
   // Excluded activities state
   const [showExcluded, setShowExcluded] = useState(false);
   const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
@@ -11,16 +19,20 @@ export function useExcludedActivities(id: string | undefined, sportFilter: strin
   // Load excluded activity IDs for this route
   useEffect(() => {
     if (!id) return;
-    const engine = getRouteEngine();
+    if (preComputedExcludedIds) {
+      setExcludedActivityIds(new Set(preComputedExcludedIds));
+      return;
+    }
+    const engine = getEngine();
     if (!engine) return;
     const ids = engine.getExcludedRouteActivityIds(id);
     setExcludedActivityIds(new Set(ids));
-  }, [id]);
+  }, [id, preComputedExcludedIds]);
 
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.excludeActivityFromRoute(id, activityId);
       setExcludedActivityIds((prev) => new Set([...prev, activityId]));
@@ -31,7 +43,7 @@ export function useExcludedActivities(id: string | undefined, sportFilter: strin
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return;
       engine.includeActivityInRoute(id, activityId);
       setExcludedActivityIds((prev) => {
@@ -51,7 +63,7 @@ export function useExcludedActivities(id: string | undefined, sportFilter: strin
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
     try {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return [];
       const result = engine.getExcludedRoutePerformances(id, sportFilter);
       if (!result?.performances?.length) return [];

@@ -44,8 +44,6 @@ export interface InsightsConfig {
     /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
-    /** HRV - minimum days of data in the rolling window. */
-    minHrvDataPoints: number;
   };
 
   /** G2 - proximity gate. */
@@ -89,7 +87,6 @@ export interface InsightsConfig {
   };
 }
 
-// eslint-disable-next-line no-underscore-dangle
 const __dev__ = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export const INSIGHTS_CONFIG: InsightsConfig = {
@@ -99,11 +96,15 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     // A fresh PR is the strongest signal - tighter window than the default.
     section_pr: { max: 14 },
     // Inverted: we *want* staleness here. The PR has to be old enough to
-    // represent a real opportunity, but not so old the section has changed.
-    // 30 days is the long-standing default - tune via config if needed.
-    stale_pr: { min: 30, max: 180 },
+    // represent a real opportunity. There is deliberately no upper bound: a
+    // fixed ceiling competes with the seasons, so a climb ridden each summer
+    // is excluded every spring, which is when it is worth suggesting. Bounding
+    // it wants an interval measured against the section's own visit rhythm.
+    stale_pr: { min: 30, max: Number.POSITIVE_INFINITY },
     // "This week" loses meaning outside the week.
     period_comparison: { max: 7 },
+    // A re-cut is news for a fortnight, then it is just the section.
+    section_changed: { max: 14 },
     // Everything else defaults to activeWindowDays.
   },
 
@@ -121,7 +122,6 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
     minProgressChangePct: 15,
     signalFloorDelta: 0.5,
     signalCeilingDelta: 2.0,
-    minHrvDataPoints: 5,
   },
 
   proximity: {
@@ -143,6 +143,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
       strength_balance: 6,
       period_comparison: 5,
       strength_progression: 4,
+      section_changed: 6,
     },
   },
 

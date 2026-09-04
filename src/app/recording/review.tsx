@@ -58,6 +58,7 @@ export default function ReviewScreen() {
   const startTime = useRecordingStore((s) => s.startTime);
   const stopTime = useRecordingStore((s) => s.stopTime);
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
+  const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
   const [notes, setNotes] = useState(params.notes ?? '');
@@ -86,11 +87,12 @@ export default function ReviewScreen() {
   }, []);
 
   // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
-  const { summary, trimDelta, getTrimmedStreams } = useActivitySummary({
+  const { summary, trimDelta, getTrimmedStreams, pausedSecondsInWindow } = useActivitySummary({
     streams,
     startTime,
     stopTime,
     pausedDuration,
+    pauseIntervals,
     trimStart,
     trimEnd,
     canTrim,
@@ -115,7 +117,7 @@ export default function ReviewScreen() {
     summary,
     notes,
     startTime,
-    pausedDuration,
+    pausedSecondsInWindow,
     laps,
     pairedEventId,
     getTrimmedStreams,

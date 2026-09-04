@@ -1,23 +1,25 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, mapLayerColors, spacing, layout, shadows } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
+import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import {
+  featureCollection,
+  lineFeature,
+  lngLatFromTuples,
+  type LngLat,
+  type LngLatBounds,
+} from '@/features/maps/lib/coordinates';
+import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import {
   type MapStyleType,
-  getMapStyle,
   isDarkStyle,
   getNextStyle,
   getStyleIcon,
@@ -26,20 +28,18 @@ import {
   getCombinedSatelliteAttribution,
 } from './mapStyles';
 
+/** Room left around fitted bounds, in pixels. Extra on top for the controls. */
+const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
+
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
-  routeCoordinates?: [number, number][];
+  routeCoordinates?: LngLat[];
   /** Route line color */
   routeColor?: string;
   /** Bounds to fit camera to */
-  bounds?: { ne: [number, number]; sw: [number, number] };
-  /** Camera padding */
-  padding?: {
-    paddingTop: number;
-    paddingRight: number;
-    paddingBottom: number;
-    paddingLeft: number;
-  };
+  bounds?: { ne: LngLat; sw: LngLat };
+  /** Camera padding in pixels */
+  padding?: { top: number; right: number; bottom: number; left: number };
   /** Initial map style */
   initialStyle?: MapStyleType;
   /** Show style toggle button */
@@ -53,42 +53,33 @@ export interface BaseMapViewProps {
   /** Show attribution */
   showAttribution?: boolean;
   /** Called when map is pressed */
-  onPress?: (event: GeoJSON.Feature) => void;
-  /** Custom markers to render */
-  children?: ReactNode;
+  onPress?: (event: MapPressEvent) => void;
+  /**
+   * Extra sources the caller wants drawn over the route, keyed by id. Declared
+   * as data rather than passed as JSX so the same description works whichever
+   * renderer is behind the surface.
+   */
+  overlaySources?: Record<string, MapSourceSpec>;
+  /** Extra layers over the route, in draw order. */
+  overlayLayers?: MapLayerSpec[];
+  /** Images the overlay layers reference by id. */
+  overlayImages?: MapImageSpec[];
+  /** Overlay layers that respond to a tap, most specific first. */
+  interactiveLayers?: string[];
   /** Custom control buttons to add to the control stack */
   extraControls?: ReactNode;
-  /** Ref to access camera methods */
-  cameraRef?: React.RefObject<React.ElementRef<typeof Camera>>;
   /** Close button handler (for fullscreen maps) */
   onClose?: () => void;
 }
 
-export interface BaseMapViewRef {
-  setCamera: (options: {
-    centerCoordinate?: [number, number];
-    zoomLevel?: number;
-    heading?: number;
-    animationDuration?: number;
-  }) => void;
-  fitBounds: (
-    ne: [number, number],
-    sw: [number, number],
-    padding?: number,
-    duration?: number
-  ) => void;
-}
+const NO_SOURCES: Record<string, MapSourceSpec> = {};
+const NO_LAYERS: MapLayerSpec[] = [];
 
 export function BaseMapView({
   routeCoordinates,
   routeColor = colors.primary,
   bounds,
-  padding = {
-    paddingTop: 80,
-    paddingRight: 40,
-    paddingBottom: 40,
-    paddingLeft: 40,
-  },
+  padding = DEFAULT_FIT_PADDING,
   initialStyle,
   showStyleToggle = true,
   show3DToggle = true,
@@ -96,9 +87,11 @@ export function BaseMapView({
   showLocationButton = true,
   showAttribution = true,
   onPress,
-  children,
+  overlaySources = NO_SOURCES,
+  overlayLayers = NO_LAYERS,
+  overlayImages,
+  interactiveLayers,
   extraControls,
-  cameraRef: externalCameraRef,
   onClose,
 }: BaseMapViewProps) {
   const { t } = useTranslation();
@@ -109,42 +102,29 @@ export function BaseMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
-  const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
+  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
+
+  // The page drew, it just had no DEM tiles, so 3D is the flat map with a
+  // wasted WebView on top. Drop back and say why, rather than leave it (`B131`).
+  const handleTerrainUnavailable = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+    setTerrainUnavailable(true);
+  }, []);
+  const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
 
-  // Style load retry - a transient failure leaves the map on MapLibre's
-  // default empty style (white canvas). Remount to re-apply the style.
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
-
-  const handleMapLoadError = useCallback(() => {
-    if (retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      if (__DEV__) {
-        console.log(`[Map] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);
-      }
-      setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current); // Exponential backoff
-    }
-  }, []);
-
-  // Reset retry count when style changes
-  useEffect(() => {
-    retryCountRef.current = 0;
-  }, [mapStyle]);
-
-  const internalCameraRef = useRef<React.ElementRef<typeof Camera>>(null);
-  const cameraRef = externalCameraRef || internalCameraRef;
+  const surfaceRef = useRef<MapSurfaceRef>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   const isDark = isDarkStyle(mapStyle);
-  const mapStyleValue = getMapStyle(mapStyle);
-  const has3DRoute = routeCoordinates && routeCoordinates.length > 0;
+  const routeCoords = useMemo(
+    () => (routeCoordinates ? lngLatFromTuples(routeCoordinates) : []),
+    [routeCoordinates]
+  );
+  const has3DRoute = routeCoords.length > 0;
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -172,7 +152,6 @@ export function BaseMapView({
     }).start();
   }, [map3DOpacity]);
 
-  // Handle 3D map bearing changes (for compass sync)
   const handleBearingChange = useCallback(
     (bearing: number) => {
       bearingAnim.setValue(-bearing);
@@ -180,67 +159,31 @@ export function BaseMapView({
     [bearingAnim]
   );
 
-  // Toggle map style
   const toggleStyle = useCallback(() => {
     setMapStyle((current) => getNextStyle(current));
   }, []);
 
-  // Toggle 3D mode
   const toggle3D = useCallback(() => {
     setIs3DMode((current) => !current);
   }, []);
 
-  // Reset orientation (bearing and pitch in 3D)
   const resetOrientation = useCallback(() => {
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
-      });
+      surfaceRef.current?.resetOrientation();
     }
     Animated.timing(bearingAnim, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [is3DMode, is3DReady, bearingAnim, cameraRef]);
+  }, [is3DMode, is3DReady, bearingAnim]);
 
-  // Handle region change for compass (real-time during gesture)
-  const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
-      }
-    },
-    [bearingAnim]
-  );
-
-  // Handle region change end - track center and zoom for dynamic attribution
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as
-      | {
-          zoomLevel?: number;
-          visibleBounds?: [[number, number], [number, number]];
-        }
-      | undefined;
-    const { zoomLevel, visibleBounds } = properties ?? {};
-
-    if (zoomLevel !== undefined) {
-      setCurrentZoom(zoomLevel);
-    }
-
-    // v10: center is from feature.geometry.coordinates [lng, lat]
-    if (feature.geometry?.type === 'Point') {
-      setCurrentCenter(feature.geometry.coordinates as [number, number]);
-    } else if (visibleBounds) {
-      const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
-      const centerLng = (swLng + neLng) / 2;
-      const centerLat = (swLat + neLat) / 2;
-      setCurrentCenter([centerLng, centerLat]);
-    }
+  // Track centre and zoom so satellite attribution follows the viewport.
+  const handleRegionDidChange = useCallback((state: { center: LngLat; zoom: number }) => {
+    setCurrentCenter(state.center);
+    setCurrentZoom(state.zoom);
   }, []);
 
   // Get user location and refocus camera
@@ -253,42 +196,50 @@ export function BaseMapView({
         accuracy: Location.Accuracy.Balanced,
       });
 
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
-
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
-      });
+      surfaceRef.current?.setCamera(
+        { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
+        500
+      );
     } catch {
       // Silently fail - location is optional
     }
-  }, [cameraRef]);
+  }, []);
 
-  // Build route GeoJSON
-  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
-  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    const emptyCollection: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-    if (!routeCoordinates || routeCoordinates.length < 2) return emptyCollection;
-    // Filter out NaN/Infinity coordinates
-    const validCoords = routeCoordinates.filter(
-      ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)
-    );
-    if (validCoords.length < 2) return emptyCollection;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoords,
+  const initialCamera = useMemo(() => {
+    const fitBounds: LngLatBounds | undefined = bounds
+      ? { sw: bounds.sw, ne: bounds.ne }
+      : undefined;
+    return { bounds: fitBounds, padding };
+  }, [bounds, padding]);
+
+  const sources = useMemo<Record<string, MapSourceSpec>>(
+    () => ({
+      route: { kind: 'geojson', data: featureCollection([lineFeature(routeCoords)]) },
+      ...overlaySources,
+    }),
+    [routeCoords, overlaySources]
+  );
+
+  const layers = useMemo<MapLayerSpec[]>(
+    () => [
+      {
+        id: 'route-casing',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': mapLayerColors.casing, 'line-width': 5 },
       },
-    };
-  }, [routeCoordinates]);
+      {
+        id: 'route-line',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': routeColor, 'line-width': 4 },
+      },
+      ...overlayLayers,
+    ],
+    [routeColor, overlayLayers]
+  );
 
   // Dynamic attribution based on map style and current location
   // For satellite mode, shows regional attributions (swisstopo, IGN, etc.) based on map center
@@ -430,52 +381,18 @@ export function BaseMapView({
     <View style={styles.container}>
       {/* 2D Map - always rendered, hidden when 3D is ready */}
       <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
-        <MapView
-          key={`map-${mapKey}`}
-          style={styles.map}
-          mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
-          onPress={onPress ? () => onPress({} as GeoJSON.Feature) : undefined}
-          onRegionIsChanging={handleRegionIsChanging}
+        <MapSurface
+          ref={surfaceRef}
+          mapStyle={mapStyle}
+          initialCamera={initialCamera}
+          sources={sources}
+          layers={layers}
+          images={overlayImages}
+          interactiveLayers={interactiveLayers}
+          onPress={onPress}
+          onRegionIsChanging={(state) => bearingAnim.setValue(-state.bearing)}
           onRegionDidChange={handleRegionDidChange}
-          onDidFailLoadingMap={handleMapLoadError}
-        >
-          <Camera
-            ref={cameraRef}
-            defaultSettings={
-              bounds ? { bounds: { ne: bounds.ne, sw: bounds.sw }, padding } : undefined
-            }
-          />
-
-          {/* Route line - CRITICAL: Always render to avoid iOS crash */}
-          <ShapeSource id="routeSource" shape={routeGeoJSON}>
-            <LineLayer
-              id="routeLineCasing"
-              style={{
-                lineColor: '#FFFFFF',
-                lineOpacity: 1,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="routeLine"
-              style={{
-                lineColor: routeColor,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          {/* Custom children (markers, etc.) - filter null to prevent iOS crash */}
-          {/* iOS crash: -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207) */}
-          {React.Children.toArray(children).filter(Boolean)}
-        </MapView>
+        />
       </View>
 
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
@@ -492,14 +409,20 @@ export function BaseMapView({
           >
             <Map3DWebView
               ref={map3DRef}
-              coordinates={routeCoordinates}
+              coordinates={routeCoords}
               mapStyle={mapStyle}
               routeColor={routeColor}
               onMapReady={handleMap3DReady}
+              onMapFailed={() => setIs3DMode(false)}
+              onTerrainUnavailable={handleTerrainUnavailable}
               onBearingChange={handleBearingChange}
             />
           </Animated.View>
         </ComponentErrorBoundary>
+      )}
+
+      {terrainUnavailable && (
+        <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
       )}
 
       {/* Controls overlay */}
@@ -522,9 +445,6 @@ const styles = StyleSheet.create({
   hiddenLayer: {
     opacity: 0,
     pointerEvents: 'none',
-  },
-  map: {
-    flex: 1,
   },
   button: {
     position: 'absolute',
@@ -588,3 +508,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
+
+export type { MapPressEvent };

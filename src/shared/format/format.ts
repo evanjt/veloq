@@ -435,16 +435,6 @@ export function formatMonth(date: Date | string): string {
   return d.toLocaleDateString(locale, { month: 'short' });
 }
 
-/**
- * Format date range (e.g., "Jan 2 - Jan 9")
- */
-export function formatDateRange(start: Date | string, end: Date | string): string {
-  return `${formatShortDate(start)} - ${formatShortDate(end)}`;
-}
-
-/**
- * Format full date with year (e.g., "Jan 2, 2024")
- */
 export function formatFullDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const locale = getIntlLocale();
@@ -493,14 +483,6 @@ export function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-/**
- * Number of days between a Unix epoch timestamp (in seconds) and now.
- * Handles both number and bigint (from Rust FFI).
- */
-export function daysSinceEpoch(epochSeconds: number | bigint): number {
-  return Math.floor((Date.now() - Number(epochSeconds) * 1000) / 86400000);
 }
 
 /**

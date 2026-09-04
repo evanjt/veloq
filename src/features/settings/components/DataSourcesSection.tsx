@@ -5,8 +5,8 @@ import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
+import { colors, darkColors, spacing, typography } from '@/theme';
+import { settingsStyles } from './settingsStyles';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();

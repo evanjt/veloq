@@ -1,8 +1,4 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
-import { Switch } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/shared/app';
+import { StyleSheet } from 'react-native';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
 // Divider inset: paddingLeft (md=16) + icon width (22) + gap (sm=8) = 46

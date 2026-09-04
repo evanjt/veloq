@@ -12,14 +12,12 @@ export function useAutoPauseEffect({
   activityType,
   mode,
   status,
-  speedLength,
   autoPaused,
   setAutoPaused,
 }: {
   activityType: ActivityType;
   mode: RecordingMode;
   status: RecordingStatus;
-  speedLength: number;
   autoPaused: boolean;
   setAutoPaused: (paused: boolean) => void;
 }) {
@@ -46,16 +44,17 @@ export function useAutoPauseEffect({
     } as AutoPauseConfig);
   }, [autoPauseEnabled, autoPauseThresholds, autoPauseDurationMs, sportCategory]);
 
+  // Raw fixes, not `streams.speed`: the stream stops growing while paused,
+  // which left the resume branch below unreachable.
+  const rawSpeed = useRecordingStore((s) => s.rawSpeed);
+
   // Auto-pause: check speed on each location update
   useEffect(() => {
     if (mode !== 'gps' || !autoPauseEnabled) return;
     if (status !== 'recording' && status !== 'paused') return;
+    if (!rawSpeed) return;
 
-    const speed = useRecordingStore.getState().streams.speed;
-    const lastSpeed = speed[speed.length - 1];
-    if (lastSpeed == null) return;
-
-    const result = autoPauseDetectorRef.current.update(lastSpeed, Date.now());
+    const result = autoPauseDetectorRef.current.update(rawSpeed.value, rawSpeed.at);
     if (result === 'pause' && status === 'recording') {
       useRecordingStore.getState().pauseRecording();
       setAutoPaused(true);
@@ -63,7 +62,7 @@ export function useAutoPauseEffect({
       useRecordingStore.getState().resumeRecording();
       setAutoPaused(false);
     }
-  }, [speedLength]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rawSpeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return autoPauseDetectorRef;
 }

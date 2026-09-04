@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useSportPreference } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
@@ -23,8 +22,9 @@ import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
+import { RecordingPermissionSection } from '@/features/settings/components/RecordingPermissionSection';
 import { FooterSection, SupportSection } from '@/features/settings/components';
-import { settingsStyles, DIVIDER_INSET } from '@/features/settings/components/settingsStyles';
+import { settingsStyles } from '@/features/settings/components/settingsStyles';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string };
@@ -111,7 +111,8 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const { data: athlete } = useAthlete();
+  const { data: athleteRow } = useAthlete();
+  const athlete = athleteRow ?? undefined;
   const authMethod = useAuthStore((state) => state.authMethod);
   const [profileImageError, setProfileImageError] = useState(false);
 
@@ -165,17 +166,19 @@ export default function SettingsScreen() {
     const d = new Date(oldest);
     return t('settings.sinceDateSubtitle', {
       defaultValue: `Since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
-      date: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
+      date: d.toLocaleDateString(undefined, {
+        month: 'short',
+        year: 'numeric',
+      }),
     });
   }, [oldest, t]);
 
   // Subtitle: Routes & Sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
-  const detectionMethod = useRouteSettings((s) => s.settings.detectionMethod);
-  const detectionSubtitle = useMemo(() => {
-    if (!routeMatchingEnabled) return t('common.off');
-    return t(`settings.detectionMethod_${detectionMethod}` as never) as string;
-  }, [routeMatchingEnabled, detectionMethod, t]);
+  const detectionSubtitle = useMemo(
+    () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
+    [routeMatchingEnabled, t]
+  );
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
@@ -313,6 +316,8 @@ export default function SettingsScreen() {
               testID="settings-nav-cache"
             />
           </View>
+
+          <RecordingPermissionSection />
 
           {/* Support inline */}
           <SupportSection />

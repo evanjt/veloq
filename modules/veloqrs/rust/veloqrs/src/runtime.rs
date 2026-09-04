@@ -42,26 +42,49 @@ where
 mod tests {
     use super::*;
 
-    #[test]
-    fn block_on_runs_to_completion() {
-        let n = block_on(async { 20 + 22 });
-        assert_eq!(n, 42);
-    }
+    use tokio::sync::{mpsc, oneshot};
 
+    /// The service-loop property: a task spawned outside any `block_on` is
+    /// still alive and reachable from a later, independent `block_on`. A
+    /// per-call runtime would drop the pool at the end of `spawn`, cancelling
+    /// the loop and leaving the reply channel closed.
     #[test]
-    fn spawn_runs_concurrently_and_joins() {
-        let out = block_on(async {
-            let a = spawn(async { 1 });
-            let b = spawn(async { 2 });
-            a.await.unwrap() + b.await.unwrap()
+    fn spawned_work_survives_between_independent_block_on_calls() {
+        let (tx, mut rx) = mpsc::unbounded_channel::<oneshot::Sender<String>>();
+
+        spawn(async move {
+            while let Some(reply) = rx.recv().await {
+                let name = std::thread::current()
+                    .name()
+                    .unwrap_or_default()
+                    .to_string();
+                let _ = reply.send(name);
+            }
         });
-        assert_eq!(out, 3);
+
+        let worker_name = block_on(async {
+            let (reply_tx, reply_rx) = oneshot::channel();
+            tx.send(reply_tx).expect("service loop must still be alive");
+            reply_rx
+                .await
+                .expect("service loop must answer, not have been dropped")
+        });
+
+        assert_eq!(
+            worker_name, "veloq-net",
+            "spawned work must land on the named shared pool"
+        );
     }
 
+    /// `block_on` returns the future's own output rather than a default, and
+    /// nested `spawn` handles join back into the same call.
     #[test]
-    fn runtime_is_shared_across_calls() {
-        // Two independent block_on calls reuse the same global runtime.
-        assert_eq!(block_on(async { 1 }), 1);
-        assert_eq!(block_on(async { 2 }), 2);
+    fn block_on_returns_the_joined_output_of_spawned_tasks() {
+        let out = block_on(async {
+            let a = spawn(async { "left".to_string() });
+            let b = spawn(async { "right".to_string() });
+            format!("{}-{}", a.await.unwrap(), b.await.unwrap())
+        });
+        assert_eq!(out, "left-right");
     }
 }

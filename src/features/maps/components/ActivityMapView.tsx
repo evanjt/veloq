@@ -1,57 +1,56 @@
-// Interactive GPS track map. Combines MapLibre 2D rendering with a 3D WebView
-// overlay, style switching, chart-scrub highlighting, and section creation.
-// Layer rendering lives in ActivityMapLayers, the control stack in
-// ActivityMapControls, and styles in ActivityMapView.styles.
+// Interactive GPS track map. Combines a MapLibre GL JS surface with a 3D
+// terrain overlay, style switching, chart-scrub highlighting, and section
+// creation. Layer descriptions live in activityMapLayerSpecs, the control stack
+// in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
-import {
-  View,
-  Pressable,
-  Modal,
-  StatusBar,
-  Animated,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-} from '@maplibre/maplibre-react-native';
+import { View, Modal, StatusBar, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { decodePolyline, LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { colors, sectionPaletteExpression } from '@/theme';
+import { colors } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
-import { useIOSMapTap } from '@/features/maps/hooks/useIOSMapTap';
+import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
 import { ComponentErrorBoundary } from '@/shared/ui';
+import {
+  featureCollection,
+  lngLatFromLatLngPoint,
+  pointFeature,
+} from '@/features/maps/lib/coordinates';
+import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
+import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
+import { TerrainUnavailableNotice } from './TerrainUnavailableNotice';
+import { MapSurface, type MapCameraState, type MapPressEvent } from './MapSurface';
 import {
   SectionCreationOverlay,
   type CreationState,
   type SectionCreationError,
 } from './SectionCreationOverlay';
-import {
-  type MapStyleType,
-  getMapStyle,
-  isDarkStyle,
-  getNextStyle,
-  MAP_ATTRIBUTIONS,
-} from './mapStyles';
+import { type MapStyleType, isDarkStyle, getNextStyle, MAP_ATTRIBUTIONS } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
-import { ActivityMapLayers } from './ActivityMapLayers';
+import {
+  buildActivityLayers,
+  buildActivitySources,
+  buildFullscreenSectionLayers,
+  buildFullscreenSectionSources,
+  FULLSCREEN_SECTION_MARKER_LAYER_IDS,
+  SECTION_MARKER_LAYER_IDS,
+} from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
+const OVERLAY_IMAGES = [TROPHY_ICON];
+
+/** The 2D layer, held transparent until the surface reports one way or the other. */
+export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -101,6 +100,9 @@ interface ActivityMapViewProps {
   onStyleChange?: (style: MapStyleType) => void;
   /** Called when attribution text changes (due to style or viewport change) */
   onAttributionChange?: (attribution: string) => void;
+  /** Measured height the attribution pill claims, so a parent drawing in the
+   *  same corner can pad itself clear of however many rows it wraps to. */
+  onAttributionClearanceChange?: (clearance: number) => void;
   /** Enable section creation mode */
   creationMode?: boolean;
   /** Current section creation state (parent-controlled) */
@@ -157,6 +159,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   on3DModeChange,
   onStyleChange,
   onAttributionChange,
+  onAttributionClearanceChange,
   creationMode = false,
   creationState: externalCreationState,
   creationError,
@@ -179,6 +182,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
+  const [terrainUnavailable, setTerrainUnavailable] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -212,24 +216,22 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // ----- Camera management (position, bounds, ready state, bearing, location) -----
   const {
-    cameraRef,
-    mapRef,
+    surfaceRef,
     mapReady,
-    mapKey,
+    mapFailed,
     bounds,
     currentCenterRef,
     currentZoomRef,
     bearingAnim,
     locationLoading,
-    handleMapFinishLoading,
-    handleMapLoadError,
+    handleMapReady,
+    handleMapFailed,
     handleRegionIsChanging,
     handleRegionDidChange: handleCameraRegionDidChange,
     resetOrientation,
     handleGetLocation,
   } = useMapCamera({
     validCoordinates,
-    mapStyle,
     is3DMode,
     is3DReady,
     map3DRef,
@@ -244,8 +246,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     consolidatedPortionsGeoJSON,
     sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
-    sectionNumberedMarkersGeoJSON,
-    sectionPRMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
@@ -377,6 +377,22 @@ export const ActivityMapView = memo(function ActivityMapView({
     [currentCenterRef, currentZoomRef]
   );
 
+  // The 3D layer is the only thing that can clear its own spinner, so a page
+  // that cannot render drops back to the 2D map rather than spinning forever.
+  // Same landing as the error boundary below.
+  const handleMap3DFailed = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+  }, []);
+
+  // The page drew, it just had no DEM tiles, so the "3D" view is the flat map
+  // with a wasted WebView on top of it. Same landing, plus a reason.
+  const handleTerrainUnavailable = useCallback(() => {
+    setIs3DReady(false);
+    setIs3DMode(false);
+    setTerrainUnavailable(true);
+  }, []);
+
   // Handle 3D map ready
   const handleMap3DReady = useCallback(() => {
     setIs3DReady(true);
@@ -386,26 +402,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);
-
-  // Handle native map press - only used for section creation on Android.
-  // Fullscreen is handled by the cross-platform touch handler.
-  const handleMapPress = useCallback(
-    (feature: GeoJSON.Feature) => {
-      // In creation mode, delegate to section creation hook
-      if (creationMode && feature?.geometry?.type === 'Point') {
-        const [lng, lat] = feature.geometry.coordinates as [number, number];
-        handleCreationTap(lng, lat);
-      }
-    },
-    [creationMode, handleCreationTap]
-  );
-
-  // iOS tap handler - converts screen coordinates to map coordinates
-  // MapView.onPress doesn't fire reliably on iOS with Fabric architecture
-  const { onTouchStart: onIOSTouchStart, onTouchEnd: onIOSTouchEnd } = useIOSMapTap({
-    mapRef,
-    onMapPress: handleMapPress,
-  });
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -440,6 +436,23 @@ export const ActivityMapView = memo(function ActivityMapView({
     [onSectionMarkerPress]
   );
 
+  // One tap path for both platforms: the page resolves the hit and tells us
+  // whether a section marker was under the finger before we treat the tap as a
+  // section-creation point.
+  const handleSurfacePress = useCallback(
+    ({ coordinate, feature }: MapPressEvent) => {
+      const sectionId = feature?.properties?.sectionId;
+      if (typeof sectionId === 'string') {
+        onSectionMarkerPress?.(sectionId);
+        return;
+      }
+      if (creationMode) {
+        handleCreationTap(coordinate[0], coordinate[1]);
+      }
+    },
+    [creationMode, handleCreationTap, onSectionMarkerPress]
+  );
+
   // Section creation start/end coordinates in [lng, lat] format for 3D map
   const sectionCreationStartCoord: [number, number] | null = useMemo(
     () =>
@@ -460,14 +473,95 @@ export const ActivityMapView = memo(function ActivityMapView({
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
-  const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
+
+  const endpointsGeoJSON = useMemo(() => {
+    const start = lngLatFromLatLngPoint(startPoint);
+    const end = lngLatFromLatLngPoint(endPoint);
+    return featureCollection([
+      start ? pointFeature(start, { position: 'start' }) : null,
+      end ? pointFeature(end, { position: 'end' }) : null,
+    ]);
+  }, [startPoint, endPoint]);
+
+  const sectionCreationMarkers = useMemo(
+    () =>
+      featureCollection([
+        sectionCreationStartCoord
+          ? pointFeature(sectionCreationStartCoord, { position: 'start' })
+          : null,
+        sectionCreationEndCoord ? pointFeature(sectionCreationEndCoord, { position: 'end' }) : null,
+      ]),
+    [sectionCreationStartCoord, sectionCreationEndCoord]
+  );
+
+  // Scrub highlight moves at chart frame rate, so it is throttled to one frame
+  // before it reaches the surface.
+  const throttledHighlight = useThrottledValue(highlightGeoJSON, HIGHLIGHT_THROTTLE_MS);
+
+  const layerInput = useMemo(
+    () => ({
+      routeGeoJSON,
+      overlayGeoJSON,
+      overlayHasData,
+      consolidatedPortionsGeoJSON,
+      sectionBoundariesGeoJSON,
+      sectionMarkersGeoJSON,
+      highlightGeoJSON: throttledHighlight,
+      endpointsGeoJSON,
+      sectionCreationLine: sectionGeoJSON,
+      sectionCreationMarkers,
+      activityColor,
+      gradientActive,
+      gradientLineExpression,
+      hasSectionOverlays: !!sectionOverlaysGeoJSON,
+      highlightedSectionId,
+      hasHighlightPoint: !!highlightPoint,
+      creationMode,
+    }),
+    [
+      routeGeoJSON,
+      overlayGeoJSON,
+      overlayHasData,
+      consolidatedPortionsGeoJSON,
+      sectionBoundariesGeoJSON,
+      sectionMarkersGeoJSON,
+      throttledHighlight,
+      endpointsGeoJSON,
+      sectionGeoJSON,
+      sectionCreationMarkers,
+      activityColor,
+      gradientActive,
+      gradientLineExpression,
+      sectionOverlaysGeoJSON,
+      highlightedSectionId,
+      highlightPoint,
+      creationMode,
+    ]
+  );
+
+  const sources = useMemo(() => buildActivitySources(layerInput), [layerInput]);
+  const layers = useMemo(() => buildActivityLayers(layerInput), [layerInput]);
+
+  const fullscreenSources = useMemo(
+    () => buildFullscreenSectionSources(consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON),
+    [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON]
+  );
+  const fullscreenLayers = useMemo(
+    () => buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON),
+    [sectionOverlaysGeoJSON]
+  );
+
+  const handleFullscreenPress = useCallback(
+    ({ feature }: MapPressEvent) => {
+      const sectionId = feature?.properties?.sectionId;
+      if (typeof sectionId === 'string') onSectionMarkerPress?.(sectionId);
+    },
+    [onSectionMarkerPress]
+  );
 
   // ----- Attribution management -----
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // attributionRef / initialAttributionRef / mapStyleRef / is3DModeRef /
-  // onAttributionChangeRef are declared earlier (before handleCameraStateChange)
-  // so the 3D camera handler can mirror camera state into them without TDZ.
 
   // Compute attribution from current viewport - uses refs for latest values
   const computeAttributionFromRefs = useCallback(
@@ -483,21 +577,19 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      // Delegate viewport tracking to camera hook
-      handleCameraRegionDidChange(feature);
+    (state: MapCameraState) => {
+      handleCameraRegionDidChange(state);
 
-      // Debounce attribution update to avoid interfering with map gestures
+      // Debounce attribution update so it does not fight with map gestures
       if (attributionTimeoutRef.current) {
         clearTimeout(attributionTimeoutRef.current);
       }
       attributionTimeoutRef.current = setTimeout(() => {
-        // Use refs to get latest values (avoids stale closure)
         const newAttribution = computeAttributionFromRefs();
         // Update via ref to avoid parent re-render
         attributionRef.current?.setAttribution(newAttribution);
         onAttributionChangeRef.current?.(newAttribution);
-      }, 300);
+      }, REGION_SETTLE_DEBOUNCE_MS);
     },
     [handleCameraRegionDidChange, computeAttributionFromRefs]
   );
@@ -536,16 +628,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   return (
     <View style={[styles.outerContainer, { height }]}>
-      <View
-        style={styles.container}
-        {...(creationMode && Platform.OS === 'ios'
-          ? {
-              onTouchStart: onIOSTouchStart,
-              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) =>
-                onIOSTouchEnd(e, () => !isFullscreen && !(is3DMode && is3DReady)),
-            }
-          : {})}
-      >
+      <View style={styles.container}>
         {/* 2D Map layer - hidden when 3D is ready */}
         <View
           style={[
@@ -554,63 +637,25 @@ export const ActivityMapView = memo(function ActivityMapView({
             isFullscreen && styles.hiddenLayer,
           ]}
         >
-          <MapView
-            ref={mapRef}
-            key={`activity-map-${mapKey}`}
-            style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
-            mapStyle={mapStyleValue}
-            logoEnabled={false}
-            attributionEnabled={false}
-            compassEnabled={false}
-            scrollEnabled={true}
-            zoomEnabled={true}
-            rotateEnabled={true}
-            pitchEnabled={false}
-            onRegionIsChanging={handleRegionIsChanging}
-            onRegionDidChange={handleRegionDidChange}
-            onPress={Platform.OS === 'android' ? handleMapPress : undefined}
-            onDidFailLoadingMap={handleMapLoadError}
-            onDidFinishLoadingMap={handleMapFinishLoading}
+          <View
+            style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
+            testID={ACTIVITY_MAP_2D_LAYER_TEST_ID}
           >
-            {/* Camera with ref for programmatic control */}
-            {/* CRITICAL: Provide stable position props to prevent MapLibre from resetting */}
-            {/* When Camera has no position, MapLibre may default to fitting bounds on re-render */}
-            {/* We track position in refs and feed it back to keep camera stable */}
-            <Camera
-              ref={cameraRef}
-              centerCoordinate={currentCenterRef.current ?? undefined}
-              zoomLevel={currentZoomRef.current}
-              animationDuration={0}
-              animationMode="moveTo"
-              followUserLocation={false}
+            <MapSurface
+              ref={surfaceRef}
+              mapStyle={mapStyle}
+              initialCamera={{ bounds: { sw: bounds.sw, ne: bounds.ne }, padding: 50 }}
+              sources={sources}
+              layers={layers}
+              images={OVERLAY_IMAGES}
+              interactiveLayers={SECTION_MARKER_LAYER_IDS}
+              onMapReady={handleMapReady}
+              onMapFailed={handleMapFailed}
+              onPress={handleSurfacePress}
+              onRegionIsChanging={handleRegionIsChanging}
+              onRegionDidChange={handleRegionDidChange}
             />
-
-            <ActivityMapLayers
-              overlayGeoJSON={overlayGeoJSON}
-              overlayHasData={overlayHasData}
-              routeGeoJSON={routeGeoJSON}
-              activityColor={activityColor}
-              gradientActive={gradientActive}
-              gradientLineExpression={gradientLineExpression}
-              consolidatedPortionsGeoJSON={consolidatedPortionsGeoJSON}
-              sectionBoundariesGeoJSON={sectionBoundariesGeoJSON}
-              sectionOverlaysGeoJSON={sectionOverlaysGeoJSON}
-              sectionNumberedMarkersGeoJSON={sectionNumberedMarkersGeoJSON}
-              sectionPRMarkersGeoJSON={sectionPRMarkersGeoJSON}
-              highlightGeoJSON={highlightGeoJSON}
-              highlightPoint={highlightPoint}
-              highlightedSectionId={highlightedSectionId}
-              startPoint={startPoint}
-              endPoint={endPoint}
-              sectionGeoJSON={sectionGeoJSON}
-              sectionStartPoint={sectionStartPoint}
-              sectionEndPoint={sectionEndPoint}
-              startIndex={startIndex}
-              endIndex={endIndex}
-              creationMode={creationMode}
-              onSectionMarkerPress={onSectionMarkerPress}
-            />
-          </MapView>
+          </View>
         </View>
 
         {/* 3D Map layer */}
@@ -648,6 +693,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
                 onMapReady={handleMap3DReady}
+                onMapFailed={handleMap3DFailed}
+                onTerrainUnavailable={handleTerrainUnavailable}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
@@ -663,9 +710,13 @@ export const ActivityMapView = memo(function ActivityMapView({
 
         {/* 3D loading spinner */}
         {is3DMode && !is3DReady && !isFullscreen && (
-          <View style={styles.loadingOverlay}>
+          <View style={styles.loadingOverlay} testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
+        )}
+
+        {terrainUnavailable && (
+          <TerrainUnavailableNotice onDismiss={() => setTerrainUnavailable(false)} />
         )}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
@@ -673,6 +724,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
+            onClearanceChange={onAttributionClearanceChange}
           />
         )}
       </View>
@@ -712,75 +764,12 @@ export const ActivityMapView = memo(function ActivityMapView({
           bounds={bounds}
           initialStyle={mapStyle}
           onClose={closeFullscreen}
-        >
-          {/* Section portion overlays in fullscreen - one line per section, drawn along
-              the activity's own GPS trace with white casing for contrast. */}
-          {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
-          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
-            <LineLayer
-              id="fs-portion-overlays-casing"
-              style={{
-                lineColor: '#FFFFFF',
-                lineWidth: 6,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 0.9 : 0,
-              }}
-            />
-            <LineLayer
-              id="fs-portion-overlays-line"
-              style={{
-                lineColor: [
-                  'case',
-                  ['==', ['get', 'isPR'], true],
-                  '#D4AF37',
-                  sectionPaletteExpression() as unknown as string,
-                ],
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
-              }}
-            />
-          </ShapeSource>
-
-          {/* PR markers at center of each PR section in fullscreen.
-              Vector trophy via MarkerView for visual parity with feed cards. */}
-          {fullscreenPRMarkersGeoJSON.features.map((f) => {
-            const geom = f.geometry as GeoJSON.Point;
-            const coord = geom?.coordinates as [number, number] | undefined;
-            const sectionId = f.properties?.sectionId as string | undefined;
-            if (!coord || !sectionId) return null;
-            return (
-              <MarkerView key={`fs-pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
-                <Pressable
-                  onPress={() => onSectionMarkerPress?.(sectionId)}
-                  style={styles.prTrophyBadge}
-                >
-                  <MaterialCommunityIcons name="trophy" size={12} color="#FFFFFF" />
-                </Pressable>
-              </MarkerView>
-            );
-          })}
-
-          {/* Start marker */}
-          {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-          <MarkerView
-            coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
-          >
-            <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.startMarker]} />
-            </View>
-          </MarkerView>
-
-          {/* End marker */}
-          {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-          <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
-            <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-              <View style={[styles.marker, styles.endMarker]} />
-            </View>
-          </MarkerView>
-        </BaseMapView>
+          overlaySources={fullscreenSources}
+          overlayLayers={fullscreenLayers}
+          overlayImages={OVERLAY_IMAGES}
+          interactiveLayers={FULLSCREEN_SECTION_MARKER_LAYER_IDS}
+          onPress={handleFullscreenPress}
+        />
       </Modal>
 
       {/* Section creation overlay */}

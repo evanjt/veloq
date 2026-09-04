@@ -1,4 +1,36 @@
+#!/bin/sh
+set -e
+
+# First, because a hook running against the wrong index rewrites the commit
+# rather than checking it. See scripts/check-commit-index.sh.
+./scripts/check-commit-index.sh "$0"
+./scripts/check-no-private-data.sh
 npx lint-staged
-npm run audit
-npx tsc --noEmit
-npm test -- --maxWorkers=2
+
+# The four gates below are independent. Run them together and report every
+# failure, rather than stopping at the first and paying the wait again.
+logs=$(mktemp -d)
+trap 'rm -rf "$logs"' EXIT
+
+gate() {
+  name=$1
+  shift
+  ("$@" >"$logs/$name.log" 2>&1; echo $? >"$logs/$name.rc") &
+}
+
+gate audit npm run audit
+gate tsc npx tsc --noEmit
+gate lint npm run lint:cached
+gate test npm test
+wait
+
+failed=0
+for rc in "$logs"/*.rc; do
+  name=$(basename "$rc" .rc)
+  if [ "$(cat "$rc")" != "0" ]; then
+    echo "--- $name failed ---"
+    cat "$logs/$name.log"
+    failed=1
+  fi
+done
+exit $failed

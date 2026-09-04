@@ -22,10 +22,10 @@ Flows are organized into tiers via tags. CI runs different tiers based on the ev
 
 | Tier | Tag | When | Purpose |
 |------|-----|------|---------|
-| **tier0** | `tier0` | Every push | Smoke test — app launches |
-| **tier1** | `tier1` | Every push | Critical path — auth, navigation |
-| **tier2** | `tier2` | PRs to main | Feature coverage — all screens |
-| **tier3** | `tier3` | Nightly / manual | Stress tests — rapid interactions |
+| **tier0** | `tier0` | Every push | Smoke test, app launches |
+| **tier1** | `tier1` | Every push | Critical path, auth, navigation |
+| **tier2** | `tier2` | PRs to main | Feature coverage, all screens |
+| **tier3** | `tier3` | Nightly / manual | Stress tests, rapid interactions |
 | **tier4** | `tier4` | Manual only | Marketing screenshots |
 
 ## Running Tests
@@ -199,12 +199,12 @@ tags:
 ### Conventions
 
 1. **Always use a helper** for setup and navigation
-2. **Always add a tier tag** — no untagged flows
+2. **Always add a tier tag**, no untagged flows
 3. **Use testID** over text matching when possible
 4. **Set generous timeouts** for React Native boot (30s) and data loading (15s)
 5. **Handle system dialogs** with conditional flows in the setup helper
 6. **Take screenshots** at the end of each flow for debugging
-7. **Keep flows focused** — one feature per flow
+7. **Keep flows focused**, one feature per flow
 
 ## Screenshots
 
@@ -231,13 +231,37 @@ Opens browser UI for real-time device view and visual test building.
 maestro test .maestro/smoke.yaml --debug-output ./debug
 ```
 
+## Recording Flows
+
+The nine `recording-*.yaml` flows exercise the record screen end to end. The
+recording screen auto-locks the moment recording starts, so every flow that
+needs the control bar has to unlock first:
+
+| Purpose | Selector |
+|---------|----------|
+| Locked-state marker | `unlock-track` |
+| Slide handle to unlock | `unlock-track-handle`, swiped `RIGHT` |
+| Re-lock from the header | `recording-lock-toggle` |
+
+The unlock is a slide, not a tap. A `tapOn` on the handle leaves the screen
+locked and every later step then fails on a missing `control-pause`.
+
 ## CI Integration
 
-E2E tests run in `.github/workflows/simulator.yml`:
+E2E tests run in `.github/workflows/e2e-gate.yml` (pull requests) and
+`.github/workflows/e2e.yml` (dispatch and nightly):
 
-- **Every push**: tier0 + tier1 (smoke + critical path)
-- **Pull requests**: tier0 + tier1 + tier2 (full regression)
-- **Nightly (3am UTC)**: all tiers
-- **Manual dispatch**: all tiers
+- **Pull requests**: tier0 + tier1, excluding `flaky`, retried once. The
+  quarantined `flaky` flows run in the same job as a non-blocking check.
+- **Pull requests touching a map surface**: the `pack-map` flows run in an
+  extra job, gated on changes under `src/features/maps/**`,
+  `src/features/routes/components/*Map*` and
+  `src/features/recording/components/RecordingMap.tsx`. They are slow and
+  GPU-sensitive, so unrelated pull requests do not pay for them.
+- **Nightly / manual dispatch**: heavier tiers.
 
-Results are reported as GitHub Check annotations via JUnit reports. PRs get a sticky summary comment with pass/fail counts for both platforms.
+Both PR jobs share the APK built by `build-android-dev`, and both run on
+hosted Ubuntu with KVM. Hosted macOS is a nested VM with no hardware
+acceleration, so the emulator never boots there.
+
+Results are reported as GitHub Check annotations via JUnit reports.

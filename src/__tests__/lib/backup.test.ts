@@ -1,13 +1,18 @@
 /**
  * Tests for backup/restore functionality.
  *
- * Covers: createBackup, restoreBackup, exportBackup
+ * Covers: restoreBackup, restoreDatabaseBackup
  * Bug fixes validated:
  * - version === undefined conflated with version > BACKUP_VERSION
  * - Missing startIndex < endIndex validation
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 // Mock the route engine
 const mockEngine = {
@@ -21,15 +26,16 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(100),
   notifyAll: jest.fn(),
+  getSetting: jest.fn().mockReturnValue(null),
 };
 
 const mockNativeModule = {
   validateBackupDatabase: jest.fn(),
-  routeEngine: { initWithPath: jest.fn() },
+  engine: { initWithPath: jest.fn() },
 };
 
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => mockEngine,
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
   getNativeModule: () => mockNativeModule,
 }));
@@ -73,26 +79,14 @@ jest.mock('@/features/home/store', () => ({
 jest.mock('@/features/insights/store', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/maps/stores/TileCacheStore', () => ({
-  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
+jest.mock('@/features/maps/lib/storage/tileCacheSettings', () => ({
+  migrateTileCacheSettings: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/routes/stores/DisabledSectionsStore', () => ({
-  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
-  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/SectionDismissalsStore', () => ({
-  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/features/routes/stores/SupersededSectionsStore', () => ({
-  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
   initializeDebugStore: jest.fn().mockResolvedValue(undefined),
@@ -134,10 +128,6 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '0.3.0' } },
 }));
 
-import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
-import * as FileSystem from 'expo-file-system/legacy';
-import { queryClient } from '@/shared/query/QueryProvider';
-
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     version: 2,
@@ -163,51 +153,6 @@ beforeEach(() => {
   mockEngine.setRouteName.mockImplementation(() => {});
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
-});
-
-describe('createBackup', () => {
-  it('returns valid JSON with version and appVersion', async () => {
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.version).toBe(2);
-    expect(backup.appVersion).toBe('0.3.0');
-    expect(backup.exportedAt).toBeDefined();
-  });
-
-  it('includes custom sections from engine', async () => {
-    mockEngine.getSectionsByType.mockReturnValueOnce([
-      {
-        name: 'Hill Climb',
-        sportType: 'Ride',
-        sourceActivityId: 'a1',
-        startIndex: 10,
-        endIndex: 50,
-      },
-    ]);
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.customSections).toHaveLength(1);
-    expect(backup.customSections[0].name).toBe('Hill Climb');
-  });
-
-  it('includes section and route names', async () => {
-    mockEngine.getAllSectionNames.mockReturnValueOnce({ s1: 'My Section' });
-    mockEngine.getAllRouteNames.mockReturnValueOnce({ r1: 'My Route' });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.sectionNames).toEqual({ s1: 'My Section' });
-    expect(backup.routeNames).toEqual({ r1: 'My Route' });
-  });
-
-  it('includes preferences from AsyncStorage, handles non-JSON values as raw strings', async () => {
-    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
-      if (key === 'veloq-theme-preference') return Promise.resolve('not-json');
-      return Promise.resolve(null);
-    });
-    const json = await createBackup();
-    const backup = JSON.parse(json);
-    expect(backup.preferences['veloq-theme-preference']).toBe('not-json');
-  });
 });
 
 describe('restoreBackup', () => {
@@ -301,16 +246,6 @@ describe('restoreBackup', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('veloq-debug-mode', 'true');
   });
 
-  it('round-trips: create then restore produces consistent result', async () => {
-    mockEngine.getSectionsByType.mockReturnValue([]);
-    mockEngine.getAllSectionNames.mockReturnValue({ s1: 'My Hill' });
-    mockEngine.getAllRouteNames.mockReturnValue({});
-
-    const json = await createBackup();
-    const result = await restoreBackup(json);
-    expect(result.namesApplied).toBe(1);
-  });
-
   it('handles section creation throwing an exception', async () => {
     mockEngine.getGpsTrack.mockReturnValue(new Array(100).fill({ lat: 0, lng: 0 }));
     mockEngine.createSectionFromIndices.mockImplementation(() => {
@@ -365,7 +300,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
 
   beforeEach(() => {
     mockNativeModule.validateBackupDatabase.mockReset();
-    mockNativeModule.routeEngine.initWithPath.mockReset().mockReturnValue(true);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.destroyEngine.mockClear();
     mockEngine.getActivityCount.mockReturnValue(100);
     mockEngine.notifyAll.mockClear();
@@ -443,7 +378,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     mockProbe(
       JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
     );
-    mockNativeModule.routeEngine.initWithPath
+    mockNativeModule.engine.initWithPath
       .mockImplementationOnce(() => {
         throw new Error('init failed on restored DB');
       })
@@ -476,25 +411,19 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 });
 
-describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
-  // autoBackup.ts:82 uses: `return value ? Number(value) : null;`
-  // The bug: when the stored value is '0', Number('0') === 0 which is falsy,
-  // so the ternary returns null instead of 0.
+describe('getLastBackupTimestamp', () => {
+  it('reads the stored epoch millis', () => {
+    mockEngine.getSetting.mockReturnValue('1712345678000');
+    expect(getLastBackupTimestamp()).toBe(1712345678000);
+  });
 
-  // Replicate the exact pattern from autoBackup.ts:82
-  function parseStoredTimestamp(value: string | null | undefined): number | null {
-    return value != null ? Number(value) : null;
-  }
-
-  it('parses stored timestamps, distinguishing zero from null', () => {
-    expect(parseStoredTimestamp('1712345678000')).toBe(1712345678000);
-    expect(parseStoredTimestamp('42')).toBe(42);
-    expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
-    expect(parseStoredTimestamp(null)).toBeNull();
-    expect(parseStoredTimestamp(undefined)).toBeNull();
-    // '0' must stay 0, not null - Number('0') is falsy but value != null guards it.
-    expect(parseStoredTimestamp('0')).toBe(0);
-    // empty string passes the value != null guard through to Number('') = 0.
-    expect(parseStoredTimestamp('')).toBe(0);
+  it('reports never-backed-up only when nothing is stored', () => {
+    mockEngine.getSetting.mockReturnValue(null);
+    expect(getLastBackupTimestamp()).toBeNull();
+    mockEngine.getSetting.mockReturnValue(undefined);
+    expect(getLastBackupTimestamp()).toBeNull();
+    // A stored '0' is a real timestamp, not "never" - it must survive the guard.
+    mockEngine.getSetting.mockReturnValue('0');
+    expect(getLastBackupTimestamp()).toBe(0);
   });
 });

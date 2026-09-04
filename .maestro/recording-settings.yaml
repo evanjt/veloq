@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Wait for record screen to show activity types
 - extendedWaitUntil:
@@ -45,7 +45,12 @@ onFlowComplete:
 
 - takeScreenshot: "recording-settings-loaded"
 
-# Verify auto-pause toggle is visible
+# The auto-pause card starts under the tab bar, where a tap lands on a tab.
+- swipe:
+    start: 50%, 75%
+    end: 50%, 45%
+    duration: 800
+
 - assertVisible:
     id: "settings-auto-pause"
 

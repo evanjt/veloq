@@ -1,0 +1,72 @@
+# Section history
+# Tests: a section's ledger renders on its screen, and a stored version can
+# be shown on the map.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+- tapOn:
+    text: "Sections"
+
+# The engine cuts the demo catalogue after the seed lands.
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 90000
+
+- tapOn:
+    id: "section-row-.*"
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+
+# The lap list between the chart and the ledger is long, and scrollUntilVisible
+# either times out on it or overshoots into the tab bar and leaves the screen.
+# Walk down in fixed swipes that stay clear of the bar, and stop on the event
+# row rather than the panel header, which first appears behind the bar.
+- repeat:
+    times: 30
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "section-history-event-formed"
+          commands:
+            - swipe:
+                start: 50%, 70%
+                end: 50%, 25%
+                duration: 250
+
+- assertVisible:
+    id: "section-history-panel"
+
+- assertVisible:
+    id: "section-history-event-formed"
+
+# A second stored version exists only after a re-cut or an edit, so the
+# overlay step runs when one is listed.
+- runFlow:
+    when:
+      visible:
+        id: "section-version-1-show"
+    commands:
+      - tapOn:
+          id: "section-version-1-show"
+      - takeScreenshot: "section-history-version-overlay"
+
+- takeScreenshot: "section-history"

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 export function useRouteReference(
   id: string | undefined,
@@ -21,7 +21,7 @@ export function useRouteReference(
         {
           text: t('common.confirm'),
           onPress: () => {
-            const engine = getRouteEngine();
+            const engine = getEngine();
             if (!engine) return;
             const success = engine.setRouteRepresentative(id, activityId);
             if (success) {

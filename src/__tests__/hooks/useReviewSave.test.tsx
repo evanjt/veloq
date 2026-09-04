@@ -58,8 +58,8 @@ jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
   }),
 }));
 
-jest.mock('@/api', () => ({
-  intervalsApi: { createManualActivity: jest.fn() },
+jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
+  createManualActivity: jest.fn(),
 }));
 
 const mockSaveRecording = saveRecording as jest.Mock;
@@ -92,7 +92,7 @@ function makeArgs(overrides: Record<string, unknown> = {}) {
     summary: { duration: 2, distance: 16, avgHeartrate: 130, elevationGain: 2 },
     notes: '',
     startTime: 1_700_000_000_000,
-    pausedDuration: 0,
+    pausedSecondsInWindow: 0,
     laps: [],
     pairedEventId: null,
     getTrimmedStreams: () => STREAMS,

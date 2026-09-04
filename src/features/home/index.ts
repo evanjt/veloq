@@ -1,10 +1,8 @@
 export {
   SummaryCard,
   type SummaryCardProps,
-  MiniFormChart,
   SummaryCardSparkline,
   SummaryCardHRVSparkline,
-  InsightLine,
   NotificationOptInCard,
   SupportCard,
 } from './components';
@@ -32,11 +30,7 @@ export {
   type MetricPreference,
 } from './store';
 
-export {
-  updateWidgetSnapshot,
-  writeWidgetSnapshot,
-  isWidgetBridgeAvailable,
-} from './lib/widgetBridge';
+export { updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
 export {
   composeSnapshot,
   gatherWidgetSnapshot,

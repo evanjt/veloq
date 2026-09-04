@@ -16,11 +16,7 @@ import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
 import type { RouteSignature } from '@/features/routes/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import type { SelectedActivity } from './ActivityPopup';
-
-const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
+import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
 
 /** Minimum route group fields needed for GeoJSON building */
 interface RouteGroupMinimal {
@@ -218,7 +214,7 @@ export function useMapGeoJSON({
       );
     }
 
-    if (features.length === 0) return EMPTY_COLLECTION;
+    if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]);
@@ -252,7 +248,7 @@ export function useMapGeoJSON({
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
 
-    if (features.length === 0) return EMPTY_COLLECTION;
+    if (features.length === 0) return EMPTY_FEATURE_COLLECTION;
     return { type: 'FeatureCollection', features };
   }, [visibleActivities, routeSignatures]);
 
@@ -261,7 +257,7 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const sectionsGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (sections.length === 0) return EMPTY_COLLECTION;
+    if (sections.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     let skippedCount = 0;
     const features = sections
@@ -325,7 +321,7 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0) return EMPTY_COLLECTION;
+    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     let skippedCount = 0;
     let validIdx = 0;
@@ -389,7 +385,7 @@ export function useMapGeoJSON({
   // ===========================================
   // CRITICAL: Always render ShapeSource to avoid Fabric crash - use empty FeatureCollection when no data
   const routeMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!showRoutes || routeGroups.length === 0) return EMPTY_COLLECTION;
+    if (!showRoutes || routeGroups.length === 0) return EMPTY_FEATURE_COLLECTION;
 
     let skippedCount = 0;
     const features = routeGroups
@@ -497,7 +493,7 @@ export function useMapGeoJSON({
   const userLocationGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     // Return empty collection when no location - visibility controlled via layer opacity
     if (!userLocation) {
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
     return {
       type: 'FeatureCollection',
@@ -533,7 +529,7 @@ export function useMapGeoJSON({
     }
 
     // Priority 2: Fall back to mapData.latlngs from API
-    if (!selected?.mapData?.latlngs) return EMPTY_COLLECTION;
+    if (!selected?.mapData?.latlngs) return EMPTY_FEATURE_COLLECTION;
 
     // Filter out null values first
     const nonNullCoords = selected.mapData.latlngs.filter((c): c is [number, number] => c !== null);
@@ -544,7 +540,7 @@ export function useMapGeoJSON({
           `[useMapGeoJSON] routeGeoJSON: no non-null coords for activity=${selected.activity.id}`
         );
       }
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
 
     // Convert to LatLng objects using the same function as ActivityMapView
@@ -567,7 +563,7 @@ export function useMapGeoJSON({
           `[useMapGeoJSON] routeGeoJSON: insufficient valid coords for activity=${selected.activity.id} original=${nonNullCoords.length} valid=${validCoords.length}`
         );
       }
-      return EMPTY_COLLECTION;
+      return EMPTY_FEATURE_COLLECTION;
     }
 
     return {

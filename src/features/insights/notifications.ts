@@ -83,7 +83,7 @@ export function filterInsightsForNotificationPreferences(
  * Pure function - no React dependencies, safe for background task use.
  */
 export function formatInsightNotification(insight: Insight, t: TFunc): NotificationContent {
-  const route = insight.navigationTarget ?? '/routes';
+  const route = insight.navigationTarget ?? '/insights';
 
   switch (insight.category) {
     case 'section_pr':
@@ -91,7 +91,7 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
         title: t('notifications.sectionPr.title'),
         body: insight.title,
         data: {
-          route: '/routes',
+          route: '/insights',
           insightId: insight.id,
           sectionId: insight.supportingData?.sections?.[0]?.sectionId,
         },
@@ -108,7 +108,7 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
       return {
         title: t('notifications.periodComparison.title'),
         body: insight.title,
-        data: { route: '/routes?tab=routes', insightId: insight.id },
+        data: { route: '/insights?tab=routes', insightId: insight.id },
       };
 
     case 'hrv_trend':
@@ -122,14 +122,14 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
       return {
         title: t('notifications.stalePr.title'),
         body: insight.title,
-        data: { route: '/routes?tab=sections', insightId: insight.id },
+        data: { route: '/insights?tab=sections', insightId: insight.id },
       };
 
     case 'efficiency_trend':
       return {
         title: t('notifications.efficiencyTrend.title'),
         body: insight.title,
-        data: { route: '/routes?tab=sections', insightId: insight.id },
+        data: { route: '/insights?tab=sections', insightId: insight.id },
       };
 
     default:
@@ -143,12 +143,13 @@ export function formatInsightNotification(insight: Insight, t: TFunc): Notificat
 
 /**
  * Pick the most notification-worthy insight from a list.
- * Prioritizes: section_pr > fitness_milestone > others by priority.
+ * Prioritizes: section_pr > fitness_milestone > the list's own order.
  */
 export function pickBestInsightForNotification(insights: Insight[]): Insight | null {
   if (insights.length === 0) return null;
 
-  // Section PRs are always the most exciting
+  // Section PRs are always the most exciting. A product rule, not a ranking
+  // fallout, so the score does not get to overrule it.
   const pr = insights.find((i) => i.category === 'section_pr');
   if (pr) return pr;
 
@@ -156,6 +157,7 @@ export function pickBestInsightForNotification(insights: Insight[]): Insight | n
   const milestone = insights.find((i) => i.category === 'fitness_milestone');
   if (milestone) return milestone;
 
-  // Otherwise highest priority
-  return insights.reduce((best, current) => (current.priority < best.priority ? current : best));
+  // Otherwise the first, which is the score order computeInsightsFromData
+  // returns. Ranking by priority here contradicted the screen.
+  return insights[0];
 }

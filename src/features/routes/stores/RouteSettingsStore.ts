@@ -19,24 +19,15 @@ interface RouteSettings {
   retentionDays: number;
   /** Whether automatic cleanup is enabled (default: false) */
   autoCleanupEnabled: boolean;
-  /** Whether reverse geocoding of route/section names is enabled (default: true) */
-  geocodingEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
   heatmapEnabled: boolean;
-  /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
-  detectionStrictness: number;
-  /** Detection algorithm (corridor, density, flow). Default: corridor */
-  detectionMethod: 'corridor' | 'density' | 'flow';
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
   retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
-  geocodingEnabled: false, // Off by default - user must acknowledge OSM Nominatim terms
   heatmapEnabled: true, // Generate heatmap tiles by default
-  detectionStrictness: 60,
-  detectionMethod: 'corridor',
 };
 
 /**
@@ -51,13 +42,20 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('retentionDays' in obj && typeof obj.retentionDays !== 'number') return false;
   // autoCleanupEnabled must be boolean if present
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
-  // geocodingEnabled must be boolean if present
-  if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
-  if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
-  if ('detectionMethod' in obj && typeof obj.detectionMethod !== 'string') return false;
   return true;
+}
+
+// A retired field left behind in storage must not ride back into state, or
+// every later write persists it again.
+function pickSettings(parsed: Partial<RouteSettings>): RouteSettings {
+  return {
+    enabled: parsed.enabled ?? DEFAULT_SETTINGS.enabled,
+    retentionDays: parsed.retentionDays ?? DEFAULT_SETTINGS.retentionDays,
+    autoCleanupEnabled: parsed.autoCleanupEnabled ?? DEFAULT_SETTINGS.autoCleanupEnabled,
+    heatmapEnabled: parsed.heatmapEnabled ?? DEFAULT_SETTINGS.heatmapEnabled,
+  };
 }
 
 interface RouteSettingsState {
@@ -69,13 +67,10 @@ interface RouteSettingsState {
   setEnabled: (enabled: boolean) => Promise<void>;
   setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
-  setGeocodingEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
-  setDetectionStrictness: (value: number) => Promise<void>;
-  setDetectionMethod: (method: 'corridor' | 'density' | 'flow') => Promise<void>;
 }
 
-export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
+export const useRouteSettings = create<RouteSettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
 
@@ -85,7 +80,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       if (stored) {
         const parsed = safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS);
         set({
-          settings: { ...DEFAULT_SETTINGS, ...parsed },
+          settings: pickSettings(parsed),
           isLoaded: true,
         });
       } else {
@@ -106,8 +101,8 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     });
 
     try {
-      const { getRouteEngine } = require('@/shared/native/routeEngine');
-      const engine = getRouteEngine();
+      const { getEngine } = require('@/shared/native/engine');
+      const engine = getEngine();
       if (engine) {
         if (!enabled) {
           // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
@@ -159,18 +154,6 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     log.log(`Auto cleanup ${enabled ? 'enabled' : 'disabled'}`);
   },
 
-  setGeocodingEnabled: async (enabled: boolean) => {
-    set((state) => {
-      const newSettings = { ...state.settings, geocodingEnabled: enabled };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save geocoding setting:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(`Geocoding ${enabled ? 'enabled' : 'disabled'}`);
-  },
-
   setHeatmapEnabled: async (enabled: boolean) => {
     set((state) => {
       const newSettings = { ...state.settings, heatmapEnabled: enabled };
@@ -182,27 +165,6 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
 
     log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
   },
-
-  setDetectionStrictness: async (value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)));
-    set((state) => {
-      const newSettings = { ...state.settings, detectionStrictness: clamped };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection strictness:', error);
-      });
-      return { settings: newSettings };
-    });
-  },
-
-  setDetectionMethod: async (method: 'corridor' | 'density' | 'flow') => {
-    set((state) => {
-      const newSettings = { ...state.settings, detectionMethod: method };
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save detection method:', error);
-      });
-      return { settings: newSettings };
-    });
-  },
 }));
 
 // Helper for synchronous access
@@ -210,27 +172,9 @@ export function isRouteMatchingEnabled(): boolean {
   return useRouteSettings.getState().settings.enabled;
 }
 
-// Helper for getting retention days synchronously
-export function getRetentionDays(): number {
-  return useRouteSettings.getState().settings.retentionDays;
-}
-
-// Helper for checking geocoding enabled synchronously
-export function isGeocodingEnabled(): boolean {
-  return useRouteSettings.getState().settings.geocodingEnabled;
-}
-
 // Helper for checking heatmap enabled synchronously
 export function isHeatmapEnabled(): boolean {
   return useRouteSettings.getState().settings.heatmapEnabled;
-}
-
-export function getDetectionStrictness(): number {
-  return useRouteSettings.getState().settings.detectionStrictness;
-}
-
-export function getDetectionMethod(): 'corridor' | 'density' | 'flow' {
-  return useRouteSettings.getState().settings.detectionMethod;
 }
 
 // Initialize route settings (call during app startup)

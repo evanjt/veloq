@@ -21,7 +21,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # main builds can feed release artifacts — only auto-cancel branch/PR re-runs
+  # main builds can feed release artifacts, only auto-cancel branch/PR re-runs
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -61,7 +61,7 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: android
 
-      # Source-hash cache — skip build if code unchanged.
+      # Source-hash cache, skip build if code unchanged.
       # Key is segmented by build type so an APK-only cache from a feature branch
       # can't satisfy a main/dispatch build that also needs the AAB.
       - name: Cache built APK/AAB
@@ -116,7 +116,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -219,7 +219,7 @@ jobs:
             echo "Signing configured (release key)"
           else
             echo "is_signed=false" >> $GITHUB_OUTPUT
-            echo "::notice::Android signing secrets not available — APK will use debug signing"
+            echo "::notice::Android signing secrets not available. APK will use debug signing"
           fi
 
       - name: Verify veloqrs libraries
@@ -294,7 +294,7 @@ jobs:
           # On cache hits the signing step is skipped, but the cached APK was signed
           # correctly when it was first built, so the warning would be misleading.
           if [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
-            echo "::warning::keystore.properties not found — APK uses debug signing"
+            echo "::warning::keystore.properties not found. APK uses debug signing"
           fi
           cp android/app/build/outputs/apk/release/app-release.apk \
             "artifacts/${{ steps.version.outputs.filename }}.apk"
@@ -404,7 +404,7 @@ jobs:
           source-profile: ios
 
       # Source-hash cache for simulator .app (skip on main/schedule/dispatch where
-      # the signed IPA step runs — it needs the xcodeproj from prebuild)
+      # the signed IPA step runs, it needs the xcodeproj from prebuild)
       - name: Cache simulator app
         if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
@@ -420,7 +420,7 @@ jobs:
           cache: "npm"
 
       # ---- Rust Build ----
-      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      # Rust library cache, skip toolchain install + compilation if Rust unchanged
       - name: Cache Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -503,7 +503,7 @@ jobs:
           path: ios
           # No restore-keys: a prefix fallback would restore a stale ios/ from before an
           # app.json change, and incremental `expo prebuild` reuses it without rewriting
-          # Podfile.properties.json — so a config change (e.g. buildReactNativeFromSource)
+          # Podfile.properties.json, so a config change (e.g. buildReactNativeFromSource)
           # silently never reaches the build. Exact-key only forces a fresh prebuild.
           key: ios-prebuild-v8-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
 
@@ -630,7 +630,7 @@ jobs:
             echo "iOS signing credentials found"
           else
             echo "has_signing=false" >> $GITHUB_OUTPUT
-            echo "::notice::iOS signing not configured — skipping IPA build"
+            echo "::notice::iOS signing not configured, skipping IPA build"
           fi
 
       - name: Import code signing certificate
@@ -791,7 +791,7 @@ jobs:
           retention-days: 30
 
   # ============================================
-  # E2E Smoke — quick post-build sanity check
+  # E2E Smoke, quick post-build sanity check
   # ============================================
   e2e-smoke:
     name: E2E Smoke

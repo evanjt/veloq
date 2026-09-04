@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useCallback, useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -41,10 +41,6 @@ interface RoutesListProps {
   onRefresh?: () => void;
   /** Whether refresh is in progress */
   isRefreshing?: boolean;
-  /** Filter by start date (only show routes with activities after this date) */
-  startDate?: Date;
-  /** Filter by end date (only show routes with activities before this date) */
-  endDate?: Date;
   /** Pre-loaded groups with consensus polylines from batch FFI call */
   batchGroups: GroupWithPolyline[];
   /** Callback to load more groups (pagination) */
@@ -180,8 +176,6 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
 export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
-  startDate,
-  endDate,
   batchGroups,
   onLoadMore,
   hasMore = false,
@@ -280,7 +274,6 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const displayRouteCount = totalGroupCount ?? allGroups.length;
-  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
 
   const renderHeader = () => (
     <View>

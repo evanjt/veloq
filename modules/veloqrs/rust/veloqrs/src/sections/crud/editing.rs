@@ -1,79 +1,52 @@
-//! Bounds editing, visibility state, imports, and schema initialisation.
+//! Bounds editing, visibility state, and imports.
 //!
 //! This submodule covers everything that changes a section's geometry
-//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus
-//! the one-off schema setup and the AsyncStorage → SQLite migration imports.
+//! (trim/expand/reset) or its visibility (disable/enable/supersede), plus the
+//! AsyncStorage → SQLite migration imports. The schema itself is owned by
+//! `migrations/`, never by this file.
 
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::PersistentEngine;
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
 
-impl PersistentRouteEngine {
-    /// Initialize the unified sections schema.
-    /// Call this during database initialization.
-    pub fn init_sections_schema(&self) -> Result<(), String> {
-        self.db
-            .execute_batch(
-                r#"
-                CREATE TABLE IF NOT EXISTS sections (
-                    id TEXT PRIMARY KEY,
-                    section_type TEXT NOT NULL CHECK(section_type IN ('auto', 'custom')),
-                    name TEXT,
-                    sport_type TEXT NOT NULL,
-                    polyline_json TEXT NOT NULL,
-                    distance_meters REAL NOT NULL,
-                    representative_activity_id TEXT,
+/// The one offset at which `polyline` sits inside `track`, if it sits at exactly one.
+fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<(u32, u32)> {
+    const TOLERANCE: f64 = 1e-6;
+    let same = |a: &GpsPoint, b: &GpsPoint| {
+        (a.latitude - b.latitude).abs() < TOLERANCE && (a.longitude - b.longitude).abs() < TOLERANCE
+    };
 
-                    -- Auto-specific fields (nullable for custom)
-                    confidence REAL,
-                    observation_count INTEGER,
-                    average_spread REAL,
-                    point_density_json TEXT,
-                    scale TEXT,
-                    version INTEGER DEFAULT 1,
-                    is_user_defined INTEGER DEFAULT 0,
-                    stability REAL,
+    if polyline.is_empty() || polyline.len() > track.len() {
+        return None;
+    }
 
-                    -- Custom-specific fields (nullable for auto)
-                    source_activity_id TEXT,
-                    start_index INTEGER,
-                    end_index INTEGER,
+    let mut found: Option<(u32, u32)> = None;
+    for offset in 0..=(track.len() - polyline.len()) {
+        let window = &track[offset..offset + polyline.len()];
+        if !window.iter().zip(polyline).all(|(a, b)| same(a, b)) {
+            continue;
+        }
+        if found.is_some() {
+            return None;
+        }
+        found = Some((offset as u32, (offset + polyline.len() - 1) as u32));
+    }
+    found
+}
 
-                    -- Timestamps
-                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at TEXT,
-
-                    -- Bounds (for map viewport filtering)
-                    bounds_min_lat REAL,
-                    bounds_max_lat REAL,
-                    bounds_min_lng REAL,
-                    bounds_max_lng REAL
-                );
-
-                -- Junction table for section-activity relationships (with portion details)
-                CREATE TABLE IF NOT EXISTS section_activities (
-                    section_id TEXT NOT NULL,
-                    activity_id TEXT NOT NULL,
-                    direction TEXT NOT NULL DEFAULT 'same',
-                    start_index INTEGER NOT NULL DEFAULT 0,
-                    end_index INTEGER NOT NULL DEFAULT 0,
-                    distance_meters REAL NOT NULL DEFAULT 0,
-                    PRIMARY KEY (section_id, activity_id, start_index),
-                    FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_section_activities_activity
-                ON section_activities(activity_id);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_type
-                ON sections(section_type);
-
-                CREATE INDEX IF NOT EXISTS idx_sections_sport
-                ON sections(sport_type);
-                "#,
+impl PersistentEngine {
+    /// The activity range a section's polyline is a slice of, when the section carries one.
+    fn section_anchor(&self, section_id: &str) -> Option<(String, u32, u32)> {
+        let (activity_id, start, end): (Option<String>, Option<u32>, Option<u32>) = self
+            .db
+            .query_row(
+                "SELECT source_activity_id, start_index, end_index FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
-            .map_err(|e| format!("Failed to create sections schema: {}", e))
+            .ok()?;
+        Some((activity_id?, start?, end?))
     }
 
     /// Trim a section's bounds by slicing its polyline to the given index range.
@@ -85,18 +58,8 @@ impl PersistentRouteEngine {
         start_index: u32,
         end_index: u32,
     ) -> Result<(), String> {
-        // Load current polyline
-        let polyline_json: String = self
-            .db
-            .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .map_err(|_| format!("Section not found: {}", section_id))?;
-
-        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+        // Load current polyline (blob authoritative, JSON fallback)
+        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
         // Validate indices
         let start = start_index as usize;
@@ -118,6 +81,16 @@ impl PersistentRouteEngine {
         // Slice the polyline
         let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
 
+        // The anchor names a range of the source activity, so a trim shifts it by the slice offset.
+        let anchor = self
+            .section_anchor(section_id)
+            .filter(|(_, a_start, a_end)| {
+                a_end >= a_start && (a_end - a_start) as usize + 1 == polyline.len()
+            })
+            .map(|(activity_id, a_start, _)| {
+                (activity_id, a_start + start_index, a_start + end_index)
+            });
+
         // Check minimum distance (50m)
         let distance = calculate_route_distance(&trimmed);
         if distance < 50.0 {
@@ -135,18 +108,21 @@ impl PersistentRouteEngine {
             .unwrap_or(false);
 
         if !has_original {
+            // The polyline_json column no longer carries geometry on new rows,
+            // so serialise the decoded polyline for the backup.
+            let original_json = serde_json::to_string(&polyline)
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
             self.db
                 .execute(
-                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                    params![section_id],
+                    "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                    params![original_json, section_id],
                 )
                 .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
         }
 
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
-        let trimmed_json = serde_json::to_string(&trimmed).unwrap_or_else(|_| "[]".to_string());
-        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed).ok();
+        let trimmed_blob = crate::persistence::codec::serialize_track_points(&trimmed);
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         // Update section
@@ -158,16 +134,22 @@ impl PersistentRouteEngine {
                     distance_meters = ?,
                     is_user_defined = 1,
                     updated_at = ?,
+                    source_activity_id = ?,
+                    start_index = ?,
+                    end_index = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
                     bounds_min_lng = ?,
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    trimmed_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     trimmed_blob,
                     distance,
                     updated_at,
+                    anchor.as_ref().map(|(id, _, _)| id.as_str()),
+                    anchor.as_ref().map(|(_, s, _)| *s),
+                    anchor.as_ref().map(|(_, _, e)| *e),
                     bounds.min_lat,
                     bounds.max_lat,
                     bounds.min_lng,
@@ -198,7 +180,9 @@ impl PersistentRouteEngine {
                 )
                 .unwrap_or_else(|_| "Ride".to_string());
 
-            // Clear existing matches first, then scan all activities
+            // Clear existing matches first, then scan all activities.
+            // Exclusions are user decisions and ride across the rebuild.
+            let exclusions = self.capture_exclusions(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -206,13 +190,21 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &trimmed, &sport_type)?;
+            self.reapply_exclusions(section_id, &exclusions)?;
         } else {
             self.rematch_section_activities(section_id, &trimmed)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
+
+        // Trim promotes to user-defined (durable, backed-up); relinquish from the
+        // registry so detection stops re-emitting its ground and colliding on it.
+        self.section_identity_relinquish(section_id);
+        self.drop_section_pin(section_id);
 
         Ok(())
     }
@@ -237,6 +229,15 @@ impl PersistentRouteEngine {
         let original: Vec<GpsPoint> = serde_json::from_str(&original_json)
             .map_err(|e| format!("Failed to parse original polyline: {}", e))?;
 
+        // The restored geometry needs the anchor that describes it, not the edited one
+        let anchor = self
+            .section_anchor(section_id)
+            .and_then(|(activity_id, _, _)| {
+                let track = self.get_gps_track(&activity_id)?;
+                let (start, end) = locate_slice(&track, &original)?;
+                Some((activity_id, start, end))
+            });
+
         // Recompute distance and bounds
         let distance = calculate_route_distance(&original);
         let bounds = tracematch::geo_utils::compute_bounds(&original);
@@ -245,7 +246,7 @@ impl PersistentRouteEngine {
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
 
-        let original_blob = crate::persistence::codec::serialize_points(&original).ok();
+        let original_blob = crate::persistence::codec::serialize_track_points(&original);
 
         // Restore polyline and clear original backup
         self.db
@@ -257,17 +258,23 @@ impl PersistentRouteEngine {
                     distance_meters = ?,
                     is_user_defined = ?,
                     updated_at = ?,
+                    source_activity_id = ?,
+                    start_index = ?,
+                    end_index = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
                     bounds_min_lng = ?,
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    original_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     original_blob,
                     distance,
                     is_user_defined,
                     updated_at,
+                    anchor.as_ref().map(|(id, _, _)| id.as_str()),
+                    anchor.as_ref().map(|(_, s, _)| *s),
+                    anchor.as_ref().map(|(_, _, e)| *e),
                     bounds.min_lat,
                     bounds.max_lat,
                     bounds.min_lng,
@@ -280,6 +287,7 @@ impl PersistentRouteEngine {
         // Re-match activities against restored polyline
         // For custom sections, scan ALL activities by sport (not just previously matched)
         if section_type == "custom" {
+            let exclusions = self.capture_exclusions(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -287,25 +295,162 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &original, &sport_type)?;
+            self.reapply_exclusions(section_id, &exclusions)?;
         } else {
             self.rematch_section_activities(section_id, &original)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
 
         Ok(())
     }
 
-    /// Expand section bounds by replacing the polyline with a new one (can be larger than original).
+    /// Put a stored geometry version back as the section's live line and pin
+    /// the section there, so the next re-cut holds it. The row takes the
+    /// version's polyline and reference triple, the junction rows are
+    /// re-matched against it with exclusions carried, and the ledger gets a
+    /// `reverted` event linking the version. Fails when the version is
+    /// absent or pruned: a revert must land on a line the user was shown.
+    pub fn revert_section_to_version(
+        &mut self,
+        section_id: &str,
+        version: i64,
+    ) -> Result<(), String> {
+        let (polyline, reference) = self
+            .section_geometry_version(section_id, version)
+            .ok_or_else(|| format!("Section {section_id} has no stored version {version}"))?;
+        if polyline.len() < 2 {
+            return Err("Stored version is too short to revert to".to_string());
+        }
+        let section_type: String = self
+            .db
+            .query_row(
+                "SELECT section_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+
+        let distance = calculate_route_distance(&polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(&polyline);
+        let blob = crate::persistence::codec::serialize_track_points(&polyline);
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let source = if reference.is_some() {
+            crate::persistence::sections::SOURCE_EXACT
+        } else {
+            crate::persistence::sections::SOURCE_CONSENSUS
+        };
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    polyline_json = ?,
+                    polyline_blob = ?,
+                    distance_meters = ?,
+                    updated_at = ?,
+                    representative_activity_id = COALESCE(?, representative_activity_id),
+                    rep_start_index = ?,
+                    rep_end_index = ?,
+                    geometry_source = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    crate::persistence::codec::NO_POLYLINE_JSON,
+                    blob,
+                    distance,
+                    updated_at,
+                    reference.as_ref().map(|(id, _, _)| id.as_str()),
+                    reference.as_ref().map(|(_, s, _)| *s),
+                    reference.as_ref().map(|(_, _, e)| *e),
+                    source,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map_err(|e| format!("Failed to revert section: {}", e))?;
+
+        if section_type == "custom" {
+            let sport_type: String = self
+                .db
+                .query_row(
+                    "SELECT sport_type FROM sections WHERE id = ?",
+                    params![section_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or_else(|_| "Ride".to_string());
+            let exclusions = self.capture_exclusions(section_id);
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ?",
+                    params![section_id],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            self.match_activities_to_section(section_id, &polyline, &sport_type)?;
+            self.reapply_exclusions(section_id, &exclusions)?;
+        } else {
+            self.rematch_section_activities(section_id, &polyline)?;
+        }
+
+        let pinned = self
+            .pin_section_geometry(section_id, version)
+            .map_err(|e| format!("Failed to pin section: {}", e))?;
+        if !pinned {
+            return Err(format!(
+                "Section {section_id} lost version {version} during the revert"
+            ));
+        }
+        let details = serde_json::json!({ "version": version }).to_string();
+        self.append_section_history(
+            section_id,
+            crate::persistence::sections::KIND_REVERTED,
+            Some(&details),
+            Some(version),
+        )
+        .map_err(|e| format!("Failed to record the revert: {}", e))?;
+
+        self.invalidate_section_cache(section_id);
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
+    /// Expand section bounds to the given range of an activity's GPS track.
     /// Backs up the original polyline on first edit (preserves true original across multiple edits).
     /// Re-matches all activities against the new polyline.
     pub fn expand_section_bounds(
         &mut self,
         section_id: &str,
-        new_polyline: &[GpsPoint],
+        activity_id: &str,
+        start_index: u32,
+        end_index: u32,
     ) -> Result<(), String> {
+        let track = self
+            .get_gps_track(activity_id)
+            .ok_or_else(|| format!("GPS track not found for activity: {}", activity_id))?;
+
+        let start = start_index as usize;
+        let end = end_index as usize;
+        if start >= end {
+            return Err("Start index must be less than end index".to_string());
+        }
+        if end >= track.len() {
+            return Err(format!(
+                "End index {} out of bounds (track has {} points)",
+                end,
+                track.len()
+            ));
+        }
+
+        let new_polyline: Vec<GpsPoint> = track[start..=end].to_vec();
         if new_polyline.len() < 5 {
             return Err("Expanded section must have at least 5 points".to_string());
         }
@@ -327,20 +472,23 @@ impl PersistentRouteEngine {
             .unwrap_or(false);
 
         if !has_original {
+            // The polyline_json column no longer carries geometry on new rows,
+            // so serialise the decoded current polyline for the backup.
+            let current = self.stored_section_polyline(section_id)?;
+            let original_json = serde_json::to_string(&current)
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
             self.db
                 .execute(
-                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                    params![section_id],
+                    "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                    params![original_json, section_id],
                 )
                 .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
         }
 
         // Compute new bounds and distance
-        let bounds = tracematch::geo_utils::compute_bounds(new_polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
-        let polyline_json = serde_json::to_string(new_polyline)
-            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
-        let polyline_blob = crate::persistence::codec::serialize_points(new_polyline).ok();
+        let polyline_blob = crate::persistence::codec::serialize_track_points(&new_polyline);
 
         // Update section
         self.db
@@ -351,16 +499,22 @@ impl PersistentRouteEngine {
                     distance_meters = ?,
                     is_user_defined = 1,
                     updated_at = ?,
+                    source_activity_id = ?,
+                    start_index = ?,
+                    end_index = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
                     bounds_min_lng = ?,
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     polyline_blob,
                     distance,
                     updated_at,
+                    activity_id,
+                    start_index,
+                    end_index,
                     bounds.min_lat,
                     bounds.max_lat,
                     bounds.min_lng,
@@ -390,6 +544,7 @@ impl PersistentRouteEngine {
                 )
                 .unwrap_or_else(|_| "Ride".to_string());
 
+            let exclusions = self.capture_exclusions(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -397,12 +552,15 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &new_polyline, &sport_type)?;
+            self.reapply_exclusions(section_id, &exclusions)?;
         } else {
             self.rematch_section_activities(section_id, &new_polyline)?;
         }
 
-        // Invalidate caches
+        // Invalidate caches, the performance one included: the laps a
+        // section holds follow its line.
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         self.refresh_section_in_memory(section_id);
 
         Ok(())
@@ -413,6 +571,14 @@ impl PersistentRouteEngine {
     // -----------------------------------------------------------------------
 
     /// Disable a section (hide from all queries except restore UI).
+    ///
+    /// The DB row is kept (disabled = 1) so enable can restore it with members
+    /// intact, but it is dropped from the in-memory cache and the identity
+    /// registry, and a durable suppression intent is recorded. Together these
+    /// stop the corridor from re-emerging on the next detect (invariant 6) and
+    /// close the in-mem/DB seam: the visible view already hides a disabled
+    /// section, so the in-memory cache must too, or detection keeps matching on
+    /// a corridor the user hid.
     pub fn disable_section(&mut self, section_id: &str) -> Result<(), String> {
         let rows = self
             .db
@@ -424,12 +590,17 @@ impl PersistentRouteEngine {
         if rows == 0 {
             return Err(format!("Section not found: {}", section_id));
         }
+        self.record_section_intent(section_id, "disabled");
         self.invalidate_section_cache(section_id);
-        self.refresh_section_in_memory(section_id);
+        self.remove_section_from_memory(section_id);
+        self.section_identity_relinquish(section_id);
+        self.drop_section_pin(section_id);
         Ok(())
     }
 
-    /// Re-enable a previously disabled section.
+    /// Re-enable a previously disabled section: clear its suppression intent,
+    /// unhide the row, and restore it to the in-memory cache so the seam stays
+    /// coherent and the corridor can be detected again.
     pub fn enable_section(&mut self, section_id: &str) -> Result<(), String> {
         let rows = self
             .db
@@ -441,6 +612,7 @@ impl PersistentRouteEngine {
         if rows == 0 {
             return Err(format!("Section not found: {}", section_id));
         }
+        self.clear_section_intent(section_id);
         self.invalidate_section_cache(section_id);
         self.refresh_section_in_memory(section_id);
         Ok(())
@@ -459,6 +631,7 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to set superseded: {}", e))?;
         self.invalidate_section_cache(auto_section_id);
+        self.refresh_superseded_ids();
         Ok(())
     }
 
@@ -471,40 +644,7 @@ impl PersistentRouteEngine {
                 params![custom_section_id],
             )
             .map_err(|e| format!("Failed to clear superseded: {}", e))?;
+        self.refresh_superseded_ids();
         Ok(())
-    }
-
-    /// Import disabled section IDs from AsyncStorage migration.
-    pub fn import_disabled_ids(&mut self, ids: &[String]) -> Result<u32, String> {
-        if ids.is_empty() {
-            return Ok(0);
-        }
-        let mut count = 0u32;
-        for id in ids {
-            let rows = self
-                .db
-                .execute("UPDATE sections SET disabled = 1 WHERE id = ?", params![id])
-                .map_err(|e| format!("Failed to import disabled: {}", e))?;
-            count += rows as u32;
-        }
-        Ok(count)
-    }
-
-    /// Import superseded mappings from AsyncStorage migration.
-    pub fn import_superseded_map(&mut self, map: &[(String, Vec<String>)]) -> Result<u32, String> {
-        let mut count = 0u32;
-        for (custom_id, auto_ids) in map {
-            for auto_id in auto_ids {
-                let rows = self
-                    .db
-                    .execute(
-                        "UPDATE sections SET superseded_by = ? WHERE id = ?",
-                        params![custom_id, auto_id],
-                    )
-                    .map_err(|e| format!("Failed to import superseded: {}", e))?;
-                count += rows as u32;
-            }
-        }
-        Ok(count)
     }
 }

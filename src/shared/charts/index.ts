@@ -2,24 +2,25 @@ export { useChartGestures } from './useChartGestures';
 export type {
   ChartPoint,
   ChartBounds,
+  ChartGesture,
   ChartGestureOptions,
   ChartGestureResult,
 } from './useChartGestures';
 
-export { ChartContainer } from './ChartContainer';
-export type { ChartContainerProps, ChartPadding } from './ChartContainer';
-
 export { ChartCrosshair } from './ChartCrosshair';
 export type { ChartCrosshairProps } from './ChartCrosshair';
 
-export { ChartTooltip } from './ChartTooltip';
-export type { ChartTooltipProps, TooltipValue } from './ChartTooltip';
-
-export { useChartColors, useChartColor, useZoneColors, useFitnessColors } from './useChartColors';
-export type { ChartColorScheme, ChartMetricType } from './useChartColors';
+export { useChartColors } from './useChartColors';
+export type { ChartColorScheme } from './useChartColors';
 
 export { useChartInteraction } from './useChartInteraction';
 
 export { buildMonotoneSvg, buildMonotoneAreaSvg } from './sparklinePath';
 
-export { CHART_CONFIG, GESTURE_VELOCITY, CHART_ANIMATION_DURATION } from './constants';
+export { polylineSvgPath, bandSvgPath } from './svgPath';
+export type { XY } from './svgPath';
+
+export { CHART_CONFIG } from './constants';
+
+export { finiteExtent } from './extent';
+export type { Extent } from './extent';

@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Wait for record screen
 - extendedWaitUntil:
@@ -43,13 +43,22 @@ onFlowComplete:
     timeout: 10000
 
 # Open sensor settings
-- scrollUntilVisible:
-    element:
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    duration: 100
+- extendedWaitUntil:
+    visible:
       id: "settings-sensors-link"
-    direction: DOWN
     timeout: 5000
-    speed: 40
-    centerElement: true
 
 - tapOn:
     id: "settings-sensors-link"

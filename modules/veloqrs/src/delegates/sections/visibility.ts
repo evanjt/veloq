@@ -22,7 +22,7 @@ export function excludeActivityFromSection(
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] excludeActivityFromSection failed:', sectionId, activityId, e);
+    console.error('[Engine] excludeActivityFromSection failed:', sectionId, activityId, e);
     return false;
   }
 }
@@ -40,8 +40,59 @@ export function includeActivityInSection(
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] includeActivityInSection failed:', sectionId, activityId, e);
+    console.error('[Engine] includeActivityInSection failed:', sectionId, activityId, e);
     return false;
+  }
+}
+
+export function excludeSectionLap(
+  host: DelegateHost,
+  sectionId: string,
+  activityId: string,
+  startIndex: number
+): boolean {
+  if (!host.ready) return false;
+  try {
+    host.timed('excludeSectionLap', () =>
+      host.engine.sections().excludeLap(sectionId, activityId, startIndex)
+    );
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[Engine] excludeSectionLap failed:', sectionId, activityId, startIndex, e);
+    return false;
+  }
+}
+
+export function includeSectionLap(
+  host: DelegateHost,
+  sectionId: string,
+  activityId: string,
+  startIndex: number
+): boolean {
+  if (!host.ready) return false;
+  try {
+    host.timed('includeSectionLap', () =>
+      host.engine.sections().includeLap(sectionId, activityId, startIndex)
+    );
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[Engine] includeSectionLap failed:', sectionId, activityId, startIndex, e);
+    return false;
+  }
+}
+
+export function getExcludedSectionLaps(
+  host: DelegateHost,
+  sectionId: string
+): { activityId: string; startIndex: number }[] {
+  if (!host.ready) return [];
+  try {
+    return host.engine.sections().getExcludedLaps(sectionId);
+  } catch (e) {
+    console.error('[Engine] getExcludedSectionLaps failed:', sectionId, e);
+    return [];
   }
 }
 
@@ -52,7 +103,7 @@ export function disableSection(host: DelegateHost, sectionId: string): boolean {
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] disableSection failed:', sectionId, e);
+    console.error('[Engine] disableSection failed:', sectionId, e);
     return false;
   }
 }
@@ -64,7 +115,7 @@ export function enableSection(host: DelegateHost, sectionId: string): boolean {
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] enableSection failed:', sectionId, e);
+    console.error('[Engine] enableSection failed:', sectionId, e);
     return false;
   }
 }
@@ -79,7 +130,7 @@ export function setSuperseded(
     host.engine.sections().setSuperseded(autoSectionId, customSectionId);
     return true;
   } catch (e) {
-    console.error('[RouteEngine] setSuperseded failed:', autoSectionId, e);
+    console.error('[Engine] setSuperseded failed:', autoSectionId, e);
     return false;
   }
 }
@@ -91,32 +142,7 @@ export function clearSuperseded(host: DelegateHost, customSectionId: string): bo
     host.notify('sections');
     return true;
   } catch (e) {
-    console.error('[RouteEngine] clearSuperseded failed:', customSectionId, e);
+    console.error('[Engine] clearSuperseded failed:', customSectionId, e);
     return false;
-  }
-}
-
-export function importDisabledIds(host: DelegateHost, ids: string[]): number {
-  if (!host.ready || ids.length === 0) return 0;
-  try {
-    return host.engine.sections().importDisabledIds(ids);
-  } catch (e) {
-    console.error('[RouteEngine] importDisabledIds failed:', e);
-    return 0;
-  }
-}
-
-export function importSupersededMap(host: DelegateHost, map: Record<string, string[]>): number {
-  if (!host.ready) return 0;
-  const entries = Object.entries(map).map(([customSectionId, autoSectionIds]) => ({
-    customSectionId,
-    autoSectionIds,
-  }));
-  if (entries.length === 0) return 0;
-  try {
-    return host.engine.sections().importSupersededMap(entries);
-  } catch (e) {
-    console.error('[RouteEngine] importSupersededMap failed:', e);
-    return 0;
   }
 }

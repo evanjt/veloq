@@ -18,6 +18,7 @@ import { ScreenSafeAreaView } from '@/shared/ui';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
+import { recordingActions } from '@/features/recording/lib/recordingActions';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import {
@@ -119,11 +120,10 @@ export default function RecordingDetailScreen() {
     );
   }
 
-  const isUploading = uploadingId === entry.id || entry.uploadStatus === 'uploading';
-  const canUpload = entry.uploadStatus !== 'uploaded' && !isUploading;
+  const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId);
   const coordinates = streams?.latlng ?? [];
 
-  const stats: Array<{ label: string; value: string }> = [
+  const stats: { label: string; value: string }[] = [
     {
       label: t('recording.library.recorded', 'Recorded'),
       value: new Date(entry.startTime).toLocaleString(),
@@ -224,17 +224,19 @@ export default function RecordingDetailScreen() {
               <ActivityIndicator size="small" color={colors.textOnDark} />
             </View>
           )}
-          <TouchableOpacity
-            testID="recording-share-button"
-            style={[styles.actionButton, styles.secondaryButton, { borderColor: border }]}
-            onPress={handleShare}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />
-            <Text style={[styles.secondaryButtonText, { color: textPrimary }]}>
-              {t('recording.library.share', 'Share FIT file')}
-            </Text>
-          </TouchableOpacity>
+          {canShare && (
+            <TouchableOpacity
+              testID="recording-share-button"
+              style={[styles.actionButton, styles.secondaryButton, { borderColor: border }]}
+              onPress={handleShare}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />
+              <Text style={[styles.secondaryButtonText, { color: textPrimary }]}>
+                {t('recording.library.share', 'Share FIT file')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             testID="recording-delete-button"
             style={[

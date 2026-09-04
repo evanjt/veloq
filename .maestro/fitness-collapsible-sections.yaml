@@ -30,13 +30,14 @@ tags:
 - takeScreenshot: "fitness-collapsible-sections-performance-expanded"
 
 # Scroll further to check zones section (further down after performance expanded)
-- scrollUntilVisible:
-    element:
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
+    duration: 200
+- extendedWaitUntil:
+    visible:
       id: "fitness-section-zones"
-    direction: DOWN
-    timeout: 20000
-    speed: 40
-    visibilityPercentage: 20
+    timeout: 10000
 
 # Toggle zones section
 - tapOn:

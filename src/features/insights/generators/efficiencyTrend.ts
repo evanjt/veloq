@@ -1,5 +1,6 @@
+import type { EfficiencyTrend } from 'veloqrs';
+
 import type { Insight } from '../types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
@@ -16,41 +17,38 @@ import { insightIcon } from '@/theme';
  * Jones, A. M. & Carter, H. (2000). The effect of endurance training on
  *   parameters of aerobic fitness. Sports Med, 29(6), 373–386.
  *
- * Data source: getSectionEfficiencyTrend(sectionId) from the Rust engine,
- * which computes linear regression of HR/pace ratio over matched efforts.
- * Returns null for sections without sufficient HR data - the insight simply
- * does not appear until HR data exists.
+ * Data source: the engine's insights bundle, which computes linear regression
+ * of HR/pace ratio over matched efforts and returns only the sections that
+ * cleared the improvement, effort-count and HR-change thresholds. Sections
+ * without sufficient HR data never reach here.
  */
 
 // Translation function type
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
 /**
- * Generate aerobic efficiency trend insights from the top-ranked sections.
+ * Generate aerobic efficiency trend insights from the engine's trends.
  *
- * @param sectionIds - Section IDs to check (from getRankedSections or similar)
+ * @param trends - Efficiency trends from the insights bundle
  * @param now - Current timestamp for the insight
  * @param t - Translation function
  * @returns Array of efficiency trend insights (may be empty)
  */
 export function generateEfficiencyTrendInsights(
-  sectionIds: string[],
+  trends: EfficiencyTrend[],
   now: number,
   t: TFunc
 ): Insight[] {
-  const engine = getRouteEngine();
-  if (!engine || sectionIds.length === 0) return [];
-  if (typeof engine.getSectionEfficiencyTrend !== 'function') return [];
+  if (trends.length === 0) return [];
 
   const cap = maxPerCategoryFor('efficiency_trend');
   const minEfforts = INSIGHTS_CONFIG.repetition.efficiency_trend_min;
   const insights: Insight[] = [];
 
-  for (const sectionId of sectionIds) {
+  for (const trend of trends) {
     if (insights.length >= cap) break;
 
-    const trend = engine.getSectionEfficiencyTrend(sectionId);
-    if (!trend || !trend.isImproving || trend.effortCount < minEfforts) continue;
+    if (!trend.isImproving || trend.effortCount < minEfforts) continue;
 
     const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
     if (hrChange < 1) continue;
@@ -85,6 +83,15 @@ export function generateEfficiencyTrendInsights(
         },
       },
       supportingData: {
+        // The engine already ships one HR/pace ratio per matched effort, so
+        // the sheet plots the efforts the claim rests on. Two is the least
+        // that draws a line.
+        ...(trend.points.length >= 2
+          ? {
+              sparklineData: trend.points.map((p) => p.hrPaceRatio),
+              sparklineLabel: t('insights.efficiencyTrend.seriesLabel'),
+            }
+          : {}),
         dataPoints: [
           {
             label: t('insights.data.hrChange'),

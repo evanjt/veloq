@@ -9,13 +9,18 @@ import React, {
 import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, mapLayerColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
-import { buildMap3DHtml, buildUpdateLayersScript } from '@/features/maps/lib/htmlBuilders';
+import { HIGHLIGHT_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
+import {
+  buildMap3DHtml,
+  buildUpdateLayersScript,
+  resolveStyleExpression,
+  TERRAIN_STYLE_OPTIONS,
+} from '@/features/maps/lib/htmlBuilders';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle3D, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
-import { DARK_MATTER_STYLE } from './darkMatterStyle';
+import { TERRAIN_3D_CONFIG } from './mapStyles';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
@@ -66,6 +71,10 @@ export interface Map3DWebViewRef {
 interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   /** Called when the map has finished loading */
   onMapReady?: () => void;
+  /** Called when the page or the WebView failed and no map will appear */
+  onMapFailed?: (reason: string) => void;
+  /** Called when the page drew, but had no DEM tiles, so the terrain is flat */
+  onTerrainUnavailable?: (reason: string) => void;
   /** Called when bearing changes (for compass sync) */
   onBearingChange?: (bearing: number) => void;
   /** Called when the full camera state updates (center, zoom, bearing, pitch) */
@@ -126,6 +135,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       highlightedSectionId,
       showHeatmap = false,
       onMapReady,
+      onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
       initialCamera,
@@ -230,6 +241,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onActivityClickRef,
       updateLayers,
       onMapReady,
+      onMapFailed,
+      onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
     });
@@ -263,17 +276,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
-      // Satellite: rewrite to cached protocol for tile caching.
-      // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
-      // (cached-vector:// rewrite was causing blank features after setStyle).
-      // Light: fetch URL-based style in JS.
-      const styleConfig = isSatellite
-        ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
-        : mapStyle === 'dark'
-          ? JSON.stringify(DARK_MATTER_STYLE)
-          : `null`;
-
-      const lightStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+      // Vector tiles stay on their TileJSON URL here: rewriting them to
+      // cached-vector:// after a setStyle left features blank until the cache
+      // warmed, which is only tolerable on a cold page load.
+      const { styleJSON: styleConfig, url: lightStyleUrl } = resolveStyleExpression(
+        mapStyle,
+        TERRAIN_STYLE_OPTIONS
+      );
 
       // Serialize shared terrain config for injection
       const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
@@ -350,12 +359,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               styleObj.layers.push(
                 { id: 'route-outline', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#FFFFFF', 'line-width': 5, 'line-opacity': 0.8 } },
+                  paint: { 'line-color': '${mapLayerColors.casing}', 'line-width': 5, 'line-opacity': 0.8 } },
                 { id: 'route-line', type: 'line', source: 'route',
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
                   paint: { 'line-color': routeColor, 'line-width': 3 } },
                 { id: 'start-end-border', type: 'circle', source: 'start-end-markers',
-                  paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' } },
+                  paint: { 'circle-radius': 7, 'circle-color': '${mapLayerColors.casing}' } },
                 { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: { 'circle-radius': 5,
                     'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'] } }
@@ -437,13 +446,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       []
     );
 
-    // Update highlight marker position in WebView (from chart scrubbing)
-    // Throttled to ~16ms to avoid flooding the JS bridge at 60fps
+    // Update highlight marker position in WebView (from chart scrubbing).
+    // Throttled so the bridge is not flooded at 60fps.
     const lastHighlightRef = useRef<number>(0);
     useEffect(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
       const now = Date.now();
-      if (now - lastHighlightRef.current < 16) return;
+      if (now - lastHighlightRef.current < HIGHLIGHT_THROTTLE_MS) return;
       lastHighlightRef.current = now;
 
       if (highlightCoordinate) {
@@ -521,12 +530,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               window.map.addLayer({
                 id: 'section-creation-line-outline', type: 'line', source: 'section-creation-line',
                 layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
+                paint: { 'line-color': '${mapLayerColors.casing}', 'line-width': 8, 'line-opacity': 0.6 },
               });
               window.map.addLayer({
                 id: 'section-creation-line-fill', type: 'line', source: 'section-creation-line',
                 layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
+                paint: { 'line-color': '${mapLayerColors.sectionCreation}', 'line-width': 6, 'line-opacity': 1 },
               });
             }
             // Update section creation markers - re-create if missing
@@ -547,7 +556,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
               window.map.addLayer({
                 id: 'section-creation-marker-border', type: 'circle', source: 'section-creation-markers',
-                paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
+                paint: { 'circle-radius': 10, 'circle-color': '${mapLayerColors.casing}' },
               });
               window.map.addLayer({
                 id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
@@ -556,7 +565,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               window.map.addLayer({
                 id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
                 layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
-                paint: { 'text-color': '#FFFFFF' },
+                paint: { 'text-color': '${mapLayerColors.casing}' },
               });
             }
           } catch (e) { console.warn('[3D] Section creation layer error:', e); }
@@ -578,6 +587,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       `);
     }, [showHeatmap]);
 
+    // The page reports its own failures, but it can only do that once it has
+    // loaded. A main frame that never arrives has to be reported from here.
+    const handleWebViewError = useCallback(() => {
+      mapReadyRef.current = false;
+      onMapFailed?.('webview load error');
+    }, [onMapFailed]);
+
     // Reload WebView on crash (iOS content process termination / Android render process gone)
     const handleWebViewCrash = useCallback(() => {
       mapReadyRef.current = false;
@@ -597,7 +613,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     }, [coordinates]);
 
     // Use initial center/zoom when no coordinates provided
-    const hasRoute = coordinates.length > 0;
 
     // Generate the HTML for the WebView
     // IMPORTANT: Only depends on style-related props, NOT GeoJSON data
@@ -656,6 +671,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           mixedContentMode="always"
           androidLayerType="hardware"
           onMessage={handleMessage}
+          onError={handleWebViewError}
           onContentProcessDidTerminate={handleWebViewCrash}
           onRenderProcessGone={handleWebViewCrash}
         />

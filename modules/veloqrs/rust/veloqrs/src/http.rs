@@ -1,19 +1,25 @@
-//! HTTP client for intervals.icu API.
+//! Bulk GPS-track and FIT downloads for intervals.icu.
 //!
-//! This module provides high-performance activity fetching with:
-//! - Connection pooling for HTTP/2 multiplexing
-//! - Dispatch pacing through the shared governor choke point
-//! - Parallel fetching with configurable concurrency
-//! - Automatic retry honouring `Retry-After` on 429
+//! Everything here goes through the shared `Transport`, so there is one client
+//! in the process: one connection pool, one governor choke point, one retry
+//! and `Retry-After` policy, and one place that classifies a 401. This module
+//! keeps only what `Transport` does not do - fanning a batch out across
+//! `MAX_CONCURRENCY` tasks and reporting progress to the FFI poll.
+//!
+//! Tracks come from `streams.json` rather than the map endpoint, because the
+//! map endpoint carries coordinates alone. `parse_streams` reduces every series
+//! to one validity mask taken from `latlng`, so `latlngs[i]` and `elevations[i]`
+//! describe the same sample and stored section indices keep addressing the same
+//! ground.
 
-use log::{debug, info, warn};
-use once_cell::sync::Lazy;
-use reqwest::Client;
+use crate::governor::Lane;
+use crate::net::transport::{NetError, Transport};
+use crate::net::types::{StreamDto, parse_streams};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
@@ -68,258 +74,111 @@ pub fn get_download_progress() -> (u32, u32, bool) {
     )
 }
 
-/// Storage for background fetch results
-static BACKGROUND_FETCH_RESULTS: Lazy<StdMutex<Option<Vec<ActivityMapResult>>>> =
-    Lazy::new(|| StdMutex::new(None));
-
-/// Start a background fetch operation (returns immediately, doesn't block)
-/// Call get_download_progress() to monitor progress
-/// Call take_background_fetch_results() when active becomes false to get results
-pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
-    let fn_start = Instant::now();
-    let activity_count = activity_ids.len();
-
-    // Clear any previous results
-    if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-        *results = None;
-    }
-
-    // Reset progress counters
-    reset_download_progress(activity_ids.len() as u32);
-
-    info!(
-        "[RUST: start_background_fetch] Spawning thread for {} activities",
-        activity_count
-    );
-
-    // Spawn background thread to do the actual work
-    std::thread::spawn(move || {
-        let thread_start = Instant::now();
-        info!(
-            "[RUST: start_background_fetch] Thread started for {} activities",
-            activity_ids.len()
-        );
-
-        // Runs on the shared process runtime instead of building a throwaway
-        // 8-thread runtime per call.
-
-        // Create HTTP client
-        let client_start = Instant::now();
-        let fetcher = match ActivityFetcher::with_auth_header(auth_header) {
-            Ok(f) => {
-                info!(
-                    "[RUST: start_background_fetch] Created HTTP client ({} ms)",
-                    elapsed_ms(client_start)
-                );
-                f
-            }
-            Err(e) => {
-                warn!(
-                    "[RUST: start_background_fetch] Failed to create HTTP client: {} ({} ms)",
-                    e,
-                    elapsed_ms(client_start)
-                );
-                finish_download_progress();
-                if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-                    *results = Some(
-                        activity_ids
-                            .into_iter()
-                            .map(|id| ActivityMapResult {
-                                activity_id: id,
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(e.clone()),
-                            })
-                            .collect(),
-                    );
-                }
-                return;
-            }
-        };
-
-        // Run the fetch
-        let fetch_start = Instant::now();
-        let fetch_results =
-            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, None));
-        let success_count = fetch_results.iter().filter(|r| r.success).count();
-        info!(
-            "[RUST: start_background_fetch] Fetch complete: {}/{} successful ({} ms)",
-            success_count,
-            fetch_results.len(),
-            elapsed_ms(fetch_start)
-        );
-
-        // Store results
-        if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-            *results = Some(fetch_results);
-        }
-
-        // Mark as complete (active = false)
-        finish_download_progress();
-
-        info!(
-            "[RUST: start_background_fetch] Thread complete ({} ms)",
-            elapsed_ms(thread_start)
-        );
-    });
-
-    info!(
-        "[RUST: start_background_fetch] Thread spawned, returning to caller ({} ms)",
-        elapsed_ms(fn_start)
-    );
-}
-
-/// Take the results from a completed background fetch
-/// Returns None if fetch is still in progress or no fetch was started
-/// Returns Some(results) and clears the storage
-pub fn take_background_fetch_results() -> Option<Vec<ActivityMapResult>> {
-    if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-        results.take()
-    } else {
-        None
-    }
-}
-
 // Dispatch pace is the governor's job now (≤8 req/s across the whole process),
 // so this module no longer carries its own burst/sustained intervals.
-const MAX_CONCURRENCY: usize = 50; // Allow many in-flight (network latency ~200-400ms)
-const MAX_RETRIES: u32 = 3;
+// Retry and dispatch pace are the transport's job now, so this module only
+// decides how many activities may be in flight at once.
+const MAX_CONCURRENCY: usize = 50; // Network latency ~200-400ms per activity
 
-/// Result of fetching activity map data
+/// One activity's track as fetched: coordinates, the elevation that belongs to
+/// each of them, and the bytes the body cost.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityMapResult {
     pub activity_id: String,
-    pub bounds: Option<MapBounds>,
     pub latlngs: Option<Vec<[f64; 2]>>,
+    /// Same length and same index space as `latlngs`, or `None` when the
+    /// response carried no usable altitude. A sample with no altitude, or a
+    /// non-finite one, is `None` at its own index rather than a fabricated
+    /// number.
+    pub elevations: Option<Vec<Option<f64>>>,
+    /// Response body size after transfer decoding, for the throughput log.
+    pub body_bytes: u32,
+    /// The series the durable store holds, masked into the track's index
+    /// space. Empty unless the fetch was widened, which only happens for an
+    /// activity inside the retention window (`B140`).
+    pub streams: Vec<StreamDto>,
     pub success: bool,
     pub error: Option<String>,
-}
-
-/// Map bounds for an activity
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MapBounds {
-    pub ne: [f64; 2], // [lat, lng]
-    pub sw: [f64; 2], // [lat, lng]
-}
-
-/// API response for activity map endpoint
-#[derive(Debug, Deserialize)]
-struct MapApiResponse {
-    bounds: Option<ApiBounds>,
-    latlngs: Option<Vec<Option<[f64; 2]>>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiBounds {
-    ne: [f64; 2],
-    sw: [f64; 2],
 }
 
 /// Progress callback type
 pub type ProgressCallback = Arc<dyn Fn(u32, u32) + Send + Sync>;
 
-/// Per-fetch counters: the running dispatch number (for the progress log) and
-/// the consecutive-429 tally (for retry logging). Dispatch *pacing* belongs to
-/// the shared governor now; this only counts.
+/// Running dispatch number, for the progress log only. Pacing, retry and
+/// `Retry-After` all belong to the transport now.
 struct DispatchCounter {
     dispatched_count: AtomicU32,
-    consecutive_429s: AtomicU32,
 }
 
 impl DispatchCounter {
     fn new() -> Self {
         Self {
             dispatched_count: AtomicU32::new(0),
-            consecutive_429s: AtomicU32::new(0),
         }
     }
 
-    /// Next 1-based dispatch number, for the progress log.
+    /// Next 1-based dispatch number.
     fn next_dispatch_number(&self) -> u32 {
         self.dispatched_count.fetch_add(1, Ordering::Relaxed) + 1
     }
-
-    fn record_success(&self) {
-        self.consecutive_429s.store(0, Ordering::Relaxed);
-    }
-
-    /// Count a 429 and return the running consecutive total. Backoff timing is
-    /// the governor's job (`decide_backoff`), which honours `Retry-After`.
-    fn record_429(&self) -> u32 {
-        self.consecutive_429s.fetch_add(1, Ordering::Relaxed) + 1
-    }
 }
 
-/// High-performance activity fetcher
+/// Batch fetcher for activity maps and FIT files.
 pub struct ActivityFetcher {
-    client: Client,
-    auth_header: String,
+    transport: Transport,
 }
 
 impl ActivityFetcher {
-    /// Create a new activity fetcher with the given API key (Basic auth)
-    pub fn new(api_key: &str) -> Result<Self, String> {
-        Self::with_auth_header(crate::governor::format_auth_header(
-            crate::governor::AuthMethod::ApiKey(api_key),
-        ))
+    /// Build a fetcher from the credential the sync service holds. Errors when
+    /// no credential is set, rather than issuing an unauthenticated request.
+    pub fn from_credentials() -> Result<Self, String> {
+        let transport = crate::objects::current_transport()
+            .ok_or_else(|| "no credentials set".to_string())??;
+        Ok(Self { transport })
     }
 
-    /// Create a new activity fetcher with a pre-formatted auth header
-    /// Supports both "Basic ..." and "Bearer ..." formats
-    pub fn with_auth_header(auth_header: String) -> Result<Self, String> {
-        let client = Client::builder()
-            .pool_max_idle_per_host(MAX_CONCURRENCY * 2)
-            .pool_idle_timeout(Duration::from_secs(60))
-            .tcp_keepalive(Duration::from_secs(30))
-            .timeout(Duration::from_secs(30))
-            .build()
-            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    /// Build a fetcher over a caller-supplied transport, so tests can point it
+    /// at a mock server.
+    pub fn with_transport(transport: Transport) -> Self {
+        Self { transport }
+    }
 
-        Ok(Self {
-            client,
-            auth_header,
-        })
+    /// The shared transport, so callers can issue their own paced requests
+    /// against the same client rather than building a second one.
+    pub fn transport(&self) -> &Transport {
+        &self.transport
     }
 
     /// Download the raw FIT file for an activity.
-    /// Returns the binary data or an error message.
-    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
-        let url = format!("https://intervals.icu/api/v1/activity/{}/file", activity_id);
-
-        // FIT downloads flow through the same choke point as GPS maps.
-        crate::governor::GOVERNOR
-            .acquire(crate::governor::Lane::Interactive)
-            .await;
-
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", &self.auth_header)
-            .send()
+    ///
+    /// The error keeps its kind. The caller decides from it whether the activity
+    /// has settled (upstream holds no file) or should be retried, and flattening
+    /// it to a string made a transport blip indistinguishable from a 404.
+    pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, NetError> {
+        self.transport
+            .get_bytes(
+                &format!("/activity/{}/file", activity_id),
+                &[],
+                Lane::Interactive,
+            )
             .await
-            .map_err(|e| format!("FIT download error: {}", e))?;
-
-        if !response.status().is_success() {
-            return Err(format!("HTTP {}", response.status()));
-        }
-
-        response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| format!("FIT body error: {}", e))
     }
 
     /// Fetch map data for multiple activities in parallel
+    /// `wide_ids` names the activities inside the stream retention window.
+    /// Those download every series the app can use; the rest stay on the three
+    /// the track needs (`B140`).
     pub async fn fetch_activity_maps(
         &self,
         activity_ids: Vec<String>,
+        wide_ids: std::collections::HashSet<String>,
         on_progress: Option<ProgressCallback>,
     ) -> Vec<ActivityMapResult> {
         use futures::stream::{self, StreamExt};
 
         let total = activity_ids.len() as u32;
+        let wide_ids = Arc::new(wide_ids);
+        let wide_bytes = Arc::new(AtomicU32::new(0));
         // NOTE: Caller is responsible for calling reset_download_progress() before this
         // and finish_download_progress() after this completes.
         let completed = Arc::new(AtomicU32::new(0));
@@ -338,30 +197,32 @@ impl ActivityFetcher {
         // Buffered parallel fetch; the governor paces dispatch across all tasks.
         let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
             .map(|id| {
-                let client = &self.client;
-                let auth = &self.auth_header;
+                let transport = &self.transport;
                 let counter = Arc::clone(&counter);
                 let completed = Arc::clone(&completed);
                 let total_bytes = Arc::clone(&total_bytes);
                 let callback = on_progress.clone();
                 let start_time = start;
+                let wide_ids = Arc::clone(&wide_ids);
+                let wide_bytes = Arc::clone(&wide_bytes);
 
                 async move {
-                    // Pace through the single shared choke point (≤8 req/s across
-                    // the whole process), then take this request's dispatch number.
-                    crate::governor::GOVERNOR
-                        .acquire(crate::governor::Lane::Interactive)
-                        .await;
+                    // Transport paces every dispatch through the shared choke
+                    // point, so this only numbers them for the log.
                     let dispatch_num = counter.next_dispatch_number();
                     let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_map(client, auth, &counter, &id).await;
+                    let wide = wide_ids.contains(&id);
+                    let result = Self::fetch_single_track(transport, &id, wide).await;
+                    if wide {
+                        wide_bytes.fetch_add(result.body_bytes, Ordering::Relaxed);
+                    }
 
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                     // Update global progress for FFI polling
                     increment_download_progress();
-                    let bytes = result.latlngs.as_ref().map_or(0, |v| v.len() * 16) as u32;
+                    let bytes = result.body_bytes;
                     total_bytes.fetch_add(bytes, Ordering::Relaxed);
                     let complete_time = start_time.elapsed();
 
@@ -420,243 +281,593 @@ impl ActivityFetcher {
             total_kb as f64 / elapsed.as_secs_f64()
         );
 
+        // What the widening cost, named rather than folded into the total:
+        // a sync that silently multiplied is the failure this guards against.
+        info!(
+            "[RUST: fetch_activity_maps] Widened {}/{} activities for {}KB of the {}KB downloaded",
+            wide_ids.len().min(total as usize),
+            total,
+            wide_bytes.load(Ordering::Relaxed) / 1024,
+            total_kb
+        );
+
         // NOTE: Caller is responsible for calling finish_download_progress()
 
         results
     }
 
-    async fn fetch_single_map(
-        client: &Client,
-        auth: &str,
-        counter: &DispatchCounter,
+    /// One activity's track. Transport owns pacing, retry, `Retry-After` and
+    /// 401 classification, so this is request, decode, reduce to one index
+    /// space.
+    /// `wide` asks for every series the app can use rather than the three the
+    /// track needs. It is true only for an activity inside the stream
+    /// retention window: outside it the prune deletes the extra series the
+    /// same second they land, so the bytes buy nothing.
+    async fn fetch_single_track(
+        transport: &Transport,
         activity_id: &str,
+        wide: bool,
     ) -> ActivityMapResult {
-        let url = format!("https://intervals.icu/api/v1/activity/{}/map", activity_id);
-
-        let mut retries = 0;
         let req_start = Instant::now();
 
-        loop {
-            // Phase 1: Send request, receive headers
-            let response = client.get(&url).header("Authorization", auth).send().await;
+        let failed = |error: String| ActivityMapResult {
+            activity_id: activity_id.to_string(),
+            latlngs: None,
+            elevations: None,
+            body_bytes: 0,
+            streams: Vec::new(),
+            success: false,
+            error: Some(error),
+        };
 
-            let headers_elapsed = req_start.elapsed();
+        let bytes = match transport
+            .get_bytes(
+                &format!("/activity/{}/streams.json", activity_id),
+                &[(
+                    "types",
+                    if wide {
+                        crate::net::endpoints::DEFAULT_STREAM_TYPES
+                    } else {
+                        crate::net::endpoints::TRACK_STREAM_TYPES
+                    },
+                )],
+                Lane::Interactive,
+            )
+            .await
+        {
+            Ok(b) => b,
+            // Unauthorized is worth naming: it means the whole batch will fail
+            // the same way, and the sync service turns it into a re-login.
+            Err(NetError::Unauthorized) => return failed("unauthorized".to_string()),
+            Err(e) => return failed(e.to_string()),
+        };
+        let body_elapsed = req_start.elapsed();
+        let body_size = bytes.len();
 
-            match response {
-                Ok(resp) => {
-                    let status = resp.status();
+        let json_start = Instant::now();
+        let raw: Vec<StreamDto> = match serde_json::from_slice(&bytes) {
+            Ok(d) => d,
+            Err(e) => return failed(format!("JSON parse error: {}", e)),
+        };
+        // Taken before `parse_streams` consumes the response, and only when
+        // the fetch was widened: a narrow one carries nothing to store.
+        let streams = if wide {
+            crate::net::types::storable_series(&raw)
+        } else {
+            Vec::new()
+        };
+        let parsed = parse_streams(raw);
+        let json_elapsed = json_start.elapsed();
 
-                    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                        retries += 1;
-                        if retries > MAX_RETRIES {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some("Max retries exceeded (429)".to_string()),
-                            };
-                        }
+        // A latlng series that disagrees with itself has no trustworthy index
+        // space, and every stored section index addresses that space.
+        if parsed.misaligned.iter().any(|m| m.series == "latlng") {
+            return failed("latlng misaligned".to_string());
+        }
 
-                        let consecutive = counter.record_429();
-                        let retry_after = resp
-                            .headers()
-                            .get(reqwest::header::RETRY_AFTER)
-                            .and_then(|v| v.to_str().ok())
-                            .and_then(|s| s.trim().parse::<u64>().ok());
-                        let wait = crate::governor::decide_backoff(retry_after, retries, true);
-                        warn!(
-                            "[Fetch {}] 429 after {:?} (consecutive {}), retry {} in {:?} (retry-after={:?})",
-                            activity_id, headers_elapsed, consecutive, retries, wait, retry_after
-                        );
-                        tokio::time::sleep(wait).await;
-                        continue;
-                    }
+        let point_count = parsed.latlng.len();
+        // Altitude rides the latlng mask, so a length that still disagrees
+        // means the series was never in this index space. Drop the elevation
+        // and keep the track rather than losing the activity.
+        let altitude_aligned = parsed.altitude.len() == point_count
+            && !parsed
+                .misaligned
+                .iter()
+                .any(|m| m.series == "altitude" || m.series == "fixed_altitude");
+        let elevations = if altitude_aligned && point_count > 0 {
+            Some(
+                parsed
+                    .altitude
+                    .iter()
+                    .map(|e| e.is_finite().then_some(*e))
+                    .collect(),
+            )
+        } else {
+            None
+        };
 
-                    counter.record_success();
+        debug!(
+            "[Fetch {}] body={:?}({:.1}KB) json={:?} total={:?} points={} elevation={}",
+            activity_id,
+            body_elapsed,
+            body_size as f64 / 1024.0,
+            json_elapsed,
+            req_start.elapsed(),
+            point_count,
+            elevations.is_some()
+        );
 
-                    if !status.is_success() {
-                        return ActivityMapResult {
-                            activity_id: activity_id.to_string(),
-                            bounds: None,
-                            latlngs: None,
-                            success: false,
-                            error: Some(format!("HTTP {}", status)),
-                        };
-                    }
-
-                    // Phase 2: Download response body (this is network time!)
-                    let body_start = Instant::now();
-                    let bytes = match resp.bytes().await {
-                        Ok(b) => b,
-                        Err(e) => {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(format!("Body download error: {}", e)),
-                            };
-                        }
-                    };
-                    let body_elapsed = body_start.elapsed();
-                    let body_size = bytes.len();
-
-                    // Phase 3: JSON deserialization (pure CPU)
-                    let json_start = Instant::now();
-                    let data: MapApiResponse = match serde_json::from_slice(&bytes) {
-                        Ok(d) => d,
-                        Err(e) => {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(format!("JSON parse error: {}", e)),
-                            };
-                        }
-                    };
-                    let json_elapsed = json_start.elapsed();
-                    let point_count = data.latlngs.as_ref().map_or(0, |v| v.len());
-
-                    // Phase 4: Data transformation (flatten coords)
-                    let transform_start = Instant::now();
-                    let bounds = data.bounds.map(|b| MapBounds { ne: b.ne, sw: b.sw });
-                    let latlngs = data
-                        .latlngs
-                        .map(|coords| coords.into_iter().flatten().collect());
-                    let transform_elapsed = transform_start.elapsed();
-
-                    let total_elapsed = req_start.elapsed();
-
-                    // Detailed timing breakdown
-                    debug!(
-                        "[Fetch {}] headers={:?} body={:?}({:.1}KB) json={:?} transform={:?} total={:?} points={}",
-                        activity_id,
-                        headers_elapsed,
-                        body_elapsed,
-                        body_size as f64 / 1024.0,
-                        json_elapsed,
-                        transform_elapsed,
-                        total_elapsed,
-                        point_count
-                    );
-
-                    return ActivityMapResult {
-                        activity_id: activity_id.to_string(),
-                        bounds,
-                        latlngs,
-                        success: true,
-                        error: None,
-                    };
-                }
-                Err(e) => {
-                    retries += 1;
-                    if retries > MAX_RETRIES {
-                        return ActivityMapResult {
-                            activity_id: activity_id.to_string(),
-                            bounds: None,
-                            latlngs: None,
-                            success: false,
-                            error: Some(format!("Request error: {}", e)),
-                        };
-                    }
-
-                    let wait = crate::governor::decide_backoff(None, retries, false);
-                    warn!(
-                        "[Fetch {}] Error: {}, retry {} after {:?}",
-                        activity_id, e, retries, wait
-                    );
-                    tokio::time::sleep(wait).await;
-                }
-            }
+        ActivityMapResult {
+            activity_id: activity_id.to_string(),
+            latlngs: Some(parsed.latlng),
+            elevations,
+            body_bytes: body_size as u32,
+            streams,
+            success: true,
+            error: None,
         }
     }
-}
-
-/// Synchronous wrapper for FFI - runs the async code on a tokio runtime
-/// Accepts a pre-formatted auth header (e.g., "Basic ..." or "Bearer ...")
-pub fn fetch_activity_maps_sync(
-    auth_header: String,
-    activity_ids: Vec<String>,
-    on_progress: Option<ProgressCallback>,
-) -> Vec<ActivityMapResult> {
-    let fn_start = Instant::now();
-    let activity_count = activity_ids.len();
-    info!(
-        "[RUST: fetch_activity_maps_sync] Called for {} activities",
-        activity_count
-    );
-
-    let client_start = Instant::now();
-    let fetcher = match ActivityFetcher::with_auth_header(auth_header) {
-        Ok(f) => {
-            info!(
-                "[RUST: fetch_activity_maps_sync] Created HTTP client ({} ms)",
-                elapsed_ms(client_start)
-            );
-            f
-        }
-        Err(e) => {
-            warn!(
-                "[RUST: fetch_activity_maps_sync] Failed to create HTTP client: {} ({} ms)",
-                e,
-                elapsed_ms(client_start)
-            );
-            return activity_ids
-                .into_iter()
-                .map(|id| ActivityMapResult {
-                    activity_id: id,
-                    bounds: None,
-                    latlngs: None,
-                    success: false,
-                    error: Some(e.clone()),
-                })
-                .collect();
-        }
-    };
-
-    let fetch_start = Instant::now();
-    let results = crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, on_progress));
-    let success_count = results.iter().filter(|r| r.success).count();
-    info!(
-        "[RUST: fetch_activity_maps_sync] Fetch complete: {}/{} successful ({} ms)",
-        success_count,
-        activity_count,
-        elapsed_ms(fetch_start)
-    );
-
-    info!(
-        "[RUST: fetch_activity_maps_sync] Complete ({} ms)",
-        elapsed_ms(fn_start)
-    );
-
-    results
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::governor::{AuthMethod, Governor, NoopPolicy};
+    use httpmock::prelude::*;
+    use serde_json::json;
+
+    /// A fetcher pointed at a mock server rather than the live base URL.
+    fn fetcher_to(base: String) -> ActivityFetcher {
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        ActivityFetcher::with_transport(
+            Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap(),
+        )
+    }
+
+    /// A `streams.json` body: latlng split across data/data2, one series per
+    /// requested type. `lat`/`lng`/`alt` entries may be JSON null.
+    fn streams_body(
+        lat: serde_json::Value,
+        lng: serde_json::Value,
+        series: Vec<serde_json::Value>,
+    ) -> serde_json::Value {
+        let mut out = vec![json!({"type": "latlng", "data": lat, "data2": lng})];
+        out.extend(series);
+        json!(out)
+    }
+
+    fn fetch_one(server: &MockServer, id: &str) -> ActivityMapResult {
+        let f = fetcher_to(server.base_url());
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec![id.to_string()],
+            std::collections::HashSet::new(),
+            None,
+        ))
+        .pop()
+        .unwrap()
+    }
+
+    /// The same fetch with this activity inside the retention window, so the
+    /// request is the wide one.
+    fn fetch_one_wide(server: &MockServer, id: &str) -> ActivityMapResult {
+        let f = fetcher_to(server.base_url());
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec![id.to_string()],
+            std::collections::HashSet::from([id.to_string()]),
+            None,
+        ))
+        .pop()
+        .unwrap()
+    }
+
+    fn series_named<'a>(r: &'a ActivityMapResult, kind: &str) -> Option<&'a StreamDto> {
+        r.streams.iter().find(|s| s.kind == kind)
+    }
 
     #[test]
-    fn test_activity_map_result_serialization() {
-        let result = ActivityMapResult {
-            activity_id: "test-123".to_string(),
-            bounds: Some(MapBounds {
-                ne: [51.5, -0.1],
-                sw: [51.4, -0.2],
-            }),
-            latlngs: Some(vec![[51.45, -0.15], [51.46, -0.14]]),
-            success: true,
-            error: None,
-        };
+    fn track_fetch_reduces_coordinates_and_derives_bounds() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", "latlng,fixed_altitude,altitude");
+            then.status(200).json_body(streams_body(
+                json!([46.941, null, 46.942]),
+                json!([7.441, null, 7.442]),
+                vec![],
+            ));
+        });
 
-        let json = serde_json::to_string(&result).unwrap();
-        let parsed: ActivityMapResult = serde_json::from_str(&json).unwrap();
+        let r = fetch_one(&server, "a1");
 
-        assert_eq!(parsed.activity_id, "test-123");
-        assert!(parsed.success);
-        assert!(parsed.bounds.is_some());
-        assert_eq!(parsed.latlngs.as_ref().unwrap().len(), 2);
+        mock.assert();
+        assert!(r.success);
+        // The null hole is dropped, not carried through as a gap.
+        assert_eq!(
+            r.latlngs.as_ref().unwrap(),
+            &vec![[46.941, 7.441], [46.942, 7.442]]
+        );
+        assert!(r.body_bytes > 0);
+    }
+
+    #[test]
+    fn elevation_follows_the_original_index_of_each_surviving_coordinate() {
+        // Nulls at 1 and 3 of a five-sample track. Altitude is full length and
+        // distinct per index, so a compaction that shifted it would show.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, null, 46.12, null, 46.14]),
+                json!([7.10, null, 7.12, null, 7.14]),
+                vec![json!({"type": "altitude",
+                            "data": [100.0, 200.0, 300.0, 400.0, 500.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.latlngs.as_ref().unwrap(),
+            &vec![[46.10, 7.10], [46.12, 7.12], [46.14, 7.14]]
+        );
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(100.0), Some(300.0), Some(500.0)]
+        );
+    }
+
+    #[test]
+    fn fixed_altitude_wins_over_altitude() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11]),
+                json!([7.10, 7.11]),
+                vec![
+                    json!({"type": "altitude", "data": [100.0, 101.0]}),
+                    json!({"type": "fixed_altitude", "data": [900.0, 901.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(900.0), Some(901.0)]
+        );
+    }
+
+    #[test]
+    fn a_track_with_no_altitude_series_still_fetches() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11]),
+                json!([7.10, 7.11]),
+                vec![],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 2);
+        assert!(r.elevations.is_none());
+    }
+
+    #[test]
+    fn a_gap_in_the_altitude_series_is_none_at_that_point_alone() {
+        // A null altitude sample parses to NaN, which would poison every
+        // comparison the detector makes on it.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11, 46.12]),
+                json!([7.10, 7.11, 7.12]),
+                vec![json!({"type": "altitude", "data": [100.0, null, 102.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert_eq!(
+            r.elevations.as_ref().unwrap(),
+            &vec![Some(100.0), None, Some(102.0)]
+        );
+    }
+
+    #[test]
+    fn altitude_does_not_change_the_point_count() {
+        let lat = json!([46.10, null, 46.12, 46.13, null]);
+        let lng = json!([7.10, null, 7.12, 7.13, null]);
+
+        let bare = MockServer::start();
+        bare.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200)
+                .json_body(streams_body(lat.clone(), lng.clone(), vec![]));
+        });
+        let with_alt = MockServer::start();
+        with_alt.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                lat,
+                lng,
+                vec![json!({"type": "fixed_altitude", "data": [1.0, 2.0, 3.0, 4.0, 5.0]})],
+            ));
+        });
+
+        let a = fetch_one(&bare, "a1");
+        let b = fetch_one(&with_alt, "a1");
+
+        assert_eq!(a.latlngs.as_ref().unwrap().len(), 3);
+        assert_eq!(a.latlngs, b.latlngs);
+        assert_eq!(
+            b.elevations.as_ref().unwrap(),
+            &vec![Some(1.0), Some(3.0), Some(4.0)]
+        );
+    }
+
+    #[test]
+    fn an_altitude_series_of_the_wrong_length_costs_the_elevation_not_the_track() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.11, 46.12]),
+                json!([7.10, 7.11, 7.12]),
+                vec![json!({"type": "altitude", "data": [100.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 3);
+        assert!(r.elevations.is_none());
+    }
+
+    #[test]
+    fn track_fetch_names_unauthorized_rather_than_a_bare_http_code() {
+        // 401 classification is what the sync service turns into a re-login,
+        // and this path could not see it before it went through Transport.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(401);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let results = crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["a1".into()],
+            std::collections::HashSet::new(),
+            None,
+        ));
+
+        assert!(!results[0].success);
+        assert_eq!(results[0].error.as_deref(), Some("unauthorized"));
+    }
+
+    #[test]
+    fn a_failing_activity_does_not_sink_the_batch() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/good/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.9, 46.91]),
+                json!([7.4, 7.41]),
+                vec![],
+            ));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/gone/streams.json");
+            then.status(404);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let results = crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["good".into(), "gone".into()],
+            std::collections::HashSet::new(),
+            None,
+        ));
+
+        let good = results.iter().find(|r| r.activity_id == "good").unwrap();
+        let gone = results.iter().find(|r| r.activity_id == "gone").unwrap();
+        assert!(good.success);
+        assert!(!gone.success);
+    }
+
+    #[test]
+    fn track_fetch_reports_progress_per_activity() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path_contains("/streams.json");
+            then.status(200).json_body(json!([]));
+        });
+
+        let seen = Arc::new(AtomicU32::new(0));
+        let counter = Arc::clone(&seen);
+        let f = fetcher_to(server.base_url());
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["a".into(), "b".into(), "c".into()],
+            std::collections::HashSet::new(),
+            Some(Arc::new(move |_done, _total| {
+                counter.fetch_add(1, Ordering::Relaxed);
+            })),
+        ));
+
+        assert_eq!(seen.load(Ordering::Relaxed), 3);
+    }
+
+    /// Scenario: an activity inside the retention window is synced. The store
+    /// `B132` built has nothing to fill it until the bulk pass widens (`B140`).
+    ///
+    /// Expected behaviour: the request asks for every series the app can use,
+    /// and the extra ones come back on the result so the storing loop can put
+    /// them away. The track is unchanged by the widening.
+    #[test]
+    fn a_wide_fetch_asks_for_every_series_and_carries_them_back() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", crate::net::endpoints::DEFAULT_STREAM_TYPES);
+            then.status(200).json_body(streams_body(
+                json!([46.10, null, 46.12]),
+                json!([7.10, null, 7.12]),
+                vec![
+                    json!({"type": "watts", "data": [100.0, 200.0, 300.0]}),
+                    json!({"type": "heartrate", "data": [140.0, 150.0, 160.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        mock.assert();
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 2);
+        // The dropped coordinate takes its sample with it: the store holds the
+        // series in the index space the track is stored in.
+        assert_eq!(
+            series_named(&r, "watts").map(|s| s.data.clone()),
+            Some(vec![Some(100.0), Some(300.0)])
+        );
+        assert_eq!(
+            series_named(&r, "heartrate").map(|s| s.data.clone()),
+            Some(vec![Some(140.0), Some(160.0)])
+        );
+    }
+
+    /// An activity outside the window still costs the narrow body, because the
+    /// prune would delete the extra series the same second they landed.
+    #[test]
+    fn an_activity_outside_the_window_still_costs_the_narrow_body() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a1/streams.json")
+                .query_param("types", crate::net::endpoints::TRACK_STREAM_TYPES);
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![json!({"type": "watts", "data": [100.0, 300.0]})],
+            ));
+        });
+
+        let r = fetch_one(&server, "a1");
+
+        mock.assert();
+        assert!(r.success);
+        assert!(
+            r.streams.is_empty(),
+            "a narrow fetch stored series it never asked for"
+        );
+    }
+
+    /// The track, its elevation and its time are answered from `gps_tracks`
+    /// and `time_streams`, so storing them again would pay twice.
+    #[test]
+    fn a_wide_fetch_carries_no_series_the_track_already_answers() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![
+                    json!({"type": "altitude", "data": [500.0, 510.0]}),
+                    json!({"type": "time", "data": [0.0, 10.0]}),
+                    json!({"type": "watts", "data": [100.0, 300.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        let kinds: Vec<&str> = r.streams.iter().map(|s| s.kind.as_str()).collect();
+        assert_eq!(kinds, vec!["watts"]);
+    }
+
+    /// Scenario: a widened response carries a series whose sample count
+    /// disagrees with the coordinates.
+    ///
+    /// Expected behaviour: that series is dropped and the track is still
+    /// stored. A series at the wrong length has no trustworthy index space,
+    /// and losing the activity over it would cost far more than the series.
+    #[test]
+    fn a_misaligned_series_in_a_wide_fetch_does_not_lose_the_track() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12, 46.14]),
+                json!([7.10, 7.12, 7.14]),
+                vec![
+                    json!({"type": "watts", "data": [100.0, 300.0]}),
+                    json!({"type": "heartrate", "data": [140.0, 150.0, 160.0]}),
+                ],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        assert!(r.success);
+        assert_eq!(r.latlngs.as_ref().unwrap().len(), 3);
+        assert!(
+            series_named(&r, "watts").is_none(),
+            "a series at the wrong length was stored"
+        );
+        assert!(series_named(&r, "heartrate").is_some());
+    }
+
+    /// An empty series is not stored: a row of nothing reads downstream as
+    /// "the ride had no power", which stops the fetch that would fill it.
+    #[test]
+    fn a_wide_fetch_stores_no_empty_series() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/streams.json");
+            then.status(200).json_body(streams_body(
+                json!([46.10, 46.12]),
+                json!([7.10, 7.12]),
+                vec![json!({"type": "watts", "data": [null, null]})],
+            ));
+        });
+
+        let r = fetch_one_wide(&server, "a1");
+
+        assert!(r.streams.is_empty(), "an all-gap series was stored");
+    }
+
+    #[test]
+    fn fit_download_returns_the_raw_bytes() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(200).body(vec![0x0Eu8, 0x10, 0x00, 0x00]);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let bytes = crate::runtime::block_on(f.download_fit_file("a1")).unwrap();
+
+        assert_eq!(bytes, vec![0x0E, 0x10, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn fit_download_surfaces_a_missing_file_as_an_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(404);
+        });
+
+        let f = fetcher_to(server.base_url());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1")).is_err());
     }
 }

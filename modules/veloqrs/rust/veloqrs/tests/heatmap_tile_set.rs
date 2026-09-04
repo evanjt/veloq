@@ -1,4 +1,4 @@
-//! Tier 0.3 — tile-set snapshot across lifecycle checkpoints.
+//! Tier 0.3, tile-set snapshot across lifecycle checkpoints.
 //!
 //! Complements `heatmap_parity` (which checks per-tile pixel output) by
 //! snapshotting the *set* of (z,x,y) tile files written at two lifecycle
@@ -11,12 +11,12 @@ use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
-fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentRouteEngine, TempDir) {
+fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("tile_set.db");
-    let mut engine = PersistentRouteEngine::new(db.to_str().unwrap()).expect("open engine");
+    let mut engine = PersistentEngine::new(db.to_str().unwrap()).expect("open engine");
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
@@ -25,7 +25,7 @@ fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentRouteEngine, Tem
     (engine, tmp)
 }
 
-fn generate_and_collect(engine: &mut PersistentRouteEngine, tmp: &TempDir) -> BTreeSet<String> {
+fn generate_and_collect(engine: &mut PersistentEngine, tmp: &TempDir) -> BTreeSet<String> {
     let tiles_dir = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles_dir).expect("create tiles dir");
     engine.set_heatmap_tiles_path(tiles_dir.to_str().unwrap().to_string());
@@ -94,7 +94,7 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
         }
         std::fs::write(&path, joined).expect("write fixture");
         panic!(
-            "fixture was missing — wrote it to {}. Review, then commit.",
+            "fixture was missing, wrote it to {}. Review, then commit.",
             path.display()
         );
     }

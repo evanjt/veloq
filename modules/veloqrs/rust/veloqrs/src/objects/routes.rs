@@ -27,10 +27,6 @@ impl RouteManager {
         with_engine(|e| e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from))
     }
 
-    fn get_summaries(&self) -> Result<Vec<crate::GroupSummary>, VeloqError> {
-        with_engine(|e| e.get_group_summaries())
-    }
-
     fn get_summaries_with_count(&self) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
         with_engine(|e| crate::FfiGroupSummariesResult {
             total_count: e.get_group_count(),
@@ -142,7 +138,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [exclude_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [exclude_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -156,7 +152,7 @@ impl RouteManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
                 log::warn!(
-                    "tracematch: [include_route_activity] Indicator recomputation failed: {}",
+                    "veloqrs: [include_route_activity] Indicator recomputation failed: {}",
                     err
                 );
             }
@@ -186,6 +182,24 @@ impl RouteManager {
         activity_ids: Vec<String>,
     ) -> Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError> {
         with_engine(|e| e.get_activity_route_highlights(&activity_ids))
+    }
+
+    /// Everything the route detail screen paints with: engine counts, the
+    /// route and the group list it is ranked within, every attempt across
+    /// sports, the consensus polyline, names, exclusions and signatures.
+    fn get_detail_data(
+        &self,
+        group_id: String,
+        current_activity_id: Option<String>,
+        min_group_activities: u32,
+    ) -> Result<crate::FfiRouteDetailData, VeloqError> {
+        with_engine(|e| {
+            e.route_detail_data(
+                &group_id,
+                current_activity_id.as_deref(),
+                min_group_activities,
+            )
+        })
     }
 
     fn set_representative(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {

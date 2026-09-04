@@ -1,15 +1,12 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats};
+use crate::persistence::persistent_engine_ffi::BACKUP_HANDLE;
+use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll};
 use log::info;
-use rusqlite::backup;
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
-pub struct VeloqEngine {
-    #[allow(dead_code)]
-    db_path: String,
-}
+pub struct VeloqEngine;
 
 #[uniffi::export]
 impl VeloqEngine {
@@ -23,11 +20,11 @@ impl VeloqEngine {
             .is_some();
 
         if !already {
-            info!("[VeloqEngine] Initializing at {}", db_path);
-            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path.clone());
+            info!("[VeloqEngine] Initialising at {}", db_path);
+            crate::persistence::persistent_engine_ffi::persistent_engine_init(db_path);
         }
 
-        Arc::new(Self { db_path })
+        Arc::new(Self)
     }
 
     fn is_initialized(&self) -> bool {
@@ -71,25 +68,11 @@ impl VeloqEngine {
     }
 
     /// Drop the persistent engine entirely, closing the SQLite connection.
-    /// The next call to `create()` will re-initialize from scratch.
+    /// The next call to `create()` will re-initialise from scratch.
     fn destroy(&self) {
         let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
         info!("[VeloqEngine] Destroying persistent engine");
         *guard = None;
-    }
-
-    fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
-        with_engine(|e| {
-            let count =
-                e.cleanup_old_activities(retention_days)
-                    .map_err(|e| VeloqError::Database {
-                        msg: format!("{}", e),
-                    })?;
-            if retention_days > 0 && count > 0 {
-                info!("[VeloqEngine] Cleanup: {} activities removed", count);
-            }
-            Ok(count)
-        })?
     }
 
     fn mark_for_recomputation(&self) -> Result<(), VeloqError> {
@@ -146,24 +129,48 @@ impl VeloqEngine {
         Arc::new(super::sync::SyncManager { _private: () })
     }
 
-    /// Create an atomic SQLite backup at the given path.
-    /// Uses sqlite3_backup API - safe to call while the database is in use.
-    fn backup_database(&self, dest_path: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            let mut dest =
-                rusqlite::Connection::open(&dest_path).map_err(|e| VeloqError::Database {
-                    msg: format!("Failed to open backup destination: {}", e),
-                })?;
-            let b = backup::Backup::new(&e.db, &mut dest).map_err(|e| VeloqError::Database {
-                msg: format!("Failed to init backup: {}", e),
-            })?;
-            b.run_to_completion(100, std::time::Duration::from_millis(10), None)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("Backup failed: {}", e),
-                })?;
-            info!("[VeloqEngine] Database backed up to {}", dest_path);
-            Ok(())
-        })?
+    /// Start an atomic SQLite backup at the given path on a background thread.
+    /// Poll `poll_backup` for the outcome. The copy runs on its own connection,
+    /// so neither the engine lock nor the calling thread waits for it.
+    fn start_backup(&self, dest_path: String) -> Result<(), VeloqError> {
+        let mut guard = BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A backup is already running".to_string(),
+            });
+        }
+        let handle = with_engine(|e| e.backup_database_background(&dest_path))?;
+        *guard = Some(handle);
+        Ok(())
+    }
+
+    /// Poll the running backup: "idle" | "running" | "complete". A failed copy
+    /// is an error, and either outcome clears the slot so the next backup can
+    /// start.
+    fn poll_backup(&self) -> Result<String, VeloqError> {
+        let mut guard = BACKUP_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Backup thread died without a result".to_string(),
+                })
+            }
+        }
     }
 
     /// Get backup metadata as JSON for validation before restore.

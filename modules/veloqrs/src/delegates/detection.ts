@@ -7,12 +7,12 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import type { FfiPotentialSection, FfiSectionConfig } from '../generated/veloqrs';
+import type { FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-export function startSectionDetection(host: DelegateHost, sportFilter?: string): boolean {
+export function startSectionDetection(host: DelegateHost): boolean {
   if (!host.ready) return false;
-  return host.timed('startSectionDetection', () => host.engine.detection().start(sportFilter));
+  return host.timed('startSectionDetection', () => host.engine.detection().start());
 }
 
 export function pollSectionDetection(host: DelegateHost): string {
@@ -28,7 +28,7 @@ export function pollSectionDetection(host: DelegateHost): string {
     // this, a Rust-side panic or DB failure in the detection apply path
     // disappeared into the void and the UI just showed a status string
     // with no context for debugging.
-    console.error('[RouteEngine] pollSectionDetection threw:', e);
+    console.error('[Engine] pollSectionDetection threw:', e);
     return 'error';
   }
 }
@@ -40,12 +40,6 @@ export function getSectionDetectionProgress(host: DelegateHost): SectionDetectio
   );
 }
 
-export function detectPotentials(host: DelegateHost, sportFilter?: string): FfiPotentialSection[] {
-  if (!host.ready) return [];
-  return host.timed('detectPotentials', () =>
-    host.engine.detection().detectPotentials(sportFilter)
-  );
-}
 
 export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
   if (!host.ready) return;
@@ -68,15 +62,15 @@ export function setMatchStrictness(
   );
 }
 
-export function forceRedetectSections(host: DelegateHost, sportFilter?: string): boolean {
+export function forceRedetectSections(host: DelegateHost): boolean {
   if (!host.ready) return false;
   try {
     const started = host.timed('forceRedetectSections', () =>
-      host.engine.detection().forceRedetect(sportFilter)
+      host.engine.detection().forceRedetect()
     );
     return started;
   } catch (e) {
-    console.error('[RouteEngine] forceRedetectSections failed:', e);
+    console.error('[Engine] forceRedetectSections failed:', e);
     return false;
   }
 }

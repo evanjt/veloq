@@ -45,7 +45,7 @@ tags:
             id: "login-screen"
           timeout: 15000
 
-# Now on login screen — expand API key section
+# Now on login screen, expand API key section
 - tapOn:
     id: "login-apikey-section"
 
@@ -61,7 +61,20 @@ tags:
 
 # Dismiss keyboard, then scroll the connect button into view before tapping
 # (with the keyboard up it sits below the fold on the login card).
-- hideKeyboard
+# iOS: hideKeyboard is unreliable on the simulator (Maestro's own error text
+# says to tap a non-interactive element instead), so tap the screen title.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Connect to Intervals.icu"
+          optional: true
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
 - scrollUntilVisible:
     element:
       id: "login-apikey-button"

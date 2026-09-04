@@ -1,4 +1,4 @@
-# Section Detail — Time Range Pills
+# Section Detail. Time Range Pills
 # US-D1: time-range pills live inside the chart header (compact, not full-width)
 # US-D2: traversal count + chart data reflect the selected range
 #
@@ -17,7 +17,7 @@ tags:
 
 # Deep-link directly to sections tab (tapOn: text: "Sections" is unreliable
 # on iOS where the Material Top Tab text isn't individually accessible)
-- openLink: "veloq://routes?tab=sections"
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
     when:
       visible: "Open"
@@ -29,7 +29,7 @@ tags:
       id: "routes-screen"
     timeout: 15000
 
-# Tap the first section in the list — the highest-visit section floats to
+# Tap the first section in the list, the highest-visit section floats to
 # the top by default sort, giving a meaningful delta between 1M and All.
 # If no sections have been detected yet, the list won't appear.
 - extendedWaitUntil:
@@ -49,7 +49,7 @@ tags:
         id: "sections-list"
     commands:
       - tapOn:
-          id: "section-row-0"
+          id: "section-row-.*"
 
 # Remaining assertions only run if we navigated to the section detail
 - extendedWaitUntil:

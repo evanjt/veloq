@@ -20,6 +20,7 @@ tags:
     direction: DOWN
     timeout: 15000
     speed: 40
+    centerElement: true
 
 # Wait for range buttons to render inside the weekly summary
 - extendedWaitUntil:
@@ -42,7 +43,7 @@ tags:
     timeout: 10000
     speed: 40
 
-# Verify component rendered (stats or empty state — both are valid)
+# Verify component rendered (stats or empty state, both are valid)
 # Longer timeout for the year range to compute from demo data
 - extendedWaitUntil:
     visible:

@@ -36,10 +36,6 @@ export function initMapCameraState(): Promise<void> {
 // Start reading immediately on import - don't wait for useEffect
 initMapCameraState();
 
-export function getMapCameraState(): MapCameraState | null {
-  return state;
-}
-
 export function saveMapCameraState(center: [number, number], zoom: number): void {
   state = { center, zoom };
   setSetting(STORAGE_KEY, JSON.stringify(state)).catch(() => {});

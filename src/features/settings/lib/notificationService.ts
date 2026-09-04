@@ -3,11 +3,21 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { brand } from '@/theme';
 import { debug } from '@/shared/debug/debug';
+import { tapTargetFromPushData } from '@/features/insights/lib/pushPayload';
 
 const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
 const SYNC_CHANNEL_ID = 'veloq-sync';
 const SYNC_NOTIFICATION_ID = 'sync-progress';
+
+/**
+ * expo-notifications reads the Android channel from the trigger and nowhere
+ * else. A `channelId` in `content` is dropped, and a null trigger falls back
+ * to expo's own channel, whose importance is hardcoded HIGH: that is how every
+ * sync progress re-post became a heads-up banner. iOS has no channels, so the
+ * trigger stays null and the notification is still immediate.
+ */
+const immediatelyOn = (channelId: string) => (Platform.OS === 'android' ? { channelId } : null);
 
 /** Set up notification handlers and channels. Call once at app startup. */
 export function initializeNotifications(): void {
@@ -93,9 +103,8 @@ export async function presentInsightNotification(
       body,
       data: data ?? {},
       priority: 'high',
-      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
-    trigger: null, // immediate
+    trigger: immediatelyOn(CHANNEL_ID),
   });
 }
 
@@ -118,9 +127,8 @@ export async function presentActivityNotification(
       body,
       data: data ?? {},
       priority: 'high',
-      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
-    trigger: null,
+    trigger: immediatelyOn(CHANNEL_ID),
   });
 }
 
@@ -133,9 +141,8 @@ export async function updateSyncNotification(body: string): Promise<void> {
         title: 'Veloq',
         body,
         sticky: true, // Android: can't swipe away during sync
-        ...(Platform.OS === 'android' ? { channelId: SYNC_CHANNEL_ID } : {}),
       },
-      trigger: null,
+      trigger: immediatelyOn(SYNC_CHANNEL_ID),
     });
   } catch (e) {
     if (__DEV__) console.warn('[SyncNotification] Failed to update:', e);
@@ -165,7 +172,7 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
       const id = notification.request.identifier;
       if (id !== 'sync-progress') {
         const data = notification.request.content.data;
-        console.log(`[Notification] Received (foreground) id=${id}`, data);
+        log.log(`[Notification] Received (foreground) id=${id}`, data);
       }
     }
   });
@@ -177,23 +184,31 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
 const handledResponseIds = new Set<string>();
 
 /**
- * Route based on notification data. Handles the activityId / sectionId / route
- * fields the same way regardless of whether the tap happened while the app was
- * running or launched the app cold.
+ * Route based on notification data, whether the tap happened while the app was
+ * running or launched it cold.
+ *
+ * The payload is unwrapped by `tapTargetFromPushData`, which is the same
+ * normalisation the background task uses. Reading `data.activityId` directly
+ * was the bug: iOS wraps the object as a JSON string and Android FCM data
+ * messages arrive under `body`, so the direct read was `undefined` and the tap
+ * went nowhere (`B144`).
+ *
+ * Exported so the four shapes can be tested against it.
  */
-function routeFromNotificationData(data: InsightNotificationData | undefined): void {
-  if (!data) return;
-  if (data.activityId) {
-    log.log('Navigating to activity:', data.activityId);
-    router.push(`/activity/${data.activityId}` as never);
-  } else if (data.sectionId) {
-    router.push(`/section/${data.sectionId}` as never);
-  } else if (data.route) {
-    log.log('Navigating to route:', data.route);
-    // navigate (not push) so a route that targets a mounted tab switches to it
-    // instead of stacking a duplicate tab screen on every notification tap
-    router.navigate(data.route as never);
+export function routeFromNotificationData(data: unknown): void {
+  const target = tapTargetFromPushData(data);
+  if (!target) return;
+  log.log('Notification tap routing to:', target.path);
+  if (target.mode === 'navigate') {
+    router.navigate(target.path as never);
+  } else {
+    router.push(target.path as never);
   }
+}
+
+/** Clears the tap dedupe set. Tests only, so one case cannot leak into the next. */
+export function __resetHandledResponseIds(): void {
+  handledResponseIds.clear();
 }
 
 /** Set up the notification response handler for deep linking. Call once at app startup. */
@@ -205,7 +220,7 @@ export function setupNotificationResponseHandler(): Notifications.Subscription {
       return;
     }
     handledResponseIds.add(id);
-    const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    const data = response.notification.request.content.data;
     log.log('Tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   });
@@ -225,7 +240,7 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     const id = response.notification.request.identifier;
     if (handledResponseIds.has(id)) return;
     handledResponseIds.add(id);
-    const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   } catch (e) {

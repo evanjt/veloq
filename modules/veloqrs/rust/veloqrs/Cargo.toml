@@ -13,6 +13,12 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 [features]
 default = []
 synthetic = ["tracematch/synthetic"]
+# Targets that read the owner's private GPX corpora. The traces never enter the
+# repository, so a machine without them must not build these at all.
+real-corpus = []
+# Times every engine lock take per caller and prints the table to the log.
+# Measurement only, never on by default.
+lock-trace = []
 
 [dependencies]
 # Core algorithm library
@@ -28,8 +34,9 @@ rmp-serde = "1.1"
 postcard = { version = "1", features = ["alloc"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip"], default-features = false }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs"] }
+tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
 base64 = "0.22"
 
@@ -62,18 +69,11 @@ oslog = "0.2"
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }
 
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = "s"
-strip = false
-
-[profile.release-mobile]
-inherits = "release"
-panic = "abort"
-
 [dev-dependencies]
 tempfile = "3.27"
+# The commit hook counts transactions, which is how a page write proves it
+# is one commit and not one per row.
+rusqlite = { version = "0.31", features = ["hooks"] }
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"
@@ -82,7 +82,23 @@ httpmock = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
 [[test]]
+name = "accepted_bounds_dedup"
+required-features = ["synthetic"]
+
+[[test]]
+name = "clear_resets_identity"
+required-features = ["synthetic"]
+
+[[test]]
 name = "persistence_stress"
+required-features = ["synthetic"]
+
+[[test]]
+name = "named_corridors"
+required-features = ["synthetic"]
+
+[[test]]
+name = "registry_adoption"
 required-features = ["synthetic"]
 
 [[test]]
@@ -102,7 +118,19 @@ name = "schema_indexes"
 required-features = ["synthetic"]
 
 [[test]]
-name = "consensus_persistence"
+name = "detection_pool_invariance"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_sport_membership"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_blob_is_droppable"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_geometry_reference"
 required-features = ["synthetic"]
 
 [[test]]
@@ -117,6 +145,141 @@ required-features = ["synthetic"]
 name = "heatmap_tile_set"
 required-features = ["synthetic"]
 
+[[test]]
+name = "index_new_activity"
+required-features = ["synthetic"]
+
+[[test]]
+name = "playback_vs_batch"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_portions_roundtrip"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_zero_visit_guard"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_battery"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_cache_coherence"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_concurrency_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_config_stability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_determinism"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_edits"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_edits_geometry"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_determinism"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_engine_cache"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_lifecycle"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_merge_evolution"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_multigeo_sport"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_order_idempotency"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_routes_lifecycle"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_events"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_history"
+required-features = ["synthetic"]
+
+[[test]]
+name = "apply_idempotency"
+required-features = ["synthetic"]
+
+[[test]]
+name = "identity_seam"
+required-features = ["synthetic"]
+
+# These six carry a crate-level `#![cfg(feature = "synthetic")]`. Without a
+# stanza cargo still builds them under the default lane and prints
+# `ok. 0 passed`, so a skipped file is indistinguishable from a passing one.
+[[test]]
+name = "section_summaries_read_path"
+required-features = ["synthetic"]
+
+[[test]]
+name = "conditioning_driver"
+required-features = ["synthetic"]
+
+[[test]]
+name = "ffi_add_conditions"
+required-features = ["synthetic"]
+
+[[test]]
+name = "refresh_portions"
+required-features = ["synthetic"]
+
+[[test]]
+name = "two_tier_ingest"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_settles"
+required-features = ["synthetic"]
+
+[[test]]
+name = "exclusion_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "custom_section_survives_clear"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_count_matches_the_list"
+required-features = ["synthetic"]
+
+[[test]]
+name = "identity_reseed"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_fixed_point"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false
@@ -125,3 +288,37 @@ required-features = ["synthetic"]
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
+
+# Diagnostics over a private .veloqdb export. Not a test: it asserts nothing
+# and CI has no database to point it at.
+[[example]]
+name = "detection_audit"
+path = "examples/detection_audit.rs"
+
+[[test]]
+name = "corpus_migration"
+required-features = ["real-corpus"]
+
+[[test]]
+name = "evidence_cache_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_final_cache"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_attribution"
+required-features = ["synthetic"]
+
+[[test]]
+name = "content_ids"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_enrichment"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_resume"
+required-features = ["synthetic"]

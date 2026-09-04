@@ -42,7 +42,3 @@ export function stopSimulatedSensors(): void {
   store.setConnection(SIMULATED_ID, null);
   store.clearLatest();
 }
-
-export function isSimulatedSensorsRunning(): boolean {
-  return timer !== null;
-}

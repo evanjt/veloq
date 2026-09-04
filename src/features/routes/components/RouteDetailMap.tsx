@@ -12,7 +12,7 @@ interface RouteDetailMapProps {
   routeGroup: FinalRouteGroup;
   highlightedActivityId: string | null;
   highlightedActivityPoints: RoutePoint[] | undefined;
-  signatures: Record<string, { points: Array<{ lat: number; lng: number }> }>;
+  signatures: Record<string, { points: { lat: number; lng: number }[] }>;
   hasMapData: boolean;
   activityColor: string;
 }

@@ -3,16 +3,12 @@ import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
-import {
-  computeInsightsFromData,
-  fetchInsightsDataFromEngine,
-  invalidateInsightsCache,
-} from '../lib/computeInsightsData';
-import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from '../lib/computeInsightsData';
+import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
 import type { Insight } from '../types';
 
 /**
@@ -26,13 +22,12 @@ import type { Insight } from '../types';
  * in background tasks without React.
  */
 export function useInsights(
-  preComputedInsightsData?: FfiInsightsDataShape | null,
+  preComputedInsightsData?: InsightsData | null,
   /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
   skipOwnFfiCall = false,
-  preComputedSummaryCardData?: FfiSummaryCardDataShape | null
+  preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
-  topInsight: Insight | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
 } {
@@ -50,8 +45,6 @@ export function useInsights(
     if (trigger !== lastSeenTriggerRef.current) {
       dirtyRef.current = true;
       lastSeenTriggerRef.current = trigger;
-      // Invalidate cached FFI results so next computation fetches fresh data
-      invalidateInsightsCache();
     }
   }, [trigger]);
   useFocusEffect(
@@ -116,7 +109,6 @@ export function useInsights(
       let summaryData = preComputedSummaryCardData;
       if (!data) {
         if (skipOwnFfiCall) return;
-        // fetchInsightsDataFromEngine uses a 30s cache to avoid redundant FFI calls
         const fetched = fetchInsightsDataFromEngine();
         data = fetched?.insightsData ?? null;
         summaryData = fetched?.summaryCardData ?? null;
@@ -198,7 +190,6 @@ export function useInsights(
 
   return {
     insights: annotatedInsights,
-    topInsight: annotatedInsights[0] ?? null,
     hasNewInsights,
     markAsSeen,
   };

@@ -1,5 +1,10 @@
-import type { InsightMethodology, InsightSupportingData } from '../types';
-import type { Insight, PeriodStats, TFunc } from '../types';
+import type {
+  InsightMethodology,
+  InsightSupportingData,
+  Insight,
+  PeriodStats,
+  TFunc,
+} from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';
 import { insightIcon } from '@/theme';
@@ -106,7 +111,7 @@ export function generatePeriodComparisonInsights(
         iconColor: insightIcon.positive,
         title: t(upKey, { percent }),
         body,
-        navigationTarget: '/routes?tab=routes',
+        navigationTarget: '/insights?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
@@ -123,7 +128,7 @@ export function generatePeriodComparisonInsights(
         iconColor: insightIcon.caution,
         title: t(downKey, { percent }),
         body,
-        navigationTarget: '/routes?tab=routes',
+        navigationTarget: '/insights?tab=routes',
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
@@ -163,7 +168,7 @@ function generateLastWeekVsAverageInsight(
       icon: ratio > 0 ? 'trending-up' : 'trending-down',
       iconColor: ratio > 0 ? insightIcon.positive : insightIcon.caution,
       title: t('insights.weeklyLoad.title', { percent, direction }),
-      navigationTarget: '/routes?tab=routes',
+      navigationTarget: '/insights?tab=routes',
       timestamp: now,
       meta: {
         sourceTimestamp: now,

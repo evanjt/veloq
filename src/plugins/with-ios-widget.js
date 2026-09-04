@@ -32,6 +32,29 @@ function copyDir(src, dest) {
   }
 }
 
+/**
+ * Delete files under `dest` that no longer exist under `src`. copyDir alone is
+ * additive, so a resource removed from widget/ would linger in ios/.
+ *
+ * Swift files are deliberately left alone: the Sources build phase still
+ * references them, and deleting the file without removing that reference fails
+ * the Xcode build outright. Removing a Swift file from the widget therefore
+ * still needs a clean prebuild (`npx expo prebuild -p ios --clean`).
+ */
+function pruneRemoved(src, dest) {
+  if (!fs.existsSync(dest)) return;
+  for (const entry of fs.readdirSync(dest, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      if (fs.existsSync(from)) pruneRemoved(from, to);
+      else fs.rmSync(to, { recursive: true, force: true });
+    } else if (!fs.existsSync(from) && !entry.name.endsWith(".swift")) {
+      fs.rmSync(to, { force: true });
+    }
+  }
+}
+
 function withWidgetFiles(config) {
   return withDangerousMod(config, [
     "ios",
@@ -39,15 +62,80 @@ function withWidgetFiles(config) {
       const src = path.join(cfg.modRequest.projectRoot, "widget", "ios", TARGET);
       const dest = path.join(cfg.modRequest.platformProjectRoot, TARGET);
       copyDir(src, dest);
+      pruneRemoved(src, dest);
       return cfg;
     },
   ]);
 }
 
+const unquote = (v) => String(v ?? "").replace(/^"|"$/g, "");
+
+/**
+ * The uuid of a native target by name.
+ *
+ * Neither `findTargetKey` nor `pbxTargetByName` finds it: pbxproj stores the
+ * name and the section comment quoted, and both helpers compare against the
+ * bare string. That is why the old `if (proj.pbxTargetByName(TARGET)) return`
+ * idempotency guard never fired, and every incremental prebuild appended
+ * another copy of the widget target.
+ */
+function targetUuidByName(proj, name) {
+  const section = proj.pbxNativeTargetSection();
+  for (const key of Object.keys(section)) {
+    if (!key.endsWith("_comment")) continue;
+    if (unquote(section[key]) === name) return key.replace(/_comment$/, "");
+  }
+  return null;
+}
+
+/** Swift file names already compiled by a target, without the phase suffix. */
+function compiledSourceNames(proj, targetUuid) {
+  const phase = proj.pbxSourcesBuildPhaseObj(targetUuid);
+  const names = new Set();
+  for (const entry of phase?.files ?? []) {
+    const name = unquote(String(entry.comment || "").replace(/ in Sources$/, ""));
+    if (name) names.add(name);
+  }
+  return names;
+}
+
+/**
+ * Add Swift files present on disk but missing from the target's Sources phase.
+ * The target survives every prebuild after the first, so without this a file
+ * added to widget/ios is copied into ios/ and then never compiled.
+ */
+function addMissingSourceFiles(proj, targetUuid, swiftFiles) {
+  const compiled = compiledSourceNames(proj, targetUuid);
+  const missing = swiftFiles.filter((f) => !compiled.has(f));
+  if (missing.length === 0) return;
+
+  let groupUuid = proj.findPBXGroupKey({ name: TARGET });
+  if (!groupUuid) {
+    const group = proj.addPbxGroup([], TARGET, TARGET);
+    proj.addToPbxGroup(group.uuid, proj.getFirstProject().firstProject.mainGroup);
+    groupUuid = group.uuid;
+  }
+  for (const file of missing) {
+    proj.addSourceFile(file, { target: targetUuid }, groupUuid);
+  }
+}
+
 function withWidgetTarget(config) {
   return withXcodeProject(config, (cfg) => {
     const proj = cfg.modResults;
-    if (proj.pbxTargetByName(TARGET)) return cfg; // idempotent
+    const srcDirExisting = path.join(cfg.modRequest.projectRoot, "widget", "ios", TARGET);
+    // The phase helpers key off the target uuid, and pbxTargetByName returns
+    // the target object instead. Passing that through resolves to the FIRST
+    // sources phase in the project, which belongs to the app.
+    const existingTargetUuid = targetUuidByName(proj, TARGET);
+    if (existingTargetUuid) {
+      addMissingSourceFiles(
+        proj,
+        existingTargetUuid,
+        fs.readdirSync(srcDirExisting).filter((f) => f.endsWith(".swift"))
+      );
+      return cfg;
+    }
 
     const appBundleId = cfg.ios?.bundleIdentifier || "com.veloq.app";
     const widgetBundleId = `${appBundleId}.${TARGET}`;

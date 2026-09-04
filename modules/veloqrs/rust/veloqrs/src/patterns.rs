@@ -3,7 +3,7 @@
 //! Groups activities by sport type and clusters them based on feature vectors:
 //! `[day_of_week_norm, duration_norm, tss_norm, distance_norm]`
 //!
-//! Uses k-means++ initialization and silhouette method for optimal k selection.
+//! Uses k-means++ initialisation and silhouette method for optimal k selection.
 //! Enriches clusters with commonly-traversed sections from the `section_activities` table.
 
 use std::collections::HashMap;
@@ -29,8 +29,6 @@ struct ActivityFeature {
 
 /// K-means cluster result.
 struct ActivityCluster {
-    #[allow(dead_code)]
-    centroid: [f64; 4],
     members: Vec<usize>, // indices into features array
     silhouette: f64,
 }
@@ -55,6 +53,9 @@ const MIN_K: usize = 2;
 const KMEANS_MAX_ITERATIONS: usize = 100;
 const KMEANS_CONVERGENCE_THRESHOLD: f64 = 1e-6;
 const SECTION_APPEARANCE_THRESHOLD: f64 = 0.5; // 50% of cluster activities
+/// A pattern's half-and-half average has to move by this fraction before the
+/// pattern is called improving or declining.
+const PATTERN_TREND_DEADBAND: f64 = 0.03;
 
 // ============================================================================
 // Public API
@@ -87,21 +88,21 @@ pub fn compute_activity_patterns(
             continue;
         }
 
-        // Build normalized feature matrix for this sport group
+        // Build normalised feature matrix for this sport group
         let sport_features: Vec<&ActivityFeature> = indices.iter().map(|&i| &features[i]).collect();
-        let normalized = normalize_features(&sport_features);
-        if normalized.is_empty() {
+        let normalised = normalise_features(&sport_features);
+        if normalised.is_empty() {
             continue;
         }
 
         // Find optimal k via silhouette method
-        let (clusters, best_k) = find_optimal_clusters(&normalized);
+        let (clusters, best_k) = find_optimal_clusters(&normalised);
         if clusters.is_empty() {
             continue;
         }
 
         log::info!(
-            "tracematch: [Patterns] Sport '{}': {} activities -> k={} clusters",
+            "veloqrs: [Patterns] Sport '{}': {} activities -> k={} clusters",
             sport_type,
             indices.len(),
             best_k
@@ -112,7 +113,7 @@ pub fn compute_activity_patterns(
             if let Some(pattern) = build_pattern(
                 db,
                 &sport_features,
-                &normalized,
+                &normalised,
                 cluster,
                 sport_type,
                 cluster_idx as u8,
@@ -226,11 +227,11 @@ fn load_training_loads(db: &Connection) -> HashMap<String, f64> {
 }
 
 // ============================================================================
-// Normalization
+// Normalisation
 // ============================================================================
 
-/// Normalize features to [0, 1] range. Returns Vec of [day_norm, duration_norm, tss_norm, distance_norm].
-fn normalize_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
+/// Normalise features to [0, 1] range. Returns Vec of [day_norm, duration_norm, tss_norm, distance_norm].
+fn normalise_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
     if features.is_empty() {
         return Vec::new();
     }
@@ -248,9 +249,9 @@ fn normalize_features(features: &[&ActivityFeature]) -> Vec<[f64; 4]> {
         .map(|f| {
             [
                 f.day_of_week as f64 / 6.0,
-                min_max_normalize(f.duration_secs as f64, dur_min, dur_max),
-                min_max_normalize(f.tss, tss_min, tss_max),
-                min_max_normalize(f.distance_meters, dist_min, dist_max),
+                min_max_normalise(f.duration_secs as f64, dur_min, dur_max),
+                min_max_normalise(f.tss, tss_min, tss_max),
+                min_max_normalise(f.distance_meters, dist_min, dist_max),
             ]
         })
         .collect()
@@ -262,7 +263,7 @@ fn min_max(vals: &[f64]) -> (f64, f64) {
     (min, max)
 }
 
-fn min_max_normalize(val: f64, min: f64, max: f64) -> f64 {
+fn min_max_normalise(val: f64, min: f64, max: f64) -> f64 {
     if (max - min).abs() < 1e-12 {
         0.5
     } else {
@@ -290,7 +291,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     let mut best_k = MIN_K;
 
     for k in MIN_K..=max_k {
-        let (centroids, assignments) = kmeans(data, k);
+        let (_centroids, assignments) = kmeans(data, k);
         let silhouette = compute_silhouette(data, &assignments, k);
 
         if silhouette > best_silhouette {
@@ -298,7 +299,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
             best_k = k;
 
             // Build cluster objects
-            best_clusters = build_clusters(&centroids, &assignments, data, k);
+            best_clusters = build_clusters(&assignments, data, k);
         }
     }
 
@@ -309,7 +310,7 @@ fn find_optimal_clusters(data: &[[f64; 4]]) -> (Vec<ActivityCluster>, usize) {
     (best_clusters, best_k)
 }
 
-/// K-means++ initialization followed by Lloyd's algorithm.
+/// K-means++ initialisation followed by Lloyd's algorithm.
 fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
     let mut centroids = kmeans_plus_plus_init(data, k);
     let mut assignments = vec![0usize; data.len()];
@@ -346,6 +347,12 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
                 for d in 0..4 {
                     new_centroids[c][d] /= counts[c] as f64;
                 }
+            } else {
+                // A cluster that lost every point keeps its position. Leaving
+                // it zeroed moves it to the origin, which is a live corner of
+                // the normalised space (Monday, shortest, lowest load), so the
+                // orphan captures real points on the next pass.
+                new_centroids[c] = centroids[c];
             }
         }
 
@@ -366,7 +373,7 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
     (centroids, assignments)
 }
 
-/// K-means++ initialization: pick first centroid randomly, then pick subsequent
+/// K-means++ initialisation: pick first centroid randomly, then pick subsequent
 /// centroids with probability proportional to squared distance from nearest existing centroid.
 fn kmeans_plus_plus_init(data: &[[f64; 4]], k: usize) -> Vec<[f64; 4]> {
     let n = data.len();
@@ -456,7 +463,10 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if same_count == 0 {
-            // Singleton cluster
+            // A singleton scores 0 by definition. Skipping it instead removes
+            // it from the denominator and biases k upward, which fragments a
+            // real cluster into pieces that then fall under MIN_CLUSTER_SIZE.
+            valid_count += 1;
             continue;
         }
 
@@ -485,14 +495,16 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if b_i.is_infinite() {
+            valid_count += 1;
             continue;
         }
 
         let max_ab = a_i.max(b_i);
         if max_ab > 0.0 {
             total_silhouette += (b_i - a_i) / max_ab;
-            valid_count += 1;
         }
+        // Coincident points give max_ab == 0, which scores 0, not nothing.
+        valid_count += 1;
     }
 
     if valid_count == 0 {
@@ -503,12 +515,7 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
 }
 
 /// Build ActivityCluster objects from k-means results.
-fn build_clusters(
-    centroids: &[[f64; 4]],
-    assignments: &[usize],
-    data: &[[f64; 4]],
-    k: usize,
-) -> Vec<ActivityCluster> {
+fn build_clusters(assignments: &[usize], data: &[[f64; 4]], k: usize) -> Vec<ActivityCluster> {
     let mut clusters = Vec::with_capacity(k);
 
     for c in 0..k {
@@ -527,7 +534,6 @@ fn build_clusters(
         let cluster_silhouette = compute_cluster_silhouette(data, assignments, &members, c, k);
 
         clusters.push(ActivityCluster {
-            centroid: centroids[c],
             members,
             silhouette: cluster_silhouette,
         });
@@ -612,7 +618,7 @@ fn compute_cluster_silhouette(
 fn build_pattern(
     db: &Connection,
     features: &[&ActivityFeature],
-    _normalized: &[[f64; 4]],
+    _normalised: &[[f64; 4]],
     cluster: &ActivityCluster,
     sport_type: &str,
     cluster_id: u8,
@@ -709,7 +715,7 @@ fn build_pattern(
 
 /// Compute weighted confidence score.
 fn compute_confidence(silhouette: f64, count: usize, span_days: i64, frequency: f32) -> f32 {
-    // Silhouette weight: 0.3 (normalized, already 0..1 range effectively)
+    // Silhouette weight: 0.3 (normalised, already 0..1 range effectively)
     let sil_score = silhouette.max(0.0).min(1.0);
 
     // Count richness weight: 0.3 (log scale, saturates at ~50 activities)
@@ -958,20 +964,7 @@ fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
 
     // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
     // has no meaningful trend.
-    if !older_avg.is_finite() || older_avg <= 0.0 || !recent_avg.is_finite() {
-        return None;
-    }
-
-    // Compare: if recent is faster (lower), that's improving
-    let change_pct = (recent_avg - older_avg) / older_avg;
-
-    if change_pct < -0.03 {
-        Some(1) // Improving (recent times are lower/faster)
-    } else if change_pct > 0.03 {
-        Some(-1) // Declining (recent times are higher/slower)
-    } else {
-        Some(0) // Stable
-    }
+    crate::trend::classify_time(older_avg, recent_avg, PATTERN_TREND_DEADBAND)
 }
 
 // ============================================================================
@@ -1060,12 +1053,12 @@ mod tests {
     }
 
     #[test]
-    fn test_min_max_normalize() {
-        assert_eq!(min_max_normalize(5.0, 0.0, 10.0), 0.5);
-        assert_eq!(min_max_normalize(0.0, 0.0, 10.0), 0.0);
-        assert_eq!(min_max_normalize(10.0, 0.0, 10.0), 1.0);
+    fn test_min_max_normalise() {
+        assert_eq!(min_max_normalise(5.0, 0.0, 10.0), 0.5);
+        assert_eq!(min_max_normalise(0.0, 0.0, 10.0), 0.0);
+        assert_eq!(min_max_normalise(10.0, 0.0, 10.0), 1.0);
         // Equal min/max returns 0.5
-        assert_eq!(min_max_normalize(5.0, 5.0, 5.0), 0.5);
+        assert_eq!(min_max_normalise(5.0, 5.0, 5.0), 0.5);
     }
 
     #[test]
@@ -1199,16 +1192,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_metrics_returns_empty() {
-        // Cannot test compute_activity_patterns without a real DB connection,
-        // but we can verify the early return path is sane
-        let features: Vec<&ActivityFeature> = vec![];
-        let normalized = normalize_features(&features);
-        assert!(normalized.is_empty());
-    }
-
-    #[test]
-    fn test_normalize_features_single() {
+    fn test_normalise_features_single() {
         let f = ActivityFeature {
             activity_id: "a".to_string(),
             sport_type: "Ride".to_string(),
@@ -1219,13 +1203,13 @@ mod tests {
             distance_meters: 30000.0,
         };
         let features = vec![&f];
-        let normalized = normalize_features(&features);
-        assert_eq!(normalized.len(), 1);
-        // With single item, duration/tss/distance normalize to 0.5 (equal min/max)
-        assert!((normalized[0][1] - 0.5).abs() < 1e-10);
-        assert!((normalized[0][2] - 0.5).abs() < 1e-10);
-        assert!((normalized[0][3] - 0.5).abs() < 1e-10);
+        let normalised = normalise_features(&features);
+        assert_eq!(normalised.len(), 1);
+        // With single item, duration/tss/distance normalise to 0.5 (equal min/max)
+        assert!((normalised[0][1] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][2] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][3] - 0.5).abs() < 1e-10);
         // Day 3 / 6.0 = 0.5
-        assert!((normalized[0][0] - 0.5).abs() < 1e-10);
+        assert!((normalised[0][0] - 0.5).abs() < 1e-10);
     }
 }

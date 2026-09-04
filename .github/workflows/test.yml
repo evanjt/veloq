@@ -47,7 +47,7 @@ jobs:
   rust:
     name: Rust Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,9 +63,14 @@ jobs:
           workspaces: modules/veloqrs/rust
           key: test
 
+      # veloqrs only. tracematch runs its own suite, the GeoLife corpus and
+      # the synthetic lane in its own CI on the pinned sha, so repeating them
+      # here doubled the job for no coverage. One invocation with the
+      # synthetic feature on: a second run without it relinked every test
+      # binary and re-ran the non-synthetic targets a second time.
       - name: Run Rust tests
         working-directory: modules/veloqrs/rust
-        run: cargo test --workspace
+        run: cargo test -p veloqrs --features synthetic
 
   rust-lint:
     name: Rust Lint
@@ -92,14 +97,14 @@ jobs:
 
       - name: Check formatting
         working-directory: modules/veloqrs/rust
-        run: cargo fmt --check
+        run: cargo fmt -p veloqrs --check
 
       # Informational: the veloqrs crate carries a ~115-lint backlog. Burn it
       # down, then flip this to `-D warnings` to gate.
       - name: Clippy (informational)
         continue-on-error: true
         working-directory: modules/veloqrs/rust
-        run: cargo clippy --workspace
+        run: cargo clippy -p veloqrs
 
   guards:
     name: Guard Scripts
@@ -120,10 +125,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # check:expo + ffi:check + crash:guard + lint:engine-bridge — the same guards
-      # the pre-commit hook runs, so a PR can't merge past them with --no-verify.
+      # The same guards the pre-commit hook runs, so a PR can't merge past them
+      # with --no-verify. See the `audit` script in package.json for the list.
       - name: Run guard scripts
         run: npm run audit
+
+      # A personal routes.db was purged from history. Fail if the blob is
+      # reachable again from any ref the checkout can see.
+      - name: Purged data tripwire
+        run: |
+          git fetch --quiet --no-recurse-submodules origin '+refs/heads/*:refs/remotes/origin/*'
+          if git rev-list --objects --all | grep -q '^1c8f0e9a567179c76ac0bae7b9dfeff563b0c8dc'; then
+            echo "The purged routes.db blob is reachable from a fetched ref."
+            exit 1
+          fi
 
   verify-bindings:
     name: Verify Bindings

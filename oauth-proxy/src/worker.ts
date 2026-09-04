@@ -345,7 +345,7 @@ const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
  * of devices (phone, tablet, maybe a watch companion). Anything beyond this
  * is almost certainly token rotation noise from dev/release reinstalls. The
  * webhook path also reactively prunes tokens Expo flags as DeviceNotRegistered
- * — this cap is a backstop for the case where no webhooks fire.
+ *, this cap is a backstop for the case where no webhooks fire.
  */
 const MAX_TOKENS_PER_ATHLETE = 10;
 
@@ -361,7 +361,7 @@ const PROCESSED_EVENTS = new Set([
 
 /**
  * Build the visible portion of the push for events that warrant a tray
- * notification even when the app is in FLAG_STOPPED. The text is generic —
+ * notification even when the app is in FLAG_STOPPED. The text is generic,
  * the on-device task replaces it with enriched content (PR detection, etc.)
  * when the app is alive. Returns null for events that shouldn't surface a
  * tray entry on their own (wellness/fitness updates are background-only).
@@ -423,7 +423,7 @@ async function handleDeviceRegister(
 
     // Hard cap to protect against runaway accumulation if reactive pruning
     // (DeviceNotRegistered cleanup in the webhook path) hasn't run for a
-    // while. Multi-device users are unaffected — typical case is 1–3 real
+    // while. Multi-device users are unaffected, typical case is 1–3 real
     // devices. Drop the oldest by registeredAt when the cap is exceeded.
     if (tokens.length > MAX_TOKENS_PER_ATHLETE) {
       tokens.sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));
@@ -500,12 +500,12 @@ async function handleIntervalsWebhook(
   try {
     const payload = (await request.json()) as {
       secret?: string;
-      events?: Array<{
+      events?: {
         athlete_id?: string;
         type?: string;
         timestamp?: string;
         activity?: { id?: string };
-      }>;
+      }[];
     };
 
     // Validate shared secret
@@ -543,7 +543,7 @@ async function handleIntervalsWebhook(
 
       // Send hybrid visible+data push to each device. Visible title/body lets
       // the OS display a notification even when the app is in FLAG_STOPPED
-      // (force-stopped, OEM-hibernated, or freshly installed) — those apps
+      // (force-stopped, OEM-hibernated, or freshly installed), those apps
       // cannot receive any broadcast, including silent data-only pushes. When
       // the app IS alive the data payload still wakes the background task,
       // which re-schedules the notification with enriched content via the
@@ -560,7 +560,7 @@ async function handleIntervalsWebhook(
           .then((alive) => ({ token: device.token, alive }))
           .catch((err) => {
             console.error(`Push failed for ${device.platform}:`, err);
-            // Transient transport error — keep the token (don't prune).
+            // Transient transport error, keep the token (don't prune).
             return { token: device.token, alive: true };
           })
       );
@@ -600,7 +600,7 @@ async function handleIntervalsWebhook(
 /**
  * Send a silent push notification via Expo Push Service.
  * Expo handles FCM (Android) and APNs (iOS) routing transparently.
- * No Firebase project or APNs key required — Expo Push is free.
+ * No Firebase project or APNs key required. Expo Push is free.
  *
  * Payload contains only event_type + activity_id (zero personal data).
  *
@@ -624,9 +624,8 @@ async function sendExpoPush(
   //   2. Silent data push: wakes the task so it can enrich the notification
   //      by replacing the visible one in place via activity-${activityId} tag.
   // When the app is FLAG_STOPPED the silent push is dropped by the OS and
-  // only the visible one shows — exactly what we want.
+  // only the visible one shows, exactly what we want.
   const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
-  const tag = activityId ? `activity-${activityId}` : undefined;
 
   const messages: Record<string, unknown>[] = [];
 
@@ -660,7 +659,7 @@ async function sendExpoPush(
   // `data` FCM message so ExpoFirebaseMessagingService delivers it to the
   // TaskManager task instead of the OS rendering a blank tray entry.
   // iOS: APNs requires apns-priority 5 for content-available background
-  // pushes — "high" (10) risks throttling or silent drops. Expo derives
+  // pushes, "high" (10) risks throttling or silent drops. Expo derives
   // apns-push-type: background from _contentAvailable. Android keeps high
   // priority so aggressive OEMs deliver the data message promptly.
   messages.push({
@@ -684,7 +683,7 @@ async function sendExpoPush(
     const body = await response.text();
     if (!response.ok) {
       console.error(`Expo push failed (${response.status}): ${body}`);
-      continue; // transport error — don't prune on transient failures
+      continue; // transport error, don't prune on transient failures
     }
 
     console.log(`Expo push ok: ${body}`);
@@ -699,7 +698,7 @@ async function sendExpoPush(
         alive = false;
       }
     } catch {
-      // unparseable body — assume alive
+      // unparseable body, assume alive
     }
   }
 

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, darkColors, spacing } from '@/theme';
 
 interface DebugInfoPanelProps {
-  entries: Array<{ label: string; value: string }>;
+  entries: { label: string; value: string }[];
   isDark: boolean;
 }
 
@@ -20,7 +20,12 @@ export function DebugInfoPanel({ entries, isDark }: DebugInfoPanelProps) {
       {entries.map((entry) => (
         <View key={entry.label} style={styles.row}>
           <Text style={[styles.label, isDark && styles.textMuted]}>{entry.label}</Text>
-          <Text style={[styles.value, isDark && styles.valueDark]}>{entry.value}</Text>
+          <Text
+            testID={`debug-value-${entry.label}`}
+            style={[styles.value, isDark && styles.valueDark]}
+          >
+            {entry.value}
+          </Text>
         </View>
       ))}
     </View>

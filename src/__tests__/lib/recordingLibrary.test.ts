@@ -8,6 +8,29 @@
  * counts, and legacy pending_uploads migration.
  */
 
+import {
+  saveRecording,
+  listRecordings,
+  getRecording,
+  readRecordingFit,
+  readRecordingStreams,
+  markRecordingUploaded,
+  markRecordingUploadFailed,
+  markRecordingRejected,
+  markRecordingPermissionBlocked,
+  requeueRecording,
+  clearPermissionBlocked,
+  demotePendingToLocalOnly,
+  nextPendingUpload,
+  deleteRecording,
+  getUnuploadedCount,
+  getPermissionBlockedCount,
+  isRetryEligible,
+  migrateLegacyUploadQueue,
+  bufferToBase64,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import type { RecordingStreams } from '@/features/recording/types';
+
 jest.mock('@/shared/debug/debug', () => ({
   debug: {
     log: () => {},
@@ -62,29 +85,6 @@ jest.mock('expo-file-system/legacy', () => ({
     mockFileStore.delete(from);
   }),
 }));
-
-import {
-  saveRecording,
-  listRecordings,
-  getRecording,
-  readRecordingFit,
-  readRecordingStreams,
-  markRecordingUploaded,
-  markRecordingUploadFailed,
-  markRecordingRejected,
-  markRecordingPermissionBlocked,
-  requeueRecording,
-  clearPermissionBlocked,
-  demotePendingToLocalOnly,
-  nextPendingUpload,
-  deleteRecording,
-  getUnuploadedCount,
-  getPermissionBlockedCount,
-  isRetryEligible,
-  migrateLegacyUploadQueue,
-  bufferToBase64,
-} from '@/features/recording/lib/storage/recordingLibrary';
-import type { RecordingStreams } from '@/features/recording/types';
 
 function makeBuffer(): ArrayBuffer {
   return new Uint8Array([0x0e, 0x10, 0x56, 0x45, 0x4c, 0x4f, 0x51]).buffer;

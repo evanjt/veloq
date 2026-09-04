@@ -24,13 +24,9 @@ export function isFitProcessed(host: DelegateHost, activityId: string): boolean 
   return host.timed('isFitProcessed', () => host.engine.strength().isFitProcessed(activityId));
 }
 
-export function fetchAndParseExerciseSets(
-  host: DelegateHost,
-  authHeader: string,
-  activityId: string
-): FfiExerciseSet[] {
+export function fetchAndParseExerciseSets(host: DelegateHost, activityId: string): boolean {
   return host.timed('fetchAndParseExerciseSets', () =>
-    host.engine.strength().fetchAndParseExerciseSets(authHeader, activityId)
+    host.engine.strength().fetchAndParseExerciseSets(activityId)
   );
 }
 
@@ -44,13 +40,9 @@ export function getUnprocessedStrengthIds(host: DelegateHost, activityIds: strin
   );
 }
 
-export function batchFetchExerciseSets(
-  host: DelegateHost,
-  authHeader: string,
-  activityIds: string[]
-): string[] {
+export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): boolean {
   return host.timed('batchFetchExerciseSets', () =>
-    host.engine.strength().batchFetchExerciseSets(authHeader, activityIds)
+    host.engine.strength().batchFetchExerciseSets(activityIds)
   );
 }
 
@@ -66,8 +58,14 @@ export function importSetsFromFit(
   activityId: string,
   fitBytes: Uint8Array
 ): number {
+  // The binding takes an ArrayBuffer; a Uint8Array view over a larger or
+  // offset buffer would hand the native side the wrong bytes.
+  const buffer = fitBytes.buffer.slice(
+    fitBytes.byteOffset,
+    fitBytes.byteOffset + fitBytes.byteLength
+  ) as ArrayBuffer;
   return host.timed('importSetsFromFit', () =>
-    host.engine.strength().importSetsFromFit(activityId, fitBytes)
+    host.engine.strength().importSetsFromFit(activityId, buffer)
   );
 }
 
@@ -84,37 +82,21 @@ export function getStrengthSummary(
 export type StrengthInsightSeries = FfiStrengthInsightSeries;
 
 /**
- * Batch strength aggregation: one monthly window plus N weekly windows in a
- * single FFI round-trip. Replaces the per-range getStrengthSummary loop in
- * the insights hook.
- */
-export function getStrengthInsightSeries(
-  host: DelegateHost,
-  monthly: { startTs: number; endTs: number },
-  weekly: Array<{ startTs: number; endTs: number }>
-): StrengthInsightSeries {
-  return host.timed('getStrengthInsightSeries', () =>
-    host.engine.strength().getStrengthInsightSeries(
-      { startTs: BigInt(monthly.startTs), endTs: BigInt(monthly.endTs) },
-      weekly.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
-    )
-  );
-}
-
-/**
  * Batch variant of getStrengthSummary: each range is aggregated under a
  * single engine lock, eliminating per-range FFI overhead for series callers
  * (e.g. muscle progression charts).
  */
 export function getStrengthSummaryBatch(
   host: DelegateHost,
-  ranges: Array<{ startTs: number; endTs: number }>
+  ranges: { startTs: number; endTs: number }[]
 ): FfiStrengthSummary[] {
   if (ranges.length === 0) return [];
   return host.timed('getStrengthSummaryBatch', () =>
-    host.engine.strength().getStrengthSummaryBatch(
-      ranges.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
-    )
+    host.engine
+      .strength()
+      .getStrengthSummaryBatch(
+        ranges.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
+      )
   );
 }
 

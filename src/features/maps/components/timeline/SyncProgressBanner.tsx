@@ -21,7 +21,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
 } from '@/features/routes/lib/syncProgressFormat';
-import { colors } from '@/theme';
+import { colors, ink } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -113,14 +113,14 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   }
 
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
+    <Animated.View style={[styles.container, containerStyle]} testID="sync-progress-banner">
       <View style={styles.content}>
         <MaterialCommunityIcons
           name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
           size={16}
-          color="#FFFFFF"
+          color={ink.white}
         />
-        <Text style={styles.text}>
+        <Text style={styles.text} testID="sync-progress-message">
           {displayInfo.text}
           {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
         </Text>

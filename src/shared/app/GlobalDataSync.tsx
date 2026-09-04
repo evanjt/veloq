@@ -13,14 +13,12 @@ import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
-import { intervalsApi } from '@/api';
-import {
-  getRouteEngine,
-  applyDetectionPresetForMethod,
-  getStrictnessFromValue,
-} from '@/shared/native/routeEngine';
+import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
+import { getEngine } from '@/shared/native/engine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useEngineSync } from '@/shared/native/useEngineSync';
+import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
@@ -37,7 +35,7 @@ export function GlobalDataSync() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { settings: routeSettings } = useRouteSettings();
+  useRouteSettings();
 
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -45,6 +43,12 @@ export function GlobalDataSync() {
   const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
+
+  // Log the user out when the Rust transport reports an expired OAuth session.
+  useSyncAuthExpiry();
+
+  // Fill the engine-backed tables and wake their readers when the sync lands.
+  useEngineSync();
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {
@@ -80,7 +84,7 @@ export function GlobalDataSync() {
   const statsSeededRef = useRef(false);
   useEffect(() => {
     if (!activities?.length || statsSeededRef.current) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
 
     const enhanced = activities
@@ -93,19 +97,6 @@ export function GlobalDataSync() {
       statsSeededRef.current = true;
     }
   }, [activities]);
-
-  // Apply persisted detection strictness to the Rust engine on first mount.
-  const strictnessAppliedRef = useRef(false);
-  useEffect(() => {
-    if (strictnessAppliedRef.current) return;
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const { detectionStrictness, detectionMethod } = routeSettings;
-    if (detectionStrictness !== 60) {
-      applyDetectionPresetForMethod(detectionMethod, getStrictnessFromValue(detectionStrictness));
-    }
-    strictnessAppliedRef.current = true;
-  }, [routeSettings]);
 
   // Update fetching state in store
   useEffect(() => {
@@ -132,6 +123,8 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.strength.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.athlete });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.sportSettings });
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.powerCurve.all,
       });
@@ -144,16 +137,22 @@ export function GlobalDataSync() {
       // pace_history is normally only populated when viewing the pace curve screen.
       // Seeding here ensures a baseline exists after first sync so pace milestones
       // can appear once critical speed changes.
-      (async () => {
-        try {
-          const engine = getRouteEngine();
-          if (!engine) return;
+      try {
+        const engine = getEngine();
+        if (engine) {
           const sportTypes = engine.getAvailableSportTypes?.() ?? [];
           const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
 
           for (const sport of ['Run', 'Swim'] as const) {
             if (!sportTypes.includes(sport)) continue;
-            const curve = await intervalsApi.getPaceCurve({ sport, days: 42 });
+            const stored = engine.getPaceCurveBody(sport, 42, false);
+            if (!stored) {
+              // Not fetched yet. Ask for it; the next sync-complete pass seeds
+              // the snapshot, and the pace curve screen would anyway.
+              engine.syncPaceCurve(sport, 42, false);
+              continue;
+            }
+            const curve = parsePaceCurveBody(stored, sport);
             if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
               engine.savePaceSnapshot(
                 sport,
@@ -164,10 +163,10 @@ export function GlobalDataSync() {
               );
             }
           }
-        } catch {
-          // best-effort - pace milestone will still work when user visits pace curve
         }
-      })();
+      } catch {
+        // best-effort - pace milestone will still work when user visits pace curve
+      }
     }
   }, [progress.status, queryClient]);
 

@@ -73,18 +73,20 @@ export function useLocationTracking(): {
       // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
       if (acc != null && acc > getAccuracyRejectThreshold()) return;
 
-      const { addGpsPoint, status } = useRecordingStore.getState();
-      if (status === 'recording') {
-        addGpsPoint({
-          latitude,
-          longitude,
-          altitude,
-          accuracy: acc,
-          speed,
-          heading,
-          timestamp: location.timestamp,
-        });
-      }
+      const point = {
+        latitude,
+        longitude,
+        altitude,
+        accuracy: acc,
+        speed,
+        heading,
+        timestamp: location.timestamp,
+      };
+      const { addGpsPoint, setRawLocationFix, status } = useRecordingStore.getState();
+      // Fixes keep arriving while paused. Auto-pause reads them so a ride that
+      // stopped at a light can resume itself.
+      setRawLocationFix(point);
+      if (status === 'recording') addGpsPoint(point);
     });
   }, []);
 

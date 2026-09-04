@@ -1,0 +1,63 @@
+# Section lap exclusion
+# Tests: a lapped activity's laps are listed on the section screen, one lap
+# can be excluded and the exclusion undone.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-routes
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
+
+- tapOn:
+    text: "Sections"
+
+# The engine cuts the demo catalogue after the seed lands.
+- extendedWaitUntil:
+    visible:
+      id: "section-row-.*"
+    timeout: 90000
+
+- tapOn:
+    id: "section-row-.*"
+
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 10000
+
+# The lap card only renders when an activity crossed the section more than
+# once, so the exclusion steps run only when it is on screen.
+- runFlow:
+    when:
+      visible:
+        id: "section-lap-list"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "section-lap-list"
+          direction: DOWN
+      - tapOn:
+          id: "section-lap-exclude-.*"
+          index: 0
+      - assertVisible:
+          id: "section-lap-undo-.*"
+      - assertVisible:
+          id: "section-partly-excluded"
+      - takeScreenshot: "section-lap-excluded"
+      - tapOn:
+          id: "section-lap-undo-.*"
+          index: 0
+      - assertNotVisible:
+          id: "section-partly-excluded"
+
+- takeScreenshot: "section-exclude-lap"

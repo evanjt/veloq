@@ -31,7 +31,7 @@
 #   3. An OAuth end-to-end test with a live CLIENT_ID/PROXY_URL. OAuth is
 #      unblocked in constants.ts but the E2E runner has no test account.
 #
-# Adding (1) — a dev-only session-expiry deep-link — is the cheapest step and
+# Adding (1), a dev-only session-expiry deep-link, is the cheapest step and
 # would upgrade this flow from "logout-as-proxy" to "real session expiry".
 # -----------------------------------------------------------------------------
 
@@ -134,7 +134,7 @@ onFlowComplete:
 
 - takeScreenshot: "auth-token-refresh-login-reached"
 
-# Re-login via demo mode — verifies that post-refresh re-auth works cleanly
+# Re-login via demo mode, verifies that post-refresh re-auth works cleanly
 - tapOn:
     id: "login-demo-button"
 

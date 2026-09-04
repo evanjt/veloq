@@ -1,21 +1,33 @@
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { calculateSpeed } from '@/shared/math';
+import type { ActivityMetrics, FfiMapSignature } from 'veloqrs';
 import type { Activity, ActivityType, FrequentSection, RoutePoint } from '@/types';
+
+/** Metrics and signatures a caller already read as part of a screen bundle. */
+export interface PreComputedSectionActivityData {
+  activityMetrics: ActivityMetrics[];
+  mapSignatures: FfiMapSignature[];
+}
 
 export function useSectionActivityData(
   section: FrequentSection | null,
-  selectedSportType: string | undefined
+  selectedSportType: string | undefined,
+  preComputed?: PreComputedSectionActivityData
 ) {
   // Get section activities from engine metrics (no API call needed).
   // Activities are already cached in the Rust engine's in-memory HashMap.
   const sectionActivitiesUnsorted = useMemo(() => {
     if (!section?.activityIds?.length) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    return engine.getActivityMetricsForIds(section.activityIds).map(
+    let metrics = preComputed?.activityMetrics;
+    if (!metrics) {
+      const engine = getEngine();
+      if (!engine) return [];
+      metrics = engine.getActivityMetricsForIds(section.activityIds);
+    }
+    return metrics.map(
       (m): Activity => ({
         id: m.activityId,
         name: m.name,
@@ -30,15 +42,18 @@ export function useSectionActivityData(
         average_heartrate: m.avgHr ?? undefined,
       })
     );
-  }, [section?.activityIds]);
+  }, [section?.activityIds, preComputed]);
 
   // Load simplified GPS signatures for activity trace display during chart scrubbing
   const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
     if (!section?.activityIds?.length) return undefined;
     try {
-      const engine = getRouteEngine();
-      if (!engine) return undefined;
-      const sigs = engine.getMapSignaturesForIds(section.activityIds);
+      let sigs = preComputed?.mapSignatures;
+      if (!sigs) {
+        const engine = getEngine();
+        if (!engine) return undefined;
+        sigs = engine.getMapSignaturesForIds(section.activityIds);
+      }
       const result: Record<string, RoutePoint[]> = {};
       for (const sig of sigs) {
         const decoded = decodeCoords(sig.encodedCoords);
@@ -50,7 +65,7 @@ export function useSectionActivityData(
     } catch {
       return undefined;
     }
-  }, [section?.activityIds]);
+  }, [section?.activityIds, preComputed]);
 
   // Compute available sport types with activity counts for cross-sport sections.
   // Derived from the metrics already fetched for sectionActivitiesUnsorted to

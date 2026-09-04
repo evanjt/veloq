@@ -1,5 +1,5 @@
 /**
- * FileSystem-based storage for bounds cache, route names, and database size estimation.
+ * FileSystem cleanup and size measurement for the caches the app writes outside Rust.
  *
  * GPS track storage functions have been removed - all GPS data is now stored
  * exclusively in the Rust SQLite engine (routes.db gps_tracks table).
@@ -10,9 +10,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { debug } from '@/shared/debug/debug';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { safeJsonParseWithSchema, type SchemaValidator } from '@/shared/validation/validation';
+import { getEngine } from '@/shared/native/engine';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
+import { forgetCachedAthleteId } from './cachedAthleteId';
 
 const log = debug.create('GpsStorage');
 
@@ -54,128 +54,13 @@ export async function deleteGpsTracks(activityIds: string[]): Promise<void> {
 }
 
 // =============================================================================
-// Bounds Cache Storage (FileSystem-based to avoid AsyncStorage limits)
+// Cache files owned by the account wipe below
 // =============================================================================
 
 const CACHE_DIR = `${FileSystem.documentDirectory}bounds_cache/`;
 const BOUNDS_CACHE_FILE = `${CACHE_DIR}bounds.json`;
-const OLDEST_DATE_FILE = `${CACHE_DIR}oldest_date.txt`;
-const CHECKPOINT_FILE = `${CACHE_DIR}checkpoint.json`;
+const ROUTE_NAMES_FILE = `${CACHE_DIR}route_names.json`;
 
-/** Ensure the cache directory exists */
-async function ensureCacheDir(): Promise<void> {
-  const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
-  if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
-    log.log('Created bounds cache directory');
-  }
-}
-
-/**
- * Store the bounds cache to FileSystem
- */
-export async function storeBoundsCache(cache: unknown): Promise<void> {
-  await ensureCacheDir();
-  const data = JSON.stringify(cache);
-  await FileSystem.writeAsStringAsync(BOUNDS_CACHE_FILE, data);
-  log.log(`Stored bounds cache: ${Math.round(data.length / 1024)}KB`);
-}
-
-/**
- * Load the bounds cache from FileSystem with optional schema validation.
- * @param validator - Optional type guard to validate parsed data
- * @param defaultValue - Value to return if validation fails (defaults to null)
- */
-export async function loadBoundsCache<T>(
-  validator?: SchemaValidator<T>,
-  defaultValue: T | null = null
-): Promise<T | null> {
-  try {
-    const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
-    if (!info.exists) return null;
-
-    const data = await FileSystem.readAsStringAsync(BOUNDS_CACHE_FILE);
-    if (validator) {
-      return safeJsonParseWithSchema(data, validator, defaultValue as T);
-    }
-    // Fallback to unvalidated parse for backwards compatibility
-    return JSON.parse(data) as T;
-  } catch {
-    return defaultValue;
-  }
-}
-
-/**
- * Store the oldest activity date
- */
-export async function storeOldestDate(date: string): Promise<void> {
-  await ensureCacheDir();
-  await FileSystem.writeAsStringAsync(OLDEST_DATE_FILE, date);
-}
-
-/**
- * Load the oldest activity date
- */
-export async function loadOldestDate(): Promise<string | null> {
-  try {
-    const info = await FileSystem.getInfoAsync(OLDEST_DATE_FILE);
-    if (!info.exists) return null;
-
-    return await FileSystem.readAsStringAsync(OLDEST_DATE_FILE);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Store sync checkpoint
- */
-export async function storeCheckpoint(checkpoint: unknown): Promise<void> {
-  await ensureCacheDir();
-  await FileSystem.writeAsStringAsync(CHECKPOINT_FILE, JSON.stringify(checkpoint));
-}
-
-/**
- * Load sync checkpoint with optional schema validation.
- * @param validator - Optional type guard to validate parsed data
- * @param defaultValue - Value to return if validation fails (defaults to null)
- */
-export async function loadCheckpoint<T>(
-  validator?: SchemaValidator<T>,
-  defaultValue: T | null = null
-): Promise<T | null> {
-  try {
-    const info = await FileSystem.getInfoAsync(CHECKPOINT_FILE);
-    if (!info.exists) return null;
-
-    const data = await FileSystem.readAsStringAsync(CHECKPOINT_FILE);
-    if (validator) {
-      return safeJsonParseWithSchema(data, validator, defaultValue as T);
-    }
-    // Fallback to unvalidated parse for backwards compatibility
-    return JSON.parse(data) as T;
-  } catch {
-    return defaultValue;
-  }
-}
-
-/**
- * Clear sync checkpoint
- */
-export async function clearCheckpoint(): Promise<void> {
-  try {
-    const info = await FileSystem.getInfoAsync(CHECKPOINT_FILE);
-    if (info.exists) {
-      await FileSystem.deleteAsync(CHECKPOINT_FILE, { idempotent: true });
-    }
-  } catch {
-    // Best effort
-  }
-}
-
-/**
- * Clear the entire bounds cache (but not GPS tracks or oldest date)
- */
 export async function clearBoundsCache(): Promise<void> {
   try {
     const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
@@ -186,69 +71,6 @@ export async function clearBoundsCache(): Promise<void> {
   } catch {
     // Best effort
   }
-}
-
-/**
- * Estimate bounds cache size in bytes
- */
-export async function estimateBoundsCacheSize(): Promise<number> {
-  try {
-    const info = await FileSystem.getInfoAsync(BOUNDS_CACHE_FILE);
-    if (info.exists && 'size' in info) {
-      return info.size || 0;
-    }
-  } catch {
-    // Ignore
-  }
-  return 0;
-}
-
-// =============================================================================
-// Custom Route Names Storage
-// =============================================================================
-
-const ROUTE_NAMES_FILE = `${CACHE_DIR}route_names.json`;
-
-/**
- * Load custom route names
- */
-export async function loadCustomRouteNames(): Promise<Record<string, string>> {
-  try {
-    await ensureCacheDir();
-    const info = await FileSystem.getInfoAsync(ROUTE_NAMES_FILE);
-    if (!info.exists) return {};
-
-    const data = await FileSystem.readAsStringAsync(ROUTE_NAMES_FILE);
-    const parsed: unknown = JSON.parse(data);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
-    const result: Record<string, string> = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value === 'string') result[key] = value;
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Save a custom route name
- */
-export async function saveCustomRouteName(routeId: string, name: string): Promise<void> {
-  await ensureCacheDir();
-  const names = await loadCustomRouteNames();
-  names[routeId] = name;
-  await FileSystem.writeAsStringAsync(ROUTE_NAMES_FILE, JSON.stringify(names));
-}
-
-/**
- * Get display name for a route (custom name or generated)
- */
-export function getRouteDisplayName(
-  route: { id: string; name?: string },
-  customNames: Record<string, string>
-): string {
-  return customNames[route.id] || route.name || 'Unnamed Route';
 }
 
 // =============================================================================
@@ -348,8 +170,8 @@ export async function clearAuthOnly(queryClient: { clear: () => void }): Promise
   queryClient.clear();
   await AsyncStorage.removeItem('veloq-query-cache');
 
-  const routeEngine = getRouteEngine();
-  if (routeEngine) routeEngine.clearUserProfileCaches();
+  const engine = getEngine();
+  if (engine) engine.clearUserProfileCaches();
 
   log.log('Cleared auth-only caches (profile + query cache)');
 }
@@ -380,14 +202,15 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
   // all activity / GPS / section tables (see persistence/activities.rs).
   // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
-  const routeEngine = getRouteEngine();
-  if (routeEngine) routeEngine.clear();
+  const engine = getEngine();
+  if (engine) engine.clear();
 
   await Promise.all([
     clearAllGpsTracks(),
     clearBoundsCache(),
     FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
     clearTerrainPreviews(),
+    forgetCachedAthleteId(),
   ]);
 
   log.log('Cleared all app caches');
@@ -405,14 +228,4 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
  */
 export async function clearDemoData(queryClient: { clear: () => void }): Promise<void> {
   await clearAccountData(queryClient);
-}
-
-/**
- * @deprecated Prefer `clearAccountData` (full wipe), `clearDemoData`
- * (demo exit), or `clearAuthOnly` (light sign-out) at call sites so the
- * intent is visible. Retained as an alias for back-compat with existing
- * call sites until they migrate.
- */
-export async function clearAllAppCaches(queryClient: { clear: () => void }): Promise<void> {
-  return clearAccountData(queryClient);
 }

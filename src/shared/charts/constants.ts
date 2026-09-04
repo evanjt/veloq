@@ -41,46 +41,23 @@ export const CHART_CONFIG = {
    * @defaultValue 10
    */
   PAN_THRESHOLD: 10,
-} as const;
-
-/**
- * Chart gesture velocity thresholds.
- *
- * Controls swipe/fling gesture recognition.
- */
-export const GESTURE_VELOCITY = {
-  /**
-   * Minimum velocity for swipe gesture.
-   *
-   * In points per second. Below this threshold, gesture
-   * is treated as a drag instead of a swipe.
-   *
-   * @defaultValue 400
-   */
-  SWIPE_THRESHOLD: 400,
 
   /**
-   * Screen width percentage for swipe detection.
+   * Movement that starts a drag-activated scrub.
    *
-   * Swipe must cover at least this percentage of screen width.
+   * In pixels. Only used by charts that scrub on movement rather than on a
+   * long press, where the same surface also answers a tap.
    *
-   * @defaultValue 0.2 (20%)
+   * @defaultValue 4
    */
-  SCREEN_COVERAGE: 0.2,
-} as const;
+  DRAG_SLOP: 4,
 
-/**
- * Chart animation durations.
- *
- * Timing constants for chart transitions and animations.
- */
-export const CHART_ANIMATION_DURATION = {
-  /** Crossfade duration when switching metrics (ms) */
-  CROSSFADE: 300,
-
-  /** Tooltip animation duration (ms) */
-  TOOLTIP: 200,
-
-  /** Data point highlight animation duration (ms) */
-  HIGHLIGHT: 150,
+  /**
+   * Longest touch still treated as a tap.
+   *
+   * In milliseconds. Anything held longer belongs to the scrub gesture.
+   *
+   * @defaultValue 200
+   */
+  TAP_MAX_DURATION: 200,
 } as const;

@@ -180,6 +180,64 @@ export const useDashboardPreferences = create<DashboardPreferencesState>((set, g
   },
 }));
 
+const METRIC_IDS = new Set<string>(AVAILABLE_METRICS.map((m) => m.id));
+
+function isMetricId(value: unknown): value is MetricId {
+  return typeof value === 'string' && METRIC_IDS.has(value);
+}
+
+// Stored values survive upgrades from any earlier release, so a shape that does not
+// match the current one is discarded rather than cast into place.
+function parseStoredMetrics(raw: string): MetricPreference[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return null;
+  }
+  const metrics: MetricPreference[] = [];
+  for (const entry of parsed) {
+    if (typeof entry !== 'object' || entry === null) {
+      return null;
+    }
+    const { id, enabled, order } = entry as Record<string, unknown>;
+    if (!isMetricId(id) || typeof enabled !== 'boolean' || !Number.isFinite(order)) {
+      return null;
+    }
+    metrics.push({ id, enabled, order: order as number });
+  }
+  return metrics;
+}
+
+function parseStoredSummaryCard(raw: string): SummaryCardPreferences | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  const merged = {
+    ...DEFAULT_SUMMARY_CARD,
+    ...(parsed as Partial<SummaryCardPreferences>),
+  };
+  if (typeof merged.enabled !== 'boolean' || typeof merged.showSparkline !== 'boolean') {
+    return null;
+  }
+  if (!isMetricId(merged.heroMetric)) {
+    return null;
+  }
+  if (!Array.isArray(merged.supportingMetrics) || !merged.supportingMetrics.every(isMetricId)) {
+    return null;
+  }
+  return merged;
+}
+
 // Persistence helpers
 async function persistPreferences(metrics: MetricPreference[]): Promise<void> {
   try {
@@ -210,18 +268,14 @@ export async function initializeDashboardPreferences(
       getSetting(SUMMARY_CARD_STORAGE_KEY),
     ]);
 
-    let metrics: MetricPreference[];
-    if (storedMetrics) {
-      metrics = JSON.parse(storedMetrics) as MetricPreference[];
-    } else {
-      // No stored preferences - use sport-specific defaults
-      const defaultIds = DEFAULT_METRICS_BY_SPORT[primarySport] || DEFAULT_METRICS_BY_SPORT.Other;
-      metrics = createDefaultPreferences(defaultIds);
-    }
+    const defaultIds = DEFAULT_METRICS_BY_SPORT[primarySport] || DEFAULT_METRICS_BY_SPORT.Other;
+    const metrics =
+      (storedMetrics ? parseStoredMetrics(storedMetrics) : null) ??
+      createDefaultPreferences(defaultIds);
 
-    let summaryCard: SummaryCardPreferences = storedSummaryCard
-      ? { ...DEFAULT_SUMMARY_CARD, ...JSON.parse(storedSummaryCard) }
-      : DEFAULT_SUMMARY_CARD;
+    let summaryCard =
+      (storedSummaryCard ? parseStoredSummaryCard(storedSummaryCard) : null) ??
+      DEFAULT_SUMMARY_CARD;
 
     // Migration: form is no longer a hero metric option - combined into sparkline
     if (summaryCard.heroMetric === 'form') {
@@ -229,7 +283,11 @@ export async function initializeDashboardPreferences(
       persistSummaryCard(summaryCard);
     }
 
-    useDashboardPreferences.setState({ metrics, summaryCard, isInitialized: true });
+    useDashboardPreferences.setState({
+      metrics,
+      summaryCard,
+      isInitialized: true,
+    });
   } catch (error) {
     if (__DEV__) {
       console.warn('[DashboardPreferences] Failed to initialize:', error);

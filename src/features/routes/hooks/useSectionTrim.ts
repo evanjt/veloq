@@ -11,7 +11,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -142,9 +142,14 @@ interface UseSectionTrimResult {
   setTrimEnd: (index: number) => void;
 }
 
+/**
+ * `preComputedHasOriginalBounds` lets a caller that already read the bounds
+ * state as part of a screen bundle skip this hook's own FFI call.
+ */
 export function useSectionTrim(
   section: FrequentSection | null,
-  onRefresh: () => void
+  onRefresh: () => void,
+  preComputedHasOriginalBounds?: boolean
 ): UseSectionTrimResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -188,11 +193,12 @@ export function useSectionTrim(
 
   // Check if section has original bounds that can be restored
   const canReset = useMemo(() => {
+    if (preComputedHasOriginalBounds !== undefined) return preComputedHasOriginalBounds;
     if (!section?.id) return false;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return false;
     return engine.hasOriginalBounds(section.id);
-  }, [section?.id]);
+  }, [section?.id, preComputedHasOriginalBounds]);
 
   const startTrim = useCallback(() => {
     if (!section?.polyline) return;
@@ -217,7 +223,7 @@ export function useSectionTrim(
     }
 
     // Switch to expand mode - load extension track and compute padded window
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return;
 
     try {
@@ -280,7 +286,7 @@ export function useSectionTrim(
     }
 
     setIsSaving(true);
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) {
       setIsSaving(false);
       return;
@@ -295,13 +301,19 @@ export function useSectionTrim(
         trimEnd > expandContext.sectionEndInWindow;
 
       if (expandedBeyond) {
-        // Expansion: extract new polyline from window points
-        const windowSlice = expandContext.windowPoints.slice(trimStart, trimEnd + 1);
-        const newPolylineFlat: number[] = [];
-        for (const p of windowSlice) {
-          newPolylineFlat.push(p.lat, p.lng);
+        // The window is a slice of the representative track, so window indices offset into it
+        const activityId = section.representativeActivityId;
+        if (!activityId) {
+          setIsSaving(false);
+          Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+          return;
         }
-        success = engine.expandSectionBounds(section.id, newPolylineFlat);
+        success = engine.expandSectionBounds(
+          section.id,
+          activityId,
+          expandContext.windowStartIdx + trimStart,
+          expandContext.windowStartIdx + trimEnd
+        );
       } else {
         // User shrunk within section - map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;
@@ -324,7 +336,17 @@ export function useSectionTrim(
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
-  }, [section?.id, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
+  }, [
+    section?.id,
+    section?.representativeActivityId,
+    trimStart,
+    trimEnd,
+    isExpanded,
+    expandContext,
+    queryClient,
+    onRefresh,
+    t,
+  ]);
 
   const resetBounds = useCallback(() => {
     if (!section?.id) return;
@@ -334,7 +356,7 @@ export function useSectionTrim(
       {
         text: t('common.reset'),
         onPress: () => {
-          const engine = getRouteEngine();
+          const engine = getEngine();
           if (!engine) return;
 
           const success = engine.resetSectionBounds(section.id);

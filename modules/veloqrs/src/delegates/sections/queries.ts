@@ -9,21 +9,24 @@
 
 import { validateId } from '../../conversions';
 import { decodeCoords } from '../../coords';
-import type { RoutePoint } from '../../conversions';
 import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
-  FfiFrequentSection,
-  FfiGpsPoint,
-  FfiRankedSection,
   FfiSection,
+  FfiGpsPoint,
+  FfiNamedCorridor,
+  FfiRankedSection,
+  FfiSectionDetailData,
+  FfiSectionLineage,
+  FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
+  FfiWorkoutSection,
   SectionSummary,
+  FfiSectionChartData,
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import type {
   FfiActivityIndicator,
-  FfiActivitySectionHighlight,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
   FfiSectionMatch,
@@ -39,7 +42,7 @@ const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   reverseStats: undefined,
 };
 
-export function getSections(host: DelegateHost): FfiFrequentSection[] {
+export function getSections(host: DelegateHost): FfiSection[] {
   if (!host.ready) return [];
   return host.timed('getSections', () => host.engine.sections().getAll());
 }
@@ -48,7 +51,7 @@ export function getSectionsFiltered(
   host: DelegateHost,
   sportType?: string,
   minVisits?: number
-): FfiFrequentSection[] {
+): FfiSection[] {
   if (!host.ready) return [];
   // FfiConverterOptional* accepts undefined for "absent" but throws on null -
   // forward optional args as-is, do NOT coalesce to null.
@@ -85,6 +88,15 @@ export function getSectionSummaries(
   );
 }
 
+/**
+ * Every named corridor with its current resolution, dormant ones included
+ * (sectionId is undefined while no visible section covers the named ground).
+ */
+export function getNamedCorridors(host: DelegateHost): FfiNamedCorridor[] {
+  if (!host.ready) return [];
+  return host.timed('getNamedCorridors', () => host.engine.sections().getNamedCorridors());
+}
+
 export type SectionSortKey = 'visits' | 'distance' | 'name';
 
 /**
@@ -109,27 +121,7 @@ export interface RankedSectionsBySport {
   sections: FfiRankedSection[];
 }
 
-export function getRankedSectionsBatch(
-  host: DelegateHost,
-  sportTypes: string[],
-  limit: number
-): RankedSectionsBySport[] {
-  if (!host.ready || sportTypes.length === 0) return [];
-  return host.timed('getRankedSectionsBatch', () =>
-    host.engine.sections().getRankedBatch(sportTypes, limit)
-  );
-}
-
-export function getRankedSections(
-  host: DelegateHost,
-  sportType: string,
-  limit: number
-): FfiRankedSection[] {
-  if (!host.ready) return [];
-  return host.timed('getRankedSections', () => host.engine.sections().getRanked(sportType, limit));
-}
-
-export function getSectionById(host: DelegateHost, sectionId: string): FfiFrequentSection | null {
+export function getSectionById(host: DelegateHost, sectionId: string): FfiSection | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   return host.timed('getSectionById', () => host.engine.sections().getById(sectionId)) ?? null;
@@ -187,7 +179,7 @@ export function getPerformancesBatch(
   host: DelegateHost,
   sectionIds: string[],
   sportType?: string
-): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> {
+): { sectionId: string; result: FfiSectionPerformanceResult }[] {
   if (!host.ready || sectionIds.length === 0) return [];
   return host.timed('getPerformancesBatch', () =>
     host.engine.sections().getPerformancesBatch(sectionIds, sportType)
@@ -205,17 +197,7 @@ export function getActivityPrSections(
   );
 }
 
-export interface FfiWorkoutSection {
-  id: string;
-  name: string;
-  prTimeSecs?: number;
-  previousBestTimeSecs?: number;
-  lastTimeSecs?: number;
-  daysSinceLast?: number;
-  prDaysAgo?: number;
-  /** "improving" | "stable" | "declining" | "" */
-  trend: string;
-}
+export type { FfiWorkoutSection } from '../../generated/veloqrs';
 
 export function getWorkoutSections(
   host: DelegateHost,
@@ -227,32 +209,8 @@ export function getWorkoutSections(
     host.engine.sections().getWorkoutSections(sportType, limit)
   );
 }
-
-export interface FfiSectionChartPoint {
-  lapId: string;
-  activityId: string;
-  activityName: string;
-  activityDate: number;
-  speed: number;
-  sectionTime: number;
-  sectionDistance: number;
-  direction: string;
-  rank: number;
-}
-
-export interface FfiSectionChartData {
-  points: FfiSectionChartPoint[];
-  minSpeed: number;
-  maxSpeed: number;
-  bestIndex: number;
-  hasReverseRuns: boolean;
-  bestActivityId?: string;
-  bestTimeSecs?: number;
-  bestPace?: number;
-  averageTimeSecs?: number;
-  lastActivityDate?: number;
-  totalActivities: number;
-}
+export type { FfiSectionChartData };
+export type { FfiSectionChartPoint } from '../../generated/veloqrs';
 
 const EMPTY_CHART: FfiSectionChartData = {
   points: [],
@@ -355,7 +313,7 @@ export function getSectionExtensionTrack(
       };
     });
   } catch (e) {
-    console.error('[RouteEngine] getSectionExtensionTrack failed:', sectionId, e);
+    console.error('[Engine] getSectionExtensionTrack failed:', sectionId, e);
     return null;
   }
 }
@@ -395,16 +353,6 @@ export function getMergeCandidates(host: DelegateHost, sectionId: string): FfiMe
   );
 }
 
-export function getActivitySectionHighlights(
-  host: DelegateHost,
-  activityIds: string[]
-): FfiActivitySectionHighlight[] {
-  if (!host.ready || activityIds.length === 0) return [];
-  return host.timed('getActivitySectionHighlights', () =>
-    host.engine.sections().getActivitySectionHighlights(activityIds)
-  );
-}
-
 /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
 export function getActivityIndicators(
   host: DelegateHost,
@@ -413,17 +361,6 @@ export function getActivityIndicators(
   if (!host.ready || activityIds.length === 0) return [];
   return host.timed('getActivityIndicators', () =>
     host.engine.sections().getActivityIndicators(activityIds)
-  );
-}
-
-/** Read pre-computed indicators for a single activity. */
-export function getIndicatorsForActivity(
-  host: DelegateHost,
-  activityId: string
-): FfiActivityIndicator[] {
-  if (!host.ready) return [];
-  return host.timed('getIndicatorsForActivity', () =>
-    host.engine.sections().getIndicatorsForActivity(activityId)
   );
 }
 
@@ -468,24 +405,48 @@ export function extractSectionTrace(
   }));
 }
 
-export function extractSectionTracesBatch(
+/**
+ * The section detail reads that do not depend on time streams: the section,
+ * its neighbours and merge candidates, exclusions, bounds state, per-activity
+ * metrics and signatures, and the streams still to be fetched.
+ */
+export function getSectionDetailData(
   host: DelegateHost,
-  activityIds: string[],
-  sectionPolylineFlat: number[]
-): Record<string, RoutePoint[]> {
-  if (!host.ready || activityIds.length === 0) return {};
-  const results = host.timed('extractSectionTracesBatch', () =>
-    host.engine.sections().extractTracesBatch(activityIds, sectionPolylineFlat)
+  sectionId: string,
+  nearbyRadiusMeters: number
+): FfiSectionDetailData | undefined {
+  if (!host.ready || !sectionId) return undefined;
+  return host.timed('getSectionDetailData', () =>
+    host.engine.sections().getDetailData(sectionId, nearbyRadiusMeters)
   );
-  const traces: Record<string, RoutePoint[]> = {};
-  for (const batch of results) {
-    const points: RoutePoint[] = decodeCoords(batch.encodedCoords).map((p) => ({
-      lat: p.latitude,
-      lng: p.longitude,
-    }));
-    if (points.length > 0) {
-      traces[batch.activityId] = points;
-    }
+}
+
+/**
+ * The section detail reads that need lap times. Call once the streams named
+ * by `getSectionDetailData` have landed.
+ */
+export function getSectionDetailPerformance(
+  host: DelegateHost,
+  sectionId: string,
+  timeRangeDays: number,
+  sportFilter?: string
+): FfiSectionPerformanceData | undefined {
+  if (!host.ready || !sectionId) return undefined;
+  return host.timed('getSectionDetailPerformance', () =>
+    host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
+  );
+}
+
+/**
+ * Every live split sibling with the parent it was carved from and its
+ * discriminator, for composing names at read time.
+ */
+export function getSectionLineages(host: DelegateHost): FfiSectionLineage[] {
+  if (!host.ready) return [];
+  try {
+    return host.engine.sections().getLineages();
+  } catch (e) {
+    console.error('[Engine] getSectionLineages failed:', e);
+    return [];
   }
-  return traces;
 }

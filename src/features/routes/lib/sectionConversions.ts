@@ -2,49 +2,32 @@
  * Shared conversion functions for native section types to app section types.
  */
 
-import {
-  decodeCoords,
-  type FrequentSection as NativeFrequentSection,
-  type Section as NativeSection,
-} from 'veloqrs';
+import { decodeCoords, type Section as NativeSection } from 'veloqrs';
 import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
 import type { FrequentSection } from '@/types';
 
 /**
- * Convert a native section (FfiFrequentSection or FfiSection) to app section format.
+ * Convert a native section to app section format.
  *
- * FfiFrequentSection: returned by getSections/getEngineSections (non-optional fields)
- * FfiSection: returned by getSectionsForActivity (many optional fields)
+ * Every section-returning export sends the same record, whether it came from
+ * the in-memory catalogue (`getSections`, `getSectionsFiltered`,
+ * `getSectionById`) or the database (`getSectionsForActivity`, `getByType`).
  */
-export function convertNativeSectionToApp(
-  native: NativeFrequentSection | NativeSection
-): FrequentSection {
+export function convertNativeSectionToApp(native: NativeSection): FrequentSection {
   const polyline = decodeCoords(native.encodedPolyline).map((p) => ({
     lat: p.latitude,
     lng: p.longitude,
   }));
 
-  // Determine section type - FfiSection has sectionType string, FfiFrequentSection doesn't
-  const sectionType =
-    'sectionType' in native
-      ? ((native.sectionType === 'custom' ? 'custom' : 'auto') as 'auto' | 'custom')
-      : 'auto';
-
-  // Convert activityPortions if present (FfiFrequentSection has them, FfiSection doesn't)
-  const activityPortions =
-    'activityPortions' in native && Array.isArray(native.activityPortions)
-      ? convertActivityPortions(native.activityPortions)
-      : undefined;
-
   return {
     id: native.id,
-    sectionType,
+    sectionType: native.sectionType === 'custom' ? 'custom' : 'auto',
     sportType: native.sportType,
     polyline,
     representativeActivityId: native.representativeActivityId ?? '',
     activityIds: native.activityIds,
-    activityPortions,
-    routeIds: ('routeIds' in native ? native.routeIds : undefined) ?? [],
+    activityPortions: convertActivityPortions(native.activityPortions),
+    routeIds: native.routeIds ?? [],
     visitCount: native.visitCount,
     distanceMeters: native.distanceMeters,
     name: native.name ?? undefined,
@@ -52,16 +35,20 @@ export function convertNativeSectionToApp(
     observationCount: native.observationCount ?? 0,
     averageSpread: native.averageSpread ?? 0,
     pointDensity: native.pointDensity ?? [],
-    stability: ('stability' in native ? native.stability : undefined) ?? undefined,
-    version: ('version' in native ? native.version : undefined) ?? undefined,
-    updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
-    createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
-    isUserDefined:
-      'isUserDefined' in native ? !!(native as { isUserDefined?: boolean }).isUserDefined : false,
-    disabled: 'disabled' in native ? !!(native as { disabled?: boolean }).disabled : false,
-    supersededBy:
-      ('supersededBy' in native
-        ? (native as { supersededBy?: string | null }).supersededBy
-        : null) ?? null,
+    stability: native.stability ?? undefined,
+    elevationGainM: native.elevationGainM ?? undefined,
+    elevationLossM: native.elevationLossM ?? undefined,
+    avgGradePercent: native.avgGradePercent ?? undefined,
+    maxGradePercent: native.maxGradePercent ?? undefined,
+    klass: native.klass ?? undefined,
+    isLift: native.isLift,
+    rankScore: native.rankScore ?? undefined,
+    sportRankScore: native.sportRankScore ?? undefined,
+    version: native.version ?? undefined,
+    updatedAt: native.updatedAt ?? undefined,
+    createdAt: native.createdAt ?? '',
+    isUserDefined: native.isUserDefined,
+    disabled: native.disabled,
+    supersededBy: native.supersededBy ?? null,
   };
 }

@@ -1,6 +1,6 @@
 v0.1.2 (Feb 12, 2026)
 
-• Export all your activities as GPX files in one go — ripper!
+• Export all your activities as GPX files in one go. Ripper!
 • Fixed backup restore for custom sections
 • Fixed a crash when scrubbing the Season Comparison chart
 • Routes screen is heaps faster now with better pagination

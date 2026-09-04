@@ -144,7 +144,7 @@ For a complete list, run: `cargo tree --format "{p} {l}"` in the tracematch dire
 
 | Package | License | Repository |
 |---------|---------|------------|
-| @maplibre/maplibre-react-native | MIT | https://github.com/maplibre/maplibre-react-native |
+| maplibre-gl | BSD-3-Clause | https://github.com/maplibre/maplibre-gl-js |
 | @mapbox/polyline | BSD-3-Clause | https://github.com/mapbox/polyline |
 | @shopify/react-native-skia | MIT | https://github.com/Shopify/react-native-skia |
 | react-native-svg | MIT | https://github.com/software-mansion/react-native-svg |
@@ -172,7 +172,6 @@ For a complete list, run: `cargo tree --format "{p} {l}"` in the tracematch dire
 
 | Package | License | Repository |
 |---------|---------|------------|
-| axios | MIT | https://github.com/axios/axios |
 | i18next | MIT | https://github.com/i18next/i18next |
 | react-i18next | MIT | https://github.com/i18next/react-i18next |
 | intl-pluralrules | ISC | https://github.com/nicolo-ribaudo/intl-pluralrules |
@@ -282,4 +281,20 @@ See: https://www.unicode.org/license.txt
 
 ---
 
-*Last updated: 2026-01-24*
+## Bundled Basemap Assets
+
+The sprite sheet and the Latin glyph ranges ship inside the app so an offline
+map keeps its icons and place labels. They are fetched by
+`scripts/fetch-basemap-assets.mjs` and regenerated from the same source.
+
+| Asset | Source | License |
+|-------|--------|---------|
+| Sprite sheet `ofm_f384` | OpenFreeMap | MIT |
+| Noto Sans glyph ranges | Google Fonts | SIL Open Font License 1.1 |
+
+Vector tiles are fetched at runtime rather than bundled and carry the
+OpenStreetMap attribution shown on every map surface.
+
+---
+
+*Last updated: 2026-09-01*

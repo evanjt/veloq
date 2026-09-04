@@ -6,9 +6,9 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useConsensusRoute, useGroupDetail } from '@/features/routes/hooks/useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
+import { useRouteDetailData } from '@/features/routes/hooks/useRouteDetailData';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
@@ -38,6 +38,8 @@ import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatRelativeDate } from '@/shared/format/format';
+import { decodeCoords } from 'veloqrs';
+import type { FfiActivityMetrics } from 'veloqrs';
 import { colors } from '@/theme';
 import { toActivityType } from '@/features/routes/types';
 
@@ -58,8 +60,12 @@ export default function RouteDetailScreen() {
   const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
 
+  // One engine call covering the route, its ranking list, every attempt, the
+  // consensus polyline, names, exclusions and signatures.
+  const detail = useRouteDetailData(id, navActivityId);
+
   // Get cached date range from sync store (consolidated calculation)
-  const cacheDays = useCacheDays();
+  const cacheDays = useCacheDays(detail?.activityCount);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
@@ -67,17 +73,32 @@ export default function RouteDetailScreen() {
   const { highlightedActivityId, highlightedActivityPoints, handleActivitySelect } =
     useRouteHighlight();
 
-  // Get route group from engine using lightweight on-demand query (with LRU caching)
-  const { group: engineGroup } = useGroupDetail(id || null);
+  const engineGroup = detail?.group;
 
-  // Get unfiltered metrics to derive available sport types
-  const { activityMetrics: allMetrics } = useRoutePerformances(id, engineGroup?.groupId);
+  // Sport pills come from the unfiltered attempts the bundle already carries.
+  const allMetrics = useMemo(() => {
+    const map = new Map<string, FfiActivityMetrics>();
+    for (const m of detail?.performances.activityMetrics ?? []) {
+      map.set(m.activityId, m);
+    }
+    return map;
+  }, [detail]);
 
   const { selectedSportType, setSelectedSportType, availableSportTypes, sportFilter } =
     useSportTypeFilter(allMetrics, engineGroup);
 
-  // Get performance data filtered by selected sport type (no API call needed)
-  // Activity metrics are cached in Rust engine's in-memory HashMap
+  // Get performance data filtered by selected sport type. Without a filter the
+  // bundle's unfiltered result is the answer, so no second read is made.
+  const preComputedPerformances = useMemo(
+    () =>
+      detail
+        ? {
+            groups: detail.groups,
+            result: sportFilter ? undefined : detail.performances,
+          }
+        : undefined,
+    [detail, sportFilter]
+  );
   const {
     performances,
     best: bestPerformance,
@@ -85,10 +106,15 @@ export default function RouteDetailScreen() {
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useRoutePerformances(id, engineGroup?.groupId, sportFilter);
+  } = useRoutePerformances(id, engineGroup?.groupId, sportFilter, preComputedPerformances);
 
-  // Get consensus route points from Rust engine
-  const { points: consensusPoints } = useConsensusRoute(id);
+  // Consensus route points, decoded from the bundle.
+  const consensusPoints = useMemo(() => {
+    if (!detail?.encodedConsensus) return null;
+    const decoded = decodeCoords(detail.encodedConsensus);
+    if (decoded.length === 0) return null;
+    return decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+  }, [detail]);
 
   // Create a compatible routeGroup object with expected properties
   // Note: Native RouteGroup uses groupId, sportType, customName (different from extended type)
@@ -110,7 +136,7 @@ export default function RouteDetailScreen() {
     handleStartEditing,
     handleSaveName,
     handleCancelEdit,
-  } = useRouteRenaming(id, routeGroupBase?.name, t);
+  } = useRouteRenaming(id, routeGroupBase?.name, t, detail?.routeNames);
 
   // Compute stats from performances
   const routeStats = useMemo(() => computeRouteStats(performances), [performances]);
@@ -122,13 +148,14 @@ export default function RouteDetailScreen() {
     handleIncludeActivity,
     handleToggleShowExcluded,
     excludedChartData,
-  } = useExcludedActivities(id, sportFilter);
+  } = useExcludedActivities(id, sportFilter, detail?.excludedActivityIds);
 
   const { signatures, chartData: combinedChartData } = useRouteChartData(
     performances,
     bestPerformance,
     engineGroup,
-    excludedChartData
+    excludedChartData,
+    detail?.mapSignatures
   );
 
   // Final routeGroup with signature populated from consensus points
@@ -143,7 +170,7 @@ export default function RouteDetailScreen() {
         isDark={isDark}
         insetTop={insets.top}
         onBack={() => router.back()}
-        loading={getRouteEngine() == null}
+        loading={getEngine() == null}
         notFoundMessage={t('routeDetail.routeNotFound')}
       />
     );

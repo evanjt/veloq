@@ -23,19 +23,17 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { isSwimmingActivity } from '@/features/activity/lib/activityUtils';
-import { formatDistance, formatPace, formatSwimPace } from '@/shared/format/format';
-import type { ActivityType } from '@/types';
+import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
+import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
-import type { PerformanceDataPoint } from '@/types';
 
 interface SectionInlinePlotProps {
   encounter: SectionEncounter;
   activityId: string;
   sportType?: string;
   index: number;
-  style: { color: string };
   isHighlighted: boolean;
   isDark: boolean;
   isMetric: boolean;
@@ -54,13 +52,25 @@ interface SectionInlinePlotProps {
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
 }
 
+/** Pace for foot and water sports, elapsed time otherwise, as SectionInfoCard. */
+function formatLap(
+  distanceMeters: number,
+  lapTime: number,
+  sportType: string | undefined,
+  isMetric: boolean
+): string {
+  const type = sportType as ActivityType;
+  if (isSwimmingActivity(type)) return formatSwimPace(distanceMeters / lapTime, isMetric);
+  if (isRunningActivity(type)) return formatPace(distanceMeters / lapTime, isMetric);
+  return formatDuration(lapTime);
+}
+
 export const SectionInlinePlot = memo(
   function SectionInlinePlot({
     encounter,
     activityId,
     sportType,
     index,
-    style,
     isHighlighted,
     isDark,
     isMetric,
@@ -200,9 +210,12 @@ export const SectionInlinePlot = memo(
                       <>
                         <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
                         <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                          {isSwimmingActivity(sportType as ActivityType)
-                            ? formatSwimPace(encounter.distanceMeters / encounter.lapTime, isMetric)
-                            : formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
+                          {formatLap(
+                            encounter.distanceMeters,
+                            encounter.lapTime,
+                            sportType,
+                            isMetric
+                          )}
                         </RNText>
                       </>
                     )}

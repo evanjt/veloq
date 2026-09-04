@@ -12,11 +12,20 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  NetworkErrorState,
+  ErrorStatePreset,
+  ScreenErrorBoundary,
+  ComponentErrorBoundary,
+  ActivityCardSkeleton,
+  TAB_BAR_SAFE_PADDING,
+} from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,14 +37,6 @@ import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/features/home/store';
 import { ActivityCard } from '@/features/activity/components';
-import {
-  NetworkErrorState,
-  ErrorStatePreset,
-  ScreenErrorBoundary,
-  ComponentErrorBoundary,
-  ActivityCardSkeleton,
-  TAB_BAR_SAFE_PADDING,
-} from '@/shared/ui';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
 import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import { useStartupData } from '@/features/home/hooks/useStartupData';
@@ -52,6 +53,9 @@ import {
 import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('Feed');
 
 // Activity type categories for filtering
 const ACTIVITY_TYPE_GROUPS = {
@@ -70,8 +74,6 @@ const ACTIVITY_TYPE_GROUPS = {
     'Snowboard',
   ],
 };
-
-const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
@@ -137,7 +139,7 @@ export default function FeedScreen() {
     refetch,
   } = useInfiniteActivities();
   if (PERF_DEBUG && performance.now() - t1 > 5)
-    console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
+    log.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
   // Flatten all pages into a single array - stabilize reference to prevent
   // FlatList re-renders when TanStack Query refetches with identical data
@@ -168,7 +170,7 @@ export default function FeedScreen() {
   );
   const { data: startupData } = useStartupData(previewIds);
   if (PERF_DEBUG && performance.now() - t2 > 5)
-    console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
+    log.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
   // Summary card data - uses precomputed data from getStartupData to skip redundant FFI
   const t0 = PERF_DEBUG ? performance.now() : 0;
@@ -191,22 +193,18 @@ export default function FeedScreen() {
     refetch: refetchSummary,
   } = useSummaryCardData(startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t0 > 5)
-    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
+    log.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
   // useInsights uses pre-computed data from startup - never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
   const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t3 > 5)
-    console.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
+    log.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
 
   if (PERF_DEBUG) {
     const hookTime = performance.now() - renderStart;
-    if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
+    if (hookTime > 50) log.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
-
-  // InsightLine intentionally disabled per product direction (noisy in top-right slot of
-  // SummaryCard). Leave `undefined` so the SummaryCard slot does not render.
-  const insightLine = undefined;
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
@@ -244,6 +242,7 @@ export default function FeedScreen() {
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    requestSyncRefresh();
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
@@ -537,10 +536,10 @@ export default function FeedScreen() {
 
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
-      console.log(
+      log.log(
         `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
       );
-    if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
+    if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
@@ -572,7 +571,6 @@ export default function FeedScreen() {
             rhrData={rhrData}
             showSparkline={showSparkline}
             supportingMetrics={supportingMetrics}
-            insightLine={insightLine}
           />
         )}
 

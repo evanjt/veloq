@@ -76,7 +76,7 @@ function getRouteHighlight(activityId: string): {
   prImprovementSeconds: number | null;
 } | null {
   try {
-    const { routeEngine } = require('veloqrs');
+    const { engine } = require('veloqrs');
     type Highlight = {
       activityId: string;
       routeName: string;
@@ -85,7 +85,7 @@ function getRouteHighlight(activityId: string): {
       timeDeltaSeconds?: number | null;
       prImprovementSeconds?: number | null;
     };
-    const highlights: Highlight[] = routeEngine.getActivityRouteHighlights([activityId]);
+    const highlights: Highlight[] = engine.getActivityRouteHighlights([activityId]);
     const h = highlights?.find((entry) => entry.activityId === activityId);
     if (!h) return null;
     return {
@@ -104,27 +104,126 @@ function getRouteHighlight(activityId: string): {
 }
 
 /**
- * Build an activity-centric notification body.
+ * Roughly what an Android lock screen shows of a body before it collapses the
+ * line. iOS is more generous, around four lines, but truncates mid-word with
+ * no ellipsis, so one cap serves both (`B148`).
+ */
+export const NOTIFICATION_BODY_MAX = 60;
+
+/** A route or section name inside a detail clause. */
+const MAX_PLACE_NAME = 24;
+
+/**
+ * Below this there is no room for a name, only for a fragment of one, so the
+ * activity name is dropped instead.
+ */
+const MIN_NAME_TAIL = 8;
+
+const SEPARATOR = ' - ';
+
+/**
+ * Below this a place name is a fragment rather than a name, so the template
+ * gets what is left and the cap does the rest.
+ */
+const MIN_PLACE_NAME = 6;
+
+/**
+ * A detail clause that fits, by giving the place name back to the template
+ * until it does.
+ *
+ * `MAX_PLACE_NAME` was sized against the English templates, and a translated
+ * one is longer: "Faster than usual on X (2:34 off PR)" is 56 characters in
+ * English and 72 in Portuguese, so the clause cleared the cap on its own with
+ * no name left to give and the lock screen dropped the delta (`B153`). The
+ * delta is the finding, so the name yields to it, and the clause is only cut
+ * outright when there is no name left to take.
+ */
+function fitDetail(render: (place: string) => string, rawName: string): string {
+  let cap = MAX_PLACE_NAME;
+  let out = render(trim(rawName, cap));
+  while (out.length > NOTIFICATION_BODY_MAX && cap > MIN_PLACE_NAME) {
+    cap = Math.max(MIN_PLACE_NAME, cap - (out.length - NOTIFICATION_BODY_MAX));
+    out = render(trim(rawName, cap));
+  }
+  return out;
+}
+
+/** Trim to `max`, marking the cut, so a name never runs off the end silently. */
+function trim(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1).trimEnd()}\u2026`;
+}
+
+/**
+ * The finding first, the activity name second.
+ *
+ * The name used to lead, so a long one plus a user-renamed route pushed the PR
+ * and its delta past the collapse, and the athlete saw only what they had just
+ * uploaded. The detail is never truncated: it is the only reason the
+ * enrichment pipeline exists. The name gives way, and is dropped outright when
+ * what is left of it would be a fragment.
+ */
+function compose(detail: string, activityName: string): string {
+  // No name means no activity to describe: the ingest failed and the only
+  // string available used to be the notification's own title (`B149`).
+  if (!activityName) return detail;
+  const room = NOTIFICATION_BODY_MAX - detail.length - SEPARATOR.length;
+  if (room < MIN_NAME_TAIL) return detail;
+  return `${detail}${SEPARATOR}${trim(activityName, room)}`;
+}
+
+/**
+ * Which rung of the ladder the body came from, and so which title goes with
+ * it. Three is enough: the four PR rungs, the trend rung, and everything
+ * below it, which is what the single hardcoded title used to cover (`B150`).
+ */
+export type ActivityNotificationTier = 'pr' | 'faster' | 'recorded';
+
+const TITLE_KEYS: Record<ActivityNotificationTier, string> = {
+  pr: 'notifications.activityPr.title',
+  faster: 'notifications.activityFaster.title',
+  recorded: 'notifications.activityRecorded.title',
+};
+
+export interface ActivityNotification {
+  title: string;
+  body: string;
+}
+
+/**
+ * The detail clause and the rung it came from. A null detail means no clause
+ * won and the body is the activity name alone.
+ */
+interface Detail {
+  detail: string | null;
+  tier: ActivityNotificationTier;
+}
+
+const pr = (detail: string): Detail => ({ detail, tier: 'pr' });
+const faster = (detail: string): Detail => ({ detail, tier: 'faster' });
+const recorded = (detail: string | null): Detail => ({ detail, tier: 'recorded' });
+
+/**
+ * Walk the priority ladder for this activity.
  * Queries the engine to find the matched route, section PRs, and matches for
  * THIS specific activity, rather than relying on generic insight fingerprint
  * diffing.
  */
-export function buildActivityNotificationBody(
+function resolveDetail(
   activityId: string,
-  activityName: string,
   newInsights: Insight[],
   prefs: NotificationPreferences,
   activityInfo: ActivityInfo | null,
   t: TFunc
-): string {
+): Detail {
   const route = getRouteHighlight(activityId);
 
   try {
-    const { routeEngine } = require('veloqrs');
+    const { engine } = require('veloqrs');
 
     // Check which sections this activity traversed
     // Rust already filters out disabled/superseded sections
-    const sections = routeEngine.getSectionsForActivity(activityId);
+    const sections = engine.getSectionsForActivity(activityId);
     const sectionCount = sections?.length ?? 0;
 
     let prCount = 0;
@@ -138,7 +237,7 @@ export function buildActivityNotificationBody(
       type BatchEntry = { sectionId: string; result: PerfResult };
       const batch: BatchEntry[] = (() => {
         try {
-          return routeEngine.getPerformancesBatch(sectionIds);
+          return engine.getPerformancesBatch(sectionIds);
         } catch {
           return [];
         }
@@ -163,60 +262,93 @@ export function buildActivityNotificationBody(
     // falls back to its no-delta sibling when the comparison isn't available.
     if (prefs.categories.sectionPr) {
       if (route?.isPr && route.routeName) {
-        const detail = route.prImprovementSeconds
-          ? t('notifications.activityBody.routePrDelta', {
-              name: route.routeName,
-              delta: formatDurationDelta(route.prImprovementSeconds),
-            })
-          : t('notifications.activityBody.routePr', { name: route.routeName });
-        return `${activityName} - ${detail}`;
+        const improvement = route.prImprovementSeconds;
+        return pr(
+          fitDetail(
+            (place) =>
+              improvement
+                ? t('notifications.activityBody.routePrDelta', {
+                    name: place,
+                    delta: formatDurationDelta(improvement),
+                  })
+                : t('notifications.activityBody.routePr', { name: place }),
+            route.routeName
+          )
+        );
       }
       if (prCount === 1) {
-        const detail = prSectionDelta
-          ? t('notifications.activityBody.sectionPrDelta', {
-              name: prSectionName,
-              delta: formatDurationDelta(prSectionDelta),
-            })
-          : t('notifications.activityBody.sectionPr', { name: prSectionName });
-        return `${activityName} - ${detail}`;
+        const delta = prSectionDelta;
+        return pr(
+          fitDetail(
+            (place) =>
+              delta
+                ? t('notifications.activityBody.sectionPrDelta', {
+                    name: place,
+                    delta: formatDurationDelta(delta),
+                  })
+                : t('notifications.activityBody.sectionPr', { name: place }),
+            prSectionName
+          )
+        );
       }
       if (prCount > 1) {
-        const detail = prSectionHasName
-          ? t('notifications.activityBody.sectionPrMany', {
-              name: prSectionName,
-              count: prCount - 1,
-            })
-          : t('notifications.activityBody.sectionPrCount', { count: prCount });
-        return `${activityName} - ${detail}`;
+        return pr(
+          prSectionHasName
+            ? fitDetail(
+                (place) =>
+                  t('notifications.activityBody.sectionPrMany', {
+                    name: place,
+                    count: prCount - 1,
+                  }),
+                prSectionName
+              )
+            : t('notifications.activityBody.sectionPrCount', { count: prCount })
+        );
       }
       if (route?.isPr) {
-        const detail = route.prImprovementSeconds
-          ? t('notifications.activityBody.routePrUnnamedDelta', {
-              delta: formatDurationDelta(route.prImprovementSeconds),
-            })
-          : t('notifications.activityBody.routePrUnnamed');
-        return `${activityName} - ${detail}`;
+        return pr(
+          route.prImprovementSeconds
+            ? t('notifications.activityBody.routePrUnnamedDelta', {
+                delta: formatDurationDelta(route.prImprovementSeconds),
+              })
+            : t('notifications.activityBody.routePrUnnamed')
+        );
       }
     }
 
+    // A speed verdict against a running average, not a time against the
+    // all-time best, so neither this clause nor its title may claim a time
+    // improvement. The delta here is the gap still to close.
     if (route?.trendUp && route.routeName) {
-      const detail =
-        route.timeDeltaSeconds != null && route.timeDeltaSeconds > 0
-          ? t('notifications.activityBody.fasterOnRouteDelta', {
-              name: route.routeName,
-              delta: formatDurationDelta(route.timeDeltaSeconds),
-            })
-          : t('notifications.activityBody.fasterOnRoute', { name: route.routeName });
-      return `${activityName} - ${detail}`;
+      const gap = route.timeDeltaSeconds;
+      return faster(
+        fitDetail(
+          (place) =>
+            gap != null && gap > 0
+              ? t('notifications.activityBody.fasterOnRouteDelta', {
+                  name: place,
+                  delta: formatDurationDelta(gap),
+                })
+              : t('notifications.activityBody.fasterOnRoute', { name: place }),
+          route.routeName
+        )
+      );
     }
     if (route?.routeName) {
-      return `${activityName} - ${t('notifications.activityBody.onRoute', { name: route.routeName })}`;
+      return recorded(
+        fitDetail(
+          (place) => t('notifications.activityBody.onRoute', { name: place }),
+          route.routeName
+        )
+      );
     }
     if (sectionCount === 1) {
-      return `${activityName} - ${t('notifications.activityBody.sectionTraversedOne')}`;
+      return recorded(t('notifications.activityBody.sectionTraversedOne'));
     }
     if (sectionCount > 1) {
-      return `${activityName} - ${t('notifications.activityBody.sectionTraversedMany', { count: sectionCount })}`;
+      return recorded(
+        t('notifications.activityBody.sectionTraversedMany', { count: sectionCount })
+      );
     }
   } catch {
     // Engine query failed, fall through
@@ -225,14 +357,46 @@ export function buildActivityNotificationBody(
   // Check for new insights caused by this activity
   const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
   if (milestone) {
-    return `${activityName} - ${milestone.title}`;
+    return recorded(milestone.title);
   }
 
   // Fallback: basic stats so the notification isn't just the activity name
-  const stat = formatBasicStat(activityInfo, t);
-  if (stat) {
-    return `${activityName} - ${stat}`;
-  }
+  return recorded(formatBasicStat(activityInfo, t));
+}
 
-  return activityName;
+/**
+ * Build the enriched activity notification, title and body together. The rung
+ * that wins the body picks the title, so the one line an Android lock screen
+ * reliably shows says which kind of outcome this was.
+ */
+export function buildActivityNotification(
+  activityId: string,
+  activityName: string,
+  newInsights: Insight[],
+  prefs: NotificationPreferences,
+  activityInfo: ActivityInfo | null,
+  t: TFunc
+): ActivityNotification {
+  const { detail, tier } = resolveDetail(activityId, newInsights, prefs, activityInfo, t);
+  // The cap binds on what is posted, not on the name alone. A clause with no
+  // name left to give up is cut here rather than by the lock screen.
+  const clause = detail === null ? null : trim(detail, NOTIFICATION_BODY_MAX);
+  return {
+    title: t(TITLE_KEYS[tier]),
+    body:
+      clause === null ? trim(activityName, NOTIFICATION_BODY_MAX) : compose(clause, activityName),
+  };
+}
+
+/** The body alone, for callers that only decide what the tray does with it. */
+export function buildActivityNotificationBody(
+  activityId: string,
+  activityName: string,
+  newInsights: Insight[],
+  prefs: NotificationPreferences,
+  activityInfo: ActivityInfo | null,
+  t: TFunc
+): string {
+  return buildActivityNotification(activityId, activityName, newInsights, prefs, activityInfo, t)
+    .body;
 }

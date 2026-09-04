@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,10 @@ import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog'
 import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
 import type { PersistentEngineStats } from 'veloqrs';
 
-function getRouteEngine() {
+function getEngine() {
   try {
     const mod = require('veloqrs');
-    return mod.RouteEngineClient?.getInstance() ?? null;
+    return mod.EngineClient?.getInstance() ?? null;
   } catch {
     return null;
   }
@@ -187,6 +187,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear dismissed</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          testID="debug-support-legacy-toggle"
           onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
           style={styles.actionButton}
           activeOpacity={0.7}
@@ -275,9 +276,12 @@ export default function DebugScreen() {
     setTimeout(() => setRefreshing(false), 200);
   }, []);
 
-  // Engine stats
-  const engine = getRouteEngine();
-  const stats: PersistentEngineStats | undefined = engine?.getStats();
+  // Engine stats, re-read on pull to refresh and on nothing else.
+  const stats: PersistentEngineStats | undefined = useMemo(
+    () => getEngine()?.getStats(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  );
 
   // FFI metrics
   const ffiSummary = getFFIMetricsSummary();
@@ -285,9 +289,6 @@ export default function DebugScreen() {
 
   // Memory
   const mem = getMemoryStats();
-
-  // Force re-read on refreshKey
-  void refreshKey;
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;

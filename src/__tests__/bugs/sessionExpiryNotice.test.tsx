@@ -1,0 +1,190 @@
+/**
+ * Scenario: an OAuth token expires or is revoked, so the athlete is dropped
+ * back to the login screen with a full database still on the device.
+ *
+ * Expected behaviour: the expiry is not dressed as a login failure. It gets
+ * its own notice, that notice says the activities, sections and settings are
+ * still here, and it names the athlete a sign-in will restore. A genuine
+ * login failure keeps the red error slot to itself.
+ */
+
+import React from 'react';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
+
+import LoginScreen from '@/app/login';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { rememberCachedAthleteId, forgetCachedAthleteId } from '@/shared/storage/cachedAthleteId';
+
+jest.mock('react-i18next', () => {
+  const en = jest.requireActual('@/i18n/locales/en-GB.json');
+  const lookup = (key: string): unknown =>
+    key
+      .split('.')
+      .reduce<unknown>((o, k) => (o == null ? o : (o as Record<string, unknown>)[k]), en);
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: string | Record<string, unknown>) => {
+        const raw = lookup(key);
+        const options = typeof opts === 'object' && opts !== null ? opts : {};
+        const fallback = typeof opts === 'string' ? opts : (options.defaultValue as string);
+        let out = typeof raw === 'string' ? raw : (fallback ?? key);
+        for (const [name, value] of Object.entries(options)) {
+          out = out.replace(`{{${name}}}`, String(value));
+        }
+        return out;
+      },
+    }),
+  };
+});
+
+jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+    SafeAreaProvider: View,
+    SafeAreaView: View,
+  };
+});
+
+jest.mock('@/shared/app/TopSafeAreaContext', () => ({
+  ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
+  useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
+  useScreenSafeAreaEdges: () => [],
+}));
+
+jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ clear: jest.fn() }) }));
+
+jest.mock('@/features/settings/hooks/exportIndex', () => ({
+  useImportDatabaseBackup: () => ({ importDatabaseBackup: jest.fn(), importing: false }),
+}));
+
+jest.mock('@/features/auth/hooks/useBackupRestore', () => ({
+  useBackupRestore: () => ({
+    detectedBackup: null,
+    restoringDetected: false,
+    dismissedRestore: false,
+    setDismissedRestore: jest.fn(),
+    handleRestoreDetected: jest.fn(),
+  }),
+}));
+
+// The engine is closed at the login screen on a cold start, so identity comes
+// from the AsyncStorage mirror. That is the shape SB10 left behind.
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => null,
+  isEngineReady: () => false,
+}));
+
+let reportLoginError: ((message: string) => void) | null = null;
+jest.mock('@/features/auth/hooks/useApiKeyLogin', () => ({
+  useApiKeyLogin: ({ setError }: { setError: (message: string) => void }) => {
+    reportLoginError = setError;
+    return { handleApiKeyLogin: jest.fn(), isApiKeyLoading: false };
+  },
+}));
+
+const ATHLETE = 'i123456';
+
+beforeEach(async () => {
+  reportLoginError = null;
+  useAuthStore.setState({ sessionExpired: null });
+  await forgetCachedAthleteId();
+});
+
+async function showExpiry() {
+  useAuthStore.setState({ sessionExpired: 'signed_out' });
+  render(<LoginScreen />);
+  await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
+}
+
+describe('a signed-out session', () => {
+  it('does not use the login failure slot', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    expect(screen.queryByTestId('login-error-text')).toBeNull();
+  });
+
+  it('says the library is still on the device', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    expect(
+      screen.getByText('Your activities, sections and settings are still on this device.')
+    ).toBeTruthy();
+  });
+
+  it('names the athlete a sign-in restores', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    expect(screen.getByText(`Sign in again as ${ATHLETE} to get them back.`)).toBeTruthy();
+  });
+
+  it('still reassures when the mirror holds no athlete', async () => {
+    await showExpiry();
+
+    expect(
+      screen.getByText('Your activities, sections and settings are still on this device.')
+    ).toBeTruthy();
+    expect(screen.getByText('Sign in again to get them back.')).toBeTruthy();
+    expect(screen.queryByText(/as i/)).toBeNull();
+  });
+
+  /// A 401 is all the app has. It cannot tell an expiry from another device
+  /// taking the credential, so it claims neither (`B143`).
+  it('claims neither an expiry nor a revocation the server never signalled', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    expect(screen.getByText('You have been signed out.')).toBeTruthy();
+    expect(screen.queryByText(/expired/i)).toBeNull();
+    expect(screen.queryByText(/revoked/i)).toBeNull();
+  });
+
+  it('clears the flag so a later visit to the screen is clean', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    expect(useAuthStore.getState().sessionExpired).toBeNull();
+
+    screen.unmount();
+    render(<LoginScreen />);
+    await waitFor(() => expect(screen.queryByTestId('login-session-notice')).toBeNull());
+  });
+});
+
+describe('a login failure', () => {
+  it('keeps the red error slot to itself', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    render(<LoginScreen />);
+
+    act(() => reportLoginError?.('Invalid API key'));
+
+    expect(screen.getByTestId('login-error-text')).toHaveTextContent('Invalid API key');
+    expect(screen.queryByTestId('login-session-notice')).toBeNull();
+  });
+
+  it('takes the slot back from a notice that came first', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showExpiry();
+
+    act(() => reportLoginError?.('Invalid API key'));
+
+    expect(screen.queryByTestId('login-session-notice')).toBeNull();
+    expect(screen.getByTestId('login-error-text')).toHaveTextContent('Invalid API key');
+  });
+
+  it('does not survive an expiry that arrives after it', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    render(<LoginScreen />);
+    act(() => reportLoginError?.('Invalid API key'));
+
+    act(() => useAuthStore.setState({ sessionExpired: 'signed_out' }));
+
+    await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
+    expect(screen.queryByTestId('login-error-text')).toBeNull();
+  });
+});

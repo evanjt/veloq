@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, ink } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 
@@ -31,7 +31,6 @@ interface SectionTrimOverlayProps {
   originalDistance: number;
   isSaving: boolean;
   canReset: boolean;
-  initiallyExpanded?: boolean;
   isExpandMode: boolean;
   sectionStartInWindow?: number;
   sectionEndInWindow?: number;
@@ -517,7 +516,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ink.white,
     borderWidth: 2,
     borderColor: colors.primary,
     justifyContent: 'center',

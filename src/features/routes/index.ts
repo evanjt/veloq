@@ -1,9 +1,7 @@
 export * from './components';
+/* eslint-disable import/export -- RouteSignature is disambiguated below on purpose */
 export * from './hooks';
-export * from './lib';
-export * from './stores';
 export * from './constants';
-export * from './demo';
 export * from './types';
 
 // types.ts and the route-engine hook both declare RouteSignature (full record vs

@@ -5,11 +5,15 @@
  */
 
 import { useMemo } from 'react';
-import { useEngineGroups } from './useRouteEngine';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineGroups } from './useEngine';
+import { getEngine } from '@/shared/native/engine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
-import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
+import type {
+  RouteGroup as EngineRouteGroup,
+  RoutePerformanceResult,
+  FfiActivityMetrics,
+} from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
 import { calculateSpeed } from '@/shared/math';
@@ -71,12 +75,24 @@ interface UseRoutePerformancesResult {
   activityMetrics: Map<string, FfiActivityMetrics>;
 }
 
+/** Groups and performances a caller already read as part of a screen bundle. */
+export interface PreComputedRoutePerformances {
+  groups: readonly EngineRouteGroup[];
+  /** The result for this exact sport filter, when the caller has it. */
+  result?: RoutePerformanceResult;
+}
+
 export function useRoutePerformances(
   activityId: string | undefined,
   routeGroupId?: string,
-  sportType?: string
+  sportType?: string,
+  preComputed?: PreComputedRoutePerformances
 ): UseRoutePerformancesResult {
-  const { groups } = useEngineGroups({ minActivities: 1 });
+  const { groups: queriedGroups } = useEngineGroups({
+    minActivities: 1,
+    enabled: preComputed === undefined,
+  });
+  const groups = preComputed?.groups ?? queriedGroups;
 
   // Find route group - either from provided ID or by looking up activity
   const engineGroup = useMemo(() => {
@@ -115,6 +131,24 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
+  // The engine already picks the best run per direction, over its own population and its
+  // own direction rules. Mapping its record keeps this card consistent with the rank and
+  // direction counts rendered beside it.
+  function toDirectionBest(
+    ffi: { movingTime: number; speed: number; date: number | bigint } | null | undefined
+  ): DirectionBestRecord | null {
+    if (!ffi) return null;
+    return {
+      bestTime: ffi.movingTime,
+      bestSpeed: ffi.speed,
+      activityDate: fromUnixSeconds(ffi.date) ?? new Date(),
+    };
+  }
+
+  // The bundle is rebuilt by the screen on every render, so the memo keys on
+  // the result inside it, which is stable, and not on the wrapper.
+  const preComputedResult = preComputed?.result;
+
   // Get route performance data from Rust engine (includes inlined metrics as of Issue C optimization)
   // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
   const rustData = useMemo((): {
@@ -123,6 +157,9 @@ export function useRoutePerformances(
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
+    bestActivityId: string | null;
+    bestForward: DirectionBestRecord | null;
+    bestReverse: DirectionBestRecord | null;
   } => {
     const emptyResult = {
       matchInfoMap: new Map<string, RustMatchInfo>(),
@@ -130,20 +167,21 @@ export function useRoutePerformances(
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
+      bestActivityId: null,
+      bestForward: null,
+      bestReverse: null,
     };
 
     if (!engineGroup) return emptyResult;
 
     try {
-      const engine = getRouteEngine();
-      if (!engine) return emptyResult;
-
       // Get typed performance data directly from Rust engine (now includes metrics)
-      const result: RoutePerformanceResult = engine.getRoutePerformances(
-        engineGroup.groupId,
-        activityId || '',
-        sportType
-      );
+      let result = preComputedResult;
+      if (!result) {
+        const engine = getEngine();
+        if (!engine) return emptyResult;
+        result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
+      }
       const performances = result.performances || [];
 
       // Build lookup map by activity ID
@@ -170,17 +208,23 @@ export function useRoutePerformances(
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
+        bestActivityId: result.best?.activityId ?? null,
+        bestForward: toDirectionBest(result.bestForward),
+        bestReverse: toDirectionBest(result.bestReverse),
       };
     } catch {
       return emptyResult;
     }
-  }, [engineGroup, activityId, sportType]);
+  }, [engineGroup, activityId, sportType, preComputedResult]);
 
   const {
     matchInfoMap,
     activityMetrics,
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
+    bestActivityId,
+    bestForward: rustBestForward,
+    bestReverse: rustBestReverse,
   } = rustData;
 
   // Build performances from inlined metrics (Issue C: no separate FFI call) + match info from Rust
@@ -234,56 +278,26 @@ export function useRoutePerformances(
     // Sort by date (oldest first for charting)
     points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
 
-    // Find best (shortest time) - overall
-    const validPoints = points.filter((p) => p.duration > 0);
-    const bestPoint =
-      validPoints.length > 0
-        ? validPoints.reduce((best, p) => (p.duration < best.duration ? p : best), validPoints[0])
-        : null;
-
-    // Find best forward (direction is "same" or "forward")
-    const forwardPoints = points.filter(
-      (p) => (p.direction === 'same' || p.direction === 'partial') && p.duration > 0
-    );
-    const bestForwardPoint =
-      forwardPoints.length > 0
-        ? forwardPoints.reduce(
-            (best, p) => (p.duration < best.duration ? p : best),
-            forwardPoints[0]
-          )
-        : null;
-    const bestForward: DirectionBestRecord | null = bestForwardPoint
-      ? {
-          bestTime: bestForwardPoint.duration,
-          bestSpeed: bestForwardPoint.speed,
-          activityDate: bestForwardPoint.date,
-        }
-      : null;
-
-    // Find best reverse
-    const reversePoints = points.filter((p) => p.direction === 'reverse' && p.duration > 0);
-    const bestReversePoint =
-      reversePoints.length > 0
-        ? reversePoints.reduce(
-            (best, p) => (p.duration < best.duration ? p : best),
-            reversePoints[0]
-          )
-        : null;
-    const bestReverse: DirectionBestRecord | null = bestReversePoint
-      ? {
-          bestTime: bestReversePoint.duration,
-          bestSpeed: bestReversePoint.speed,
-          activityDate: bestReversePoint.date,
-        }
+    // The engine ranks the attempts. Find its pick among the plotted points.
+    const bestPoint = bestActivityId
+      ? (points.find((p) => p.activityId === bestActivityId) ?? null)
       : null;
 
     return {
       performances: points,
       best: bestPoint,
-      bestForwardRecord: bestForward,
-      bestReverseRecord: bestReverse,
+      bestForwardRecord: rustBestForward,
+      bestReverseRecord: rustBestReverse,
     };
-  }, [engineGroup, activityId, matchInfoMap, activityMetrics]);
+  }, [
+    engineGroup,
+    activityId,
+    matchInfoMap,
+    activityMetrics,
+    bestActivityId,
+    rustBestForward,
+    rustBestReverse,
+  ]);
 
   // avg_speed now comes pre-computed from Rust's DirectionStats - no TS
   // augmentation needed.

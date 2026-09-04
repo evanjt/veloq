@@ -6,11 +6,11 @@
 
 use chrono::{DateTime, Datelike};
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use super::super::PersistentRouteEngine;
+use super::super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
     // ========================================================================
@@ -261,16 +261,17 @@ impl PersistentRouteEngine {
     }
 
     /// Get a calendar-aligned Year > Month performance summary for a section.
-    /// Returns full history (no date range filter).
+    /// Returns full history (no date range filter), for one sport when given.
     pub fn get_section_calendar_summary(
         &mut self,
         section_id: &str,
+        sport_filter: Option<&str>,
     ) -> Option<crate::CalendarSummary> {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
-        // for activities without time streams, matching the strict behavior).
-        let perf_result = self.get_section_performances(section_id);
+        // for activities without time streams, matching the strict behaviour).
+        let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {
             return None;
@@ -675,97 +676,6 @@ impl PersistentRouteEngine {
     // Activity Section Highlights (batch PR detection)
     // ========================================================================
 
-    /// Batch-query section highlights (PRs) for a list of activity IDs.
-    /// Now reads from the materialized `activity_indicators` table.
-    /// Kept for backwards compatibility - new code should use `get_activity_indicators()`.
-    pub fn get_activity_section_highlights(
-        &self,
-        activity_ids: &[String],
-    ) -> Vec<crate::FfiActivitySectionHighlight> {
-        if activity_ids.is_empty() {
-            return vec![];
-        }
-
-        // Read from materialized table
-        let indicators = self.get_activity_indicators(activity_ids);
-
-        // Also need start_index/end_index from section_activities for map highlighting
-        let placeholders: String = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        let idx_sql = format!(
-            "SELECT activity_id, section_id, start_index, end_index
-             FROM section_activities
-             WHERE activity_id IN ({}) AND excluded = 0",
-            placeholders
-        );
-
-        let mut idx_map: HashMap<(String, String), (u32, u32)> = HashMap::new();
-        if let Ok(mut stmt) = self.db.prepare(&idx_sql) {
-            let params: Vec<&dyn rusqlite::types::ToSql> = activity_ids
-                .iter()
-                .map(|id| id as &dyn rusqlite::types::ToSql)
-                .collect();
-            if let Ok(rows) = stmt.query_map(params.as_slice(), |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, u32>(2)?,
-                    row.get::<_, u32>(3)?,
-                ))
-            }) {
-                for r in rows.flatten() {
-                    idx_map.insert((r.0, r.1), (r.2, r.3));
-                }
-            }
-        }
-
-        // Convert indicators to the old FfiActivitySectionHighlight format
-        // Merge by (activity_id, section_id) - pick PR over trend, best trend wins
-        let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> =
-            HashMap::new();
-
-        for ind in indicators {
-            // Only section indicators
-            if ind.indicator_type != "section_pr" && ind.indicator_type != "section_trend" {
-                continue;
-            }
-
-            let is_pr = ind.indicator_type == "section_pr";
-            let (start_index, end_index) = idx_map
-                .get(&(ind.activity_id.clone(), ind.target_id.clone()))
-                .copied()
-                .unwrap_or((0, 0));
-
-            let key = (ind.activity_id.clone(), ind.target_id.clone());
-            let entry = highlight_map
-                .entry(key)
-                .or_insert(crate::FfiActivitySectionHighlight {
-                    activity_id: ind.activity_id.clone(),
-                    section_id: ind.target_id.clone(),
-                    section_name: ind.target_name.clone(),
-                    lap_time: ind.lap_time,
-                    is_pr,
-                    trend: ind.trend,
-                    start_index,
-                    end_index,
-                });
-
-            // PR always wins over trend
-            if is_pr && !entry.is_pr {
-                entry.is_pr = true;
-                entry.trend = 1;
-                entry.lap_time = ind.lap_time;
-            } else if !entry.is_pr && ind.trend > entry.trend {
-                entry.trend = ind.trend;
-            }
-        }
-
-        highlight_map.into_values().collect()
-    }
-
     /// Batch-query route highlights for a list of activity IDs.
     /// Computes inline from in-memory groups + activity_metrics - no table read.
     pub fn get_activity_route_highlights(
@@ -895,7 +805,10 @@ impl PersistentRouteEngine {
                     if best_moving_time == u32::MAX {
                         best_moving_time = 0;
                     }
-                    group_cache.insert(cache_key, (best_moving_time, second_best_moving_time, trends));
+                    group_cache.insert(
+                        cache_key,
+                        (best_moving_time, second_best_moving_time, trends),
+                    );
                 }
             }
 
@@ -903,19 +816,23 @@ impl PersistentRouteEngine {
                 group_cache.get(&cache_key)
             {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
-                let is_pr =
-                    moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
+                let is_pr = crate::persistence::records::is_personal_record(
+                    moving_time as f64,
+                    *best_moving_time as f64,
+                );
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {
                     None
                 };
-                let pr_improvement_seconds =
-                    if is_pr && *second_best_moving_time != u32::MAX && *second_best_moving_time > moving_time {
-                        Some(*second_best_moving_time - moving_time)
-                    } else {
-                        None
-                    };
+                let pr_improvement_seconds = if is_pr
+                    && *second_best_moving_time != u32::MAX
+                    && *second_best_moving_time > moving_time
+                {
+                    Some(*second_best_moving_time - moving_time)
+                } else {
+                    None
+                };
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
@@ -931,8 +848,10 @@ impl PersistentRouteEngine {
         results
     }
 
-    /// Get section encounters for an activity: one entry per (section, direction).
-    /// Includes this activity's time, PR status, visit count, and sparkline history.
+    /// Get section encounters for an activity: one entry per
+    /// `(section, direction)`, represented by the activity's fastest pass.
+    /// Includes this activity's time, PR status, visit count, and sparkline
+    /// history. Individual laps are the `FfiSectionLap` surface.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -948,7 +867,9 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {}
-             ORDER BY sa.section_id, sa.direction",
+             ORDER BY sa.section_id, sa.direction,
+                      CASE WHEN sa.lap_time IS NULL OR sa.lap_time <= 0 THEN 1 ELSE 0 END,
+                      sa.lap_time ASC",
             visible_filter
         );
 
@@ -966,7 +887,7 @@ impl PersistentRouteEngine {
             lap_pace: f64,
         }
 
-        let traversals: Vec<Traversal> = stmt
+        let passes: Vec<Traversal> = stmt
             .query_map(rusqlite::params![activity_id], |row| {
                 Ok(Traversal {
                     section_id: row.get(0)?,
@@ -981,15 +902,24 @@ impl PersistentRouteEngine {
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
+        // Best-timed first, so the first pass of a pair represents it.
+        let mut seen_pairs: HashSet<(String, String)> = HashSet::new();
+        let traversals: Vec<Traversal> = passes
+            .into_iter()
+            .filter(|t| seen_pairs.insert((t.section_id.clone(), t.direction.clone())))
+            .collect();
+
         let mut encounters = Vec::new();
 
         for trav in &traversals {
-            // Get history for this (section, direction): all traversals sorted by activity date
+            // History for this (section, direction), in this activity's sport: a
+            // run's progress over shared ground is its own, not the rides'.
             let history_query =
                 "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
                  FROM section_activities sa
-                 LEFT JOIN activities a ON a.id = sa.activity_id
+                 JOIN activities a ON a.id = sa.activity_id
                  WHERE sa.section_id = ?1 AND sa.direction = ?2
+                   AND a.sport_type = (SELECT sport_type FROM activities WHERE id = ?3)
                    AND sa.excluded = 0 AND sa.lap_time IS NOT NULL AND sa.lap_time > 0
                  ORDER BY act_date ASC";
 
@@ -1002,11 +932,10 @@ impl PersistentRouteEngine {
             let mut history_ids: Vec<String> = Vec::new();
             let mut best_time: f64 = f64::MAX;
 
-            if let Ok(rows) = hist_stmt
-                .query_map(rusqlite::params![trav.section_id, trav.direction], |row| {
-                    Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?))
-                })
-            {
+            if let Ok(rows) = hist_stmt.query_map(
+                rusqlite::params![trav.section_id, trav.direction, activity_id],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+            ) {
                 for row in rows.flatten() {
                     if row.0 < best_time {
                         best_time = row.0;
@@ -1017,11 +946,8 @@ impl PersistentRouteEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // PR tolerance: 0.5% relative - matches route PR detection behavior
-            // and adapts to section length (5s sprint vs 30min climb).
-            let is_pr = trav.lap_time > 0.0
-                && best_time < f64::MAX
-                && ((trav.lap_time - best_time) / best_time).abs() < 0.005;
+            let is_pr =
+                crate::persistence::records::matches_personal_record(trav.lap_time, best_time);
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),

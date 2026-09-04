@@ -39,7 +39,9 @@ export const queryKeys = {
 
   wellness: {
     all: ['wellness'] as const,
-    byRange: (range: string) => ['wellness', range] as const,
+    // The window slides with today's date, so the dates are part of identity.
+    byRange: (range: string, oldest: string, newest: string) =>
+      ['wellness', range, oldest, newest] as const,
     byDate: (date: string | undefined) => ['wellness', 'date', date] as const,
   },
 
@@ -73,6 +75,7 @@ export const queryKeys = {
 
   calendar: {
     oldestDate: ['oldestActivityDate'] as const,
+    yearCounts: ['activityYearCounts'] as const,
     events: (today: string) => ['calendar-events', today] as const,
   },
 } as const;

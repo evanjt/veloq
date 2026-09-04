@@ -49,7 +49,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
     // hr_zone_names is an optional field on some sport settings responses
     const zoneNames = (settings as { hr_zone_names?: string[] } | undefined)?.hr_zone_names;
 
-    let builtZones: Array<{
+    let builtZones: {
       id: number;
       name: string;
       minBpm: number;
@@ -57,7 +57,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
       min: number;
       max: number;
       color: string;
-    }>;
+    }[];
 
     if (apiZones && apiZones.length > 0 && typeof apiZones[0] === 'number') {
       // API format: array of BPM upper bounds
@@ -160,7 +160,6 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
   };
 
   // Data source label
-  const dataSource = settings?.max_hr ? 'intervals.icu' : 'local';
 
   return (
     <ChartErrorBoundary height={200} label="Heart Rate Zones">

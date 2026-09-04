@@ -5,17 +5,23 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
+import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section, RoutePoint } from '@/types';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('CustomSections');
 
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
   sportType?: string;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
+  /** Custom sections a caller already read, seeded so the query skips its own FFI call. */
+  preComputedSections?: NativeSection[];
 }
 
 export interface UseCustomSectionsResult {
@@ -61,7 +67,7 @@ const OVERLAP_THRESHOLD = 0.8;
  */
 function findSupersededSections(
   customPolyline: RoutePoint[],
-  autoSections: Array<{ id: string; polyline: RoutePoint[] }>
+  autoSections: { id: string; polyline: RoutePoint[] }[]
 ): string[] {
   const superseded: string[] = [];
 
@@ -75,13 +81,31 @@ function findSupersededSections(
   return superseded;
 }
 
+/** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
+function toAppSections(sections: NativeSection[]): Section[] {
+  return sections.map((s) => ({
+    ...s,
+    polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
+      lat: pt.latitude,
+      lng: pt.longitude,
+    })),
+    sectionType: 'custom' as const,
+    createdAt: s.createdAt || new Date().toISOString(),
+  })) as Section[];
+}
+
 /**
  * Hook for managing custom sections with React Query caching.
  * Uses Rust engine unified sections table.
  */
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
-  const { sportType, enabled = true } = options;
+  const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
+
+  // A caller that already read the sections owns the answer. Seeding the query
+  // was not enough: a cache another screen primed wins over `initialData`, so
+  // the bundle's list was dropped and the engine read anyway.
+  const skipOwnFfiCall = preComputedSections !== undefined;
 
   // Load custom sections from unified sections table
   const {
@@ -91,36 +115,27 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     refetch,
   } = useQuery<Section[]>({
     queryKey: queryKeys.sections.custom,
-    enabled,
+    enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         return [];
       }
 
       // Get custom sections from unified table
-      const sections = engine.getSectionsByType('custom');
-
-      // Convert polylines to RoutePoint format
-      // Note: FfiSection doesn't have activityPortions - it's optional in the app type
-      return sections.map((s) => ({
-        ...s,
-        polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-          lat: pt.latitude,
-          lng: pt.longitude,
-        })),
-        sectionType: 'custom' as const,
-        createdAt: s.createdAt || new Date().toISOString(),
-        // FfiSection doesn't have activityPortions
-        activityPortions: undefined,
-      })) as Section[];
+      return toAppSections(engine.getSectionsByType('custom'));
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const preComputed = useMemo(
+    () => (preComputedSections ? toAppSections(preComputedSections) : undefined),
+    [preComputedSections]
+  );
+
   // Filter and sort sections
   const sections = useMemo(() => {
-    let filtered = rawSections || [];
+    let filtered = preComputed ?? rawSections ?? [];
 
     // Filter by sport type if specified
     if (sportType) {
@@ -133,7 +148,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     );
 
     return filtered;
-  }, [rawSections, sportType]);
+  }, [preComputed, rawSections, sportType]);
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {
@@ -143,7 +158,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Create a new section
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<Section> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -187,7 +202,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       } as Section;
 
       if (__DEV__) {
-        console.log(
+        log.log(
           `[useCustomSections] Created section ${result.id} (${result.polyline.length} points, ${result.distanceMeters.toFixed(0)}m)`
         );
       }
@@ -208,7 +223,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
             engine.setSuperseded(autoId, result.id);
           }
           if (__DEV__) {
-            console.log(
+            log.log(
               `[useCustomSections] Custom section ${result.id} supersedes ${supersededIds.length} auto sections`
             );
           }
@@ -228,7 +243,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Delete a section
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -255,7 +270,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
   // Rename a section
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) {
         throw new Error('Route engine not initialized');
       }
@@ -281,21 +296,4 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     renameSection,
     refresh,
   };
-}
-
-/**
- * Hook to get a single custom section by ID
- */
-export function useCustomSection(sectionId: string | undefined): {
-  section: Section | null;
-  isLoading: boolean;
-} {
-  const { sections, isLoading } = useCustomSections();
-
-  const section = useMemo(() => {
-    if (!sectionId) return null;
-    return sections.find((s) => s.id === sectionId) || null;
-  }, [sections, sectionId]);
-
-  return { section, isLoading };
 }

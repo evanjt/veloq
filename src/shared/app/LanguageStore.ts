@@ -7,7 +7,7 @@ import {
   changeLanguage,
   i18n,
 } from '@/i18n';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
@@ -72,7 +72,7 @@ export const useLanguageStore = create<LanguageState>((set) => ({
     await changeLanguage(effectiveLocale);
 
     // Update Rust engine with new translations for auto-generated names
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) {
       const routeWord = i18n.t('routes.routeWord');
       const sectionWord = i18n.t('routes.sectionWord');
@@ -209,17 +209,6 @@ export function getAvailableLanguages(): LanguageGroup[] {
   ];
 }
 
-/**
- * Get flat list of language options (for backwards compatibility)
- */
-export function getAvailableLanguagesFlat(): LanguageOption[] {
-  const groups = getAvailableLanguages();
-  return groups.flatMap((group) => group.languages);
-}
-
-/**
- * Check if a language value is an English variant
- */
 export function isEnglishVariant(language: string | null): boolean {
   return language === 'en' || (language !== null && language.startsWith('en-'));
 }

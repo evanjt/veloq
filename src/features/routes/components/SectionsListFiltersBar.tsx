@@ -173,7 +173,7 @@ export function SectionsListFiltersBar({
               hiddenFilters.unaccepted && styles.sortChipLabelActive,
             ]}
           >
-            {t('sections.pinnedOnly')}
+            {t('sections.acceptedOnly')}
           </Text>
         </TouchableOpacity>
       )}

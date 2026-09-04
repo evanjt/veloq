@@ -7,7 +7,7 @@ import {
   HR_ZONE_COLORS,
 } from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -33,7 +33,7 @@ export function useZoneDistribution({
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !sport) return undefined;
 
     const sportType = SPORT_TO_ENGINE_TYPE[sport];
@@ -53,38 +53,4 @@ export function useZoneDistribution({
       color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
     }));
   }, [type, sport]);
-}
-
-/**
- * Calculate zone distribution from activity streams (for single activity)
- * Uses heartrate/watts streams and zone thresholds
- */
-export function calculateZonesFromStreams(
-  stream: number[],
-  zones: { min: number; max: number }[],
-  zoneColors: string[],
-  zoneNames: string[]
-): ZoneDistribution[] {
-  const zoneCounts: number[] = new Array(zones.length).fill(0);
-
-  for (const value of stream) {
-    for (let i = 0; i < zones.length; i++) {
-      const zone = zones[i];
-      if (value >= zone.min && value < zone.max) {
-        zoneCounts[i]++;
-        break;
-      }
-    }
-  }
-
-  const totalPoints = stream.length;
-  if (totalPoints === 0) return [];
-
-  return zones.map((_, idx) => ({
-    zone: idx + 1,
-    name: zoneNames[idx] || `Zone ${idx + 1}`,
-    seconds: zoneCounts[idx], // In this case, it's sample count, not seconds
-    percentage: Math.round((zoneCounts[idx] / totalPoints) * 100),
-    color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
-  }));
 }

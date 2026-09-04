@@ -2,54 +2,13 @@
  * Geometry utilities for GPS coordinate processing.
  */
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-/**
- * Haversine distance between two points in meters.
- * Accepts either two point objects or four raw coordinates.
- */
-export function haversineDistance(
-  point1: { lat: number; lng: number },
-  point2: { lat: number; lng: number }
-): number;
-export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
-export function haversineDistance(
-  a: { lat: number; lng: number } | number,
-  b: { lat: number; lng: number } | number,
-  c?: number,
-  d?: number
-): number {
-  let lat1: number, lon1: number, lat2: number, lon2: number;
-  if (typeof a === 'number') {
-    lat1 = a;
-    lon1 = b as number;
-    lat2 = c!;
-    lon2 = d!;
-  } else {
-    lat1 = a.lat;
-    lon1 = a.lng;
-    lat2 = (b as { lat: number; lng: number }).lat;
-    lon2 = (b as { lat: number; lng: number }).lng;
-  }
-  return _haversineDistance(lat1, lon1, lat2, lon2);
-}
-
-function _haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000; // Earth radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+// Distance lives in one place. See shared/geo/distance.ts.
+export { haversineDistance } from '@/shared/geo/distance';
 
 /** Flatten a RoutePoint[] to [lat, lng, lat, lng, ...] for Rust FFI. */
-function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[] {
+function flattenPolyline(polyline: { lat: number; lng: number }[]): number[] {
   const flat = new Array(polyline.length * 2);
   for (let i = 0; i < polyline.length; i++) {
     flat[i * 2] = polyline[i].lat;
@@ -69,13 +28,13 @@ function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[
  * @returns Overlap ratio (0-1)
  */
 export function computePolylineOverlap(
-  polylineA: Array<{ lat: number; lng: number }>,
-  polylineB: Array<{ lat: number; lng: number }>,
+  polylineA: { lat: number; lng: number }[],
+  polylineB: { lat: number; lng: number }[],
   thresholdMeters = 50
 ): number {
   if (polylineA.length === 0 || polylineB.length === 0) return 0;
 
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return 0;
 
   return engine.computePolylineOverlap(

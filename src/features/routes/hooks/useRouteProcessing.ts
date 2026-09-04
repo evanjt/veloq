@@ -5,8 +5,7 @@
 
 import { useCallback, useState } from 'react';
 import { i18n } from '@/i18n';
-import type { ActivityType } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
 interface RouteProcessingProgress {
   status: 'idle' | 'processing' | 'complete' | 'error';
@@ -49,7 +48,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
   }, []);
 
   const clearCache = useCallback(async () => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (engine) engine.clear();
     setProgress({ status: 'idle', current: 0, total: 0, message: '' });
   }, []);
@@ -64,7 +63,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
       });
 
       try {
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (engine) {
           engine.addActivities(activityIds, allCoords, offsets, sportTypes);
         }

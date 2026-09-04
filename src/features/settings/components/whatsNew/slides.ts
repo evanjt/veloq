@@ -59,7 +59,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v030.insightsTitle',
       bodyKey: 'whatsNew.v030.insightsBody',
       icon: 'lightbulb-outline',
-      showMeRoute: '/routes',
+      showMeRoute: '/insights',
       get Component() {
         return require('./InsightsSlide').InsightsSlide;
       },
@@ -88,6 +88,17 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       showMeRoute: '/backup-settings',
       get Component() {
         return require('./BackupSlide').BackupSlide;
+      },
+    },
+  ],
+  '0.4.0': [
+    {
+      titleKey: 'whatsNew.v040.sectionsTitle',
+      bodyKey: 'whatsNew.v040.sectionsBody',
+      icon: 'history',
+      showMeRoute: '/insights',
+      get Component() {
+        return require('./SectionChangeCardSlide').SectionChangeCardSlide;
       },
     },
   ],

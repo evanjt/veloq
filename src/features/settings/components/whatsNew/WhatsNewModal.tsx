@@ -6,7 +6,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  runOnJS,
   Easing,
   FadeIn,
   FadeOut,
@@ -16,7 +15,7 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, ink } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -186,7 +185,6 @@ export function WhatsNewModal() {
   if (!showModal || slideCount === 0) return null;
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
@@ -255,7 +253,6 @@ export function WhatsNewModal() {
           onSkip={dismiss}
           onNext={handleNext}
           onShowMe={handleShowMe}
-          textColor={textColor}
           mutedColor={mutedColor}
           primaryColor={primaryColor}
           skipLabel={t('whatsNew.skipButton')}
@@ -295,7 +292,6 @@ function NavigationButtons({
   onSkip,
   onNext,
   onShowMe,
-  textColor,
   mutedColor,
   primaryColor,
   skipLabel,
@@ -309,7 +305,6 @@ function NavigationButtons({
   onSkip: () => void;
   onNext: () => void;
   onShowMe: () => void;
-  textColor: string;
   mutedColor: string;
   primaryColor: string;
   skipLabel: string;
@@ -358,7 +353,7 @@ function NavigationButtons({
             hitSlop={12}
             style={[styles.doneButton, { backgroundColor: primaryColor }]}
           >
-            <Text style={[styles.doneText, { color: '#FFFFFF' }]}>{doneLabel}</Text>
+            <Text style={[styles.doneText, { color: ink.white }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>

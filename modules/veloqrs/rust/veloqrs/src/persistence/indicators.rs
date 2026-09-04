@@ -1,4 +1,4 @@
-//! Activity indicators: materialized PR and trend badges.
+//! Activity indicators: materialised PR and trend badges.
 //!
 //! Computed once after sync/detection, stored in `activity_indicators` table.
 //! Feed card rendering reads from this table - no on-demand computation needed.
@@ -6,13 +6,17 @@
 use rusqlite::{Result as SqlResult, params};
 use std::collections::HashMap;
 
-use super::{PersistentRouteEngine, codec};
+use super::{PersistentEngine, codec};
+
+/// A traversal has to beat, or miss, the running average by this fraction
+/// before the feed card calls it a move. Matches the section ranking deadband.
+const TREND_DEADBAND: f64 = 0.02;
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 4;
+const INDICATOR_ALGORITHM_VERSION: i32 = 5;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
     ///
     /// Called after:
@@ -38,7 +42,7 @@ impl PersistentRouteEngine {
         let backfilled = self.backfill_null_lap_times()?;
         if backfilled > 0 {
             log::info!(
-                "tracematch: [indicators] Backfilled lap_time for {} section portions from time streams",
+                "veloqrs: [indicators] Backfilled lap_time for {} section portions from time streams",
                 backfilled
             );
         }
@@ -59,7 +63,7 @@ impl PersistentRouteEngine {
         tx.commit()?;
 
         log::info!(
-            "tracematch: [indicators] Recomputed {} section indicators (v{})",
+            "veloqrs: [indicators] Recomputed {} section indicators (v{})",
             section_count,
             INDICATOR_ALGORITHM_VERSION
         );
@@ -79,7 +83,8 @@ impl PersistentRouteEngine {
                            THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                            ELSE NULL END)";
 
-        // Get all (section_id, direction) pairs with 2+ non-excluded traversals.
+        // Pairs with 2+ non-excluded activities. Counting rows would let one
+        // lapped session qualify against itself.
         //
         // PR completeness rules (apply to both the pair list AND the per-pair
         // traversal scan below):
@@ -89,8 +94,10 @@ impl PersistentRouteEngine {
         //    can show up as a "PR" of 1:24 in feed badges.
         //  - Skip rows whose actual GPS distance is < 70% of the section's
         //    canonical distance (matches `get_section_performances_filtered`).
+        //  - Group by sport. A record and a trend are earned against the same
+        //    sport's efforts, so shared ground carries one of each per sport.
         let pair_sql = format!(
-            "SELECT sa.section_id, sa.direction, COUNT(*) as cnt
+            "SELECT sa.section_id, sa.direction, a.sport_type, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
@@ -101,16 +108,20 @@ impl PersistentRouteEngine {
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
                     OR sa.distance_meters >= s.distance_meters * 0.7)
-             GROUP BY sa.section_id, sa.direction
+             GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
             effective_time_expr
         );
 
         let mut pair_stmt = tx.prepare(&pair_sql)?;
 
-        let pairs: Vec<(String, String)> = pair_stmt
+        let pairs: Vec<(String, String, String)> = pair_stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -130,7 +141,7 @@ impl PersistentRouteEngine {
 
         let mut total = 0;
 
-        // For each (section, direction) pair: query traversals ordered by date.
+        // For each (section, direction, sport) group: traversals ordered by date.
         // Same completeness filter as the pair query above so the per-traversal
         // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
@@ -140,6 +151,7 @@ impl PersistentRouteEngine {
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
+               AND a.sport_type = ?
                AND sa.excluded = 0
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
@@ -149,15 +161,35 @@ impl PersistentRouteEngine {
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
-        for (section_id, direction) in &pairs {
-            let traversals: Vec<(String, f64)> = traversal_stmt
-                .query_map(params![section_id, direction], |row| {
+        for (section_id, direction, sport_type) in &pairs {
+            let passes: Vec<(String, f64)> = traversal_stmt
+                .query_map(params![section_id, direction, sport_type], |row| {
                     let time: Option<f64> = row.get(1)?;
                     Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
                 })?
                 .filter_map(|r| r.ok())
                 .filter(|(_, t)| *t > 0.0)
                 .collect();
+
+            // One badge per activity, earned by its fastest pass. The indicator
+            // key is `(activity_id, indicator_type, target_id, direction)`, and
+            // the running average below compares activities, not laps. First
+            // appearance sets the order, keeping the sequence chronological.
+            let mut traversals: Vec<(String, f64)> = Vec::new();
+            let mut seen: HashMap<&str, usize> = HashMap::new();
+            for (activity_id, time) in &passes {
+                match seen.get(activity_id.as_str()) {
+                    Some(&i) => {
+                        if *time < traversals[i].1 {
+                            traversals[i].1 = *time;
+                        }
+                    }
+                    None => {
+                        seen.insert(activity_id.as_str(), traversals.len());
+                        traversals.push((activity_id.clone(), *time));
+                    }
+                }
+            }
 
             if traversals.len() < 2 {
                 continue;
@@ -173,19 +205,13 @@ impl PersistentRouteEngine {
             let mut count = 0u32;
 
             for (activity_id, lap_time) in &traversals {
-                let is_pr = (*lap_time - best_time).abs() < 0.001; // float epsilon
+                let is_pr = crate::persistence::records::is_personal_record(*lap_time, best_time);
 
                 let trend: i8 = if count == 0 {
                     0
                 } else {
                     let avg = running_sum / count as f64;
-                    if *lap_time < avg * 0.98 {
-                        1 // 2%+ faster
-                    } else if *lap_time > avg * 1.02 {
-                        -1 // 2%+ slower
-                    } else {
-                        0
-                    }
+                    crate::trend::classify_time(avg, *lap_time, TREND_DEADBAND).unwrap_or(0)
                 };
 
                 // PR forces trend to 1 (improving by definition)
@@ -243,6 +269,19 @@ impl PersistentRouteEngine {
         for r in rows.flatten() {
             names.insert(r.0, r.1);
         }
+        // Corridor names outrank generated row names on auto sections, so the
+        // section-PR chips and notification bodies built from these show what
+        // the user actually called the section.
+        self.ensure_named_overlay();
+        for (id, name) in self
+            .named_overlay
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .by_section
+            .iter()
+        {
+            names.insert(id.clone(), name.clone());
+        }
         Ok(names)
     }
 
@@ -269,12 +308,12 @@ impl PersistentRouteEngine {
 
         if stored_version < INDICATOR_ALGORITHM_VERSION {
             log::info!(
-                "tracematch: [indicators] Version mismatch (stored={}, current={}) - recomputing",
+                "veloqrs: [indicators] Version mismatch (stored={}, current={}) - recomputing",
                 stored_version,
                 INDICATOR_ALGORITHM_VERSION
             );
             if let Err(e) = self.recompute_activity_indicators() {
-                log::warn!("tracematch: [indicators] Recomputation failed: {}", e);
+                log::warn!("veloqrs: [indicators] Recomputation failed: {}", e);
             }
         }
 
@@ -293,7 +332,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(&sql) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("tracematch: [indicators] read failed: {}", e);
+                log::warn!("veloqrs: [indicators] read failed: {}", e);
                 return vec![];
             }
         };
@@ -316,39 +355,9 @@ impl PersistentRouteEngine {
         }) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                log::warn!("tracematch: [indicators] query failed: {}", e);
+                log::warn!("veloqrs: [indicators] query failed: {}", e);
                 vec![]
             }
-        }
-    }
-
-    /// Read pre-computed indicators for a single activity.
-    pub fn get_indicators_for_activity(
-        &self,
-        activity_id: &str,
-    ) -> Vec<crate::FfiActivityIndicator> {
-        let mut stmt = match self.db.prepare(
-            "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
-             FROM activity_indicators
-             WHERE activity_id = ?",
-        ) {
-            Ok(s) => s,
-            Err(_) => return vec![],
-        };
-
-        match stmt.query_map([activity_id], |row| {
-            Ok(crate::FfiActivityIndicator {
-                activity_id: row.get(0)?,
-                indicator_type: row.get(1)?,
-                target_id: row.get(2)?,
-                target_name: row.get(3)?,
-                direction: row.get(4)?,
-                lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                trend: row.get(6)?,
-            })
-        }) {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(_) => vec![],
         }
     }
 

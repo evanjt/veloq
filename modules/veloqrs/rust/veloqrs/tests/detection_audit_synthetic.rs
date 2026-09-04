@@ -1,15 +1,14 @@
 //! Synthetic section detection audit.
 //!
 //! Builds 5 GPS tracks sharing a ~1.5 km overlapping segment (with per-track
-//! jitter) and verifies that corridor detection finds the overlap.
-//! Unlike `detection_audit.rs` this runs without a private database, so it
-//! executes in CI on every push.
+//! jitter) and verifies that detection finds the overlap. Everything here runs
+//! off generated fixtures, so it executes in CI on every push.
 
 use std::collections::HashMap;
 use tracematch::{
     GpsPoint,
     geo_utils::haversine_distance,
-    sections::{SectionConfig, detect_sections_corridor},
+    sections::{SectionConfig, detect_sections_unified},
 };
 
 // ---------------------------------------------------------------------------
@@ -71,44 +70,54 @@ fn build_track(
     add_jitter(&track, seed)
 }
 
-/// Create 5 activities sharing the same ~1.5 km central segment.
-/// Each activity approaches from a well-separated direction.
-fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
-    // Shared segment: ~1.5 km straight road near Zurich
-    let shared_start = (47.3700, 8.5400);
-    let shared_end = (47.3835, 8.5400); // ~1.5 km north
+/// Shared segment: ~1.5 km straight road near Zurich.
+const SHARED_START: (f64, f64) = (47.3700, 8.5400);
+const SHARED_END: (f64, f64) = (47.3835, 8.5400);
 
-    // Unique approach/departure: widely separated so they're clearly outside
-    // the proximity_threshold (50 m). ~800 m divergence at mid-prefix.
-    let variants: [(f64, f64, f64, f64); 5] = [
-        (47.3620, 8.5250, 47.3920, 8.5550), // SW → NE
-        (47.3625, 8.5550, 47.3915, 8.5250), // SE → NW
-        (47.3610, 8.5400, 47.3930, 8.5400), // S  → N  (straight through)
-        (47.3630, 8.5150, 47.3910, 8.5650), // WSW → ENE
-        (47.3628, 8.5600, 47.3912, 8.5200), // ESE → WNW
-    ];
+/// Unique approach/departure per activity: widely separated so they're clearly
+/// outside the proximity threshold. ~800 m divergence at mid-prefix.
+const FIXTURE_VARIANTS: [(f64, f64, f64, f64); 5] = [
+    (47.3620, 8.5250, 47.3920, 8.5550), // SW → NE
+    (47.3625, 8.5550, 47.3915, 8.5250), // SE → NW
+    (47.3610, 8.5400, 47.3930, 8.5400), // S  → N  (straight through)
+    (47.3630, 8.5150, 47.3910, 8.5650), // WSW → ENE
+    (47.3628, 8.5600, 47.3912, 8.5200), // ESE → WNW
+];
 
-    let tracks: Vec<(String, Vec<GpsPoint>)> = variants
+/// Build one track per variant, ids and jitter seeds numbered from `id_offset`.
+fn tracks_from_variants(
+    variants: &[(f64, f64, f64, f64)],
+    id_offset: usize,
+) -> Vec<(String, Vec<GpsPoint>)> {
+    variants
         .iter()
         .enumerate()
         .map(|(i, (pre_lat, pre_lng, suf_lat, suf_lng))| {
-            let id = format!("activity-{}", i + 1);
+            let n = id_offset + i + 1;
             let track = build_track(
                 (*pre_lat, *pre_lng),
-                shared_start,
-                shared_end,
+                SHARED_START,
+                SHARED_END,
                 (*suf_lat, *suf_lng),
-                (i as u64 + 1) * 7919,
+                n as u64 * 7919,
             );
-            (id, track)
+            (format!("activity-{}", n), track)
         })
-        .collect();
+        .collect()
+}
 
-    let sport_types: HashMap<String, String> = tracks
+fn sport_map(tracks: &[(String, Vec<GpsPoint>)]) -> HashMap<String, String> {
+    tracks
         .iter()
         .map(|(id, _)| (id.clone(), "Ride".to_string()))
-        .collect();
+        .collect()
+}
 
+/// Create 5 activities sharing the same ~1.5 km central segment.
+/// Each activity approaches from a well-separated direction.
+fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
+    let tracks = tracks_from_variants(&FIXTURE_VARIANTS, 0);
+    let sport_types = sport_map(&tracks);
     (tracks, sport_types)
 }
 
@@ -120,7 +129,7 @@ fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
 fn synthetic_overlap_produces_sections() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     assert!(
         !sections.is_empty(),
@@ -139,7 +148,7 @@ fn synthetic_overlap_produces_sections() {
 fn section_distance_is_reasonable() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -157,7 +166,7 @@ fn section_distance_is_reasonable() {
 fn most_activities_appear_in_section() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -180,7 +189,7 @@ fn corridor_populates_activity_portions() {
     // "no data" sections in the UI.
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -221,7 +230,7 @@ fn corridor_populates_activity_portions() {
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()

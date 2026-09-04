@@ -2,12 +2,18 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  ChartSkeleton,
+  ComponentErrorBoundary,
+  ErrorStatePreset,
+} from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
 import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
+import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
 import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
 import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
@@ -31,22 +37,22 @@ import type {
 } from '@/features/maps/components/ActivityMapView';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
-import { useExerciseSets } from '@/features/strength';
+import type { Section as NativeSection } from 'veloqrs';
+import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { ExerciseTable, MuscleGroupView } from '@/features/strength';
-import { ComponentErrorBoundary } from '@/shared/ui';
 import { colors, darkColors, spacing } from '@/theme';
-import { ErrorStatePreset } from '@/shared/ui';
 import {
   setCameraOverride,
   getCameraOverride,
   deleteCameraOverride,
 } from '@/features/maps/lib/storage/terrainCameraOverrides';
-import { invalidateTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
+
+/** Stable empty list so the custom-sections hook keeps skipping its own read. */
+const NO_CUSTOM_SECTIONS: NativeSection[] = [];
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42);
@@ -70,14 +76,17 @@ export default function ActivityDetailScreen() {
   const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
-  // Defer the cluster of synchronous engine FFI reads (route match/getGroups,
-  // section matches, encounters, highlights) off the push-animation frame so the
-  // screen is interactive immediately. They populate after interactions complete.
+  // Defer the engine read off the push-animation frame so the screen is
+  // interactive immediately. It populates after interactions complete.
   const [interactive, setInteractive] = useState(false);
   useEffect(() => {
     const handle = InteractionManager.runAfterInteractions(() => setInteractive(true));
     return () => handle.cancel();
   }, []);
+
+  // One engine call covering route match, section matches, encounters,
+  // highlights, overlays and engine counts.
+  const { data: detail } = useActivityDetailData(id, interactive);
 
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
@@ -97,7 +106,7 @@ export default function ActivityDetailScreen() {
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
   // Track whether 3D map mode is active
-  const [is3DMapActive, setIs3DMapActive] = useState(false);
+  const [, setIs3DMapActive] = useState(false);
 
   // Snackbar for 3D camera override feedback
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -110,15 +119,23 @@ export default function ActivityDetailScreen() {
   const [sectionCreationError, setSectionCreationError] = useState<SectionCreationError | null>(
     null
   );
-  const { createSection, removeSection, sections } = useCustomSections();
+  // The batch owns the custom sections here, empty until it lands, so the hook
+  // never opens a read of its own on this screen.
+  const { createSection, removeSection, sections } = useCustomSections({
+    preComputedSections: detail?.customSections ?? NO_CUSTOM_SECTIONS,
+  });
   // Highlighted section ID for map (when user long-presses a section row)
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
 
   // Get cached date range from sync store
-  const cacheDays = useCacheDays();
+  const cacheDays = useCacheDays(detail?.activityCount);
 
   // Get matched route for this activity
-  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id, interactive);
+  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(
+    id,
+    interactive,
+    detail?.routeGroups
+  );
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
@@ -126,7 +143,10 @@ export default function ActivityDetailScreen() {
     () => (interactive && id ? [id] : []),
     [interactive, id]
   );
-  const { routes: routeHighlightsMap } = useActivitySectionHighlights(activityIdsForHighlights);
+  const { routes: routeHighlightsMap } = useActivitySectionHighlights(
+    activityIdsForHighlights,
+    detail?.highlights
+  );
   const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
 
   // Fetch representative activity streams for route overlay (only when on Routes tab)
@@ -160,7 +180,8 @@ export default function ActivityDetailScreen() {
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(
-    interactive ? id : undefined
+    interactive ? id : undefined,
+    detail ? { sections: detail.matchedSections, sectionCount: detail.sectionCount } : undefined
   );
 
   // Scan for additional section matches
@@ -173,7 +194,8 @@ export default function ActivityDetailScreen() {
 
   // Section encounters for the sections tab (one entry per section+direction)
   const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
-    interactive ? id : undefined
+    interactive ? id : undefined,
+    detail?.encounters
   );
 
   // Filter custom sections that match this activity (still needed for map overlays)
@@ -193,7 +215,8 @@ export default function ActivityDetailScreen() {
     id,
     engineSectionMatches,
     customMatchedSections,
-    coordinates
+    coordinates,
+    detail ? { sectionTraces: detail.sectionTraces, prSectionIds: detail.prSectionIds } : undefined
   );
 
   // Sort encounters by where each section starts within this activity so the
@@ -313,7 +336,6 @@ export default function ActivityDetailScreen() {
       setIs3DMapActive(is3D);
       if (activity?.id) {
         setActivityOverride(activity.id, { terrain3D: is3D });
-        invalidateTerrainPreview(activity.id);
       }
     },
     [activity?.id, setActivityOverride]
@@ -324,7 +346,6 @@ export default function ActivityDetailScreen() {
     (style: MapStyleType) => {
       if (activity?.id) {
         setActivityOverride(activity.id, { style });
-        invalidateTerrainPreview(activity.id);
       }
     },
     [activity?.id, setActivityOverride]
@@ -538,7 +559,6 @@ export default function ActivityDetailScreen() {
           coordinates={coordinates}
           streams={streams}
           isMetric={isMetric}
-          isDark={isDark}
           debugEnabled={debugEnabled}
           insetTop={insets.top}
           mapHeight={MAP_HEIGHT}
@@ -631,6 +651,7 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
+            sportType={activity.type}
             encounters={encounters}
             coordinates={coordinates}
             isDark={isDark}

@@ -1,5 +1,4 @@
 use super::error::{VeloqError, with_engine};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(uniffi::Object)]
@@ -62,29 +61,32 @@ impl SettingsManager {
         })?
     }
 
-    /// Get all user preferences as a JSON string: {"key": "value", ...}.
-    fn get_all_settings(&self) -> Result<String, VeloqError> {
-        with_engine(|e| {
-            let settings = e.get_all_settings().map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })?;
-            serde_json::to_string(&settings).map_err(|e| VeloqError::Database {
-                msg: format!("JSON serialization failed: {}", e),
-            })
-        })?
+    /// Days of stream history the athlete keeps. Zero means keep everything.
+    ///
+    /// Not the same knob as the activity `retentionDays` in
+    /// `RouteSettingsStore`, which deletes whole activities. This one only ever
+    /// evicts stored series.
+    fn stream_retention_days(&self) -> Result<i64, VeloqError> {
+        with_engine(|e| e.stream_retention_days().unwrap_or(0))
     }
 
-    /// Bulk upsert user preferences from a JSON string: {"key": "value", ...}.
-    fn set_all_settings(&self, json: String) -> Result<(), VeloqError> {
+    /// Set the stream retention window in days, then evict what now falls
+    /// outside it. Zero keeps everything.
+    fn set_stream_retention_days(&self, days: i64) -> Result<(), VeloqError> {
         with_engine(|e| {
-            let settings: HashMap<String, String> =
-                serde_json::from_str(&json).map_err(|e| VeloqError::Database {
-                    msg: format!("JSON parse failed: {}", e),
-                })?;
-            e.set_all_settings(&settings)
+            e.set_stream_retention_days(days)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })
+        })?
+    }
+
+    /// Bytes the stream store holds, for the cache readout.
+    fn stream_store_bytes(&self) -> Result<i64, VeloqError> {
+        with_engine(|e| {
+            e.stream_store_bytes().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
         })?
     }
 

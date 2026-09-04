@@ -18,17 +18,22 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter, getSectionStyle } from '@/features/routes';
+import { DataRangeFooter } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { getEngine } from '@/shared/native/engine';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, shadows } from '@/theme';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionsSection');
 
 interface ActivitySectionsSectionProps {
   activityId: string;
+  /** The activity's sport. Lap units follow it, not the section's label. */
+  sportType?: string;
   encounters: SectionEncounter[];
   coordinates: { latitude: number; longitude: number }[];
   isDark: boolean;
@@ -53,6 +58,7 @@ interface ActivitySectionsSectionProps {
 
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
+  sportType,
   encounters,
   coordinates,
   isDark,
@@ -62,6 +68,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
+  // Swipe-to-delete is styled (deleteSwipeAction) but not yet rendered.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeSection,
   scanMatches,
   isScanning,
@@ -121,9 +129,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       swipeable?.close();
 
       if (isCurrentlyDisabled) {
-        getRouteEngine()?.enableSection(sectionId);
+        getEngine()?.enableSection(sectionId);
       } else {
-        getRouteEngine()?.disableSection(sectionId);
+        getEngine()?.disableSection(sectionId);
       }
     },
     []
@@ -214,7 +222,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       if (idx === null) {
         if (!nullMatchLoggedRef.current) {
           nullMatchLoggedRef.current = true;
-          console.log('[scrub] no-match pageY=', Math.round(pageY));
+          log.log('[scrub] no-match pageY=', Math.round(pageY));
         }
         return null;
       }
@@ -269,7 +277,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const row = findRowAtPageY(pageY);
       const rowKey = row?.rowKey ?? null;
       if (rowKey !== lastLoggedRowRef.current) {
-        console.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
+        log.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
         lastLoggedRowRef.current = rowKey;
       }
       if (row) applyRow(row);
@@ -283,7 +291,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 
   const handleScrubEnd = useCallback(() => {
-    console.log('[scrub] end');
+    log.log('[scrub] end');
     lastLoggedRowRef.current = null;
     nullMatchLoggedRef.current = false;
     stopAutoScroll();
@@ -307,7 +315,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       // scrolled since mount. Single measureInWindow round-trip, not one per row.
       remeasureFirstRow().then(() => {
         const row = findRowAtPageY(pageY);
-        console.log(
+        log.log(
           '[scrub] onStart pageY=',
           Math.round(pageY),
           'firstRowTopY=',
@@ -408,7 +416,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // FlatList render item
   const renderEncounterItem = useCallback(
     ({ item, index }: { item: SectionEncounter; index: number }) => {
-      const style = getSectionStyle(index);
       const rowKey = `${item.sectionId}-${item.direction}`;
       // When scrubbing we know the exact row under the finger (rowKey); fall
       // back to sectionId comparison when the highlight comes from elsewhere
@@ -420,8 +427,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <SectionInlinePlot
           encounter={item}
           activityId={activityId}
+          sportType={sportType}
           index={index}
-          style={style}
           isHighlighted={isHighlighted}
           isDark={isDark}
           isMetric={isMetric}
@@ -436,6 +443,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [
       activityId,
+      sportType,
       highlightedRowKey,
       highlightedSectionId,
       isDark,

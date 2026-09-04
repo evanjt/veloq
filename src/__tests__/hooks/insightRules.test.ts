@@ -13,7 +13,7 @@ import {
   type Bbox,
 } from '@/features/insights/lib/rules';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
-import type { SectionTrendData } from '@/features/insights/types';
+import type { SectionRankingScores, SectionTrendData } from '@/features/insights/types';
 
 const DAY_MS = 86_400_000;
 const NOW = 1_700_000_000_000; // fixed epoch for deterministic tests
@@ -221,14 +221,18 @@ describe('rules.specificityScore (R5)', () => {
 
   it('awards any2 bonus for partial specificity', () => {
     const insight = makeInsight({
-      meta: { specificity: { hasNumber: true, hasPlace: true, hasDate: false } },
+      meta: {
+        specificity: { hasNumber: true, hasPlace: true, hasDate: false },
+      },
     });
     expect(specificityScore(insight)).toBe(5);
   });
 
   it('returns 0 when no tags set', () => {
     const insight = makeInsight({
-      meta: { specificity: { hasNumber: false, hasPlace: false, hasDate: false } },
+      meta: {
+        specificity: { hasNumber: false, hasPlace: false, hasDate: false },
+      },
     });
     expect(specificityScore(insight)).toBe(0);
   });
@@ -303,7 +307,13 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
   const mk = (id: string, category: Insight['category'], score: number) => ({
     insight: makeInsight({ id, category }),
     score,
-    breakdown: { base: 0, category: 0, specificity: 0, temporalSelf: 0, signal: 0 },
+    breakdown: {
+      base: 0,
+      category: 0,
+      specificity: 0,
+      temporalSelf: 0,
+      signal: 0,
+    },
   });
 
   it('enforces per-category cap', () => {
@@ -413,5 +423,81 @@ describe('section trend recency (G1 applied to section_trend)', () => {
     expect(insight.meta?.sourceTimestamp).toBe(NOW - 7 * 86_400_000);
     expect(insight.meta?.comparisonKind).toBe('self');
     expect(insight.meta?.repetitionCount).toBe(5);
+  });
+});
+
+describe('ML ranking breakdown on section_trend insights', () => {
+  const scores = {
+    relevance: 0.82,
+    recency: 0.7,
+    improvement: 0.55,
+    anomaly: 0.2,
+    engagement: 0.4,
+  };
+
+  function ranked(id: string, ranking: SectionRankingScores, traversalCount = 5): SectionTrendData {
+    return { ...sectionTrend(id, 3, traversalCount, 1), ranking };
+  }
+
+  it('surfaces the four component scores and the composite as data points', () => {
+    const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
+    const labels = (insight.supportingData?.dataPoints ?? []).map((p) => p.label);
+
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        'insights.data.relevance',
+        'insights.data.recency',
+        'insights.data.improvementSignal',
+        'insights.data.anomaly',
+        'insights.data.engagement',
+      ])
+    );
+  });
+
+  it('renders each score as a whole percentage', () => {
+    const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
+    const byLabel = new Map(
+      (insight.supportingData?.dataPoints ?? []).map((p) => [p.label, p.value])
+    );
+
+    expect(byLabel.get('insights.data.relevance')).toBe('82%');
+    expect(byLabel.get('insights.data.recency')).toBe('70%');
+    expect(byLabel.get('insights.data.improvementSignal')).toBe('55%');
+    expect(byLabel.get('insights.data.anomaly')).toBe('20%');
+    expect(byLabel.get('insights.data.engagement')).toBe('40%');
+  });
+
+  it('carries the scores onto the supporting section', () => {
+    const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
+    expect(insight.supportingData?.sections?.[0].ranking).toEqual(scores);
+  });
+
+  it('orders equal-trend candidates by relevance, not traversal count', () => {
+    const weak = ranked('weak', { ...scores, relevance: 0.2 }, 50);
+    const strong = ranked('strong', { ...scores, relevance: 0.9 }, 5);
+
+    const result = generateSectionTrendInsights([weak, strong], new Set(), NOW, mockT);
+    expect(result.map((i) => i.id)).toEqual(['section_trend-strong', 'section_trend-weak']);
+  });
+
+  it('falls back to traversal count when neither candidate is ranked', () => {
+    const few = sectionTrend('few', 3, 5, 1);
+    const many = sectionTrend('many', 3, 50, 1);
+
+    const result = generateSectionTrendInsights([few, many], new Set(), NOW, mockT);
+    expect(result.map((i) => i.id)).toEqual(['section_trend-many', 'section_trend-few']);
+  });
+
+  it('omits the breakdown when the engine supplied no scores', () => {
+    const [insight] = generateSectionTrendInsights(
+      [sectionTrend('bare', 3, 5, 1)],
+      new Set(),
+      NOW,
+      mockT
+    );
+    const labels = (insight.supportingData?.dataPoints ?? []).map((p) => p.label);
+
+    expect(labels).not.toContain('insights.data.relevance');
+    expect(insight.supportingData?.sections?.[0].ranking).toBeUndefined();
   });
 });

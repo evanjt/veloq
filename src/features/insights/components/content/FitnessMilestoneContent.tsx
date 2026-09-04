@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, statusBadge } from '@/theme';
 import type { Insight } from '@/types';
 
 interface FitnessMilestoneContentProps {
@@ -38,7 +38,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
       : 'Running pace change context';
 
   const lineColor = isDark ? darkColors.border : colors.border;
-  const dotColor = isPositive ? '#22C55E' : '#F59E0B';
+  const dotColor = isPositive ? colors.success : colors.warning;
 
   return (
     <View style={styles.container}>
@@ -56,15 +56,17 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
           <View
             style={[
               styles.changeBadge,
-              { backgroundColor: isPositive ? '#22C55E18' : '#F59E0B18' },
+              { backgroundColor: isPositive ? statusBadge.good.bg : statusBadge.watch.bg },
             ]}
           >
             <MaterialCommunityIcons
               name={isPositive ? 'arrow-up' : 'arrow-down'}
               size={16}
-              color={isPositive ? '#22C55E' : '#F59E0B'}
+              color={isPositive ? colors.success : colors.warning}
             />
-            <Text style={[styles.changeText, { color: isPositive ? '#22C55E' : '#F59E0B' }]}>
+            <Text
+              style={[styles.changeText, { color: isPositive ? colors.success : colors.warning }]}
+            >
               {changeStr} {changeUnit}
             </Text>
           </View>
@@ -222,7 +224,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   timelineValueGood: {
-    color: '#22C55E',
+    color: colors.success,
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,

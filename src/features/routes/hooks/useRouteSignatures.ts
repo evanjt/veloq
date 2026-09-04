@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 
 export interface RouteSignature {
-  points: Array<{ lat: number; lng: number }>;
+  points: { lat: number; lng: number }[];
   center: { lat: number; lng: number };
 }
 
@@ -27,7 +27,7 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
 
   const buildSignatures = useCallback(() => {
     if (!enabled) return;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || !isMountedRef.current) return;
 
     try {
@@ -72,7 +72,7 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     let task: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       // Defer loading until after navigation animations complete

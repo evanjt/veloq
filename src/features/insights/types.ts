@@ -7,7 +7,8 @@ export type InsightCategory =
   | 'strength_progression'
   | 'strength_balance'
   | 'hrv_trend'
-  | 'efficiency_trend';
+  | 'efficiency_trend'
+  | 'section_changed';
 
 export type InsightPriority = 1 | 2 | 3 | 4 | 5;
 
@@ -16,7 +17,6 @@ export interface DataPoint {
   value: number | string;
   unit?: string;
   context?: 'good' | 'warning' | 'concern' | 'neutral';
-  range?: { min: number; max: number; label?: string };
 }
 
 export interface InsightAlternative {
@@ -31,8 +31,20 @@ export interface InsightMethodology {
   name: string;
   description: string;
   formula?: string;
-  reference?: string;
-  referenceUrl?: string;
+}
+
+/**
+ * The engine's ML relevance breakdown for one section, all 0..1.
+ * `relevance` is the composite the ranker sorts on, the other four are the
+ * components it weighs. Weights live in Rust
+ * (`persistence/sections/ranking.rs`) and are not restated here.
+ */
+export interface SectionRankingScores {
+  relevance: number;
+  recency: number;
+  improvement: number;
+  anomaly: number;
+  engagement: number;
 }
 
 export interface SupportingSection {
@@ -44,6 +56,7 @@ export interface SupportingSection {
   sportType?: string;
   hasRecentPR?: boolean;
   daysSinceLast?: number;
+  ranking?: SectionRankingScores;
 }
 
 export interface SupportingActivity {
@@ -155,6 +168,7 @@ export interface SectionTrendData {
   sportType?: string;
   daysSinceLast?: number;
   latestIsPr?: boolean;
+  ranking?: SectionRankingScores;
 }
 
 /** Translation function signature (react-i18next-compatible). */

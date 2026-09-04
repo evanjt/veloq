@@ -4,12 +4,13 @@
  * process and cannot call the Rust FFI, so everything they show is baked here.
  *
  * `composeSnapshot` is pure (fully unit-tested). `gatherWidgetSnapshot` reads the
- * engine singleton and is the entry point the write hooks call. A consolidating
- * Rust `getWidgetSnapshot()` FFI will later replace the multi-call gather, but the
- * snapshot shape it returns stays the same.
+ * engine singleton through one `getWidgetSnapshot()` call and is the entry point
+ * the write hooks call.
  *
- * Sparkline arrays from `getWellnessSparklines` are ordered NEWEST-FIRST
- * (`ORDER BY date DESC`), so index 0 = today, index 1 = yesterday.
+ * Sparkline arrays from `getWellnessSparklines` are ordered OLDEST-FIRST, which
+ * is also the order the native charts draw. Rust selects `ORDER BY date DESC`
+ * then reverses (`persistence/wellness.rs`), so the LAST element is today and
+ * the second-to-last is yesterday.
  */
 import { getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
 import {
@@ -19,12 +20,17 @@ import {
   formatRelativeDate,
   formatSwimPace,
 } from '@/shared/format';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 
 export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
+
+/** Trailing wellness window the widget sparklines cover. */
+const SPARKLINE_DAYS = 30;
 
 export type TrendDir = 'up' | 'down' | 'flat';
 
@@ -255,12 +261,12 @@ function trendOfNullable(
   return trendOf(current, prev, deadband);
 }
 
-/** Build a MetricValue from a newest-first series. Safe on empty/short arrays. */
+/** Build a MetricValue from an oldest-first series. Safe on empty/short arrays. */
 function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
   if (!series || series.length === 0) return { value: 0, trendDir: 'flat' };
-  const today = num(series[0]);
+  const today = num(series[series.length - 1]);
   if (series.length === 1) return { value: today, trendDir: 'flat' };
-  const yesterday = num(series[1]);
+  const yesterday = num(series[series.length - 2]);
   return {
     value: today,
     trendDir: trendOf(today, yesterday, deadband),
@@ -271,8 +277,9 @@ function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
 /** CTL ramp: change in fitness across the trailing ~7 days of the series. */
 function rampRateFrom(fitness: number[]): number {
   if (!fitness || fitness.length < 2) return 0;
-  const today = num(fitness[0]);
-  const past = num(fitness[Math.min(6, fitness.length - 1)]);
+  const last = fitness.length - 1;
+  const today = num(fitness[last]);
+  const past = num(fitness[Math.max(0, last - 6)]);
   return Math.round((today - past) * 10) / 10;
 }
 
@@ -312,12 +319,12 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
       rhr: metricFrom(rhr),
     },
     sparklines: {
-      // Reverse to oldest-first so the native chart draws left-to-right in time.
-      form: [...form].reverse(),
-      fitness: [...fitness].reverse(),
-      fatigue: [...fatigue].reverse(),
-      hrv: [...hrv].reverse(),
-      formZones: [...form].reverse().map((v) => getFormZone(num(v))),
+      // Already oldest-first from Rust, which is how the native chart draws.
+      form: [...form],
+      fitness: [...fitness],
+      fatigue: [...fatigue],
+      hrv: [...hrv],
+      formZones: form.map((v) => getFormZone(num(v))),
     },
     weekly: {
       tss: Math.round(curTss),
@@ -331,7 +338,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     latest,
     impact,
     summaryCard: composeSummaryCard(raw, t),
-    display: buildDisplay(t, impact, getFormZone(num(form[0]))),
+    display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
   };
 }
@@ -610,13 +617,17 @@ function composeImpact(
   if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
   const ageDays = (raw.nowSeconds - latest.date) / 86400;
   if (ageDays < 0 || ageDays > IMPACT_MAX_AGE_DAYS) return null;
+  // Oldest-first: today is the last element, yesterday the one before it.
+  const today = form.length - 1;
+  const formAfter = num(form[today]);
+  const formBefore = num(form[today - 1]);
   return {
-    formBefore: num(form[1]),
-    formAfter: num(form[0]),
-    formBeforeZone: getFormZone(num(form[1])),
-    formAfterZone: getFormZone(num(form[0])),
-    ctlDelta: num(fitness[0]) - num(fitness[1]),
-    atlDelta: num(fatigue[0]) - num(fatigue[1]),
+    formBefore,
+    formAfter,
+    formBeforeZone: getFormZone(formBefore),
+    formAfterZone: getFormZone(formAfter),
+    ctlDelta: num(fitness[fitness.length - 1]) - num(fitness[fitness.length - 2]),
+    atlDelta: num(fatigue[fatigue.length - 1]) - num(fatigue[fatigue.length - 2]),
     tssAdded: latest.trainingLoad,
     dateLabel: latest.dateLabel,
   };
@@ -631,8 +642,7 @@ function relativeDateLabel(unixSeconds: number): string {
 
 /**
  * Read the engine and build the snapshot. Returns null when the engine isn't ready
- * (e.g. very early startup) so callers can no-op. The multi-call gather here is the
- * Phase-1 path; a consolidating `getWidgetSnapshot()` FFI supersedes it later.
+ * (e.g. very early startup) so callers can no-op.
  */
 export function gatherWidgetSnapshot(opts: {
   locale: string;
@@ -640,108 +650,48 @@ export function gatherWidgetSnapshot(opts: {
   now?: Date;
   translate?: (key: string) => string;
 }): WidgetSnapshot | null {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
   const now = opts.now ?? new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
 
-  let sparklines: RawSparklines | null = null;
-  let summary: RawSummary | null = null;
-  let latest: RawLatestActivity | null = null;
-  let latestGps: RawGpsPoint[] | null = null;
-  let summaryPrefs: SummaryCardPreferences | null = null;
-
-  try {
-    sparklines = engine.getWellnessSparklines?.(30) ?? null;
-  } catch {
-    sparklines = null;
-  }
-
+  let data: WidgetSnapshotData | undefined;
   try {
     const b = weekBounds(now);
-    summary =
-      (engine.getSummaryCardData?.(
-        b.currentStart,
-        b.currentEnd,
-        b.prevStart,
-        b.prevEnd
-      ) as RawSummary) ?? null;
+    data = engine.getWidgetSnapshot(
+      b.currentStart,
+      b.currentEnd,
+      b.prevStart,
+      b.prevEnd,
+      SPARKLINE_DAYS
+    );
   } catch {
-    summary = null;
+    data = undefined;
   }
 
-  try {
-    const ids = engine.getActivityIds?.() ?? [];
-    if (ids.length > 0) {
-      const metrics = (engine.getActivityMetricsForIds?.(ids) ?? []) as RawLatestActivity[];
-      latest = mostRecent(metrics);
-    }
-  } catch {
-    latest = null;
-  }
-
-  if (latest) {
-    latest = { ...latest, isPr: latestIsPr(engine, latest.activityId) };
-    try {
-      latestGps = (engine.getGpsTrack?.(latest.activityId) as RawGpsPoint[]) ?? null;
-    } catch {
-      latestGps = null;
-    }
-  }
-
+  let summaryPrefs: SummaryCardPreferences | null = null;
   try {
     summaryPrefs = useDashboardPreferences.getState().summaryCard;
   } catch {
     summaryPrefs = null;
   }
 
+  const latest = data?.latest
+    ? ({ ...data.latest, isPr: data.latestIsPr } as RawLatestActivity)
+    : null;
+
   return composeSnapshot({
-    sparklines,
-    summary,
+    sparklines: (data?.sparklines as RawSparklines | undefined) ?? null,
+    summary: (data?.summary as RawSummary | undefined) ?? null,
     latest,
-    latestGps,
+    latestGps: latest ? ((data?.latestGps as RawGpsPoint[]) ?? null) : null,
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
   });
-}
-
-/**
- * True when the activity carries a route or section PR, read from the same
- * highlights bundle the feed badges use.
- */
-function latestIsPr(
-  engine: NonNullable<ReturnType<typeof getRouteEngine>>,
-  activityId: string
-): boolean {
-  try {
-    const bundle = engine.getActivityHighlightsBundle?.([activityId]);
-    if (!bundle) return false;
-    return (
-      bundle.routeHighlights.some((r) => r.isPr) ||
-      bundle.indicators.some(
-        (i) => i.indicatorType === 'section_pr' || i.indicatorType === 'route_pr'
-      )
-    );
-  } catch {
-    return false;
-  }
-}
-
-function mostRecent(metrics: RawLatestActivity[]): RawLatestActivity | null {
-  let best: RawLatestActivity | null = null;
-  let bestDate = -Infinity;
-  for (const m of metrics) {
-    const d = num(m.date);
-    if (d > bestDate) {
-      bestDate = d;
-      best = m;
-    }
-  }
-  return best;
 }
 
 /** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */
@@ -759,11 +709,11 @@ function weekBounds(now: Date): {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
+  const toTs = localWallClockToEpochSeconds;
   return {
     currentStart: toTs(startOfWeek),
     currentEnd: toTs(now),
     prevStart: toTs(startOfLastWeek),
-    prevEnd: toTs(startOfWeek),
+    prevEnd: toTs(startOfWeek) - 1,
   };
 }

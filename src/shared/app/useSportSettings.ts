@@ -1,41 +1,37 @@
+/**
+ * Sport settings come from SQLite, not the API. Rust's sync service stores the
+ * raw intervals.icu body, so zone definitions the Rust types do not model are
+ * preserved exactly.
+ */
 import { useQuery } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
-import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { zoneColors } from '@/theme/colors';
 import type { SportSettings, Zone } from '@/types';
 
+function readSportSettings(): SportSettings[] {
+  const engine = getEngine();
+  if (!engine) return [];
+  const json = engine.getSportSettings();
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as SportSettings[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function useSportSettings() {
-  // Load cached sport settings from engine for instant first render
-  const cachedSettings = useMemo<SportSettings[] | undefined>(() => {
-    const engine = getRouteEngine();
-    if (!engine) return undefined;
-    const json = engine.getSportSettings();
-    if (!json) return undefined;
-    try {
-      return JSON.parse(json) as SportSettings[];
-    } catch {
-      return undefined;
-    }
-  }, []);
+  useEngineChannel('activities', queryKeys.profile.sportSettings);
 
   return useQuery<SportSettings[]>({
     queryKey: queryKeys.profile.sportSettings,
-    queryFn: async () => {
-      const settings = await intervalsApi.getSportSettings();
-      // Update engine cache on successful fetch
-      const engine = getRouteEngine();
-      if (engine) {
-        try {
-          engine.setSportSettings(JSON.stringify(settings));
-        } catch {
-          // Ignore engine cache errors
-        }
-      }
-      return settings;
-    },
-    initialData: cachedSettings,
-    staleTime: 1000 * 60 * 30, // 30 minutes - settings don't change often
+    queryFn: readSportSettings,
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
   });
 }
 
@@ -48,25 +44,22 @@ export function getSettingsForSport(
   return settings.find((s) => s.types.includes(sportType));
 }
 
-// Default power zone colors (intervals.icu website palette)
-export const POWER_ZONE_COLORS = [
-  '#009E80', // Z1 - Recovery (Teal)
-  '#009E00', // Z2 - Endurance (Green)
-  '#FFCB0E', // Z3 - Tempo (Yellow)
-  '#FF7F0E', // Z4 - Threshold (Orange)
-  '#DD0447', // Z5 - VO2max (Red-pink)
-  '#6633CC', // Z6 - Anaerobic (Purple)
-  '#1A1A1A', // Z7 - Neuromuscular (Near-black)
+/**
+ * The intervals.icu zone ramp, seven steps: recovery, endurance, tempo,
+ * threshold, VO2max, anaerobic, neuromuscular. Power uses all of it.
+ */
+export const POWER_ZONE_COLORS: string[] = [
+  zoneColors.zone1,
+  zoneColors.zone2,
+  zoneColors.zone3,
+  zoneColors.zone4,
+  zoneColors.zone5,
+  zoneColors.zone6,
+  zoneColors.zone7,
 ];
 
-// Default HR zone colors (intervals.icu website palette)
-export const HR_ZONE_COLORS = [
-  '#009E80', // Z1 - Recovery (Teal)
-  '#009E00', // Z2 - Endurance (Green)
-  '#FFCB0E', // Z3 - Tempo (Yellow)
-  '#FF7F0E', // Z4 - Threshold (Orange)
-  '#DD0447', // Z5 - Max (Red-pink)
-];
+/** Heart rate has five zones, so it takes the ramp's first five steps. */
+export const HR_ZONE_COLORS: string[] = POWER_ZONE_COLORS.slice(0, 5);
 
 // Default zone names if not provided
 export const DEFAULT_POWER_ZONES: Zone[] = [

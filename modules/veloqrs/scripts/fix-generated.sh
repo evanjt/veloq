@@ -12,9 +12,13 @@ fi
 # Fix include path in veloqrs.cpp
 sed "${SED_INPLACE[@]}" 's|#include "/generated/veloqrs.hpp"|#include "generated/veloqrs.hpp"|g' cpp/veloqrs.cpp 2>/dev/null || true
 
-# Rename CMake library to veloqrs_jni to avoid conflict with Rust's libveloqrs.so
+# Rename CMake library to veloqrs_jni to avoid conflict with Rust's libveloqrs.so.
+# Every rewrite here has to be a no-op on a file that already carries the fixed
+# names, because this runs after every regeneration. The imported target is the
+# Rust cdylib and keeps the name veloqrs: set_target_properties and the link
+# line below it both name it, so renaming it breaks the CMake configure.
 if [ -f android/CMakeLists.txt ]; then
-  sed "${SED_INPLACE[@]}" 's|add_library(veloqrs |add_library(veloqrs_jni |g' android/CMakeLists.txt
+  sed "${SED_INPLACE[@]}" '/SHARED IMPORTED/!s|add_library(veloqrs |add_library(veloqrs_jni |g' android/CMakeLists.txt
   sed "${SED_INPLACE[@]}" 's|target_link_libraries(veloqrs |target_link_libraries(veloqrs_jni |g' android/CMakeLists.txt
   sed "${SED_INPLACE[@]}" 's|target_link_libraries(veloqrs$|target_link_libraries(veloqrs_jni|g' android/CMakeLists.txt
   # Handle multiline format where veloqrs is on its own indented line

@@ -1,6 +1,9 @@
 # Insights Panel (v0.3.0)
-# Verifies the Insights tab is the default when navigating to /routes, the
-# panel renders, and either the card list or the empty state is visible.
+# Verifies the /routes Insights sub-tab renders the panel, and that the panel
+# always resolves to exactly one of its two bodies: the card list or the empty
+# state. Neither-branch is the failure this guards, a regression in the
+# insights ternary (or a throw inside the card map) leaves the panel blank
+# while every screenshot-only check still passes.
 
 appId: com.veloq.app.dev
 tags:
@@ -12,7 +15,7 @@ tags:
 
 # navigate-to-routes helper forces ?tab=routes; use a direct deep link so we
 # land on the Insights sub-tab explicitly.
-- openLink: "veloq://routes?tab=insights"
+- openLink: "veloq://insights?tab=insights"
 - runFlow:
     when:
       visible: "Open"
@@ -23,28 +26,37 @@ tags:
     visible:
       id: "insights-panel"
     timeout: 15000
-    optional: true
 
 - takeScreenshot: "insights-panel-default"
 
+# Exactly one body must render. Assert both directions so neither a missing
+# card list nor a missing empty state can slip through.
 - runFlow:
     when:
-      visible:
+      notVisible:
         id: "insights-card-list"
     commands:
+      - assertVisible:
+          id: "insights-empty"
+      - takeScreenshot: "insights-empty-state"
+
+- runFlow:
+    when:
+      notVisible:
+        id: "insights-empty"
+    commands:
+      - assertVisible:
+          id: "insights-card-list"
       - takeScreenshot: "insights-cards-visible"
       - swipe:
           start: 50%, 80%
           end: 50%, 30%
           duration: 400
+      - assertVisible:
+          id: "insights-card-list"
       - takeScreenshot: "insights-cards-scrolled"
-
-- runFlow:
-    when:
-      visible:
-        id: "insights-empty"
-    commands:
-      - takeScreenshot: "insights-empty-state"
 
 - assertNotVisible:
     text: "NaN"
+- assertNotVisible:
+    text: "undefined"

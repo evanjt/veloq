@@ -1,14 +1,14 @@
 # IAP regression test: validates the App Store rejection fix.
 #
 # The Apple reviewer screenshotted "Small Tip" / "Medium Tip" / "Large Tip"
-# buttons without prices — those were fake fallback Product objects that
+# buttons without prices, those were fake fallback Product objects that
 # rendered translation keys as displayPrice when fetchProducts() returned
 # empty in their sandbox. Tapping them did nothing because StoreKit had
 # no real products to sell. Apple flagged this as "buttons greyed out and
 # not clickable".
 #
 # This flow covers BOTH places the same tips appear:
-#   1. Settings → Support card (always visible)
+#   1. Settings → Support card (always visible, inline on the settings screen)
 #   2. Home feed → "Enjoying Veloq?" SupportCard (time-gated; we use the
 #      developer dashboard to set lastActionDate to 31 days ago to force
 #      it to appear).
@@ -18,19 +18,19 @@
 
 appId: com.veloq.app.dev
 tags:
-  - tier3
+  # In the blocking gate core. It guards a shipped App Store rejection, so it
+  # has to be able to fail the gate. The gate retries a failed flow on its own
+  # from a clean launch, which covers the intermittent settings scroll and
+  # debug-dashboard nav that had it quarantined.
+  - tier1
   - pack-settings
-  # Quarantined from the blocking gate core: long multi-screen flow whose
-  # settings scroll + debug-dashboard nav are intermittent in CI. Runs in the
-  # gate's non-blocking flaky lane.
-  - flaky
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# ---- Surface 1: Support settings page ----
+# ---- Surface 1: Support card on the settings screen ----
 
-- openLink: "veloq://support-settings"
+- openLink: "veloq://settings"
 - runFlow:
     when:
       visible: "Open"
@@ -39,15 +39,25 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "support-section"
+      id: "settings-screen"
     timeout: 10000
-    optional: true
+
+# Prime the scroll container before scrollUntilVisible, as the version-text
+# scroll further down does.
+- scroll
+
+- scrollUntilVisible:
+    element:
+      id: "support-section"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
 
 - assertVisible:
     id: "support-section"
     optional: true
 
-- takeScreenshot: "support-settings-section"
+- takeScreenshot: "settings-support-section"
 
 # These exact strings are what the App Store reviewer screenshotted.
 # They must NEVER appear in the Support section after the fallback removal.
@@ -58,7 +68,7 @@ tags:
 - assertNotVisible:
     text: "Large Tip"
 
-# Either real tip buttons OR GitHub Sponsors fallback must be visible — both
+# Either real tip buttons OR GitHub Sponsors fallback must be visible, both
 # checked optionally so neither failing causes flow abort. The takeScreenshot
 # above captured whichever variant rendered.
 - assertVisible:
@@ -93,23 +103,24 @@ tags:
     timeout: 30000
     speed: 40
 
+# Five taps inside the unlock window; one command so a slow device
+# cannot space them past it.
 - tapOn:
     id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
-- tapOn:
-    id: "settings-version-text"
+    repeat: 5
+    delay: 150
 
 - extendedWaitUntil:
     visible:
       id: "settings-debug-switch"
     timeout: 10000
 
-# Toggle Debug Mode on (idempotent — if it's already on the switch is a no-op)
+# Toggle Debug Mode on (idempotent, if it's already on the switch is a no-op)
+# The footer sits under the tab bar until scrolled clear of it.
+- swipe:
+    start: 50%, 75%
+    end: 50%, 45%
+    duration: 800
 - runFlow:
     when:
       notVisible:
@@ -134,7 +145,7 @@ tags:
 
 # ---- Find Support Card section in dev dashboard, expand, set 31d ago ----
 
-# The Support Card collapsible is collapsed by default — tap header to expand.
+# The Support Card collapsible is collapsed by default, tap header to expand.
 # Use explicit edge swipes since the FFI metrics table can intercept centered swipes.
 - repeat:
     times: 10
@@ -157,10 +168,36 @@ tags:
 - tapOn:
     id: "debug-section-support-card"
 
+# The expanded controls first appear under the tab bar, where the tap goes to
+# the tab and leaves the screen instead of setting the preset. Walk the block
+# up until the bottom-most control, the legacy toggle, is clear of the bar.
+- repeat:
+    times: 10
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "debug-support-legacy-toggle"
+          commands:
+            - swipe:
+                start: 90%, 70%
+                end: 90%, 30%
+                duration: 250
+
 - extendedWaitUntil:
     visible:
       id: "debug-support-preset-31d"
     timeout: 10000
+
+# Earlier flows seed demo activities and the app then marks the profile a
+# legacy purchaser, which short-circuits the support card ahead of the date
+# check. The preset does not clear that flag, so unset it first.
+- runFlow:
+    when:
+      visible: "Unset legacy"
+    commands:
+      - tapOn:
+          id: "debug-support-legacy-toggle"
 
 - tapOn:
     id: "debug-support-preset-31d"
@@ -211,7 +248,7 @@ tags:
 
 - takeScreenshot: "support-card-expanded"
 
-# Same regression check on this surface — fake labels must not appear
+# Same regression check on this surface, fake labels must not appear
 - assertNotVisible:
     text: "Small Tip"
 - assertNotVisible:

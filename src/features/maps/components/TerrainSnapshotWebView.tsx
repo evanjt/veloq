@@ -34,15 +34,21 @@ import {
   emitSnapshotComplete,
   emitSnapshotFailed,
   onClearTileCache,
+  onTileCacheBudget,
   onTileCacheStatsRequest,
   emitTileCacheStats,
-  onPrefetchTilesRequest,
-  onCancelWebViewPrefetch,
-  emitPrefetchTilesProgress,
-  type PrefetchTilesBatch,
 } from '@/features/maps/lib/terrainSnapshotEvents';
-import { generatePreloadScript } from '@/features/maps/lib/tilePreloader';
-import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import {
+  applyTileCacheBudgetScript,
+  clearTileCachesScript,
+  tileCacheStatsScript,
+} from '@/features/maps/lib/tileCacheBudget';
+import {
+  buildSnapshotWorkerHtml,
+  buildBundledAssetReplyScript,
+} from '@/features/maps/lib/htmlBuilders';
+import { bundledBasemapAsset } from '@/features/maps/lib/bundledBasemap';
+import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -53,6 +59,9 @@ import type {
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('TerrainSnapshotWebView');
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 30;
@@ -64,7 +73,6 @@ const MAX_SNAPSHOT_RETRIES = 1;
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
   retryFailed: () => void;
-  preloadTiles: (script: string) => void;
 }
 
 interface WorkerState {
@@ -93,13 +101,19 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }));
     }
     const workers = workersRef.current;
-    const workerHtmls = useMemo(() => workers.map((w) => buildSnapshotWorkerHtml(w.id)), [workers]);
+    const tileCacheBudgetMb = useTileCacheSettings((s) => s.budgetMb);
+    const workerHtmls = useMemo(
+      () => workers.map((w) => buildSnapshotWorkerHtml(w.id, tileCacheBudgetMb)),
+      [workers, tileCacheBudgetMb]
+    );
 
     const queueRef = useRef<SnapshotRequest[]>([]);
     const queueTotalRef = useRef(0);
     const queueCompletedRef = useRef(0);
     const failedRequestsRef = useRef<SnapshotRequest[]>([]);
-    const pendingPrefetchRef = useRef<PrefetchTilesBatch[]>([]);
+    // One silent idle retry per request, so a card whose render was dropped or
+    // timed out does not wait for a pull-to-refresh it may never get.
+    const idleRetriedRef = useRef(new Set<string>());
     const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const STALENESS_TIMEOUT_MS = 15000;
@@ -176,7 +190,31 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       worker.webViewRef.current?.reload();
     }, []);
 
+    const requestKey = (r: SnapshotRequest) =>
+      `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
+
     const processNext = useCallback(() => {
+      // Nothing left to render and nothing in flight: this is the moment to
+      // give the failures one more go, before the pool goes quiet.
+      if (
+        queueRef.current.length === 0 &&
+        failedRequestsRef.current.length > 0 &&
+        !workers.some((w) => w.processingRef.current)
+      ) {
+        const failed = failedRequestsRef.current;
+        failedRequestsRef.current = [];
+        for (const req of failed) {
+          const key = requestKey(req);
+          if (idleRetriedRef.current.has(key)) continue;
+          if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
+          idleRetriedRef.current.add(key);
+          // Already at the ladder's last rung, so this is one more render and
+          // not another round of in-flight retries.
+          queueRef.current.push({ ...req, _retryAttempt: MAX_SNAPSHOT_RETRIES });
+          queueTotalRef.current++;
+        }
+      }
+
       for (const worker of workers) {
         if (worker.processingRef.current || !worker.mapReadyRef.current) continue;
 
@@ -186,7 +224,11 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         let drained = 0;
         while (
           queueRef.current.length > 0 &&
-          hasTerrainPreview(queueRef.current[0].activityId, queueRef.current[0].mapStyle)
+          hasTerrainPreview(
+            queueRef.current[0].activityId,
+            queueRef.current[0].mapStyle,
+            !queueRef.current[0].flat
+          )
         ) {
           queueRef.current.shift();
           drained++;
@@ -196,16 +238,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           updateProgress();
         }
         if (queueRef.current.length === 0) {
-          // No more snapshots - drain any queued prefetch batches on this idle worker
-          if (pendingPrefetchRef.current.length > 0 && worker.webViewRef.current) {
-            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
-            const batches = pendingPrefetchRef.current.splice(0);
-            for (const batch of batches) {
-              worker.webViewRef.current.injectJavaScript(
-                generatePreloadScript(batch.urls, batch.cacheName, batch.config)
-              );
-            }
-          }
           break;
         }
 
@@ -217,7 +249,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         const workerId = worker.id;
 
         if (__DEV__) {
-          console.log(
+          log.log(
             `[TerrainSnapshot:${workerId}] Processing ${request.activityId} gen=${gen} (style: ${request.mapStyle})`
           );
         }
@@ -256,13 +288,24 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         console: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
           if (!workers[data.workerId]) return;
-          if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+          if (__DEV__) log.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+        },
+        bundledAssetRequest: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          const worker = workers[data.workerId];
+          if (!worker) return;
+          const requestId = data.requestId as string;
+          const path = data.path as string;
+          if (!requestId || !path) return;
+          worker.webViewRef.current?.injectJavaScript(
+            buildBundledAssetReplyScript(requestId, bundledBasemapAsset(path))
+          );
         },
         mapReady: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
           const worker = workers[data.workerId];
           if (!worker) return;
-          if (__DEV__) console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
+          if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
           worker.mapReadyRef.current = true;
           processNext();
         },
@@ -287,6 +330,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             (data.mapStyle as MapStyleType) ??
             worker.currentRequestRef.current?.mapStyle ??
             'light';
+          // The render is half the key, and only the request knows which one it
+          // asked for: the page posts back the style, not the camera.
+          const is3D = worker.currentRequestRef.current?.flat === false;
           worker.processingRef.current = false;
           worker.currentRequestRef.current = null;
           queueCompletedRef.current++;
@@ -296,15 +342,14 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           const base64 = data.base64 as string;
           const activityId = data.activityId as string;
           if (__DEV__) {
-            console.log(
+            log.log(
               `[TerrainSnapshot:${data.workerId}] Captured ${activityId} (${Math.round(base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
             );
           }
           // Save concurrently - card shows loading state until emitSnapshotComplete
           try {
-            const uri = await saveTerrainPreview(activityId, style, base64);
-            if (__DEV__)
-              console.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
+            const uri = await saveTerrainPreview(activityId, style, is3D, base64);
+            if (__DEV__) log.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
             emitSnapshotComplete(activityId, uri);
           } catch (saveErr) {
             if (__DEV__) {
@@ -325,11 +370,6 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             satellite: (data.satellite as { tileCount: number; totalBytes: number }) ?? undefined,
             vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
           });
-        },
-        prefetchProgress: (data: WebViewBridgeMessage) => {
-          if (typeof data.workerId !== 'number') return;
-          if (!workers[data.workerId]) return;
-          emitPrefetchTilesProgress((data.completed as number) ?? 0, (data.total as number) ?? 0);
         },
         snapshotError: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
@@ -395,17 +435,16 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     useEffect(() => {
       return onClearTileCache(() => {
         for (const worker of workers) {
-          worker.webViewRef.current?.injectJavaScript(`
-          Promise.all([
-            caches.delete('veloq-terrain-dem-v1'),
-            caches.delete('veloq-satellite-v1'),
-            caches.delete('veloq-vector-v1'),
-          ]).then(function() {
-            window._rn_log('All tile caches cleared');
-            window._currentBaseStyle = null;
-          });
-          true;
-        `);
+          worker.webViewRef.current?.injectJavaScript(clearTileCachesScript());
+        }
+      });
+    }, [workers]);
+
+    // A changed ceiling reaches the pages that are already open.
+    useEffect(() => {
+      return onTileCacheBudget((budgetMb) => {
+        for (const worker of workers) {
+          worker.webViewRef.current?.injectJavaScript(applyTileCacheBudgetScript(budgetMb));
         }
       });
     }, [workers]);
@@ -416,74 +455,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Query worker 0 if its map is ready
         const worker = workers[0];
         if (!worker?.mapReadyRef.current || !worker.webViewRef.current) return;
-        worker.webViewRef.current.injectJavaScript(`
-          (function() {
-            var cacheNames = ['veloq-terrain-dem-v1', 'veloq-satellite-v1', 'veloq-vector-v1'];
-            Promise.all(cacheNames.map(function(name) {
-              return caches.open(name).then(function(cache) {
-                return cache.keys().then(function(requests) {
-                  return Promise.all(requests.map(function(req) {
-                    return cache.match(req).then(function(r) {
-                      return r ? (parseInt(r.headers.get('content-length') || '0', 10) || 0) : 0;
-                    });
-                  })).then(function(sizes) {
-                    var total = 0;
-                    for (var i = 0; i < sizes.length; i++) total += sizes[i];
-                    return { name: name, tileCount: requests.length, totalBytes: total };
-                  });
-                });
-              }).catch(function() { return { name: name, tileCount: 0, totalBytes: 0 }; });
-            })).then(function(results) {
-              var combined = { tileCount: 0, totalBytes: 0, terrain: null, satellite: null, vector: null };
-              results.forEach(function(r) {
-                combined.tileCount += r.tileCount;
-                combined.totalBytes += r.totalBytes;
-                if (r.name.indexOf('terrain') >= 0) combined.terrain = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-                else if (r.name.indexOf('satellite') >= 0) combined.satellite = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-                else if (r.name.indexOf('vector') >= 0) combined.vector = { tileCount: r.tileCount, totalBytes: r.totalBytes };
-              });
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'tileCacheStats', workerId: window._workerId,
-                tileCount: combined.tileCount, totalBytes: combined.totalBytes,
-                terrain: combined.terrain, satellite: combined.satellite, vector: combined.vector,
-              }));
-            });
-          })();
-          true;
-        `);
-      });
-    }, [workers]);
-
-    // Listen for prefetch tile requests from TileCacheService
-    useEffect(() => {
-      return onPrefetchTilesRequest((batches: PrefetchTilesBatch[]) => {
-        // Find an idle worker to run the prefetch
-        const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-        if (!worker?.webViewRef.current) {
-          // All workers busy - queue for later execution when snapshots finish
-          pendingPrefetchRef.current.push(...batches);
-          return;
-        }
-
-        // Reset abort flag before starting new prefetch
-        worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
-
-        for (const batch of batches) {
-          const script = generatePreloadScript(batch.urls, batch.cacheName, batch.config);
-          worker.webViewRef.current.injectJavaScript(script);
-        }
-      });
-    }, [workers]);
-
-    // Listen for cancel events - set abort flag in all workers
-    useEffect(() => {
-      return onCancelWebViewPrefetch(() => {
-        for (const worker of workers) {
-          if (worker.webViewRef.current && worker.mapReadyRef.current) {
-            worker.webViewRef.current.injectJavaScript('window._prefetchAborted = true; true;');
-          }
-        }
-        pendingPrefetchRef.current = [];
+        worker.webViewRef.current.injectJavaScript(tileCacheStatsScript());
       });
     }, [workers]);
 
@@ -507,27 +479,30 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       ref,
       () => ({
         requestSnapshot: (request: SnapshotRequest) => {
-          // Deduplicate: skip if already cached, already queued, or in-flight on a worker
-          if (hasTerrainPreview(request.activityId, request.mapStyle)) return;
-          if (
-            queueRef.current.some(
-              (r) => r.activityId === request.activityId && r.mapStyle === request.mapStyle
-            )
-          )
-            return;
+          // Deduplicate: skip if already cached, already queued, or in-flight on
+          // a worker. The render is part of the identity: a 3D request that
+          // arrives while the flat one for the same activity is still rendering
+          // is a different image, and dropping it leaves the toggle with no
+          // effect at all.
+          if (hasTerrainPreview(request.activityId, request.mapStyle, !request.flat)) return;
+          if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
           if (
             workers.some(
               (w) =>
                 w.processingRef.current &&
-                w.currentRequestRef.current?.activityId === request.activityId &&
-                w.currentRequestRef.current?.mapStyle === request.mapStyle
+                w.currentRequestRef.current !== null &&
+                requestKey(w.currentRequestRef.current) === requestKey(request)
             )
           )
             return;
 
-          // Drop oldest if queue is full
+          // Drop oldest if queue is full. A dropped request never completes,
+          // so it comes back off the total too: leaving it counted is what kept
+          // completed from ever catching total while cards kept mounting, and
+          // the progress notification posted for the whole session.
           if (queueRef.current.length >= MAX_QUEUE_SIZE) {
             queueRef.current.shift();
+            queueTotalRef.current--;
           }
           queueRef.current.push(request);
           queueTotalRef.current++;
@@ -537,22 +512,15 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         retryFailed: () => {
           const failed = failedRequestsRef.current;
           if (failed.length === 0) return;
-          if (__DEV__) console.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
+          if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
           failedRequestsRef.current = [];
           for (const req of failed) {
-            if (hasTerrainPreview(req.activityId, req.mapStyle)) continue;
+            if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
             queueRef.current.push(req);
             queueTotalRef.current++;
           }
           updateProgress();
           processNext();
-        },
-        preloadTiles: (script: string) => {
-          // Find an idle worker to run the preload script
-          const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
-          if (worker?.webViewRef.current) {
-            worker.webViewRef.current.injectJavaScript(script);
-          }
         },
       }),
       [processNext, updateProgress]

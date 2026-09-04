@@ -1,6 +1,6 @@
 //! Integration tests for `get_activity_section_encounters` and PR detection.
 //!
-//! Strategy: spin up a real PersistentRouteEngine (which runs migrations),
+//! Strategy: spin up a real PersistentEngine (which runs migrations),
 //! then insert fixtures directly via a parallel rusqlite connection. This
 //! avoids the slow GPS-detection pipeline while exercising the actual SQL
 //! that the production query runs.
@@ -10,10 +10,10 @@
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::PersistentRouteEngine;
+use veloqrs::PersistentEngine;
 
 struct Setup {
-    engine: PersistentRouteEngine,
+    engine: PersistentEngine,
     raw: Connection,
     _tmp: TempDir,
 }
@@ -24,7 +24,7 @@ fn setup() -> Setup {
     let path_str = path.to_str().unwrap().to_string();
 
     // Constructing the engine runs all migrations.
-    let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    let engine = PersistentEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
     Setup {
@@ -241,7 +241,7 @@ fn pr_long_section_relative_tolerance_distinguishes_from_absolute() {
     assert_eq!(r.len(), 1);
     assert!(
         r[0].is_pr,
-        "1800.0s vs best 1799.0s on a 30min climb (0.06%) should be PR — proves relative tolerance"
+        "1800.0s vs best 1799.0s on a 30min climb (0.06%) should be PR, proves relative tolerance"
     );
 }
 
@@ -262,7 +262,7 @@ fn not_pr_when_outside_relative_tolerance() {
 
 #[test]
 fn pr_independent_per_direction() {
-    // PR forward, not PR reverse — direction-aware PR detection.
+    // PR forward, not PR reverse, direction-aware PR detection.
     let setup = setup();
     insert_section(&setup.raw, "s1", "Loop", 500.0);
     // Older reverse traversal sets the reverse best
@@ -278,4 +278,106 @@ fn pr_independent_per_direction() {
     let rev = r.iter().find(|e| e.direction == "reverse").unwrap();
     assert!(same.is_pr, "forward direction has only this attempt → PR");
     assert!(!rev.is_pr, "reverse 95s vs reverse best 80s (18%) → not PR");
+}
+
+// --- One encounter per (section, direction) ---
+//
+// The junction holds a row per lap; laps themselves are the FfiSectionLap
+// surface.
+
+#[test]
+fn a_lapped_section_is_one_encounter_carrying_the_fastest_lap() {
+    let s = setup();
+    insert_activity(&s.raw, "act_intervals", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_oval", "Oval", 400.0);
+
+    // Deliberately not in time order, and the slowest lap is written last.
+    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 0, 400.0, 110.0);
+    insert_traversal(
+        &s.raw,
+        "sec_oval",
+        "act_intervals",
+        "same",
+        100,
+        400.0,
+        90.0,
+    );
+    insert_traversal(
+        &s.raw,
+        "sec_oval",
+        "act_intervals",
+        "same",
+        200,
+        400.0,
+        105.0,
+    );
+
+    let encounters = s.engine.get_activity_section_encounters("act_intervals");
+
+    assert_eq!(
+        encounters.len(),
+        1,
+        "three laps of one section are one encounter, got {encounters:?}"
+    );
+    assert_eq!(
+        encounters[0].lap_time, 90.0,
+        "the encounter must be represented by the fastest lap"
+    );
+    assert_eq!(
+        encounters[0].visit_count, 3,
+        "the count still reports every pass"
+    );
+}
+
+#[test]
+fn opposite_directions_stay_separate_encounters() {
+    let s = setup();
+    insert_activity(&s.raw, "act_out_and_back", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_strip", "Strip", 400.0);
+
+    insert_traversal(
+        &s.raw,
+        "sec_strip",
+        "act_out_and_back",
+        "same",
+        0,
+        400.0,
+        100.0,
+    );
+    insert_traversal(
+        &s.raw,
+        "sec_strip",
+        "act_out_and_back",
+        "reverse",
+        200,
+        400.0,
+        95.0,
+    );
+
+    let encounters = s.engine.get_activity_section_encounters("act_out_and_back");
+
+    assert_eq!(
+        encounters.len(),
+        2,
+        "an out-and-back is two encounters, not one collapsed pair"
+    );
+}
+
+#[test]
+fn an_untimed_lap_never_displaces_a_timed_one() {
+    let s = setup();
+    insert_activity(&s.raw, "act_mixed", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_oval", "Oval", 400.0);
+
+    // A zero lap_time sorts ahead of every real time on a naive ascending sort.
+    insert_traversal(&s.raw, "sec_oval", "act_mixed", "same", 0, 400.0, 0.0);
+    insert_traversal(&s.raw, "sec_oval", "act_mixed", "same", 100, 400.0, 95.0);
+
+    let encounters = s.engine.get_activity_section_encounters("act_mixed");
+
+    assert_eq!(encounters.len(), 1, "one section, one encounter");
+    assert_eq!(
+        encounters[0].lap_time, 95.0,
+        "the timed lap must represent the encounter"
+    );
 }

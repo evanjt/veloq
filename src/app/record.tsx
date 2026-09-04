@@ -7,7 +7,6 @@ import {
   FlatList,
   Alert,
   Linking,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -19,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
@@ -35,7 +34,8 @@ import {
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
 import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
-import { intervalsApi } from '@/api';
+import { getEngine } from '@/shared/native/engine';
+import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityType, CalendarEvent } from '@/types';
@@ -186,6 +186,7 @@ export default function RecordScreen() {
                 startTime: backup.startTime,
                 stopTime: backup.stopTime ?? backup.savedAt,
                 pausedDuration: backup.pausedDuration,
+                pauseIntervals: backup.pauseIntervals ?? [],
                 streams: backup.streams,
                 laps: backup.laps,
                 status: 'stopped',
@@ -200,6 +201,13 @@ export default function RecordScreen() {
             useRecordingStore.setState({
               startTime: backup.startTime,
               pausedDuration: backup.pausedDuration + Math.max(0, now - backup.savedAt),
+              pauseIntervals: [
+                ...(backup.pauseIntervals ?? []),
+                {
+                  start: (backup.savedAt - backup.startTime) / 1000,
+                  end: (Math.max(now, backup.savedAt) - backup.startTime) / 1000,
+                },
+              ],
               streams: backup.streams,
               laps: backup.laps,
               status: 'paused', // Start paused so user can review before resuming
@@ -213,15 +221,18 @@ export default function RecordScreen() {
     })();
   }, [t]);
 
-  // Fetch today's planned workouts
+  // Today's planned workouts. Ask Rust to refresh the day, then read what is
+  // stored; the engine event brings in anything the refresh adds.
   useEffect(() => {
     const today = formatLocalDate(new Date());
-    intervalsApi
-      .getCalendarEvents({ oldest: today, newest: today })
-      .then(setTodayEvents)
-      .catch(() => {
-        // Silently ignore - events section just won't show
-      });
+    const engine = getEngine();
+    engine?.syncCalendarEvents(today, today);
+    setTodayEvents(readCalendarEvents(today, today));
+
+    if (!engine) return;
+    return engine.subscribe('activities', () => {
+      setTodayEvents(readCalendarEvents(today, today));
+    });
   }, []);
 
   const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {
@@ -429,6 +440,7 @@ export default function RecordScreen() {
             Object.entries(ACTIVITY_CATEGORIES).map(([category, types]) => (
               <CollapsibleSection
                 key={category}
+                testID={`record-category-${category}`}
                 title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
                 icon={CATEGORY_ICONS[category]}
                 expanded={expandedCategories[category] ?? false}

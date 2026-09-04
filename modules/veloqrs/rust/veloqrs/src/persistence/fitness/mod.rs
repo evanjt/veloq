@@ -9,9 +9,9 @@ mod performances;
 use crate::ActivityMetrics;
 use rusqlite::{Result as SqlResult, params};
 
-use super::PersistentRouteEngine;
+use super::PersistentEngine;
 
-impl PersistentRouteEngine {
+impl PersistentEngine {
     // ========================================================================
     // Activity Metrics & Route Performances
     // ========================================================================
@@ -24,9 +24,12 @@ impl PersistentRouteEngine {
     /// Set activity metrics for performance calculations.
     /// This persists the metrics to the database and keeps them in memory.
     pub fn set_activity_metrics(&mut self, metrics: Vec<ActivityMetrics>) -> SqlResult<()> {
-        // Insert or replace in database (core fields only, no extended metrics)
+        // One transaction for the page. Row-by-row autocommit paid an fsync
+        // per activity under the engine lock, 3 s for a 90-day window on the
+        // S22, and every screen read waited it out.
+        let tx = self.db.transaction()?;
         {
-            let mut stmt = self.db.prepare(
+            let mut stmt = tx.prepare(
                 "INSERT OR REPLACE INTO activity_metrics
                  (activity_id, name, date, distance, moving_time, elapsed_time,
                   elevation_gain, avg_hr, avg_power, sport_type)
@@ -48,6 +51,7 @@ impl PersistentRouteEngine {
                 ])?;
             }
         }
+        tx.commit()?;
 
         // Update in-memory cache
         for m in metrics {
@@ -204,11 +208,6 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get activity metrics for a specific activity.
-    pub fn get_activity_metrics(&self, activity_id: &str) -> Option<&ActivityMetrics> {
-        self.activity_metrics.get(activity_id)
-    }
-
     // =========================================================================
     // Athlete Profile & Sport Settings Cache
     // =========================================================================
@@ -268,5 +267,48 @@ impl PersistentRouteEngine {
             "DELETE FROM athlete_profile;
              DELETE FROM sport_settings;",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    fn metric(i: usize) -> ActivityMetrics {
+        ActivityMetrics {
+            activity_id: format!("a{i}"),
+            name: "Ride".to_string(),
+            date: 1_700_000_000 + i as i64,
+            distance: 40_000.0,
+            moving_time: 3_600,
+            elapsed_time: 3_700,
+            elevation_gain: 400.0,
+            avg_hr: Some(140),
+            avg_power: Some(200),
+            sport_type: "Ride".to_string(),
+        }
+    }
+
+    // Row-by-row autocommit paid an fsync per activity under the engine lock,
+    // which on the S22 held every screen read for three seconds a page.
+    #[test]
+    fn a_page_of_metrics_is_one_commit() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let commits = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&commits);
+        engine.db.commit_hook(Some(move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            false
+        }));
+
+        engine
+            .set_activity_metrics((0..50).map(metric).collect())
+            .unwrap();
+
+        assert_eq!(commits.load(Ordering::SeqCst), 1);
+        assert_eq!(engine.get_activity_metric_ids().len(), 50);
     }
 }

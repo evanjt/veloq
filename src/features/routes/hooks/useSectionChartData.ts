@@ -10,8 +10,9 @@
 import { useMemo } from 'react';
 import { type ChartSummaryStats } from '@/features/routes/lib/performanceTypes';
 import { RANGE_DAYS } from '@/features/routes/constants';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
+import type { FfiSectionChartData } from 'veloqrs';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
@@ -28,6 +29,8 @@ interface UseSectionChartDataParams {
   sectionTimeRange: SectionTimeRange;
   /** Optional sport filter for cross-sport sections. */
   sportFilter?: string;
+  /** Chart payload a caller already read, so this hook skips its own FFI call. */
+  preComputedChart?: FfiSectionChartData | null;
 }
 
 export interface UseSectionChartDataResult {
@@ -60,6 +63,7 @@ export function useSectionChartData({
   sectionWithTraces,
   sectionTimeRange,
   sportFilter,
+  preComputedChart,
 }: UseSectionChartDataParams): UseSectionChartDataResult {
   // Cheap O(n) lookup maps - keep in TS, consumed by the section detail screen.
   const portionMap = useMemo(() => {
@@ -84,8 +88,9 @@ export function useSectionChartData({
   }, [sectionActivitiesUnsorted, performanceRecordMap]);
 
   const rustChart = useMemo(() => {
+    if (preComputedChart !== undefined) return preComputedChart;
     if (!section) return null;
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine) return null;
     try {
       const rangeDays = RANGE_DAYS[sectionTimeRange];
@@ -93,7 +98,7 @@ export function useSectionChartData({
     } catch {
       return null;
     }
-  }, [section, sectionTimeRange, sportFilter, performanceRecords]);
+  }, [section, sectionTimeRange, sportFilter, performanceRecords, preComputedChart]);
 
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
     if (!rustChart) {

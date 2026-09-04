@@ -89,22 +89,38 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
   }
 }
 
-export function getAllSettings(host: DelegateHost): Record<string, string> {
-  if (!host.ready) return {};
+/**
+ * Days of stream history the athlete keeps, 0 meaning keep everything. Not the
+ * activity `retentionDays` in `RouteSettingsStore`, which deletes whole
+ * activities; this one only ever evicts stored series.
+ */
+export function streamRetentionDays(host: DelegateHost): number | undefined {
+  if (!host.ready) return undefined;
   try {
-    const json = host.engine.settings().getAllSettings();
-    return JSON.parse(json) as Record<string, string>;
+    return Number(host.engine.settings().streamRetentionDays());
   } catch {
-    return {};
+    return undefined;
   }
 }
 
-export function setAllSettings(host: DelegateHost, settings: Record<string, string>): void {
+/** Set the window and evict what now falls outside it. */
+export function setStreamRetentionDays(host: DelegateHost, days: number): void {
   if (!host.ready) return;
   try {
-    host.engine.settings().setAllSettings(JSON.stringify(settings));
+    host.engine.settings().setStreamRetentionDays(BigInt(Math.trunc(days)));
   } catch {
-    // Settings write failed - non-critical
+    // A failed write leaves the previous window in force, which is the safe
+    // side: nothing is evicted that the athlete did not ask to evict.
+  }
+}
+
+/** Bytes the stream store holds, for the cache readout. */
+export function streamStoreBytes(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  try {
+    return Number(host.engine.settings().streamStoreBytes());
+  } catch {
+    return 0;
   }
 }
 

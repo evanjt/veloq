@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
 const FLAG_KEY = 'veloq-section-health-check-v1';
@@ -31,7 +31,7 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         const alreadyRan = await AsyncStorage.getItem(FLAG_KEY);
         if (alreadyRan === 'done') return;
 
-        const engine = getRouteEngine();
+        const engine = getEngine();
         if (!engine) return;
 
         const activityCount = engine.getActivityCount?.() ?? 0;
@@ -43,8 +43,16 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
           return;
         }
 
-        await AsyncStorage.setItem(FLAG_KEY, 'done');
-        engine.forceRedetectSections(undefined);
+        // A cutover suspends detection and re-cuts the whole catalogue
+        // itself, so a redetect here is refused and the empty catalogue is
+        // expected. Stamping through it would spend the one-shot on nothing.
+        if (engine.isCutoverPending?.() || engine.isCutoverRunning?.()) return;
+
+        // Stamp only on a redetect the engine actually accepted. A refusal
+        // means detection is suspended, and the check is owed a later launch.
+        if (engine.forceRedetectSections()) {
+          await AsyncStorage.setItem(FLAG_KEY, 'done');
+        }
       } catch {
         // best-effort
       }

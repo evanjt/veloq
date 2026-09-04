@@ -95,6 +95,25 @@ export function emitClearTileCache(): void {
 }
 
 /**
+ * Tile cache budget changes. A lowered ceiling has to reach the pages that are
+ * already open, or the athlete watches the size they just shrank stay where it
+ * was until the next fiftieth tile.
+ */
+type TileCacheBudgetListener = (budgetMb: number) => void;
+const tileCacheBudgetListeners = new Set<TileCacheBudgetListener>();
+
+export function onTileCacheBudget(cb: TileCacheBudgetListener): () => void {
+  tileCacheBudgetListeners.add(cb);
+  return () => {
+    tileCacheBudgetListeners.delete(cb);
+  };
+}
+
+export function emitTileCacheBudget(budgetMb: number): void {
+  for (const cb of tileCacheBudgetListeners) cb(budgetMb);
+}
+
+/**
  * Tile cache stats - request/response pair for querying DEM tile count and size.
  * MapsSection requests stats, TerrainSnapshotWebView responds.
  */
@@ -104,6 +123,7 @@ export interface TileCacheStats {
   terrain?: { tileCount: number; totalBytes: number };
   satellite?: { tileCount: number; totalBytes: number };
   vector?: { tileCount: number; totalBytes: number };
+  ground?: { tileCount: number; totalBytes: number };
 }
 
 type TileCacheStatsRequestListener = () => void;
@@ -132,60 +152,4 @@ export function onTileCacheStats(cb: TileCacheStatsListener): () => void {
 
 export function emitTileCacheStats(stats: TileCacheStats): void {
   for (const cb of tileCacheStatsListeners) cb(stats);
-}
-
-/**
- * Prefetch tiles event - sends tile URL batches to TerrainSnapshotWebView
- * for background downloading into the Cache API.
- */
-export interface PrefetchTilesBatch {
-  urls: string[];
-  cacheName: string;
-  config?: { concurrency?: number; delayMs?: number };
-}
-
-type PrefetchTilesRequestListener = (batches: PrefetchTilesBatch[]) => void;
-const prefetchTilesRequestListeners = new Set<PrefetchTilesRequestListener>();
-
-export function onPrefetchTilesRequest(cb: PrefetchTilesRequestListener): () => void {
-  prefetchTilesRequestListeners.add(cb);
-  return () => {
-    prefetchTilesRequestListeners.delete(cb);
-  };
-}
-
-export function emitPrefetchTilesRequest(batches: PrefetchTilesBatch[]): void {
-  for (const cb of prefetchTilesRequestListeners) cb(batches);
-}
-
-type PrefetchTilesProgressListener = (downloaded: number, total: number) => void;
-const prefetchTilesProgressListeners = new Set<PrefetchTilesProgressListener>();
-
-export function onPrefetchTilesProgress(cb: PrefetchTilesProgressListener): () => void {
-  prefetchTilesProgressListeners.add(cb);
-  return () => {
-    prefetchTilesProgressListeners.delete(cb);
-  };
-}
-
-export function emitPrefetchTilesProgress(downloaded: number, total: number): void {
-  for (const cb of prefetchTilesProgressListeners) cb(downloaded, total);
-}
-
-/**
- * Cancel WebView prefetch event - sets abort flag in all WebView workers
- * to stop in-flight tile fetches.
- */
-type CancelWebViewPrefetchListener = () => void;
-const cancelWebViewPrefetchListeners = new Set<CancelWebViewPrefetchListener>();
-
-export function onCancelWebViewPrefetch(cb: CancelWebViewPrefetchListener): () => void {
-  cancelWebViewPrefetchListeners.add(cb);
-  return () => {
-    cancelWebViewPrefetchListeners.delete(cb);
-  };
-}
-
-export function emitCancelWebViewPrefetch(): void {
-  for (const cb of cancelWebViewPrefetchListeners) cb();
 }

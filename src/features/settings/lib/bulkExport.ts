@@ -6,7 +6,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 
 export type BulkExportPhase = 'generating' | 'sharing';
@@ -26,7 +26,7 @@ export interface BulkExportResult {
 export async function bulkExportActivities(
   onProgress?: (progress: BulkExportProgress) => void
 ): Promise<BulkExportResult> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) throw new Error('Route engine not available');
 
   const dateStr = formatLocalDate(new Date());
@@ -70,7 +70,7 @@ export async function bulkExportActivities(
 export async function bulkExportActivitiesGeoJson(
   onProgress?: (progress: BulkExportProgress) => void
 ): Promise<BulkExportResult> {
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) throw new Error('Route engine not available');
 
   const dateStr = formatLocalDate(new Date());

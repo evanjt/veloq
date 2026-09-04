@@ -1,7 +1,7 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
-node_modules/
+node_modules
 
 # Expo
 .expo/
@@ -113,3 +113,9 @@ screenshots/
 modules/veloq-widget/android/build/
 modules/veloq-widget/android/.gradle/
 modules/veloq-widget/android/.cxx/
+
+# Private device databases and exports. Real training data never enters the repo.
+modules/veloqrs/rust/veloqrs/tests/fixtures/private/
+*.veloqdb
+*.db
+.eslintcache

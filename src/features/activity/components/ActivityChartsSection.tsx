@@ -1,10 +1,17 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, StatusBar, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
@@ -23,8 +30,7 @@ import { getAvailableCharts, CHART_CONFIGS } from '@/features/activity/lib/chart
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
-import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
+import { colors, darkColors, spacing, layout, opacity, shadows } from '@/theme';
 
 interface LatLng {
   latitude: number;
@@ -92,7 +98,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight } = useWindowDimensions();
   const { getPageMetrics } = useFFITimer();
 
   // Chart state
@@ -213,19 +219,19 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       } else if (isRecovery) {
         key = 'REC';
         label = 'Rec';
-        color = '#4CAF50';
+        color = colors.chartPaceCurve;
       } else if (isWarmup) {
         key = 'WU';
         label = 'WU';
-        color = '#22C55E';
+        color = colors.chartBandWarmup;
       } else if (isCooldown) {
         key = 'CD';
         label = 'CD';
-        color = '#8B5CF6';
+        color = colors.chartBandCooldown;
       } else {
         key = interval.type;
         label = interval.type.slice(0, 3);
-        color = '#808080';
+        color = colors.chartBandNeutral;
       }
 
       if (chipMap.has(key)) {
@@ -416,10 +422,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     return acc;
                   }, {})
                 : {};
-            const warnings: Array<{
+            const warnings: {
               level: 'warn' | 'error';
               message: string;
-            }> = [];
+            }[] = [];
             if (streams?.latlng && streams.latlng.length > 2000) {
               warnings.push({
                 level: 'warn',

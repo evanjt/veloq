@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { buildStrengthProgression } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';
@@ -26,7 +27,7 @@ let demoStrengthSeedAttempted = false;
 function ensureDemoStrengthSeeded(): void {
   if (demoStrengthSeedAttempted) return;
   if (!useAuthStore.getState().isDemoMode) return;
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return;
   demoStrengthSeedAttempted = true;
   try {
@@ -44,11 +45,11 @@ function ensureDemoStrengthSeeded(): void {
  * Compute start/end timestamps for a period, rounded to start-of-day
  * so the values are stable within a day (prevents queryKey churn).
  */
-function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: number } {
+export function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: number } {
   const now = new Date();
   // Round to end of today (23:59:59) so it's stable within the day
   now.setHours(23, 59, 59, 0);
-  const endTs = Math.floor(now.getTime() / 1000);
+  const endTs = localWallClockToEpochSeconds(now);
 
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
@@ -66,20 +67,20 @@ function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: nu
       start.setMonth(start.getMonth() - 6);
       break;
   }
-  const startTs = Math.floor(start.getTime() / 1000);
+  const startTs = localWallClockToEpochSeconds(start);
 
   return { startTs, endTs };
 }
 
-function getTrailingWeekRanges(weekCount: number): Array<{
+export function getTrailingWeekRanges(weekCount: number): {
   label: string;
   startTs: number;
   endTs: number;
-}> {
+}[] {
   const end = new Date();
   end.setHours(23, 59, 59, 0);
 
-  const ranges: Array<{ label: string; startTs: number; endTs: number }> = [];
+  const ranges: { label: string; startTs: number; endTs: number }[] = [];
   for (let index = weekCount - 1; index >= 0; index -= 1) {
     const rangeEnd = new Date(end);
     rangeEnd.setDate(rangeEnd.getDate() - index * 7);
@@ -90,8 +91,8 @@ function getTrailingWeekRanges(weekCount: number): Array<{
 
     ranges.push({
       label: index === 0 ? 'This wk' : `-${index}w`,
-      startTs: Math.floor(rangeStart.getTime() / 1000),
-      endTs: Math.floor(rangeEnd.getTime() / 1000),
+      startTs: localWallClockToEpochSeconds(rangeStart),
+      endTs: localWallClockToEpochSeconds(rangeEnd),
     });
   }
 
@@ -99,7 +100,7 @@ function getTrailingWeekRanges(weekCount: number): Array<{
 }
 
 function normalizeStrengthSummary(raw: {
-  muscleVolumes?: Array<{
+  muscleVolumes?: {
     slug: string;
     primarySets: number;
     secondarySets: number;
@@ -107,7 +108,7 @@ function normalizeStrengthSummary(raw: {
     totalReps: number;
     totalWeightKg: number;
     exerciseNames: string[];
-  }>;
+  }[];
   activityCount?: number;
   totalSets?: number;
 }): StrengthSummary {
@@ -136,7 +137,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
     queryFn: () => {
       ensureDemoStrengthSeeded();
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || typeof engine.getStrengthSummary !== 'function') {
         return { muscleVolumes: [], activityCount: 0, totalSets: 0 };
       }
@@ -161,7 +162,7 @@ export function useStrengthProgression(muscleSlug: string | null) {
   return useQuery<StrengthProgression | null>({
     queryKey: queryKeys.strength.progression(muscleSlug!),
     queryFn: () => {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
         return null;
       }
@@ -206,7 +207,7 @@ export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string
     queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine || !muscleSlug || typeof engine.getExercisesForMuscle !== 'function') {
         return { exercises: [], periodDays: 0 };
       }
@@ -259,7 +260,7 @@ export function useActivitiesForExercise(
     queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug!, exerciseCategory!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (
         !engine ||
         !muscleSlug ||
@@ -311,7 +312,7 @@ export function useHasStrengthData(): boolean {
     let unsubscribe: (() => void) | null = null;
 
     function trySubscribe(): boolean {
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (!engine) return false;
 
       unsubscribe = engine.subscribe('activities', () => {
@@ -339,7 +340,7 @@ export function useHasStrengthData(): boolean {
   }, []);
 
   return useMemo(() => {
-    const engine = getRouteEngine();
+    const engine = getEngine();
     if (!engine || typeof engine.hasStrengthData !== 'function') return false;
     // Seed demo fixtures before the first hasStrengthData check, otherwise
     // the Strength tab never appears (and useStrengthVolume - which also

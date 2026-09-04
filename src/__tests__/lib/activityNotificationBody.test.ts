@@ -1,14 +1,18 @@
+import {
+  buildActivityNotification,
+  buildActivityNotificationBody,
+  NOTIFICATION_BODY_MAX,
+} from '@/features/insights/lib/activityNotificationBody';
+import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import type { Insight } from '@/features/insights/types';
+
 const mockEngine = {
   getActivityRouteHighlights: jest.fn(),
   getSectionsForActivity: jest.fn(),
   getPerformancesBatch: jest.fn(),
 };
 
-jest.mock('veloqrs', () => ({ routeEngine: mockEngine }), { virtual: true });
-
-import { buildActivityNotificationBody } from '@/features/insights/lib/activityNotificationBody';
-import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import type { Insight } from '@/features/insights/types';
+jest.mock('veloqrs', () => ({ engine: mockEngine }), { virtual: true });
 
 const t = (key: string, params?: Record<string, string | number>) =>
   params ? `${key}(${Object.values(params).join(',')})` : key;
@@ -59,6 +63,12 @@ function setEngine({
 const build = (p: NotificationPreferences = prefs, insights: Insight[] = []) =>
   buildActivityNotificationBody('a1', 'Morning Ride', insights, p, null, t);
 
+/**
+ * The ladder decides which clause wins, and the clause leads the body. How
+ * much of the activity name follows it is the cap's business, tested below.
+ */
+const expectLeads = (body: string, detail: string) => expect(body.startsWith(detail)).toBe(true);
+
 describe('buildActivityNotificationBody priority ladder', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -68,7 +78,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
       sections: [{ id: 's1', name: 'Climb' }],
       bestBySection: { s1: 'a1' },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.routePr(Lake Loop)');
+    expectLeads(build(), 'notifications.activityBody.routePr(Lake Loop)');
   });
 
   it('single section PR names the section', () => {
@@ -77,7 +87,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
       sections: [{ id: 's1', name: 'Climb' }],
       bestBySection: { s1: 'a1' },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionPr(Climb)');
+    expectLeads(build(), 'notifications.activityBody.sectionPr(Climb)');
   });
 
   it('multiple section PRs name the first and count the rest', () => {
@@ -89,7 +99,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
       ],
       bestBySection: { s1: 'a1', s2: 'a1' },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionPrMany(Climb,1)');
+    expectLeads(build(), 'notifications.activityBody.sectionPrMany(Climb,1)');
   });
 
   it('multiple unnamed section PRs keep the count form', () => {
@@ -101,24 +111,24 @@ describe('buildActivityNotificationBody priority ladder', () => {
       ],
       bestBySection: { s1: 'a1', s2: 'a1' },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionPrCount(2)');
+    expectLeads(build(), 'notifications.activityBody.sectionPrCount(2)');
   });
 
   it('unnamed route PR still reads as a PR', () => {
     setEngine({ highlight: { routeName: '', isPr: true, trend: 1 } });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.routePrUnnamed');
+    expectLeads(build(), 'notifications.activityBody.routePrUnnamed');
   });
 
   it('route PR includes the improvement over the previous best', () => {
     setEngine({
       highlight: { routeName: 'Lake Loop', isPr: true, trend: 1, prImprovementSeconds: 12 },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.routePrDelta(Lake Loop,12s)');
+    expectLeads(build(), 'notifications.activityBody.routePrDelta(Lake Loop,12s)');
   });
 
   it('unnamed route PR includes the improvement, formatted m:ss over a minute', () => {
     setEngine({ highlight: { routeName: '', isPr: true, trend: 1, prImprovementSeconds: 65 } });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.routePrUnnamedDelta(1:05)');
+    expectLeads(build(), 'notifications.activityBody.routePrUnnamedDelta(1:05)');
   });
 
   it('section PR includes the delta vs the previous best in the same direction', () => {
@@ -136,7 +146,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
         },
       },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionPrDelta(Climb,12s)');
+    expectLeads(build(), 'notifications.activityBody.sectionPrDelta(Climb,12s)');
   });
 
   it('section PR with no earlier same-direction attempt keeps the plain form', () => {
@@ -150,16 +160,14 @@ describe('buildActivityNotificationBody priority ladder', () => {
         },
       },
     });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionPr(Climb)');
+    expectLeads(build(), 'notifications.activityBody.sectionPr(Climb)');
   });
 
   it('faster than usual includes the gap to the PR', () => {
     setEngine({
       highlight: { routeName: 'Lake Loop', isPr: false, trend: 1, timeDeltaSeconds: 8 },
     });
-    expect(build()).toBe(
-      'Morning Ride - notifications.activityBody.fasterOnRouteDelta(Lake Loop,8s)'
-    );
+    expectLeads(build(), 'notifications.activityBody.fasterOnRouteDelta(Lake Loop,8s)');
   });
 
   it('PR category off suppresses PRs but keeps route identity', () => {
@@ -168,35 +176,33 @@ describe('buildActivityNotificationBody priority ladder', () => {
       sections: [{ id: 's1', name: 'Climb' }],
       bestBySection: { s1: 'a1' },
     });
-    expect(build(noPrPrefs)).toBe(
-      'Morning Ride - notifications.activityBody.fasterOnRoute(Lake Loop)'
-    );
+    expectLeads(build(noPrPrefs), 'notifications.activityBody.fasterOnRoute(Lake Loop)');
   });
 
   it('upward trend without PR reads faster than usual', () => {
     setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 1 } });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.fasterOnRoute(Lake Loop)');
+    expectLeads(build(), 'notifications.activityBody.fasterOnRoute(Lake Loop)');
   });
 
   it('flat trend on a named route reads as route identity', () => {
     setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.onRoute(Lake Loop)');
+    expectLeads(build(), 'notifications.activityBody.onRoute(Lake Loop)');
   });
 
   it('downward trend is never surfaced', () => {
     setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: -1 } });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.onRoute(Lake Loop)');
+    expectLeads(build(), 'notifications.activityBody.onRoute(Lake Loop)');
   });
 
   it('sections traversed without any route match', () => {
     setEngine({ highlight: null, sections: [{ id: 's1', name: 'Climb' }] });
-    expect(build()).toBe('Morning Ride - notifications.activityBody.sectionTraversedOne');
+    expectLeads(build(), 'notifications.activityBody.sectionTraversedOne');
   });
 
   it('falls back to milestone insight, then basic stats, then bare name', () => {
     setEngine({ highlight: null, sections: [] });
     const milestone = { id: 'i1', category: 'fitness_milestone', title: 'FTP up 5W' } as Insight;
-    expect(build(prefs, [milestone])).toBe('Morning Ride - FTP up 5W');
+    expectLeads(build(prefs, [milestone]), 'FTP up 5W');
 
     expect(
       buildActivityNotificationBody(
@@ -207,7 +213,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
         { name: 'Morning Ride', type: 'Ride', ingested: true, distance: 12345, movingTime: 2700 },
         t
       )
-    ).toBe('Morning Ride - notifications.activityBody.distanceAndTime(12.3,45)');
+    ).toContain('notifications.activityBody.distanceAndTime(12.3,45)');
 
     expect(build()).toBe('Morning Ride');
   });
@@ -220,5 +226,252 @@ describe('buildActivityNotificationBody priority ladder', () => {
       throw new Error('engine down');
     });
     expect(build()).toBe('Morning Ride');
+  });
+});
+
+/**
+ * Scenario: an Android lock screen shows roughly 50 to 60 characters of a
+ * notification body before collapsing the line, and neither the activity name
+ * nor a user-renamed route has a length limit anywhere in the chain.
+ *
+ * Expected behaviour: the finding survives the cut and the names give way.
+ * The PR and its delta are the only reason the enrichment pipeline exists, so
+ * they can never be what falls off the end (`B148`).
+ */
+describe('the body fits the collapsed lock screen', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  // The real English strings, so a length assertion means something.
+  const english = (key: string, params?: Record<string, string | number>) => {
+    const table: Record<string, string> = {
+      'notifications.activityBody.routePrDelta': 'Route PR on {{name}} ({{delta}} faster)',
+      'notifications.activityBody.onRoute': 'On {{name}}',
+    };
+    let out = table[key] ?? key;
+    for (const [k, v] of Object.entries(params ?? {})) out = out.replace(`{{${k}}}`, String(v));
+    return out;
+  };
+
+  const LONG_ACTIVITY = 'Wednesday evening chaingang with the Thursday club, long version';
+  const LONG_ROUTE = 'The long way round past the reservoir and back over the ridge';
+
+  const buildEnglish = (activityName: string) =>
+    buildActivityNotificationBody('a1', activityName, [], prefs, null, english);
+
+  it('keeps the whole route PR clause and its delta inside the cap', () => {
+    setEngine({
+      highlight: { routeName: LONG_ROUTE, isPr: true, trend: 1, prImprovementSeconds: 12 },
+    });
+
+    const body = buildEnglish(LONG_ACTIVITY);
+
+    expect(body.length).toBeLessThanOrEqual(NOTIFICATION_BODY_MAX);
+    expect(body).toMatch(/^Route PR on /);
+    expect(body).toContain('(12s faster)');
+  });
+
+  it('truncates the route name, never the delta', () => {
+    setEngine({
+      highlight: { routeName: LONG_ROUTE, isPr: true, trend: 1, prImprovementSeconds: 12 },
+    });
+
+    const body = buildEnglish('Ride');
+
+    expect(body).toContain('…');
+    expect(body).not.toContain('back over the ridge');
+    expect(body).toContain('(12s faster)');
+  });
+
+  it('drops the activity name rather than cutting into the finding', () => {
+    setEngine({
+      highlight: { routeName: LONG_ROUTE, isPr: true, trend: 1, prImprovementSeconds: 12 },
+    });
+
+    const body = buildEnglish(LONG_ACTIVITY);
+
+    expect(body).not.toContain('Wednesday');
+  });
+
+  it('keeps a short name when there is room for it', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+
+    expect(buildEnglish('Ride')).toBe('On Lake Loop - Ride');
+  });
+
+  it('leaves a body with no detail clause as the name alone, capped', () => {
+    setEngine({ highlight: null, sections: [] });
+
+    const body = buildEnglish(LONG_ACTIVITY);
+
+    expect(body.length).toBeLessThanOrEqual(NOTIFICATION_BODY_MAX);
+    expect(body).toMatch(/^Wednesday evening/);
+  });
+
+  it('keeps a name that lands exactly on the cap whole', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+    const detail = 'On Lake Loop - ';
+    const name = 'x'.repeat(NOTIFICATION_BODY_MAX - detail.length);
+
+    const body = buildEnglish(name);
+
+    expect(body).toBe(`${detail}${name}`);
+    expect(body.length).toBe(NOTIFICATION_BODY_MAX);
+    expect(body).not.toContain('…');
+  });
+});
+
+/**
+ * Scenario: `fetchAndIngestActivity` returned null, which it does on three
+ * paths: no credentials, the metadata poll exhausting its 15 s, and any thrown
+ * exception. There is no name to put in the body.
+ *
+ * Expected behaviour: the body carries whatever the engine still knows and
+ * nothing else. It used to fall back to the notification's own title, so the
+ * athlete got "Activity Recorded" over "Activity Recorded", which is a strictly
+ * worse notification than the generic one it replaced (`B149`).
+ */
+describe('an activity with no name', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const nameless = () => buildActivityNotificationBody('a1', '', [], prefs, null, t);
+
+  it('is empty when the engine knows nothing either', () => {
+    setEngine({ highlight: null, sections: [] });
+    expect(nameless()).toBe('');
+  });
+
+  it('is empty when the engine itself failed', () => {
+    mockEngine.getActivityRouteHighlights.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    mockEngine.getSectionsForActivity.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    expect(nameless()).toBe('');
+  });
+
+  it('is the finding alone when the engine has one, with no dangling separator', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+    expect(nameless()).toBe('notifications.activityBody.onRoute(Lake Loop)');
+  });
+});
+
+/**
+ * Scenario: every enriched activity notification arrived titled "Activity
+ * Recorded", so a route PR and an unremarkable commute read the same on a
+ * collapsed Android lock screen, where the title is often all there is.
+ *
+ * Expected behaviour: the ladder the body already walks picks the title too.
+ * Three tiers, no more: a PR title for the four PR rungs, a faster-than-usual
+ * title for the trend rung, and the recorded title for everything below.
+ */
+describe('the title follows the ladder', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const titleOf = (
+    p: NotificationPreferences = prefs,
+    insights: Insight[] = [],
+    info: Parameters<typeof buildActivityNotification>[4] = null
+  ) => buildActivityNotification('a1', 'Morning Ride', insights, p, info, t).title;
+
+  const PR = 'notifications.activityPr.title';
+  const FASTER = 'notifications.activityFaster.title';
+  const RECORDED = 'notifications.activityRecorded.title';
+
+  it('titles a named route PR as a PR', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 } });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles an unnamed route PR as a PR', () => {
+    setEngine({ highlight: { routeName: '', isPr: true, trend: 1 } });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles a single section PR as a PR', () => {
+    setEngine({
+      highlight: null,
+      sections: [{ id: 's1', name: 'Climb' }],
+      bestBySection: { s1: 'a1' },
+    });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles several section PRs as a PR', () => {
+    setEngine({
+      highlight: null,
+      sections: [
+        { id: 's1', name: 'Climb' },
+        { id: 's2', name: 'Sprint' },
+      ],
+      bestBySection: { s1: 'a1', s2: 'a1' },
+    });
+    expect(titleOf()).toBe(PR);
+  });
+
+  it('titles the trend rung faster than usual', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 1 } });
+    expect(titleOf()).toBe(FASTER);
+  });
+
+  it('suppressing PRs drops the title to the trend tier with the body', () => {
+    setEngine({
+      highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 },
+      sections: [{ id: 's1', name: 'Climb' }],
+      bestBySection: { s1: 'a1' },
+    });
+    expect(titleOf(noPrPrefs)).toBe(FASTER);
+  });
+
+  it('titles route identity, traversals, milestones and bare stats as recorded', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: false, trend: 0 } });
+    expect(titleOf()).toBe(RECORDED);
+
+    setEngine({ highlight: null, sections: [{ id: 's1', name: 'Climb' }] });
+    expect(titleOf()).toBe(RECORDED);
+
+    setEngine({ highlight: null, sections: [] });
+    const milestone = { id: 'i1', category: 'fitness_milestone', title: 'FTP up 5W' } as Insight;
+    expect(titleOf(prefs, [milestone])).toBe(RECORDED);
+
+    expect(
+      titleOf(prefs, [], {
+        name: 'Morning Ride',
+        type: 'Ride',
+        ingested: true,
+        distance: 12345,
+        movingTime: 2700,
+      })
+    ).toBe(RECORDED);
+
+    expect(titleOf()).toBe(RECORDED);
+  });
+
+  it('titles an engine failure as recorded rather than throwing', () => {
+    mockEngine.getActivityRouteHighlights.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    mockEngine.getSectionsForActivity.mockImplementation(() => {
+      throw new Error('engine down');
+    });
+    expect(titleOf()).toBe(RECORDED);
+  });
+
+  it('carries the same body the body builder returns', () => {
+    setEngine({ highlight: { routeName: 'Lake Loop', isPr: true, trend: 1 } });
+    const both = buildActivityNotification('a1', 'Morning Ride', [], prefs, null, t);
+    expect(both.body).toBe(buildActivityNotificationBody('a1', 'Morning Ride', [], prefs, null, t));
+  });
+
+  it('never claims a time improvement in the trend tier', () => {
+    const english = (key: string) =>
+      ({
+        'notifications.activityFaster.title': 'Faster Than Usual',
+      })[key] ?? key;
+    setEngine({
+      highlight: { routeName: 'Lake Loop', isPr: false, trend: 1, timeDeltaSeconds: 8 },
+    });
+    const title = buildActivityNotification('a1', 'Ride', [], prefs, null, english).title;
+    expect(title).not.toMatch(/PR|record|\d/i);
   });
 });

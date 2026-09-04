@@ -68,23 +68,6 @@ export function createActivitySeededRandom(activityId: string): () => number {
   return createSeededRandom(activityId);
 }
 
-/**
- * Deterministic rest day decision based on date
- * Monday: 80% rest, Thursday: 50% rest
- */
-export function isRestDay(dateStr: string, dayOfWeek: number): boolean {
-  const random = createDateSeededRandom(dateStr + '-rest');
-  const value = random();
-
-  if (dayOfWeek === 1) return value < 0.8; // Monday
-  if (dayOfWeek === 4) return value < 0.5; // Thursday
-  return false;
-}
-
-/**
- * Deterministic time-of-day based on date hash
- * Returns hours (7-9) and minutes (0-59)
- */
 export function getTimeOfDay(dateStr: string): { hours: number; minutes: number } {
   const random = createDateSeededRandom(dateStr + '-time');
   return {

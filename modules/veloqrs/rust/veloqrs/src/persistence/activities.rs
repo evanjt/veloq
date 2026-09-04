@@ -2,13 +2,56 @@
 
 use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
 use rstar::{AABB, RTree};
-use rusqlite::{Result as SqlResult, params, types::Type};
+use rusqlite::{OptionalExtension, Result as SqlResult, params, types::Type};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use super::codec;
-use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+use super::codec::{TrackRead, TrackWalk};
+use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 
-impl PersistentRouteEngine {
+/// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
+/// the query already answered alone.
+fn fail_chunk(decoded: &mut HashMap<String, TrackRead>, chunk: &[String], reason: &str) {
+    log::error!("[tracks_batch] {}", reason);
+    for id in chunk {
+        decoded
+            .entry(id.clone())
+            .or_insert_with(|| TrackRead::Corrupt(reason.to_string()));
+    }
+}
+
+/// Elevation provenance a stored track can be in: `elevation_state` 0.
+pub const ELEVATION_STATE_UNKNOWN: u8 = 0;
+/// Elevation provenance a stored track can be in: `elevation_state` 1.
+pub const ELEVATION_STATE_FETCHED: u8 = 1;
+/// Elevation provenance a stored track can be in: `elevation_state` 2.
+pub const ELEVATION_STATE_UNAVAILABLE: u8 = 2;
+
+/// How many stored tracks sit in each elevation provenance state.
+///
+/// The question the rest of the system asks is whether the library is
+/// uniformly elevated, which is a scalar. Counts answer it without loading a
+/// list of ids the caller would then have to walk.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ElevationStateCounts {
+    /// Never asked, or stored before the provenance column existed.
+    pub unknown: u64,
+    /// Points carry elevation.
+    pub fetched: u64,
+    /// Asked, and upstream had no usable altitude series.
+    pub unavailable: u64,
+}
+
+impl ElevationStateCounts {
+    /// Tracks in a state other than `fetched`, ie. the size of the remaining
+    /// backfill plus the activities that can never be filled.
+    pub fn not_fetched(&self) -> u64 {
+        self.unknown + self.unavailable
+    }
+}
+
+impl PersistentEngine {
     // ========================================================================
     // Loading
     // ========================================================================
@@ -21,7 +64,7 @@ impl PersistentRouteEngine {
             .db
             .prepare("SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng FROM activities")?;
 
-        let entries: Vec<ActivityBoundsEntry> = stmt
+        let rows: Vec<SqlResult<ActivityBoundsEntry>> = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
                 let sport_type: String = row.get(1)?;
@@ -46,14 +89,20 @@ impl PersistentRouteEngine {
                     bounds,
                 })
             })?
-            .filter_map(|r| match r {
-                Ok(v) => Some(v),
+            .collect::<Vec<_>>();
+        // A malformed row is skipped; a corrupt page is the caller's to
+        // quarantine, and swallowing it here would hide the one signal the
+        // failover keys on.
+        let mut entries = Vec::with_capacity(rows.len());
+        for r in rows {
+            match r {
+                Ok(v) => entries.push(v),
+                Err(e) if super::is_corruption_error(&e) => return Err(e),
                 Err(e) => {
                     log::warn!("Skipping malformed row during metadata loading: {:?}", e);
-                    None
                 }
-            })
-            .collect();
+            }
+        }
 
         self.spatial_index = RTree::bulk_load(entries);
         Ok(())
@@ -168,6 +217,24 @@ impl PersistentRouteEngine {
             return Ok(());
         }
 
+        // An add that REPLACES a previously-synced activity with a
+        // DIFFERENT track is a GPS mutation the catalogue must re-derive. Detect
+        // it here, before the store overwrites the old track, so the ids can be
+        // evicted from the processed set after commit (below). A verbatim
+        // re-ingest (identical points) is NOT a mutation and must stay
+        // idempotent, so compare the stored track, not just the id.
+        let mutated_ids: Vec<String> = activities
+            .iter()
+            .filter(|(id, coords, _)| {
+                self.activity_metadata.contains_key(id)
+                    && self
+                        .load_gps_track_blob(id)
+                        .map(|stored| !codec::track_matches(&stored, coords))
+                        .unwrap_or(true)
+            })
+            .map(|(id, _, _)| id.clone())
+            .collect();
+
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
         let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
@@ -204,6 +271,13 @@ impl PersistentRouteEngine {
         self.db.execute_batch("COMMIT")?;
 
         self.rebuild_spatial_index();
+
+        // Evict the mutated activities so the next detect re-analyses them
+        // (their new tracks now count as unprocessed). No-op when nothing
+        // changed, so a routine re-sync of unchanged activities stays free.
+        if !mutated_ids.is_empty() {
+            self.evict_processed_activity_ids(&mutated_ids);
+        }
 
         self.groups_dirty = true;
         self.sections_dirty = true;
@@ -248,15 +322,56 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Sections whose stored geometry is cut from this activity. An
+    /// activity naming any of them is the reference the triple points at,
+    /// so deleting it would leave that geometry unreadable.
+    pub fn sections_referencing_activity(&self, id: &str) -> Vec<String> {
+        self.db
+            .prepare(
+                "SELECT id FROM sections WHERE representative_activity_id = ?1
+                 UNION
+                 SELECT DISTINCT section_id FROM section_geometry WHERE rep_activity_id = ?1",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(params![id], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default()
+    }
+
     /// Add an activity from flat coordinate buffer.
     /// Remove an activity.
     pub fn remove_activity(&mut self, id: &str) -> SqlResult<()> {
         // Capture bounds before removal for heatmap tile invalidation
         let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
 
+        // Sections this activity contributes to, captured before the cascade
+        // removes its junction rows. The delete trigger fires on the cascade
+        // and keeps visit_count current; the recompute below is a redundant
+        // backstop, kept because it is cheap and self-healing.
+        let affected_sections: Vec<String> = self
+            .db
+            .prepare("SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?")
+            .and_then(|mut stmt| {
+                stmt.query_map([id], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default();
+
         // Remove from database (cascade deletes signature and track)
         self.db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?;
+
+        // Recompute visit_count on the sections the removed activity was in.
+        for sid in &affected_sections {
+            let _ = self.db.execute(
+                "UPDATE sections SET visit_count = (
+                    SELECT COUNT(*) FROM section_activities
+                    WHERE section_id = ? AND excluded = 0
+                 ) WHERE id = ?",
+                params![sid, sid],
+            );
+        }
 
         // Remove from memory
         self.activity_metadata.remove(id);
@@ -267,6 +382,22 @@ impl PersistentRouteEngine {
 
         self.groups_dirty = true;
         self.sections_dirty = true;
+
+        // Drop the gone activity from the identity registry's carried sections and
+        // the in-memory catalogue. The junction rows are cascade-deleted by the
+        // activity_id foreign key, but the append-only fold would keep the activity
+        // as a phantom member of a carried section, and the next detect's save would
+        // then try to re-insert its junction row against a deleted activity -
+        // aborting the whole apply on a foreign-key violation.
+        self.section_identity_purge_activity(id);
+
+        // The removed activity may have contributed to any section,
+        // so the next detect must re-derive the catalogue without it. Its id is
+        // now gone from `activity_metadata`, so it can never re-enter
+        // `new_activity_ids`, a targeted eviction can't defeat the
+        // no-new-activities short-circuit. Clear the whole processed set so the
+        // next detect re-analyses the remaining library.
+        self.clear_processed_activity_ids();
 
         // Invalidate heatmap tiles covering the removed activity
         // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
@@ -298,23 +429,62 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Clear all data.
+    /// Clear all data. Every table except `settings` empties, because this is
+    /// the logout path and anything left behind is one athlete's data shown to
+    /// the next. Nothing cascades here: only three tables carry an activity
+    /// foreign key, so a table missing from this list survives indefinitely.
+    /// `clear_wipes_every_table` holds the list to the schema.
     pub fn clear(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
             "DELETE FROM section_activities;
              DELETE FROM sections;
+             DELETE FROM section_history;
+             DELETE FROM section_geometry;
+             DELETE FROM section_pins;
+             DELETE FROM section_intents;
+             DELETE FROM section_catalogue_archive_members;
+             DELETE FROM section_catalogue_archive;
+             DELETE FROM identity_state;
              DELETE FROM route_groups;
+             DELETE FROM route_names;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
              DELETE FROM activities;
              DELETE FROM activity_metrics;
              DELETE FROM activity_matches;
+             DELETE FROM activity_bodies;
+             DELETE FROM activity_indicators;
+             DELETE FROM activity_heatmap;
              DELETE FROM time_streams;
+             DELETE FROM stream_bodies;
+             DELETE FROM activity_streams;
+             DELETE FROM interval_bodies;
+             DELETE FROM curve_bodies;
+             DELETE FROM calendar_event_bodies;
+             DELETE FROM exercise_sets;
+             DELETE FROM fit_file_status;
+             DELETE FROM wellness;
+             DELETE FROM ftp_history;
+             DELETE FROM pace_history;
              DELETE FROM overlap_cache;
              DELETE FROM processed_activities;
              DELETE FROM athlete_profile;
              DELETE FROM sport_settings;",
         )?;
+
+        // Settings survive `clear()` on purpose, but three of them describe the
+        // catalogue that was just deleted. Left behind, the next athlete to
+        // sign in inherits the previous one's detector and a spent cutover
+        // token, with no surface to change either.
+        let mut stmt = self
+            .db
+            .prepare("DELETE FROM settings WHERE key IN (?, ?, ?)")?;
+        stmt.execute(rusqlite::params![
+            super::cutover::CUTOVER_KEY,
+            super::cutover::CUTOVER_DIFF_KEY,
+            super::settings_keys::SECTION_CONFIG_JSON,
+        ])?;
+        drop(stmt);
 
         self.activity_metadata.clear();
         self.activity_metrics.clear();
@@ -324,29 +494,48 @@ impl PersistentRouteEngine {
         self.groups.clear();
         self.sections.clear();
         self.processed_activity_ids.clear();
+        self.invalidate_evidence_cache();
         self.time_streams.clear();
         self.groups_dirty = false;
         self.sections_dirty = false;
         self.invalidate_perf_cache();
 
+        // The registries are in memory as well as on disk. Without this the
+        // deleted athlete's grounds stay live for the debounce window, so the
+        // next athlete's first detect adopts their ids, names and tombstones.
+        self.identity = super::sections::SectionIdentity::default();
+        self.route_identity = super::route_identity::RouteIdentity::default();
+
         Ok(())
     }
 
-    /// Clear only route/section data, keeping GPS tracks and activities intact.
-    /// Used when route matching is toggled off to free section memory
-    /// without losing the underlying GPS data (needed for heatmap).
+    /// Clear detected route/section data, keeping GPS tracks, activities and
+    /// user-defined sections intact. Used when route matching is toggled off
+    /// to free section memory without losing the underlying GPS data (needed
+    /// for heatmap).
     pub fn clear_routes_and_sections(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
-            "DELETE FROM section_activities;
-             DELETE FROM sections;
+            // Same predicate as the detection wipe in `write_catalogue`: a
+            // disabled section keeps its row and members so enable can restore
+            // it, and a trimmed or accepted one is a user decision.
+            "DELETE FROM section_activities
+                WHERE section_id IN (
+                    SELECT id FROM sections
+                    WHERE section_type = 'auto' AND original_polyline_json IS NULL
+                      AND is_user_defined = 0 AND disabled = 0
+                );
+             DELETE FROM sections
+                WHERE section_type = 'auto' AND original_polyline_json IS NULL
+                  AND is_user_defined = 0 AND disabled = 0;
              DELETE FROM route_groups;
              DELETE FROM activity_matches;
              DELETE FROM overlap_cache;",
         )?;
 
         self.groups.clear();
-        self.sections.clear();
+        self.load_sections()?;
         self.consensus_cache.clear();
+        self.invalidate_evidence_cache();
         self.groups_dirty = true;
         self.sections_dirty = true;
         self.invalidate_perf_cache();
@@ -373,8 +562,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // Delete activities older than 90 days
     /// let deleted = engine.cleanup_old_activities(90).unwrap();
     /// println!("Deleted {} old activities", deleted);
@@ -387,7 +576,7 @@ impl PersistentRouteEngine {
         // If retention_days is 0, keep all activities
         if retention_days == 0 {
             log::info!(
-                "tracematch: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
+                "veloqrs: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
             );
             return Ok(0);
         }
@@ -396,8 +585,14 @@ impl PersistentRouteEngine {
         let cutoff_seconds = retention_days as i64 * 24 * 60 * 60;
 
         // Delete old activities (cascade will handle signatures, GPS tracks, matches)
+        // A reference activity is the geometry of the sections that point at
+        // it, so retention leaves it alone and the returned count says so.
         let deleted = self.db.execute(
-            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)",
+            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)
+               AND id NOT IN (SELECT representative_activity_id FROM sections
+                              WHERE representative_activity_id IS NOT NULL)
+               AND id NOT IN (SELECT rep_activity_id FROM section_geometry
+                              WHERE rep_activity_id IS NOT NULL)",
             params![cutoff_seconds],
         )?;
 
@@ -415,7 +610,7 @@ impl PersistentRouteEngine {
             self.sections_dirty = true;
 
             log::info!(
-                "tracematch: [PersistentEngine] Cleaned up {} activities older than {} days",
+                "veloqrs: [PersistentEngine] Cleaned up {} activities older than {} days",
                 deleted,
                 retention_days
             );
@@ -432,8 +627,8 @@ impl PersistentRouteEngine {
     ///
     /// # Example
     /// ```no_run
-    /// # use veloqrs::persistence::PersistentRouteEngine;
-    /// # let mut engine: PersistentRouteEngine = unsafe { std::mem::zeroed() };
+    /// # use veloqrs::persistence::PersistentEngine;
+    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
     /// // User expanded cache from 90 days to 1 year
     /// engine.mark_for_recomputation();
     /// // Next access to groups/sections will re-compute with improved data
@@ -443,7 +638,7 @@ impl PersistentRouteEngine {
         if !self.groups_dirty && !self.sections_dirty {
             self.groups_dirty = true;
             self.sections_dirty = true;
-            log::info!("tracematch: [PersistentEngine] Marked for re-computation (cache expanded)");
+            log::info!("veloqrs: [PersistentEngine] Marked for re-computation (cache expanded)");
         }
     }
 
@@ -457,9 +652,18 @@ impl PersistentRouteEngine {
         sport_type: &str,
         bounds: &Bounds,
     ) -> SqlResult<()> {
+        // An upsert, never REPLACE: SQLite runs REPLACE as DELETE then INSERT,
+        // and the delete cascades to every child row keyed on the activity
+        // (section_activities, signatures, time_streams). A re-ingest must
+        // update the row in place so those links and the unnamed columns
+        // (date, name, distance) survive.
         self.db.execute(
-            "INSERT OR REPLACE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 sport_type = excluded.sport_type,
+                 min_lat = excluded.min_lat, max_lat = excluded.max_lat,
+                 min_lng = excluded.min_lng, max_lng = excluded.max_lng",
             params![
                 id,
                 sport_type,
@@ -490,8 +694,7 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
-        let track_data = codec::serialize_points(coords)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        let track_data = codec::serialize_track_points(coords);
         self.db.execute(
             "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
              VALUES (?, ?, ?)",
@@ -500,9 +703,75 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Record elevation provenance for tracks that are already stored, where
+    /// `state` is 0 unknown, 1 fetched, 2 unavailable upstream.
+    ///
+    /// Provenance cannot ride on the insert: the batch tuple is
+    /// `(id, coords, sport)` with no room for it, and an activity whose
+    /// upstream has no altitude still stores its points, so state 2 has nothing
+    /// to attach to. This writer touches `elevation_state` alone, leaving the
+    /// points blob, `point_count` and every activity column untouched, and an
+    /// id with no track row updates nothing rather than minting a phantom.
+    ///
+    /// `store_gps_track` writes with `INSERT OR REPLACE`, which resets the
+    /// column to its default, so a re-ingest must record state AFTER storing
+    /// the track.
+    ///
+    /// One statement per chunk, grouped by state, chunked like `tracks_batch`
+    /// to stay under SQLite's parameter limit.
+    pub fn record_elevation_state(&self, states: &[(String, u8)]) -> SqlResult<()> {
+        const CHUNK: usize = 500;
+        let mut by_state: BTreeMap<u8, Vec<&String>> = BTreeMap::new();
+        for (id, state) in states {
+            by_state.entry(*state).or_default().push(id);
+        }
+
+        for (state, ids) in by_state {
+            let state = i64::from(state);
+            for chunk in ids.chunks(CHUNK) {
+                let placeholders = std::iter::repeat_n("?", chunk.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "UPDATE gps_tracks SET elevation_state = ? WHERE activity_id IN ({})",
+                    placeholders
+                );
+                let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(chunk.len() + 1);
+                params_vec.push(&state);
+                params_vec.extend(chunk.iter().map(|s| *s as &dyn rusqlite::ToSql));
+                self.db.execute(&sql, params_vec.as_slice())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// How many stored tracks sit in each elevation provenance state. Any value
+    /// outside the known set counts as unknown, which is the honest reading of
+    /// a state this build does not understand.
+    pub fn elevation_state_counts(&self) -> SqlResult<ElevationStateCounts> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT elevation_state, COUNT(*) FROM gps_tracks GROUP BY elevation_state")?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?;
+
+        let mut counts = ElevationStateCounts::default();
+        for row in rows {
+            let (state, n) = row?;
+            let n = n.max(0) as u64;
+            match u8::try_from(state).unwrap_or(ELEVATION_STATE_UNKNOWN) {
+                ELEVATION_STATE_FETCHED => counts.fetched += n,
+                ELEVATION_STATE_UNAVAILABLE => counts.unavailable += n,
+                _ => counts.unknown += n,
+            }
+        }
+        Ok(counts)
+    }
+
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        let points_blob = codec::serialize_points(&sig.points)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+        // One codec for stored GPS, ~3 B/point against postcard's 25 (`Q15`,
+        // `B137`). Every earlier container still reads, so no bulk rewrite
+        // runs: a row moves when its activity is next stored.
+        let points_blob = codec::serialize_track_points(&sig.points);
         self.db.execute(
             "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -541,6 +810,12 @@ impl PersistentRouteEngine {
         self.activity_metadata.len()
     }
     /// Get all activity IDs.
+    /// Flag the catalogue as owing a detect. Used where a caller knows the
+    /// pool moved under a run that has already reported its own result.
+    pub fn mark_sections_dirty(&mut self) {
+        self.sections_dirty = true;
+    }
+
     pub fn get_activity_ids(&self) -> Vec<String> {
         self.activity_metadata.keys().cloned().collect()
     }
@@ -572,82 +847,6 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-    /// Get all activities with complete metadata for map display.
-    /// Queries the database for metadata fields (date, name, distance, duration).
-    /// Get activities filtered by date range and sport types.
-    /// - start_ts: Unix timestamp (seconds) for start of range
-    /// - end_ts: Unix timestamp (seconds) for end of range
-    /// - sport_types: Optional list of sport types to include (empty = all)
-    pub fn get_map_activities_filtered(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-        sport_types: &[String],
-    ) -> Vec<MapActivityComplete> {
-        // Build query based on filters
-        let base_query = "SELECT id, sport_type, min_lat, max_lat, min_lng, max_lng,
-                                 COALESCE(start_date, 0) as start_date,
-                                 COALESCE(name, '') as name,
-                                 COALESCE(distance_meters, 0.0) as distance_meters,
-                                 COALESCE(duration_secs, 0) as duration_secs
-                          FROM activities
-                          WHERE (start_date IS NULL OR (start_date >= ? AND start_date <= ?))";
-
-        let query = if sport_types.is_empty() {
-            base_query.to_string()
-        } else {
-            let placeholders = sport_types
-                .iter()
-                .map(|_| "?")
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("{} AND sport_type IN ({})", base_query, placeholders)
-        };
-
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[PersistentEngine] Failed to prepare filtered query: {}", e);
-                return Vec::new();
-            }
-        };
-
-        // Build params
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(start_ts), Box::new(end_ts)];
-        for sport in sport_types {
-            params.push(Box::new(sport.clone()));
-        }
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-        let results = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(MapActivityComplete {
-                activity_id: row.get(0)?,
-                sport_type: row.get(1)?,
-                bounds: crate::FfiBounds {
-                    min_lat: row.get(2)?,
-                    max_lat: row.get(3)?,
-                    min_lng: row.get(4)?,
-                    max_lng: row.get(5)?,
-                },
-                date: row.get(6)?,
-                name: row.get(7)?,
-                distance: row.get(8)?,
-                duration: row.get(9)?,
-            })
-        });
-
-        match results {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                log::error!(
-                    "[PersistentEngine] Failed to query filtered activities: {}",
-                    e
-                );
-                Vec::new()
-            }
-        }
-    }
-
     /// Get a signature, loading from DB if not cached.
     pub fn get_signature(&mut self, id: &str) -> Option<Arc<RouteSignature>> {
         if let Some(sig) = self.signature_cache.get(&id.to_string()) {
@@ -660,43 +859,67 @@ impl PersistentRouteEngine {
         Some(arc)
     }
 
+    /// Load a stored signature. A corrupt points blob names itself in the log
+    /// before the read gives up, so route grouping never drops an activity in
+    /// silence.
     fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {
-        let mut stmt = self
+        let mut stmt = match self
             .db
             .prepare(
                 "SELECT points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance
                  FROM signatures WHERE activity_id = ?",
-            )
-            .ok()?;
+            ) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[load_signature_from_db] activity {}: query failed: {}", id, e);
+                return None;
+            }
+        };
 
-        stmt.query_row(params![id], |row| {
-            let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
-            let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
-            let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
-            let total_distance: f64 = row.get(5)?;
-
-            // Compute bounds and center from points
-            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
-            let center = bounds.center();
-
-            Ok(RouteSignature {
-                activity_id: id.to_string(),
-                points,
-                total_distance,
-                start_point,
-                end_point,
-                bounds,
-                center,
+        let row = stmt
+            .query_row(params![id], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    GpsPoint::new(row.get(1)?, row.get(2)?),
+                    GpsPoint::new(row.get(3)?, row.get(4)?),
+                    row.get::<_, f64>(5)?,
+                ))
             })
+            .optional();
+
+        let (points_blob, start_point, end_point, total_distance) = match row {
+            Ok(Some(values)) => values,
+            Ok(None) => return None,
+            Err(e) => {
+                log::warn!(
+                    "[load_signature_from_db] activity {}: row read failed: {}",
+                    id,
+                    e
+                );
+                return None;
+            }
+        };
+
+        let points =
+            TrackRead::from_blob(&points_blob).into_option("load_signature_from_db", id)?;
+
+        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+            min_lat: 0.0,
+            max_lat: 0.0,
+            min_lng: 0.0,
+            max_lng: 0.0,
+        });
+        let center = bounds.center();
+
+        Some(RouteSignature {
+            activity_id: id.to_string(),
+            points,
+            total_distance,
+            start_point,
+            end_point,
+            bounds,
+            center,
         })
-        .ok()
     }
 
     /// Get all map signatures in a single query.
@@ -726,9 +949,10 @@ impl PersistentRouteEngine {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Some(points) =
+                TrackRead::from_blob(&points_blob).into_option("map_signatures", &activity_id)
+            else {
+                continue;
             };
             if points.is_empty() {
                 continue;
@@ -794,9 +1018,10 @@ impl PersistentRouteEngine {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
-                Ok(p) => p,
-                Err(_) => continue,
+            let Some(points) =
+                TrackRead::from_blob(&points_blob).into_option("map_signatures", &activity_id)
+            else {
+                continue;
             };
             if points.is_empty() {
                 continue;
@@ -821,118 +1046,238 @@ impl PersistentRouteEngine {
         result
     }
 
-    /// Get GPS track from database (on-demand, never cached).
-    pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
-        let mut stmt = self
+    // ========================================================================
+    // Track reads
+    // ========================================================================
+
+    /// Read one stored track, distinguishing an activity with no row from a row
+    /// that did not decode. The single decode path: every other track read on
+    /// this engine goes through here.
+    pub fn track(&self, activity_id: &str) -> TrackRead {
+        let mut stmt = match self
             .db
             .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .ok()?;
-
-        stmt.query_row(params![id], |row| {
-            let track_blob: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize_points(&track_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?)
-        })
-        .ok()
-    }
-
-    /// Get all GPS tracks from database for tile generation.
-    /// Returns a vector of track point arrays, suitable for heatmap rendering.
-    pub fn get_all_tracks(&self) -> Vec<Vec<GpsPoint>> {
-        log::info!("[get_all_tracks] Starting query...");
-
-        let mut stmt = match self.db.prepare("SELECT track_data FROM gps_tracks") {
+        {
             Ok(s) => s,
-            Err(e) => {
-                log::error!("[get_all_tracks] Failed to prepare statement: {:?}", e);
-                return Vec::new();
-            }
+            Err(e) => return TrackRead::Corrupt(format!("track query failed: {}", e)),
         };
-
-        let rows = stmt.query_map([], |row| {
-            let track_blob: Vec<u8> = row.get(0)?;
-            let blob_len = track_blob.len();
-            let track: Vec<GpsPoint> = codec::deserialize_points(&track_blob)
-                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
-            log::debug!(
-                "[get_all_tracks] Blob {} bytes -> {} points",
-                blob_len,
-                track.len()
-            );
-            Ok(track)
-        });
-
-        match rows {
-            Ok(iter) => {
-                let mut success_count = 0;
-                let mut error_count = 0;
-                let mut empty_count = 0;
-                let mut total_points = 0usize;
-                let mut sample_points: Vec<(f64, f64)> = Vec::new();
-
-                let result: Vec<Vec<GpsPoint>> = iter
-                    .filter_map(|r| match r {
-                        Ok(track) => {
-                            if track.is_empty() {
-                                empty_count += 1;
-                                None
-                            } else {
-                                // Sample first few points from first track
-                                if success_count == 0 && sample_points.len() < 5 {
-                                    for point in track.iter().take(5) {
-                                        sample_points.push((point.latitude, point.longitude));
-                                    }
-                                }
-                                total_points += track.len();
-                                success_count += 1;
-                                Some(track)
-                            }
-                        }
-                        Err(e) => {
-                            error_count += 1;
-                            log::warn!("[get_all_tracks] Row error: {:?}", e);
-                            None
-                        }
-                    })
-                    .collect();
-
-                log::info!(
-                    "[get_all_tracks] Results: {} tracks, {} total points, {} errors, {} empty",
-                    success_count,
-                    total_points,
-                    error_count,
-                    empty_count
-                );
-
-                if !sample_points.is_empty() {
-                    log::info!(
-                        "[get_all_tracks] Sample points from first track: {:?}",
-                        sample_points
-                    );
-                }
-
-                result
-            }
-            Err(e) => {
-                log::error!("[get_all_tracks] Query failed: {:?}", e);
-                Vec::new()
-            }
+        let blob: Option<Vec<u8>> = match stmt
+            .query_row(params![activity_id], |row| row.get::<_, Vec<u8>>(0))
+            .optional()
+        {
+            Ok(b) => b,
+            Err(e) => return TrackRead::Corrupt(format!("track row read failed: {}", e)),
+        };
+        match blob {
+            Some(bytes) => TrackRead::from_blob(&bytes),
+            None => TrackRead::Missing,
         }
     }
 
-    /// Load original GPS track from database (separate function to avoid borrow issues)
-    pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
-        let mut stmt = self
-            .db
-            .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .ok()?;
+    /// Read many tracks in one query per chunk. Ids with no row come back as
+    /// `Missing`, and the result carries one entry per requested id in the
+    /// order requested, repeated ids included. A SQL failure is reported as
+    /// `Corrupt` for every id it covers, the same classification [`track`]
+    /// gives the same event, so a readable row is never reported as an
+    /// activity that was never synced.
+    ///
+    /// [`track`]: Self::track
+    pub fn tracks_batch(&self, ids: &[String]) -> Vec<(String, TrackRead)> {
+        // SQLite's default parameter limit is 999; stay well under it.
+        const CHUNK: usize = 500;
+        let mut decoded: HashMap<String, TrackRead> = HashMap::with_capacity(ids.len());
 
-        stmt.query_row(params![activity_id], |row| {
-            let data: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize_points(&data).ok())
-        })
-        .ok()
-        .flatten()
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                placeholders
+            );
+            let mut stmt = match self.db.prepare(&sql) {
+                Ok(s) => s,
+                Err(e) => {
+                    fail_chunk(&mut decoded, chunk, &format!("track query failed: {}", e));
+                    continue;
+                }
+            };
+            let params_vec: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+            let rows = stmt.query_map(params_vec.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            });
+            let rows = match rows {
+                Ok(r) => r,
+                Err(e) => {
+                    fail_chunk(&mut decoded, chunk, &format!("track query failed: {}", e));
+                    continue;
+                }
+            };
+            let mut row_failures = 0usize;
+            for row in rows {
+                match row {
+                    Ok((id, bytes)) => {
+                        let read = TrackRead::from_blob(&bytes);
+                        if let TrackRead::Corrupt(reason) = &read {
+                            log::warn!("[tracks_batch] activity {}: corrupt track, {}", id, reason);
+                        }
+                        decoded.insert(id, read);
+                    }
+                    Err(e) => {
+                        row_failures += 1;
+                        log::warn!("[tracks_batch] row read failed: {}", e);
+                    }
+                }
+            }
+            // The failed rows carry no id, so every id the chunk did not
+            // account for is unresolved rather than known to be absent.
+            if row_failures > 0 {
+                fail_chunk(
+                    &mut decoded,
+                    chunk,
+                    &format!(
+                        "track row read failed for {} rows in this batch",
+                        row_failures
+                    ),
+                );
+            }
+        }
+
+        ids.iter()
+            .map(|id| {
+                let read = decoded.get(id).cloned().unwrap_or(TrackRead::Missing);
+                (id.clone(), read)
+            })
+            .collect()
+    }
+
+    /// Visit every stored track once, streaming. The callback borrows the
+    /// points for the length of the call and the decoded buffer is dropped
+    /// before the next row, so the whole library is never resident at once.
+    /// A corrupt row is logged and visited with an empty slice. The returned
+    /// [`TrackWalk`] counts what the walk saw and what it lost, so a caller
+    /// can tell a short result from a complete one.
+    pub fn for_each_track(&self, mut f: impl FnMut(&str, &[GpsPoint])) -> TrackWalk {
+        let mut walk = TrackWalk::default();
+        let mut stmt = match self
+            .db
+            .prepare("SELECT activity_id, track_data FROM gps_tracks")
+        {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[for_each_track] prepare failed: {}", e);
+                walk.failed += 1;
+                return walk;
+            }
+        };
+        let mut rows = match stmt.query([]) {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("[for_each_track] query failed: {}", e);
+                walk.failed += 1;
+                return walk;
+            }
+        };
+        loop {
+            // rusqlite resets the statement on a row error, so the next call
+            // ends the walk. The count is what tells the caller it was short.
+            let row = match rows.next() {
+                Ok(Some(row)) => row,
+                Ok(None) => break,
+                Err(e) => {
+                    log::warn!("[for_each_track] row read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            let (id, blob): (String, Vec<u8>) = match (row.get(0), row.get(1)) {
+                (Ok(id), Ok(blob)) => (id, blob),
+                (Err(e), _) | (_, Err(e)) => {
+                    log::warn!("[for_each_track] column read failed: {}", e);
+                    walk.failed += 1;
+                    continue;
+                }
+            };
+            walk.visited += 1;
+            match TrackRead::from_blob(&blob) {
+                TrackRead::Present(points) => f(&id, &points),
+                TrackRead::Missing => f(&id, &[]),
+                TrackRead::Corrupt(reason) => {
+                    walk.corrupt += 1;
+                    log::warn!(
+                        "[for_each_track] activity {}: corrupt track, {}",
+                        id,
+                        reason
+                    );
+                    f(&id, &[]);
+                }
+            }
+        }
+        walk
+    }
+
+    /// Get GPS track from database (on-demand, never cached).
+    pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
+        self.track(id).into_option("get_gps_track", id)
+    }
+
+    /// Load original GPS track from database (separate function to avoid borrow issues)
+    /// The stored bytes, undecoded. The mutation check compares encodings
+    /// rather than points, so it must not go through a decode that would erase
+    /// which container the row is in.
+    fn load_gps_track_blob(&self, activity_id: &str) -> Option<Vec<u8>> {
+        self.db
+            .query_row(
+                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .ok()
+    }
+
+    pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {
+        self.track(activity_id)
+            .into_option("load_gps_track_from_db", activity_id)
+    }
+
+    // ========================================================================
+    // Activity Bodies (untyped intervals.icu payloads)
+    // ========================================================================
+
+    /// Store the untyped body for each activity, keyed by id. Idempotent: a
+    /// re-sync overwrites the day's payload in place.
+    pub fn upsert_activity_bodies(&mut self, rows: &[(String, i64, String)]) -> SqlResult<()> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let tx = self.db.transaction()?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO activity_bodies (activity_id, date, raw, updated_at)
+                 VALUES (?, ?, ?, strftime('%s', 'now'))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    date = excluded.date,
+                    raw = excluded.raw,
+                    updated_at = excluded.updated_at",
+            )?;
+            for (activity_id, date, raw) in rows {
+                stmt.execute(params![activity_id, date, raw])?;
+            }
+        }
+        tx.commit()
+    }
+
+    /// Untyped activity bodies over an inclusive timestamp window, newest
+    /// first to match the order intervals.icu returns and the feed renders.
+    pub fn get_activity_bodies(&self, oldest_ts: i64, newest_ts: i64) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT raw FROM activity_bodies
+             WHERE date >= ? AND date <= ?
+             ORDER BY date DESC",
+        )?;
+        let rows = stmt.query_map(params![oldest_ts, newest_ts], |r| r.get::<_, String>(0))?;
+        rows.collect()
     }
 
     // ========================================================================
@@ -1015,23 +1360,6 @@ impl PersistentRouteEngine {
             .filter(|id| !cached_in_sqlite.contains(*id))
             .cloned()
             .collect()
-    }
-
-    /// Check if a specific activity has a time stream (in memory or SQLite).
-    pub fn has_time_stream(&self, activity_id: &str) -> bool {
-        // First check memory cache
-        if self.time_streams.contains(activity_id) {
-            return true;
-        }
-        // Then check SQLite
-        let mut stmt = match self
-            .db
-            .prepare("SELECT 1 FROM time_streams WHERE activity_id = ? LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        stmt.exists(params![activity_id]).unwrap_or(false)
     }
 
     /// Ensure time stream is loaded into memory (from SQLite if needed).

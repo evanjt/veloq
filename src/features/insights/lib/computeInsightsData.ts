@@ -1,51 +1,24 @@
-import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
+import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
+import type { SectionChangeInput } from '../generators/sectionChanged';
+import { ledgerDate } from '@/features/routes/lib/sectionLedger';
 import type { StrengthSummary } from '@/features/strength/types';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 
-import type { Insight } from '../types';
-import { generateInsights } from './generateInsights';
-import { INSIGHTS_CONFIG } from './config';
+import type { InsightsData, PeriodStats, SummaryCardData } from 'veloqrs';
+
+import type { Insight, SectionRankingScores } from '../types';
+import { generateInsights, recordConsolidation } from './generateInsights';
+import type { ConsolidationDrop } from './generateInsights';
+import { buildInsightsParams } from './insightsParams';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ComputeInsightsData');
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-function getTrailingStrengthRanges(): Array<{ startTs: number; endTs: number }> {
-  const end = new Date();
-  end.setHours(23, 59, 59, 0);
-
-  const ranges: Array<{ startTs: number; endTs: number }> = [];
-  for (let index = 3; index >= 0; index -= 1) {
-    const rangeEnd = new Date(end);
-    rangeEnd.setDate(rangeEnd.getDate() - index * 7);
-
-    const rangeStart = new Date(rangeEnd);
-    rangeStart.setDate(rangeStart.getDate() - 6);
-    rangeStart.setHours(0, 0, 0, 0);
-
-    ranges.push({
-      startTs: Math.floor(rangeStart.getTime() / 1000),
-      endTs: Math.floor(rangeEnd.getTime() / 1000),
-    });
-  }
-
-  return ranges;
-}
-
-function getTrailingMonthRange(): { startTs: number; endTs: number } {
-  const end = new Date();
-  end.setHours(23, 59, 59, 0);
-  const start = new Date(end);
-  start.setDate(start.getDate() - 27);
-  start.setHours(0, 0, 0, 0);
-
-  return {
-    startTs: Math.floor(start.getTime() / 1000),
-    endTs: Math.floor(end.getTime() / 1000),
-  };
-}
-
 function normalizeStrengthSummary(raw: {
-  muscleVolumes?: Array<{
+  muscleVolumes?: {
     slug: string;
     primarySets: number;
     secondarySets: number;
@@ -53,7 +26,7 @@ function normalizeStrengthSummary(raw: {
     totalReps: number;
     totalWeightKg: number;
     exerciseNames: string[];
-  }>;
+  }[];
   activityCount?: number;
   totalSets?: number;
 }): StrengthSummary {
@@ -77,6 +50,26 @@ function normalizeStrengthSummary(raw: {
  * This is the subset of intervals.icu wellness that generateInsights uses.
  * Can come from TanStack Query (React) or direct API fetch (background task).
  */
+/**
+ * Visible changes the ledger recorded in the last fortnight, named. An
+ * input that cannot be read is an empty list, never a broken feed.
+ */
+function recentSectionChanges(): SectionChangeInput[] {
+  try {
+    const engine = getEngine();
+    if (!engine) return [];
+    const names = getAllSectionDisplayNames();
+    return engine.getRecentSectionChanges(14).map((c) => ({
+      sectionId: c.sectionId,
+      sectionName: names[c.sectionId] ?? c.sectionId,
+      kind: c.kind,
+      at: ledgerDate(c.at).getTime(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export interface WellnessInput {
   id: string; // date string YYYY-MM-DD
   ctl?: number | null;
@@ -88,124 +81,9 @@ export interface WellnessInput {
   sleepSecs?: number | null;
 }
 
-/** Matches FfiPeriodStats shape from veloqrs generated bindings */
-interface FfiPeriodStatsShape {
-  count: number;
-  totalDuration: bigint | number;
-  totalDistance: number;
-  totalTss: number;
-}
-
-/** Matches FfiPaceTrend shape from veloqrs generated bindings */
-interface FfiPaceTrendShape {
-  latestPace?: number;
-  latestDate?: bigint | number;
-  previousPace?: number;
-  previousDate?: bigint | number;
-}
-
-/** Matches FfiActivityPattern shape from veloqrs generated bindings */
-interface FfiActivityPatternShape {
-  primaryDay: number;
-  confidence: number;
-  sportType: string;
-  avgDurationSecs: number;
-  activityCount: number;
-  commonSections?: Array<{
-    sectionId: string;
-    sectionName: string;
-    trend?: number;
-    medianRecentSecs: number;
-    bestTimeSecs: number;
-    traversalCount: number;
-  }>;
-}
-
-/** Matches FfiInsightsData shape from veloqrs generated bindings */
-export interface FfiInsightsDataShape {
-  currentWeek: FfiPeriodStatsShape;
-  previousWeek: FfiPeriodStatsShape;
-  chronicPeriod: FfiPeriodStatsShape;
-  todayPeriod: FfiPeriodStatsShape;
-  ftpTrend: {
-    latestFtp?: number;
-    latestDate?: bigint | number;
-    previousFtp?: number;
-    previousDate?: bigint | number;
-  };
-  runPaceTrend: FfiPaceTrendShape;
-  swimPaceTrend?: FfiPaceTrendShape;
-  allPatterns: FfiActivityPatternShape[];
-  todayPattern?: FfiActivityPatternShape | null;
-  recentPrs: Array<{
-    sectionId: string;
-    sectionName: string;
-    bestTime: number;
-    daysAgo: number;
-  }>;
-}
-
-/** Matches FfiSummaryCardData shape from veloqrs generated bindings */
-export interface FfiSummaryCardDataShape {
-  currentWeek: FfiPeriodStatsShape;
-  prevWeek: FfiPeriodStatsShape;
-  ftpTrend: FfiInsightsDataShape['ftpTrend'];
-  runPaceTrend: FfiPaceTrendShape;
-  swimPaceTrend: FfiPaceTrendShape;
-}
-
-/** Shape returned by getRankedSections() */
-interface RankedSectionShape {
-  sectionId: string;
-  sectionName: string;
-  trend: number;
-  medianRecentSecs: number;
-  bestTimeSecs: number;
-  traversalCount: number;
-  daysSinceLast?: number;
-  latestIsPr?: boolean;
-}
-
 interface InsightsEnginePayload {
-  insightsData: FfiInsightsDataShape;
-  summaryCardData: FfiSummaryCardDataShape | null;
-}
-
-// Module-level cache for fetchInsightsDataFromEngine results.
-// Avoids redundant FFI calls when called multiple times between engine updates.
-let _cachedPayload: InsightsEnginePayload | null = null;
-let _cacheTimestamp = 0;
-const INSIGHTS_CACHE_TTL_MS = 30_000; // 30 seconds
-
-// Module-level cache for section/strength data fetched during computeInsightsFromData.
-// These FFI calls (getRankedSections per sport, getStrengthSummary x5) are expensive
-// and their results only change when the engine data changes.
-let _cachedSectionTrends: Array<{
-  sectionId: string;
-  sectionName: string;
-  trend: number;
-  medianRecentSecs: number;
-  bestTimeSecs: number;
-  traversalCount: number;
-  sportType?: string;
-  daysSinceLast?: number;
-  latestIsPr?: boolean;
-}> | null = null;
-let _cachedEfficiencyIds: string[] | null = null;
-let _cachedStrengthInsights: Insight[] | null = null;
-let _computeCacheTimestamp = 0;
-
-/**
- * Invalidate the cached insights engine payload.
- * Call when engine data changes (new sync, etc).
- */
-export function invalidateInsightsCache(): void {
-  _cachedPayload = null;
-  _cacheTimestamp = 0;
-  _cachedSectionTrends = null;
-  _cachedEfficiencyIds = null;
-  _cachedStrengthInsights = null;
-  _computeCacheTimestamp = 0;
+  insightsData: InsightsData;
+  summaryCardData: SummaryCardData | null;
 }
 
 const MAX_SECTION_STORY_INSIGHTS = 2;
@@ -230,18 +108,36 @@ function getInsightSectionIds(insight: Insight): string[] {
 }
 
 export function consolidateInsights(insights: Insight[]): Insight[] {
-  if (insights.length <= 1) return insights;
+  if (insights.length <= 1) {
+    recordConsolidation(insights, []);
+    return insights;
+  }
 
-  const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
+  // Every section a PR card covers, collected before anything is kept. Read
+  // in one pass, the drop below fired only when the PR happened to come first,
+  // which held because `section_pr` outranked `stale_pr` by priority and this
+  // function used to sort by priority. It arrives in score order now.
+  const prSectionIds = new Set<string>();
+  for (const insight of insights) {
+    if (insight.category === 'section_pr') {
+      getInsightSectionIds(insight).forEach((sectionId) => prSectionIds.add(sectionId));
+    }
+  }
 
   const kept: Insight[] = [];
-  const dropped: Array<{ id: string; category: string; reason: string }> = [];
-  const seenSectionIds = new Set<string>();
+  const dropped: ConsolidationDrop[] = [];
+  // Grows as stories are kept, so two stories about one section still collapse
+  // to the first. That one is order-dependent on purpose: the order is the
+  // score order, so the stronger card is the one that stays. Kept apart from
+  // the PR set so the drop reason names whichever card actually covered the
+  // section: the debug panel is the one tool for asking why a card is
+  // missing, and a story blamed on a PR sends the reader after a card that
+  // was never generated.
+  const storySectionIds = new Set<string>();
   let keptSectionStories = 0;
 
-  for (const insight of sorted) {
+  for (const insight of insights) {
     if (insight.category === 'section_pr') {
-      getInsightSectionIds(insight).forEach((sectionId) => seenSectionIds.add(sectionId));
       kept.push(insight);
       continue;
     }
@@ -249,36 +145,49 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
         dropped.push({
-          id: insight.id,
-          category: insight.category,
+          insight,
           reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
         });
         continue;
       }
 
       const sectionIds = getInsightSectionIds(insight);
-      if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
-        dropped.push({
-          id: insight.id,
-          category: insight.category,
-          reason: 'duplicate section (already covered by PR insight)',
-        });
-        continue;
+      if (sectionIds.length > 0) {
+        if (sectionIds.every((sectionId) => prSectionIds.has(sectionId))) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by PR insight)',
+          });
+          continue;
+        }
+        if (
+          sectionIds.every(
+            (sectionId) => prSectionIds.has(sectionId) || storySectionIds.has(sectionId)
+          )
+        ) {
+          dropped.push({
+            insight,
+            reason: 'duplicate section (already covered by an earlier story)',
+          });
+          continue;
+        }
       }
 
       kept.push(insight);
       keptSectionStories += 1;
-      sectionIds.forEach((sectionId) => seenSectionIds.add(sectionId));
+      sectionIds.forEach((sectionId) => storySectionIds.add(sectionId));
       continue;
     }
 
     kept.push(insight);
   }
 
+  recordConsolidation(kept, dropped);
+
   if (__DEV__ && dropped.length > 0) {
-    console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
+    log.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.category}/${d.id} - ${d.reason}`);
+      log.log(`[INSIGHTS]   ${d.insight.category}/${d.insight.id} - ${d.reason}`);
     }
   }
 
@@ -299,16 +208,16 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * @returns Ranked array of insights
  */
 export function computeInsightsFromData(
-  ffiData: FfiInsightsDataShape | null,
+  ffiData: InsightsData | null,
   wellnessData: WellnessInput[] | null,
   t: TFunc,
-  summaryCardData?: FfiSummaryCardDataShape | null
+  summaryCardData?: SummaryCardData | null
 ): Insight[] {
   if (!ffiData) return [];
 
   try {
     // Convert FFI bigint fields to number
-    const toPeriod = (p: FfiPeriodStatsShape) => ({
+    const toPeriod = (p: PeriodStats) => ({
       count: p.count,
       totalDuration: Number(p.totalDuration),
       totalDistance: p.totalDistance,
@@ -332,139 +241,90 @@ export function computeInsightsFromData(
     const tsb = ctl - atl;
 
     // Section readiness check - skip when route matching is disabled
-    const engine = getRouteEngine();
     const routeMatchingOn = isRouteMatchingEnabled();
-    const sectionCount = routeMatchingOn ? (engine?.getStats()?.sectionCount ?? 0) : 0;
+    const sectionCount = routeMatchingOn ? (ffiData.sectionCount ?? 0) : 0;
     const sectionsReady = sectionCount > 0;
 
     const allPatterns = ffiData.allPatterns ?? [];
 
-    // Use cached section trends and efficiency IDs when available (saves ~5 FFI calls).
-    // The cache is invalidated by invalidateInsightsCache() when engine data changes.
-    const computeNow = Date.now();
-    const useComputeCache =
-      _cachedSectionTrends !== null &&
-      _cachedEfficiencyIds !== null &&
-      computeNow - _computeCacheTimestamp < INSIGHTS_CACHE_TTL_MS;
+    // Build section trends from the ML-ranked sections the bundle carries.
+    const sectionTrendMap = new Map<
+      string,
+      {
+        sectionId: string;
+        sectionName: string;
+        trend: number;
+        medianRecentSecs: number;
+        bestTimeSecs: number;
+        traversalCount: number;
+        sportType?: string;
+        daysSinceLast?: number;
+        latestIsPr?: boolean;
+        ranking?: SectionRankingScores;
+      }
+    >();
 
-    let sectionTrends: typeof _cachedSectionTrends;
-    let efficiencyTrendSectionIds: string[];
-
-    if (useComputeCache) {
-      sectionTrends = _cachedSectionTrends!;
-      efficiencyTrendSectionIds = _cachedEfficiencyIds!;
-    } else {
-      // Build section trends from ML-ranked sections
-      const sectionTrendMap = new Map<
-        string,
-        {
-          sectionId: string;
-          sectionName: string;
-          trend: number;
-          medianRecentSecs: number;
-          bestTimeSecs: number;
-          traversalCount: number;
-          sportType?: string;
-          daysSinceLast?: number;
-          latestIsPr?: boolean;
-        }
-      >();
-
-      // Cache ranked sections per sport to avoid duplicate FFI calls below
-      const rankedSectionsCache = new Map<string, RankedSectionShape[]>();
-
-      if (sectionsReady && engine) {
-        const patternSports =
-          allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
-        const sportTypes =
-          patternSports.length > 0
-            ? patternSports
-            : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
-
-        // Single FFI round-trip for all sports.
-        // Note: we keep the full unfiltered list here so the stale_pr
-        // detector (which needs OLD sections) still works on the TS fallback
-        // path. The section_trend generator does its own recency filter
-        // internally using INSIGHTS_CONFIG.activeWindowDays.
-        const batches = engine.getRankedSectionsBatch(sportTypes, 50);
-        for (const { sportType, sections } of batches) {
-          rankedSectionsCache.set(sportType, sections);
-          for (const rs of sections) {
-            if (!rs.sectionId) continue;
-            if (!sectionTrendMap.has(rs.sectionId)) {
-              sectionTrendMap.set(rs.sectionId, {
-                sectionId: rs.sectionId,
-                sectionName: rs.sectionName || 'Section',
-                trend: rs.trend,
-                medianRecentSecs: rs.medianRecentSecs,
-                bestTimeSecs: rs.bestTimeSecs,
-                traversalCount: rs.traversalCount,
-                sportType,
-                daysSinceLast: rs.daysSinceLast,
-                latestIsPr: rs.latestIsPr,
-              });
-            }
+    if (sectionsReady) {
+      // Note: we keep the full unfiltered list here so the stale_pr
+      // detector (which needs OLD sections) still works on the TS fallback
+      // path. The section_trend generator does its own recency filter
+      // internally using INSIGHTS_CONFIG.activeWindowDays.
+      for (const { sportType, sections } of ffiData.rankedSections ?? []) {
+        for (const rs of sections) {
+          if (!rs.sectionId) continue;
+          if (!sectionTrendMap.has(rs.sectionId)) {
+            sectionTrendMap.set(rs.sectionId, {
+              sectionId: rs.sectionId,
+              sectionName: rs.sectionName || 'Section',
+              trend: rs.trend,
+              medianRecentSecs: rs.medianRecentSecs,
+              bestTimeSecs: rs.bestTimeSecs,
+              traversalCount: rs.traversalCount,
+              sportType,
+              daysSinceLast: rs.daysSinceLast,
+              latestIsPr: rs.latestIsPr,
+              ranking: {
+                relevance: rs.relevanceScore,
+                recency: rs.recencyScore,
+                improvement: rs.improvementScore,
+                anomaly: rs.anomalyScore,
+                engagement: rs.engagementScore,
+              },
+            });
           }
         }
       }
-
-      // Fallback: pattern-based commonSections
-      if (sectionTrendMap.size === 0 && sectionsReady) {
-        for (const pattern of allPatterns) {
-          if (!pattern.commonSections) continue;
-          for (const section of pattern.commonSections) {
-            if (section.trend == null || !section.sectionId) continue;
-            const existing = sectionTrendMap.get(section.sectionId);
-            if (!existing || section.traversalCount > existing.traversalCount) {
-              sectionTrendMap.set(section.sectionId, {
-                sectionId: section.sectionId,
-                sectionName: section.sectionName || 'Section',
-                trend: section.trend,
-                medianRecentSecs: section.medianRecentSecs,
-                bestTimeSecs: section.bestTimeSecs,
-                traversalCount: section.traversalCount,
-                sportType: pattern.sportType,
-              });
-            }
-          }
-        }
-      }
-
-      sectionTrends = Array.from(sectionTrendMap.values());
-
-      // Aerobic efficiency section IDs - reuse cached ranked sections, but
-      // drop sections outside the active window. An efficiency trend on a
-      // section you haven't touched in months is historical curiosity, not
-      // a motivating insight. See G1 (event recency) in the rules pipeline.
-      const activeWindowDays = INSIGHTS_CONFIG.activeWindowDays;
-      efficiencyTrendSectionIds = [];
-      for (const [, cached] of rankedSectionsCache) {
-        const recent = cached.filter((rs) => {
-          if (rs.daysSinceLast == null || !Number.isFinite(rs.daysSinceLast)) return true;
-          return rs.daysSinceLast <= activeWindowDays;
-        });
-        for (const rs of recent.slice(0, 5)) {
-          if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
-            efficiencyTrendSectionIds.push(rs.sectionId);
-          }
-        }
-      }
-
-      // Persist to module-level cache
-      _cachedSectionTrends = sectionTrends;
-      _cachedEfficiencyIds = efficiencyTrendSectionIds;
-      _computeCacheTimestamp = computeNow;
     }
 
-    // 7-day wellness window
-    const wellnessWindow = sortedWellness.slice(-7).map((w) => ({
-      date: w.id,
-      hrv: w.hrv ?? undefined,
-      restingHR: w.restingHR ?? undefined,
-      sleepSecs: w.sleepSecs ?? undefined,
-      ctl: w.ctl ?? w.ctlLoad ?? undefined,
-      atl: w.atl ?? w.atlLoad ?? undefined,
-    }));
+    // Fallback: pattern-based commonSections
+    if (sectionTrendMap.size === 0 && sectionsReady) {
+      for (const pattern of allPatterns) {
+        if (!pattern.commonSections) continue;
+        for (const section of pattern.commonSections) {
+          if (section.trend == null || !section.sectionId) continue;
+          const existing = sectionTrendMap.get(section.sectionId);
+          if (!existing || section.traversalCount > existing.traversalCount) {
+            sectionTrendMap.set(section.sectionId, {
+              sectionId: section.sectionId,
+              sectionName: section.sectionName || 'Section',
+              trend: section.trend,
+              medianRecentSecs: section.medianRecentSecs,
+              bestTimeSecs: section.bestTimeSecs,
+              traversalCount: section.traversalCount,
+              sportType: pattern.sportType,
+            });
+          }
+        }
+      }
+    }
+
+    const sectionTrends = Array.from(sectionTrendMap.values());
+
+    // Visible changes the ledger recorded in the last fortnight, named.
+    const sectionChanges = sectionsReady ? recentSectionChanges() : [];
+
+    // Aerobic efficiency trends arrive already filtered and capped by Rust.
+    const efficiencyTrends = sectionsReady ? (ffiData.efficiencyTrends ?? []) : [];
 
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
@@ -476,13 +336,16 @@ export function computeInsightsFromData(
         }))
       : [];
 
+    // Strength rides the same bundle, so it enters the same pipeline.
+    const strengthSeries = ffiData.hasStrengthData ? ffiData.strengthSeries : undefined;
+
     const coreInsights = generateInsights(
       {
         currentPeriod: toPeriod(ffiData.currentWeek),
         previousPeriod: toPeriod(ffiData.previousWeek),
         ftpTrend: ffiData.ftpTrend ?? null,
         paceTrend: ffiData.runPaceTrend ?? null,
-        swimPaceTrend: ffiData.swimPaceTrend ?? summaryCardData?.swimPaceTrend ?? null,
+        swimPaceTrend: summaryCardData?.swimPaceTrend ?? null,
         recentPRs,
         sectionTrends,
         formTsb: latestWellness ? tsb : null,
@@ -490,61 +353,30 @@ export function computeInsightsFromData(
         formAtl: atl > 0 ? atl : null,
         peakCtl: null,
         currentCtl: ctl > 0 ? ctl : null,
-        wellnessWindow,
         chronicPeriod,
         allSectionTrends: sectionTrends,
-        efficiencyTrendSectionIds,
+        efficiencyTrends,
+        sectionChanges,
+        strengthMonthly: strengthSeries ? normalizeStrengthSummary(strengthSeries.monthly) : null,
+        strengthWeekly: strengthSeries?.weekly.map(normalizeStrengthSummary) ?? [],
       },
       t
     );
 
-    // Strength insights: single FFI call returns monthly + 4 weekly summaries.
-    let strengthInsights: Insight[] = [];
-    if (useComputeCache && _cachedStrengthInsights !== null) {
-      strengthInsights = _cachedStrengthInsights;
-    } else if (
-      engine &&
-      typeof engine.hasStrengthData === 'function' &&
-      typeof engine.getStrengthInsightSeries === 'function'
-    ) {
-      try {
-        if (engine.hasStrengthData()) {
-          const series = engine.getStrengthInsightSeries(
-            getTrailingMonthRange(),
-            getTrailingStrengthRanges()
-          );
-          const monthlySummary = normalizeStrengthSummary(series.monthly);
-          const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
-          strengthInsights = generateStrengthInsights(
-            monthlySummary,
-            weeklySummaries,
-            Date.now(),
-            t
-          );
-        }
-      } catch {
-        strengthInsights = [];
-      }
-      _cachedStrengthInsights = strengthInsights;
-    }
-
-    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+    const consolidated = consolidateInsights(coreInsights);
 
     if (__DEV__) {
-      console.log(
-        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+      log.log(
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} before consolidation)`
       );
       for (const i of consolidated) {
-        console.log(
-          `[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`
-        );
+        log.log(`[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`);
       }
     }
 
     return consolidated;
   } catch (err) {
     if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
-      // eslint-disable-next-line no-console
       console.error('[computeInsightsFromData] swallowed error:', err);
     }
     return [];
@@ -554,63 +386,22 @@ export function computeInsightsFromData(
 /**
  * Fetch FFI insights data from the engine.
  * Pure function - calls synchronous FFI, no React.
- *
- * Results are cached for 30 seconds to avoid redundant FFI calls when
- * the routes tab re-renders without engine data having changed.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
-  // Return cached result if still fresh
-  const now = Date.now();
-  if (_cachedPayload && now - _cacheTimestamp < INSIGHTS_CACHE_TTL_MS) {
-    return _cachedPayload;
-  }
-
-  const engine = getRouteEngine();
+  const engine = getEngine();
   if (!engine) return null;
 
-  const nowDate = new Date();
-  const startOfWeek = new Date(nowDate);
-  const day = startOfWeek.getDay();
-  startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-  const fourWeeksAgo = new Date(startOfWeek);
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-
-  const todayStart = new Date(nowDate);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
-
-  const currentStart = toTs(startOfWeek);
-  const currentEnd = toTs(nowDate);
-  const prevStart = toTs(startOfLastWeek);
-  const prevEnd = toTs(startOfWeek);
-  const chronicStart = toTs(fourWeeksAgo);
-  const todayStartTs = toTs(todayStart);
-
-  const insightsData =
-    engine.getInsightsData(
-      currentStart,
-      currentEnd,
-      prevStart,
-      prevEnd,
-      chronicStart,
-      todayStartTs
-    ) ?? null;
-
+  const params = buildInsightsParams();
+  const insightsData = engine.getInsightsData(params) ?? null;
   if (!insightsData) return null;
 
-  const payload: InsightsEnginePayload = {
+  return {
     insightsData,
-    summaryCardData: engine.getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd),
+    summaryCardData: engine.getSummaryCardData(
+      Number(params.currentStart),
+      Number(params.currentEnd),
+      Number(params.prevStart),
+      Number(params.prevEnd)
+    ),
   };
-
-  _cachedPayload = payload;
-  _cacheTimestamp = now;
-
-  return payload;
 }

@@ -14,9 +14,13 @@
  */
 
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import type { ActivityHighlightsBundle } from 'veloqrs';
+import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivitySectionHighlights');
 
 export interface ActivitySectionHighlight {
   sectionId: string;
@@ -42,7 +46,10 @@ export interface ActivityRouteHighlight {
  * Returns maps of activity ID → section/route highlights for a batch of activities.
  * Re-queries when section data changes (engine subscription).
  */
-export function useActivitySectionHighlights(activityIds: string[]): {
+export function useActivitySectionHighlights(
+  activityIds: string[],
+  preComputedBundle?: ActivityHighlightsBundle
+): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
 } {
@@ -56,12 +63,15 @@ export function useActivitySectionHighlights(activityIds: string[]): {
 
     if (!isRouteMatchingEnabled() || activityIds.length === 0) return empty;
 
-    const engine = getRouteEngine();
-    if (!engine) return empty;
-
     try {
-      // Single FFI call returns both section indicators and route highlights.
-      const bundle = engine.getActivityHighlightsBundle(activityIds);
+      // Single FFI call returns both section indicators and route highlights,
+      // unless the caller already has the bundle.
+      let bundle = preComputedBundle;
+      if (!bundle) {
+        const engine = getEngine();
+        if (!engine) return empty;
+        bundle = engine.getActivityHighlightsBundle(activityIds);
+      }
       const indicators = bundle.indicators;
       const rawRoutes = bundle.routeHighlights;
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
@@ -118,11 +128,11 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       if (__DEV__) {
         const prRoutes = rawRoutes.filter((r) => r.isPr);
         const trendRoutes = rawRoutes.filter((r) => r.trend !== 0 && !r.isPr);
-        console.log(
+        log.log(
           `[Indicators] sections: ${sectionMap.size}, routes: ${rawRoutes.length} raw (${prRoutes.length} PR, ${trendRoutes.length} trend)`
         );
         if (prRoutes.length > 0) {
-          console.log(
+          log.log(
             `[Indicators] Route PRs:`,
             prRoutes.map((r) => `${r.activityId.slice(-6)} "${r.routeName}" trend=${r.trend}`)
           );
@@ -137,5 +147,5 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       return empty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityIds.join(','), trigger]);
+  }, [activityIds.join(','), trigger, preComputedBundle]);
 }

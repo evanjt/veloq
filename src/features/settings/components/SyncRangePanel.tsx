@@ -1,247 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  LayoutChangeEvent,
-} from 'react-native';
+import { Alert, View, Text, StyleSheet } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-  Easing,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/features/maps/components';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
+import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
 import { formatLocalDate, formatFileSize } from '@/shared/format/format';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
+import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
-import { colors, darkColors, spacing, typography } from '@/theme';
-
-const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
-const THUMB_SIZE = 22;
-
-function DetectionSlider({
-  activeIndex,
-  onSelect,
-  isDark,
-}: {
-  activeIndex: number;
-  onSelect: (index: number) => void;
-  isDark: boolean;
-}) {
-  const { t } = useTranslation();
-  const [trackWidth, setTrackWidth] = useState(0);
-  const thumbX = useSharedValue(0);
-
-  const snapPositions = useMemo(() => {
-    if (trackWidth === 0) return [0, 0, 0];
-    return PRESETS.map((_, i) => (i / (PRESETS.length - 1)) * (trackWidth - THUMB_SIZE));
-  }, [trackWidth]);
-
-  useEffect(() => {
-    if (trackWidth > 0) {
-      thumbX.value = withTiming(snapPositions[activeIndex], SNAP_TIMING);
-    }
-  }, [activeIndex, snapPositions, trackWidth, thumbX]);
-
-  const snapToNearest = useCallback(
-    (x: number) => {
-      let closest = 0;
-      let minDist = Infinity;
-      for (let i = 0; i < snapPositions.length; i++) {
-        const dist = Math.abs(x - snapPositions[i]);
-        if (dist < minDist) {
-          minDist = dist;
-          closest = i;
-        }
-      }
-      if (closest !== activeIndex) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      onSelect(closest);
-    },
-    [snapPositions, activeIndex, onSelect]
-  );
-
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onUpdate((e) => {
-          'worklet';
-          const startX = snapPositions[activeIndex];
-          const newX = Math.max(0, Math.min(trackWidth - THUMB_SIZE, startX + e.translationX));
-          thumbX.value = newX;
-        })
-        .onEnd(() => {
-          'worklet';
-          runOnJS(snapToNearest)(thumbX.value);
-        }),
-    [thumbX, snapPositions, activeIndex, trackWidth, snapToNearest]
-  );
-
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: thumbX.value }],
-  }));
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: thumbX.value + THUMB_SIZE / 2,
-  }));
-
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    setTrackWidth(e.nativeEvent.layout.width);
-  }, []);
-
-  const handleLabelPress = useCallback(
-    (index: number) => {
-      if (index !== activeIndex) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      onSelect(index);
-    },
-    [activeIndex, onSelect]
-  );
-
-  return (
-    <View style={sliderStyles.container}>
-      {/* Labels row */}
-      <View style={sliderStyles.labelsRow}>
-        {PRESETS.map((p, i) => {
-          const label = p.key === 'default' ? t('settings.default') : t(`settings.${p.key}`);
-          const align = i === 0 ? 'flex-start' : i === PRESETS.length - 1 ? 'flex-end' : 'center';
-          return (
-            <TouchableOpacity
-              key={p.key}
-              style={[sliderStyles.labelTouchable, { alignItems: align } as const]}
-              onPress={() => handleLabelPress(i)}
-            >
-              <Text
-                style={[
-                  sliderStyles.label,
-                  i === activeIndex && sliderStyles.labelActive,
-                  i !== activeIndex && isDark && sliderStyles.labelDark,
-                ]}
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Track + thumb */}
-      <GestureDetector gesture={panGesture}>
-        <View style={sliderStyles.trackContainer} onLayout={handleLayout}>
-          <View style={[sliderStyles.track, isDark && sliderStyles.trackDark]} />
-          <Animated.View style={[sliderStyles.fill, fillStyle]} />
-          {/* Snap dots */}
-          {trackWidth > 0 &&
-            snapPositions.map((pos, i) => (
-              <View
-                key={i}
-                style={[
-                  sliderStyles.dot,
-                  {
-                    left: pos + THUMB_SIZE / 2 - 3,
-                  },
-                  i <= activeIndex && sliderStyles.dotActive,
-                ]}
-              />
-            ))}
-          <Animated.View style={[sliderStyles.thumb, thumbStyle]} />
-        </View>
-      </GestureDetector>
-    </View>
-  );
-}
-
-const sliderStyles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xs,
-  },
-  labelsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  labelTouchable: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  labelActive: {
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  labelDark: {
-    color: darkColors.textSecondary,
-  },
-  trackContainer: {
-    height: 28,
-    justifyContent: 'center',
-  },
-  track: {
-    position: 'absolute',
-    left: THUMB_SIZE / 2,
-    right: THUMB_SIZE / 2,
-    height: 4,
-    backgroundColor: '#E4E4E7',
-    borderRadius: 2,
-  },
-  trackDark: {
-    backgroundColor: '#3F3F46',
-  },
-  fill: {
-    position: 'absolute',
-    left: THUMB_SIZE / 2,
-    height: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-    opacity: 0.4,
-  },
-  dot: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D1D5DB',
-    top: 11,
-  },
-  dotActive: {
-    backgroundColor: colors.primary,
-    opacity: 0.6,
-  },
-  thumb: {
-    position: 'absolute',
-    width: THUMB_SIZE,
-    height: THUMB_SIZE,
-    borderRadius: THUMB_SIZE / 2,
-    backgroundColor: colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-});
+import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -263,7 +38,7 @@ export function SyncRangePanel() {
   const handleHeatmapToggle = useCallback(
     (enabled: boolean) => {
       setHeatmapEnabled(enabled);
-      const engine = getRouteEngine();
+      const engine = getEngine();
       if (enabled) {
         engine?.enableHeatmapTiles();
       } else {
@@ -280,6 +55,7 @@ export function SyncRangePanel() {
   // --- Data range state ---
   const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
+  const { data: yearCounts } = useActivityYearCounts();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
@@ -313,11 +89,23 @@ export function SyncRangePanel() {
 
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
-      if (start < cachedStartDate) {
-        syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+      if (start >= cachedStartDate) return;
+      const expand = () => syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
+
+      // An upper bound, and zero when the sync has not stored the counts yet.
+      // Neither may hold the user behind a figure the app cannot produce.
+      const count = activitiesInRange(yearCounts, start, cachedStartDate);
+      if (count < LARGE_HISTORY_THRESHOLD) {
+        expand();
+        return;
       }
+
+      Alert.alert(t('settings.largeHistoryTitle'), t('settings.largeHistoryMessage', { count }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.largeHistoryConfirm'), onPress: expand },
+      ]);
     },
-    [syncDateRange, cachedStartDate]
+    [syncDateRange, cachedStartDate, yearCounts, t]
   );
 
   return (
@@ -419,10 +207,10 @@ const styles = StyleSheet.create({
   progressRow: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(252, 76, 2, 0.06)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.06),
   },
   progressRowDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.1)',
+    backgroundColor: colorWithOpacity(brand.tealLight, 0.1),
   },
   progressBarTrack: {
     height: 4,

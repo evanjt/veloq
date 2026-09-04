@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
-import { getRouteEngine } from '@/shared/native/routeEngine';
+import { getEngine } from '@/shared/native/engine';
+import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
@@ -22,8 +23,41 @@ export const DEMO_ATHLETE_ID = 'demo';
 // Auth method type
 export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
 
-// Session expiry reason
-export type SessionExpiredReason = 'token_expired' | 'token_revoked' | null;
+/**
+ * Hand the current credential to the Rust sync service, the single owner of
+ * outbound intervals.icu auth. This is the only place the store's `apiKey`
+ * method name is translated to the engine's `api_key`.
+ *
+ * Safe to call before the engine exists: the delegate no-ops until
+ * `initWithPath` has run, and the layout init effect calls this again once it
+ * has. A credential the engine cannot use is cleared rather than left stale.
+ */
+export function pushCredentialsToEngine(): void {
+  const engine = getEngine();
+  if (!engine) return;
+
+  const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();
+
+  if (athleteId && authMethod === 'oauth' && isValidCredential(accessToken)) {
+    engine.setSyncCredentials('oauth', accessToken, athleteId);
+    return;
+  }
+  if (athleteId && authMethod === 'apiKey' && isValidCredential(apiKey)) {
+    engine.setSyncCredentials('api_key', apiKey, athleteId);
+    return;
+  }
+  engine.clearSyncCredentials();
+}
+
+/**
+ * Why the session ended. There is one reason because there is one signal: a
+ * 401. intervals.icu issues one live token per athlete per app, so a second
+ * device signing in takes this one's credential, and that 401 is
+ * indistinguishable from an expiry or a revocation at the server (`B143`).
+ * Claiming any of the three would be telling the athlete something the server
+ * never said.
+ */
+export type SessionExpiredReason = 'signed_out' | null;
 
 interface AuthState {
   apiKey: string | null;
@@ -87,17 +121,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
         authMethod = 'apiKey';
         isAuthenticated = true;
-      } else {
-        // No valid credentials found - clear any stale route engine data
-        // This handles the case where demo mode was active but app was restarted
-        // (demo mode doesn't persist, but SQLite cache does)
-        const engine = getRouteEngine();
-        if (engine) {
-          engine.clear();
-          if (__DEV__) {
-            console.log('[AuthStore] Cleared route engine - no persisted credentials');
-          }
-        }
       }
 
       set({
@@ -109,6 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isDemoMode: false,
         authMethod,
       });
+      pushCredentialsToEngine();
     } catch {
       set({
         isLoading: false,
@@ -150,6 +174,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'apiKey',
     });
+    pushCredentialsToEngine();
   },
 
   setOAuthCredentials: async (accessToken: string, athleteId: string, athleteName?: string) => {
@@ -185,6 +210,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set basic athlete info if provided
       athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
+    pushCredentialsToEngine();
 
     // If the user previously opted into push notifications (e.g. restored a
     // backup or logged back in after a logout), re-register the push token so
@@ -237,6 +263,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: null,
     });
+    pushCredentialsToEngine();
   },
 
   setAthlete: (athlete: Athlete) => {
@@ -251,6 +278,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: 'demo',
       athlete: null,
     });
+    // Demo mode has no upstream credential, so the engine must hold none.
+    pushCredentialsToEngine();
+    // The engine usually does not exist yet on first entry; the layout init
+    // effect seeds again once it does.
+    seedDemoEngine();
   },
 
   exitDemoMode: () => {
@@ -262,13 +294,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       athlete: null,
     });
+    pushCredentialsToEngine();
   },
 
   setHideDemoBanner: (hide: boolean) => {
     set({ hideDemoBanner: hide });
   },
 
-  handleSessionExpired: async (reason: SessionExpiredReason = 'token_expired') => {
+  handleSessionExpired: async (reason: SessionExpiredReason = 'signed_out') => {
     const { authMethod, athleteId: currentAthleteId } = get();
 
     // Only handle session expiry for OAuth auth method
@@ -309,6 +342,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       sessionExpired: reason,
     });
+    pushCredentialsToEngine();
   },
 
   clearSessionExpired: () => {
