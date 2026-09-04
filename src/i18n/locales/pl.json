@@ -1019,6 +1019,9 @@
     "sortNameAZ": "Nazwa A-Z",
     "sortNearby": "W pobliżu",
     "sortSignature": "Charakterystyczne",
+    "standingBest": "Twój najszybszy z {{total}}",
+    "standingRank": "Miejsce {{rank}} z {{total}}, {{gap}} do najlepszego",
+    "standingRankPercentile": "Miejsce {{rank}} z {{total}}, szybciej niż {{percent}}% z nich, {{gap}} do najlepszego",
     "thisMayTakeMoment": "To może chwilę potrwać...",
     "visits": "wizyty",
     "waiting": "Oczekiwanie..."

@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Name A-Z",
     "sortNearby": "In der Nähe",
     "sortSignature": "Signatur",
+    "standingBest": "Deine schnellste von {{total}}",
+    "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
+    "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
     "thisMayTakeMoment": "Dies kann einen Moment dauern...",
     "visits": "Besuche",
     "waiting": "Warte..."

@@ -4,6 +4,7 @@
 //! caches in SQLite, and returns structured data to TypeScript.
 
 use super::error::{VeloqError, with_engine};
+use super::observer;
 use super::sync;
 use crate::fit;
 use crate::http::ActivityFetcher;
@@ -48,9 +49,13 @@ fn store_parsed_sets(activity_id: &str, data: &[u8]) {
             })?;
         Ok(())
     });
-    if let Err(e) = stored {
+    if let Err(e) = stored.and_then(|inner| inner) {
         log::error!("[Strength] Failed to store sets for {}: {}", activity_id, e);
+        return;
     }
+    // Announced only once the verdict is committed and the lock is released: an
+    // event without a row would send the reader straight back for another fetch.
+    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
 }
 
 /// Decide what a failed download means for the activity.
@@ -74,15 +79,18 @@ fn settle_failed_download(activity_id: &str, error: NetError) -> Result<(), NetE
         "[Strength] No FIT file upstream for {} ({}), settling",
         activity_id, error
     );
-    if let Err(e) = with_engine(|engine| {
+    let settled = with_engine(|engine| {
         engine
             .mark_fit_outcome(activity_id, FitOutcome::Absent)
             .map_err(|e| VeloqError::Database {
                 msg: format!("{}", e),
             })
-    }) {
+    });
+    if let Err(e) = settled.and_then(|inner| inner) {
         log::error!("[Strength] Failed to settle {}: {}", activity_id, e);
+        return Ok(());
     }
+    observer::notify(|o| o.fit_parsed(activity_id.to_string()));
     Ok(())
 }
 
@@ -740,7 +748,66 @@ fn aggregate_muscle_detail(
 
 #[cfg(test)]
 mod tests {
+    use super::observer::{recorder::Recorder, set_observer};
     use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    /// The reader carries no timer, so an activity that settles without
+    /// announcing leaves the strength card waiting for as long as it is open.
+    #[test]
+    fn test_store_parsed_sets_announces_the_committed_verdict() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_parsed.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        // A FIT file carrying no sets settles the activity all the same.
+        store_parsed_sets("a1", &[]);
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a1"]);
+        assert!(
+            with_engine(|e| e.is_fit_processed("a1").unwrap()).unwrap(),
+            "the verdict must be committed before the announcement"
+        );
+    }
+
+    #[test]
+    fn test_a_file_absent_upstream_announces_its_settle() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_absent.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        settle_failed_download(
+            "a2",
+            NetError::Http {
+                status: 404,
+                body: String::new(),
+            },
+        )
+        .expect("an absent file settles rather than fails");
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["fit_parsed:a2"]);
+        assert!(with_engine(|e| e.is_fit_processed("a2").unwrap()).unwrap());
+    }
+
+    /// A retryable failure records nothing, so announcing one would send the
+    /// reader back for a fetch that is already queued for the next visit.
+    #[test]
+    fn test_a_retryable_failure_announces_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_retry.db");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        assert!(settle_failed_download("a3", NetError::RateLimited).is_err());
+        set_observer(None);
+
+        assert!(recorder.events().is_empty());
+        assert!(!with_engine(|e| e.is_fit_processed("a3").unwrap()).unwrap());
+    }
 
     /// A settled verdict permanently excludes an activity from the retry paths,
     /// so only a failure that will repeat forever may produce one. Recording a

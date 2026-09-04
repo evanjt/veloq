@@ -181,9 +181,14 @@ export function BaseMapView({
   }, [is3DMode, is3DReady, bearingAnim]);
 
   // Track centre and zoom so satellite attribution follows the viewport.
+  // Also kept in a ref: the surface is unmounted whenever the 3D layer covers
+  // it, and it has to come back on the viewport the user left rather than on
+  // the fitted track again.
+  const settledCameraRef = useRef<{ center: LngLat; zoom: number } | null>(null);
   const handleRegionDidChange = useCallback((state: { center: LngLat; zoom: number }) => {
     setCurrentCenter(state.center);
     setCurrentZoom(state.zoom);
+    settledCameraRef.current = { center: state.center, zoom: state.zoom };
   }, []);
 
   // Get user location and refocus camera
@@ -205,12 +210,21 @@ export function BaseMapView({
     }
   }, []);
 
+  // The 2D surface comes down once the 3D layer covers it, so where it was is
+  // captured on the way out and handed back to the remount.
+  const show2DSurface = !(is3DMode && is3DReady);
+  const [cameraOnHide, setCameraOnHide] = useState<{ center: LngLat; zoom: number } | null>(null);
+  useEffect(() => {
+    if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
+  }, [show2DSurface]);
+
   const initialCamera = useMemo(() => {
+    if (cameraOnHide) return cameraOnHide;
     const fitBounds: LngLatBounds | undefined = bounds
       ? { sw: bounds.sw, ne: bounds.ne }
       : undefined;
     return { bounds: fitBounds, padding };
-  }, [bounds, padding]);
+  }, [bounds, padding, cameraOnHide]);
 
   const sources = useMemo<Record<string, MapSourceSpec>>(
     () => ({
@@ -379,21 +393,24 @@ export function BaseMapView({
 
   return (
     <View style={styles.container}>
-      {/* 2D Map - always rendered, hidden when 3D is ready */}
-      <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
-        <MapSurface
-          ref={surfaceRef}
-          mapStyle={mapStyle}
-          initialCamera={initialCamera}
-          sources={sources}
-          layers={layers}
-          images={overlayImages}
-          interactiveLayers={interactiveLayers}
-          onPress={onPress}
-          onRegionIsChanging={(state) => bearingAnim.setValue(-state.bearing)}
-          onRegionDidChange={handleRegionDidChange}
-        />
-      </View>
+      {/* 2D Map. Unmounted once the 3D layer covers it: a hidden WebView keeps
+          its GL context and its tile textures alive for nobody. */}
+      {show2DSurface && (
+        <View style={styles.mapLayer}>
+          <MapSurface
+            ref={surfaceRef}
+            mapStyle={mapStyle}
+            initialCamera={initialCamera}
+            sources={sources}
+            layers={layers}
+            images={overlayImages}
+            interactiveLayers={interactiveLayers}
+            onPress={onPress}
+            onRegionIsChanging={(state) => bearingAnim.setValue(-state.bearing)}
+            onRegionDidChange={handleRegionDidChange}
+          />
+        </View>
+      )}
 
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
       {/* Error boundary prevents a 3D crash from taking out the entire map */}
@@ -441,10 +458,6 @@ const styles = StyleSheet.create({
   },
   map3DLayer: {
     zIndex: 1,
-  },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
   },
   button: {
     position: 'absolute',
