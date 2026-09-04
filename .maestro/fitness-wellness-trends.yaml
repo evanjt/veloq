@@ -29,10 +29,10 @@ tags:
 - assertVisible:
     id: "wellness-trends-chart"
 
-- takeScreenshot: "wellness-dashboard-visible"
+- takeScreenshot: "screenshots/wellness-dashboard-visible"
 
 # Verify no NaN in wellness values
 - assertNotVisible:
     text: "NaN"
 
-- takeScreenshot: "fitness-wellness-trends-complete"
+- takeScreenshot: "screenshots/fitness-wellness-trends-complete"

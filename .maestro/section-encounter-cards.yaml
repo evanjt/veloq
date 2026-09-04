@@ -46,11 +46,11 @@ tags:
     id: "section-inline-plot-0"
     optional: true
 
-- takeScreenshot: "section-encounter-cards-list"
+- takeScreenshot: "screenshots/section-encounter-cards-list"
 
 # Scroll to confirm multiple cards render (per-direction splitting)
 - scroll
-- takeScreenshot: "section-encounter-cards-scrolled"
+- takeScreenshot: "screenshots/section-encounter-cards-scrolled"
 
 # Guard against regressions where no-data UI masks empty encounters
 - assertNotVisible:

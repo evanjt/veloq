@@ -48,4 +48,4 @@ tags:
 - assertVisible:
     id: "chart-type-selector"
 
-- takeScreenshot: "stress-chart-scrubbing-complete"
+- takeScreenshot: "screenshots/stress-chart-scrubbing-complete"

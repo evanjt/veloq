@@ -193,7 +193,7 @@ tags:
     id: "expected-result"
 
 # Document result
-- takeScreenshot: "test-complete"
+- takeScreenshot: "screenshots/test-complete"
 ```
 
 ### Conventions
@@ -203,12 +203,15 @@ tags:
 3. **Use testID** over text matching when possible
 4. **Set generous timeouts** for React Native boot (30s) and data loading (15s)
 5. **Handle system dialogs** with conditional flows in the setup helper
-6. **Take screenshots** at the end of each flow for debugging
+6. **Take screenshots** at the end of each flow for debugging, always under `screenshots/`
 7. **Keep flows focused**, one feature per flow
 
 ## Screenshots
 
-Screenshots are saved to `~/.maestro/tests/{timestamp}/screenshots/`
+`takeScreenshot` resolves its path against the working directory, so every
+capture names `screenshots/<name>` and lands in `veloq/screenshots/`, which
+`.gitignore` already ignores. A bare name drops the PNG beside `package.json`,
+and `maestroFlowTags.test.ts` fails the flow that writes one.
 
 To capture for App Store:
 ```bash

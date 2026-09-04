@@ -28,7 +28,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 
-- takeScreenshot: "no-route-markers-heatmap"
+- takeScreenshot: "screenshots/no-route-markers-heatmap"
 
 # Routes toggle, conditional in the demo fixture, only present when
 # route detection has found any.
@@ -41,7 +41,7 @@ tags:
           id: "map-toggle-routes"
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "no-route-markers-routes-on"
+      - takeScreenshot: "screenshots/no-route-markers-routes-on"
 
 # Sections toggle, likewise conditional.
 - runFlow:
@@ -53,7 +53,7 @@ tags:
           id: "map-toggle-sections"
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "no-route-markers-sections-on"
+      - takeScreenshot: "screenshots/no-route-markers-sections-on"
 
 - assertNotVisible:
     text: "NaN"

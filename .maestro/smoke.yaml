@@ -9,6 +9,6 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-- takeScreenshot: "smoke-home-loaded"
+- takeScreenshot: "screenshots/smoke-home-loaded"
 
-- takeScreenshot: "smoke-complete"
+- takeScreenshot: "screenshots/smoke-complete"

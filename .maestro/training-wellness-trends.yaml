@@ -27,6 +27,6 @@ tags:
     speed: 40
     visibilityPercentage: 50
     optional: true
-- takeScreenshot: "training-wellness-trends-chart-loaded"
+- takeScreenshot: "screenshots/training-wellness-trends-chart-loaded"
 
-- takeScreenshot: "training-wellness-trends-complete"
+- takeScreenshot: "screenshots/training-wellness-trends-complete"

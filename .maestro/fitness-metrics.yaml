@@ -30,7 +30,7 @@ tags:
 - assertNotVisible:
     text: "NaN"
 
-- takeScreenshot: "fitness-metrics-ctl-loaded"
+- takeScreenshot: "screenshots/fitness-metrics-ctl-loaded"
 
 # Scroll down to form zone chart area
 - swipe:
@@ -48,6 +48,6 @@ tags:
     id: "fitness-activity-dots"
     optional: true
 
-- takeScreenshot: "fitness-form-zone-and-dots"
+- takeScreenshot: "screenshots/fitness-form-zone-and-dots"
 
-- takeScreenshot: "fitness-metrics-complete"
+- takeScreenshot: "screenshots/fitness-metrics-complete"
