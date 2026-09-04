@@ -148,7 +148,7 @@ export function getActivityHeatmap(
 
 /**
  * Combined patterns bundle: today's pattern + full pattern set in one call.
- * Consumed by `useActivityPatterns` so the hook is a thin pass-through.
+ * No screen calls it any more: the insights bundle already carries both.
  */
 export function getActivityPatternsWithToday(host: DelegateHost): {
   today: FfiActivityPattern | undefined;

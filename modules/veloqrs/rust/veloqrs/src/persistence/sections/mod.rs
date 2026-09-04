@@ -1,7 +1,7 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
 pub mod conditioning;
-mod detection;
+pub(crate) mod detection;
 pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;

@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
-import { useActivityPatterns } from '@/features/home/hooks/useActivityPatterns';
 import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman } from '@/shared/format/format';
@@ -28,15 +27,23 @@ const DAY_NAMES_PLURAL = [
   'Sundays',
 ];
 
+interface TodayBannerProps {
+  /**
+   * Today's matching pattern, from the insights bundle the parent already
+   * holds. The k-means pass behind it is the most expensive row of that
+   * bundle, so the banner is handed the answer rather than asking again.
+   */
+  todayPattern: ActivityPattern | null;
+}
+
 /**
  * Routes page banner showing today's context: planned workout, activity patterns, or readiness.
  * Gracefully degrades - shows nothing when there's no relevant content.
  */
-export const TodayBanner = React.memo(function TodayBanner() {
+export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: TodayBannerProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { todayWorkout, tomorrowWorkout, isLoading } = useTodayWorkout();
-  const { todayPattern } = useActivityPatterns();
 
   const sportType = todayWorkout?.type ?? tomorrowWorkout?.type ?? todayPattern?.sportType;
   const { sections } = useWorkoutSections(sportType);

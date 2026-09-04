@@ -176,8 +176,8 @@ fn redetect(engine: &mut PersistentEngine) -> SectionSnapshot {
 // ============================================================================
 
 /// Scenario: the user moves an advanced detection slider on a populated
-/// library, and the parameter changed is one the active detector does not read,
-/// so the re-analysed catalogue holds exactly the same ground.
+/// library, and the parameter moves far enough from the ground found that the
+/// re-analysed catalogue holds exactly the same sections.
 /// Expected behaviour: every section keeps its id. A config change invalidates
 /// the debounce, never the identities.
 #[test]
@@ -187,7 +187,7 @@ fn a_config_change_keeps_every_section_id() {
     assert_catalogue_populated("cold", &cold.snapshot);
 
     let mut cfg = engine.get_section_config();
-    cfg.min_corridor_tracks += 1;
+    cfg.max_section_length += 1.0;
     engine.set_section_config(cfg);
 
     assert_eq!(
@@ -215,7 +215,7 @@ fn a_reseeded_registry_survives_a_restart() {
     assert_catalogue_populated("cold", &cold.snapshot);
 
     let mut cfg = engine.get_section_config();
-    cfg.min_corridor_tracks += 1;
+    cfg.max_section_length += 1.0;
     engine.set_section_config(cfg);
     drop(engine);
 

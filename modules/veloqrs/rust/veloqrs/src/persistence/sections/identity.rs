@@ -161,19 +161,14 @@ pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
 const MERGE_MUTUAL_FLOOR: f64 = 0.0;
 
 /// Least share of a candidate's metres a CONTAINED prior must carry to stay its
-/// merge successor. SHIPS AT 0.0 (off): every contained prior keeps the tier and
-/// seniority decides, so a short senior can take a much longer candidate's
-/// ground and the section that described it retires into the short one, keeping
-/// its name, birth date and PR era over ground that is no longer the same.
+/// merge successor. Below it the prior drops to the bare same-corridor tier, so
+/// a short senior cannot take a much longer candidate's ground and leave its
+/// own name, birth date and PR era sitting on it.
 ///
-/// The guard is a tier demotion, not a filter, which is what separates it from
-/// [`MERGE_MUTUAL_FLOOR`]: a dwarfed prior still competes, so it keeps its own
-/// ground wherever that ground is still detected. No value ships because none
-/// has survived a corpus pass, and for a contained prior the mutual overlap IS
-/// roughly the length ratio, so a ratio at R is close to a floor at 1/R and 0.4
-/// already failed to generalise on GeoLife. Sweep it in `unified_lab` with
-/// `--hyst-ratio` before moving this line.
-const MERGE_SIZE_RATIO: f64 = 0.0;
+/// Unlike [`MERGE_MUTUAL_FLOOR`] this demotes rather than filters: a dwarfed
+/// prior still competes, so it keeps its own ground wherever that ground is
+/// detected. Sweep it in `unified_lab` with `--hyst-ratio` before moving it.
+const MERGE_SIZE_RATIO: f64 = 0.3;
 
 /// One visible or tombstoned section the registry manages: the durable opaque id
 /// the DB carries, and the full payload persisted under it. Keyed elsewhere by
@@ -229,8 +224,8 @@ impl Default for SectionIdentity {
         Self {
             // The one place the registry's hysteresis is tuned. k and the
             // dissolve/re-cut thresholds ride the pure-layer defaults. Both
-            // merge guards are stated EXPLICITLY, [`MERGE_MUTUAL_FLOOR`] and
-            // [`MERGE_SIZE_RATIO`], each 0.0 today, so changing one is a
+            // merge guards are stated EXPLICITLY, [`MERGE_MUTUAL_FLOOR`] at
+            // 0.0 and [`MERGE_SIZE_RATIO`] at 0.3, so changing one is a
             // one-line edit here, not a hunt through derives.
             hysteresis: HysteresisState::new(HysteresisParams {
                 merge_mutual_floor: MERGE_MUTUAL_FLOOR,
@@ -1475,6 +1470,55 @@ mod tests {
     /// Expected behaviour: the ground comes back rebuilt from the triple. An
     /// empty one would let the detector re-emit the corridor the user already
     /// shaped, under a second id.
+    /// Scenario: a marginal senior and a dominant junior both merely contained
+    /// in one corridor, driven through the registry's own default hysteresis.
+    /// Expected behaviour: the short senior does not take the long corridor and
+    /// the prior that described it is not tombstoned.
+    #[test]
+    fn the_shipped_merge_guards_deny_a_marginal_senior_the_corridor() {
+        let long: Vec<GpsPoint> = (0..120)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.000_1,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect();
+        let short = long[..20].to_vec();
+        let most = long[..90].to_vec();
+        let candidate = |polyline: Vec<GpsPoint>, visit_count: u32| CandidateSection {
+            polyline,
+            visit_count,
+        };
+        let id_on = |state: &HysteresisState, ground: &[GpsPoint]| {
+            state
+                .visible_grounds()
+                .into_iter()
+                .find(|(_, g)| tracematch::mutual_overlap(g, ground) >= 0.85)
+                .map(|(id, _)| id)
+        };
+
+        let mut state = SectionIdentity::default().hysteresis;
+        state.step(&[candidate(short.clone(), 3), candidate(most.clone(), 9)]);
+        let a = id_on(&state, &short).expect("the marginal senior is visible");
+        let b = id_on(&state, &most).expect("the dominant junior is visible");
+        assert_ne!(a, b, "they are two sections");
+
+        for _ in 0..(HysteresisParams::default().k + 2) {
+            state.step(&[candidate(long.clone(), 12)]);
+        }
+
+        assert!(
+            !state
+                .ground_of(&a)
+                .is_some_and(|g| tracematch::mutual_overlap(g, &long) >= 0.85),
+            "the marginal senior must not end up holding the long corridor"
+        );
+        assert!(
+            !state.is_tombstoned(&b),
+            "and the section that described that ground must not be tombstoned"
+        );
+    }
+
     #[test]
     fn a_durable_intent_ground_rebuilds_after_the_cache_is_cleared() {
         let dir = TempDir::new().expect("tempdir");

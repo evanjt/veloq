@@ -7743,14 +7743,13 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
 })();
 
 /**
- * All data needed for the feed screen on startup in one call.
- * Reduces 20+ FFI calls to 1.
+ * The two things the feed paints on its first pass, in one call.
+ *
+ * The insights record and the cached metric id list used to ride along here.
+ * Neither reached the screen: the insights tab fetches its own copy when it
+ * opens, and nothing ever read the id list.
  */
 export type FfiStartupData = {
-  /**
-   * Insights data (replaces getInsightsData)
-   */
-  insights: FfiInsightsData;
   /**
    * Summary card data (replaces getSummaryCardData)
    */
@@ -7759,10 +7758,6 @@ export type FfiStartupData = {
    * GPS tracks for initial visible activities (replaces N × getGpsTrack)
    */
   previewTracks: Array<FfiPreviewTrack>;
-  /**
-   * Activity IDs with cached metrics (for sync skip check)
-   */
-  cachedMetricIds: Array<string>;
 };
 
 /**
@@ -7787,26 +7782,18 @@ const FfiConverterTypeFfiStartupData = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        insights: FfiConverterTypeFfiInsightsData.read(from),
         summaryCard: FfiConverterTypeFfiSummaryCardData.read(from),
         previewTracks: FfiConverterArrayTypeFfiPreviewTrack.read(from),
-        cachedMetricIds: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterTypeFfiInsightsData.write(value.insights, into);
       FfiConverterTypeFfiSummaryCardData.write(value.summaryCard, into);
       FfiConverterArrayTypeFfiPreviewTrack.write(value.previewTracks, into);
-      FfiConverterArrayString.write(value.cachedMetricIds, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterTypeFfiInsightsData.allocationSize(value.insights) +
         FfiConverterTypeFfiSummaryCardData.allocationSize(value.summaryCard) +
-        FfiConverterArrayTypeFfiPreviewTrack.allocationSize(
-          value.previewTracks,
-        ) +
-        FfiConverterArrayString.allocationSize(value.cachedMetricIds)
+        FfiConverterArrayTypeFfiPreviewTrack.allocationSize(value.previewTracks)
       );
     }
   }
@@ -10837,9 +10824,10 @@ export interface FitnessManagerLike {
     days: /*i64*/ bigint,
   ) /*throws*/ : string | undefined;
   /**
-   * All data the feed screen needs in a single engine lock.
-   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
-   * Reduces 20+ FFI calls to 1.
+   * The feed's first paint in a single engine lock: the summary card and
+   * the GPS preview tracks. `params` supplies the summary card's two week
+   * windows; the rest of the insights bundle is fetched by the insights tab
+   * when it opens, not here.
    */
   getStartupData(
     params: FfiInsightsParams,
@@ -11203,9 +11191,10 @@ export class FitnessManager
   }
 
   /**
-   * All data the feed screen needs in a single engine lock.
-   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
-   * Reduces 20+ FFI calls to 1.
+   * The feed's first paint in a single engine lock: the summary card and
+   * the GPS preview tracks. `params` supplies the summary card's two week
+   * windows; the rest of the insights bundle is fetched by the insights tab
+   * when it opens, not here.
    */
   getStartupData(
     params: FfiInsightsParams,
@@ -16075,11 +16064,6 @@ const FfiConverterTypeSyncManager = new FfiConverterObject(
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
   /**
-   * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API - safe to call while the database is in use.
-   */
-  backupDatabase(destPath: string) /*throws*/ : void;
-  /**
    * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
    */
   bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
@@ -16117,10 +16101,22 @@ export interface VeloqEngineLike {
   isInitialized(): boolean;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
+  /**
+   * Poll the running backup: "idle" | "running" | "complete". A failed copy
+   * is an error, and either outcome clears the slot so the next backup can
+   * start.
+   */
+  pollBackup() /*throws*/ : string;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
   setNameTranslations(routeWord: string, sectionWord: string): void;
   settings(): SettingsManagerLike;
+  /**
+   * Start an atomic SQLite backup at the given path on a background thread.
+   * Poll `poll_backup` for the outcome. The copy runs on its own connection,
+   * so neither the engine lock nor the calling thread waits for it.
+   */
+  startBackup(destPath: string) /*throws*/ : void;
   strength(): StrengthManagerLike;
   sync(): SyncManagerLike;
 }
@@ -16169,26 +16165,6 @@ export class VeloqEngine
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
-    );
-  }
-
-  /**
-   * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API - safe to call while the database is in use.
-   */
-  backupDatabase(destPath: string): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database(
-          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          FfiConverterString.lower(destPath),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -16446,6 +16422,28 @@ export class VeloqEngine
     );
   }
 
+  /**
+   * Poll the running backup: "idle" | "running" | "complete". A failed copy
+   * is an error, and either outcome clears the slot so the next backup can
+   * start.
+   */
+  pollBackup(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_backup(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   routes(): RouteManagerLike {
     return FfiConverterTypeRouteManager.lift(
       uniffiCaller.rustCall(
@@ -16499,6 +16497,27 @@ export class VeloqEngine
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  /**
+   * Start an atomic SQLite backup at the given path on a background thread.
+   * Poll `poll_backup` for the outcome. The copy runs on its own connection,
+   * so neither the engine lock nor the calling thread waits for it.
+   */
+  startBackup(destPath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -17478,14 +17497,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database() !==
-    50995
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_backup_database",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson() !==
     442
   ) {
@@ -17606,6 +17617,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_backup() !==
+    48388
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_backup",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes() !==
     6175
   ) {
@@ -17635,6 +17654,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_settings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup() !==
+    24871
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
     );
   }
   if (

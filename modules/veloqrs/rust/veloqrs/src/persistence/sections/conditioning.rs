@@ -192,7 +192,9 @@ pub fn try_start_conditioning() -> bool {
         return false;
     }
 
-    let handle = with_persistent_engine(|engine| engine.detect_sections_background());
+    let handle = with_persistent_engine(|engine| {
+        engine.detect_sections_background_applying(super::detection::ApplyOn::Worker)
+    });
 
     let Some(handle) = handle else {
         return false;

@@ -819,9 +819,16 @@ class EngineClient implements DelegateHost {
   // Database Backup
   // ==========================================================================
 
-  backupDatabase(destPath: string): void {
+  /** Start the database copy on a Rust thread. Poll `pollBackup` for the outcome. */
+  startBackup(destPath: string): void {
     if (!this.ready) throw new Error('Engine not initialized');
-    this.timed('backupDatabase', () => this.engine.backupDatabase(destPath));
+    this.timed('startBackup', () => this.engine.startBackup(destPath));
+  }
+
+  /** 'idle' | 'running' | 'complete'. Throws when the copy failed. */
+  pollBackup(): string {
+    if (!this.ready) throw new Error('Engine not initialized');
+    return this.timed('pollBackup', () => this.engine.pollBackup());
   }
 
   getBackupMetadata(): Record<string, unknown> {

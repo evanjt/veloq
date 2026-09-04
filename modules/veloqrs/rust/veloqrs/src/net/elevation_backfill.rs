@@ -895,7 +895,9 @@ fn start_final_detect() -> bool {
 
     let handle = with_persistent_engine(|engine| {
         engine.clear_processed_activity_ids();
-        engine.detect_sections_background_unchecked()
+        engine.detect_sections_background_unchecked_applying(
+            crate::persistence::sections::detection::ApplyOn::Worker,
+        )
     });
 
     let Some(handle) = handle else {

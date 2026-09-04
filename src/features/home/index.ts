@@ -13,7 +13,6 @@ export {
   useTodayWorkout,
   useWorkoutSections,
   type WorkoutSection,
-  useActivityPatterns,
   useStartupData,
   type StartupResult,
   type PreviewTrack,

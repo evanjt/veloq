@@ -20,7 +20,7 @@
 //!    - Detected sections
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -322,6 +322,25 @@ pub struct SectionDetectionHandle {
     cache_receiver: mpsc::Receiver<CacheUpdate>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
+    /// Set by a self-applying worker once its own apply has landed. Present
+    /// only for the runs that apply on the worker, so the poll knows whether
+    /// the message on `receiver` is a result to save or a run already saved.
+    worker_applied: Option<Arc<AtomicBool>>,
+}
+
+/// What a poll that observes completion still has to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkerApply {
+    /// Nothing was applied on the worker: the caller applies the result it
+    /// received, which is what every blocking consumer does.
+    Caller,
+    /// The worker applied its own result before reporting finished, so the
+    /// message on the channel is a completion signal and nothing more.
+    Landed,
+    /// The worker was to apply and could not. Its result went with the
+    /// attempt, so the caller must report the failure rather than save the
+    /// empty message left behind.
+    Failed,
 }
 
 /// Non-blocking poll result that distinguishes a still-running worker from
@@ -335,6 +354,17 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
+    /// Whether this run applied its own result. Only meaningful once the
+    /// main channel has answered `Ready`: the worker sets the flag before it
+    /// sends.
+    pub fn worker_apply(&self) -> WorkerApply {
+        match &self.worker_applied {
+            None => WorkerApply::Caller,
+            Some(flag) if flag.load(Ordering::SeqCst) => WorkerApply::Landed,
+            Some(_) => WorkerApply::Failed,
+        }
+    }
+
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
         match self.receiver.try_recv() {
@@ -436,6 +466,49 @@ impl SectionDetectionHandle {
     }
 }
 
+/// Handle for a background database backup.
+pub struct BackupHandle {
+    receiver: mpsc::Receiver<Result<(), String>>,
+}
+
+impl BackupHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<Result<(), String>> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
+    /// Block until the copy finishes, returning its outcome.
+    /// Test and bench path; production polls.
+    pub fn recv_blocking(&self) -> Option<Result<(), String>> {
+        self.receiver.recv().ok()
+    }
+}
+
+#[cfg(test)]
+impl SectionDetectionHandle {
+    /// A finished run whose worker apply never landed, for the poll's
+    /// failure path: the channel carries the empty message the worker sends
+    /// after it applies, and the flag says the apply did not happen.
+    pub(crate) fn finished_without_its_worker_apply() -> Self {
+        let (tx, rx) = mpsc::channel();
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        tx.send((Vec::new(), Vec::new())).ok();
+        drop(tx);
+        drop(cache_tx);
+        SectionDetectionHandle {
+            receiver: rx,
+            final_update: Mutex::new(None),
+            cache_receiver: cache_rx,
+            progress: SectionDetectionProgress::new(),
+            worker_applied: Some(Arc::new(AtomicBool::new(false))),
+        }
+    }
+}
+
 /// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
@@ -487,6 +560,7 @@ mod worker_poll_tests {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
+            worker_applied: None,
         };
 
         assert!(matches!(handle.poll_state(), WorkerPoll::Running));
@@ -503,6 +577,7 @@ mod worker_poll_tests {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
+            worker_applied: None,
         };
 
         tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();
@@ -730,6 +805,32 @@ pub struct PersistentEngine {
     /// + calendar); navigating between a handful of sections keeps them all warm
     /// where the old single entry evicted on every hop.
     perf_cache: LruCache<String, SectionPerformanceResult>,
+
+    /// Full computations of `get_section_performances_filtered`, cache hits
+    /// excluded. Exposed so a test can tell a skipped section from a computed
+    /// one without timing it.
+    perf_computations: u64,
+
+    /// Memoised `compute_activity_patterns`, held under the metric row count,
+    /// the newest metric date and the day it was computed on. The clustering
+    /// runs over every metric row and costs 13 to 42 ms, and the insights
+    /// bundle asks for it twice per call. Nothing it reads can move while no
+    /// row is added or removed and no newer activity lands, and the day is in
+    /// the key because a pattern carries `days_since_last`.
+    pattern_cache: Option<(PatternCacheKey, Vec<crate::FfiActivityPattern>)>,
+
+    /// Full computations of `activity_patterns`, memo hits excluded. Exposed
+    /// for the same reason as `perf_computations`.
+    pattern_computations: u64,
+}
+
+/// What the memoised patterns were computed from. A pattern carries
+/// `days_since_last`, so the day is as much a part of the answer as the rows.
+#[derive(PartialEq, Eq)]
+struct PatternCacheKey {
+    metric_count: usize,
+    newest_metric_date: i64,
+    day: i64,
 }
 
 impl PersistentEngine {
@@ -737,6 +838,60 @@ impl PersistentEngine {
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     pub(crate) fn invalidate_perf_cache(&mut self) {
         self.perf_cache.clear();
+    }
+
+    /// How many section performance results have been computed in full.
+    #[doc(hidden)]
+    pub fn performance_computations(&self) -> u64 {
+        self.perf_computations
+    }
+
+    pub(crate) fn note_performance_computation(&mut self) {
+        self.perf_computations += 1;
+    }
+
+    /// How many times the pattern clustering has run.
+    #[doc(hidden)]
+    pub fn pattern_computations(&self) -> u64 {
+        self.pattern_computations
+    }
+
+    /// Activity patterns for the whole library, as of now.
+    pub fn activity_patterns(&mut self) -> Vec<crate::FfiActivityPattern> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        self.activity_patterns_as_of(now)
+    }
+
+    /// Activity patterns for the whole library, memoised on the metric row
+    /// count, the newest metric date and the day `now_ts` falls on.
+    pub fn activity_patterns_as_of(&mut self, now_ts: i64) -> Vec<crate::FfiActivityPattern> {
+        let key = self.pattern_cache_key(now_ts);
+        if let Some((held, patterns)) = &self.pattern_cache
+            && *held == key
+        {
+            return patterns.clone();
+        }
+        let patterns = crate::patterns::compute_activity_patterns(&self.db, &self.activity_metrics);
+        self.pattern_computations += 1;
+        self.pattern_cache = Some((key, patterns.clone()));
+        patterns
+    }
+
+    fn pattern_cache_key(&self, now_ts: i64) -> PatternCacheKey {
+        let newest = self
+            .activity_metrics
+            .values()
+            .map(|m| m.date)
+            .max()
+            .unwrap_or(0);
+        PatternCacheKey {
+            metric_count: self.activity_metrics.len(),
+            newest_metric_date: newest,
+            day: now_ts.div_euclid(86_400),
+        }
     }
 
     /// Drop the Unified evidence cache (and its folded-id shadow) so the next
@@ -806,6 +961,9 @@ impl PersistentEngine {
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
             perf_cache: LruCache::new(std::num::NonZeroUsize::new(8).unwrap()),
+            perf_computations: 0,
+            pattern_cache: None,
+            pattern_computations: 0,
         })
     }
 
@@ -1792,6 +1950,9 @@ pub mod persistent_engine_ffi {
     /// Handle for tracking background tile generation.
     pub static TILE_GENERATION_HANDLE: Lazy<Mutex<Option<TileGenerationHandle>>> =
         Lazy::new(|| Mutex::new(None));
+
+    /// Handle for the running database backup, if any.
+    pub static BACKUP_HANDLE: Lazy<Mutex<Option<BackupHandle>>> = Lazy::new(|| Mutex::new(None));
 }
 
 /// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
@@ -2745,5 +2906,30 @@ mod polyline_overlap_latitude_tests {
             .collect();
 
         assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
+    }
+}
+
+/// Counting commits is how a writer proves it holds one transaction rather
+/// than one autocommit per row, which under the engine lock is one fsync the
+/// JavaScript thread waits out.
+#[cfg(test)]
+pub(crate) mod commit_counter {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::PersistentEngine;
+
+    pub(crate) fn watch(engine: &PersistentEngine) -> Arc<AtomicUsize> {
+        let commits = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&commits);
+        engine.db.commit_hook(Some(move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            false
+        }));
+        commits
+    }
+
+    pub(crate) fn count(commits: &Arc<AtomicUsize>) -> usize {
+        commits.load(Ordering::SeqCst)
     }
 }

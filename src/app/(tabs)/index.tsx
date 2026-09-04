@@ -32,7 +32,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useSummaryCardData } from '@/features/home/hooks';
-import { useInsights } from '@/features/insights';
 import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/features/home/store';
@@ -158,7 +157,7 @@ export default function FeedScreen() {
     return allActivitiesRaw;
   }, [allActivitiesRaw]);
 
-  // Single FFI call for all startup data (insights + summary card + GPS tracks)
+  // One deferred FFI call for what the feed paints: summary card and GPS tracks
   const t2 = PERF_DEBUG ? performance.now() : 0;
   const previewIds = useMemo(
     () =>
@@ -191,15 +190,9 @@ export default function FeedScreen() {
     showSparkline,
     supportingMetrics,
     refetch: refetchSummary,
-  } = useSummaryCardData(startupData?.summaryCardData);
+  } = useSummaryCardData(startupData?.summaryCardData, { awaitPrecomputed: true });
   if (PERF_DEBUG && performance.now() - t0 > 5)
     log.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
-
-  // useInsights uses pre-computed data from startup - never makes its own FFI call on feed
-  const t3 = PERF_DEBUG ? performance.now() : 0;
-  const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
-  if (PERF_DEBUG && performance.now() - t3 > 5)
-    log.log(`  ⏱ useInsights: ${(performance.now() - t3).toFixed(1)}ms`);
 
   if (PERF_DEBUG) {
     const hookTime = performance.now() - renderStart;
@@ -511,7 +504,6 @@ export default function FeedScreen() {
   const prevRenderState = useRef({
     isLoading: false,
     actLen: 0,
-    insLen: 0,
     refetching: false,
     dataRef: null as unknown,
     filteredRef: null as unknown,
@@ -522,14 +514,12 @@ export default function FeedScreen() {
     if (prev.isLoading !== isLoading) changes.push(`isLoading:${prev.isLoading}→${isLoading}`);
     if (prev.actLen !== allActivities.length)
       changes.push(`activities:${prev.actLen}→${allActivities.length}`);
-    if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
     if (prev.refetching !== isRefetching)
       changes.push(`refetching:${prev.refetching}→${isRefetching}`);
     if (prev.dataRef !== data) changes.push('data:newRef');
     if (prev.filteredRef !== filteredActivities) changes.push('filtered:newRef');
     prev.isLoading = isLoading;
     prev.actLen = allActivities.length;
-    prev.insLen = insights.length;
     prev.refetching = isRefetching;
     prev.dataRef = data;
     prev.filteredRef = filteredActivities;
@@ -537,7 +527,7 @@ export default function FeedScreen() {
     const jsxStart = performance.now() - renderStart;
     if (jsxStart > 30)
       log.log(
-        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'} | insights: ${insights.length}`
+        `  ⏱ Hooks→JSX: ${jsxStart.toFixed(0)}ms | activities: ${allActivities.length} | startup: ${startupData ? 'ready' : 'pending'}`
       );
     if (changes.length > 0) log.log(`  🔄 State changes: ${changes.join(', ')}`);
   }

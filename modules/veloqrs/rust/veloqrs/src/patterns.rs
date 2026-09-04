@@ -135,11 +135,9 @@ pub fn compute_activity_patterns(
 
 /// Get the best-matching pattern for today's day of week and current season.
 /// Returns the highest-confidence pattern within +/-1 day tolerance.
-pub fn get_pattern_for_today(
-    db: &Connection,
-    activity_metrics: &HashMap<String, ActivityMetrics>,
+pub fn pattern_for_today(
+    all_patterns: &[crate::FfiActivityPattern],
 ) -> Option<crate::FfiActivityPattern> {
-    let all_patterns = compute_activity_patterns(db, activity_metrics);
     if all_patterns.is_empty() {
         return None;
     }
