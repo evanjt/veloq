@@ -400,51 +400,23 @@ impl FitnessManager {
         with_engine(|e| e.insights_data(&params))
     }
 
-    /// All data the feed screen needs in a single engine lock.
-    /// Combines insights + summary card + GPS preview tracks + cached metric IDs.
-    /// Reduces 20+ FFI calls to 1.
+    /// The feed's first paint in a single engine lock: the summary card and
+    /// the GPS preview tracks. `params` supplies the summary card's two week
+    /// windows; the rest of the insights bundle is fetched by the insights tab
+    /// when it opens, not here.
     fn get_startup_data(
         &self,
         params: crate::FfiInsightsParams,
         preview_activity_ids: Vec<String>,
     ) -> Result<crate::FfiStartupData, VeloqError> {
         with_engine(|e| {
-            let insights = e.insights_data(&params);
-
-            // Summary card reuses the period stats and trends just computed.
-            let summary_card = crate::FfiSummaryCardData {
-                current_week: insights.current_week.clone(),
-                prev_week: insights.previous_week.clone(),
-                ftp_trend: insights.ftp_trend.clone(),
-                run_pace_trend: insights.run_pace_trend.clone(),
-                swim_pace_trend: e.get_pace_trend("Swim"),
-            };
-
-            // === GPS preview tracks (simplified ~100 points via Douglas-Peucker) ===
-            // Uses route signatures instead of full GPS tracks (4000+ → ~100 points)
-            let preview_tracks: Vec<crate::FfiPreviewTrack> = preview_activity_ids
-                .iter()
-                .filter_map(|id| {
-                    let sig = e.get_signature(id)?;
-                    if sig.points.is_empty() {
-                        return None;
-                    }
-                    Some(crate::FfiPreviewTrack {
-                        activity_id: id.clone(),
-                        encoded_coords: crate::coords::encode(&sig.points),
-                    })
-                })
-                .collect();
-
-            // === Cached metric IDs (for sync skip check) ===
-            let cached_metric_ids = e.get_activity_metric_ids();
-
-            crate::FfiStartupData {
-                insights,
-                summary_card,
-                preview_tracks,
-                cached_metric_ids,
-            }
+            e.startup_data(
+                params.current_start,
+                params.current_end,
+                params.prev_start,
+                params.prev_end,
+                &preview_activity_ids,
+            )
         })
     }
 

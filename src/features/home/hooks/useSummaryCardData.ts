@@ -96,8 +96,16 @@ type PrecomputedCardData = any;
  *
  * When `precomputedCardData` is provided (from getStartupData), skips the
  * redundant getSummaryCardData FFI call and uses the pre-fetched data instead.
+ *
+ * `awaitPrecomputed` is for the feed, whose bundle arrives after the first
+ * paint: it renders defaults until then rather than putting its own read back
+ * on the render path. A caller with no bundle at all leaves it off and keeps
+ * the direct read.
  */
-export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): SummaryCardData {
+export function useSummaryCardData(
+  precomputedCardData?: PrecomputedCardData,
+  { awaitPrecomputed = false }: { awaitPrecomputed?: boolean } = {}
+): SummaryCardData {
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -217,6 +225,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     let cardData = precomputedCardData;
 
     if (!cardData) {
+      if (awaitPrecomputed) return defaults;
       const engine = getEngine();
       if (!engine) return defaults;
 
@@ -284,7 +293,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
         0.05
       ),
     };
-  }, [precomputedCardData, engineTrigger]);
+  }, [precomputedCardData, awaitPrecomputed, engineTrigger]);
 
   // Merged quick stats - recomputes only when either source changes
   const quickStats = useMemo(

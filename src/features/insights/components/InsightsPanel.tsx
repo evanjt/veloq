@@ -10,10 +10,12 @@ import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import type { Insight } from '@/types';
+import type { ActivityPattern, Insight } from '@/types';
 
 interface InsightsPanelProps {
   insights: Insight[];
+  /** Today's pattern from the same insights bundle the list was built from */
+  todayPattern: ActivityPattern | null;
   /**
    * If set, opens the matching insight's detail sheet on mount. Set by a tapped
    * insight notification (`/(tabs)/insights?insightId=...`). Calls
@@ -26,6 +28,7 @@ interface InsightsPanelProps {
 
 export const InsightsPanel = React.memo(function InsightsPanel({
   insights,
+  todayPattern,
   initialInsightId,
   onInsightOpened,
 }: InsightsPanelProps) {
@@ -53,7 +56,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
     <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Pressable onLongPress={handleLongPress} delayLongPress={800}>
-          <TodayBanner />
+          <TodayBanner todayPattern={todayPattern} />
         </Pressable>
         {insights.length > 0 ? (
           <View style={styles.cardList} testID="insights-card-list">

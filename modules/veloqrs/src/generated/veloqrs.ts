@@ -7743,14 +7743,13 @@ const FfiConverterTypeFfiStalePrOpportunity = (() => {
 })();
 
 /**
- * All data needed for the feed screen on startup in one call.
- * Reduces 20+ FFI calls to 1.
+ * The two things the feed paints on its first pass, in one call.
+ *
+ * The insights record and the cached metric id list used to ride along here.
+ * Neither reached the screen: the insights tab fetches its own copy when it
+ * opens, and nothing ever read the id list.
  */
 export type FfiStartupData = {
-  /**
-   * Insights data (replaces getInsightsData)
-   */
-  insights: FfiInsightsData;
   /**
    * Summary card data (replaces getSummaryCardData)
    */
@@ -7759,10 +7758,6 @@ export type FfiStartupData = {
    * GPS tracks for initial visible activities (replaces N × getGpsTrack)
    */
   previewTracks: Array<FfiPreviewTrack>;
-  /**
-   * Activity IDs with cached metrics (for sync skip check)
-   */
-  cachedMetricIds: Array<string>;
 };
 
 /**
@@ -7787,26 +7782,18 @@ const FfiConverterTypeFfiStartupData = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        insights: FfiConverterTypeFfiInsightsData.read(from),
         summaryCard: FfiConverterTypeFfiSummaryCardData.read(from),
         previewTracks: FfiConverterArrayTypeFfiPreviewTrack.read(from),
-        cachedMetricIds: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterTypeFfiInsightsData.write(value.insights, into);
       FfiConverterTypeFfiSummaryCardData.write(value.summaryCard, into);
       FfiConverterArrayTypeFfiPreviewTrack.write(value.previewTracks, into);
-      FfiConverterArrayString.write(value.cachedMetricIds, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterTypeFfiInsightsData.allocationSize(value.insights) +
         FfiConverterTypeFfiSummaryCardData.allocationSize(value.summaryCard) +
-        FfiConverterArrayTypeFfiPreviewTrack.allocationSize(
-          value.previewTracks,
-        ) +
-        FfiConverterArrayString.allocationSize(value.cachedMetricIds)
+        FfiConverterArrayTypeFfiPreviewTrack.allocationSize(value.previewTracks)
       );
     }
   }
@@ -10837,9 +10824,10 @@ export interface FitnessManagerLike {
     days: /*i64*/ bigint,
   ) /*throws*/ : string | undefined;
   /**
-   * All data the feed screen needs in a single engine lock.
-   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
-   * Reduces 20+ FFI calls to 1.
+   * The feed's first paint in a single engine lock: the summary card and
+   * the GPS preview tracks. `params` supplies the summary card's two week
+   * windows; the rest of the insights bundle is fetched by the insights tab
+   * when it opens, not here.
    */
   getStartupData(
     params: FfiInsightsParams,
@@ -11203,9 +11191,10 @@ export class FitnessManager
   }
 
   /**
-   * All data the feed screen needs in a single engine lock.
-   * Combines insights + summary card + GPS preview tracks + cached metric IDs.
-   * Reduces 20+ FFI calls to 1.
+   * The feed's first paint in a single engine lock: the summary card and
+   * the GPS preview tracks. `params` supplies the summary card's two week
+   * windows; the rest of the insights bundle is fetched by the insights tab
+   * when it opens, not here.
    */
   getStartupData(
     params: FfiInsightsParams,
