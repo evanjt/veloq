@@ -1038,6 +1038,7 @@
     "defaultName": "Sección {{number}}",
     "deleteSection": "Eliminar sección",
     "deleteSectionConfirm": "¿Estás seguro de que quieres eliminar esta sección? Esta acción no se puede deshacer.",
+    "detectionPaused": "Detección en pausa mientras se migran tus secciones",
     "disabled": "Desactivada",
     "removeSection": "Eliminar sección",
     "removeSectionConfirm": "Esta sección no aparecerá en los detalles de actividad ni en las estadísticas. Puedes restaurarla desde la lista de secciones.",

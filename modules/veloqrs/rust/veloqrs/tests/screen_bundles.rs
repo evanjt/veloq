@@ -674,16 +674,14 @@ fn pattern_library() -> Setup {
 }
 
 /// Every field of every pattern, ordered by the day the pattern sits on.
-/// `cluster_id` is a label k-means hands out in the order it happened to seed,
-/// which depends on the order the metric map yields its rows, so it is the one
-/// field that cannot be compared between two engines.
 fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
     let mut shaped: Vec<String> = patterns
         .iter()
         .map(|p| {
             format!(
-                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{:?}",
+                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{:?}",
                 p.sport_type,
+                p.cluster_id,
                 p.primary_day,
                 p.season_label,
                 p.activity_count,

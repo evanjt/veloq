@@ -909,6 +909,9 @@ export interface TranslationResource {
     sectionWord: string;
     setAsReference: string;
     setAsReferenceConfirm: string;
+    standingBest: string;
+    standingRank: string;
+    standingRankPercentile: string;
   };
 
   sectionHistory: {
@@ -1001,6 +1004,7 @@ export interface TranslationResource {
     splitSouth: string;
     splitWest: string;
     defaultName: string;
+    detectionPaused: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
