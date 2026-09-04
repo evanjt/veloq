@@ -43,7 +43,7 @@ onFlowComplete:
       id: "recording-settings-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-settings-loaded"
+- takeScreenshot: "screenshots/recording-settings-loaded"
 
 # The auto-pause card starts under the tab bar, where a tap lands on a tab.
 - swipe:
@@ -54,7 +54,7 @@ onFlowComplete:
 - assertVisible:
     id: "settings-auto-pause"
 
-- takeScreenshot: "recording-settings-auto-pause"
+- takeScreenshot: "screenshots/recording-settings-auto-pause"
 
 # Tap auto-pause toggle to disable
 - tapOn:
@@ -72,14 +72,14 @@ onFlowComplete:
 - tapOn:
     id: "settings-threshold-cycling-plus"
 
-- takeScreenshot: "recording-settings-threshold-adjusted"
+- takeScreenshot: "screenshots/recording-settings-threshold-adjusted"
 
 # Scroll down to see data fields
 - scroll
 
-- takeScreenshot: "recording-settings-data-fields"
+- takeScreenshot: "screenshots/recording-settings-data-fields"
 
 # Navigate back using back button
 - back
 
-- takeScreenshot: "recording-settings-complete"
+- takeScreenshot: "screenshots/recording-settings-complete"

@@ -57,7 +57,7 @@ tags:
     id: "support-section"
     optional: true
 
-- takeScreenshot: "settings-support-section"
+- takeScreenshot: "screenshots/settings-support-section"
 
 # These exact strings are what the App Store reviewer screenshotted.
 # They must NEVER appear in the Support section after the fallback removal.
@@ -202,7 +202,7 @@ tags:
 - tapOn:
     id: "debug-support-preset-31d"
 
-- takeScreenshot: "support-debug-set-31d-ago"
+- takeScreenshot: "screenshots/support-debug-set-31d-ago"
 
 # ---- Surface 2: Home feed → SupportCard ----
 
@@ -228,7 +228,7 @@ tags:
 - assertVisible:
     id: "support-card"
 
-- takeScreenshot: "support-card-collapsed"
+- takeScreenshot: "screenshots/support-card-collapsed"
 
 # Expand the "Support development" section to reveal tip buttons
 - tapOn:
@@ -246,7 +246,7 @@ tags:
     timeout: 3000
     optional: true
 
-- takeScreenshot: "support-card-expanded"
+- takeScreenshot: "screenshots/support-card-expanded"
 
 # Same regression check on this surface, fake labels must not appear
 - assertNotVisible:
@@ -263,4 +263,4 @@ tags:
     id: "support-card-sponsor-button"
     optional: true
 
-- takeScreenshot: "support-iap-complete"
+- takeScreenshot: "screenshots/support-iap-complete"

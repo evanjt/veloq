@@ -35,7 +35,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 
-- takeScreenshot: "dark-mode-settings"
+- takeScreenshot: "screenshots/dark-mode-settings"
 
 # ====================================================================
 # Feed in dark mode
@@ -53,7 +53,7 @@ tags:
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 1500
-- takeScreenshot: "dark-mode-feed"
+- takeScreenshot: "screenshots/dark-mode-feed"
 
 # ====================================================================
 # Activity detail Sections tab, where most v0.3.0 dark-mode fixes apply
@@ -78,7 +78,7 @@ tags:
     visible:
       id: "activity-sections-list"
     timeout: 10000
-- takeScreenshot: "dark-mode-sections-tab"
+- takeScreenshot: "screenshots/dark-mode-sections-tab"
 
 # ====================================================================
 # Section detail in dark mode, sparklines + trophy + summary card
@@ -99,7 +99,7 @@ tags:
     visible:
       id: "section-detail-screen"
     timeout: 15000
-- takeScreenshot: "dark-mode-section-detail"
+- takeScreenshot: "screenshots/dark-mode-section-detail"
 
 # ====================================================================
 # Regional map heatmap contrast
@@ -114,7 +114,7 @@ tags:
     id: "map-toggle-heatmap"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "dark-mode-map-heatmap"
+- takeScreenshot: "screenshots/dark-mode-map-heatmap"
 
 # ====================================================================
 # Restore to light so the next run starts clean.

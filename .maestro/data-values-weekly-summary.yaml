@@ -63,4 +63,4 @@ tags:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-weekly-summary-complete"
+- takeScreenshot: "screenshots/data-values-weekly-summary-complete"

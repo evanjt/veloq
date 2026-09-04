@@ -12,6 +12,8 @@
     "android:prod": "APP_VARIANT=production npx expo run:android --variant release",
     "ios": "npx expo run:ios",
     "ios:prod": "APP_VARIANT=production npx expo run:ios --configuration Release",
+    "test:rust": "cd modules/veloqrs/rust && cargo test -p veloqrs",
+    "test:rust:synthetic": "cd modules/veloqrs/rust && cargo test -p veloqrs --features synthetic",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
     "clean:rust:full": "npm run clean:full --prefix modules/veloqrs",
     "rebuild:android": "npm run clean:rust && npx expo run:android",
@@ -52,6 +54,7 @@
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
     "ffi:usage": "npx tsx scripts/ffi-usage-report.ts",
     "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused",
+    "ffi:reach": "npx tsx scripts/ffi-usage-report.ts --check",
     "ffi:orphans": "node scripts/engine-orphan-report.mjs",
     "gen:widget-theme": "npx tsx scripts/gen-widget-theme.ts",
     "check:expo": "node scripts/check-expo-sdk.mjs",
@@ -67,7 +70,7 @@
     "lint:render-engine-reads": "node scripts/lint-render-engine-reads.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling",
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {

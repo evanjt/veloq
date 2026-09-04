@@ -68,7 +68,7 @@ onFlowComplete:
       id: "sensor-settings-screen"
     timeout: 10000
 
-- takeScreenshot: "sensor-settings"
+- takeScreenshot: "screenshots/sensor-settings"
 
 # Back out
 - tapOn:

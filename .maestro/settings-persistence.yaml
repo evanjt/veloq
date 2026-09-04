@@ -27,7 +27,7 @@ tags:
 - tapOn:
     id: "theme-button-dark"
 
-- takeScreenshot: "settings-persistence-dark-set"
+- takeScreenshot: "screenshots/settings-persistence-dark-set"
 
 # Navigate away to fitness
 - openLink: "veloq://fitness"
@@ -41,7 +41,7 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-- takeScreenshot: "settings-persistence-navigated-away"
+- takeScreenshot: "screenshots/settings-persistence-navigated-away"
 
 # Navigate back to display settings
 - openLink: "veloq://display-settings"
@@ -62,10 +62,10 @@ tags:
     id: "theme-button-dark"
     optional: true
 
-- takeScreenshot: "settings-persistence-returned"
+- takeScreenshot: "screenshots/settings-persistence-returned"
 
 # Reset to system theme
 - tapOn:
     id: "theme-button-system"
 
-- takeScreenshot: "settings-persistence-complete"
+- takeScreenshot: "screenshots/settings-persistence-complete"

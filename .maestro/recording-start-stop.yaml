@@ -61,7 +61,7 @@ onFlowComplete:
       id: "recording-timer"
     timeout: 10000
 
-- takeScreenshot: "recording-active"
+- takeScreenshot: "screenshots/recording-active"
 
 # Unlock by sliding the track handle right
 # Swipe the full width of the track. A direction swipe anchored to the handle
@@ -91,7 +91,7 @@ onFlowComplete:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "recording-unlocked"
+- takeScreenshot: "screenshots/recording-unlocked"
 
 # Tap pause (recording → paused state)
 - tapOn:
@@ -103,7 +103,7 @@ onFlowComplete:
       id: "control-resume"
     timeout: 5000
 
-- takeScreenshot: "recording-paused"
+- takeScreenshot: "screenshots/recording-paused"
 
 # Resume the recording
 - tapOn:
@@ -115,7 +115,7 @@ onFlowComplete:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "recording-resumed"
+- takeScreenshot: "screenshots/recording-resumed"
 
 # Pause again before stopping
 - tapOn:
@@ -140,7 +140,7 @@ onFlowComplete:
 - assertVisible:
     id: "review-discard-button"
 
-- takeScreenshot: "recording-review-screen"
+- takeScreenshot: "screenshots/recording-review-screen"
 
 # Long-press discard to return to home
 - longPressOn:
@@ -152,4 +152,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-start-stop-complete"
+- takeScreenshot: "screenshots/recording-start-stop-complete"

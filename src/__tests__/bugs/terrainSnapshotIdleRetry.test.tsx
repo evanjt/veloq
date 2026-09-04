@@ -130,6 +130,37 @@ describe('the snapshot pool retries a failure when the queue goes idle', () => {
     expect(rendered()).toEqual(['a1', 'a1']);
   });
 
+  it('still has the request to retry after the idle drain has skipped it', () => {
+    pool().requestSnapshot(request('a1'));
+    // Three failures: two exhaust the in-flight ladder and land it in the
+    // failed map, the third is the idle retry failing in its turn.
+    for (let i = 1; i <= 3; i++) {
+      post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: i });
+    }
+    expect(rendered()).toEqual(['a1', 'a1', 'a1']);
+
+    // The drain that skips a key it has already retried must leave the entry
+    // where it found it. Dropping it is what made the card unrecoverable.
+    pool().retryFailed();
+
+    expect(rendered()).toEqual(['a1', 'a1', 'a1', 'a1']);
+  });
+
+  it('lets the idle drain retry again after a pull to refresh', () => {
+    pool().requestSnapshot(request('a1'));
+    for (let i = 1; i <= 3; i++) {
+      post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: i });
+    }
+
+    // Pull to refresh is the reset: the one idle retry per key is spent, and
+    // this is the athlete asking again.
+    pool().retryFailed();
+    post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: 4 });
+    post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: 5 });
+
+    expect(rendered()).toEqual(['a1', 'a1', 'a1', 'a1', 'a1', 'a1']);
+  });
+
   it('keeps the drape and the flat basemap apart while one is in flight', () => {
     pool().requestSnapshot(request('a1', true));
     pool().requestSnapshot(request('a1', false));

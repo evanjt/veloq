@@ -53,11 +53,11 @@ tags:
           id: "section-lap-undo-.*"
       - assertVisible:
           id: "section-partly-excluded"
-      - takeScreenshot: "section-lap-excluded"
+      - takeScreenshot: "screenshots/section-lap-excluded"
       - tapOn:
           id: "section-lap-undo-.*"
           index: 0
       - assertNotVisible:
           id: "section-partly-excluded"
 
-- takeScreenshot: "section-exclude-lap"
+- takeScreenshot: "screenshots/section-exclude-lap"
