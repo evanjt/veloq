@@ -1038,6 +1038,7 @@
     "defaultName": "Abschnitt {{number}}",
     "deleteSection": "Abschnitt lösche",
     "deleteSectionConfirm": "Wötsch de Abschnitt würklich lösche? Das chasch nöd rückgängig mache.",
+    "detectionPaused": "Erkennig pausiert, während dini Abschnitt migriert werded",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entferne",
     "removeSectionConfirm": "De Abschnitt wird nöd meh i de Aktivitätsdetails oder Insights azeigt. Du chasch ihn us de Lischte widerherstelle.",

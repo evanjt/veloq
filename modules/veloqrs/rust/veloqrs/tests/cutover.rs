@@ -7,7 +7,7 @@ use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::persistence::cutover::CutoverOutcome;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
-use veloqrs::persistence::sections::DETECTOR_METHOD;
+use veloqrs::persistence::sections::{DETECTION_PHASE_CUTOVER_OWED, DETECTOR_METHOD};
 use veloqrs::persistence::with_persistent_engine;
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -429,6 +429,81 @@ fn no_section_keeps_an_older_build_geometry_across_the_cutover() {
         "{} of {total} migrated sections carry a line no activity can re-slice",
         stranded.len()
     );
+}
+
+/// SB12: any detect at all used to move the catalogue's detector marker, which
+/// retires the cutover. On the upgrade path that meant a sync-triggered detect
+/// could re-cut the pre-0.4.0 catalogue and stamp it Unified before anything
+/// had captured it, losing the migration and its revert with it.
+#[test]
+fn detection_is_refused_while_a_cutover_is_owed() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    assert!(veloqrs::ffi::is_cutover_pending());
+    let before = with_persistent_engine(|e| e.get_sections().len()).unwrap();
+
+    let phase =
+        with_persistent_engine(|e| e.detect_sections_background().get_progress().0).unwrap();
+    assert_eq!(phase, DETECTION_PHASE_CUTOVER_OWED);
+
+    // The marker still says no detector, so the cutover is still owed and the
+    // catalogue is the one the user arrived with.
+    assert_eq!(
+        with_persistent_engine(|e| e.catalogue_detection_method()).unwrap(),
+        None
+    );
+    assert_eq!(
+        with_persistent_engine(|e| e.get_sections().len()).unwrap(),
+        before
+    );
+    assert!(veloqrs::ffi::is_cutover_pending());
+}
+
+/// The conditioning arm is the one SB12's failing case runs down: a sync adds
+/// activities, the backfill defers, and nothing else holds a detect back.
+#[test]
+fn conditioning_will_not_start_while_a_cutover_is_owed() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    assert!(!veloqrs::persistence::sections::conditioning::try_start_conditioning());
+    assert!(veloqrs::ffi::is_cutover_pending());
+}
+
+/// Once the cutover has run the gate lifts, or the install would never detect
+/// again.
+#[test]
+fn detection_resumes_once_the_cutover_is_done() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().expect("cutover");
+    assert!(!veloqrs::ffi::is_cutover_pending());
+
+    let phase =
+        with_persistent_engine(|e| e.detect_sections_background().get_progress().0).unwrap();
+    assert_ne!(phase, DETECTION_PHASE_CUTOVER_OWED);
+}
+
+/// A fresh install is owed nothing, so the gate must never close on one.
+#[test]
+fn a_fresh_install_detects_normally() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
+
+    assert!(!veloqrs::ffi::is_cutover_pending());
+    let phase =
+        with_persistent_engine(|e| e.detect_sections_background().get_progress().0).unwrap();
+    assert_ne!(phase, DETECTION_PHASE_CUTOVER_OWED);
 }
 
 /// Content-derived ids make one cut reproducible. They do not make two devices

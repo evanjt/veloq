@@ -1036,6 +1036,7 @@
     "acceptAllSections": "Accept All",
     "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
     "acceptedCount": "Accepted {{count}} sections",
+    "detectionPaused": "Detection paused while your sections migrate",
     "pinned": "Pinned to a version",
     "elevationGain": "Elevation gain",
     "avgGrade": "Avg grade",
