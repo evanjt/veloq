@@ -178,10 +178,25 @@ export default function ActivityDetailScreen() {
   const { data: athlete } = useAthlete();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
+  // Memoised so a chart scrub, which re-renders this screen per touch move,
+  // hands the hooks the same bundle wrapper rather than a fresh literal.
+  const preComputedMatches = useMemo(
+    () =>
+      detail ? { sections: detail.matchedSections, sectionCount: detail.sectionCount } : undefined,
+    [detail]
+  );
+  const preComputedOverlays = useMemo(
+    () =>
+      detail
+        ? { sectionTraces: detail.sectionTraces, prSectionIds: detail.prSectionIds }
+        : undefined,
+    [detail]
+  );
+
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(
     interactive ? id : undefined,
-    detail ? { sections: detail.matchedSections, sectionCount: detail.sectionCount } : undefined
+    preComputedMatches
   );
 
   // Scan for additional section matches
@@ -216,7 +231,7 @@ export default function ActivityDetailScreen() {
     engineSectionMatches,
     customMatchedSections,
     coordinates,
-    detail ? { sectionTraces: detail.sectionTraces, prSectionIds: detail.prSectionIds } : undefined
+    preComputedOverlays
   );
 
   // Sort encounters by where each section starts within this activity so the
