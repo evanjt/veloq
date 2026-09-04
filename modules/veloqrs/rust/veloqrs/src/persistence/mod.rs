@@ -2825,3 +2825,28 @@ mod polyline_overlap_latitude_tests {
         assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
     }
 }
+
+/// Counting commits is how a writer proves it holds one transaction rather
+/// than one autocommit per row, which under the engine lock is one fsync the
+/// JavaScript thread waits out.
+#[cfg(test)]
+pub(crate) mod commit_counter {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::PersistentEngine;
+
+    pub(crate) fn watch(engine: &PersistentEngine) -> Arc<AtomicUsize> {
+        let commits = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&commits);
+        engine.db.commit_hook(Some(move || {
+            seen.fetch_add(1, Ordering::SeqCst);
+            false
+        }));
+        commits
+    }
+
+    pub(crate) fn count(commits: &Arc<AtomicUsize>) -> usize {
+        commits.load(Ordering::SeqCst)
+    }
+}
