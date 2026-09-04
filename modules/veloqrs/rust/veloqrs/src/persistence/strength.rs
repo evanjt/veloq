@@ -35,6 +35,25 @@ impl FitOutcome {
 impl PersistentEngine {
     /// Store parsed exercise sets for an activity.
     pub fn store_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
+        if sets.is_empty() {
+            return Ok(());
+        }
+
+        // One transaction for the session. A set per autocommit paid an fsync
+        // apiece under the engine lock, so a thirty-set session held every
+        // screen read out thirty times.
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.write_exercise_sets(activity_id, sets) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+        Ok(())
+    }
+
+    fn write_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
         let mut stmt = self.db.prepare(
             "INSERT OR REPLACE INTO exercise_sets
              (activity_id, set_order, exercise_category, exercise_name,
@@ -234,5 +253,81 @@ impl PersistentEngine {
             result.insert(id, (name, date));
         }
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::commit_counter;
+    use super::*;
+    use tempfile::TempDir;
+
+    fn engine() -> (TempDir, PersistentEngine) {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        (dir, engine)
+    }
+
+    fn set(order: u32) -> FitExerciseSet {
+        FitExerciseSet {
+            set_order: order,
+            exercise_category: 3,
+            exercise_name: Some(7),
+            set_type: 0,
+            repetitions: Some(10),
+            weight_kg: Some(60.0),
+            duration_secs: Some(45.0),
+            start_time: Some(1_700_000_000 + order as i64),
+        }
+    }
+
+    /// A session's sets were written one autocommit each, so thirty sets was
+    /// thirty fsyncs under the engine lock.
+    #[test]
+    fn a_session_of_sets_is_one_commit() {
+        let (_dir, engine) = engine();
+        let commits = commit_counter::watch(&engine);
+
+        let sets: Vec<FitExerciseSet> = (0..30).map(set).collect();
+        engine.store_exercise_sets("a1", &sets).unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert_eq!(engine.get_exercise_sets("a1").unwrap().len(), 30);
+    }
+
+    #[test]
+    fn re_storing_the_same_session_is_one_commit() {
+        let (_dir, engine) = engine();
+        let sets: Vec<FitExerciseSet> = (0..30).map(set).collect();
+        engine.store_exercise_sets("a1", &sets).unwrap();
+
+        let commits = commit_counter::watch(&engine);
+        engine.store_exercise_sets("a1", &sets).unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert_eq!(engine.get_exercise_sets("a1").unwrap().len(), 30);
+    }
+
+    #[test]
+    fn a_session_with_no_sets_writes_nothing() {
+        let (_dir, engine) = engine();
+        let commits = commit_counter::watch(&engine);
+
+        engine.store_exercise_sets("a1", &[]).unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 0);
+        assert!(engine.get_exercise_sets("a1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_failed_session_write_leaves_no_sets_behind() {
+        let (_dir, engine) = engine();
+        engine.db.execute_batch("DROP TABLE exercise_sets").unwrap();
+
+        let sets: Vec<FitExerciseSet> = (0..3).map(set).collect();
+
+        assert!(engine.store_exercise_sets("a1", &sets).is_err());
+        assert!(engine.db.is_autocommit());
     }
 }
