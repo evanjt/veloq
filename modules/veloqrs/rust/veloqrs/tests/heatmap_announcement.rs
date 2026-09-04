@@ -4,12 +4,20 @@
 //! waiting screen hears it instead of draining the worker's receiver on a
 //! timer.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::objects::observer::{EngineObserver, set_observer};
+
+/// Both tests install the process-global observer and drain the equally global
+/// tile-generation handle, so they cannot overlap: the winner would record the
+/// loser's announcement as a second one of its own.
+static SERIAL: Mutex<()> = Mutex::new(());
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// Counts the announcements it hears, in order.
 struct Recorder {
@@ -80,6 +88,7 @@ fn drain_pass() {
 
 #[test]
 fn a_finished_tile_pass_announces_itself() {
+    let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles).expect("create tiles dir");
@@ -95,6 +104,7 @@ fn a_finished_tile_pass_announces_itself() {
 
 #[test]
 fn a_pass_run_with_nobody_listening_is_not_an_error() {
+    let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles).expect("create tiles dir");
