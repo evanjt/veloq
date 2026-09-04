@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "缓存已清除",
-    "cacheCorruptionMessage": "本地数据缓存已损坏并已清除。您的数据将从服务器重新加载。",
     "clearCacheMessage": "这将清除所有缓存的活动数据、活动轨迹和路线匹配数据，然后开始重新加载。这可能需要几分钟。",
     "clearCacheTitle": "清除并重新加载缓存",
     "clearReload": "清除并重新加载",
@@ -311,7 +310,6 @@
     "hideDetails": "隐藏详情",
     "loading": "加载中...",
     "loadingMore": "加载更多...",
-    "ok": "确定",
     "or": "或",
     "pullToRefresh": "下拉刷新",
     "reset": "重置",

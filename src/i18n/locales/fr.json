@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache vidé",
-    "cacheCorruptionMessage": "Le cache de données local était corrompu et a été vidé. Vos données seront actualisées depuis le serveur.",
     "clearCacheMessage": "Cela effacera toutes les données d'activités en cache, les traces d'activités et les données de correspondance de parcours, puis commencera à recharger. Cela peut prendre quelques minutes.",
     "clearCacheTitle": "Effacer et recharger le cache",
     "clearReload": "Effacer et recharger",
@@ -311,7 +310,6 @@
     "hideDetails": "Masquer les détails",
     "loading": "Chargement...",
     "loadingMore": "Chargement...",
-    "ok": "OK",
     "or": "ou",
     "pullToRefresh": "Tirer pour actualiser",
     "reset": "Réinitialiser",

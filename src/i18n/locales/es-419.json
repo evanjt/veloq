@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Caché borrada",
-    "cacheCorruptionMessage": "El caché de datos local estaba dañado y se borró. Tus datos se actualizarán desde el servidor.",
     "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos.",
     "clearCacheTitle": "Borrar y recargar caché",
     "clearReload": "Borrar y recargar",
@@ -311,7 +310,6 @@
     "hideDetails": "Ocultar detalles",
     "loading": "Cargando...",
     "loadingMore": "Cargando más...",
-    "ok": "OK",
     "or": "o",
     "pullToRefresh": "Desliza para actualizar",
     "reset": "Restablecer",
