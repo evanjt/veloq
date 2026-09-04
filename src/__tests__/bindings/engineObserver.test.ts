@@ -45,9 +45,7 @@ it('routes every observer method onto its channel', async () => {
     'cutoverSettled',
     'previewFinished',
   ];
-  const offs = channels.map((c) =>
-    client.subscribe(c, (payload) => seen.push([c, payload]))
-  );
+  const offs = channels.map((c) => client.subscribe(c, (payload) => seen.push([c, payload])));
 
   observer.syncProgress();
   observer.bodyStored('power_curve', 'a1');
