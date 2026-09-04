@@ -14,6 +14,7 @@
 //! on, while still running their I/O on the shared runtime.
 
 use super::error::VeloqError;
+use super::observer;
 #[cfg(test)]
 use crate::governor;
 use crate::governor::{AuthMethod, Lane};
@@ -330,20 +331,27 @@ impl SyncService {
 
     /// Advance the completed counter by one step.
     fn complete_step(&self) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        inner.completed = (inner.completed + 1).min(inner.total);
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.completed = (inner.completed + 1).min(inner.total);
+        }
+        observer::notify(|o| o.sync_progress());
     }
 
-    /// Terminal transition for a finished job.
+    /// Terminal transition for a finished job. The one place a job ends, so it
+    /// is the one place the settle is announced.
     pub fn finish(&self, state: SyncState, last_error: Option<String>, success: bool) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        inner.state = state;
-        inner.running = false;
-        inner.in_flight = 0;
-        if success {
-            inner.completed = inner.total;
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            inner.state = state;
+            inner.running = false;
+            inner.in_flight = 0;
+            if success {
+                inner.completed = inner.total;
+            }
+            inner.last_error = last_error;
         }
-        inner.last_error = last_error;
+        observer::notify(|o| o.sync_settled());
     }
 
     /// Soft cancel: flag the loop so it stops dispatching new work. An in-flight

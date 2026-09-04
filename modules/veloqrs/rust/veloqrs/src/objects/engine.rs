@@ -27,6 +27,12 @@ impl VeloqEngine {
         Arc::new(Self)
     }
 
+    /// Register the listener Rust calls when work finishes off the JavaScript
+    /// thread. One per process; a second call replaces the first.
+    fn set_observer(&self, observer: Option<Arc<dyn crate::objects::observer::EngineObserver>>) {
+        crate::objects::observer::set_observer(observer);
+    }
+
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
             .read()
