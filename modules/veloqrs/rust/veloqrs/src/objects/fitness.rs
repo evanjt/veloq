@@ -228,9 +228,12 @@ impl FitnessManager {
     fn get_activity_patterns_with_today(
         &self,
     ) -> Result<crate::FfiActivityPatternsBundle, VeloqError> {
-        with_engine(|e| crate::FfiActivityPatternsBundle {
-            today: crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics),
-            all: crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics),
+        with_engine(|e| {
+            let all = e.activity_patterns();
+            crate::FfiActivityPatternsBundle {
+                today: crate::patterns::pattern_for_today(&all),
+                all,
+            }
         })
     }
 
