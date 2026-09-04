@@ -66,8 +66,12 @@ const ALLOWLIST = new Map([
 // A memo dep that makes the read re-run when the engine's data changes. A
 // subscription counter is the trigger, however the caller names it; a
 // precomputed value is the caller having already read it, so the memo's own
-// read is the fallback path and stays as stale as its input.
-const KEYED_DEP = /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed/i;
+// read is the fallback path and stays as stale as its input. A screen bundle
+// hoisted out of its wrapper into a local is the same thing under the other
+// name the codebase uses for it, and keys on the array rather than on the
+// literal the screen rebuilds each render, so `bundled` counts too.
+const KEYED_DEP =
+  /trigger|refresh|refetch|reload|nonce|revision|version|tick|precomputed|bundled/i;
 
 // Does a memo's dep list carry something that re-runs it after a sync?
 function memoIsKeyed(deps) {

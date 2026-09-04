@@ -163,6 +163,25 @@ describe('render-time engine read lint', () => {
     expect(runLint(root).status).toBe(0);
   });
 
+  it('passes a useMemo read keyed on a precomputed value hoisted out of its wrapper', () => {
+    // Scenario: a screen bundle is hoisted into a local so the memo keys on the
+    // bundle's own array rather than the wrapper literal the screen rebuilds.
+    // Expected behaviour: the hoisted local is still a precomputed value.
+    const root = withHook(
+      [
+        'export function useThing(preComputed?: { metrics: number[] }) {',
+        '  const bundledMetrics = preComputed?.metrics;',
+        '  return useMemo(',
+        '    () => bundledMetrics ?? getEngine()?.getActivityMetrics() ?? [],',
+        '    [bundledMetrics]',
+        '  );',
+        '}',
+        '',
+      ].join('\n')
+    );
+    expect(runLint(root).status).toBe(0);
+  });
+
   it('ignores a loop variable or field that is merely called engine', () => {
     const root = withHook(
       [
