@@ -60,4 +60,49 @@ describe('useSectionLedger', () => {
     expect(result.current.history).toEqual([]);
     expect(result.current.revert(1)).toBe(false);
   });
+
+  it('re-reads when refreshKey changes and holds still when it does not', () => {
+    const engine = engineWith(null);
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result, rerender } = renderHook(
+      ({ key }: { key: number }) => useSectionLedger('sec1', key),
+      { initialProps: { key: 0 } }
+    );
+
+    expect(engine.getSectionHistory).toHaveBeenCalledTimes(1);
+
+    rerender({ key: 0 });
+    expect(engine.getSectionHistory).toHaveBeenCalledTimes(1);
+
+    engine.getPinnedSectionVersion.mockReturnValue(2);
+    rerender({ key: 1 });
+    expect(engine.getSectionHistory).toHaveBeenCalledTimes(2);
+    expect(engine.getSectionGeometryVersions).toHaveBeenCalledTimes(2);
+    expect(result.current.pinnedVersion).toBe(2);
+
+    rerender({ key: 2 });
+    expect(engine.getSectionHistory).toHaveBeenCalledTimes(3);
+  });
+
+  it('re-reads for a new section id and empties when the id goes away', () => {
+    const engine = engineWith(1);
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string | undefined }) => useSectionLedger(id, 0),
+      { initialProps: { id: 'sec1' as string | undefined } }
+    );
+
+    expect(engine.getSectionHistory).toHaveBeenCalledWith('sec1');
+
+    rerender({ id: 'sec2' });
+    expect(engine.getSectionHistory).toHaveBeenCalledWith('sec2');
+    expect(result.current.pinnedVersion).toBe(1);
+
+    rerender({ id: undefined });
+    expect(result.current.history).toEqual([]);
+    expect(result.current.versions).toEqual([]);
+    expect(result.current.pinnedVersion).toBeNull();
+    expect(result.current.versionPolyline(1)).toEqual([]);
+    expect(result.current.unpin()).toBe(false);
+  });
 });

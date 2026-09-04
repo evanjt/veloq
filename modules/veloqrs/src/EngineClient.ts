@@ -101,9 +101,53 @@ const gen = (): any => require('./generated/veloqrs');
 /** Pre-computed daily activity intensity from Rust heatmap cache. Re-exported from delegates. */
 export type { HeatmapDay };
 
+/**
+ * The channels Rust announces on, one per `EngineObserver` method.
+ *
+ * `sync` is the pre-existing coarse channel and stays: `syncSettled` fans out
+ * on both so a subscriber written against either keeps working.
+ */
+export type EngineEvent =
+  | 'sync'
+  | 'syncProgress'
+  | 'syncSettled'
+  | 'bodyStored'
+  | 'timeStreamsStored'
+  | 'gpsTrackStored'
+  | 'fitParsed'
+  | 'detectionApplied'
+  | 'tilesGenerated'
+  | 'backfillPhase'
+  | 'cutoverSettled'
+  | 'previewFinished';
+
+/** What an announcement carries. Events with no subject carry nothing. */
+export type EnginePayload =
+  | { kind: string; activityId: string }
+  | { activityIds: string[] }
+  | { activityId: string }
+  | { phase: string };
+
+export type EngineListener = (payload?: EnginePayload) => void;
+
+/** The shape `VeloqEngine.setObserver` takes, matching the Rust trait. */
+interface EngineObserverBinding {
+  syncProgress(): void;
+  syncSettled(): void;
+  bodyStored(kind: string, activityId: string): void;
+  timeStreamsStored(activityIds: string[]): void;
+  gpsTrackStored(activityId: string): void;
+  fitParsed(activityId: string): void;
+  detectionApplied(): void;
+  tilesGenerated(): void;
+  backfillPhase(phase: string): void;
+  cutoverSettled(): void;
+  previewFinished(): void;
+}
+
 class EngineClient implements DelegateHost {
   private static instance: EngineClient;
-  private listeners: Map<string, Set<() => void>> = new Map();
+  private listeners: Map<string, Set<EngineListener>> = new Map();
   private pendingNotifications: Set<string> = new Set();
   private notifyScheduled = false;
   private initialized = false;
@@ -180,6 +224,14 @@ class EngineClient implements DelegateHost {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
+      // Registered here and not in create(): before this point there is no
+      // engine to announce anything, and a failed init must leave Rust with no
+      // handle into a listener map nobody is reading.
+      try {
+        this.engine.setObserver(this.observer());
+      } catch (e) {
+        console.warn('[EngineClient] Engine refused the observer:', e);
+      }
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
       // in the native module.
@@ -1082,7 +1134,7 @@ class EngineClient implements DelegateHost {
   setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
     detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
 
-  subscribe(event: string, callback: () => void): () => void {
+  subscribe(event: string, callback: EngineListener): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
@@ -1091,6 +1143,39 @@ class EngineClient implements DelegateHost {
     return () => {
       this.listeners.get(event)?.delete(callback);
     };
+  }
+
+  /**
+   * The listener Rust calls when work finishes off the JavaScript thread.
+   *
+   * The binding blocks the calling Rust thread until each method returns, so
+   * every one of these hands straight to a microtask and returns. No method
+   * here may read the engine.
+   */
+  private observer(): EngineObserverBinding {
+    const post = (event: EngineEvent, payload?: EnginePayload) => {
+      queueMicrotask(() => this.deliver(event, payload));
+    };
+    return {
+      syncProgress: () => post('syncProgress'),
+      syncSettled: () => {
+        post('syncSettled');
+        post('sync');
+      },
+      bodyStored: (kind, activityId) => post('bodyStored', { kind, activityId }),
+      timeStreamsStored: (activityIds) => post('timeStreamsStored', { activityIds }),
+      gpsTrackStored: (activityId) => post('gpsTrackStored', { activityId }),
+      fitParsed: (activityId) => post('fitParsed', { activityId }),
+      detectionApplied: () => post('detectionApplied'),
+      tilesGenerated: () => post('tilesGenerated'),
+      backfillPhase: (phase) => post('backfillPhase', { phase }),
+      cutoverSettled: () => post('cutoverSettled'),
+      previewFinished: () => post('previewFinished'),
+    };
+  }
+
+  private deliver(event: string, payload?: EnginePayload): void {
+    this.listeners.get(event)?.forEach((cb) => cb(payload));
   }
 
   triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {
@@ -1117,7 +1202,7 @@ class EngineClient implements DelegateHost {
   }
 
   private notifyImmediate(event: string): void {
-    this.listeners.get(event)?.forEach((cb) => cb());
+    this.deliver(event);
   }
 
   notifyAll(...events: string[]): void {

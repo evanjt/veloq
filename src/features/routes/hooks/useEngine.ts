@@ -8,8 +8,9 @@
  * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
@@ -19,69 +20,8 @@ import type { FrequentSection } from '@/types';
 // Engine Type Helper
 // ============================================================================
 
-type EngineEvent = 'activities' | 'groups' | 'sections';
-
-// ============================================================================
-// Hook Factory
-// ============================================================================
-
-/**
- * Hook to subscribe to engine events and trigger re-renders.
- * Returns a trigger value that changes when any subscribed event fires.
- *
- * If the engine is not available on first mount, polls until it becomes
- * available to avoid permanently missing events.
- */
-export function useEngineSubscription(events: EngineEvent[]): number {
-  const [trigger, setTrigger] = useState(0);
-
-  // Stable ref for the refresh callback to avoid stale closures
-  const refreshRef = useRef(() => setTrigger((t) => t + 1));
-  refreshRef.current = () => setTrigger((t) => t + 1);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const eventKey = useMemo(() => events.join(','), [events.join(',')]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let unsubscribes: (() => void)[] = [];
-
-    function trySubscribe(): boolean {
-      const engine = getEngine();
-      if (!engine) return false;
-
-      const cb = () => refreshRef.current();
-      unsubscribes = events.map((event) => engine.subscribe(event, cb));
-      // Trigger initial refresh in case data arrived before subscription
-      if (!cancelled) {
-        refreshRef.current();
-      }
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      // Engine not ready yet - poll until available
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribes.forEach((u) => u());
-      };
-    }
-
-    return () => {
-      cancelled = true;
-      unsubscribes.forEach((u) => u());
-    };
-  }, [eventKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return trigger;
-}
+export { useEngineSubscription };
+export type { EngineEvent } from '@/shared/native/useEngineSubscription';
 
 /**
  * Factory function to create engine hooks with a consistent pattern.
@@ -365,6 +305,8 @@ interface UseSectionDetailResult {
  * Converts GpsPoint format to RoutePoint format.
  */
 export function useSectionDetail(sectionId: string | null): UseSectionDetailResult {
+  const trigger = useEngineSubscription(['sections']);
+
   const section = useMemo(() => {
     if (!sectionId) return null;
 
@@ -384,7 +326,7 @@ export function useSectionDetail(sectionId: string | null): UseSectionDetailResu
     } catch {
       return null;
     }
-  }, [sectionId]);
+  }, [sectionId, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { section };
 }
@@ -428,6 +370,8 @@ interface UseSectionPolylineResult {
  * Use this in list row components to fetch polylines only for visible items.
  */
 export function useSectionPolyline(sectionId: string | null): UseSectionPolylineResult {
+  const trigger = useEngineSubscription(['sections']);
+
   const polyline = useMemo(() => {
     if (!sectionId) return [];
 
@@ -445,7 +389,7 @@ export function useSectionPolyline(sectionId: string | null): UseSectionPolyline
     } catch {
       return [];
     }
-  }, [sectionId]);
+  }, [sectionId, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { polyline };
 }

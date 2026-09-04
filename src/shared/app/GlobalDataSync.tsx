@@ -8,18 +8,15 @@ import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useActivities, useActivityBoundsCache } from '@/features/activity/hooks';
-import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
 import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import { getEngine } from '@/shared/native/engine';
-import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
@@ -35,7 +32,6 @@ export function GlobalDataSync() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  useRouteSettings();
 
   // Get sync date range from global store (can be extended by timeline sliders)
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -50,53 +46,13 @@ export function GlobalDataSync() {
   // Fill the engine-backed tables and wake their readers when the sync lands.
   useEngineSync();
 
-  // Startup alignment: invalidate activities on mount to force a fresh API fetch.
-  useEffect(() => {
-    if (isAuthenticated) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-      if (isInfiniteActivitiesStale(queryClient)) {
-        queryClient.resetQueries({
-          queryKey: queryKeys.activities.infinite.all,
-        });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.activities.infinite.all,
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Single fetch with stats included - provides both GPS sync data and
-  // TSS/FTP metrics for the engine. Previously two separate fetches were made
-  // (one without stats, one with), doubling the API calls on every launch.
+  // The window every other reader shares. Rust's engine event is what wakes
+  // it, so nothing is invalidated here at mount.
   const { data: activities, isFetching } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: true,
     enabled: isAuthenticated,
   });
-
-  // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
-  // The GPS sync stores basic metrics; this backfills the engine so period
-  // comparisons use TSS and FTP trend works.
-  const statsSeededRef = useRef(false);
-  useEffect(() => {
-    if (!activities?.length || statsSeededRef.current) return;
-    const engine = getEngine();
-    if (!engine) return;
-
-    const enhanced = activities
-      .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
-      .map(toActivityMetrics);
-
-    if (enhanced.length > 0) {
-      engine.setActivityMetrics(enhanced);
-      engine.triggerRefresh('activities');
-      statsSeededRef.current = true;
-    }
-  }, [activities]);
 
   // Update fetching state in store
   useEffect(() => {

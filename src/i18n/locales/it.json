@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache svuotata",
-    "cacheCorruptionMessage": "La cache dei dati locale era corrotta ed è stata svuotata. I tuoi dati verranno aggiornati dal server.",
     "clearCacheMessage": "Questo cancellerà tutti i dati delle attività in cache, le tracce delle attività e i dati di corrispondenza percorsi, poi inizierà a ricaricare. Potrebbe richiedere alcuni minuti.",
     "clearCacheTitle": "Cancella e ricarica cache",
     "clearReload": "Cancella e ricarica",
@@ -311,7 +310,6 @@
     "hideDetails": "Nascondi dettagli",
     "loading": "Caricamento...",
     "loadingMore": "Caricamento in corso...",
-    "ok": "OK",
     "or": "o",
     "pullToRefresh": "Trascina per aggiornare",
     "reset": "Reimposta",

@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Pamięć podręczna wyczyszczona",
-    "cacheCorruptionMessage": "Lokalna pamięć podręczna była uszkodzona i została wyczyszczona. Twoje dane zostaną odświeżone z serwera.",
     "clearCacheMessage": "Wyczyści wszystkie zbuforowane dane aktywności, ślady aktywności i dane dopasowania tras, a następnie rozpocznie ponowne ładowanie. Może to potrwać kilka minut.",
     "clearCacheTitle": "Wyczyść i przeładuj pamięć podręczną",
     "clearReload": "Wyczyść i przeładuj",
@@ -311,7 +310,6 @@
     "hideDetails": "Ukryj szczegóły",
     "loading": "Wczytywanie...",
     "loadingMore": "Wczytywanie kolejnych...",
-    "ok": "OK",
     "or": "lub",
     "pullToRefresh": "Pociągnij, aby odświeżyć",
     "reset": "Resetuj",

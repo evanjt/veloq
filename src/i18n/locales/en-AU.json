@@ -171,7 +171,6 @@
   },
   "alerts": {
     "cacheCleared": "Cache Cleared",
-    "cacheCorruptionMessage": "Local data stash got munted and had to be cleared. Your data will be grabbed fresh from the server.",
     "clearCacheMessage": "This'll clear all your cached data, tracks, and route matching stuff, then reload. Might take a few minutes.",
     "clearCacheTitle": "Chuck it all & Reload",
     "clearReload": "Chuck it & Reload",
@@ -311,7 +310,6 @@
     "hideDetails": "Hide details",
     "loading": "Hang on a tick...",
     "loadingMore": "Grabbing more...",
-    "ok": "OK",
     "or": "or",
     "pullToRefresh": "Give it a tug",
     "reset": "Start fresh",

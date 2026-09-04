@@ -51,6 +51,12 @@ pub struct ActivityRecord {
     pub icu_training_load: Option<f64>,
     #[serde(default)]
     pub icu_ftp: Option<f64>,
+    /// Power zone times, one entry per zone.
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_zone_times: Option<Vec<ZoneTime>>,
+    /// HR zone times in seconds, one entry per zone.
+    #[serde(default, deserialize_with = "lenient")]
+    pub icu_hr_zone_times: Option<Vec<i64>>,
     #[serde(default)]
     pub has_weather: Option<bool>,
     #[serde(default)]
@@ -61,6 +67,27 @@ pub struct ActivityRecord {
     pub description: Option<String>,
     #[serde(default)]
     pub device_name: Option<String>,
+}
+
+/// One power zone's time, as intervals.icu sends it: `{"id": "Z1", "secs": 123}`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ZoneTime {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub secs: Option<i64>,
+}
+
+/// Read a field the app can do without, dropping it when the shape is not the
+/// one modelled. A zone series in an unexpected shape is worth less than the
+/// activity, and a hard failure would cost the whole page its metrics.
+fn lenient<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = serde_json::Value::deserialize(d)?;
+    Ok(serde_json::from_value(value).ok())
 }
 
 /// The base field list the activities request asks for (matches `intervals.ts`).
