@@ -1,21 +1,18 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
+import { initializeI18n, changeLanguage } from '@/i18n';
 import { SectionsListHeader } from '@/features/routes/components/SectionsListHeader';
+import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 
 /**
  * Scenario: an install upgrading from 0.3.x arrives with a catalogue the
- * detector migration has not run over yet, so the engine refuses to detect
- * (`SB12`). Without a word on the sections page the rider taps rescan and
- * nothing happens.
+ * detector migration has not run over yet, and a library whose tracks have no
+ * elevation. The engine refuses to detect for both reasons in turn.
  *
- * Expected behaviour: the page says detection is paused, and the rescan
- * control is disabled while it is.
+ * Expected behaviour: the page says which one is holding, because the two end
+ * differently, and the rescan control is disabled while either does.
  */
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -32,19 +29,36 @@ const BASE = {
   onRescan: jest.fn(),
 };
 
-describe('SectionsListHeader detection hold', () => {
-  it('says detection is paused while the migration is owed', () => {
-    const { getByTestId, getByText } = render(
-      <SectionsListHeader {...BASE} detectionHeld={true} />
-    );
+function renderHeader(detectionHold: DetectionHold) {
+  return render(<SectionsListHeader {...BASE} detectionHold={detectionHold} />);
+}
 
-    expect(getByTestId('detection-paused')).toBeTruthy();
-    expect(getByText('sections.detectionPaused')).toBeTruthy();
+describe('SectionsListHeader detection hold', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
   });
 
-  it('says nothing once the migration has run', () => {
-    const { queryByTestId } = render(<SectionsListHeader {...BASE} detectionHeld={false} />);
+  beforeEach(async () => {
+    await changeLanguage('en-AU');
+  });
 
-    expect(queryByTestId('detection-paused')).toBeNull();
+  it('names the migration when the cutover is holding', () => {
+    const tree = renderHeader('cutover');
+
+    expect(tree.getByTestId('detection-paused')).toBeTruthy();
+    expect(tree.getByText('Detection paused while your sections migrate')).toBeTruthy();
+  });
+
+  it('names the elevation download when the backfill is holding', () => {
+    const tree = renderHeader('elevation');
+
+    expect(tree.getByTestId('detection-paused')).toBeTruthy();
+    expect(tree.getByText('Detection paused while elevation downloads')).toBeTruthy();
+  });
+
+  it('says nothing once neither holds', () => {
+    const tree = renderHeader(null);
+
+    expect(tree.queryByTestId('detection-paused')).toBeNull();
   });
 });

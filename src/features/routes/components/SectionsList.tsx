@@ -322,7 +322,7 @@ export const SectionsList = memo(function SectionsList({
 
   const { removeSection } = useCustomSections();
   const { rescan, isScanning } = useSectionRescan();
-  const detectionHeld = useDetectionHold();
+  const detectionHold = useDetectionHold();
 
   const trueDisabledCount = disabledCount;
 
@@ -640,7 +640,7 @@ export const SectionsList = memo(function SectionsList({
           unacceptedAutoCount={unacceptedAutoCount}
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
-          detectionHeld={detectionHeld}
+          detectionHold={detectionHold}
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
         />
