@@ -42,7 +42,7 @@ tags:
             id: "strength-tab"
           timeout: 10000
 
-- takeScreenshot: "strength-tab-initial"
+- takeScreenshot: "screenshots/strength-tab-initial"
 
 # The body diagram is the primary affordance, must be on screen.
 - assertVisible:
@@ -60,7 +60,7 @@ tags:
     id: "strength-body-diagram"
 - waitForAnimationToEnd:
     timeout: 1500
-- takeScreenshot: "strength-muscle-panel"
+- takeScreenshot: "screenshots/strength-muscle-panel"
 
 # Methodology disclaimer (US-T2). Match on the distinctive "approximations"
 # wording.

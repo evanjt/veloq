@@ -100,4 +100,4 @@ tags:
 - assertVisible:
     id: "map-screen"
 
-- takeScreenshot: "stress-map-toggles-complete"
+- takeScreenshot: "screenshots/stress-map-toggles-complete"

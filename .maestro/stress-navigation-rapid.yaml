@@ -107,4 +107,4 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
-- takeScreenshot: "stress-navigation-rapid-complete"
+- takeScreenshot: "screenshots/stress-navigation-rapid-complete"

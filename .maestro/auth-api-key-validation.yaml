@@ -90,7 +90,7 @@ tags:
     timeout: 25000
     optional: true
 
-- takeScreenshot: "auth-api-key-error"
+- takeScreenshot: "screenshots/auth-api-key-error"
 
 # Re-enter demo mode so other tests can run
 - tapOn:

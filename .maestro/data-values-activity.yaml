@@ -47,7 +47,7 @@ tags:
 - assertVisible:
     id: "activity-detail-duration"
 
-- takeScreenshot: "data-values-activity-initial"
+- takeScreenshot: "screenshots/data-values-activity-initial"
 
 # Tap heart rate chart type and verify no crash
 - tapOn:
@@ -56,7 +56,7 @@ tags:
 - assertVisible:
     id: "chart-type-selector"
 
-- takeScreenshot: "data-values-activity-heartrate"
+- takeScreenshot: "screenshots/data-values-activity-heartrate"
 
 # Tap power chart type and verify no crash
 - tapOn:
@@ -65,7 +65,7 @@ tags:
 - assertVisible:
     id: "chart-type-selector"
 
-- takeScreenshot: "data-values-activity-power"
+- takeScreenshot: "screenshots/data-values-activity-power"
 
 # Tap elevation chart type and verify no crash
 - tapOn:
@@ -74,7 +74,7 @@ tags:
 - assertVisible:
     id: "chart-type-selector"
 
-- takeScreenshot: "data-values-activity-elevation"
+- takeScreenshot: "screenshots/data-values-activity-elevation"
 
 # Tap speed chart type and verify no crash
 - tapOn:
@@ -83,7 +83,7 @@ tags:
 - assertVisible:
     id: "chart-type-selector"
 
-- takeScreenshot: "data-values-activity-speed"
+- takeScreenshot: "screenshots/data-values-activity-speed"
 
 # Final assertion: no invalid values appeared after chart switching
 - assertNotVisible:
@@ -93,4 +93,4 @@ tags:
 - assertNotVisible:
     text: "Infinity"
 
-- takeScreenshot: "data-values-activity-complete"
+- takeScreenshot: "screenshots/data-values-activity-complete"
