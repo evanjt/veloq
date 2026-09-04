@@ -771,9 +771,11 @@ fn compute_season_label(features: &[&&ActivityFeature]) -> String {
     }
 
     let total = features.len() as f64;
+    // Ties break on the season name, or the winner is whichever season the map
+    // happens to yield first and `RandomState` makes that different per map.
     let dominant = season_counts
         .iter()
-        .max_by_key(|&(_, &c)| c)
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
         .map(|(s, &c)| (s.clone(), c));
 
     match dominant {
@@ -1444,5 +1446,97 @@ mod tests {
         assert!((normalised[0][3] - 0.5).abs() < 1e-10);
         // Day 3 / 6.0 = 0.5
         assert!((normalised[0][0] - 0.5).abs() < 1e-10);
+    }
+
+    /// B238: the dominant season was picked with `max_by_key` over a `HashMap`,
+    /// so two seasons on an equal count were decided by the iteration order,
+    /// which `RandomState` makes different for every map.
+    fn feature_on(id: &str, date: i64) -> ActivityFeature {
+        ActivityFeature {
+            activity_id: id.to_string(),
+            sport_type: "Ride".to_string(),
+            day_of_week: 0,
+            date,
+            duration_secs: 3_600,
+            tss: 50.0,
+            distance_meters: 30_000.0,
+        }
+    }
+
+    /// January is winter, July is summer, and nothing else appears, so the
+    /// two-season branch runs on a dead tie.
+    fn tied_two_season_features() -> Vec<ActivityFeature> {
+        let winter = 1_704_153_600; // 2024-01-02
+        let summer = winter + 181 * 86_400;
+        vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("s1", summer),
+            feature_on("s2", summer + 86_400),
+        ]
+    }
+
+    #[test]
+    fn a_tied_season_label_is_the_same_on_every_map() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        let first = compute_season_label(&features);
+        for _ in 0..200 {
+            assert_eq!(
+                compute_season_label(&features),
+                first,
+                "the tie is broken by the map's iteration order"
+            );
+        }
+        assert!(first == "summer" || first == "winter");
+    }
+
+    #[test]
+    fn a_tie_is_broken_on_the_season_name() {
+        let owned = tied_two_season_features();
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "summer");
+    }
+
+    #[test]
+    fn a_dominant_season_still_wins_outright() {
+        let winter = 1_704_153_600;
+        let summer = winter + 181 * 86_400;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("w2", winter + 86_400),
+            feature_on("w3", winter + 2 * 86_400),
+            feature_on("s1", summer),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "winter");
+    }
+
+    /// Three seasons with no majority is the branch the current fixtures land
+    /// in, and it must keep answering "all" whatever the tie does.
+    #[test]
+    fn three_seasons_without_a_majority_are_all() {
+        let winter = 1_704_153_600;
+        let owned = vec![
+            feature_on("w1", winter),
+            feature_on("sp1", winter + 90 * 86_400),
+            feature_on("su1", winter + 181 * 86_400),
+        ];
+        let refs: Vec<&ActivityFeature> = owned.iter().collect();
+        let features: Vec<&&ActivityFeature> = refs.iter().collect();
+
+        assert_eq!(compute_season_label(&features), "all");
+    }
+
+    #[test]
+    fn no_features_are_all() {
+        let features: Vec<&&ActivityFeature> = Vec::new();
+        assert_eq!(compute_season_label(&features), "all");
     }
 }
