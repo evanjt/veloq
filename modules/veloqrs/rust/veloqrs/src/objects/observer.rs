@@ -74,6 +74,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_globals::serial_global_state;
     use std::sync::Mutex;
 
     /// Records what it was told, in order.
@@ -133,13 +134,9 @@ mod tests {
         }
     }
 
-    /// The registry is process-global, so every test that registers takes this
-    /// first. Poisoning is ignored: a failing test must not cascade.
-    static REGISTRY: Mutex<()> = Mutex::new(());
-
     #[test]
     fn the_registry_delivers_to_one_observer_at_a_time() {
-        let _guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         set_observer(None);
         notify(|o| o.sync_settled());
 
@@ -173,7 +170,7 @@ mod tests {
     fn the_sync_service_announces_its_own_terminal_transition() {
         use crate::objects::sync::{SYNC_SERVICE, SyncState};
 
-        let _guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
         SYNC_SERVICE.finish(SyncState::Idle, None, true);
