@@ -117,7 +117,50 @@ describe('render-time engine read lint', () => {
     expect(status).toBe(0);
     expect(output).toContain('useThing.ts:6  useThing  engine.getStats  deps [trigger]');
     expect(output).toContain('useThing.ts:5  useThing  engine.getActivityCount');
-    expect(output).toContain('memo reads: 1, initialiser reads: 1');
+    expect(output).toContain('memo reads: 1, unkeyed memo reads: 0, initialiser reads: 1');
+  });
+
+  it('fails a useMemo read keyed on its inputs alone, which nothing re-runs', () => {
+    const root = withHook(
+      [
+        'export function useThing(id: string) {',
+        '  return useMemo(() => getEngine()?.getSectionById(id), [id]);',
+        '}',
+        '',
+      ].join('\n')
+    );
+    const { status, output } = runLint(root);
+    expect(status).toBe(1);
+    expect(output).toContain('useThing.ts:5  useThing  engine.getSectionById  deps [id]');
+  });
+
+  it('fails a useMemo read with no dependency array at all', () => {
+    const root = withHook(
+      'export function useThing() {\n  return useMemo(() => getEngine()?.getStats());\n}\n'
+    );
+    expect(runLint(root).status).toBe(1);
+  });
+
+  it('fails a useMemo read keyed on an empty array', () => {
+    const root = withHook(
+      'export function useThing() {\n  return useMemo(() => getEngine()?.getRetiredSections(), []);\n}\n'
+    );
+    expect(runLint(root).status).toBe(1);
+  });
+
+  it('passes a useMemo read whose deps carry a precomputed value', () => {
+    const root = withHook(
+      [
+        'export function useThing(preComputedActivityCount?: number) {',
+        '  return useMemo(',
+        '    () => preComputedActivityCount ?? getEngine()?.getActivityCount() ?? 0,',
+        '    [preComputedActivityCount]',
+        '  );',
+        '}',
+        '',
+      ].join('\n')
+    );
+    expect(runLint(root).status).toBe(0);
   });
 
   it('ignores a loop variable or field that is merely called engine', () => {

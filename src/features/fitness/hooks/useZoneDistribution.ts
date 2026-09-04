@@ -8,6 +8,7 @@ import {
 } from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -29,6 +30,8 @@ export function useZoneDistribution({
   type,
   sport,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
+  const trigger = useEngineSubscription(['activities']);
+
   return useMemo(() => {
     const defaultZones = type === 'power' ? DEFAULT_POWER_ZONES : DEFAULT_HR_ZONES;
     const zoneColors = type === 'power' ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
@@ -52,5 +55,5 @@ export function useZoneDistribution({
       percentage: Math.round(((totals[idx] || 0) / totalSeconds) * 100),
       color: zoneColors[idx] || zoneColors[zoneColors.length - 1],
     }));
-  }, [type, sport]);
+  }, [type, sport, trigger]); // eslint-disable-line react-hooks/exhaustive-deps
 }
