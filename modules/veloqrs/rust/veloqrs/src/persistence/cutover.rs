@@ -142,6 +142,13 @@ impl PhaseClock {
 impl Drop for PhaseClock {
     fn drop(&mut self) {
         self.close();
+        // The only code that runs on every abnormal exit. `enter` erased the
+        // marker `run_cutover_claimed` set up front, and `finish` settles the
+        // phase to idle before dropping, so a clock still inside a phase here
+        // is a run that died in it.
+        if self.phase != PHASE_IDLE {
+            set_phase(PHASE_FAILED);
+        }
     }
 }
 
@@ -642,8 +649,9 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
     }
     let mut guard = RunGuard { announce: false };
 
-    // A failure anywhere below leaves the phase saying so, because every
-    // success path overwrites it before returning.
+    // A failure anywhere below leaves the phase saying so: this covers a
+    // failure before the clock enters its first phase, and `PhaseClock::drop`
+    // covers every failure after it.
     set_phase(PHASE_FAILED);
     let mut clock = PhaseClock::new();
 

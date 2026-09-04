@@ -26,41 +26,41 @@ tags:
     timeout: 15000
 
 # Screenshot hero section (map + title)
-- takeScreenshot: "activity-detail-scroll-hero"
+- takeScreenshot: "screenshots/activity-detail-scroll-hero"
 
 # Scroll down to stats (swipe up to scroll down, avoids panning map)
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "activity-detail-scroll-stats"
+- takeScreenshot: "screenshots/activity-detail-scroll-stats"
 
 # Scroll to charts
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "activity-detail-scroll-charts"
+- takeScreenshot: "screenshots/activity-detail-scroll-charts"
 
 # Scroll further
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "activity-detail-scroll-mid"
+- takeScreenshot: "screenshots/activity-detail-scroll-mid"
 
 # Scroll to bottom
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "activity-detail-scroll-bottom"
+- takeScreenshot: "screenshots/activity-detail-scroll-bottom"
 
 - swipe:
     start: 50%, 75%
     end: 50%, 25%
     duration: 500
-- takeScreenshot: "activity-detail-scroll-end"
+- takeScreenshot: "screenshots/activity-detail-scroll-end"
 
 # Verify no NaN anywhere on page
 - assertNotVisible:
@@ -68,4 +68,4 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-- takeScreenshot: "activity-detail-scroll-complete"
+- takeScreenshot: "screenshots/activity-detail-scroll-complete"

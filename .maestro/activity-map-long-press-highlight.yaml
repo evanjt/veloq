@@ -37,7 +37,7 @@ tags:
       id: "activity-sections-list"
     timeout: 10000
 
-- takeScreenshot: "long-press-before"
+- takeScreenshot: "screenshots/long-press-before"
 
 # If earlier flows in the suite hid all sections on this activity, skip the
 # long-press step and record the empty state. This flow is about the
@@ -47,7 +47,7 @@ tags:
       visible:
         text: "No matched sections"
     commands:
-      - takeScreenshot: "long-press-no-sections-skipped"
+      - takeScreenshot: "screenshots/long-press-no-sections-skipped"
 
 # Long-press the first section card only if it's actually rendered.
 - runFlow:
@@ -60,13 +60,13 @@ tags:
 
       - waitForAnimationToEnd:
           timeout: 1500
-      - takeScreenshot: "long-press-highlighted"
+      - takeScreenshot: "screenshots/long-press-highlighted"
       # Release (tap elsewhere) to return to default state
       - tapOn:
           id: "activity-sections-list"
       - waitForAnimationToEnd:
           timeout: 1000
-      - takeScreenshot: "long-press-released"
+      - takeScreenshot: "screenshots/long-press-released"
 
 - assertNotVisible:
     text: "NaN"

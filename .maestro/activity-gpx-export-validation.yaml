@@ -50,7 +50,7 @@ tags:
 # already written to app cache. Dismiss so the flow can complete cleanly.
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: "gpx-export-share-sheet"
+- takeScreenshot: "screenshots/gpx-export-share-sheet"
 - back
 
-- takeScreenshot: "gpx-export-complete"
+- takeScreenshot: "screenshots/gpx-export-complete"

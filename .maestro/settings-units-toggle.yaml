@@ -30,7 +30,7 @@ tags:
     id: "settings-unit-toggle"
     optional: true
 
-- takeScreenshot: "settings-units-toggled"
+- takeScreenshot: "screenshots/settings-units-toggled"
 
 # Navigate to home to verify units applied
 - openLink: "veloq://"
@@ -44,7 +44,7 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "settings-units-applied"
+- takeScreenshot: "screenshots/settings-units-applied"
 
 # Return to display settings and toggle back
 - openLink: "veloq://display-settings"
@@ -66,4 +66,4 @@ tags:
     id: "settings-unit-toggle"
     optional: true
 
-- takeScreenshot: "settings-units-toggle-complete"
+- takeScreenshot: "screenshots/settings-units-toggle-complete"

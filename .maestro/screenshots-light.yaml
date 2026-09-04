@@ -39,7 +39,7 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 10000
-- takeScreenshot: "01-activity-feed-light"
+- takeScreenshot: "screenshots/01-activity-feed-light"
 
 # Screenshot 2: Fitness Tracking
 - runFlow:
@@ -48,7 +48,7 @@ tags:
     visible:
       id: "fitness-ctl-value"
     timeout: 15000
-- takeScreenshot: "02-fitness-light"
+- takeScreenshot: "screenshots/02-fitness-light"
 
 # Screenshot 3: Training Calendar
 - runFlow:
@@ -57,12 +57,12 @@ tags:
     visible:
       id: "weekly-summary"
     timeout: 10000
-- takeScreenshot: "03-training-light"
+- takeScreenshot: "screenshots/03-training-light"
 
 # Screenshot 4: Regional Map
 - runFlow:
     file: helpers/navigate-to-map.yaml
-- takeScreenshot: "04-map-light"
+- takeScreenshot: "screenshots/04-map-light"
 
 # Screenshot 5: Routes List
 - runFlow:
@@ -71,7 +71,7 @@ tags:
     visible:
       id: "routes-list"
     timeout: 10000
-- takeScreenshot: "05-routes-light"
+- takeScreenshot: "screenshots/05-routes-light"
 
 # Screenshot 6: Activity Detail
 - openLink: "veloq://activity/demo-test-0"
@@ -84,9 +84,9 @@ tags:
     visible:
       id: "activity-detail-content"
     timeout: 15000
-- takeScreenshot: "06-activity-detail-light"
+- takeScreenshot: "screenshots/06-activity-detail-light"
 
 # Screenshot 7: Settings
 - runFlow:
     file: helpers/navigate-to-settings.yaml
-- takeScreenshot: "07-settings-light"
+- takeScreenshot: "screenshots/07-settings-light"

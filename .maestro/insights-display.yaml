@@ -27,7 +27,7 @@ tags:
       id: "insights-panel"
     timeout: 15000
 
-- takeScreenshot: "insights-panel-loaded"
+- takeScreenshot: "screenshots/insights-panel-loaded"
 
 # Tap first insight card
 - tapOn:
@@ -51,7 +51,7 @@ tags:
     id: "methodology-section"
     optional: true
 
-- takeScreenshot: "insights-detail-sheet"
+- takeScreenshot: "screenshots/insights-detail-sheet"
 
 # Try tapping a different card (if pattern detail exists)
 - extendedWaitUntil:
@@ -60,4 +60,4 @@ tags:
     timeout: 3000
     optional: true
 
-- takeScreenshot: "insights-display-complete"
+- takeScreenshot: "screenshots/insights-display-complete"

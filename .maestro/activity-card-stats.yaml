@@ -27,7 +27,7 @@ tags:
     end: 50%, 42%
     duration: 400
 
-- takeScreenshot: "activity-card-stats-list-loaded"
+- takeScreenshot: "screenshots/activity-card-stats-list-loaded"
 
 # Tap the card itself, not a regex: a pattern like activity-card-demo-.* also
 # matches the child chips, which deep-link to a sub-tab instead of the charts.
@@ -60,4 +60,4 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-- takeScreenshot: "activity-card-stats-detail-loaded"
+- takeScreenshot: "screenshots/activity-card-stats-detail-loaded"

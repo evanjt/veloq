@@ -22,7 +22,7 @@ tags:
       id: "settings-storage-stats"
     timeout: 15000
 
-- takeScreenshot: "storage-display-visible"
+- takeScreenshot: "screenshots/storage-display-visible"
 
 # Hard assertion: the stats panel must render a formatted byte value.
 # formatFileSize returns "N B", "N.N KB", "N.N MB", or "N.N GB".

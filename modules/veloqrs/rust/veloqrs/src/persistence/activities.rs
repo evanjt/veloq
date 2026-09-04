@@ -734,6 +734,53 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Put a fetched altitude series onto a stored track, leaving its
+    /// coordinates exactly where they are.
+    ///
+    /// The stored blob is the device's only copy of the coordinates, and
+    /// `store_gps_track` is `INSERT OR REPLACE`, so re-ingesting a whole track
+    /// to add elevation replaces geometry the catalogue was derived from and
+    /// evicts the activity from the processed set. Splicing writes the points
+    /// already held, with their elevation filled in, so no coordinate moves and
+    /// nothing is re-derived. `point_count` is unchanged and the provenance is
+    /// set in the same statement, which is why this does not need the separate
+    /// `record_elevation_state` pass that a replace does.
+    ///
+    /// Returns false, having written nothing, when there is no stored track or
+    /// when the series is a different length from it. A different length means
+    /// intervals.icu re-processed the activity, and the caller has to fetch the
+    /// whole track instead.
+    pub fn splice_track_elevation(&self, id: &str, elevations: &[f64]) -> SqlResult<bool> {
+        let Some(points) = self.load_gps_track_from_db(id) else {
+            return Ok(false);
+        };
+        if points.len() != elevations.len() {
+            return Ok(false);
+        }
+
+        let spliced: Vec<GpsPoint> = points
+            .iter()
+            .zip(elevations)
+            .map(|(p, ele)| {
+                if ele.is_finite() {
+                    GpsPoint::with_elevation(p.latitude, p.longitude, *ele)
+                } else {
+                    GpsPoint::new(p.latitude, p.longitude)
+                }
+            })
+            .collect();
+
+        self.db.execute(
+            "UPDATE gps_tracks SET track_data = ?, elevation_state = ? WHERE activity_id = ?",
+            params![
+                codec::serialize_track_points(&spliced),
+                i64::from(crate::persistence::ELEVATION_STATE_FETCHED),
+                id
+            ],
+        )?;
+        Ok(true)
+    }
+
     /// Record elevation provenance for tracks that are already stored, where
     /// `state` is 0 unknown, 1 fetched, 2 unavailable upstream.
     ///

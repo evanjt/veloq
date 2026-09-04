@@ -24,7 +24,7 @@ tags:
     timeout: 5000
     optional: true
 
-- takeScreenshot: "error-invalid-activity-after-deep-link"
+- takeScreenshot: "screenshots/error-invalid-activity-after-deep-link"
 
 # Verify app is still responsive by navigating to a real screen
 - openLink: "veloq://"
@@ -50,4 +50,4 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-- takeScreenshot: "error-invalid-activity-complete"
+- takeScreenshot: "screenshots/error-invalid-activity-complete"

@@ -10,6 +10,9 @@
  * Exception: by-file flows (smoke-build.yaml) are run by build.yml by file, not
  * by tag, and carry `prod-smoke` (no tier/pack) so no dev gate selects their
  * production appId.
+ *
+ * Also guards where captures land. `takeScreenshot` resolves its path against
+ * the working directory, so a bare name drops a PNG beside `package.json`.
  */
 
 import * as fs from 'fs';
@@ -41,6 +44,24 @@ const flowFiles = fs
   .readdirSync(MAESTRO_DIR)
   .filter((f) => f.endsWith('.yaml') && f !== 'config.yaml')
   .sort();
+
+// Helpers and the upgrade pair live in subdirectories and capture too, so the
+// screenshot guard walks the whole tree rather than the top level alone.
+function allFlowFiles(dir: string): string[] {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return allFlowFiles(full);
+      return entry.name.endsWith('.yaml') ? [path.relative(MAESTRO_DIR, full)] : [];
+    })
+    .sort();
+}
+
+const everyFlowFile = allFlowFiles(MAESTRO_DIR);
+
+// The directory `.gitignore` already ignores, so a run leaves the tree clean.
+const SCREENSHOT_DIR = 'screenshots/';
 
 function readFlow(file: string): string {
   return fs.readFileSync(path.join(MAESTRO_DIR, file), 'utf8');
@@ -104,5 +125,27 @@ describe('maestro demo deep links', () => {
     const demoLinks = linked.filter((id) => id.startsWith('demo-'));
     const unknown = demoLinks.filter((id) => !validIds.has(id));
     expect(unknown).toEqual([]);
+  });
+});
+
+describe('maestro screenshot paths', () => {
+  it('finds the flow suite', () => {
+    expect(everyFlowFile.length).toBeGreaterThan(80);
+  });
+
+  it('captures somewhere, so the guard below is not vacuous', () => {
+    const total = everyFlowFile.reduce(
+      (n, file) => n + [...readFlow(file).matchAll(/^\s*-\s*takeScreenshot:/gm)].length,
+      0
+    );
+    expect(total).toBeGreaterThan(300);
+  });
+
+  it.each(everyFlowFile)('%s writes every capture under screenshots/', (file) => {
+    const paths = [...readFlow(file).matchAll(/^\s*-\s*takeScreenshot:\s*"([^"]+)"/gm)].map(
+      (m) => m[1]
+    );
+    const stray = paths.filter((p) => !p.startsWith(SCREENSHOT_DIR));
+    expect(stray).toEqual([]);
   });
 });

@@ -26,14 +26,14 @@ tags:
 - tapOn: "Dark"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "settings-theme-dark"
+- takeScreenshot: "screenshots/settings-theme-dark"
 
 # Switch to light theme
 - tapOn: "Light"
 - waitForAnimationToEnd:
     timeout: 2000
-- takeScreenshot: "settings-theme-light"
+- takeScreenshot: "screenshots/settings-theme-light"
 
 # Switch back to system
 - tapOn: "System"
-- takeScreenshot: "settings-theme-system"
+- takeScreenshot: "screenshots/settings-theme-system"

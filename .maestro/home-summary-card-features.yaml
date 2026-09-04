@@ -20,4 +20,4 @@ tags:
     id: "today-teaser"
     optional: true
 
-- takeScreenshot: "summary-card-features-complete"
+- takeScreenshot: "screenshots/summary-card-features-complete"

@@ -37,7 +37,7 @@ tags:
     timeout: 10000
     optional: true
 
-- takeScreenshot: "feed-chip-deep-link-sections-tab"
+- takeScreenshot: "screenshots/feed-chip-deep-link-sections-tab"
 
 # Navigate back via deep-link (Maestro's `back` command is unreliable on iOS)
 - openLink: "veloq://"
@@ -65,4 +65,4 @@ tags:
       id: "activity-detail-content"
     timeout: 15000
 
-- takeScreenshot: "feed-chip-deep-link-routes-tab"
+- takeScreenshot: "screenshots/feed-chip-deep-link-routes-tab"

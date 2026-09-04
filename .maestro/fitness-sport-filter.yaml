@@ -38,7 +38,7 @@ tags:
     text: "NaN"
     optional: true
 
-- takeScreenshot: "fitness-sport-running"
+- takeScreenshot: "screenshots/fitness-sport-running"
 
 # Tap Swimming
 - tapOn:
@@ -51,7 +51,7 @@ tags:
     text: "NaN"
     optional: true
 
-- takeScreenshot: "fitness-sport-swimming"
+- takeScreenshot: "screenshots/fitness-sport-swimming"
 
 # Return to Cycling
 - tapOn:
@@ -60,6 +60,6 @@ tags:
 - assertVisible:
     id: "fitness-screen"
 
-- takeScreenshot: "fitness-sport-cycling"
+- takeScreenshot: "screenshots/fitness-sport-cycling"
 
-- takeScreenshot: "fitness-sport-filter-complete"
+- takeScreenshot: "screenshots/fitness-sport-filter-complete"

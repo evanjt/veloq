@@ -132,7 +132,7 @@ onFlowComplete:
 - assertNotVisible:
     text: "undefined"
 
-- takeScreenshot: "auth-token-refresh-login-reached"
+- takeScreenshot: "screenshots/auth-token-refresh-login-reached"
 
 # Re-login via demo mode, verifies that post-refresh re-auth works cleanly
 - tapOn:
@@ -183,4 +183,4 @@ onFlowComplete:
 - assertNotVisible:
     text: "undefined"
 
-- takeScreenshot: "auth-token-refresh-end"
+- takeScreenshot: "screenshots/auth-token-refresh-end"

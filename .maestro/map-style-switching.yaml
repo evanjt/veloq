@@ -18,31 +18,31 @@ tags:
       id: "map-toggle-activities"
     timeout: 20000
 
-- takeScreenshot: "map-style-initial"
+- takeScreenshot: "screenshots/map-style-initial"
 
 # Look for a map style toggle
 - tapOn:
     id: "map-style-toggle"
     optional: true
 
-- takeScreenshot: "map-style-switched-1"
+- takeScreenshot: "screenshots/map-style-switched-1"
 
 # Toggle again
 - tapOn:
     id: "map-style-toggle"
     optional: true
 
-- takeScreenshot: "map-style-switched-2"
+- takeScreenshot: "screenshots/map-style-switched-2"
 
 # Toggle back
 - tapOn:
     id: "map-style-toggle"
     optional: true
 
-- takeScreenshot: "map-style-switched-3"
+- takeScreenshot: "screenshots/map-style-switched-3"
 
 # Verify map is still responsive
 - assertVisible:
     id: "map-screen"
 
-- takeScreenshot: "map-style-switching-complete"
+- takeScreenshot: "screenshots/map-style-switching-complete"

@@ -26,7 +26,7 @@ tags:
       visible:
         id: "map-toggle-heatmap"
     commands:
-      - takeScreenshot: "heatmap-trace-baseline"
+      - takeScreenshot: "screenshots/heatmap-trace-baseline"
 
 # Fit all activities so at least one trace is in view.
 - tapOn:
@@ -43,7 +43,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 
-- takeScreenshot: "heatmap-trace-heatmap-on"
+- takeScreenshot: "screenshots/heatmap-trace-heatmap-on"
 
 # Toggle back off and screenshot the sport-colour state for comparison.
 - tapOn:
@@ -51,7 +51,7 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1500
 
-- takeScreenshot: "heatmap-trace-heatmap-off"
+- takeScreenshot: "screenshots/heatmap-trace-heatmap-off"
 
 - assertNotVisible:
     text: "NaN"

@@ -112,4 +112,4 @@ tags:
 - assertVisible:
     id: "home-activity-list"
 
-- takeScreenshot: "stress-activity-cycling-complete"
+- takeScreenshot: "screenshots/stress-activity-cycling-complete"

@@ -34,7 +34,7 @@ tags:
     timeout: 10000
     optional: true
 
-- takeScreenshot: "fullscreen-pr-before"
+- takeScreenshot: "screenshots/fullscreen-pr-before"
 
 # The fullscreen button lives in the map's control column.
 - extendedWaitUntil:
@@ -71,7 +71,7 @@ tags:
       id: "activity-detail-content"
     timeout: 10000
 
-- takeScreenshot: "fullscreen-pr-after-close"
+- takeScreenshot: "screenshots/fullscreen-pr-after-close"
 
 - assertNotVisible:
     text: "NaN"

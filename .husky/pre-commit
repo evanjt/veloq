@@ -12,6 +12,14 @@ npx lint-staged
 # fixture over it, which check-commit-index.sh runs too early to see.
 staged_tree=$(./scripts/check-staged-tree.sh record)
 
+# Nothing below this line is git's business, and everything below it may shell
+# out to git against a temporary directory. Git exports these to its hooks and
+# they beat `cwd`, so a fixture's `git add -A` writes this repository's index.
+# The two checks above need them and have already run; unsetting here closes
+# the class rather than the callers that happen to exist today.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_CEILING_DIRECTORIES GIT_CONFIG
+
 # The four gates below are independent. Run them together and report every
 # failure, rather than stopping at the first and paying the wait again.
 logs=$(mktemp -d)
@@ -27,6 +35,10 @@ gate audit npm run audit
 gate tsc npx tsc --noEmit
 gate lint npm run lint:cached
 gate test npm test
+# Only pays for itself when Rust is staged, and it is the only local check on
+# Rust formatting: cargo fmt runs in CI and nowhere else, so the Rust Lint job
+# was going red on whitespace and staying red.
+gate rustfmt npm run lint:rust-fmt
 wait
 
 ./scripts/check-staged-tree.sh verify "$staged_tree"

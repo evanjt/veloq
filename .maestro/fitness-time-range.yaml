@@ -20,21 +20,21 @@ tags:
 - tapOn:
     id: "fitness-range-6m"
     optional: true
-- takeScreenshot: "fitness-time-range-6m"
+- takeScreenshot: "screenshots/fitness-time-range-6m"
 
 - tapOn:
     id: "fitness-range-1y"
     optional: true
-- takeScreenshot: "fitness-time-range-1y"
+- takeScreenshot: "screenshots/fitness-time-range-1y"
 
 - tapOn:
     id: "fitness-range-all"
     optional: true
-- takeScreenshot: "fitness-time-range-all"
+- takeScreenshot: "screenshots/fitness-time-range-all"
 
 - tapOn:
     id: "fitness-range-3m"
     optional: true
-- takeScreenshot: "fitness-time-range-3m"
+- takeScreenshot: "screenshots/fitness-time-range-3m"
 
-- takeScreenshot: "fitness-time-range-complete"
+- takeScreenshot: "screenshots/fitness-time-range-complete"

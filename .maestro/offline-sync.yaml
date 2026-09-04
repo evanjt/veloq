@@ -112,4 +112,4 @@ tags:
 - assertNotVisible:
     id: "offline-banner"
 
-- takeScreenshot: "offline-sync-end"
+- takeScreenshot: "screenshots/offline-sync-end"

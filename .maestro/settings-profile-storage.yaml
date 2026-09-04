@@ -23,7 +23,7 @@ tags:
     id: "settings-account-row"
     optional: true
 
-- takeScreenshot: "settings-profile"
+- takeScreenshot: "screenshots/settings-profile"
 
 # Navigate to cache settings for storage stats
 - openLink: "veloq://cache-settings"
@@ -46,7 +46,7 @@ tags:
     id: "settings-storage-stats"
     optional: true
 
-- takeScreenshot: "settings-storage-stats"
+- takeScreenshot: "screenshots/settings-storage-stats"
 
 # Scroll to tile cache
 - scrollUntilVisible:
@@ -61,4 +61,4 @@ tags:
     id: "settings-tile-cache"
     optional: true
 
-- takeScreenshot: "settings-profile-storage-complete"
+- takeScreenshot: "screenshots/settings-profile-storage-complete"

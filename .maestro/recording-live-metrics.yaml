@@ -31,7 +31,7 @@ onFlowComplete:
 - assertVisible:
     id: "record-gps-status"
 
-- takeScreenshot: "recording-gps-readiness"
+- takeScreenshot: "screenshots/recording-gps-readiness"
 
 # Expand Cycling category if needed
 - runFlow:
@@ -75,7 +75,7 @@ onFlowComplete:
     id: "data-field-distance"
     optional: true
 
-- takeScreenshot: "recording-live-metrics"
+- takeScreenshot: "screenshots/recording-live-metrics"
 
 # Clean up: unlock, pause, stop, discard
 # Swipe the full width of the track. A direction swipe anchored to the handle
@@ -128,4 +128,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "recording-live-metrics-complete"
+- takeScreenshot: "screenshots/recording-live-metrics-complete"

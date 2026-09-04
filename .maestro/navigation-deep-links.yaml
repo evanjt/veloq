@@ -20,7 +20,7 @@ tags:
     visible:
       id: "fitness-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-fitness"
+- takeScreenshot: "screenshots/navigation-deep-links-fitness"
 
 # Test training deep link
 - openLink: "veloq://training"
@@ -33,7 +33,7 @@ tags:
     visible:
       id: "training-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-training"
+- takeScreenshot: "screenshots/navigation-deep-links-training"
 
 # Test map deep link
 - openLink: "veloq://map"
@@ -46,7 +46,7 @@ tags:
     visible:
       id: "map-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-map"
+- takeScreenshot: "screenshots/navigation-deep-links-map"
 
 # Test insights deep link
 - openLink: "veloq://insights"
@@ -59,7 +59,7 @@ tags:
     visible:
       id: "routes-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-insights"
+- takeScreenshot: "screenshots/navigation-deep-links-insights"
 
 # The pre-rename path still lands on the tab, notifications scheduled before
 # the rename carry it.
@@ -73,7 +73,7 @@ tags:
     visible:
       id: "routes-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-routes-legacy"
+- takeScreenshot: "screenshots/navigation-deep-links-routes-legacy"
 
 # Test settings deep link
 - openLink: "veloq://settings"
@@ -86,7 +86,7 @@ tags:
     visible:
       id: "settings-screen"
     timeout: 10000
-- takeScreenshot: "navigation-deep-links-settings"
+- takeScreenshot: "screenshots/navigation-deep-links-settings"
 
 # Test activity deep link
 - openLink: "veloq://activity/demo-test-0"
@@ -99,7 +99,7 @@ tags:
     visible:
       id: "activity-detail-screen"
     timeout: 15000
-- takeScreenshot: "navigation-deep-links-activity"
+- takeScreenshot: "screenshots/navigation-deep-links-activity"
 
 # Test nonexistent activity deep link (verify no crash)
 - openLink: "veloq://activity/nonexistent-id"
@@ -126,4 +126,4 @@ tags:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "navigation-deep-links-complete"
+- takeScreenshot: "screenshots/navigation-deep-links-complete"
