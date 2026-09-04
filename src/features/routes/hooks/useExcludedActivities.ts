@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '../types';
 
@@ -12,6 +13,10 @@ export function useExcludedActivities(
   sportFilter: string | undefined,
   preComputedExcludedIds?: string[]
 ) {
+  // A rematch or a sync changes which attempts are excluded and what the
+  // excluded ones read, and neither moves the keys below.
+  const sectionsTrigger = useEngineSubscription(['sections']);
+
   // Excluded activities state
   const [showExcluded, setShowExcluded] = useState(false);
   const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
@@ -86,7 +91,7 @@ export function useExcludedActivities(
       if (__DEV__) console.warn('[RouteDetail] getExcludedRoutePerformances failed:', e);
       return [];
     }
-  }, [showExcluded, excludedActivityIds, id, sportFilter]);
+  }, [showExcluded, excludedActivityIds, id, sportFilter, sectionsTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     showExcluded,
