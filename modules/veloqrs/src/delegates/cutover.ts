@@ -40,10 +40,55 @@ export interface CutoverCounts {
   gone: number;
 }
 
+/** The five detector values the flip resets to the validated configuration. */
+export interface CutoverSettings {
+  proximityThreshold: number;
+  minSectionLength: number;
+  maxSectionLength: number;
+  minActivities: number;
+  divergenceThreshold: number;
+}
+
+/** What the flip replaced beside what it wrote. Absent when nothing moved. */
+export interface CutoverSettingsReset {
+  previous: CutoverSettings;
+  current: CutoverSettings;
+}
+
 export interface CutoverDiff {
   token: string;
   counts: CutoverCounts;
   sections: CutoverSection[];
+  settingsReset: CutoverSettingsReset | null;
+}
+
+const SETTINGS_FIELDS: (keyof CutoverSettings)[] = [
+  'proximityThreshold',
+  'minSectionLength',
+  'maxSectionLength',
+  'minActivities',
+  'divergenceThreshold',
+];
+
+function parseSettings(raw: unknown): CutoverSettings | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  const out = {} as CutoverSettings;
+  for (const field of SETTINGS_FIELDS) {
+    const v = record[field];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    out[field] = v;
+  }
+  return out;
+}
+
+/** A half-readable reset is dropped alone, never the diff it rides in. */
+function parseSettingsReset(raw: unknown): CutoverSettingsReset | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  const previous = parseSettings(record.previous);
+  const current = parseSettings(record.current);
+  return previous && current ? { previous, current } : null;
 }
 
 /**
@@ -145,6 +190,7 @@ export function parseCutoverDiff(json: string): CutoverDiff | null {
       token?: unknown;
       counts?: Record<string, unknown>;
       sections?: unknown[];
+      settings_reset?: unknown;
     };
     if (typeof raw.token !== 'string' || !raw.counts || !Array.isArray(raw.sections)) {
       return null;
@@ -181,7 +227,12 @@ export function parseCutoverDiff(json: string): CutoverDiff | null {
         avgGradePercent: typeof s.avg_grade_percent === 'number' ? s.avg_grade_percent : null,
       });
     }
-    return { token: raw.token, counts, sections };
+    return {
+      token: raw.token,
+      counts,
+      sections,
+      settingsReset: parseSettingsReset(raw.settings_reset),
+    };
   } catch {
     return null;
   }
