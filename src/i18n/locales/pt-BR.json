@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} trechos viraram {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
       "diffUnchanged": "Todos os {{sections}} trechos saíram da nova análise sem mudanças.",
-      "recutFailed": "A nova análise não terminou. Seus trechos continuam iguais e ela roda de novo na próxima abertura."
+      "recutFailed": "A nova análise não terminou. Seus trechos continuam iguais e ela roda de novo na próxima abertura.",
+      "settingsReset": "As configurações de detecção de trechos foram redefinidas para os valores validados: {{changes}}. Visualizar mudanças de trechos e depois Manter restaura as anteriores.",
+      "settingsResetChange": "{{label}} de {{from}} para {{to}}",
+      "settingsResetProximity": "proximidade",
+      "settingsResetMinLength": "comprimento mínimo",
+      "settingsResetMaxLength": "trecho mais longo",
+      "settingsResetMinActivities": "visitas mínimas",
+      "settingsResetDivergence": "divergência"
     }
   },
   "strength": {

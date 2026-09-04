@@ -16,6 +16,7 @@ use log::info;
 use rusqlite::params;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tracematch::sections::SectionConfig;
 
 /// The id of the current cutover. Absent in settings means never cut over.
 /// Equal means done. Anything else means a future or reverted cutover.
@@ -26,6 +27,10 @@ pub(super) const CUTOVER_KEY: &str = "__detector_cutover";
 
 /// Settings key for the serialised diff payload (JSON).
 pub(super) const CUTOVER_DIFF_KEY: &str = "__detector_cutover_diff";
+
+/// The section config the switch replaced, kept until the token is promoted
+/// so a resumed run can still name it in the diff.
+pub(super) const CUTOVER_PREVIOUS_CONFIG_KEY: &str = "__detector_cutover_previous_config";
 
 /// Sentinel written on revert, so the cutover does not re-fire.
 const CUTOVER_REVERTED: &str = "reverted";
@@ -437,15 +442,26 @@ impl PersistentEngine {
     /// Step 2: persist the canonical config and write the token, atomically
     /// with the archive.
     fn commit_switch(&mut self) -> rusqlite::Result<()> {
-        let mut config = self.section_config.clone();
-        // These must match UNIFIED_CONFIG on the TS side.
-        config.pool_sports = true;
-
-        let json = serde_json::to_string(&config).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e)))
-        })?;
+        // The detector is validated at its defaults, which are UNIFIED_CONFIG
+        // on the TS side. A slider an older build let the athlete move is
+        // reset here and reported on the change card.
+        let config = SectionConfig::default();
+        let to_json = |c: &SectionConfig| {
+            serde_json::to_string(c).map_err(|e| {
+                rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(e)))
+            })
+        };
+        let json = to_json(&config)?;
 
         let tx = self.db.unchecked_transaction()?;
+        // Write-once: a resumed run already holds the defaults, and the
+        // values worth reporting are the ones the first run replaced.
+        if self.section_config != config {
+            tx.execute(
+                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                params![CUTOVER_PREVIOUS_CONFIG_KEY, to_json(&self.section_config)?],
+            )?;
+        }
         tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![settings_keys::SECTION_CONFIG_JSON, json],
@@ -482,10 +498,17 @@ impl PersistentEngine {
     /// Promote the in-flight token once the diff is stored. Until this runs,
     /// the cutover is owed and re-runs from the top on the next launch.
     fn finish_cutover(&self) -> rusqlite::Result<()> {
-        self.db.execute(
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![CUTOVER_KEY, CUTOVER_ID],
         )?;
+        // The diff carries the old values from here on.
+        tx.execute(
+            "DELETE FROM settings WHERE key = ?",
+            params![CUTOVER_PREVIOUS_CONFIG_KEY],
+        )?;
+        tx.commit()?;
         info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
         Ok(())
     }
@@ -515,6 +538,7 @@ impl PersistentEngine {
             "token": CUTOVER_ID,
             "counts": counts,
             "sections": sections,
+            "settings_reset": self.settings_reset()?,
         });
         let json = serde_json::to_string(&payload).unwrap_or_default();
 
@@ -528,6 +552,25 @@ impl PersistentEngine {
             counts.current, counts.new, counts.changed, counts.gone
         );
         Ok(json)
+    }
+
+    /// The config the switch replaced beside the one it wrote, or null when
+    /// the library was already at the validated values.
+    fn settings_reset(&self) -> rusqlite::Result<serde_json::Value> {
+        let Some(json) = self.get_setting(CUTOVER_PREVIOUS_CONFIG_KEY)? else {
+            return Ok(serde_json::Value::Null);
+        };
+        let previous: SectionConfig = match serde_json::from_str(&json) {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("veloqrs: [cutover] Unreadable previous config: {}", e);
+                return Ok(serde_json::Value::Null);
+            }
+        };
+        Ok(serde_json::json!({
+            "previous": previous,
+            "current": self.section_config,
+        }))
     }
 
     fn load_archived_sections(
@@ -844,6 +887,70 @@ mod tests {
         assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
 
         assert_eq!(archived_line(&engine).len(), 12);
+    }
+
+    fn previous_config(engine: &PersistentEngine) -> Option<String> {
+        engine
+            .get_setting(super::CUTOVER_PREVIOUS_CONFIG_KEY)
+            .expect("read")
+    }
+
+    /// Scenario: a run dies between the switch and the promotion, so the
+    /// resumed run switches again from a config that already reads Unified.
+    /// Expected behaviour: the diff still names the values the first switch
+    /// replaced, and the promotion drops them once the diff carries them.
+    #[test]
+    fn a_resumed_switch_keeps_the_values_the_first_one_replaced() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        let strict = tracematch::SectionConfig {
+            proximity_threshold: 100.0,
+            min_activities: 3,
+            ..Default::default()
+        };
+        engine.set_section_config(strict);
+
+        engine.commit_switch().expect("first switch");
+        assert_eq!(
+            engine.get_section_config(),
+            tracematch::SectionConfig::default()
+        );
+        assert!(previous_config(&engine).is_some());
+
+        engine.commit_switch().expect("resumed switch");
+        let diff: serde_json::Value =
+            serde_json::from_str(&engine.build_cutover_diff().expect("diff")).expect("json");
+        assert_eq!(
+            diff["settings_reset"]["previous"]["proximityThreshold"].as_f64(),
+            Some(100.0),
+            "the resumed switch lost the pre-reset values"
+        );
+        assert_eq!(
+            diff["settings_reset"]["previous"]["minActivities"].as_u64(),
+            Some(3)
+        );
+        assert_eq!(
+            diff["settings_reset"]["current"]["minActivities"].as_u64(),
+            Some(2)
+        );
+
+        engine.finish_cutover().expect("promote");
+        assert!(
+            previous_config(&engine).is_none(),
+            "the promotion left the old values behind"
+        );
+    }
+
+    /// A switch from the defaults keeps nothing, so the diff reports no reset.
+    #[test]
+    fn a_switch_from_the_defaults_reports_no_reset() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        engine.commit_switch().expect("switch");
+        assert!(previous_config(&engine).is_none());
+        let diff: serde_json::Value =
+            serde_json::from_str(&engine.build_cutover_diff().expect("diff")).expect("json");
+        assert!(diff["settings_reset"].is_null());
     }
 
     fn archived_blob(engine: &PersistentEngine) -> Vec<u8> {

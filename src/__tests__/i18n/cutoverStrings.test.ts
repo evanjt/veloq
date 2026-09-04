@@ -1,5 +1,5 @@
 /**
- * The change card reports the cutover in nine strings. Every locale needs a
+ * The change card reports the cutover in sixteen strings. Every locale needs a
  * real translation with the interpolation placeholders intact, otherwise the
  * card reads as English or renders a raw `{{value}}`.
  */
@@ -19,6 +19,13 @@ const KEYS = [
   'diffBreakdown',
   'diffUnchanged',
   'recutFailed',
+  'settingsReset',
+  'settingsResetChange',
+  'settingsResetProximity',
+  'settingsResetMinLength',
+  'settingsResetMaxLength',
+  'settingsResetMinActivities',
+  'settingsResetDivergence',
 ] as const;
 
 const PLACEHOLDERS: Record<string, string[]> = {
@@ -26,6 +33,8 @@ const PLACEHOLDERS: Record<string, string[]> = {
   diffTotals: ['{{current}}', '{{proposed}}'],
   diffBreakdown: ['{{new}}', '{{changed}}', '{{gone}}'],
   diffUnchanged: ['{{sections}}'],
+  settingsReset: ['{{changes}}'],
+  settingsResetChange: ['{{label}}', '{{from}}', '{{to}}'],
 };
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];

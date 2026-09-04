@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
       "diffUnchanged": "Os {{sections}} troços saíram da nova análise sem alterações.",
-      "recutFailed": "A nova análise não terminou. Os teus troços continuam iguais e volta a correr no próximo arranque."
+      "recutFailed": "A nova análise não terminou. Os teus troços continuam iguais e volta a correr no próximo arranque.",
+      "settingsReset": "As definições de deteção de secções foram repostas nos valores validados: {{changes}}. Pré-visualizar alterações de secções e depois Manter repõe as anteriores.",
+      "settingsResetChange": "{{label}} de {{from}} para {{to}}",
+      "settingsResetProximity": "proximidade",
+      "settingsResetMinLength": "comprimento mínimo",
+      "settingsResetMaxLength": "secção mais longa",
+      "settingsResetMinActivities": "visitas mínimas",
+      "settingsResetDivergence": "divergência"
     }
   },
   "strength": {

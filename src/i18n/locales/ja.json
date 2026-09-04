@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
       "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。",
-      "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。"
+      "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。",
+      "settingsReset": "セクション検出の設定は検証済みの値にリセットされました: {{changes}}。セクション変更のプレビューから「保持」を選ぶと以前の値に戻せます。",
+      "settingsResetChange": "{{label}} {{from}} から {{to}}",
+      "settingsResetProximity": "近接距離",
+      "settingsResetMinLength": "最小長さ",
+      "settingsResetMaxLength": "最長セクション",
+      "settingsResetMinActivities": "最小訪問回数",
+      "settingsResetDivergence": "分岐"
     }
   },
   "strength": {

@@ -1469,7 +1469,14 @@
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
       "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged.",
-      "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch."
+      "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch.",
+      "settingsReset": "Your section detection settings were reset to the validated values: {{changes}}. Preview section changes, then Keep, puts the earlier ones back.",
+      "settingsResetChange": "{{label}} {{from}} to {{to}}",
+      "settingsResetProximity": "proximity",
+      "settingsResetMinLength": "minimum length",
+      "settingsResetMaxLength": "longest section",
+      "settingsResetMinActivities": "minimum visits",
+      "settingsResetDivergence": "divergence"
     }
   },
   "bestEffortsScreen": {

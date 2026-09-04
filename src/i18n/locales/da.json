@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
       "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
       "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen.",
-      "recutFailed": "Analysen blev ikke færdig. Dine strækninger er uændrede, og den kører igen ved næste start."
+      "recutFailed": "Analysen blev ikke færdig. Dine strækninger er uændrede, og den kører igen ved næste start.",
+      "settingsReset": "Dine indstillinger for sektionsdetektion blev nulstillet til de validerede værdier: {{changes}}. Forhåndsvis sektionsændringer og tryk Behold for at få de tidligere tilbage.",
+      "settingsResetChange": "{{label}} {{from}} til {{to}}",
+      "settingsResetProximity": "nærhed",
+      "settingsResetMinLength": "minimumslængde",
+      "settingsResetMaxLength": "længste sektion",
+      "settingsResetMinActivities": "minimum besøg",
+      "settingsResetDivergence": "afvigelse"
     }
   },
   "strength": {

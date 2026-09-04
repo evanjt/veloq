@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
       "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
-      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。"
+      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。",
+      "settingsReset": "路段检测设置已重置为经过验证的值：{{changes}}。在预览路段变化中选择保留可恢复之前的值。",
+      "settingsResetChange": "{{label}} {{from}} 改为 {{to}}",
+      "settingsResetProximity": "邻近距离",
+      "settingsResetMinLength": "最短长度",
+      "settingsResetMaxLength": "最长路段",
+      "settingsResetMinActivities": "最少访问次数",
+      "settingsResetDivergence": "分岔"
     }
   },
   "strength": {
