@@ -76,6 +76,8 @@ export function buildRenderSnapshotScript(
 
               window._snapshotGen = myGen;
               window._tileErrorCount = 0;
+              // A request is in flight from here until it posts its result.
+              window._heartbeat.start();
 
               function isStale() {
                 return window._snapshotGen !== myGen;
@@ -460,7 +462,6 @@ export function buildRenderSnapshotScript(
 
               // Wait for everything to load (DEM + vector + route tiles)
               window._tileStats = {};
-              _rafCount = 0;
               var done = false;
               var setStyleTime = Date.now();
 
