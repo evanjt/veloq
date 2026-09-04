@@ -805,12 +805,6 @@ impl PersistentEngine {
         patterns
     }
 
-    /// The pattern matching today's day and season, off the memoised set.
-    pub fn pattern_for_today(&mut self) -> Option<crate::FfiActivityPattern> {
-        let patterns = self.activity_patterns();
-        crate::patterns::pattern_for_today(&patterns)
-    }
-
     fn pattern_cache_key(&self, now_ts: i64) -> PatternCacheKey {
         let newest = self
             .activity_metrics
