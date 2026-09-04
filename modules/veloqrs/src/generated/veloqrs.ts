@@ -16075,11 +16075,6 @@ const FfiConverterTypeSyncManager = new FfiConverterObject(
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
   /**
-   * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API - safe to call while the database is in use.
-   */
-  backupDatabase(destPath: string) /*throws*/ : void;
-  /**
    * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
    */
   bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
@@ -16117,10 +16112,22 @@ export interface VeloqEngineLike {
   isInitialized(): boolean;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
+  /**
+   * Poll the running backup: "idle" | "running" | "complete". A failed copy
+   * is an error, and either outcome clears the slot so the next backup can
+   * start.
+   */
+  pollBackup() /*throws*/ : string;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
   setNameTranslations(routeWord: string, sectionWord: string): void;
   settings(): SettingsManagerLike;
+  /**
+   * Start an atomic SQLite backup at the given path on a background thread.
+   * Poll `poll_backup` for the outcome. The copy runs on its own connection,
+   * so neither the engine lock nor the calling thread waits for it.
+   */
+  startBackup(destPath: string) /*throws*/ : void;
   strength(): StrengthManagerLike;
   sync(): SyncManagerLike;
 }
@@ -16169,26 +16176,6 @@ export class VeloqEngine
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
-    );
-  }
-
-  /**
-   * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API - safe to call while the database is in use.
-   */
-  backupDatabase(destPath: string): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database(
-          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-          FfiConverterString.lower(destPath),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -16446,6 +16433,28 @@ export class VeloqEngine
     );
   }
 
+  /**
+   * Poll the running backup: "idle" | "running" | "complete". A failed copy
+   * is an error, and either outcome clears the slot so the next backup can
+   * start.
+   */
+  pollBackup(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_backup(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   routes(): RouteManagerLike {
     return FfiConverterTypeRouteManager.lift(
       uniffiCaller.rustCall(
@@ -16499,6 +16508,27 @@ export class VeloqEngine
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  /**
+   * Start an atomic SQLite backup at the given path on a background thread.
+   * Poll `poll_backup` for the outcome. The copy runs on its own connection,
+   * so neither the engine lock nor the calling thread waits for it.
+   */
+  startBackup(destPath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -17478,14 +17508,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database() !==
-    50995
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_backup_database",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson() !==
     442
   ) {
@@ -17606,6 +17628,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_backup() !==
+    48388
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_backup",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes() !==
     6175
   ) {
@@ -17635,6 +17665,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_settings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup() !==
+    24871
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
     );
   }
   if (
