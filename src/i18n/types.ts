@@ -1007,6 +1007,7 @@ export interface TranslationResource {
     splitWest: string;
     defaultName: string;
     detectionPaused: string;
+    detectionPausedElevation: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;

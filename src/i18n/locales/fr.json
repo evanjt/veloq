@@ -1039,6 +1039,7 @@
     "deleteSection": "Supprimer la section",
     "deleteSectionConfirm": "Voulez-vous vraiment supprimer cette section ? Cette action est irréversible.",
     "detectionPaused": "Détection en pause pendant la migration de vos sections",
+    "detectionPausedElevation": "Détection en pause pendant le téléchargement de l'altitude",
     "disabled": "Désactivée",
     "removeSection": "Supprimer la section",
     "removeSectionConfirm": "Cette section n'apparaîtra plus dans les détails d'activité ni dans les insights. Vous pourrez la restaurer depuis la liste des sections.",
