@@ -29,10 +29,8 @@ impl super::PersistentEngine {
         let run_pace_trend = self.get_pace_trend("Run");
 
         // Activity patterns
-        let all_patterns =
-            crate::patterns::compute_activity_patterns(&self.db, &self.activity_metrics);
-        let today_pattern =
-            crate::patterns::get_pattern_for_today(&self.db, &self.activity_metrics);
+        let all_patterns = self.activity_patterns_as_of(now_ts);
+        let today_pattern = crate::patterns::pattern_for_today(&all_patterns);
 
         // Recent PRs - loop stays in Rust, never crosses FFI
         let seven_days_ago = now_ts - 7 * 86400;
@@ -53,7 +51,18 @@ impl super::PersistentEngine {
             .collect();
         all_summaries.sort_by_key(|(_, s)| std::cmp::Reverse(s.visit_count));
 
+        let recent_visits = self.sections_visited_since(seven_days_ago);
+
         for (sport, s) in &all_summaries {
+            // A record inside the window needs an outing inside the window, and
+            // computing one section's performances costs tens of milliseconds,
+            // so the junction says which sections are worth asking about before
+            // any of them is computed.
+            if let Some(recent) = &recent_visits
+                && !recent.contains(&(s.id.clone(), sport.clone()))
+            {
+                continue;
+            }
             let perf = self.get_section_performances_filtered(&s.id, Some(sport));
             // Prefer per-direction bests: they're computed lap-by-lap and
             // line up with what the section detail page shows. The combined
@@ -187,6 +196,32 @@ impl super::PersistentEngine {
             has_strength_data,
             strength_series,
         }
+    }
+
+    /// The (section, sport) pairs travelled on or after `since`, or `None` when
+    /// the junction cannot be read, which leaves the caller computing every
+    /// section as it did before.
+    fn sections_visited_since(
+        &self,
+        since: i64,
+    ) -> Option<std::collections::HashSet<(String, String)>> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT DISTINCT sa.section_id, am.sport_type
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.excluded = 0 AND am.date >= ?1",
+            )
+            .map_err(|e| log::warn!("[screens] recent visit prepare failed: {}", e))
+            .ok()?;
+        let rows = stmt
+            .query_map(rusqlite::params![since], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| log::warn!("[screens] recent visit query failed: {}", e))
+            .ok()?;
+        Some(rows.flatten().collect())
     }
 
     /// Strength volume over one month and a set of weeks, or `None` when a

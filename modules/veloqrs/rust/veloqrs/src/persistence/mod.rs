@@ -805,6 +805,32 @@ pub struct PersistentEngine {
     /// + calendar); navigating between a handful of sections keeps them all warm
     /// where the old single entry evicted on every hop.
     perf_cache: LruCache<String, SectionPerformanceResult>,
+
+    /// Full computations of `get_section_performances_filtered`, cache hits
+    /// excluded. Exposed so a test can tell a skipped section from a computed
+    /// one without timing it.
+    perf_computations: u64,
+
+    /// Memoised `compute_activity_patterns`, held under the metric row count,
+    /// the newest metric date and the day it was computed on. The clustering
+    /// runs over every metric row and costs 13 to 42 ms, and the insights
+    /// bundle asks for it twice per call. Nothing it reads can move while no
+    /// row is added or removed and no newer activity lands, and the day is in
+    /// the key because a pattern carries `days_since_last`.
+    pattern_cache: Option<(PatternCacheKey, Vec<crate::FfiActivityPattern>)>,
+
+    /// Full computations of `activity_patterns`, memo hits excluded. Exposed
+    /// for the same reason as `perf_computations`.
+    pattern_computations: u64,
+}
+
+/// What the memoised patterns were computed from. A pattern carries
+/// `days_since_last`, so the day is as much a part of the answer as the rows.
+#[derive(PartialEq, Eq)]
+struct PatternCacheKey {
+    metric_count: usize,
+    newest_metric_date: i64,
+    day: i64,
 }
 
 impl PersistentEngine {
@@ -812,6 +838,60 @@ impl PersistentEngine {
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     pub(crate) fn invalidate_perf_cache(&mut self) {
         self.perf_cache.clear();
+    }
+
+    /// How many section performance results have been computed in full.
+    #[doc(hidden)]
+    pub fn performance_computations(&self) -> u64 {
+        self.perf_computations
+    }
+
+    pub(crate) fn note_performance_computation(&mut self) {
+        self.perf_computations += 1;
+    }
+
+    /// How many times the pattern clustering has run.
+    #[doc(hidden)]
+    pub fn pattern_computations(&self) -> u64 {
+        self.pattern_computations
+    }
+
+    /// Activity patterns for the whole library, as of now.
+    pub fn activity_patterns(&mut self) -> Vec<crate::FfiActivityPattern> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        self.activity_patterns_as_of(now)
+    }
+
+    /// Activity patterns for the whole library, memoised on the metric row
+    /// count, the newest metric date and the day `now_ts` falls on.
+    pub fn activity_patterns_as_of(&mut self, now_ts: i64) -> Vec<crate::FfiActivityPattern> {
+        let key = self.pattern_cache_key(now_ts);
+        if let Some((held, patterns)) = &self.pattern_cache
+            && *held == key
+        {
+            return patterns.clone();
+        }
+        let patterns = crate::patterns::compute_activity_patterns(&self.db, &self.activity_metrics);
+        self.pattern_computations += 1;
+        self.pattern_cache = Some((key, patterns.clone()));
+        patterns
+    }
+
+    fn pattern_cache_key(&self, now_ts: i64) -> PatternCacheKey {
+        let newest = self
+            .activity_metrics
+            .values()
+            .map(|m| m.date)
+            .max()
+            .unwrap_or(0);
+        PatternCacheKey {
+            metric_count: self.activity_metrics.len(),
+            newest_metric_date: newest,
+            day: now_ts.div_euclid(86_400),
+        }
     }
 
     /// Drop the Unified evidence cache (and its folded-id shadow) so the next
@@ -881,6 +961,9 @@ impl PersistentEngine {
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
             perf_cache: LruCache::new(std::num::NonZeroUsize::new(8).unwrap()),
+            perf_computations: 0,
+            pattern_cache: None,
+            pattern_computations: 0,
         })
     }
 
