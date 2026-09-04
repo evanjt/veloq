@@ -25,10 +25,6 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: layout.borderRadius,
   },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
-  },
   map: {
     flex: 1,
   },

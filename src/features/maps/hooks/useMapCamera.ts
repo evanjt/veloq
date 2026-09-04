@@ -14,6 +14,7 @@ import { Animated } from 'react-native';
 import * as Location from 'expo-location';
 import { type LatLng, getMapLibreBounds } from '@/shared/geo/polyline';
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
+import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
 /** Bounds returned by getMapLibreBounds */
@@ -47,6 +48,12 @@ interface UseMapCameraResult {
   currentCenterRef: React.MutableRefObject<[number, number] | null>;
   /** Current viewport zoom ref (updated on region change, no re-renders) */
   currentZoomRef: React.MutableRefObject<number>;
+  /**
+   * Where the surface last settled, or null while it has never reported a
+   * viewport. Read when the surface is being hidden, so the remount that
+   * follows opens on the same view rather than fitting the track again.
+   */
+  settledCameraRef: React.MutableRefObject<MapCameraSpec | null>;
   /** Animated bearing value for compass arrow (degrees, negated) */
   bearingAnim: Animated.Value;
   /** Whether GPS location is currently loading */
@@ -87,6 +94,9 @@ export function useMapCamera({
 
   const currentCenterRef = useRef<[number, number] | null>(boundsCenter);
   const currentZoomRef = useRef(14);
+  // Null until the surface reports a viewport, so a first mount still fits the
+  // track and only a remount restores what the user was looking at.
+  const settledCameraRef = useRef<MapCameraSpec | null>(null);
 
   // Update ref initial value if bounds becomes available after mount
   if (boundsCenter && !currentCenterRef.current) {
@@ -128,6 +138,7 @@ export function useMapCamera({
   const handleRegionDidChange = useCallback((state: MapCameraState) => {
     currentCenterRef.current = state.center;
     currentZoomRef.current = state.zoom;
+    settledCameraRef.current = { center: state.center, zoom: state.zoom };
   }, []);
 
   const resetOrientation = useCallback(() => {
@@ -172,6 +183,7 @@ export function useMapCamera({
     boundsCenter,
     currentCenterRef,
     currentZoomRef,
+    settledCameraRef,
     bearingAnim,
     locationLoading,
     handleMapReady,

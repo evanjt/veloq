@@ -14,9 +14,11 @@ import type { ActivityBoundsItem } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
+let mockPathname = '/map';
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), back: jest.fn() }),
-  usePathname: () => '/map',
+  usePathname: () => mockPathname,
 }));
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
@@ -83,6 +85,10 @@ function renderRegional(props: Partial<React.ComponentProps<typeof RegionalMapVi
 }
 
 describe('RegionalMapView', () => {
+  beforeEach(() => {
+    mockPathname = '/map';
+  });
+
   it('mounts a map with activity overlays', () => {
     renderRegional();
 
@@ -124,6 +130,42 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('webview')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    expect(screen.queryByTestId('webview')).toBeNull();
+  });
+
+  it('tears the surface down when the tab loses focus and rebuilds it on return', () => {
+    const view = renderRegional();
+    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+
+    mockPathname = '/activity/a1';
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+    expect(screen.queryByTestId('maplibre-map')).toBeNull();
+
+    mockPathname = '/map';
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+  });
+
+  it('takes the terrain view down with the tab too', () => {
+    const view = renderRegional();
+    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    expect(screen.getByTestId('webview')).toBeTruthy();
+
+    mockPathname = '/activity/a1';
+    view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <RegionalMapView activities={[activity('a1'), activity('a2')]} />
+      </SafeAreaProvider>
+    );
+
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
