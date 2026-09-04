@@ -104,4 +104,65 @@ describe('parseCutoverDiff', () => {
     expect(result).not.toBeNull();
     expect(result!.sections).toHaveLength(0);
   });
+
+  describe('the settings reset', () => {
+    const parsed = (payload: unknown) => {
+      const result = parseCutoverDiff(JSON.stringify(payload));
+      if (!result) throw new Error('the diff did not parse');
+      return result;
+    };
+    const reset = {
+      previous: {
+        proximityThreshold: 100,
+        minSectionLength: 50,
+        maxSectionLength: 200000,
+        minActivities: 3,
+        divergenceThreshold: 0.1,
+        poolSports: true,
+      },
+      current: {
+        proximityThreshold: 200,
+        minSectionLength: 150,
+        maxSectionLength: 200000,
+        minActivities: 2,
+        divergenceThreshold: 0.15,
+        poolSports: true,
+      },
+    };
+
+    it('carries both configs when the flip moved a value', () => {
+      expect(parsed({ ...validPayload, settings_reset: reset }).settingsReset).toEqual({
+        previous: {
+          proximityThreshold: 100,
+          minSectionLength: 50,
+          maxSectionLength: 200000,
+          minActivities: 3,
+          divergenceThreshold: 0.1,
+        },
+        current: {
+          proximityThreshold: 200,
+          minSectionLength: 150,
+          maxSectionLength: 200000,
+          minActivities: 2,
+          divergenceThreshold: 0.15,
+        },
+      });
+    });
+
+    it('reads a null or absent reset as none', () => {
+      expect(parsed(validPayload).settingsReset).toBeNull();
+      expect(parsed({ ...validPayload, settings_reset: null }).settingsReset).toBeNull();
+    });
+
+    it('drops a reset with a missing or non-numeric field rather than the diff', () => {
+      const broken = {
+        ...reset,
+        previous: { ...reset.previous, minActivities: 'three' },
+      };
+      expect(parsed({ ...validPayload, settings_reset: broken }).settingsReset).toBeNull();
+      const { proximityThreshold: _p, ...short } = reset.previous;
+      const missing = { ...reset, previous: short };
+      expect(parsed({ ...validPayload, settings_reset: missing }).settingsReset).toBeNull();
+    });
+  });
 });

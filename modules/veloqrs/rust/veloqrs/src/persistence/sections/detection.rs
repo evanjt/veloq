@@ -470,13 +470,18 @@ pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 /// way: neither is a run phase.
 pub const DETECTION_PHASE_CUTOVER_OWED: &str = "cutover_owed";
 
+/// Phase reported by a handle that was refused because the athlete has turned
+/// section detection off. Distinct from the other two refusals: this one is a
+/// choice, not a wait, so nothing should tell the athlete detection is paused.
+pub const DETECTION_PHASE_DISABLED: &str = "disabled";
+
 /// Whether a handle came back refused rather than running. A refused handle
 /// has no worker behind it, so installing it in the shared slot would occupy
 /// the slot with a run that never happened.
 pub fn detection_was_refused(handle: &SectionDetectionHandle) -> bool {
     matches!(
         handle.get_progress().0.as_str(),
-        DETECTION_PHASE_SUSPENDED | DETECTION_PHASE_CUTOVER_OWED
+        DETECTION_PHASE_SUSPENDED | DETECTION_PHASE_CUTOVER_OWED | DETECTION_PHASE_DISABLED
     )
 }
 
@@ -615,6 +620,14 @@ impl PersistentEngine {
         &mut self,
         apply_on: ApplyOn,
     ) -> SectionDetectionHandle {
+        // B258: the switch is the honest opt-out, so it holds every arm rather
+        // than only the screens that used to read it in TypeScript. First,
+        // because a library that wants no detection wants no cutover detect
+        // either, and the check is one settings row.
+        if !self.detection_enabled() {
+            log::info!("veloqrs: [SectionDetection] Refused: detection is switched off");
+            return Self::refused_detection_handle(DETECTION_PHASE_DISABLED);
+        }
         if super::conditioning::detection_suspended() {
             log::info!(
                 "veloqrs: [SectionDetection] Refused: detection is suspended for a backfill"

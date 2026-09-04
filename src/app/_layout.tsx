@@ -29,6 +29,7 @@ import {
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { useCutoverRetry } from '@/features/routes/hooks/useCutoverRetry';
 import {
   initializeRouteSettings,
   isHeatmapEnabled,
@@ -117,6 +118,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
   const engineRetryNonce = useEngineStatus((s) => s.retryNonce);
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
+  useCutoverRetry();
   useEffect(() => {
     if (isAuthenticated) {
       const engine = getEngine();

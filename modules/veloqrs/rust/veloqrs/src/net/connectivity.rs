@@ -12,8 +12,13 @@
 //! expires back to "try" and the transport's own failure handling carries it
 //! from there. Unset reads as "try" for the same reason: an install that never
 //! pushes behaves exactly as it did before this existed.
+//!
+//! The one thing scheduled work waits on is the connection coming back, so a
+//! transition to online is also an edge a sleeper can be woken by, through
+//! [`sleep_or_online_edge`]. The elevation backfill's resume ladder sleeps on
+//! it rather than through it.
 
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 /// How long a pushed state is believed. TypeScript pushes on every transition
@@ -23,8 +28,18 @@ pub const STALE_AFTER: Duration = Duration::from_secs(15 * 60);
 
 static STATE: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
 
+/// How many times the state has gone from not online to online. A sleeper
+/// compares this against the count it started with, so an edge that landed
+/// before the sleep began is not mistaken for one during it.
+static ONLINE_EDGES: Mutex<u64> = Mutex::new(0);
+static ONLINE_EDGE: Condvar = Condvar::new();
+
 fn state() -> std::sync::MutexGuard<'static, Option<(bool, Instant)>> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn edges() -> std::sync::MutexGuard<'static, u64> {
+    ONLINE_EDGES.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Record what TypeScript sees. Called on every transition and on foreground.
@@ -34,7 +49,37 @@ pub fn set_online(online: bool) {
 
 /// [`set_online`] with the moment handed in, so staleness is testable.
 pub fn set_online_at(online: bool, at: Instant) {
-    *state() = Some((online, at));
+    let was_online = state()
+        .replace((online, at))
+        .is_some_and(|(online, _)| online);
+    if online && !was_online {
+        *edges() += 1;
+        ONLINE_EDGE.notify_all();
+    }
+}
+
+/// Sleep for `wait`, or until the connection comes back, whichever is first.
+///
+/// True when an online edge cut the sleep short. Only a transition counts: a
+/// push that repeats the online already held, an offline push, and an edge
+/// that landed before this was called all leave the sleeper waiting.
+pub fn sleep_or_online_edge(wait: Duration) -> bool {
+    let deadline = Instant::now() + wait;
+    let mut seen = edges();
+    let at_start = *seen;
+    loop {
+        if *seen != at_start {
+            return true;
+        }
+        let now = Instant::now();
+        if now >= deadline {
+            return false;
+        }
+        seen = ONLINE_EDGE
+            .wait_timeout(seen, deadline - now)
+            .unwrap_or_else(|e| e.into_inner())
+            .0;
+    }
 }
 
 /// Whether outbound work should be refused right now.
@@ -143,6 +188,92 @@ mod tests {
         assert!(!online);
         assert!(age >= Duration::from_secs(60));
 
+        reset();
+    }
+    /// The one thing a sleeper can be woken by is the connection coming
+    /// back. A push that repeats the online it already had is not an edge.
+    #[test]
+    fn an_online_edge_wakes_a_sleeper_before_its_time() {
+        let _serial = serial_global_state();
+        reset();
+        set_online(false);
+
+        let waker = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(50));
+            set_online(true);
+        });
+        let started = Instant::now();
+        let woken = sleep_or_online_edge(Duration::from_secs(30));
+        waker.join().unwrap();
+
+        assert!(woken, "the edge has to cut the sleep short");
+        assert!(started.elapsed() < Duration::from_secs(5));
+        reset();
+    }
+
+    #[test]
+    fn a_sleep_nobody_wakes_runs_to_its_deadline() {
+        let _serial = serial_global_state();
+        reset();
+        set_online(true);
+
+        let started = Instant::now();
+        let woken = sleep_or_online_edge(Duration::from_millis(100));
+
+        assert!(!woken);
+        assert!(started.elapsed() >= Duration::from_millis(100));
+        reset();
+    }
+
+    #[test]
+    fn a_repeated_online_is_not_an_edge() {
+        let _serial = serial_global_state();
+        reset();
+        set_online(true);
+
+        let waker = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            set_online(true);
+        });
+        let woken = sleep_or_online_edge(Duration::from_millis(150));
+        waker.join().unwrap();
+
+        assert!(
+            !woken,
+            "a foreground re-push of the same state must not wake anything"
+        );
+        reset();
+    }
+
+    #[test]
+    fn an_offline_push_is_not_an_edge() {
+        let _serial = serial_global_state();
+        reset();
+        set_online(true);
+
+        let waker = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            set_online(false);
+        });
+        let woken = sleep_or_online_edge(Duration::from_millis(150));
+        waker.join().unwrap();
+
+        assert!(!woken);
+        reset();
+    }
+
+    /// An edge that landed before the sleep began was already acted on by
+    /// whatever ran between them. Only an edge during the sleep counts.
+    #[test]
+    fn an_edge_before_the_sleep_does_not_count() {
+        let _serial = serial_global_state();
+        reset();
+        set_online(false);
+        set_online(true);
+
+        let woken = sleep_or_online_edge(Duration::from_millis(100));
+
+        assert!(!woken);
         reset();
     }
 }

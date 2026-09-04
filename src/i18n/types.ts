@@ -725,6 +725,7 @@ export interface TranslationResource {
     v040: {
       sectionsTitle: string;
       sectionsBody: string;
+      elevationLine: string;
       rowDeterministic: string;
       rowSameResult: string;
       rowLedger: string;
@@ -741,6 +742,13 @@ export interface TranslationResource {
       diffBreakdown: string;
       diffUnchanged: string;
       recutFailed: string;
+      settingsReset: string;
+      settingsResetChange: string;
+      settingsResetProximity: string;
+      settingsResetMinLength: string;
+      settingsResetMaxLength: string;
+      settingsResetMinActivities: string;
+      settingsResetDivergence: string;
     };
     v030: {
       insightsTitle: string;

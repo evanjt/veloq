@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "能自我说明的路段",
       "sectionsBody": "路段现在由单一的确定性检测器切分。每个路段都保留可查看、可恢复、可固定的历史。",
+      "elevationLine": "Veloq 会为你已有的活动获取一次海拔，然后用新算法重新检测路段。",
       "rowDeterministic": "单一确定性匹配器：相同的骑行得到相同的路段",
       "rowSameResult": "逐条添加或一次添加所有活动，结果相同",
       "rowLedger": "历史显示每个路段如何变化以及前后的活动",
@@ -1443,7 +1444,14 @@
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
       "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
-      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。"
+      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。",
+      "settingsReset": "路段检测设置已重置为经过验证的值：{{changes}}。在预览路段变化中选择保留可恢复之前的值。",
+      "settingsResetChange": "{{label}} {{from}} 改为 {{to}}",
+      "settingsResetProximity": "邻近距离",
+      "settingsResetMinLength": "最短长度",
+      "settingsResetMaxLength": "最长路段",
+      "settingsResetMinActivities": "最少访问次数",
+      "settingsResetDivergence": "分岔"
     }
   },
   "strength": {
