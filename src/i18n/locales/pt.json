@@ -1239,6 +1239,8 @@
     "elevationBackfillRetrying_other": "Não foi possível atualizar {{count}} percursos das atividades. Serão tentados novamente mais tarde.",
     "elevationBackfillFailed": "Não foi possível executar a atualização de altitude.",
     "elevationBackfillExplainer": "A deteção de troços melhorada corre assim que todos os percursos tiverem altitude.",
+    "elevationBackfillOutstanding_one": "{{count}} percurso ainda precisa de elevação.",
+    "elevationBackfillOutstanding_other": "{{count}} percursos ainda precisam de elevação.",
     "elevationBackfillWhy": "Porque é necessário",
     "elevationBackfillWhyTitle": "Porque está a ser adicionada altitude",
     "elevationBackfillWhyBody": "O algoritmo de troços melhorado e a deteção de subidas leem uma altitude que as versões anteriores nunca descarregavam. O Veloq descarrega-a uma vez para as tuas atividades existentes e depois deteta os troços de novo com o novo algoritmo.",
