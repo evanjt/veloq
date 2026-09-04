@@ -7,7 +7,6 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
@@ -273,7 +272,6 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       }
 
       await reinitializeAllStores();
-      await AsyncStorage.removeItem('veloq-query-cache');
 
       const restoredEngine = getEngine();
       const activityCount = restoredEngine?.getActivityCount() ?? 0;
