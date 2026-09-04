@@ -185,4 +185,26 @@ mod tests {
             recorder.events()
         );
     }
+
+    /// The backfill sets its phase from a background thread, so the settings
+    /// row hears the transition instead of re-reading the snapshot on a timer.
+    #[test]
+    fn the_elevation_backfill_announces_every_phase_it_enters() {
+        use crate::net::elevation_backfill::{
+            BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_IDLE, set_phase,
+        };
+
+        let _guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+        set_phase(BACKFILL_PHASE_FETCHING);
+        set_phase(BACKFILL_PHASE_COMPLETE);
+        set_observer(None);
+        set_phase(BACKFILL_PHASE_IDLE);
+
+        assert_eq!(
+            recorder.events(),
+            vec!["backfill_phase:fetching", "backfill_phase:complete"]
+        );
+    }
 }
