@@ -103,3 +103,121 @@ fn a_track_with_elevation_gaps_stores_the_gaps_as_absent() {
     assert_eq!(loaded[11].elevation, None);
     assert_eq!(loaded[12].elevation, Some(1060.0));
 }
+
+/// Adding elevation by re-ingesting the whole track replaces the coordinates
+/// the catalogue was derived from, so the activity is evicted from the
+/// processed set and every section on it is re-derived. Splicing writes the
+/// points the device already holds, so nothing is invalidated.
+#[test]
+fn a_splice_is_not_a_mutation_and_a_re_ingest_is() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+
+    let flat = climbing_line(false);
+    let elevations: Vec<f64> = (0..flat.len()).map(|i| 1000.0 + i as f64 * 5.0).collect();
+    for id in ["spliced", "re-ingested"] {
+        engine
+            .add_activity(id.to_string(), flat.clone(), "Ride".to_string())
+            .unwrap();
+    }
+    engine
+        .save_processed_activity_ids(&["spliced".to_string(), "re-ingested".to_string()])
+        .unwrap();
+    // The stored track is the quantised one, which is what a splice must
+    // reproduce coordinate for coordinate.
+    let stored = engine.get_gps_track("spliced").unwrap();
+
+    assert!(
+        engine
+            .splice_track_elevation("spliced", &elevations)
+            .unwrap()
+    );
+    engine
+        .add_activity(
+            "re-ingested".to_string(),
+            climbing_line(true),
+            "Ride".to_string(),
+        )
+        .unwrap();
+
+    assert!(
+        processed(&path, "spliced"),
+        "a splice must not re-derive the catalogue"
+    );
+    assert!(
+        !processed(&path, "re-ingested"),
+        "a replaced track must re-derive the catalogue"
+    );
+
+    let loaded = engine.get_gps_track("spliced").unwrap();
+    assert_eq!(loaded.len(), stored.len());
+    for (was, now) in stored.iter().zip(&loaded) {
+        assert_eq!((was.latitude, was.longitude), (now.latitude, now.longitude));
+    }
+    assert_eq!(loaded[0].elevation, Some(1000.0));
+}
+
+/// A series that is not the length of the stored track is upstream having
+/// re-processed the activity. Nothing is written: the caller fetches the whole
+/// track instead.
+#[test]
+fn a_series_of_the_wrong_length_writes_nothing() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    let flat = climbing_line(false);
+    engine
+        .add_activity("moved".to_string(), flat.clone(), "Ride".to_string())
+        .unwrap();
+
+    let stored = engine.get_gps_track("moved").unwrap();
+    let short: Vec<f64> = (0..flat.len() - 1).map(|i| 1000.0 + i as f64).collect();
+    assert!(!engine.splice_track_elevation("moved", &short).unwrap());
+    assert!(
+        !engine
+            .splice_track_elevation("never-stored", &[1.0, 2.0])
+            .unwrap()
+    );
+
+    let loaded = engine.get_gps_track("moved").unwrap();
+    assert_eq!(
+        loaded, stored,
+        "a refused splice must leave the track alone"
+    );
+}
+
+/// A sample upstream could not fill leaves that point without an elevation,
+/// rather than writing a placeholder the detector would read as ground.
+#[test]
+fn an_unfillable_sample_is_left_without_an_elevation() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("engine.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    let flat = climbing_line(false);
+    engine
+        .add_activity("gappy".to_string(), flat.clone(), "Ride".to_string())
+        .unwrap();
+
+    let mut elevations: Vec<f64> = (0..flat.len()).map(|i| 1000.0 + i as f64).collect();
+    elevations[7] = f64::NAN;
+    assert!(engine.splice_track_elevation("gappy", &elevations).unwrap());
+
+    let loaded = engine.get_gps_track("gappy").unwrap();
+    assert_eq!(loaded[6].elevation, Some(1006.0));
+    assert_eq!(loaded[7].elevation, None);
+    assert_eq!(loaded[8].elevation, Some(1008.0));
+}
+
+/// The processed set on a second connection, so an assertion cannot be
+/// satisfied by an in-memory value the database never received.
+fn processed(path: &std::path::Path, id: &str) -> bool {
+    let conn = rusqlite::Connection::open(path).expect("reopen database");
+    conn.query_row(
+        "SELECT COUNT(*) FROM processed_activities WHERE activity_id = ?1",
+        rusqlite::params![id],
+        |row| row.get::<_, i64>(0),
+    )
+    .expect("read processed set")
+        > 0
+}

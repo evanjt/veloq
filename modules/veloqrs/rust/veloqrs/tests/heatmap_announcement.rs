@@ -4,7 +4,7 @@
 //! waiting screen hears it instead of draining the worker's receiver on a
 //! timer.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -24,7 +24,10 @@ impl Recorder {
     }
 
     fn events(&self) -> Vec<String> {
-        self.events.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.events
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 
@@ -54,6 +57,15 @@ fn ride(seed: f64) -> Vec<GpsPoint> {
         .collect()
 }
 
+/// The observer registry is process-wide, so a test that registers one runs
+/// alone. Without this, one test's `set_observer(None)` lands between another's
+/// registration and the pass it is waiting on.
+static SERIAL: Mutex<()> = Mutex::new(());
+
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn seeded_engine() -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("heatmap.db");
@@ -77,6 +89,7 @@ fn drain_pass() {
 
 #[test]
 fn a_finished_tile_pass_announces_itself() {
+    let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles).expect("create tiles dir");
@@ -92,6 +105,7 @@ fn a_finished_tile_pass_announces_itself() {
 
 #[test]
 fn a_pass_run_with_nobody_listening_is_not_an_error() {
+    let _serial = serial();
     let (mut engine, tmp) = seeded_engine();
     let tiles = tmp.path().join("tiles");
     std::fs::create_dir_all(&tiles).expect("create tiles dir");

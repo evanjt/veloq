@@ -449,7 +449,11 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     };
     assert_eq!(outcome.unavailable, 1);
     assert_eq!(outcome.elevated, 1);
-    bare.assert_hits(1);
+    // Two asks, once ever: the elevation-only ask comes back with nothing,
+    // which cannot say whether upstream has no altitude or answered with
+    // nothing at all, so the whole track settles it. The row is state 2
+    // afterwards and no later pass asks again.
+    bare.assert_hits(2);
     assert_eq!(state_of("bare"), UNAVAILABLE);
     assert!(
         queue_ids().is_empty(),
@@ -463,10 +467,10 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     drain_detection();
 
     // The same library again: the pass has no work at all, so nothing is
-    // re-requested.
+    // re-requested. The count is the two asks the first pass made, unchanged.
     let again = run_elevation_backfill(&fast_transport(server.base_url()));
     assert_eq!(again, BackfillRun::Finished(Default::default()));
-    bare.assert_hits(1);
+    bare.assert_hits(2);
 }
 
 /// One failed request costs its own activity and nothing else, and leaves that
@@ -1411,4 +1415,214 @@ fn a_second_rejected_pass_parks_again() {
     live_session();
     run_elevation_backfill(&fast_transport(server.base_url()));
     assert_eq!(sync_state(), "authExpired", "the second pass fell silent");
+}
+
+// ============================================================================
+// Elevation alone, spliced onto the stored track
+// ============================================================================
+
+/// The altitude series on its own, index-aligned with the samples upstream
+/// holds. This is all the pass asks for.
+fn altitude_only(count: usize) -> serde_json::Value {
+    let alts: Vec<f64> = (0..count).map(|i| 1000.0 + i as f64 * 12.0).collect();
+    json!([{"type": "fixed_altitude", "data": alts}])
+}
+
+/// A full-track response whose coordinates are nowhere near the stored ones,
+/// so a pass that takes upstream's geometry is caught by the assertion rather
+/// than by a byte count.
+fn moved_streams(count: usize) -> serde_json::Value {
+    let lats: Vec<f64> = (0..count).map(|i| 12.0 + i as f64 * 0.001).collect();
+    let lngs: Vec<f64> = (0..count).map(|_| 99.0).collect();
+    let alts: Vec<f64> = (0..count).map(|i| 500.0 + i as f64).collect();
+    json!([
+        {"type": "latlng", "data": lats, "data2": lngs},
+        {"type": "fixed_altitude", "data": alts}
+    ])
+}
+
+fn stored_track(id: &str) -> Vec<GpsPoint> {
+    with_persistent_engine(|engine| engine.get_gps_track(id))
+        .expect("engine")
+        .expect("stored track")
+}
+
+/// The coordinates are already on the device, so the pass asks for altitude
+/// alone and splices it onto the points it already holds. Nothing about the
+/// track moves, so the catalogue derived from it is not invalidated.
+#[test]
+fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    let before = stored_track("a1");
+
+    let server = MockServer::start();
+    let elevation = server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "fixed_altitude,altitude");
+        then.status(200).json_body(altitude_only(before.len()));
+    });
+    let whole_track = server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "latlng,fixed_altitude,altitude");
+        then.status(200).json_body(moved_streams(before.len()));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    assert_eq!(outcome.elevated, 1);
+    elevation.assert();
+    assert_eq!(
+        whole_track.hits(),
+        0,
+        "a track whose sample count still matches must not be re-downloaded"
+    );
+
+    let after = stored_track("a1");
+    assert_eq!(after.len(), before.len());
+    for (was, now) in before.iter().zip(&after) {
+        assert_eq!(
+            (was.latitude, was.longitude),
+            (now.latitude, now.longitude),
+            "the stored coordinates moved"
+        );
+    }
+    assert_eq!(
+        after.iter().map(|p| p.elevation).collect::<Vec<_>>(),
+        (0..before.len())
+            .map(|i| Some(1000.0 + i as f64 * 12.0))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(state_of("a1"), FETCHED);
+    drain_detection();
+}
+
+/// A sample count that disagrees with the stored track means intervals.icu
+/// re-processed the activity. That is the one case where the whole track is
+/// fetched again and replaced, and the catalogue has to be re-derived from it.
+#[test]
+fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    let before = stored_track("a1");
+    let moved = before.len() + 2;
+
+    let server = MockServer::start();
+    let elevation = server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "fixed_altitude,altitude");
+        then.status(200).json_body(altitude_only(moved));
+    });
+    let whole_track = server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "latlng,fixed_altitude,altitude");
+        then.status(200).json_body(moved_streams(moved));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    assert_eq!(outcome.elevated, 1);
+    elevation.assert();
+    whole_track.assert();
+
+    let after = stored_track("a1");
+    assert_eq!(
+        after.len(),
+        moved,
+        "the replaced track is the one upstream has"
+    );
+    assert_eq!(state_of("a1"), FETCHED);
+    drain_detection();
+}
+
+/// Upstream answering with an altitude series it cannot fill is a final
+/// answer, not a transient one. The track is left exactly as it is.
+#[test]
+fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    let before = stored_track("a1");
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "fixed_altitude,altitude");
+        then.status(200).json_body(json!([
+            {"type": "fixed_altitude", "data": [null, null, null, null, null, null, null, null]}
+        ]));
+    });
+    let whole_track = server.mock(|when, then| {
+        when.path("/activity/a1/streams.json")
+            .query_param("types", "latlng,fixed_altitude,altitude");
+        then.status(200).json_body(moved_streams(before.len()));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    assert_eq!(outcome.unavailable, 1);
+    assert_eq!(outcome.elevated, 0);
+    assert_eq!(
+        whole_track.hits(),
+        0,
+        "an answered activity is not re-asked"
+    );
+    assert_eq!(state_of("a1"), UNAVAILABLE);
+    assert_eq!(stored_track("a1"), before, "the track must not be touched");
+    assert!(
+        queue_ids().is_empty(),
+        "an answered activity does not stay in the queue"
+    );
+    drain_detection();
+}
+
+/// An elevation ask that comes back with nothing cannot say whether upstream
+/// has no altitude or answered with nothing at all, and those end differently.
+/// The whole track settles it, and only for those activities.
+#[test]
+fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["bare", "gone"]);
+
+    let server = MockServer::start();
+    for id in ["bare", "gone"] {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{}/streams.json", id))
+                .query_param("types", "fixed_altitude,altitude");
+            then.status(200).json_body(json!([]));
+        });
+    }
+    // Coordinates and no altitude: upstream has answered, permanently.
+    let bare = server.mock(|when, then| {
+        when.path("/activity/bare/streams.json")
+            .query_param("types", "latlng,fixed_altitude,altitude");
+        then.status(200).json_body(flat_streams(0.0));
+    });
+    // Nothing at all: a transient answer, so the row waits for the next pass.
+    let gone = server.mock(|when, then| {
+        when.path("/activity/gone/streams.json")
+            .query_param("types", "latlng,fixed_altitude,altitude");
+        then.status(200).json_body(json!([]));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    bare.assert();
+    gone.assert();
+    assert_eq!(outcome.unavailable, 1);
+    assert_eq!(state_of("bare"), UNAVAILABLE);
+    assert_eq!(state_of("gone"), UNKNOWN);
+    assert_eq!(queue_ids(), vec!["gone"]);
+    drain_detection();
 }
