@@ -168,6 +168,22 @@ tags:
 - tapOn:
     id: "debug-section-support-card"
 
+# The expanded controls first appear under the tab bar, where the tap goes to
+# the tab and leaves the screen instead of setting the preset. Walk the block
+# up until the bottom-most control, the legacy toggle, is clear of the bar.
+- repeat:
+    times: 10
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "debug-support-legacy-toggle"
+          commands:
+            - swipe:
+                start: 90%, 70%
+                end: 90%, 30%
+                duration: 250
+
 - extendedWaitUntil:
     visible:
       id: "debug-support-preset-31d"
