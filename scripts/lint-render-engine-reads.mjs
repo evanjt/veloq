@@ -90,14 +90,6 @@ const MEMO_ALLOWLIST = new Map([
   // `wellnessData` is the dep that stands in for the trigger: it lands with
   // each sync, and the sparklines are cut from the same rows.
   ['src/features/home/hooks/useSummaryCardData.ts', 'wellnessData moves with every sync'],
-  // The five below read on a key that moves with the user's own input but not
-  // with the engine's, so a sync or a rematch does not reach them. Each is an
-  // open item in the audit.
-  ['src/features/routes/hooks/useExcludedActivities.ts', 'unkeyed, open in the audit'],
-  ['src/features/routes/hooks/useSectionChartDataEnriched.ts', 'unkeyed, open in the audit'],
-  ['src/features/settings/components/BackupSection.tsx', 'unkeyed, open in the audit'],
-  ['src/features/stats/components/ActivityHeatmap.tsx', 'unkeyed, open in the audit'],
-  ['src/features/strength/hooks/useMuscleDetail.ts', 'unkeyed, open in the audit'],
 ]);
 
 // Hooks whose callback React runs during render. useMemo runs it whenever the
