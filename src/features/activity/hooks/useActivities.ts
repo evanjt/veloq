@@ -243,8 +243,10 @@ export function useActivity(id: string) {
     },
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
-    // GC after 4 hours to prevent memory bloat when viewing many activities
-    gcTime: CACHE.HOUR * 4,
+    // A closed detail is let go within minutes. SQLite is the source and the
+    // re-read is sub-second, so an hour of browsing must not pin every body it
+    // opened. The window is long enough for a step to a neighbour and back.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
 }
@@ -277,10 +279,10 @@ export function useActivityStreams(id: string) {
     queryFn: () => readStreams(id, DETAIL_STREAM_TYPES) ?? {},
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
-    // Streams are the largest payloads (100-500KB each). GC them sooner so
-    // browsing many activities in one session doesn't pin them all in memory;
-    // re-decoding from the engine on revisit is cheap.
-    gcTime: CACHE.MEDIUM,
+    // Streams are the largest payloads (100-500KB each), so they go on the
+    // same short window as the body they belong to. Re-decoding from the
+    // engine on revisit is cheap.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
 }
@@ -303,7 +305,8 @@ export function useActivityIntervals(id: string) {
     },
     // Intervals never change
     staleTime: Infinity,
-    gcTime: CACHE.HOUR * 2,
+    // Held for as long as the body they belong to, and no longer.
+    gcTime: CACHE.SHORT,
     enabled: !!id,
   });
   useEngineBody(
