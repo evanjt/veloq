@@ -55,6 +55,7 @@
     "ffi:usage": "npx tsx scripts/ffi-usage-report.ts",
     "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused",
     "ffi:reach": "npx tsx scripts/ffi-usage-report.ts --check",
+    "lint:rust-fmt": "npx tsx scripts/check-rust-fmt.ts",
     "ffi:orphans": "node scripts/engine-orphan-report.mjs",
     "gen:widget-theme": "npx tsx scripts/gen-widget-theme.ts",
     "check:expo": "node scripts/check-expo-sdk.mjs",
