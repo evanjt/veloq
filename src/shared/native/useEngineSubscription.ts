@@ -15,7 +15,8 @@ export type EngineEvent = 'activities' | 'groups' | 'sections';
  * Returns a trigger value that changes when any subscribed event fires.
  *
  * If the engine is not available on first mount, polls until it becomes
- * available to avoid permanently missing events.
+ * available and bumps the trigger once it is, to avoid permanently missing
+ * events.
  */
 export function useEngineSubscription(events: EngineEvent[]): number {
   const [trigger, setTrigger] = useState(0);
@@ -31,23 +32,24 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     let cancelled = false;
     let unsubscribes: (() => void)[] = [];
 
-    function trySubscribe(): boolean {
+    function trySubscribe(refreshOnSubscribe: boolean): boolean {
       const engine = getEngine();
       if (!engine) return false;
 
       const cb = () => refreshRef.current();
       unsubscribes = events.map((event) => engine.subscribe(event, cb));
-      // Trigger initial refresh in case data arrived before subscription
-      if (!cancelled) {
+      // A render that already saw the engine has read the current state. Only a
+      // subscription that arrives after it can have missed anything.
+      if (refreshOnSubscribe && !cancelled) {
         refreshRef.current();
       }
       return true;
     }
 
-    if (!trySubscribe()) {
+    if (!trySubscribe(false)) {
       // Engine not ready yet - poll until available
       const interval = setInterval(() => {
-        if (trySubscribe()) {
+        if (trySubscribe(true)) {
           clearInterval(interval);
         }
       }, 200);

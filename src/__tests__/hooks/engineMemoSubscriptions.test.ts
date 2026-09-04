@@ -13,6 +13,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useZoneDistribution } from '@/features/fitness/hooks/useZoneDistribution';
 import { useSectionDetail, useSectionPolyline } from '@/features/routes/hooks/useEngine';
 import { useCacheDays } from '@/shared/app/useCacheDays';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -149,5 +150,84 @@ describe('useCacheDays', () => {
     emit('activities');
     expect(getActivityCount).not.toHaveBeenCalled();
     expect(result.current).toBe(10);
+  });
+});
+
+describe('useEngineSubscription', () => {
+  it('leaves the trigger alone when the engine is there on the first attempt', () => {
+    const { result } = renderHook(() => useEngineSubscription(['activities']));
+    expect(result.current).toBe(0);
+  });
+
+  it('reads once at mount when the engine is available', () => {
+    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
+    expect(getZoneDistribution).toHaveBeenCalledTimes(1);
+  });
+
+  it('bumps the trigger when the engine only appears after the poll starts', () => {
+    jest.useFakeTimers();
+    (getEngine as jest.Mock).mockReturnValue(null);
+
+    const { result } = renderHook(() => useEngineSubscription(['activities']));
+    expect(result.current).toBe(0);
+
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(result.current).toBe(0);
+
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(result.current).toBe(1);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(result.current).toBe(1);
+
+    jest.useRealTimers();
+  });
+
+  it('re-reads a memo whose engine arrived late', () => {
+    jest.useFakeTimers();
+    (getEngine as jest.Mock).mockReturnValue(null);
+
+    renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
+    expect(getZoneDistribution).not.toHaveBeenCalled();
+
+    (getEngine as jest.Mock).mockReturnValue(engine);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(getZoneDistribution).toHaveBeenCalledTimes(1);
+
+    jest.useRealTimers();
+  });
+
+  it('still bumps on every event after the first subscribe', () => {
+    const { result } = renderHook(() => useEngineSubscription(['activities']));
+
+    emit('activities');
+    expect(result.current).toBe(1);
+
+    emit('activities');
+    expect(result.current).toBe(2);
+  });
+
+  it('subscribes to nothing and never bumps when given no events', () => {
+    const { result } = renderHook(() => useEngineSubscription([]));
+
+    emit('activities');
+    expect(result.current).toBe(0);
+  });
+
+  it('drops its listeners on unmount', () => {
+    const { unmount } = renderHook(() => useEngineSubscription(['activities']));
+    expect(listeners.get('activities')?.size).toBe(1);
+
+    unmount();
+    expect(listeners.get('activities')?.size).toBe(0);
   });
 });

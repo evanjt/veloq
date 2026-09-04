@@ -71,29 +71,36 @@ where
     }
 }
 
+/// Records what it was told, in order. Shared by every test that needs to see
+/// an emit site fire.
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Mutex;
+pub(crate) mod recorder {
+    use super::EngineObserver;
+    use std::sync::{Arc, Mutex};
 
-    /// Records what it was told, in order.
-    struct Recorder {
+    pub(crate) struct Recorder {
         events: Mutex<Vec<String>>,
     }
 
     impl Recorder {
-        fn new() -> Arc<Self> {
+        pub(crate) fn new() -> Arc<Self> {
             Arc::new(Self {
                 events: Mutex::new(Vec::new()),
             })
         }
 
-        fn events(&self) -> Vec<String> {
-            self.events.lock().unwrap().clone()
+        pub(crate) fn events(&self) -> Vec<String> {
+            self.events
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
         }
 
         fn push(&self, event: &str) {
-            self.events.lock().unwrap().push(event.to_string());
+            self.events
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(event.to_string());
         }
     }
 
@@ -132,14 +139,17 @@ mod tests {
             self.push("preview_finished");
         }
     }
+}
 
-    /// The registry is process-global, so every test that registers takes this
-    /// first. Poisoning is ignored: a failing test must not cascade.
-    static REGISTRY: Mutex<()> = Mutex::new(());
+#[cfg(test)]
+mod tests {
+    use super::recorder::Recorder;
+    use super::*;
+    use crate::test_globals::serial_global_state;
 
     #[test]
     fn the_registry_delivers_to_one_observer_at_a_time() {
-        let _guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         set_observer(None);
         notify(|o| o.sync_settled());
 
@@ -173,7 +183,7 @@ mod tests {
     fn the_sync_service_announces_its_own_terminal_transition() {
         use crate::objects::sync::{SYNC_SERVICE, SyncState};
 
-        let _guard = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = serial_global_state();
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
         SYNC_SERVICE.finish(SyncState::Idle, None, true);
@@ -183,6 +193,28 @@ mod tests {
             recorder.events().contains(&"sync_settled".to_string()),
             "finish must announce the settle, got {:?}",
             recorder.events()
+        );
+    }
+
+    /// The backfill sets its phase from a background thread, so the settings
+    /// row hears the transition instead of re-reading the snapshot on a timer.
+    #[test]
+    fn the_elevation_backfill_announces_every_phase_it_enters() {
+        use crate::net::elevation_backfill::{
+            BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_IDLE, set_phase,
+        };
+
+        let _guard = serial_global_state();
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+        set_phase(BACKFILL_PHASE_FETCHING);
+        set_phase(BACKFILL_PHASE_COMPLETE);
+        set_observer(None);
+        set_phase(BACKFILL_PHASE_IDLE);
+
+        assert_eq!(
+            recorder.events(),
+            vec!["backfill_phase:fetching", "backfill_phase:complete"]
         );
     }
 }
