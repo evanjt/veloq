@@ -80,6 +80,27 @@ impl PersistentEngine {
     /// all: a row of nothing would report the activity as stocked and stop the
     /// fetch that would fill it.
     pub fn store_activity_streams(&self, activity_id: &str, raw: &[StreamDto]) -> SqlResult<()> {
+        // One transaction for the body. A series per autocommit paid an fsync
+        // apiece under the engine lock, and the prune paid another, so an
+        // activity with four series held every screen read out five times.
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.write_activity_streams(activity_id, raw) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+        Ok(())
+    }
+
+    /// The write itself, with no transaction of its own, so a caller that is
+    /// already inside one commits the streams alongside its own rows.
+    pub(super) fn write_activity_streams(
+        &self,
+        activity_id: &str,
+        raw: &[StreamDto],
+    ) -> SqlResult<()> {
         for s in raw {
             if FROM_THE_TRACK.contains(&s.kind.as_str()) || s.data.is_empty() {
                 continue;
@@ -483,5 +504,90 @@ mod tests {
             .unwrap();
 
         assert!(engine.load_activity_streams("a1").unwrap().is_empty());
+    }
+
+    /// A body's series were written one autocommit each, so four series was
+    /// four fsyncs under the engine lock and the prune a fifth.
+    #[test]
+    fn a_body_of_series_is_one_commit() {
+        let (_dir, engine) = engine();
+        let commits = super::super::commit_counter::watch(&engine);
+
+        engine
+            .store_activity_streams(
+                "a1",
+                &[
+                    series("watts", &[Some(100.0), Some(200.0)]),
+                    series("heartrate", &[Some(140.0), Some(150.0)]),
+                    series("cadence", &[Some(80.0), Some(82.0)]),
+                    series("velocity_smooth", &[Some(8.0), Some(8.5)]),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(super::super::commit_counter::count(&commits), 1);
+        assert_eq!(engine.stored_stream_kinds("a1").unwrap().len(), 4);
+    }
+
+    #[test]
+    fn a_second_write_of_the_same_body_is_one_commit() {
+        let (_dir, engine) = engine();
+        let body = [
+            series("watts", &[Some(100.0), Some(200.0)]),
+            series("heartrate", &[Some(140.0), Some(150.0)]),
+        ];
+        engine.store_activity_streams("a1", &body).unwrap();
+
+        let commits = super::super::commit_counter::watch(&engine);
+        engine.store_activity_streams("a1", &body).unwrap();
+
+        assert_eq!(super::super::commit_counter::count(&commits), 1);
+    }
+
+    /// Nothing to write is still one prune at most, never one per skipped
+    /// series.
+    #[test]
+    fn a_body_with_nothing_storable_is_at_most_one_commit() {
+        let (_dir, engine) = engine();
+        let commits = super::super::commit_counter::watch(&engine);
+
+        engine.store_activity_streams("a1", &[]).unwrap();
+        engine
+            .store_activity_streams(
+                "a1",
+                &[
+                    series("latlng", &[Some(1.0)]),
+                    series("altitude", &[Some(2.0)]),
+                    series("watts", &[]),
+                ],
+            )
+            .unwrap();
+
+        assert!(super::super::commit_counter::count(&commits) <= 2);
+        assert!(engine.stored_stream_kinds("a1").unwrap().is_empty());
+    }
+
+    /// A failing row rolls the whole call back rather than leaving the ones
+    /// before it committed.
+    #[test]
+    fn a_failed_write_leaves_no_series_behind() {
+        let (_dir, engine) = engine();
+        engine
+            .db
+            .execute_batch("DROP TABLE activity_streams")
+            .unwrap();
+
+        let err = engine.store_activity_streams(
+            "a1",
+            &[
+                series("watts", &[Some(100.0)]),
+                series("heartrate", &[Some(140.0)]),
+            ],
+        );
+
+        assert!(err.is_err());
+        // The rollback ran, so the connection is not left inside a
+        // transaction and the next writer can begin its own.
+        assert!(engine.db.is_autocommit());
     }
 }

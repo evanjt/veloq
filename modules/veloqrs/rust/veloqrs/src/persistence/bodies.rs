@@ -164,6 +164,21 @@ impl PersistentEngine {
     /// that will not parse is still cached: it is what the server sent, and
     /// refusing to cache it would refetch it on every open.
     pub fn set_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
+        // One transaction for the body, the series it parses into and the two
+        // sweeps that follow. Each was its own autocommit, so one activity's
+        // streams cost six fsyncs under the engine lock.
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.write_stream_body(activity_id, types, raw) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+        Ok(())
+    }
+
+    fn write_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
         self.db.execute(
             "INSERT INTO stream_bodies (activity_id, types, raw, updated_at)
              VALUES (?, ?, ?, strftime('%s', 'now'))
@@ -173,7 +188,7 @@ impl PersistentEngine {
             params![activity_id, types, raw],
         )?;
         match serde_json::from_str::<Vec<crate::net::types::StreamDto>>(raw) {
-            Ok(parsed) => self.store_activity_streams(activity_id, &parsed)?,
+            Ok(parsed) => self.write_activity_streams(activity_id, &parsed)?,
             Err(e) => log::warn!(
                 "veloqrs: [Streams] {} body for {} did not parse, caching it unstored: {}",
                 types,
@@ -998,5 +1013,52 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM stream_bodies", [], |r| r.get(0))
             .unwrap();
         assert_eq!(rows, 0);
+    }
+
+    /// The body row, each parsed series and the two sweeps were separate
+    /// autocommits, so one activity's streams was six fsyncs under the
+    /// engine lock.
+    #[test]
+    fn storing_a_stream_body_is_one_commit() {
+        let (_dir, engine) = engine();
+        let raw = r#"[{"type":"watts","data":[100,200]},
+                      {"type":"heartrate","data":[140,150]},
+                      {"type":"cadence","data":[80,82]}]"#;
+        let commits = super::super::commit_counter::watch(&engine);
+
+        engine
+            .set_stream_body("a1", "watts,heartrate,cadence", raw)
+            .unwrap();
+
+        assert_eq!(super::super::commit_counter::count(&commits), 1);
+        assert_eq!(engine.stored_stream_kinds("a1").unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_second_body_for_the_same_activity_is_one_commit() {
+        let (_dir, engine) = engine();
+        let raw = r#"[{"type":"watts","data":[100,200]}]"#;
+        engine.set_stream_body("a1", "watts", raw).unwrap();
+
+        let commits = super::super::commit_counter::watch(&engine);
+        engine.set_stream_body("a1", "watts", raw).unwrap();
+
+        assert_eq!(super::super::commit_counter::count(&commits), 1);
+    }
+
+    /// A body that will not parse is still cached, and the cache write is the
+    /// only commit.
+    #[test]
+    fn an_unparseable_body_is_one_commit_and_still_cached() {
+        let (_dir, engine) = engine();
+        let commits = super::super::commit_counter::watch(&engine);
+
+        engine.set_stream_body("a1", "watts", "not json").unwrap();
+
+        assert_eq!(super::super::commit_counter::count(&commits), 1);
+        assert_eq!(
+            engine.get_stream_body("a1", "watts").unwrap().as_deref(),
+            Some("not json")
+        );
     }
 }
