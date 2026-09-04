@@ -35,6 +35,10 @@ gate audit npm run audit
 gate tsc npx tsc --noEmit
 gate lint npm run lint:cached
 gate test npm test
+# Only pays for itself when Rust is staged, and it is the only local check on
+# Rust formatting: cargo fmt runs in CI and nowhere else, so the Rust Lint job
+# was going red on whitespace and staying red.
+gate rustfmt npm run lint:rust-fmt
 wait
 
 ./scripts/check-staged-tree.sh verify "$staged_tree"
