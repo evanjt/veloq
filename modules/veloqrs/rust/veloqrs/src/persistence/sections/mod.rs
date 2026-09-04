@@ -25,7 +25,8 @@ pub use named::{NamedCorridor, NamedOverlay};
 
 pub use detection::detection_workers_started;
 pub use detection::{
-    DETECTION_PHASE_CUTOVER_OWED, DETECTION_PHASE_SUSPENDED, detection_was_refused,
+    DETECTION_PHASE_CUTOVER_OWED, DETECTION_PHASE_DISABLED, DETECTION_PHASE_SUSPENDED,
+    detection_was_refused,
 };
 
 use crate::sections::assign_carried_exclusions;
