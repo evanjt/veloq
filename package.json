@@ -12,6 +12,8 @@
     "android:prod": "APP_VARIANT=production npx expo run:android --variant release",
     "ios": "npx expo run:ios",
     "ios:prod": "APP_VARIANT=production npx expo run:ios --configuration Release",
+    "test:rust": "cd modules/veloqrs/rust && cargo test -p veloqrs",
+    "test:rust:synthetic": "cd modules/veloqrs/rust && cargo test -p veloqrs --features synthetic",
     "clean:rust": "npm run clean --prefix modules/veloqrs",
     "clean:rust:full": "npm run clean:full --prefix modules/veloqrs",
     "rebuild:android": "npm run clean:rust && npx expo run:android",

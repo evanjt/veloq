@@ -24,7 +24,10 @@ impl Recorder {
     }
 
     fn events(&self) -> Vec<String> {
-        self.events.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.events
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 
