@@ -1017,6 +1017,9 @@
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
     "sortSignature": "シグネチャ",
+    "standingBest": "{{total}} 回中の自己最速",
+    "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
+    "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
     "thisMayTakeMoment": "少々お待ちください...",
     "visits": "訪問",
     "waiting": "待機中..."

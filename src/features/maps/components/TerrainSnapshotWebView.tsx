@@ -65,10 +65,22 @@ const log = debug.create('TerrainSnapshotWebView');
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 30;
+/** Failed renders held for a drain. The queue's cap, for the same reason. */
+const MAX_FAILED_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
 const MAX_SNAPSHOT_RETRIES = 1;
+
+const requestKey = (r: SnapshotRequest) => `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
+
+const rememberFailure = (failed: Map<string, SnapshotRequest>, req: SnapshotRequest) => {
+  const key = requestKey(req);
+  failed.delete(key);
+  failed.set(key, { ...req, _retryAttempt: 0 });
+  const oldest = failed.keys().next();
+  if (failed.size > MAX_FAILED_SIZE && !oldest.done) failed.delete(oldest.value);
+};
 
 export interface TerrainSnapshotWebViewRef {
   requestSnapshot: (request: SnapshotRequest) => void;
@@ -121,7 +133,10 @@ export const TerrainSnapshotWebView = forwardRef<
   const queueRef = useRef<SnapshotRequest[]>([]);
   const queueTotalRef = useRef(0);
   const queueCompletedRef = useRef(0);
-  const failedRequestsRef = useRef<SnapshotRequest[]>([]);
+  // Keyed by render identity, so a card that re-requests a failing preview
+  // replaces its entry instead of stacking another copy of its coordinates.
+  // Insertion order is the drop order once it is full.
+  const failedRequestsRef = useRef<Map<string, SnapshotRequest>>(new Map());
   // One silent idle retry per request, so a card whose render was dropped or
   // timed out does not wait for a pull-to-refresh it may never get.
   const idleRetriedRef = useRef(new Set<string>());
@@ -151,7 +166,7 @@ export const TerrainSnapshotWebView = forwardRef<
         }
         const remaining = queueRef.current.splice(0);
         for (const req of remaining) {
-          failedRequestsRef.current.push({ ...req, _retryAttempt: 0 });
+          rememberFailure(failedRequestsRef.current, req);
           emitSnapshotFailed(req.activityId);
         }
         queueTotalRef.current = 0;
@@ -206,19 +221,17 @@ export const TerrainSnapshotWebView = forwardRef<
     worker.webViewRef.current?.reload();
   }, []);
 
-  const requestKey = (r: SnapshotRequest) => `${r.activityId}_${r.mapStyle}_${r.flat ? 'f' : 'd'}`;
-
   const processNext = useCallback(() => {
     if (suspendedRef.current) return;
     // Nothing left to render and nothing in flight: this is the moment to
     // give the failures one more go, before the pool goes quiet.
     if (
       queueRef.current.length === 0 &&
-      failedRequestsRef.current.length > 0 &&
+      failedRequestsRef.current.size > 0 &&
       !workers.some((w) => w.processingRef.current)
     ) {
-      const failed = failedRequestsRef.current;
-      failedRequestsRef.current = [];
+      const failed = [...failedRequestsRef.current.values()];
+      failedRequestsRef.current.clear();
       for (const req of failed) {
         const key = requestKey(req);
         if (idleRetriedRef.current.has(key)) continue;
@@ -286,7 +299,7 @@ export const TerrainSnapshotWebView = forwardRef<
           }
           worker.processingRef.current = false;
           worker.currentRequestRef.current = null;
-          failedRequestsRef.current.push({ ...request, _retryAttempt: 0 });
+          rememberFailure(failedRequestsRef.current, request);
           emitSnapshotFailed(request.activityId);
           queueCompletedRef.current++;
           updateProgress();
@@ -429,10 +442,7 @@ export const TerrainSnapshotWebView = forwardRef<
             );
           }
           if (currentRequest) {
-            failedRequestsRef.current.push({
-              ...currentRequest,
-              _retryAttempt: 0,
-            });
+            rememberFailure(failedRequestsRef.current, currentRequest);
             emitSnapshotFailed(currentRequest.activityId);
           }
           queueCompletedRef.current++;
@@ -549,10 +559,10 @@ export const TerrainSnapshotWebView = forwardRef<
         processNext();
       },
       retryFailed: () => {
-        const failed = failedRequestsRef.current;
+        const failed = [...failedRequestsRef.current.values()];
         if (failed.length === 0) return;
         if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
-        failedRequestsRef.current = [];
+        failedRequestsRef.current.clear();
         for (const req of failed) {
           if (hasTerrainPreview(req.activityId, req.mapStyle, !req.flat)) continue;
           queueRef.current.push(req);
