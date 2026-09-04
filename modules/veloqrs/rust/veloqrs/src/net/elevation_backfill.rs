@@ -130,7 +130,9 @@ static RESUME_ARMED: AtomicBool = AtomicBool::new(false);
 /// `sleep` returns false to end the climb, which is how a test stops it and how
 /// nothing stops it in production. Split out so the schedule can be exercised
 /// without spending an evening on it, the same way `drain_queue_with` splits
-/// the fetch out of the walk.
+/// the fetch out of the walk. A sleep that ends early still counts as a rung
+/// climbed, so an online edge shortens the wait it lands in without resetting
+/// the ladder, and a flapping connection cannot hold it at its first rung.
 pub fn resume_ladder(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
@@ -158,6 +160,14 @@ pub fn resume_ladder(
     }
 }
 
+/// What a production rung waits on: its own clock, or the connection coming
+/// back, whichever is first. Always climbs, since nothing stops the ladder in
+/// production but an empty queue.
+pub fn resume_sleep(wait: Duration) -> bool {
+    crate::net::connectivity::sleep_or_online_edge(wait);
+    true
+}
+
 /// Put a ladder behind the pass, unless one is already climbing.
 fn arm_resume_ladder() {
     if RESUME_ARMED
@@ -168,10 +178,7 @@ fn arm_resume_ladder() {
     }
     std::thread::spawn(|| {
         resume_ladder(
-            |wait| {
-                std::thread::sleep(wait);
-                true
-            },
+            resume_sleep,
             || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
                 Some(Ok(n)) => Some(n),
                 _ => None,
@@ -1559,6 +1566,102 @@ mod tests {
             assert_eq!(asked, BATCH);
             assert!(walk.stopped.is_none());
 
+            connectivity::reset();
+        }
+    }
+    /// Scenario: a pass ended partial because the connection went away, and
+    /// the ladder is sleeping on a long rung when the device comes back. The
+    /// rung has to end there, not thirty minutes later, and the climb has to
+    /// carry on from where it was so a flapping connection cannot pin the
+    /// ladder to its first rung.
+    mod online_edge {
+        use super::*;
+        use crate::net::connectivity;
+        use std::sync::mpsc;
+        use std::time::Instant;
+
+        /// Drive the production sleep for `rungs` rungs, firing an
+        /// offline-to-online edge into each one from another thread.
+        fn climb_through_edges(
+            rungs: usize,
+            remaining: impl Fn() -> Option<u64>,
+        ) -> (Vec<Duration>, usize, Duration) {
+            let (edge_tx, edge_rx) = mpsc::channel::<()>();
+            let waker = std::thread::spawn(move || {
+                while edge_rx.recv().is_ok() {
+                    std::thread::sleep(Duration::from_millis(20));
+                    connectivity::set_online(false);
+                    connectivity::set_online(true);
+                }
+            });
+            let mut slept = Vec::new();
+            let mut attempts = 0usize;
+            let started = Instant::now();
+            resume_ladder(
+                |d| {
+                    if slept.len() == rungs {
+                        return false;
+                    }
+                    slept.push(d);
+                    edge_tx.send(()).unwrap();
+                    resume_sleep(d)
+                },
+                &remaining,
+                || false,
+                || {
+                    attempts += 1;
+                    true
+                },
+            );
+            drop(edge_tx);
+            waker.join().unwrap();
+            (slept, attempts, started.elapsed())
+        }
+
+        #[test]
+        fn an_online_edge_ends_the_rung_without_waiting_it_out() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(1, || Some(5));
+
+            assert_eq!(slept, vec![RESUME_WAITS[0]]);
+            assert_eq!(attempts, 1, "the pass is attempted on the edge");
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
+            connectivity::reset();
+        }
+
+        #[test]
+        fn a_flapping_connection_climbs_the_ladder_rather_than_resetting_it() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(5));
+
+            assert_eq!(
+                slept,
+                RESUME_WAITS[..3].to_vec(),
+                "each edge moves up a rung"
+            );
+            assert_eq!(attempts, 3);
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
+            connectivity::reset();
+        }
+
+        #[test]
+        fn an_edge_with_nothing_outstanding_attempts_nothing() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let (slept, attempts, elapsed) = climb_through_edges(3, || Some(0));
+
+            assert_eq!(
+                slept.len(),
+                1,
+                "a zero queue ends the ladder on the woken rung"
+            );
+            assert_eq!(attempts, 0);
+            assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
             connectivity::reset();
         }
     }
