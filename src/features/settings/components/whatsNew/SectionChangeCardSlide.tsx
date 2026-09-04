@@ -18,7 +18,12 @@ import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
 import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import type { CutoverPhase, FfiChangeCardSupport as ChangeCardSupport } from 'veloqrs';
+import type {
+  CutoverPhase,
+  CutoverSettings,
+  CutoverSettingsReset,
+  FfiChangeCardSupport as ChangeCardSupport,
+} from 'veloqrs';
 
 type Flag = keyof ChangeCardSupport & string;
 
@@ -52,6 +57,37 @@ const PHASE_KEYS: Partial<Record<CutoverPhase, string>> = {
   diffing: 'whatsNew.v040.phaseDiffing',
 };
 
+type Translate = (key: string, vars?: Record<string, unknown>) => string;
+
+const SETTING_LABELS: Record<keyof CutoverSettings, string> = {
+  proximityThreshold: 'whatsNew.v040.settingsResetProximity',
+  minSectionLength: 'whatsNew.v040.settingsResetMinLength',
+  maxSectionLength: 'whatsNew.v040.settingsResetMaxLength',
+  minActivities: 'whatsNew.v040.settingsResetMinActivities',
+  divergenceThreshold: 'whatsNew.v040.settingsResetDivergence',
+};
+
+function settingValue(field: keyof CutoverSettings, value: number): string {
+  if (field === 'minActivities') return String(value);
+  if (field === 'divergenceThreshold') return `${Math.round(value * 100)}%`;
+  return `${Math.round(value)} m`;
+}
+
+/** One clause per value the flip moved, so an untouched slider is not named. */
+export function describeSettingsReset(reset: CutoverSettingsReset, t: Translate): string {
+  const fields = Object.keys(SETTING_LABELS) as (keyof CutoverSettings)[];
+  return fields
+    .filter((field) => reset.previous[field] !== reset.current[field])
+    .map((field) =>
+      t('whatsNew.v040.settingsResetChange', {
+        label: t(SETTING_LABELS[field]),
+        from: settingValue(field, reset.previous[field]),
+        to: settingValue(field, reset.current[field]),
+      })
+    )
+    .join(', ');
+}
+
 export function readChangeCardSupport(): ChangeCardSupport | null {
   try {
     return getEngine()?.getChangeCardSupport() ?? null;
@@ -64,7 +100,7 @@ export function SectionChangeCardSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const support = useMemo(readChangeCardSupport, []);
-  const { phase, isRunning, counts } = useCutoverSummary();
+  const { phase, isRunning, counts, settingsReset } = useCutoverSummary();
   const rows = support ? ROWS.filter((r) => support[r.flag]) : [];
   if (rows.length === 0) return null;
   const phaseKey = PHASE_KEYS[phase];
@@ -73,6 +109,8 @@ export function SectionChangeCardSlide() {
   const failed = !isRunning && phase === 'failed';
   const shown = failed ? null : counts;
   const untouched = shown !== null && shown.changed + shown.new + shown.gone === 0;
+  const reset = shown !== null ? settingsReset : null;
+  const changes = reset ? describeSettingsReset(reset, t as Translate) : '';
   return (
     <View style={styles.container} testID="change-card">
       {isRunning && (
@@ -109,6 +147,18 @@ export function SectionChangeCardSlide() {
                 gone: shown.gone,
               })}`}
         </Text>
+      )}
+      {changes !== '' && (
+        <View style={styles.row} testID="change-card-settings-reset">
+          <MaterialCommunityIcons
+            name="tune-variant"
+            size={18}
+            color={isDark ? darkColors.primary : colors.primary}
+          />
+          <Text style={[styles.text, isDark && styles.textDark]}>
+            {t('whatsNew.v040.settingsReset', { changes })}
+          </Text>
+        </View>
       )}
       {rows.map((r) => (
         <View key={r.flag} style={styles.row} testID={`change-card-row-${r.flag}`}>

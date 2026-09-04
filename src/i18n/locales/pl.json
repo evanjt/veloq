@@ -1445,7 +1445,14 @@
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
       "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian.",
-      "recutFailed": "Ponowna analiza nie dobiegła końca. Twoje odcinki są bez zmian, a analiza uruchomi się przy następnym starcie."
+      "recutFailed": "Ponowna analiza nie dobiegła końca. Twoje odcinki są bez zmian, a analiza uruchomi się przy następnym starcie.",
+      "settingsReset": "Ustawienia wykrywania odcinków przywrócono do zweryfikowanych wartości: {{changes}}. Podgląd zmian odcinków, a potem Zachowaj, przywraca poprzednie.",
+      "settingsResetChange": "{{label}} z {{from}} na {{to}}",
+      "settingsResetProximity": "bliskość",
+      "settingsResetMinLength": "minimalna długość",
+      "settingsResetMaxLength": "najdłuższy odcinek",
+      "settingsResetMinActivities": "minimalna liczba wizyt",
+      "settingsResetDivergence": "rozwidlenie"
     }
   },
   "strength": {

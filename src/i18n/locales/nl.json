@@ -1443,7 +1443,14 @@
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
       "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
-      "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw."
+      "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw.",
+      "settingsReset": "Je instellingen voor sectiedetectie zijn teruggezet naar de gevalideerde waarden: {{changes}}. Sectiewijzigingen bekijken en dan Behouden zet de vorige terug.",
+      "settingsResetChange": "{{label}} {{from}} naar {{to}}",
+      "settingsResetProximity": "nabijheid",
+      "settingsResetMinLength": "minimale lengte",
+      "settingsResetMaxLength": "langste sectie",
+      "settingsResetMinActivities": "minimale bezoeken",
+      "settingsResetDivergence": "afsplitsing"
     }
   },
   "strength": {

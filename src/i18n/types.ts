@@ -741,6 +741,13 @@ export interface TranslationResource {
       diffBreakdown: string;
       diffUnchanged: string;
       recutFailed: string;
+      settingsReset: string;
+      settingsResetChange: string;
+      settingsResetProximity: string;
+      settingsResetMinLength: string;
+      settingsResetMaxLength: string;
+      settingsResetMinActivities: string;
+      settingsResetDivergence: string;
     };
     v030: {
       insightsTitle: string;

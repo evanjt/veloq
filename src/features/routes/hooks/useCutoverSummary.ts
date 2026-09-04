@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
-import type { CutoverCounts, CutoverPhase } from 'veloqrs';
+import type { CutoverCounts, CutoverPhase, CutoverSettingsReset } from 'veloqrs';
 
 /** Rust announces the commit here, and the diff is read on that alone. */
 const CHANNEL = 'cutoverSettled';
@@ -36,6 +36,8 @@ export interface CutoverSummary {
   isRunning: boolean;
   /** The stored diff's counts, or null while a run is in flight. */
   counts: CutoverCounts | null;
+  /** The settings the flip reset, read with the counts and withheld with them. */
+  settingsReset: CutoverSettingsReset | null;
   /**
    * Whether this observer saw a run take the slot. A settled phase left over
    * from a run that finished before the caller mounted is not news, so a
@@ -44,7 +46,13 @@ export interface CutoverSummary {
   sawRun: boolean;
 }
 
-const IDLE: CutoverSummary = { phase: 'idle', isRunning: false, counts: null, sawRun: false };
+const IDLE: CutoverSummary = {
+  phase: 'idle',
+  isRunning: false,
+  counts: null,
+  settingsReset: null,
+  sawRun: false,
+};
 
 /** An unrecognised phase reads as idle rather than as a finished run. */
 function narrowPhase(phase: string): CutoverPhase {
@@ -63,11 +71,15 @@ function read(sawRun: boolean): CutoverSummary {
     const progress = engine.getCutoverProgress?.();
     if (!progress) return { ...IDLE, sawRun };
     const phase = narrowPhase(progress.phase);
-    if (progress.running) return { phase, isRunning: true, counts: null, sawRun: true };
+    if (progress.running) {
+      return { phase, isRunning: true, counts: null, settingsReset: null, sawRun: true };
+    }
+    const diff = engine.getCutoverDiff?.();
     return {
       phase,
       isRunning: false,
-      counts: engine.getCutoverDiff?.()?.counts ?? null,
+      counts: diff?.counts ?? null,
+      settingsReset: diff?.settingsReset ?? null,
       sawRun,
     };
   } catch {
@@ -92,6 +104,7 @@ function phaseOnly(previous: CutoverSummary): CutoverSummary {
       phase,
       isRunning: progress.running,
       counts: progress.running ? null : previous.counts,
+      settingsReset: progress.running ? null : previous.settingsReset,
       sawRun: previous.sawRun,
     };
   } catch {
