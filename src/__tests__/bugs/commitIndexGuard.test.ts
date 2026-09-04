@@ -11,6 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { runGit } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,7 +27,7 @@ function checkout(): string {
   mkdirSync(join(root, '.husky'), { recursive: true });
   writeFileSync(join(root, '.husky', 'pre-commit'), '#!/bin/sh\nexit 0\n');
   writeFileSync(join(root, 'file.txt'), 'one\n');
-  execFileSync('git', ['init', '-q'], { cwd: root });
+  runGit(['init', '-q'], root);
   return root;
 }
 

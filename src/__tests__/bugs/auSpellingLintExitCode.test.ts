@@ -13,6 +13,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { initFixtureRepo, runGit } from '../__shared__/gitFixture';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -42,8 +43,7 @@ function crate(contents: string): string {
   const full = join(root, CRATE, 'lib.rs');
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, contents);
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['add', '-A'], { cwd: root });
+  initFixtureRepo(root);
   return root;
 }
 
@@ -54,8 +54,7 @@ function locales(files: Record<string, unknown>): string {
   for (const [name, body] of Object.entries(files)) {
     writeFileSync(join(root, LOCALES, name), JSON.stringify(body, null, 2));
   }
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['add', '-A'], { cwd: root });
+  initFixtureRepo(root);
   return root;
 }
 
@@ -115,7 +114,7 @@ it('passes the phase token TypeScript keys on', () => {
 it('ignores files outside the crate', () => {
   const root = crate('// clean\n');
   writeFileSync(join(root, 'notes.md'), 'normalized\n');
-  execFileSync('git', ['add', '-A'], { cwd: root });
+  runGit(['add', '-A'], root);
 
   expect(runGuard(root).status).toBe(0);
 });
