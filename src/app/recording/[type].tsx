@@ -7,6 +7,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
@@ -20,21 +21,18 @@ import { StatusSlot } from '@/features/recording/components/StatusSlot';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { IndoorDisplay } from '@/features/recording/components/IndoorDisplay';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { useLocationTracking } from '@/features/recording/hooks/useLocationTracking';
+import { useLocationPermission } from '@/features/recording/hooks/useLocationPermission';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import { useRecordingScreenState } from '@/features/recording/hooks/useRecordingScreenState';
 import { useRecordingScreenColors } from '@/features/recording/hooks/useRecordingScreenColors';
 import { useRecordingLock } from '@/features/recording/hooks/useRecordingLock';
 import { useStatusPulseAnimation } from '@/features/recording/hooks/useStatusPulseAnimation';
 import { useGpsWarningClearEffect } from '@/features/recording/hooks/useGpsWarningClearEffect';
-import { useAutoPauseEffect } from '@/features/recording/hooks/useAutoPauseEffect';
 import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBannerEffect';
 import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorEffect';
-import { useCrashRecoveryBackupEffect } from '@/features/recording/hooks/useCrashRecoveryBackupEffect';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
-import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
@@ -71,8 +69,6 @@ export default function RecordingScreen() {
   const {
     gpsWarning,
     setGpsWarning,
-    autoPaused,
-    setAutoPaused,
     splitBanner,
     setSplitBanner,
     showTypePicker,
@@ -95,34 +91,30 @@ export default function RecordingScreen() {
     () => ({ ...baseMetrics, elapsedTime, movingTime }),
     [baseMetrics, elapsedTime, movingTime]
   );
-  const location = useLocationTracking();
-  const { stopTracking, currentLocation, accuracy } = location;
+  // The location watch, the indoor tick, auto-pause and the crash backup are
+  // owned by the recording session, so the screen only reads what they publish.
+  const currentLocation = useRecordingLiveStore((s) => s.currentLocation);
+  const accuracy = useRecordingLiveStore((s) => s.accuracy);
+  const autoPaused = useRecordingLiveStore((s) => s.autoPaused);
+  const { hasPermission, requestPermission } = useLocationPermission();
 
   useGpsWarningClearEffect(currentLocation, gpsWarning, setGpsWarning);
 
-  const autoPauseDetectorRef = useAutoPauseEffect({
-    activityType,
-    mode,
-    status,
-    autoPaused,
-    setAutoPaused,
-  });
-
   useKmSplitBannerEffect({ mode, status, distanceLength, isMetric, setSplitBanner });
   useHrZoneColorEffect(heartrateLength, setHrZone);
-  useCrashRecoveryBackupEffect(status, activityType, mode);
 
   const { handlePause, handleResume, handleLap, handleStop, handleDiscard, handleChangeType } =
-    useRecordingHandlers({
-      autoPauseDetectorRef,
-      stopTracking,
-      setAutoPaused,
-      setShowTypePicker,
-    });
+    useRecordingHandlers({ setShowTypePicker });
 
-  useGpsSessionEffect({ mode, status, location, setGpsWarning, onDiscard: handleDiscard });
+  useGpsSessionEffect({
+    mode,
+    status,
+    hasPermission,
+    requestPermission,
+    setGpsWarning,
+    onDiscard: handleDiscard,
+  });
   useInitRecordingEffect(status, activityType, mode, pairedEventId);
-  useIndoorSampleEffect(mode, status);
   useSensorSession();
   const sensorIssue = useSensorIssue();
 

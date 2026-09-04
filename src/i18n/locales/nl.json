@@ -1017,6 +1017,9 @@
     "sortNameAZ": "Naam A-Z",
     "sortNearby": "In de buurt",
     "sortSignature": "Kenmerkend",
+    "standingBest": "Je snelste van {{total}}",
+    "standingRank": "Plaats {{rank}} van {{total}}, {{gap}} van je beste",
+    "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",
     "thisMayTakeMoment": "Dit kan even duren...",
     "visits": "bezoeken",
     "waiting": "Wachten..."

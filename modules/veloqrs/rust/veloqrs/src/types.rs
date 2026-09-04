@@ -97,6 +97,11 @@ pub struct RoutePerformanceResult {
     pub reverse_stats: Option<DirectionStats>,
     /// Current activity's rank (1 = fastest), if current_activity_id was provided
     pub current_rank: Option<u32>,
+    /// Attempts with a moving time, over the same population as `current_rank`
+    pub attempt_count: u32,
+    /// Share of those attempts slower than the current one, 0 to 100.
+    /// `None` for a lone attempt or an activity that is not on the route.
+    pub percentile_rank: Option<f64>,
 }
 
 // ============================================================================
