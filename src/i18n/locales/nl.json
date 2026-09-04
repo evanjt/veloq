@@ -1038,6 +1038,7 @@
     "defaultName": "Sectie {{number}}",
     "deleteSection": "Sectie verwijderen",
     "deleteSectionConfirm": "Weet je zeker dat je deze sectie wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+    "detectionPaused": "Detectie gepauzeerd terwijl je secties worden gemigreerd",
     "disabled": "Uitgeschakeld",
     "removeSection": "Sectie verwijderen",
     "removeSectionConfirm": "Deze sectie verschijnt niet meer in activiteitsdetails of inzichten. Je kunt hem herstellen vanuit de sectielijst.",

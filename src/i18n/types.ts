@@ -1001,6 +1001,7 @@ export interface TranslationResource {
     splitSouth: string;
     splitWest: string;
     defaultName: string;
+    detectionPaused: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
