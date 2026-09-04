@@ -1,5 +1,5 @@
 /**
- * The change card reports the cutover in nine strings. Every locale needs a
+ * The change card reports the cutover in ten strings. Every locale needs a
  * real translation with the interpolation placeholders intact, otherwise the
  * card reads as English or renders a raw `{{value}}`.
  */
@@ -10,6 +10,7 @@ import * as path from 'path';
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const KEYS = [
+  'elevationLine',
   'recutRunning',
   'recutRunningPhase',
   'phasePreparing',

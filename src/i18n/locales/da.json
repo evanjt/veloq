@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Strækninger, der forklarer sig selv",
       "sectionsBody": "Strækninger skæres nu af én deterministisk detektor. Hver har en historik, du kan læse, gendanne og fastgøre.",
+      "elevationLine": "Veloq henter højde én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
       "rowDeterministic": "Én deterministisk matcher: samme ture giver samme strækninger",
       "rowSameResult": "Én tur ad gangen eller alle på én gang giver samme resultat",
       "rowLedger": "En historik viser, hvordan hver strækning ændrede sig, og hvad der var omkring",

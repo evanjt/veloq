@@ -1428,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Stukken die zichzelf uitleggen",
       "sectionsBody": "Stukken worden nu gesneden door één deterministische detector. Elk heeft een geschiedenis die je kunt lezen, terugzetten en vastzetten.",
+      "elevationLine": "Veloq haalt hoogte één keer op voor je bestaande activiteiten en detecteert de secties daarna opnieuw met het nieuwe algoritme.",
       "rowDeterministic": "Eén deterministische matcher: dezelfde ritten geven dezelfde stukken",
       "rowSameResult": "Ritten één voor één of allemaal tegelijk toevoegen geeft hetzelfde resultaat",
       "rowLedger": "Een geschiedenis toont hoe elk stuk veranderde en wat erbij was",
