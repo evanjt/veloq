@@ -14,6 +14,11 @@ pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,hea
 /// forms so `parse_streams` can prefer the corrected one.
 pub const TRACK_STREAM_TYPES: &str = "latlng,fixed_altitude,altitude";
 
+/// Series the elevation backfill asks for. The coordinates of every row in
+/// its queue are already on the device, so asking for them again costs about
+/// five times the bytes and buys nothing.
+pub const ELEVATION_STREAM_TYPES: &str = "fixed_altitude,altitude";
+
 /// `GET /athlete/{id}` as the untyped body. `AthleteRecord` models three
 /// fields; the profile screens read unit preferences beyond them, so the body
 /// is what gets persisted.
@@ -185,6 +190,34 @@ pub async fn fetch_streams(
         );
     }
     Ok(parsed)
+}
+
+/// The altitude series for one activity, in the index space upstream holds.
+///
+/// `None` is a response that carried no altitude series at all, which is
+/// upstream saying nothing yet rather than saying there is none. A series that
+/// arrived and cannot be filled comes back as `Some`, and that is final.
+pub async fn fetch_altitude(
+    t: &Transport,
+    activity_id: &str,
+    lane: Lane,
+) -> Result<Option<Vec<f64>>, NetError> {
+    let raw: Vec<StreamDto> = t
+        .get_json(
+            &format!("/activity/{}/streams.json", activity_id),
+            &[("types", ELEVATION_STREAM_TYPES)],
+            lane,
+        )
+        .await?;
+    if !raw
+        .iter()
+        .any(|s| s.kind == "altitude" || s.kind == "fixed_altitude")
+    {
+        return Ok(None);
+    }
+    // `parse_streams` prefers the corrected series over the raw one, which is
+    // the same preference the full track ingest gets.
+    Ok(Some(parse_streams(raw).altitude))
 }
 
 /// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
