@@ -1568,5 +1568,22 @@
     "delete": "Usuń nazwę",
     "deleteTitle": "Usuń nazwę",
     "deleteConfirm": "Usunąć \"{{name}}\"? Odcinek wróci do nazwy wygenerowanej."
+  },
+  "backgroundJobs": {
+    "title": "Zadania w tle",
+    "intro": "Długie zadania, które aplikacja wykonuje sama. Trwają dalej po opuszczeniu tego ekranu.",
+    "openLink": "Zadania w tle",
+    "sync": "Synchronizacja aktywności",
+    "detection": "Wykrywanie odcinków",
+    "elevationBackfill": "Pobieranie przewyższeń",
+    "cutover": "Przebudowa odcinków",
+    "stateIdle": "Nie działa",
+    "stateRunning": "W toku",
+    "stateComplete": "Zakończone",
+    "statePartial": "Zakończone, część do ponowienia",
+    "stateFailed": "Zatrzymane przedwcześnie",
+    "progressCount": "{{completed}} z {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Pozostało {{count}} do pobrania"
   }
 }

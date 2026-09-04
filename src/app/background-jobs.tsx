@@ -6,18 +6,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import {
-  ActivitySyncRow,
-  BackgroundJobsLink,
-  SyncRangePanel,
-} from '@/features/settings/components';
+import { BackgroundJobsPanel } from '@/features/settings/components';
 
-export default function SyncSettingsScreen() {
+export default function BackgroundJobsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
   return (
-    <ScreenErrorBoundary screenName="SyncSettings">
+    <ScreenErrorBoundary screenName="BackgroundJobs">
       <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
@@ -34,16 +30,12 @@ export default function SyncSettingsScreen() {
               />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, isDark && styles.textLight]}>
-              {t('settings.localDataRange', 'Local Data Range')}
+              {t('backgroundJobs.title')}
             </Text>
             <View style={styles.headerSpacer} />
           </View>
 
-          <ActivitySyncRow />
-
-          <SyncRangePanel />
-
-          <BackgroundJobsLink />
+          <BackgroundJobsPanel />
         </ScrollView>
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>

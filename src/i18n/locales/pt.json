@@ -1566,5 +1566,22 @@
     "delete": "Eliminar nome",
     "deleteTitle": "Eliminar nome",
     "deleteConfirm": "Eliminar \"{{name}}\"? O troço volta ao nome gerado."
+  },
+  "backgroundJobs": {
+    "title": "Tarefas em segundo plano",
+    "intro": "Tarefas longas que a aplicação executa sozinha. Continuam quando sais deste ecrã.",
+    "openLink": "Tarefas em segundo plano",
+    "sync": "Sincronização de atividades",
+    "detection": "Deteção de secções",
+    "elevationBackfill": "Transferência de altimetria",
+    "cutover": "Reconstrução de secções",
+    "stateIdle": "Parada",
+    "stateRunning": "A decorrer",
+    "stateComplete": "Concluída",
+    "statePartial": "Concluída, faltam repetições",
+    "stateFailed": "Parou antes do fim",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltam {{count}} para transferir"
   }
 }

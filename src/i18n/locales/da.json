@@ -1566,5 +1566,22 @@
     "delete": "Slet navn",
     "deleteTitle": "Slet navn",
     "deleteConfirm": "Slet \"{{name}}\"? Strækningen får sit genererede navn tilbage."
+  },
+  "backgroundJobs": {
+    "title": "Baggrundsopgaver",
+    "intro": "Lange opgaver, som appen kører af sig selv. De fortsætter, når du forlader denne skærm.",
+    "openLink": "Baggrundsopgaver",
+    "sync": "Synkronisering af aktiviteter",
+    "detection": "Registrering af sektioner",
+    "elevationBackfill": "Hentning af højdedata",
+    "cutover": "Genopbygning af sektioner",
+    "stateIdle": "Kører ikke",
+    "stateRunning": "Kører",
+    "stateComplete": "Færdig",
+    "statePartial": "Færdig, nogle skal forsøges igen",
+    "stateFailed": "Stoppet for tidligt",
+    "progressCount": "{{completed}} af {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "{{count}} mangler at blive hentet"
   }
 }

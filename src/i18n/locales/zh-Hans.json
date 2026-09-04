@@ -1566,5 +1566,22 @@
     "delete": "删除名字",
     "deleteTitle": "删除名字",
     "deleteConfirm": "删除“{{name}}”？该路段将恢复自动生成的名称。"
+  },
+  "backgroundJobs": {
+    "title": "后台任务",
+    "intro": "应用自行运行的长时间任务。离开此页面后仍会继续。",
+    "openLink": "后台任务",
+    "sync": "活动同步",
+    "detection": "路段检测",
+    "elevationBackfill": "海拔数据下载",
+    "cutover": "路段重建",
+    "stateIdle": "未运行",
+    "stateRunning": "进行中",
+    "stateComplete": "已完成",
+    "statePartial": "已完成，部分将重试",
+    "stateFailed": "提前停止",
+    "progressCount": "{{completed}} / {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "还有 {{count}} 项待获取"
   }
 }

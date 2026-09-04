@@ -1566,5 +1566,22 @@
     "delete": "Delete name",
     "deleteTitle": "Delete name",
     "deleteConfirm": "Delete \"{{name}}\"? The section goes back to its generated name."
+  },
+  "backgroundJobs": {
+    "title": "Background Jobs",
+    "intro": "Long jobs the app runs on its own. They keep going when you leave this screen.",
+    "openLink": "Background jobs",
+    "sync": "Activity sync",
+    "detection": "Section detection",
+    "elevationBackfill": "Elevation download",
+    "cutover": "Section rebuild",
+    "stateIdle": "Not running",
+    "stateRunning": "Running",
+    "stateComplete": "Finished",
+    "statePartial": "Finished, some to retry",
+    "stateFailed": "Stopped early",
+    "progressCount": "{{completed}} of {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "{{count}} still to fetch"
   }
 }
