@@ -97,7 +97,6 @@ export default function HealthScreen() {
   } = useActivities({
     oldest,
     newest,
-    includeStats: true,
     enabled: isAuthenticated,
   });
 

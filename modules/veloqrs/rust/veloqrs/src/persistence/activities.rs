@@ -10,6 +10,12 @@ use super::codec;
 use super::codec::{TrackRead, TrackWalk};
 use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 
+/// The stored zone series, or `None` when the column is empty or unreadable.
+/// A row whose JSON no longer parses is worth loading without its zones.
+fn zone_times(stored: Option<String>) -> Option<Vec<u32>> {
+    serde_json::from_str(&stored?).ok()
+}
+
 /// Mark every id of a batch the SQL failure covers as `Corrupt`, leaving ids
 /// the query already answered alone.
 fn fail_chunk(decoded: &mut HashMap<String, TrackRead>, chunk: &[String], reason: &str) {
@@ -168,7 +174,8 @@ impl PersistentEngine {
 
         let mut stmt = self.db.prepare(
             "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
-                    elevation_gain, avg_hr, avg_power, sport_type
+                    elevation_gain, avg_hr, avg_power, sport_type,
+                    training_load, ftp, power_zone_times, hr_zone_times
              FROM activity_metrics",
         )?;
 
@@ -184,6 +191,10 @@ impl PersistentEngine {
                 avg_hr: row.get::<_, Option<i32>>(7)?.map(|v| v as u16),
                 avg_power: row.get::<_, Option<i32>>(8)?.map(|v| v as u16),
                 sport_type: row.get(9)?,
+                training_load: row.get(10)?,
+                ftp: row.get::<_, Option<i32>>(11)?.map(|v| v as u16),
+                power_zone_times: zone_times(row.get::<_, Option<String>>(12)?),
+                hr_zone_times: zone_times(row.get::<_, Option<String>>(13)?),
             })
         })?;
 
