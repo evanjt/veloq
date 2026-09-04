@@ -92,13 +92,13 @@ fn changed_config_reanalyses() {
     );
 }
 
-/// The REAL launch scenario, end to end. A config carrying preset-only fields the
-/// four slider keys never persisted (`preserve_hierarchy`, `min_corridor_tracks`)
-/// is set, the engine is RESTARTED, and the SAME config is re-applied, exactly
-/// what GlobalDataSync does on mount. The whole-config blob restores those fields,
+/// The REAL launch scenario, end to end. A config carrying fields the slider keys
+/// never persisted (`max_section_length`, `divergence_threshold`) is set, the
+/// engine is RESTARTED, and the SAME config is re-applied, exactly what
+/// GlobalDataSync does on mount. The whole-config blob restores those fields,
 /// so the loaded config equals the re-applied one, the guard no-ops, and the
 /// section ids survive the relaunch. Red with only the slider keys persisted:
-/// load rebuilds `default()` for the preset-only fields, so the re-apply differs
+/// load rebuilds `default()` for the unpersisted fields, so the re-apply differs
 /// and renumbers every section on boot.
 #[test]
 fn relaunch_reapply_of_persisted_config_keeps_ids() {
@@ -107,12 +107,12 @@ fn relaunch_reapply_of_persisted_config_keeps_ids() {
     let path = dir.path().join("relaunch.db");
     let ps = path.to_str().unwrap();
 
-    // What a moved strictness slider produces: Unified + preset-only fields off
-    // their defaults, none of which the four slider keys persist.
+    // What a moved strictness slider produces: min_activities plus fields off
+    // their defaults that the slider keys do not persist.
     let mut cfg = unified_config();
     cfg.min_activities = 2;
-    cfg.preserve_hierarchy = true;
-    cfg.min_corridor_tracks = 5;
+    cfg.max_section_length = 150_000.0;
+    cfg.divergence_threshold = 0.42;
 
     let before = {
         let mut e = PersistentEngine::new(ps).expect("engine");
