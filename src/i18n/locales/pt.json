@@ -1038,6 +1038,7 @@
     "defaultName": "Troço {{number}}",
     "deleteSection": "Eliminar troço",
     "deleteSectionConfirm": "Tem a certeza de que pretende eliminar este troço? Esta ação não pode ser anulada.",
+    "detectionPaused": "Deteção em pausa enquanto as suas secções são migradas",
     "disabled": "Desativada",
     "removeSection": "Remover secção",
     "removeSectionConfirm": "Esta secção não aparecerá nos detalhes da atividade nem nos insights. Pode restaurá-la a partir da lista de secções.",
