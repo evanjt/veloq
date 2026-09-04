@@ -21,3 +21,13 @@ resolver = "2"
 lto = true
 codegen-units = 1
 strip = false
+
+# Full DWARF put target/debug at 188 GB. Each of the 144 integration tests links
+# the crate statically and carries its own copy of every symbol name in the dep
+# graph: 393 MB a binary, of which 163 MB is .debug_str and only 30 MB is .text.
+# Line tables keep the file and line in a test panic, which is all the backtrace
+# is read for, and unpacked debuginfo leaves the rest in the object files
+# instead of copying it into each binary.
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"

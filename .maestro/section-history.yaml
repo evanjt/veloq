@@ -35,11 +35,25 @@ tags:
       id: "section-detail-screen"
     timeout: 10000
 
-- scrollUntilVisible:
-    element:
-      id: "section-history-panel"
-    direction: DOWN
-    timeout: 15000
+# The lap list between the chart and the ledger is long, and scrollUntilVisible
+# either times out on it or overshoots into the tab bar and leaves the screen.
+# Walk down in fixed swipes that stay clear of the bar, and stop on the event
+# row rather than the panel header, which first appears behind the bar.
+- repeat:
+    times: 30
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "section-history-event-formed"
+          commands:
+            - swipe:
+                start: 50%, 70%
+                end: 50%, 25%
+                duration: 250
+
+- assertVisible:
+    id: "section-history-panel"
 
 - assertVisible:
     id: "section-history-event-formed"
