@@ -481,12 +481,28 @@ impl PersistentEngine {
 
     /// Promote the in-flight token once the diff is stored. Until this runs,
     /// the cutover is owed and re-runs from the top on the next launch.
+    ///
+    /// The stored diff was the archive's only reader, so the archived lines
+    /// go in the same transaction. The rows keep their id, name and count for
+    /// the change card and the mint guard, and a member stays re-derivable
+    /// from its triple.
     fn finish_cutover(&self) -> rusqlite::Result<()> {
-        self.db.execute(
+        let tx = self.db.unchecked_transaction()?;
+        tx.execute(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             params![CUTOVER_KEY, CUTOVER_ID],
         )?;
-        info!("veloqrs: [cutover] Token promoted to '{}'", CUTOVER_ID);
+        let trimmed = tx.execute(
+            "UPDATE section_catalogue_archive
+             SET polyline_blob = NULL, polyline_json = NULL
+             WHERE token = ? AND (polyline_blob IS NOT NULL OR polyline_json IS NOT NULL)",
+            params![CUTOVER_ID],
+        )?;
+        tx.commit()?;
+        info!(
+            "veloqrs: [cutover] Token promoted to '{}', {} archived lines trimmed",
+            CUTOVER_ID, trimmed
+        );
         Ok(())
     }
 
@@ -888,5 +904,98 @@ mod tests {
             "the archived blob is no smaller than postcard for the same line"
         );
         assert_eq!(archived_line(&engine).len(), 12);
+    }
+
+    fn archived_row(engine: &PersistentEngine) -> (String, Option<Vec<u8>>, Option<String>, u32) {
+        engine
+            .db
+            .query_row(
+                "SELECT name, polyline_blob, polyline_json, visit_count
+                 FROM section_catalogue_archive WHERE section_id = 's_auto'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get::<_, Option<u32>>(3)?.unwrap_or(0),
+                    ))
+                },
+            )
+            .expect("archived row")
+    }
+
+    /// Scenario: the token is promoted after the diff is stored, and the diff
+    /// was the archive's only reader.
+    /// Expected behaviour: the archived line goes with the promotion, the id,
+    /// name and count stay for the change card and the mint guard.
+    #[test]
+    fn promoting_the_token_trims_the_archived_lines() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET visit_count = 7 WHERE id = 's_auto'",
+                [],
+            )
+            .expect("set the count");
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+        assert_eq!(archived_line(&engine).len(), 12);
+
+        engine.build_cutover_diff().expect("diff");
+        engine.finish_cutover().expect("promote");
+
+        let (name, blob, json, visits) = archived_row(&engine);
+        assert!(blob.is_none(), "the blob outlived the promotion");
+        assert!(json.is_none(), "the json line outlived the promotion");
+        assert_eq!(name, "Auto");
+        assert_eq!(visits, 7);
+        assert_eq!(
+            engine.get_setting(super::CUTOVER_KEY).expect("token"),
+            Some(super::CUTOVER_ID.to_string())
+        );
+        assert!(
+            engine.section_ids_a_mint_must_avoid().contains("s_auto"),
+            "a trimmed archive row still claims its id"
+        );
+    }
+
+    /// Scenario: the run dies between the diff and the promotion.
+    /// Expected behaviour: the archive still holds its line, and the retry
+    /// builds a diff that carries the outgoing geometry.
+    #[test]
+    fn a_run_that_dies_before_promotion_keeps_the_lines_for_the_retry() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        engine.build_cutover_diff().expect("first diff");
+        assert_eq!(archived_line(&engine).len(), 12);
+
+        let diff = engine.build_cutover_diff().expect("retried diff");
+        let payload: serde_json::Value = serde_json::from_str(&diff).expect("json");
+        let gone = payload["sections"]
+            .as_array()
+            .expect("sections")
+            .iter()
+            .find(|s| s["id"] == "s_auto")
+            .expect("the archived section is in the diff");
+        assert_ne!(gone["polyline"].as_str().unwrap_or(""), "");
+    }
+
+    /// A second promotion, the shape a retried launch takes, finds nothing
+    /// left to trim and does not fail.
+    #[test]
+    fn a_second_promotion_is_a_no_op() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        assert_eq!(engine.archive_current_catalogue().expect("archive"), 1);
+
+        engine.finish_cutover().expect("promote");
+        engine.finish_cutover().expect("promote again");
+
+        let (_, blob, _, _) = archived_row(&engine);
+        assert!(blob.is_none());
     }
 }
