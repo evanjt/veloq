@@ -60,6 +60,15 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareFile: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/features/routes/lib/elevationBackfillTrigger', () => ({
+  startElevationBackfillAfterUpdate: jest.fn().mockResolvedValue(false),
+  clearElevationBackfillStamp: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/features/routes/lib/cutoverTrigger', () => ({
+  startDetectorCutoverAfterUpdate: jest.fn().mockResolvedValue(false),
+}));
+
 jest.mock('@/shared/app/ThemeProvider', () => ({
   initializeTheme: jest.fn().mockResolvedValue(undefined),
 }));
@@ -425,5 +434,114 @@ describe('getLastBackupTimestamp', () => {
     // A stored '0' is a real timestamp, not "never" - it must survive the guard.
     mockEngine.getSetting.mockReturnValue('0');
     expect(getLastBackupTimestamp()).toBe(0);
+  });
+});
+
+/**
+ * Scenario: an athlete restores a 0.3.x backup onto a device whose own library
+ * was already fully elevated, so the elevation trigger's stamp names the
+ * running app version.
+ *
+ * Expected behaviour: the stamp is a claim about a database that has just been
+ * replaced, so the restore drops it and re-runs both launch triggers. Without
+ * that the trigger declines on every future launch of this app version, no
+ * pass runs, the count never reaches zero, the cutover can never start, and
+ * `SB12`'s refusal freezes the catalogue for good (`SB13`).
+ */
+describe('restoreDatabaseBackup re-arms the migration', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+
+  const { clearElevationBackfillStamp, startElevationBackfillAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/elevationBackfillTrigger'
+  );
+  const { startDetectorCutoverAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/cutoverTrigger'
+  );
+
+  beforeEach(() => {
+    mockNativeModule.validateBackupDatabase.mockReset().mockImplementation(() => LIVE_META);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
+    mockEngine.getActivityCount.mockReturnValue(100);
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
+    clearElevationBackfillStamp.mockClear();
+    startElevationBackfillAfterUpdate.mockClear();
+    startDetectorCutoverAfterUpdate.mockClear();
+  });
+
+  it('drops the elevation stamp, which described the replaced database', async () => {
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(true);
+    expect(clearElevationBackfillStamp).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts a backfill pass on the restored database without a relaunch', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(startElevationBackfillAfterUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the cutover reachable without a relaunch', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(startDetectorCutoverAfterUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the stamp before it asks for a pass', async () => {
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(clearElevationBackfillStamp.mock.invocationCallOrder[0]).toBeLessThan(
+      startElevationBackfillAfterUpdate.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('re-arms nothing when the restore was refused', async () => {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) return LIVE_META;
+      return JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 });
+    });
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(false);
+    expect(clearElevationBackfillStamp).not.toHaveBeenCalled();
+    expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
+    expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The legacy JSON path restores names and preferences and never replaces the
+ * database, so the elevation stamp still describes the database in place.
+ */
+describe('restoreBackup leaves the migration markers alone', () => {
+  const { clearElevationBackfillStamp, startElevationBackfillAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/elevationBackfillTrigger'
+  );
+  const { startDetectorCutoverAfterUpdate } = jest.requireMock(
+    '@/features/routes/lib/cutoverTrigger'
+  );
+
+  beforeEach(() => {
+    clearElevationBackfillStamp.mockClear();
+    startElevationBackfillAfterUpdate.mockClear();
+    startDetectorCutoverAfterUpdate.mockClear();
+  });
+
+  it('does not clear the stamp, because it replaces no database', async () => {
+    await restoreBackup(
+      JSON.stringify({ version: 2, sections: [], sectionNames: {}, routeNames: {} })
+    );
+
+    expect(clearElevationBackfillStamp).not.toHaveBeenCalled();
+    expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
+    expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
   });
 });

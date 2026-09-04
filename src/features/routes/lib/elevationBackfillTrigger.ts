@@ -58,6 +58,22 @@ async function attempt(): Promise<boolean> {
 }
 
 /**
+ * Forget that this app version finished the backfill.
+ *
+ * The stamp is a claim about one database, and a restore replaces it. Left
+ * standing it declines every future launch of this app version, so no pass
+ * runs, the outstanding count never reaches zero, the cutover can never start
+ * and `SB12`'s refusal freezes the catalogue for good (`SB13`).
+ */
+export async function clearElevationBackfillStamp(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(VERSION_KEY);
+  } catch {
+    // Best effort - a stamp that will not clear costs a launch, not the app
+  }
+}
+
+/**
  * Start the backfill if tracks still lack elevation and this app version has
  * not already finished the job. Resolves to whether Rust accepted the run.
  */
