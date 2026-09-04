@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
 import { decodeCoords } from 'veloqrs';
-import type { InsightsData, PreviewTrack as PreviewTrackRecord, SummaryCardData } from 'veloqrs';
+import type { PreviewTrack as PreviewTrackRecord, SummaryCardData } from 'veloqrs';
 import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
 import type { LatLng } from '@/shared/geo/polyline';
 
@@ -19,14 +20,10 @@ export interface PreviewTrack {
  * Result from the single getStartupData() FFI call.
  */
 export interface StartupResult {
-  /** Insights data from Rust (same record as getInsightsData) */
-  insightsData: InsightsData;
   /** Summary card data from Rust (same record as getSummaryCardData) */
   summaryCardData: SummaryCardData;
   /** Pre-fetched GPS tracks keyed by activity ID */
   previewTracks: Map<string, PreviewTrack>;
-  /** Activity IDs with metrics already cached in engine */
-  cachedMetricIds: Set<string>;
 }
 
 function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<string, PreviewTrack> {
@@ -47,8 +44,8 @@ function buildPreviewTracks(rawTracks: readonly PreviewTrackRecord[]): Map<strin
 
 /**
  * Fetch startup data from the engine using current timestamps.
- * Shared by initial useMemo and manual refresh - single source of truth
- * for the computeTimestamps + getStartupData + result-building pipeline.
+ * Returns null when the engine is absent or the read fails, which the caller
+ * reads as "keep what is already on screen".
  */
 function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
   const engine = getEngine();
@@ -59,10 +56,8 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
     if (!result) return null;
 
     return {
-      insightsData: result.insights,
       summaryCardData: result.summaryCard,
       previewTracks: buildPreviewTracks(result.previewTracks ?? []),
-      cachedMetricIds: new Set(result.cachedMetricIds ?? []),
     };
   } catch {
     return null;
@@ -70,51 +65,40 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
 }
 
 /**
- * Single FFI call on mount that fetches ALL data the feed screen needs:
- * insights, summary card, GPS preview tracks, and cached metric IDs.
+ * One FFI call for the two things the feed paints: the summary card and the
+ * GPS preview tracks for the first visible cards.
  *
- * Called synchronously in useMemo (not deferred) so data is available
- * on the very first render - eliminates duplicate getInsightsData calls.
+ * The read runs after the interactions of the frame that scheduled it, never
+ * during render, so the feed paints before the engine answers. Consecutive
+ * engine events cancel each other's pending read, so a burst of them during a
+ * sync costs one call rather than one each, and the last bundle stays on
+ * screen until the next one arrives.
  */
 export function useStartupData(previewActivityIds: string[]): {
   data: StartupResult | null;
-  refresh: () => void;
 } {
   const trigger = useEngineSubscription(['activities', 'sections']);
-  const isMountedRef = useRef(true);
+  const idsKey = previewActivityIds.join(',');
+
+  // Read inside the deferred task so a changed list does not re-key the effect
+  // twice for the same value.
+  const idsRef = useRef(previewActivityIds);
+  idsRef.current = previewActivityIds;
+
+  const [data, setData] = useState<StartupResult | null>(null);
 
   useEffect(() => {
-    isMountedRef.current = true;
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      const next = fetchStartupData(idsRef.current);
+      if (!cancelled && next) setData(next);
+    });
     return () => {
-      isMountedRef.current = false;
+      cancelled = true;
+      handle.cancel();
     };
-  }, []);
+  }, [trigger, idsKey]);
 
-  // Synchronous initial call - provides insights/summary immediately
-  const initialData = useMemo(
-    () => fetchStartupData(previewActivityIds),
-    // Only re-run when engine data changes or preview IDs change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trigger, previewActivityIds.length > 0 ? previewActivityIds.join(',') : '']
-  );
-
-  // Track latest data (initial sync, updated when trigger changes)
-  const [data, setData] = useState<StartupResult | null>(initialData);
-
-  // Update state when initialData changes
-  useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-    }
-  }, [initialData]);
-
-  const refresh = useCallback(() => {
-    if (!isMountedRef.current) return;
-    const result = fetchStartupData(previewActivityIds);
-    if (result && isMountedRef.current) {
-      setData(result);
-    }
-  }, [previewActivityIds]);
-
-  return { data: data ?? initialData, refresh };
+  return { data };
 }

@@ -1541,18 +1541,17 @@ pub struct FfiPreviewTrack {
     pub encoded_coords: Vec<u8>,
 }
 
-/// All data needed for the feed screen on startup in one call.
-/// Reduces 20+ FFI calls to 1.
+/// The two things the feed paints on its first pass, in one call.
+///
+/// The insights record and the cached metric id list used to ride along here.
+/// Neither reached the screen: the insights tab fetches its own copy when it
+/// opens, and nothing ever read the id list.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiStartupData {
-    /// Insights data (replaces getInsightsData)
-    pub insights: FfiInsightsData,
     /// Summary card data (replaces getSummaryCardData)
     pub summary_card: FfiSummaryCardData,
     /// GPS tracks for initial visible activities (replaces N × getGpsTrack)
     pub preview_tracks: Vec<FfiPreviewTrack>,
-    /// Activity IDs with cached metrics (for sync skip check)
-    pub cached_metric_ids: Vec<String>,
 }
 
 // ============================================================================

@@ -9,6 +9,7 @@ import { useWellness } from '@/features/wellness';
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
 import type { InsightsData, SummaryCardData } from 'veloqrs';
+import type { ActivityPattern } from '@/types';
 import type { Insight } from '../types';
 
 /**
@@ -28,6 +29,8 @@ export function useInsights(
   preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
+  /** Today's pattern out of the same bundle, so no caller recomputes it */
+  todayPattern: ActivityPattern | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
 } {
@@ -91,6 +94,7 @@ export function useInsights(
 
   // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [todayPattern, setTodayPattern] = useState<ActivityPattern | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -126,6 +130,7 @@ export function useInsights(
 
       if (isMountedRef.current) {
         setInsights(result);
+        setTodayPattern(data.todayPattern ?? null);
       }
     });
 
@@ -190,6 +195,7 @@ export function useInsights(
 
   return {
     insights: annotatedInsights,
+    todayPattern,
     hasNewInsights,
     markAsSeen,
   };
