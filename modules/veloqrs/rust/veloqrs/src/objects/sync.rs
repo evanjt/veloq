@@ -420,23 +420,26 @@ impl Drop for FinishGuard {
 
 /// How many on-demand bodies have landed in SQLite this session.
 ///
-/// An on-demand fetch settles on a Rust thread, which cannot reach the
-/// TypeScript listener map, so the write alone tells nobody. The readers watch
-/// this counter and fan a change out over the engine channel when it moves,
-/// which is what wakes the query that asked for the body.
+/// The observer is what wakes a waiting reader. This is the reconciliation
+/// behind it: a body stored between engine init and the observer registering
+/// announces to nobody, and the count is the only record that it landed.
 static BODIES_STORED: AtomicU64 = AtomicU64::new(0);
 
-/// The count TypeScript compares against its last reading.
+/// The count a cold start reads to catch a body stored before it was listening.
 pub fn bodies_stored() -> u64 {
     BODIES_STORED.load(Ordering::Relaxed)
 }
 
-/// Write one on-demand body and count it once it is actually in SQLite.
+/// Write one on-demand body, then announce it once it is actually in SQLite.
 ///
-/// The count moves only on a successful write. A failed store leaves nothing
-/// for a reader to find, so waking it would cost an FFI read for a body that is
-/// still absent.
-async fn store_body<F>(what: &'static str, write: F)
+/// Only a successful write announces. A failed store leaves nothing for a
+/// reader to find, so waking it would cost an FFI read for a body that is
+/// still absent. `activity_id` is empty for a body keyed by something else,
+/// such as a curve keyed by sport and window.
+///
+/// The observer is called after the engine lock is released, since the binding
+/// blocks this thread until JavaScript returns.
+async fn store_body<F>(kind: &'static str, activity_id: String, write: F)
 where
     F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
 {
@@ -444,13 +447,14 @@ where
         crate::persistence::with_persistent_engine_blocking(move |engine| match write(engine) {
             Ok(()) => true,
             Err(e) => {
-                log::warn!("[Sync] {} store failed: {}", what, e);
+                log::warn!("[Sync] {} store failed: {}", kind, e);
                 false
             }
         })
         .await;
     if landed(stored) {
         BODIES_STORED.fetch_add(1, Ordering::Relaxed);
+        observer::notify(|o| o.body_stored(kind.to_string(), activity_id));
     }
 }
 
@@ -965,7 +969,7 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                store_body("power curve", move |engine| {
+                store_body("power_curve", String::new(), move |engine| {
                     engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
                 })
                 .await;
@@ -989,7 +993,7 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                store_body("pace curve", move |engine| {
+                store_body("pace_curve", String::new(), move |engine| {
                     engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
                 })
                 .await;
@@ -1006,7 +1010,7 @@ impl SyncManager {
                 let body =
                     endpoints::fetch_intervals_body(&transport, &activity_id, Lane::Interactive)
                         .await?;
-                store_body("interval body", move |engine| {
+                store_body("intervals", activity_id.clone(), move |engine| {
                     engine.set_interval_body(&activity_id, &body)
                 })
                 .await;
@@ -1041,7 +1045,7 @@ impl SyncManager {
                 ) else {
                     return Ok(());
                 };
-                store_body("calendar event", move |engine| {
+                store_body("calendar", String::new(), move |engine| {
                     engine.replace_calendar_events(oldest_ts, newest_ts, &rows)
                 })
                 .await;
@@ -1063,7 +1067,7 @@ impl SyncManager {
                     Lane::Interactive,
                 )
                 .await?;
-                store_body("stream body", move |engine| {
+                store_body("streams", activity_id.clone(), move |engine| {
                     engine.set_stream_body(&activity_id, &types, &body)
                 })
                 .await;
@@ -1091,7 +1095,7 @@ impl SyncManager {
                 let Some(date) = date else {
                     return Ok(());
                 };
-                store_body("activity detail", move |engine| {
+                store_body("activity_detail", activity_id.clone(), move |engine| {
                     engine.upsert_activity_bodies(&[(activity_id.clone(), date, body)])
                 })
                 .await;
@@ -1814,20 +1818,71 @@ mod start_date_parity_tests {
     }
 }
 
-/// An on-demand body lands on a Rust thread with nothing to announce it.
+/// An on-demand body lands on a Rust thread that cannot reach the listener map.
 ///
 /// Scenario: an activity screen opens for the first time, asks for its
-/// intervals, and the fetch succeeds. The only thing that can wake the query
-/// that asked is the count moving, so these pin the count to what actually
-/// reached SQLite.
+/// intervals, and the fetch succeeds. The observer is what wakes the query
+/// that asked, and the count is the cold-start reconciliation behind it, so
+/// these pin both to what actually reached SQLite.
 #[cfg(test)]
 mod body_count_tests {
     use super::*;
+    use crate::objects::observer::{EngineObserver, set_observer};
     use crate::test_globals::serial_global_state;
     use httpmock::prelude::*;
     use serde_json::json;
     use std::time::{Duration, Instant};
     use tempfile::TempDir;
+
+    /// Records the bodies it is told about, as `kind:activity_id`.
+    struct Bodies {
+        seen: Mutex<Vec<String>>,
+    }
+
+    impl Bodies {
+        fn record() -> Arc<Self> {
+            let recorder = Arc::new(Self {
+                seen: Mutex::new(Vec::new()),
+            });
+            set_observer(Some(recorder.clone()));
+            recorder
+        }
+
+        fn seen(&self) -> Vec<String> {
+            self.seen.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        }
+
+        /// Wait for an announcement, since the fetch settles on the runtime.
+        fn reaches(&self, count: usize) -> bool {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < deadline {
+                if self.seen().len() >= count {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            false
+        }
+    }
+
+    impl EngineObserver for Bodies {
+        fn sync_progress(&self) {}
+        fn sync_settled(&self) {}
+        fn body_stored(&self, kind: String, activity_id: String) {
+            self.seen
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(format!("{kind}:{activity_id}"));
+        }
+        fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
+        fn gps_track_stored(&self, _activity_id: String) {}
+        fn fit_parsed(&self, _activity_id: String) {}
+        fn detection_applied(&self) {}
+        fn tiles_generated(&self) {}
+        fn backfill_phase(&self, _phase: String) {}
+        fn cutover_settled(&self) {}
+        fn preview_finished(&self) {}
+    }
 
     fn init_global_engine() -> TempDir {
         crate::test_globals::init_global_engine("bodies.db")
@@ -1973,7 +2028,7 @@ mod body_count_tests {
         let _dir = init_global_engine();
 
         let before = bodies_stored();
-        crate::runtime::block_on(store_body("fixture", |_engine| {
+        crate::runtime::block_on(store_body("fixture", String::new(), |_engine| {
             Err(rusqlite::Error::InvalidQuery)
         }));
         assert_eq!(
@@ -1981,6 +2036,84 @@ mod body_count_tests {
             before,
             "a store that failed left nothing for a reader to find"
         );
+    }
+
+    #[test]
+    fn a_landed_body_announces_its_kind_and_activity() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/e1/intervals");
+            then.status(200).json_body(json!({"icu_intervals": []}));
+        });
+        aim_service_at(&server);
+        let recorder = Bodies::record();
+
+        assert!(SyncManager::new().sync_activity_intervals("e1".into()));
+        assert!(
+            recorder.reaches(1),
+            "the body landed but nothing announced it"
+        );
+        assert_eq!(recorder.seen(), vec!["intervals:e1"]);
+
+        set_observer(None);
+        restore_service();
+    }
+
+    #[test]
+    fn a_body_with_no_activity_announces_an_empty_id() {
+        // A curve is keyed by sport and window, not by activity, so the
+        // reader gets the kind and nothing to scope it to.
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/power-curves.json");
+            then.status(200).json_body(json!({"list": []}));
+        });
+        aim_service_at(&server);
+        let recorder = Bodies::record();
+
+        assert!(SyncManager::new().sync_power_curve("Ride".into(), 42));
+        assert!(
+            recorder.reaches(1),
+            "the curve landed but nothing announced it"
+        );
+        assert_eq!(recorder.seen(), vec!["power_curve:"]);
+
+        set_observer(None);
+        restore_service();
+    }
+
+    #[test]
+    fn a_write_that_fails_announces_nothing() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let recorder = Bodies::record();
+
+        crate::runtime::block_on(store_body("fixture", String::new(), |_engine| {
+            Err(rusqlite::Error::InvalidQuery)
+        }));
+
+        assert!(
+            recorder.seen().is_empty(),
+            "a store that failed left nothing for a woken reader to find"
+        );
+        set_observer(None);
+    }
+
+    #[test]
+    fn every_landing_announces_once() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let recorder = Bodies::record();
+
+        crate::runtime::block_on(store_body("fixture", "f1".into(), |_engine| Ok(())));
+        crate::runtime::block_on(store_body("fixture", "f2".into(), |_engine| Ok(())));
+
+        assert_eq!(recorder.seen(), vec!["fixture:f1", "fixture:f2"]);
+        set_observer(None);
     }
 
     #[test]
