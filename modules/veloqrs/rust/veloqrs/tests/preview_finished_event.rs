@@ -1,8 +1,10 @@
-//! A preview run announces its own end, and the outcome is readable when it does.
+//! A preview run announces its own end and every phase it enters.
 //!
 //! The screen subscribes to `preview_finished` instead of polling, so the
 //! event has to arrive on every exit path and never before the outcome the
-//! poller will read.
+//! poller will read. It subscribes to `preview_phase` for the same reason:
+//! progress is read on a transition, so a run that fails to announce one
+//! leaves the button frozen where it stood.
 //!
 //! Coordinates here are synthetic.
 //!
@@ -26,20 +28,29 @@ fn serial() -> MutexGuard<'static, ()> {
     SERIAL.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Counts the finish notices and nothing else.
+/// Counts the finish notices and records the phases, in order.
 struct Counter {
     finished: AtomicUsize,
+    phases: Mutex<Vec<String>>,
 }
 
 impl Counter {
     fn new() -> Arc<Self> {
         Arc::new(Self {
             finished: AtomicUsize::new(0),
+            phases: Mutex::new(Vec::new()),
         })
     }
 
     fn finished(&self) -> usize {
         self.finished.load(Ordering::SeqCst)
+    }
+
+    fn phases(&self) -> Vec<String> {
+        self.phases
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 
@@ -53,6 +64,12 @@ impl EngineObserver for Counter {
     fn detection_applied(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
+    fn preview_phase(&self, phase: String) {
+        self.phases
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(phase);
+    }
     fn cutover_settled(&self) {}
     fn preview_finished(&self) {
         self.finished.fetch_add(1, Ordering::SeqCst);
@@ -218,4 +235,48 @@ fn a_run_with_no_observer_registered_still_finishes() {
     assert!(preview.start(46.01, 7.0, cfg).expect("start"));
     assert_eq!(wait_for_terminal(&preview), "complete");
     assert!(preview.take_result().expect("take").is_some());
+}
+
+#[test]
+fn a_completed_preview_announces_every_phase_it_enters() {
+    let _serial = serial();
+    let (_dir, cfg) = seeded_engine();
+    let counter = Counter::new();
+    set_observer(Some(counter.clone()));
+
+    let preview = SectionPreview::new();
+    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    wait_for_finish(&counter, 1);
+
+    assert_eq!(
+        counter.phases(),
+        vec!["loading", "analyzing", "diffing", "complete"],
+        "the run has to announce each transition, in order, or the button freezes"
+    );
+
+    set_observer(None);
+}
+
+/// The phase the screen reads on has to be the phase the engine is in, or the
+/// event is worse than the timer it replaced.
+#[test]
+fn every_announced_phase_is_readable_when_it_is_announced() {
+    let _serial = serial();
+    let (_dir, cfg) = seeded_engine();
+    let counter = Counter::new();
+    set_observer(Some(counter.clone()));
+
+    let preview = SectionPreview::new();
+    assert!(preview.start(46.01, 7.0, cfg).expect("start"));
+    wait_for_finish(&counter, 1);
+
+    let progress = preview.get_progress().expect("progress").expect("a run");
+    assert_eq!(progress.phase, "complete");
+    assert_eq!(
+        counter.phases().last().map(String::as_str),
+        Some("complete"),
+        "the last announcement names the phase get_progress reads"
+    );
+
+    set_observer(None);
 }

@@ -477,6 +477,7 @@ impl EngineObserver for SettleRecorder {
     fn detection_applied(&self) {}
     fn tiles_generated(&self) {}
     fn backfill_phase(&self, _phase: String) {}
+    fn preview_phase(&self, _phase: String) {}
     fn cutover_settled(&self) {
         // A blocking take would hang rather than fail if the run still held the
         // engine, so the lock is probed and the diff read only if it is free.
