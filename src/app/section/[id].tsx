@@ -241,14 +241,18 @@ export default function SectionDetailScreen() {
     [setHighlightedActivityId, setHighlightedActivityPoints]
   );
 
-  const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
-    useSectionActivityData(
-      section,
-      selectedSportType,
+  // Memoised so a rename keystroke, which re-renders this screen, hands the
+  // hook the same bundle wrapper rather than a fresh literal.
+  const preComputedActivityData = useMemo(
+    () =>
       detail
         ? { activityMetrics: detail.activityMetrics, mapSignatures: detail.mapSignatures }
-        : undefined
-    );
+        : undefined,
+    [detail]
+  );
+
+  const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
+    useSectionActivityData(section, selectedSportType, preComputedActivityData);
 
   // Section times come from activity streams, so wait for the gap the bundle
   // reported to close before reading the records.

@@ -151,8 +151,10 @@ export function useSectionMatches(
     } catch {
       return 0;
     }
+    // Keyed on the bundle's own field, not the wrapper literal the screen
+    // rebuilds every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger, preComputed]);
+  }, [refreshTrigger, preComputed?.sectionCount]);
 
   const isReady = sectionCount > 0;
   const isLoading = !subscribed;
@@ -207,8 +209,10 @@ export function useSectionMatches(
     // Tier 3.4: Rust now returns sections deduped by section_id and
     // sorted by visit count desc, so the TS-side passes are gone.
     return matches;
+    // Keyed on the bundle's own array, so a re-render that changes nothing
+    // does not decode every matched polyline again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, refreshTrigger, preComputed]);
+  }, [activityId, refreshTrigger, preComputed?.sections]);
 
   return {
     sections,

@@ -131,7 +131,10 @@ export function useSectionOverlays(
     } catch {
       return new Set();
     }
-  }, [engineSectionMatches, customMatchedSections, activityId, preComputed]);
+    // Keyed on the bundle's own set, not the wrapper literal the screen
+    // rebuilds every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engineSectionMatches, customMatchedSections, activityId, preComputed?.prSectionIds]);
 
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
