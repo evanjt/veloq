@@ -9,6 +9,8 @@ use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 const CHECKPOINT_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
@@ -462,6 +464,76 @@ fn save_groups_txn(
 /// reports the unknown-phase 50 rather than pretending to progress.
 pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
 
+/// Which thread applies a finished run.
+///
+/// The apply is a hot save plus an indicator recompute, hundreds of
+/// milliseconds on a real library. A run that is polled from JavaScript
+/// applies on its own worker, so the 500 ms tick that happens to observe
+/// completion finds the sections already saved. A run whose caller blocks on
+/// the result applies on that caller, which is the only thread that knows
+/// which engine the result belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ApplyOn {
+    Worker,
+    Caller,
+}
+
+/// Apply a finished run on the thread that produced it, so the poll that
+/// observes completion has no write to do on the thread that called it.
+///
+/// Two takes of the engine lock, the same split the poll used: a read queued
+/// behind the hot save sees the new sections while the indicator recompute
+/// runs on the second take.
+///
+/// False means the run is lost, because there is no engine to apply into or
+/// the save failed. The result went into the attempt, so the poll behind this
+/// reports the failure rather than saving the empty message that follows.
+fn apply_on_worker(
+    sections: Vec<FrequentSection>,
+    update: Option<CacheUpdate>,
+    activity_ids: &[String],
+    progress: &SectionDetectionProgress,
+) -> bool {
+    let saved = super::super::with_persistent_engine(|e| {
+        if let Err(err) = e.apply_sections_save_with_cache(sections, update) {
+            log::error!(
+                "veloqrs: [SectionDetection] apply_sections_save failed on the worker: {}",
+                err
+            );
+            return false;
+        }
+        if let Err(err) = e.save_processed_activity_ids(activity_ids) {
+            // Non-fatal: the sections WERE saved above. The consequence is
+            // that the next sync re-detects these activities, which is wasted
+            // work rather than data loss.
+            log::warn!(
+                "veloqrs: [SectionDetection] apply partially succeeded on the worker - \
+                 sections saved but save_processed_activity_ids failed ({} ids): {}. \
+                 Next sync will re-process these activities.",
+                activity_ids.len(),
+                err
+            );
+        }
+        true
+    });
+
+    if saved != Some(true) {
+        if saved.is_none() {
+            log::error!("veloqrs: [SectionDetection] No engine to apply into, the run is lost");
+        }
+        return false;
+    }
+
+    // The write lock is released above before the finalize tail so any queued
+    // reads see the saved sections during the indicator recompute.
+    super::super::with_persistent_engine(|e| {
+        e.apply_sections_finalize_with_progress(Some(progress));
+        // Reload groups from DB in case this thread recomputed and saved them.
+        e.reload_groups_from_db();
+    });
+    true
+}
+
 impl PersistentEngine {
     /// A handle for a run that never started: no worker, both senders dropped.
     ///
@@ -480,6 +552,7 @@ impl PersistentEngine {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress,
+            worker_applied: None,
         }
     }
 
@@ -514,15 +587,25 @@ impl PersistentEngine {
     /// All heavy operations (groups loading, track loading, detection) happen
     /// in the background thread to keep the UI responsive.
     pub fn detect_sections_background(&mut self) -> SectionDetectionHandle {
-        // The single funnel every detection arm passes through, so the
-        // suspension gate sits here rather than at each caller.
+        self.detect_sections_background_applying(ApplyOn::Caller)
+    }
+
+    /// The funnel every detection arm passes through, so the suspension gate
+    /// sits here rather than at each caller. `apply_on` says which thread
+    /// applies the result: a run installed in the shared slot and polled from
+    /// JavaScript takes [`ApplyOn::Worker`], everything that blocks on the
+    /// result takes [`ApplyOn::Caller`].
+    pub(crate) fn detect_sections_background_applying(
+        &mut self,
+        apply_on: ApplyOn,
+    ) -> SectionDetectionHandle {
         if super::conditioning::detection_suspended() {
             log::info!(
                 "veloqrs: [SectionDetection] Refused: detection is suspended for a backfill"
             );
             return Self::refused_detection_handle();
         }
-        self.detect_sections_background_unchecked()
+        self.detect_sections_background_unchecked_applying(apply_on)
     }
 
     /// The run behind [`detect_sections_background`], without the suspension
@@ -530,6 +613,15 @@ impl PersistentEngine {
     /// guard precisely so nothing else can run, and its detect is the one the
     /// suspension exists to protect.
     pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
+        self.detect_sections_background_unchecked_applying(ApplyOn::Caller)
+    }
+
+    /// [`detect_sections_background_unchecked`] with the choice of which
+    /// thread applies the result.
+    pub(crate) fn detect_sections_background_unchecked_applying(
+        &mut self,
+        apply_on: ApplyOn,
+    ) -> SectionDetectionHandle {
         // A clear owed from an earlier failed DELETE is settled here, before
         // the processed set is read: this is the one place the stale set would
         // otherwise short-circuit a detect the config change asked for.
@@ -540,6 +632,13 @@ impl PersistentEngine {
         // the short-circuit, so the caller's `take_cache` returns None and the
         // engine cache is untouched.
         let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
+        // Present only for a self-applying run, and set once its own apply
+        // has landed. The poll reads it to tell a result it must save from a
+        // run that has already saved itself.
+        let worker_applied = match apply_on {
+            ApplyOn::Worker => Some(Arc::new(AtomicBool::new(false))),
+            ApplyOn::Caller => None,
+        };
         let db_path = self.db_path.clone();
         let section_config = self.section_config.clone();
 
@@ -644,15 +743,35 @@ impl PersistentEngine {
                 None => existing_sections.clone(),
             };
             let all_ids = activity_ids.clone();
-            tx.send((sections_copy, all_ids)).ok();
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
             // dropped unsent, `take_cache` returns None, and the caller leaves the
             // engine cache as-is.
+            match &worker_applied {
+                // Echoing the last batch is still a full catalogue write, and
+                // this arm runs on the thread that asked for the detect. A
+                // self-applying run puts it on a thread of its own so neither
+                // the ask nor the poll behind it pays for the save.
+                Some(flag) => {
+                    let flag = Arc::clone(flag);
+                    let echo_progress = progress.clone();
+                    thread::spawn(move || {
+                        echo_progress.set_phase("saving", 1);
+                        if apply_on_worker(sections_copy, None, &all_ids, &echo_progress) {
+                            flag.store(true, Ordering::SeqCst);
+                        }
+                        tx.send((Vec::new(), Vec::new())).ok();
+                    });
+                }
+                None => {
+                    tx.send((sections_copy, all_ids)).ok();
+                }
+            }
             return SectionDetectionHandle {
                 receiver: rx,
                 final_update: std::sync::Mutex::new(None),
                 cache_receiver: cache_rx,
                 progress,
+                worker_applied,
             };
         }
 
@@ -666,6 +785,8 @@ impl PersistentEngine {
 
         // Clone activity_ids for the background thread (to persist as processed after detection)
         let all_activity_ids = activity_ids.clone();
+
+        let applied_flag = worker_applied.clone();
 
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
@@ -968,26 +1089,44 @@ impl PersistentEngine {
                     sections_to_send.len()
                 );
 
-                // Ship the cache update BEFORE the main result. `recv`/`poll_state`
-                // on the main channel is the caller's signal to `take_cache`, so
-                // sending the cache first guarantees it is present by then.
-                cache_tx
-                    .send(CacheUpdate {
-                        cache,
-                        folded_ids: folded_after,
-                        checkpoint: false,
-                        boundaries: fold.boundaries,
-                    })
-                    .ok();
+                let update = CacheUpdate {
+                    cache,
+                    folded_ids: folded_after,
+                    checkpoint: false,
+                    boundaries: fold.boundaries,
+                };
 
                 // No consensus seed here. The accumulator is read only by
                 // `sections::incremental`, which the unified arm never calls,
                 // so seeding it rebuilds an R-tree and rescans every member
                 // track per section for a value nothing consumes.
 
-                // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
-                tx.send((sections_to_send, all_activity_ids)).ok();
+                match &applied_flag {
+                    // A self-applying run saves its own result here, on this
+                    // thread, and only then reports finished. The cache goes
+                    // straight into the apply rather than out on `cache_tx`:
+                    // nobody downstream takes it, and the poll behind this
+                    // has nothing left to adopt.
+                    Some(flag) => {
+                        if apply_on_worker(
+                            sections_to_send,
+                            Some(update),
+                            &all_activity_ids,
+                            &progress_clone,
+                        ) {
+                            flag.store(true, Ordering::SeqCst);
+                        }
+                        tx.send((Vec::new(), Vec::new())).ok();
+                    }
+                    // Ship the cache update BEFORE the main result. `recv`/`poll_state`
+                    // on the main channel is the caller's signal to `take_cache`, so
+                    // sending the cache first guarantees it is present by then.
+                    None => {
+                        cache_tx.send(update).ok();
+                        tx.send((sections_to_send, all_activity_ids)).ok();
+                    }
+                }
             }
         });
 
@@ -996,6 +1135,7 @@ impl PersistentEngine {
             final_update: std::sync::Mutex::new(None),
             cache_receiver: cache_rx,
             progress,
+            worker_applied,
         }
     }
 
