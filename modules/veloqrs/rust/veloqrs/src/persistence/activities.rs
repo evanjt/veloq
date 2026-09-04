@@ -345,6 +345,55 @@ impl PersistentEngine {
         // Capture bounds before removal for heatmap tile invalidation
         let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
 
+        // One transaction for the whole removal. The cascade, a visit_count
+        // update per section the activity was in, the identity blob and the
+        // processed set were separate autocommits, so deleting an activity in
+        // a dozen sections paid fifteen fsyncs under the engine lock. The tile
+        // sweep stays outside it: that is filesystem work, not a row.
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        match self.remove_activity_rows(id) {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
+        }
+
+        self.rebuild_spatial_index();
+
+        // Invalidate heatmap tiles covering the removed activity
+        // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
+        if let Some(ref bounds) = removed_bounds {
+            if let Some(ref tiles_path) = self.heatmap_tiles_path {
+                let config = crate::tiles::HeatmapConfig::default();
+                let path = std::path::Path::new(tiles_path);
+                let margin = 0.001; // ~111m at equator
+                let deleted = crate::tiles::invalidate_tiles_in_bounds(
+                    path,
+                    bounds.min_lat - margin,
+                    bounds.max_lat + margin,
+                    bounds.min_lng - margin,
+                    bounds.max_lng + margin,
+                    config.min_zoom,
+                    config.max_zoom,
+                );
+                if deleted > 0 {
+                    log::info!(
+                        "[heatmap] Invalidated {} tiles for removed activity {}",
+                        deleted,
+                        id
+                    );
+                    self.mark_heatmap_dirty();
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Every row a removal touches, with no transaction of its own so the
+    /// caller commits them together.
+    fn remove_activity_rows(&mut self, id: &str) -> SqlResult<()> {
         // Sections this activity contributes to, captured before the cascade
         // removes its junction rows. The delete trigger fires on the cascade
         // and keeps visit_count current; the recompute below is a redundant
@@ -378,8 +427,6 @@ impl PersistentEngine {
         self.signature_cache.pop(&id.to_string());
         self.consensus_cache.clear(); // Invalidate all consensus since groups may change
 
-        self.rebuild_spatial_index();
-
         self.groups_dirty = true;
         self.sections_dirty = true;
 
@@ -398,33 +445,6 @@ impl PersistentEngine {
         // no-new-activities short-circuit. Clear the whole processed set so the
         // next detect re-analyses the remaining library.
         self.clear_processed_activity_ids();
-
-        // Invalidate heatmap tiles covering the removed activity
-        // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
-        if let Some(ref bounds) = removed_bounds {
-            if let Some(ref tiles_path) = self.heatmap_tiles_path {
-                let config = crate::tiles::HeatmapConfig::default();
-                let path = std::path::Path::new(tiles_path);
-                let margin = 0.001; // ~111m at equator
-                let deleted = crate::tiles::invalidate_tiles_in_bounds(
-                    path,
-                    bounds.min_lat - margin,
-                    bounds.max_lat + margin,
-                    bounds.min_lng - margin,
-                    bounds.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                );
-                if deleted > 0 {
-                    log::info!(
-                        "[heatmap] Invalidated {} tiles for removed activity {}",
-                        deleted,
-                        id
-                    );
-                    self.mark_heatmap_dirty();
-                }
-            }
-        }
 
         Ok(())
     }
@@ -1375,5 +1395,103 @@ impl PersistentEngine {
             return true;
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::commit_counter;
+    use super::*;
+
+    fn engine_with_activity_in_sections(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords = vec![
+            GpsPoint {
+                latitude: 46.2,
+                longitude: 7.3,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 46.21,
+                longitude: 7.31,
+                elevation: None,
+            },
+        ];
+        engine
+            .add_activity("a1".to_string(), coords, "Ride".to_string())
+            .unwrap();
+        for s in 0..sections {
+            let sid = format!("s{s}");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 3000.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, format!("Section {s}")],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, lap_time, lap_pace)
+                     VALUES (?, 'a1', 'same', 0, 100, 3000.0, 600.0, 5.0)",
+                    params![sid],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    /// A deletion ran the cascade, then one visit_count update per section the
+    /// activity was in, then the registry and processed-set writes, each its
+    /// own autocommit under the engine lock.
+    #[test]
+    fn removing_an_activity_is_one_commit() {
+        let mut engine = engine_with_activity_in_sections(12);
+        let commits = commit_counter::watch(&engine);
+
+        engine.remove_activity("a1").unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert!(!engine.has_activity("a1"));
+        let junction: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM section_activities", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(junction, 0);
+        let visits: i64 = engine
+            .db
+            .query_row("SELECT SUM(visit_count) FROM sections", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(visits, 0);
+    }
+
+    /// An activity in no section still commits once, and removing an id that
+    /// was never there writes nothing to roll back.
+    #[test]
+    fn removing_an_activity_in_no_section_is_one_commit() {
+        let mut engine = engine_with_activity_in_sections(0);
+        let commits = commit_counter::watch(&engine);
+
+        engine.remove_activity("a1").unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert!(!engine.has_activity("a1"));
+    }
+
+    #[test]
+    fn removing_the_same_activity_twice_is_one_commit_each() {
+        let mut engine = engine_with_activity_in_sections(3);
+        engine.remove_activity("a1").unwrap();
+
+        let commits = commit_counter::watch(&engine);
+        engine.remove_activity("a1").unwrap();
+
+        assert!(commit_counter::count(&commits) <= 1);
+        assert!(engine.db.is_autocommit());
     }
 }
