@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, contributionRamp } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { formatLocalDate } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
@@ -37,6 +38,10 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
 
   const cellSize = CELL_SIZE;
   const cellGap = CELL_GAP;
+
+  // The `activities` prop is a proxy that usually moves with a sync. The
+  // engine's own event is the thing that says the cache changed.
+  const activitiesTrigger = useEngineSubscription(['activities']);
 
   // Build activity intensity map (1 year of data).
   // Tries the Rust engine's pre-computed heatmap cache first (single SQL query),
@@ -79,7 +84,7 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
     }
 
     return map;
-  }, [activities]);
+  }, [activities, activitiesTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Generate grid data (flat intensity array for Picture - no object allocations)
   const { intensities, monthLabels, totalActivities } = useMemo(() => {

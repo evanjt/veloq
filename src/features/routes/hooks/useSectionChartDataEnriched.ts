@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import type { FfiCalendarSummary } from 'veloqrs';
 import type { FrequentSection, PerformanceDataPoint } from '@/types';
@@ -25,6 +26,10 @@ export function useSectionChartDataEnriched({
   excludedActivityIds,
   preComputedCalendarSummary,
 }: UseSectionChartDataEnrichedArgs) {
+  // A rematch or a sync changes what the excluded attempts read, and neither
+  // moves the keys below.
+  const sectionsTrigger = useEngineSubscription(['sections']);
+
   // Build chart data points for excluded activities (shown dimmed on scatter chart)
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
@@ -77,7 +82,7 @@ export function useSectionChartDataEnriched({
       if (__DEV__) console.warn('[SectionDetail] getExcludedSectionPerformances failed:', e);
       return [];
     }
-  }, [showExcluded, excludedActivityIds, id]);
+  }, [showExcluded, excludedActivityIds, id, sectionsTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calendar summary: Year > Month performance history
   const calendarSummary = useMemo(() => {

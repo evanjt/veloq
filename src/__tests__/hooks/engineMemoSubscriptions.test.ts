@@ -13,7 +13,11 @@ import { getEngine } from '@/shared/native/engine';
 import { useZoneDistribution } from '@/features/fitness/hooks/useZoneDistribution';
 import { useSectionDetail, useSectionPolyline } from '@/features/routes/hooks/useEngine';
 import { useCacheDays } from '@/shared/app/useCacheDays';
+import { useActivityCount } from '@/shared/native/useActivityCount';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useExcludedActivities } from '@/features/routes/hooks/useExcludedActivities';
+import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
+import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -32,6 +36,39 @@ const getZoneDistribution = jest.fn(() => [600, 300, 100, 0, 0]);
 const getSectionById = jest.fn((id: string) => ({ id, name: 'Church Hill' }));
 const getSectionPolyline = jest.fn(() => [{ latitude: 1, longitude: 2 }]);
 const getActivityCount = jest.fn(() => 12);
+const getExcludedRouteActivityIds = jest.fn(() => ['act-1']);
+const getExcludedRoutePerformances = jest.fn(() => ({
+  performances: [
+    {
+      activityId: 'act-1',
+      speed: 5,
+      date: 1_700_000_000,
+      name: 'Morning ride',
+      direction: 'same',
+      duration: 600,
+      matchPercentage: 98,
+    },
+  ],
+}));
+const getExcludedSectionPerformances = jest.fn(() => ({
+  records: [
+    {
+      activityId: 'act-1',
+      activityName: 'Morning ride',
+      activityDate: 1_700_000_000,
+      laps: [{ id: 'lap-1', pace: 4 }],
+    },
+  ],
+}));
+const getMuscleDetail = jest.fn(() => ({
+  slug: 'quads',
+  exercises: [{ name: 'Squat', role: 'primary', sets: 3, reps: 8, volumeKg: 900 }],
+  totalSets: 3,
+  totalReps: 24,
+  totalVolumeKg: 900,
+  primaryExercises: 1,
+  secondaryExercises: 0,
+}));
 
 const engine = {
   subscribe: (event: string, cb: () => void) => {
@@ -44,6 +81,10 @@ const engine = {
   getSectionById,
   getSectionPolyline,
   getActivityCount,
+  getExcludedRouteActivityIds,
+  getExcludedRoutePerformances,
+  getExcludedSectionPerformances,
+  getMuscleDetail,
 };
 
 function emit(event: string) {
@@ -229,5 +270,95 @@ describe('useEngineSubscription', () => {
 
     unmount();
     expect(listeners.get('activities')?.size).toBe(0);
+  });
+});
+
+describe('useActivityCount', () => {
+  it('re-reads the count when activities change', () => {
+    const { result } = renderHook(() => useActivityCount());
+    const afterMount = getActivityCount.mock.calls.length;
+    expect(result.current).toBe(12);
+
+    getActivityCount.mockReturnValue(13);
+    emit('activities');
+
+    expect(getActivityCount.mock.calls.length).toBe(afterMount + 1);
+    expect(result.current).toBe(13);
+  });
+
+  it('reads zero from an engine that is not there', () => {
+    (getEngine as jest.Mock).mockReturnValue(null);
+    const { result } = renderHook(() => useActivityCount());
+    expect(result.current).toBe(0);
+  });
+});
+
+// A stable array: the hook loads the ids in an effect keyed on it, so a fresh
+// literal per render would set state forever.
+const PRECOMPUTED_EXCLUDED = ['act-1'];
+
+describe('useExcludedActivities', () => {
+  it('re-reads the excluded performances when sections change', () => {
+    const { result } = renderHook(() =>
+      useExcludedActivities('route-1', 'Ride', PRECOMPUTED_EXCLUDED)
+    );
+    act(() => result.current.handleToggleShowExcluded());
+    const afterToggle = getExcludedRoutePerformances.mock.calls.length;
+    expect(afterToggle).toBeGreaterThan(0);
+
+    emit('sections');
+    expect(getExcludedRoutePerformances.mock.calls.length).toBe(afterToggle + 1);
+  });
+
+  it('reads nothing while the excluded rows are hidden', () => {
+    renderHook(() => useExcludedActivities('route-1', 'Ride', PRECOMPUTED_EXCLUDED));
+
+    emit('sections');
+    expect(getExcludedRoutePerformances).not.toHaveBeenCalled();
+  });
+});
+
+describe('useSectionChartDataEnriched', () => {
+  const args = {
+    id: 'sec-1',
+    section: null,
+    chartData: [],
+    showExcluded: true,
+    excludedActivityIds: new Set(['act-1']),
+    preComputedCalendarSummary: null,
+  };
+
+  it('re-reads the excluded performances when sections change', () => {
+    renderHook(() => useSectionChartDataEnriched(args));
+    const afterMount = getExcludedSectionPerformances.mock.calls.length;
+    expect(afterMount).toBeGreaterThan(0);
+
+    emit('sections');
+    expect(getExcludedSectionPerformances.mock.calls.length).toBe(afterMount + 1);
+  });
+
+  it('reads nothing while the excluded rows are hidden', () => {
+    renderHook(() => useSectionChartDataEnriched({ ...args, showExcluded: false }));
+
+    emit('sections');
+    expect(getExcludedSectionPerformances).not.toHaveBeenCalled();
+  });
+});
+
+describe('useMuscleDetail', () => {
+  it('re-reads the breakdown when activities change', () => {
+    renderHook(() => useMuscleDetail('act-1', 'quads'));
+    const afterMount = getMuscleDetail.mock.calls.length;
+    expect(afterMount).toBeGreaterThan(0);
+
+    emit('activities');
+    expect(getMuscleDetail.mock.calls.length).toBe(afterMount + 1);
+  });
+
+  it('reads nothing without an activity', () => {
+    renderHook(() => useMuscleDetail(null, 'quads'));
+
+    emit('activities');
+    expect(getMuscleDetail).not.toHaveBeenCalled();
   });
 });
