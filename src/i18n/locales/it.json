@@ -1569,5 +1569,22 @@
     "delete": "Elimina nome",
     "deleteTitle": "Elimina nome",
     "deleteConfirm": "Eliminare \"{{name}}\"? Il tratto torna al suo nome generato."
+  },
+  "backgroundJobs": {
+    "title": "Attività in background",
+    "intro": "Operazioni lunghe che l'app esegue da sola. Proseguono quando esci da questa schermata.",
+    "openLink": "Attività in background",
+    "sync": "Sincronizzazione attività",
+    "detection": "Rilevamento sezioni",
+    "elevationBackfill": "Download del dislivello",
+    "cutover": "Ricostruzione sezioni",
+    "stateIdle": "Non in esecuzione",
+    "stateRunning": "In corso",
+    "stateComplete": "Completata",
+    "statePartial": "Completata, alcuni da riprovare",
+    "stateFailed": "Interrotta prima del termine",
+    "progressCount": "{{completed}} di {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Ne mancano {{count}} da scaricare"
   }
 }

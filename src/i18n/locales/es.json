@@ -1569,5 +1569,22 @@
     "delete": "Eliminar nombre",
     "deleteTitle": "Eliminar nombre",
     "deleteConfirm": "¿Eliminar \"{{name}}\"? El tramo volverá a su nombre generado."
+  },
+  "backgroundJobs": {
+    "title": "Tareas en segundo plano",
+    "intro": "Tareas largas que la aplicación ejecuta sola. Continúan cuando sales de esta pantalla.",
+    "openLink": "Tareas en segundo plano",
+    "sync": "Sincronización de actividades",
+    "detection": "Detección de tramos",
+    "elevationBackfill": "Descarga de altimetría",
+    "cutover": "Reconstrucción de tramos",
+    "stateIdle": "Detenida",
+    "stateRunning": "En curso",
+    "stateComplete": "Finalizada",
+    "statePartial": "Finalizada, quedan reintentos",
+    "stateFailed": "Se detuvo antes de tiempo",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltan {{count}} por descargar"
   }
 }

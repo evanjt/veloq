@@ -1569,5 +1569,22 @@
     "delete": "Excluir nome",
     "deleteTitle": "Excluir nome",
     "deleteConfirm": "Excluir \"{{name}}\"? O trecho volta ao nome gerado."
+  },
+  "backgroundJobs": {
+    "title": "Tarefas em segundo plano",
+    "intro": "Tarefas longas que o aplicativo executa sozinho. Continuam quando você sai desta tela.",
+    "openLink": "Tarefas em segundo plano",
+    "sync": "Sincronização de atividades",
+    "detection": "Detecção de trechos",
+    "elevationBackfill": "Download de altimetria",
+    "cutover": "Reconstrução de trechos",
+    "stateIdle": "Parada",
+    "stateRunning": "Em andamento",
+    "stateComplete": "Concluída",
+    "statePartial": "Concluída, faltam novas tentativas",
+    "stateFailed": "Parou antes do fim",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltam {{count}} para baixar"
   }
 }

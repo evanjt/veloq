@@ -1569,5 +1569,22 @@
     "delete": "名前を削除",
     "deleteTitle": "名前を削除",
     "deleteConfirm": "「{{name}}」を削除しますか？区間は自動生成の名前に戻ります。"
+  },
+  "backgroundJobs": {
+    "title": "バックグラウンド処理",
+    "intro": "アプリが自動で実行する長い処理です。この画面を離れても続きます。",
+    "openLink": "バックグラウンド処理",
+    "sync": "アクティビティの同期",
+    "detection": "セクション検出",
+    "elevationBackfill": "標高データの取得",
+    "cutover": "セクションの再構築",
+    "stateIdle": "停止中",
+    "stateRunning": "実行中",
+    "stateComplete": "完了",
+    "statePartial": "完了、一部は再試行します",
+    "stateFailed": "途中で停止しました",
+    "progressCount": "{{total}} 件中 {{completed}} 件",
+    "progressPercent": "{{percent}}%",
+    "remaining": "残り {{count}} 件を取得します"
   }
 }
