@@ -53,6 +53,10 @@ fn engine_with_excludable(dir: &TempDir) -> (PersistentEngine, String, String) {
             avg_hr: None,
             avg_power: None,
             sport_type: a.sport_type.clone(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
         });
     }
     offsets.push(times.len() as u32);
