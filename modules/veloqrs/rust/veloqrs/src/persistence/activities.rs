@@ -95,6 +95,29 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
     Ok(sections)
 }
 
+/// The tables keyed on an activity id that carry no foreign key to it, so a
+/// removal has to clear them by hand. `ftp_history` holds the activity only as
+/// provenance on a dated FTP reading, and that reading came from the activity,
+/// so it goes with it. `overlap_cache` is not here: it holds a pair, so it is
+/// cleared by its own statement.
+///
+/// `section_catalogue_archive_members` is deliberately absent. It is a frozen
+/// snapshot of the pre-cutover catalogue with the lap data denormalised into
+/// it, so removing an activity from it would rewrite a record of what was once
+/// true. Whether the archive owns its rows is `C21`.
+const ACTIVITY_KEYED_TABLES: &[&str] = &[
+    "activity_bodies",
+    "activity_metrics",
+    "activity_indicators",
+    "activity_matches",
+    "activity_streams",
+    "stream_bodies",
+    "interval_bodies",
+    "exercise_sets",
+    "fit_file_status",
+    "ftp_history",
+];
+
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -459,6 +482,25 @@ impl PersistentEngine {
         // Remove from database (cascade deletes signature and track)
         self.db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?;
+
+        // Only four tables carry the foreign key, so the cascade reaches
+        // `gps_tracks`, `signatures`, `time_streams` and `section_activities`
+        // and no further. The rest were stranded, and `activity_bodies` is the
+        // feed, so a removed activity went on rendering on the home screen
+        // with its metrics intact. Deleted here rather than given foreign keys
+        // of their own: this runs inside the caller's transaction, and eleven
+        // new keys on live tables is a migration on every install.
+        for table in ACTIVITY_KEYED_TABLES {
+            self.db.execute(
+                &format!("DELETE FROM {table} WHERE activity_id = ?1"),
+                params![id],
+            )?;
+        }
+        // The overlap cache holds a pair, so the activity is either side of it.
+        self.db.execute(
+            "DELETE FROM overlap_cache WHERE activity_a = ?1 OR activity_b = ?1",
+            params![id],
+        )?;
 
         // Recompute visit_count on the sections the removed activity was in.
         for sid in &affected_sections {
@@ -1547,6 +1589,175 @@ mod tests {
 
         assert_eq!(commit_counter::count(&commits), 1);
         assert!(!engine.has_activity("a1"));
+    }
+
+    /// Every table an activity id reaches, with the column that holds it.
+    /// `ftp_history` is the athlete's FTP by date and carries the activity
+    /// only as provenance, so it is here as a nullable column, not a key.
+    /// `overlap_cache` holds a pair, so an activity is either side of it.
+    const ACTIVITY_KEYED: &[(&str, &str)] = &[
+        ("activity_bodies", "activity_id"),
+        ("activity_metrics", "activity_id"),
+        ("activity_indicators", "activity_id"),
+        ("activity_matches", "activity_id"),
+        ("activity_streams", "activity_id"),
+        ("stream_bodies", "activity_id"),
+        ("interval_bodies", "activity_id"),
+        ("exercise_sets", "activity_id"),
+        ("fit_file_status", "activity_id"),
+        ("ftp_history", "activity_id"),
+    ];
+
+    fn seed_activity_keyed_rows(engine: &mut PersistentEngine, id: &str) {
+        let seeds: &[&str] = &[
+            "INSERT INTO activity_bodies (activity_id, date, raw) VALUES (?1, 0, '{}')",
+            "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                 elapsed_time, elevation_gain, sport_type)
+             VALUES (?1, 'n', 0, 0, 0, 0, 0, 'Ride')",
+            "INSERT INTO activity_indicators
+                 (activity_id, indicator_type, target_id, direction, computed_at)
+             VALUES (?1, 'section_pr', 't', 'same', 0)",
+            "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+             VALUES ('r1', ?1, 1.0, 'same')",
+            "INSERT INTO activity_streams (activity_id, kind, data, sample_count)
+             VALUES (?1, 'watts', X'00', 1)",
+            "INSERT INTO stream_bodies (activity_id, types, raw) VALUES (?1, 'watts', '{}')",
+            "INSERT INTO interval_bodies (activity_id, raw) VALUES (?1, '{}')",
+            "INSERT INTO exercise_sets (activity_id, set_order, exercise_category, set_type)
+             VALUES (?1, 0, 0, 0)",
+            "INSERT INTO fit_file_status (activity_id, processed_at) VALUES (?1, 0)",
+            "INSERT INTO ftp_history (date, ftp, activity_id) VALUES ((SELECT COUNT(*) FROM ftp_history), 250, ?1)",
+            "INSERT INTO overlap_cache (activity_a, activity_b, has_overlap, computed_at)
+             VALUES (?1, 'other', 0, 0)",
+            "INSERT INTO overlap_cache (activity_a, activity_b, has_overlap, computed_at)
+             VALUES ('other', ?1, 0, 0)",
+        ];
+        for sql in seeds {
+            engine
+                .db
+                .execute(sql, params![id])
+                .unwrap_or_else(|e| panic!("seed failed: {sql}: {e}"));
+        }
+    }
+
+    fn rows_for(engine: &PersistentEngine, table: &str, column: &str, id: &str) -> i64 {
+        engine
+            .db
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE {column} = ?1"),
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    /// A removal cleared six tables and stranded the rest, so the feed kept
+    /// rendering an activity that had left the map, the routes and the
+    /// sections. `get_activity_bodies` reads `activity_bodies` alone.
+    #[test]
+    fn removing_an_activity_takes_every_row_keyed_on_it() {
+        let mut engine = engine_with_activity_in_sections(2);
+        seed_activity_keyed_rows(&mut engine, "a1");
+
+        engine.remove_activity("a1").unwrap();
+
+        for (table, column) in ACTIVITY_KEYED {
+            assert_eq!(
+                rows_for(&engine, table, column, "a1"),
+                0,
+                "{table} still holds the removed activity"
+            );
+        }
+        assert_eq!(rows_for(&engine, "overlap_cache", "activity_a", "a1"), 0);
+        assert_eq!(rows_for(&engine, "overlap_cache", "activity_b", "a1"), 0);
+    }
+
+    /// The feed is the visible half of it: the body is what the home screen
+    /// renders, so an activity with its body left behind never leaves.
+    #[test]
+    fn a_removed_activity_is_gone_from_the_feed() {
+        let mut engine = engine_with_activity_in_sections(0);
+        seed_activity_keyed_rows(&mut engine, "a1");
+
+        engine.remove_activity("a1").unwrap();
+
+        assert!(engine.get_activity_bodies(0, i64::MAX).unwrap().is_empty());
+    }
+
+    /// Only the removed activity goes. A neighbour sharing every table keeps
+    /// its rows, and the other side of an overlap pair keeps its own.
+    #[test]
+    fn removing_an_activity_leaves_its_neighbour_alone() {
+        let mut engine = engine_with_activity_in_sections(0);
+        seed_activity_keyed_rows(&mut engine, "a1");
+        seed_activity_keyed_rows(&mut engine, "a2");
+
+        engine.remove_activity("a1").unwrap();
+
+        for (table, column) in ACTIVITY_KEYED {
+            assert_eq!(
+                rows_for(&engine, table, column, "a2"),
+                1,
+                "{table} lost a row belonging to another activity"
+            );
+        }
+    }
+
+    /// The removal stays one commit with eleven more deletes inside it.
+    #[test]
+    fn removing_an_activity_with_every_table_seeded_is_still_one_commit() {
+        let mut engine = engine_with_activity_in_sections(12);
+        seed_activity_keyed_rows(&mut engine, "a1");
+        let commits = commit_counter::watch(&engine);
+
+        engine.remove_activity("a1").unwrap();
+
+        assert_eq!(commit_counter::count(&commits), 1);
+    }
+
+    /// The list above is a hand-kept list, so the schema is what holds it
+    /// honest: a table added later with an `activity_id` column is covered by
+    /// this without anyone remembering to extend the test.
+    #[test]
+    fn every_activity_keyed_table_in_the_schema_is_covered() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        let tables: Vec<String> = engine
+            .db
+            .prepare(
+                "SELECT m.name FROM sqlite_master m
+                 JOIN pragma_table_info(m.name) p
+                 WHERE m.type = 'table' AND p.name = 'activity_id'
+                 ORDER BY m.name",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        // A query that found nothing would pass this test vacuously.
+        assert!(tables.len() >= ACTIVITY_KEYED_TABLES.len());
+
+        // The four the foreign key cascade already reaches, and the frozen
+        // archive that keeps its members on purpose.
+        let cascaded = [
+            "gps_tracks",
+            "signatures",
+            "time_streams",
+            "section_activities",
+            "processed_activities",
+            "section_catalogue_archive_members",
+        ];
+        let uncovered: Vec<&String> = tables
+            .iter()
+            .filter(|t| !ACTIVITY_KEYED_TABLES.contains(&t.as_str()))
+            .filter(|t| !cascaded.contains(&t.as_str()))
+            .collect();
+
+        assert!(
+            uncovered.is_empty(),
+            "these tables hold an activity_id and no removal clears them: {uncovered:?}"
+        );
     }
 
     #[test]
