@@ -485,9 +485,8 @@ impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
 /// Which sections a read wants. Every field is a narrowing, and an empty
 /// filter is every visible section.
 ///
-/// One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
-/// and `get_for_activity` all returned the same list and only two of them
-/// applied the corridor-name overlay (`C31`).
+/// One record rather than a call per narrowing: every read returns the same
+/// list, and the corridor-name overlay is applied once behind it.
 #[derive(Debug, Clone, Default, uniffi::Record)]
 pub struct FfiSectionFilter {
     /// Only this sport's sections.
