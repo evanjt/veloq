@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing } from '@/theme';
+import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 
 import type { ZoneDistribution } from '@/types';
 import { formatDurationHuman } from '@/shared/format/format';
@@ -43,11 +44,18 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
     }));
   }, [data]);
 
-  // Find max for bar scaling
-  const maxPercentage = useMemo(() => {
-    if (processedData.length === 0) return 1;
-    return Math.max(...processedData.map((d) => d.percentage), 1);
-  }, [processedData]);
+  const bands = useMemo<ZoneBand[]>(
+    () =>
+      processedData.map((zone) => ({
+        key: zone.zone,
+        label: `Z${zone.zone}`,
+        colour: zone.color,
+        percent: zone.percentage,
+        primary: formatDurationHuman(zone.seconds),
+        secondary: zone.name,
+      })),
+    [processedData]
+  );
 
   // Show empty state if no data
   if (!data || data.length === 0) {
@@ -77,40 +85,8 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
         <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
       </View>
 
-      {/* Zone bars */}
-      <View style={styles.barsContainer}>
-        {processedData.map((zone) => (
-          <View key={zone.zone} style={styles.barRow}>
-            {/* Zone label */}
-            <View style={styles.barLabel}>
-              <View style={[styles.zoneDot, { backgroundColor: zone.color }]} />
-              <Text style={[styles.zoneName, isDark && styles.textDark]} numberOfLines={1}>
-                Z{zone.zone} {zone.name}
-              </Text>
-            </View>
-
-            {/* Bar */}
-            <View style={styles.barWrapper}>
-              <View
-                style={[
-                  styles.bar,
-                  {
-                    width: `${(zone.percentage / maxPercentage) * 100}%`,
-                    backgroundColor: zone.color,
-                  },
-                ]}
-              />
-            </View>
-
-            {/* Percentage & time */}
-            <View style={styles.barValue}>
-              <Text style={[styles.percentage, { color: zone.color }]}>{zone.percentage}%</Text>
-              <Text style={[styles.duration, isDark && styles.textDark]}>
-                {formatDurationHuman(zone.seconds)}
-              </Text>
-            </View>
-          </View>
-        ))}
+      <View style={styles.bars}>
+        <ZoneHistogram bands={bands} />
       </View>
 
       {/* Total time */}
@@ -145,54 +121,8 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
-  barsContainer: {
+  bars: {
     marginBottom: spacing.sm,
-  },
-  barRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 3,
-  },
-  barLabel: {
-    width: 90,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  zoneDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-  },
-  zoneName: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  barWrapper: {
-    flex: 1,
-    height: spacing.md,
-    backgroundColor: 'rgba(150, 150, 150, 0.1)',
-    borderRadius: layout.borderRadiusSm,
-    overflow: 'hidden',
-    marginHorizontal: spacing.sm,
-  },
-  bar: {
-    height: '100%',
-    borderRadius: layout.borderRadiusSm,
-    minWidth: spacing.xs,
-  },
-  barValue: {
-    width: 60,
-    alignItems: 'flex-end',
-  },
-  percentage: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
-  },
-  duration: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
   },
   totalRow: {
     flexDirection: 'row',
