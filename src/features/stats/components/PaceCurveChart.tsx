@@ -16,7 +16,13 @@ import {
   chartStyles,
   switchTrackOff,
 } from '@/theme';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  ChartCrosshair,
+  domainContains,
+  useChartColors,
+  useChartGestures,
+  yForValue,
+} from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
 import {
@@ -371,30 +377,22 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
               return (
                 <>
                   {/* Critical Speed line */}
-                  {criticalSpeedPace &&
-                    criticalSpeedPace >= yDomain[0] &&
-                    criticalSpeedPace <= yDomain[1] && (
-                      <SkiaLine
-                        p1={{
-                          x: chartBounds.left,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        p2={{
-                          x: chartBounds.right,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        color={CS_LINE_COLOR}
-                        strokeWidth={1}
-                      >
-                        <DashPathEffect intervals={[6, 4]} />
-                      </SkiaLine>
-                    )}
+                  {criticalSpeedPace && domainContains(yDomain, criticalSpeedPace) && (
+                    <SkiaLine
+                      p1={{
+                        x: chartBounds.left,
+                        y: yForValue(criticalSpeedPace, yDomain, chartBounds),
+                      }}
+                      p2={{
+                        x: chartBounds.right,
+                        y: yForValue(criticalSpeedPace, yDomain, chartBounds),
+                      }}
+                      color={CS_LINE_COLOR}
+                      strokeWidth={1}
+                    >
+                      <DashPathEffect intervals={[6, 4]} />
+                    </SkiaLine>
+                  )}
 
                   {/* Pace curve with casing */}
                   <Line

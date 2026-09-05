@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
-import { isRunningActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport } from '@/features/activity/lib/activityUtils';
 import type { ActivityType, FrequentSection } from '@/types';
 import type { NearbySectionSummary } from 'veloqrs';
 
@@ -24,9 +24,9 @@ export function useSectionMapData(
   }, [nearby]);
 
   const isRunning = effectiveSportType
-    ? isRunningActivity(effectiveSportType as ActivityType)
+    ? isPaceSport(effectiveSportType as ActivityType)
     : section
-      ? isRunningActivity(section.sportType as ActivityType)
+      ? isPaceSport(section.sportType as ActivityType)
       : false;
 
   return { nearbyPolylines, isRunning };

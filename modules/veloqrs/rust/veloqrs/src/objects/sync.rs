@@ -388,9 +388,9 @@ pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(SyncService::new)
 /// Park the service on a rejected credential.
 ///
 /// Every 401 the app sees ends here, whatever raised it: a sync step, an
-/// on-demand fetch, a write, or the elevation backfill. `Q20` decided a
-/// rejected credential signs the athlete out and keeps the database, and this
-/// state is what `useSyncAuthExpiry` reads to do it, so a caller that reports
+/// on-demand fetch, a write, or the elevation backfill. A rejected credential
+/// signs the athlete out and keeps the database, and this state is what
+/// `useSyncAuthExpiry` reads to do it, so a caller that reports
 /// its own failure instead leaves the dead session standing.
 pub fn park_auth_expired() {
     SYNC_SERVICE.finish(

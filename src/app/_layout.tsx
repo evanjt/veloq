@@ -21,7 +21,7 @@ import { updateWidgetSnapshot } from '@/features/home';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useCutoverRetry } from '@/features/routes/hooks/useCutoverRetry';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';

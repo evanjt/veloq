@@ -3,7 +3,7 @@
  *
  * The re-cut fires unattended at launch and rebuilds the whole catalogue, and
  * until now the only surface that said so was the What's New carousel, which a
- * user who skips it never sees (`B134`, decided in `Q29`).
+ * user who skips it never sees.
  *
  * `CutoverProgress` carries a phase and nothing else, so this is a phase name
  * and a spinner rather than a bar. The section rescan on the same screen does

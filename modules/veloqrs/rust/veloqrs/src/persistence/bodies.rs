@@ -148,9 +148,9 @@ impl PersistentEngine {
 /// outside this set only ever arrives as a body from intervals.icu.
 const RECONSTRUCTABLE: [&str; 4] = ["altitude", "fixed_altitude", "latlng", "time"];
 
-/// How much raw payload to keep. `Q31` retired the row count: fifty rows is
-/// 5 MB of one athlete's streams and 25 MB of another's, so the ceiling that
-/// matters is bytes. The durable series behind these bodies live in
+/// How much raw payload to keep, in bytes rather than rows: fifty rows is
+/// 5 MB of one athlete's streams and 25 MB of another's, so a row count is not
+/// a ceiling. The durable series behind these bodies live in
 /// `activity_streams` and are sized by the athlete instead, which is what lets
 /// this stay small: it is a hot cache of exactly what the server sent, not the
 /// history.
@@ -190,7 +190,7 @@ impl PersistentEngine {
         match serde_json::from_str::<Vec<crate::net::types::StreamDto>>(raw) {
             // A body carrying coordinates goes through the same mask the sync
             // uses, or this writer stores the server's index space over rows
-            // the track addresses (`C6`). A body without them carries no mask
+            // the track addresses. A body without them carries no mask
             // to apply, and `storable_series` answers empty for one, so it is
             // stored as it arrived.
             Ok(parsed) => {

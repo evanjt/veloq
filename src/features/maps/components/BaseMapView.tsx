@@ -105,7 +105,7 @@ export function BaseMapView({
   const [terrainUnavailable, setTerrainUnavailable] = useState(false);
 
   // The page drew, it just had no DEM tiles, so 3D is the flat map with a
-  // wasted WebView on top. Drop back and say why, rather than leave it (`B131`).
+  // wasted WebView on top. Drop back and say why, rather than leave it.
   const handleTerrainUnavailable = useCallback(() => {
     setIs3DReady(false);
     setIs3DMode(false);

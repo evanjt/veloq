@@ -4,7 +4,7 @@
  *
  * Expected behaviour: clearing the stamp is enough to make the next attempt
  * ask the engine again, on the same app version and without a relaunch
- * (`SB13`).
+ *.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

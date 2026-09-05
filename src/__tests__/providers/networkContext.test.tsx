@@ -364,8 +364,8 @@ describe('NetworkContext', () => {
   });
 
   /**
-   * Scenario: `Q65` put the network lifecycle in Rust, and the crate cannot
-   * see the network. The push has to ride the edge this provider already
+   * Scenario: the network lifecycle is Rust's, and the crate cannot see the
+   * network. The push has to ride the edge this provider already
    * debounces, or the app would run two debounces that disagree.
    */
   describe('the push into the engine', () => {

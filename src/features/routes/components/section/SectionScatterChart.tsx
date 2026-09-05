@@ -13,7 +13,7 @@ import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import {
   formatAxisDate,
   formatDuration,
@@ -94,7 +94,7 @@ export function SectionScatterChart({
   useTimeAxis,
 }: SectionScatterChartProps) {
   const isSwimming = isSwimmingActivity(activityType);
-  const showPace = isRunningActivity(activityType) || isSwimming;
+  const showPace = isPaceSport(activityType) || isSwimming;
   const activityColor = isDark ? darkColors.primary : colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 

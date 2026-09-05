@@ -34,8 +34,8 @@ export function consoleBridgeScript(options: { workerId?: string } = {}): string
  *
  * The interactive surfaces and the snapshot worker both write to
  * `veloq-vector-v1`, so a body one stores is one the other serves and the
- * contract cannot hold in two places: `B117` was a defect in it and had to be
- * fixed twice. `maybeEvict` is the page's, each has its own budgets.
+ * contract cannot hold in two places: a defect in it once had to be fixed
+ * twice. `maybeEvict` is the page's, each has its own budgets.
  */
 export function vectorProtocolScript(): string {
   return `
@@ -309,7 +309,7 @@ export function bundledAssetsScript(options: { workerId?: string } = {}): string
  *
  * The renderer and its stylesheet are inlined from the app bundle rather than
  * pulled off a CDN, so a device with no radio and a cold WebView HTTP cache
- * still draws a map (`B131`, decided in `Q28`). It cannot come through the
+ * still draws a map. It cannot come through the
  * `bundled://` channel the sprite and the glyphs use: that channel is defined
  * by a script which itself calls `maplibregl.addProtocol`. This is the one
  * place it happens, so all three page builders stay identical.

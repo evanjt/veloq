@@ -1,6 +1,6 @@
 /**
- * Scenario: `B148` capped the notification body at `NOTIFICATION_BODY_MAX` by
- * trimming the activity name, and sized the 24-character place-name cap
+ * Scenario: the notification body is capped at `NOTIFICATION_BODY_MAX` by
+ * trimming the activity name, and the 24-character place-name cap was sized
  * against the English templates. A translated template is longer, so the
  * composed detail can clear the cap on its own with no name left to give.
  *

@@ -1,6 +1,7 @@
 import type { WellnessData } from '@/types';
 
 import { baselineOnOrBefore } from './wellnessBaseline';
+import { trendArrow, trendOfMetric, type TrendMetric } from '@/shared/format/trend';
 
 export type Trend = '↑' | '↓' | '';
 
@@ -19,11 +20,8 @@ export interface WellnessStats {
 
 const trainingLoad = (row: WellnessData) => row.ctl ?? row.ctlLoad;
 
-function trend(current: number | null, previous: number | null, threshold: number): Trend {
-  if (current === null || previous === null) return '';
-  const diff = current - previous;
-  if (Math.abs(diff) < threshold) return '';
-  return diff > 0 ? '↑' : '↓';
+function trend(current: number | null, previous: number | null, metric: TrendMetric): Trend {
+  return trendArrow(trendOfMetric(metric, current, previous));
 }
 
 /**
@@ -54,15 +52,17 @@ export function computeWellnessStats(wellness: WellnessData[] | undefined): Well
 
   return {
     fitness,
-    fitnessTrend: trend(fitness, prevFitness, 1),
+    fitnessTrend: trend(fitness, prevFitness, 'fitness'),
     form,
     formTrend:
-      prevFitness === null || prevFatigue === null ? '' : trend(form, prevFitness - prevFatigue, 2),
+      prevFitness === null || prevFatigue === null
+        ? ''
+        : trend(form, prevFitness - prevFatigue, 'form'),
     hrv,
-    hrvTrend: trend(hrv, on(1, (row) => row.hrv)?.hrv ?? null, 2),
+    hrvTrend: trend(hrv, on(1, (row) => row.hrv)?.hrv ?? null, 'hrv'),
     rhr,
-    rhrTrend: trend(rhr, on(1, (row) => row.restingHR)?.restingHR ?? null, 1),
+    rhrTrend: trend(rhr, on(1, (row) => row.restingHR)?.restingHR ?? null, 'rhr'),
     weight,
-    weightTrend: trend(weight, on(7, (row) => row.weight)?.weight ?? null, 0.3),
+    weightTrend: trend(weight, on(7, (row) => row.weight)?.weight ?? null, 'weight'),
   };
 }

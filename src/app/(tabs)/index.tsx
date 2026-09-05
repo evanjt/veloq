@@ -53,27 +53,14 @@ import {
 import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import {
+  FEED_GROUPS,
+  matchesFeedGroup,
+  type FeedGroup,
+} from '@/features/activity/lib/feedActivityGroups';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('Feed');
-
-// Activity type categories for filtering
-const ACTIVITY_TYPE_GROUPS = {
-  Cycling: ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide'],
-  Running: ['Run', 'VirtualRun', 'TrailRun'],
-  Swimming: ['Swim'],
-  Other: [
-    'Walk',
-    'Hike',
-    'Workout',
-    'WeightTraining',
-    'Yoga',
-    'Rowing',
-    'Elliptical',
-    'Ski',
-    'Snowboard',
-  ],
-};
 
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
@@ -221,9 +208,8 @@ export default function FeedScreen() {
 
     // Filter by activity type group
     if (selectedTypeGroup) {
-      const types =
-        ACTIVITY_TYPE_GROUPS[selectedTypeGroup as keyof typeof ACTIVITY_TYPE_GROUPS] || [];
-      filtered = filtered.filter((activity: Activity) => types.includes(activity.type));
+      const group = selectedTypeGroup as FeedGroup;
+      filtered = filtered.filter((activity: Activity) => matchesFeedGroup(group, activity.type));
     }
 
     return filtered;
@@ -402,7 +388,7 @@ export default function FeedScreen() {
 
           {/* Filter chips - always visible below search */}
           <View style={styles.filterChips}>
-            {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
+            {FEED_GROUPS.map((group) => (
               <TouchableOpacity
                 key={group}
                 testID={`home-filter-${group.toLowerCase()}`}

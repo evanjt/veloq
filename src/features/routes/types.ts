@@ -15,6 +15,8 @@ const VALID_ACTIVITY_TYPES = new Set<string>([
   'EBikeRide',
   'MountainBikeRide',
   'GravelRide',
+  'TrackRide',
+  'Cyclocross',
   'Velomobile',
   'Handcycle',
   // Running

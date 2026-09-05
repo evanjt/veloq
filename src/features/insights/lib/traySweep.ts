@@ -3,7 +3,7 @@
  *
  * The sweep used to dismiss anything without an `activityId`, meaning to catch
  * the FCM-posted visible push. It caught the sticky sync banner, which carries
- * no data at all, and every insight routed by section or by route (`B145`).
+ * no data at all, and every insight routed by section or by route.
  *
  * So the rule is now positive: dismiss what this notification is replacing and
  * leave anything else alone, including anything unrecognised. A stale tray
@@ -48,7 +48,7 @@ export interface TrayReplacement {
  * The order is the point. These were sequential awaits the other way round,
  * with nothing tying them together, so an OEM battery kill or an expiring iOS
  * extension budget between the two left the athlete with an empty tray and no
- * record the activity had arrived (`B147`). A post that fails dismisses
+ * record the activity had arrived. A post that fails dismisses
  * nothing, which leaves the generic entry standing rather than replacing it
  * with silence.
  *
@@ -95,7 +95,7 @@ export async function replaceActivityTrayEntry(r: TrayReplacement): Promise<bool
  * null on three paths, the body then had nothing in it but the notification's
  * own title, and reposting that over the generic entry the push already put up
  * made the failure path produce a worse notification than doing nothing
- * (`B149`).
+ *.
  */
 export function trayActionFor(
   body: string,

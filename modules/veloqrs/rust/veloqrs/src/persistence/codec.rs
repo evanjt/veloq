@@ -126,7 +126,7 @@ fn is_rmp_array_header(b: u8) -> bool {
 }
 
 /// Write a track the one way tracks are written: quantised, framed, ~3 B/point
-/// against postcard's ~25 (`Q15`, `B125`). Every earlier container still reads,
+/// against postcard's ~25. Every earlier container still reads,
 /// so no bulk rewrite runs, a row moves when its activity is next stored.
 pub fn serialize_track_points(points: &[crate::GpsPoint]) -> Vec<u8> {
     frame(POLYLINE_TAG, encode_polyline(points))
@@ -932,8 +932,8 @@ pub fn series_scale(kind: &str) -> f64 {
 /// samples. Exact at the scale it records; gaps survive as gaps.
 ///
 /// This is the polyline codec's technique on one dimension rather than three,
-/// which is what `Q31` asked for: the packing format is the quantised codec,
-/// not a design of its own.
+/// deliberately: the packing format is the quantised codec, not a design of
+/// its own.
 pub fn encode_series(values: &[Option<f64>], scale: f64) -> Vec<u8> {
     let mut body = Vec::new();
     write_varint(&mut body, values.len() as u64);

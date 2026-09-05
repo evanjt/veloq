@@ -2,7 +2,7 @@
  * Scenario: 26 test files wrote their own `// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', ...)` beside
  * the nine using the shared stub, so every FFI addition had up to 26 mocks to
- * find. `B164`'s test-only assertion existed because one of them drifted.
+ * find, and a test-only engine assertion once existed because one drifted.
  *
  * Expected behaviour: a test mocks the engine binding through the shared stub,
  * overriding the one method it cares about, and this guard names any file that

@@ -14,8 +14,8 @@ use rusqlite::{Result as SqlResult, params};
 use super::{PersistentEngine, codec};
 use crate::net::types::StreamDto;
 
-/// Days of stream history kept when the athlete has never chosen. `Q31` set
-/// this: ninety days, and the athlete can widen it without a ceiling.
+/// Days of stream history kept when the athlete has never chosen. Ninety, and
+/// the athlete can widen it without a ceiling.
 pub const DEFAULT_STREAM_RETENTION_DAYS: i64 = 90;
 
 /// The athlete's retention window, in days. Zero means keep everything, which
@@ -58,7 +58,7 @@ impl PersistentEngine {
 
     /// Whether an activity's start date is inside the retention window, which
     /// is what decides whether its sync downloads every series or only the
-    /// three the track needs (`B140`).
+    /// three the track needs.
     ///
     /// An unknown date is outside it. On a first sync no activity has a date
     /// yet, and widening on a guess would download thirteen series apiece for
@@ -223,7 +223,7 @@ mod tests {
     }
 
     /// Scenario: the bulk sync decides per activity whether to download every
-    /// series or only the three the track needs (`B140`).
+    /// series or only the three the track needs.
     ///
     /// Expected behaviour: inside the window it widens, outside it does not,
     /// and an activity whose date the caller does not know is treated as

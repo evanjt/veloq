@@ -983,8 +983,8 @@ mod tests {
             .expect("archived blob")
     }
 
-    /// Scenario: the archive is one of the stores `Q15` named and it was still
-    /// on postcard after `B125` moved the tracks (`B137`).
+    /// Scenario: the archive is one of the stores the quantised codec covers,
+    /// and it was still writing postcard after the tracks moved across.
     ///
     /// Expected behaviour: a line the archive rebuilds is written in the
     /// quantised container, and it still reads back as the same line, because

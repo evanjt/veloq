@@ -556,7 +556,7 @@ describe('getLastBackupTimestamp', () => {
  * replaced, so the restore drops it and re-runs both launch triggers. Without
  * that the trigger declines on every future launch of this app version, no
  * pass runs, the count never reaches zero, the cutover can never start, and
- * `SB12`'s refusal freezes the catalogue for good (`SB13`).
+ * the engine's refusal to detect freezes the catalogue for good.
  */
 describe('restoreDatabaseBackup re-arms the migration', () => {
   const LIVE_META = JSON.stringify({

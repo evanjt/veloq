@@ -24,3 +24,6 @@ export { CHART_CONFIG } from './constants';
 
 export { finiteExtent } from './extent';
 export type { Extent } from './extent';
+
+export { domainContains, yForValue } from './projection';
+export type { PlotBounds } from './projection';

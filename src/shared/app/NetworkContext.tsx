@@ -15,8 +15,8 @@ const NetworkContext = createContext<NetworkContextValue | null>(null);
 /**
  * Hand the edge to Rust as well as to TanStack.
  *
- * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
- * the network, so this is its only input. It rides the debounced edge below
+ * The network lifecycle is Rust's, and nothing in the crate can see the
+ * network, so this is its only input. It rides the debounced edge below
  * rather than the raw one, so the app runs one debounce rather than two.
  *
  * A push that cannot land is not worth failing over: the provider mounts

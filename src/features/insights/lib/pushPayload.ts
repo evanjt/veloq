@@ -47,7 +47,7 @@ function parseJsonObject(raw: unknown): Record<string, unknown> | null {
  * The four wrappings a push data object can arrive in, in the order they are
  * tried. Shared so the tap path and the background task read one wire format
  * one way: two readings of it is what made a wrapped payload a dead tap
- * (`B144`).
+ *.
  */
 function unwrappings(
   data: Record<string, unknown> | null

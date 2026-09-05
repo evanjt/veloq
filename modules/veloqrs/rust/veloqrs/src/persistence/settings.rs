@@ -112,7 +112,7 @@ impl PersistentEngine {
     /// Whether section detection is switched on.
     ///
     /// The switch used to live in TypeScript alone, so the engine kept cutting
-    /// the catalogue on every sync while the screens looked away (`B258`).
+    /// the catalogue on every sync while the screens looked away.
     /// Absent, unreadable or anything but "0" reads as on: the failure mode of
     /// a lost setting has to be the feature working, not silently off.
     pub fn detection_enabled(&self) -> bool {

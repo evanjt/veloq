@@ -264,8 +264,7 @@ fn select(
 /// `ParsedStreams` is not the source. It converts `ga_velocity` to pace and
 /// fills gaps with NaN, and a store holds what arrived rather than what a
 /// chart wanted. What it does share is the mask: every stored series is
-/// addressed by the same indices as the stored coordinates, which is the rule
-/// `C6` settled.
+/// addressed by the same indices as the stored coordinates.
 ///
 /// Dropped here: the series `gps_tracks` and `time_streams` already answer, a
 /// series whose length disagrees with the coordinates, and a series that is

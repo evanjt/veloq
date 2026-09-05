@@ -7,7 +7,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import { getIntlLocale, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
@@ -41,9 +41,9 @@ export function SectionInfoCard({
 }: SectionInfoCardProps) {
   const { t } = useTranslation();
 
-  const isRunning = isRunningActivity(sportType as ActivityType);
+  const showsPace = isPaceSport(sportType as ActivityType);
   const isSwimming = isSwimmingActivity(sportType as ActivityType);
-  const showPace = isRunning || isSwimming;
+  const showPace = showsPace || isSwimming;
 
   // Compute first and last visited dates from chart data
   const { firstDate, lastDate } = useMemo(() => {

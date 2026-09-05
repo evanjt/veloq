@@ -4,8 +4,8 @@
  *
  * Tiles are cached passively as the user browses, through the Cache API inside
  * the map WebViews, so `cacheMode` has had no runtime reader since it was
- * flattened to ambient. `budgetMb` does: it is the only control `Q23` left
- * (`B123`), and the WebView pages are built with it.
+ * flattened to ambient. `budgetMb` does: it is the only control left, and the
+ * WebView pages are built with it.
  */
 
 import { create } from 'zustand';
