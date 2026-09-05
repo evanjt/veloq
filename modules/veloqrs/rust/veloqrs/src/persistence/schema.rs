@@ -540,6 +540,24 @@ impl PersistentEngine {
                 [],
             )?;
         }
+        // The count of the stream a version was sliced from, checked before a
+        // re-slice. Backfilled from the track while it is still stored; a
+        // version whose stream is gone stays NULL, which reads as unverifiable.
+        if table_exists
+            && conn
+                .prepare("SELECT point_count FROM section_geometry LIMIT 0")
+                .is_err()
+        {
+            conn.execute_batch(
+                "BEGIN;
+                 ALTER TABLE section_geometry ADD COLUMN point_count INTEGER;
+                 UPDATE section_geometry
+                 SET point_count = (SELECT point_count FROM gps_tracks
+                                    WHERE activity_id = section_geometry.rep_activity_id)
+                 WHERE rep_activity_id IS NOT NULL;
+                 COMMIT;",
+            )?;
+        }
         Ok(())
     }
 
