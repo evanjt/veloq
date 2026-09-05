@@ -203,7 +203,6 @@ impl Transport {
                 Ok(resp) => {
                     let status = resp.status();
                     let budget = parse_budget(resp.headers());
-                    self.governor.observe(&budget);
 
                     if status.is_success() {
                         return resp
@@ -349,7 +348,6 @@ impl Transport {
         };
         let status = resp.status();
         let budget = parse_budget(resp.headers());
-        self.governor.observe(&budget);
 
         if status.is_success() {
             return WriteStep::Done(
@@ -421,15 +419,9 @@ fn strip_file_scheme(path: &str) -> &str {
     path.strip_prefix("file://").unwrap_or(path)
 }
 
-/// Extract intervals.icu rate headers (it sends `Retry-After` on 429; the
-/// `X-RateLimit-*` headers are parsed if/when the server adds them).
+/// The one rate header intervals.icu sends: `Retry-After` on a 429.
 fn parse_budget(headers: &reqwest::header::HeaderMap) -> RateBudget {
-    let get = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
-    governor::parse_rate_headers(
-        get("x-ratelimit-limit"),
-        get("x-ratelimit-remaining"),
-        get("retry-after"),
-    )
+    governor::parse_rate_headers(headers.get("retry-after").and_then(|v| v.to_str().ok()))
 }
 
 #[cfg(test)]
