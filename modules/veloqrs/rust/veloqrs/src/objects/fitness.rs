@@ -66,13 +66,14 @@ fn gain_for_sport<'a>(
     running: Option<&'a FitnessGain>,
     swimming: Option<&'a FitnessGain>,
 ) -> Option<&'a FitnessGain> {
-    match sport {
-        "Ride" | "VirtualRide" | "MountainBikeRide" | "GravelRide" | "Handcycle" | "Velomobile" => {
-            cycling
-        }
-        "Run" | "VirtualRun" | "TrailRun" => running,
-        "Swim" | "OpenWaterSwim" => swimming,
-        _ => None,
+    if crate::sport::is_cycling(sport) {
+        cycling
+    } else if crate::sport::is_running(sport) {
+        running
+    } else if crate::sport::is_swimming(sport) {
+        swimming
+    } else {
+        None
     }
 }
 
@@ -431,5 +432,44 @@ impl FitnessManager {
                 sparkline_days,
             )
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gain(unit: &'static str) -> FitnessGain {
+        FitnessGain {
+            metric: "power",
+            current: 1.0,
+            previous: 1.0,
+            gain_percent: 5.0,
+            unit,
+        }
+    }
+
+    // Scenario: an e-bike ride moved the FTP chart and contributed nothing to
+    // the fitness gain the chart was meant to explain, because the two lists
+    // disagreed on whether it was cycling.
+    #[test]
+    fn every_cycling_sport_takes_the_cycling_gain() {
+        let cycling = gain("W");
+        let running = gain("/km");
+        let swimming = gain("/100m");
+        for sport in crate::sport::CYCLING {
+            let got = gain_for_sport(sport, Some(&cycling), Some(&running), Some(&swimming));
+            assert_eq!(got.map(|g| g.unit), Some("W"), "{sport}");
+        }
+        for sport in crate::sport::RUNNING {
+            let got = gain_for_sport(sport, Some(&cycling), Some(&running), Some(&swimming));
+            assert_eq!(got.map(|g| g.unit), Some("/km"), "{sport}");
+        }
+        for sport in crate::sport::SWIMMING {
+            let got = gain_for_sport(sport, Some(&cycling), Some(&running), Some(&swimming));
+            assert_eq!(got.map(|g| g.unit), Some("/100m"), "{sport}");
+        }
+        assert!(gain_for_sport("Walk", Some(&cycling), Some(&running), Some(&swimming)).is_none());
+        assert!(gain_for_sport("", Some(&cycling), Some(&running), Some(&swimming)).is_none());
     }
 }

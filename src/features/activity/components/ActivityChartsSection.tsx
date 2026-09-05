@@ -25,11 +25,17 @@ import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { isCyclingActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { measuresPower, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import { getAvailableCharts, CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
+import type {
+  ActivityDetail,
+  ActivityStreams,
+  ActivityInterval,
+  ActivityType,
+  WellnessData,
+} from '@/types';
 import { colors, darkColors, spacing, layout, opacity, shadows } from '@/theme';
 
 interface LatLng {
@@ -37,27 +43,12 @@ interface LatLng {
   longitude: number;
 }
 
-// Default chart by activity type
-const DEFAULT_CHART: Record<string, ChartTypeId> = {
-  Ride: 'power',
-  VirtualRide: 'power',
-  MountainBikeRide: 'power',
-  GravelRide: 'power',
-  EBikeRide: 'power',
-  Run: 'heartrate',
-  VirtualRun: 'heartrate',
-  TrailRun: 'heartrate',
-  Swim: 'pace',
-  OpenWaterSwim: 'pace',
-  Walk: 'heartrate',
-  Hike: 'heartrate',
-  Workout: 'heartrate',
-  WeightTraining: 'heartrate',
-  Yoga: 'heartrate',
-  Rowing: 'power',
-  Kayaking: 'heartrate',
-  Canoeing: 'heartrate',
-};
+/** The chart an activity opens on: power where the sport measures it, pace for a swim. */
+function defaultChartFor(type: ActivityType): ChartTypeId {
+  if (measuresPower(type)) return 'power';
+  if (isSwimmingActivity(type)) return 'pace';
+  return 'heartrate';
+}
 
 interface ActivityChartsSectionProps {
   activity: ActivityDetail;
@@ -142,8 +133,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Initialize with single default chart when data loads
   React.useEffect(() => {
     if (!chartsInitialized && availableCharts.length > 0 && activity) {
-      const defaultChart = DEFAULT_CHART[activity.type];
-      const isDefaultAvailable = defaultChart && availableCharts.some((c) => c.id === defaultChart);
+      const defaultChart = defaultChartFor(activity.type);
+      const isDefaultAvailable = availableCharts.some((c) => c.id === defaultChart);
       const initialChart = isDefaultAvailable ? defaultChart : availableCharts[0].id;
       setSelectedCharts([initialChart]);
       setChartsInitialized(true);
@@ -186,8 +177,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // Zone summary for intervals bar
   const intervalZoneSummary = useMemo(() => {
     if (!intervalsData?.icu_intervals || !activity) return [];
-    const isCycling = isCyclingActivity(activity.type);
-    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+    const zoneColors = measuresPower(activity.type) ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
 
     type ChipInfo = {
       label: string;

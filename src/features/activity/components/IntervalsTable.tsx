@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { isPaceSport, isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, measuresPower } from '@/features/activity/lib/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
@@ -24,7 +24,7 @@ interface IntervalsTableProps {
 export function IntervalsTable({ intervals, activityType, isMetric, isDark }: IntervalsTableProps) {
   const showPace = isPaceSport(activityType);
 
-  const isCycling = isCyclingActivity(activityType);
+  const hasPowerZones = measuresPower(activityType);
   const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);
   const hasPower = useMemo(() => intervals.some((i) => i.average_watts != null), [intervals]);
 
@@ -34,7 +34,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
 
     // Zone-based coloring for WORK intervals
     // Z7 is near-black - swap to light grey in dark mode for visibility
-    const zoneColors = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
+    const zoneColors = hasPowerZones ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
     let zoneColor =
       isWork && item.zone != null && item.zone >= 1
         ? zoneColors[Math.min(item.zone - 1, zoneColors.length - 1)]

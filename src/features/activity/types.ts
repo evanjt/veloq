@@ -12,6 +12,8 @@ export type ActivityType =
   | 'EBikeRide'
   | 'MountainBikeRide'
   | 'GravelRide'
+  | 'TrackRide'
+  | 'Cyclocross'
   | 'Velomobile'
   | 'Handcycle'
   // Running

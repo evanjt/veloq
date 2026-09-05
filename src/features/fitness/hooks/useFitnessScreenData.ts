@@ -12,6 +12,7 @@ import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { useZoneDistribution } from './useZoneDistribution';
+import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 
 interface UseFitnessScreenDataArgs {
   timeRange: TimeRange;
@@ -64,7 +65,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     return (
       activities.find(
         (a) =>
-          (a.type === 'Ride' || a.type === 'VirtualRide') &&
+          isCyclingActivity(a.type) &&
           (a.icu_average_watts || a.average_watts) &&
           (a.average_heartrate || a.icu_average_hr) &&
           a.moving_time >= 30 * 60

@@ -14,6 +14,7 @@ import {
   feedGroupFor,
   matchesFeedGroup,
 } from '@/features/activity/lib/feedActivityGroups';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 /** The nineteen types the measured account carries. */
 const ACCOUNT_TYPES = [
@@ -67,7 +68,11 @@ describe('the feed sport chips', () => {
   it.each([
     ['Ride', 'Cycling'],
     ['EBikeRide', 'Cycling'],
+    ['TrackRide', 'Cycling'],
+    ['Cyclocross', 'Cycling'],
+    ['Handcycle', 'Cycling'],
     ['TrailRun', 'Running'],
+    ['Treadmill', 'Running'],
     ['Walk', 'Other'],
     ['WeightTraining', 'Other'],
     ['Snowshoe', 'Other'],
@@ -77,6 +82,13 @@ describe('the feed sport chips', () => {
     ['RockClimbing', 'Other'],
   ])('puts %s under %s', (type, group) => {
     expect(feedGroupFor(type)).toBe(group);
+  });
+
+  it('claims every sport the engine names, in the family the engine gives it', () => {
+    for (const type of SPORT_FAMILIES.cycling) expect(feedGroupFor(type)).toBe('Cycling');
+    for (const type of SPORT_FAMILIES.running) expect(feedGroupFor(type)).toBe('Running');
+    for (const type of SPORT_FAMILIES.swimming) expect(feedGroupFor(type)).toBe('Swimming');
+    for (const type of SPORT_FAMILIES.walking) expect(feedGroupFor(type)).toBe('Other');
   });
 
   it('claims a sport nobody has written down yet', () => {

@@ -8,7 +8,7 @@
  */
 
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { measuresPower } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { finiteExtent } from '@/shared/charts/extent';
@@ -329,7 +329,7 @@ export function computeIntervalBands(
   const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
   if (xSource.length === 0) return [];
 
-  const isCycling = activityType ? isCyclingActivity(activityType) : false;
+  const hasPowerZones = activityType ? measuresPower(activityType) : false;
 
   // Find the series whose avg values we'll use for dashed lines
   // Prefer the first selected series (power for cycling users, HR for runners)
@@ -362,7 +362,7 @@ export function computeIntervalBands(
     let bandColour: BandColourToken;
     let bandOpacity: number;
     if (isWork && interval.zone != null && interval.zone >= 1) {
-      bandColour = { kind: 'zone', scale: isCycling ? 'power' : 'hr', zone: interval.zone };
+      bandColour = { kind: 'zone', scale: hasPowerZones ? 'power' : 'hr', zone: interval.zone };
       bandOpacity = 0.35;
     } else if (isWork) {
       bandColour = { kind: 'role', role: 'work' };
