@@ -36,7 +36,7 @@ use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
 pub use activities::{
-    ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
+    DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
     ElevationStateCounts,
 };
 /// On-disk blob format. Public so diagnostics that open a database file

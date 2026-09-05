@@ -642,6 +642,58 @@ const FfiConverterTypeCutoverProgress = (() => {
 })();
 
 /**
+ * What a derived-data clear removed and what it kept.
+ */
+export type DerivedClear = {
+  sectionsRemoved: /*u32*/ number;
+  activitiesRemoved: /*u32*/ number;
+  activitiesKept: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link DerivedClear} record objects.
+ */
+export const DerivedClear = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DerivedClear, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DerivedClear>,
+  });
+})();
+
+const FfiConverterTypeDerivedClear = (() => {
+  type TypeName = DerivedClear;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionsRemoved: FfiConverterUInt32.read(from),
+        activitiesRemoved: FfiConverterUInt32.read(from),
+        activitiesKept: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.sectionsRemoved, into);
+      FfiConverterUInt32.write(value.activitiesRemoved, into);
+      FfiConverterUInt32.write(value.activitiesKept, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.sectionsRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesKept)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of polling download progress.
  * Used by TypeScript to show real-time progress without cross-thread callbacks.
  */
@@ -16701,6 +16753,11 @@ export interface VeloqEngineLike {
   bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   clear() /*throws*/ : void;
   /**
+   * Empty what the engine can re-derive and keep what the athlete made:
+   * the clear-cache button's database half.
+   */
+  clearDerivedData() /*throws*/ : DerivedClear;
+  /**
    * Clear only route/section data, keeping GPS tracks and activities.
    * Used when route matching is toggled off.
    */
@@ -16855,6 +16912,27 @@ export class VeloqEngine
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Empty what the engine can re-derive and keep what the athlete made:
+   * the clear-cache button's database half.
+   */
+  clearDerivedData(): DerivedClear /*throws*/ {
+    return FfiConverterTypeDerivedClear.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -18172,6 +18250,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_clear",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data() !==
+    20909
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data",
     );
   }
   if (
@@ -19827,6 +19913,7 @@ export default Object.freeze({
     FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
+    FfiConverterTypeDerivedClear,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
