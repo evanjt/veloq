@@ -33,23 +33,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const INTERVALS_BASE_URL: &str = "https://intervals.icu/api/v1";
 
 /// The lifecycle state TypeScript renders.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Crosses as an enum: the word was stringified here and spelt again in a
+/// TypeScript mirror, and every reader only ever branches on it. Wire order
+/// is declaration order, so append and never reorder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
 pub enum SyncState {
-    Idle,
-    Syncing,
-    Paused,
-    AuthExpired,
-}
-
-impl SyncState {
-    fn as_str(&self) -> &'static str {
-        match self {
-            SyncState::Idle => "idle",
-            SyncState::Syncing => "syncing",
-            SyncState::Paused => "paused",
-            SyncState::AuthExpired => "authExpired",
-        }
-    }
+    Idle = 1,
+    Syncing = 2,
+    Paused = 3,
+    AuthExpired = 4,
 }
 
 /// Authentication scheme for the held credential.
@@ -81,11 +75,35 @@ struct Credentials {
 /// The status fields TypeScript reads / subscribes to.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSyncStatus {
-    pub state: String,
+    pub state: SyncState,
     pub in_flight: u32,
     pub completed: u32,
     pub total: u32,
     pub last_error: Option<String>,
+}
+
+/// How a call ended, as the kind the caller branches on.
+///
+/// A closed set crossing as an enum rather than a word, so TypeScript compares
+/// against a generated member and not a string it spelt itself. The wire
+/// carries the variant's position, so the order here is the contract: append,
+/// never reorder. The discriminants start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiCallKind {
+    /// The server accepted the call.
+    Ok = 1,
+    /// The credential was refused, 401.
+    Unauthorized = 2,
+    /// The server asked for a pause, 429, and the retries ran out.
+    RateLimited = 3,
+    /// Any other status the server answered with.
+    Http = 4,
+    /// No response reached the server.
+    Network = 5,
+    /// A failure that never left the device: no credentials, an unreadable
+    /// file, a body that would not serialize.
+    Internal = 6,
 }
 
 /// The outcome of a write, or of a credential check.
@@ -97,9 +115,8 @@ pub struct FfiSyncStatus {
 /// explicit here rather than inferred from an error message downstream.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiCallOutcome {
-    /// "ok", "unauthorized", "rateLimited", "http", "network" or "internal".
-    pub kind: String,
-    /// The id the call produced or confirmed, when `kind` is "ok".
+    pub kind: FfiCallKind,
+    /// The id the call produced or confirmed, when `kind` is `Ok`.
     pub id: Option<String>,
     /// The status the server answered with, when it answered at all.
     pub status: Option<u16>,
@@ -112,7 +129,7 @@ pub struct FfiCallOutcome {
 impl FfiCallOutcome {
     fn ok(id: Option<String>) -> Self {
         FfiCallOutcome {
-            kind: "ok".to_string(),
+            kind: FfiCallKind::Ok,
             id,
             status: None,
             detail: None,
@@ -124,7 +141,7 @@ impl FfiCallOutcome {
     /// file, a body that would not serialize.
     fn internal(message: impl Into<String>) -> Self {
         FfiCallOutcome {
-            kind: "internal".to_string(),
+            kind: FfiCallKind::Internal,
             id: None,
             status: None,
             detail: None,
@@ -135,16 +152,18 @@ impl FfiCallOutcome {
     fn from_error(e: &NetError) -> Self {
         let message = e.to_string();
         let (kind, status, detail) = match e {
-            NetError::Unauthorized => ("unauthorized", Some(401), None),
-            NetError::RateLimited => ("rateLimited", Some(429), None),
-            NetError::Http { status, body } => ("http", Some(*status), server_detail(body)),
-            NetError::Transport(_) => ("network", None, None),
+            NetError::Unauthorized => (FfiCallKind::Unauthorized, Some(401), None),
+            NetError::RateLimited => (FfiCallKind::RateLimited, Some(429), None),
+            NetError::Http { status, body } => {
+                (FfiCallKind::Http, Some(*status), server_detail(body))
+            }
+            NetError::Transport(_) => (FfiCallKind::Network, None, None),
             // A decode or file failure is local. Calling it a network error
             // would queue the item for a connectivity retry that cannot help.
-            NetError::Decode(_) | NetError::Io(_) => ("internal", None, None),
+            NetError::Decode(_) | NetError::Io(_) => (FfiCallKind::Internal, None, None),
         };
         FfiCallOutcome {
-            kind: kind.to_string(),
+            kind,
             id: None,
             status,
             detail,
@@ -373,7 +392,7 @@ impl SyncService {
     pub fn snapshot(&self) -> FfiSyncStatus {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         FfiSyncStatus {
-            state: inner.state.as_str().to_string(),
+            state: inner.state,
             in_flight: inner.in_flight,
             completed: inner.completed,
             total: inner.total,
@@ -598,7 +617,7 @@ where
     let outcome = run_on_runtime(job(transport, athlete_id)).await;
     // A write refused for a dead credential parks the service, so an upload
     // reaches the same session-expiry path a failed sync already does.
-    if outcome.kind == "unauthorized" {
+    if outcome.kind == FfiCallKind::Unauthorized {
         park_auth_expired();
     }
     outcome
@@ -1258,7 +1277,7 @@ mod tests {
     fn fresh_service_is_idle() {
         let svc = SyncService::new();
         let s = svc.snapshot();
-        assert_eq!(s.state, "idle");
+        assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.in_flight, 0);
         assert!(s.last_error.is_none());
     }
@@ -1267,7 +1286,7 @@ mod tests {
     fn try_begin_is_exclusive() {
         let svc = SyncService::new();
         assert!(svc.try_begin());
-        assert_eq!(svc.snapshot().state, "syncing");
+        assert_eq!(svc.snapshot().state, SyncState::Syncing);
         // Second begin while running is rejected.
         assert!(!svc.try_begin());
     }
@@ -1316,7 +1335,7 @@ mod tests {
             "i1".into(),
         ));
         let s = svc.snapshot();
-        assert_eq!(s.state, "idle");
+        assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.total, SYNC_STEPS);
         assert_eq!(s.completed, SYNC_STEPS);
         assert_eq!(s.in_flight, 0);
@@ -1335,7 +1354,7 @@ mod tests {
             "i1".into(),
         ));
         let s = svc.snapshot();
-        assert_eq!(s.state, "authExpired");
+        assert_eq!(s.state, SyncState::AuthExpired);
         assert_eq!(s.completed, 0);
         assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
     }
@@ -1352,7 +1371,7 @@ mod tests {
             "i1".into(),
         ));
         let s = svc.snapshot();
-        assert_eq!(s.state, "idle");
+        assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.completed, 0);
         assert!(s.last_error.is_some());
     }
@@ -1387,7 +1406,7 @@ mod tests {
             "i1".into(),
         ));
         let s = svc.snapshot();
-        assert_eq!(s.state, "idle");
+        assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.completed, SYNC_STEPS - 1);
         assert!(s.last_error.is_some());
     }
@@ -1398,7 +1417,7 @@ mod tests {
         assert!(svc.try_begin());
         svc.request_cancel();
         assert!(svc.is_cancelled());
-        assert_eq!(svc.snapshot().state, "paused");
+        assert_eq!(svc.snapshot().state, SyncState::Paused);
         // A mock that would panic the assertion if hit is unnecessary: a cancelled
         // job finishes without dispatching. Point at an unroutable base; the job
         // must not touch it.
@@ -1407,7 +1426,7 @@ mod tests {
             transport_to("http://127.0.0.1:1".into()),
             "i1".into(),
         ));
-        assert_eq!(svc.snapshot().state, "idle");
+        assert_eq!(svc.snapshot().state, SyncState::Idle);
     }
 
     #[test]
@@ -1652,7 +1671,7 @@ mod tests {
             h.join().unwrap();
         }
         assert_eq!(winners.load(Ordering::Relaxed), 1);
-        assert_eq!(svc.snapshot().state, "syncing");
+        assert_eq!(svc.snapshot().state, SyncState::Syncing);
     }
 
     #[test]
@@ -1679,36 +1698,36 @@ mod tests {
         // These five mappings decide whether a recording is retried, parked or
         // sent back for a permission upgrade.
         let unauthorized = FfiCallOutcome::from_error(&NetError::Unauthorized);
-        assert_eq!(unauthorized.kind, "unauthorized");
+        assert_eq!(unauthorized.kind, FfiCallKind::Unauthorized);
         assert_eq!(unauthorized.status, Some(401));
 
         let limited = FfiCallOutcome::from_error(&NetError::RateLimited);
-        assert_eq!(limited.kind, "rateLimited");
+        assert_eq!(limited.kind, FfiCallKind::RateLimited);
         assert_eq!(limited.status, Some(429));
 
         let forbidden = FfiCallOutcome::from_error(&NetError::Http {
             status: 403,
             body: r#"{"error":"No permission"}"#.to_string(),
         });
-        assert_eq!(forbidden.kind, "http");
+        assert_eq!(forbidden.kind, FfiCallKind::Http);
         assert_eq!(forbidden.status, Some(403));
         assert_eq!(forbidden.detail.as_deref(), Some("No permission"));
 
         let offline = FfiCallOutcome::from_error(&NetError::Transport("dns".to_string()));
-        assert_eq!(offline.kind, "network");
+        assert_eq!(offline.kind, FfiCallKind::Network);
         assert_eq!(offline.status, None);
 
         // A missing file is local, not a connectivity problem: queuing it for a
         // network retry would wait forever on a file that will not appear.
         let missing = FfiCallOutcome::from_error(&NetError::Io("no such file".to_string()));
-        assert_eq!(missing.kind, "internal");
+        assert_eq!(missing.kind, FfiCallKind::Internal);
         assert_eq!(missing.status, None);
     }
 
     #[test]
     fn a_successful_write_reports_the_created_id() {
         let ok = FfiCallOutcome::ok(Some("i999".to_string()));
-        assert_eq!(ok.kind, "ok");
+        assert_eq!(ok.kind, FfiCallKind::Ok);
         assert_eq!(ok.id.as_deref(), Some("i999"));
         assert!(ok.status.is_none());
     }
@@ -1761,7 +1780,7 @@ mod tests {
     #[test]
     fn a_panicking_sync_task_releases_the_running_slot() {
         assert!(SYNC_SERVICE.try_begin());
-        assert_eq!(SYNC_SERVICE.snapshot().state, "syncing");
+        assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::Syncing);
 
         let outcome = std::panic::catch_unwind(|| {
             let _guard = FinishGuard;
@@ -1770,7 +1789,11 @@ mod tests {
         assert!(outcome.is_err());
 
         let s = SYNC_SERVICE.snapshot();
-        assert_eq!(s.state, "idle", "a wedged slot never returns to idle");
+        assert_eq!(
+            s.state,
+            SyncState::Idle,
+            "a wedged slot never returns to idle"
+        );
         assert_eq!(s.last_error.as_deref(), Some("sync task panicked"));
         assert!(
             SYNC_SERVICE.try_begin(),
@@ -1792,9 +1815,9 @@ mod tests {
             transport_to(server.base_url()),
             "i1".into(),
         ));
-        assert_eq!(svc.snapshot().state, "authExpired");
+        assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
         assert!(svc.try_begin());
-        assert_eq!(svc.snapshot().state, "syncing");
+        assert_eq!(svc.snapshot().state, SyncState::Syncing);
     }
 }
 

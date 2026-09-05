@@ -9,10 +9,16 @@
  * thrown error, rather than being read off an axios response.
  */
 
+import { CallKind } from 'veloqrs';
 import { classifyUploadError } from '@/features/recording/lib/upload/classifyUploadError';
 
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../__shared__/veloqrsStub').withOverrides()
+);
+
 /** An error shaped the way the upload seam throws one. */
-function refused(kind: string, status?: number, detail?: string, message?: string): unknown {
+function refused(kind: CallKind, status?: number, detail?: string, message?: string): unknown {
   const text = message ?? `HTTP ${status ?? '?'}: ${detail ?? ''}`;
   return Object.assign(new Error(text), { outcome: { kind, status, detail, message: text } });
 }
@@ -20,7 +26,7 @@ function refused(kind: string, status?: number, detail?: string, message?: strin
 describe('classifyUploadError', () => {
   describe('http403 detection', () => {
     it('classifies a refused write with status 403 as http403', () => {
-      const result = classifyUploadError(refused('http', 403, 'No permission'));
+      const result = classifyUploadError(refused(CallKind.Http, 403, 'No permission'));
       expect(result.type).toBe('http403');
       expect(result.httpStatus).toBe(403);
       expect(result.apiDetail).toBe('No permission');
@@ -34,7 +40,7 @@ describe('classifyUploadError', () => {
     });
 
     it('does not mis-classify a 500 error as 403', () => {
-      const result = classifyUploadError(refused('http', 500, 'Server oops'));
+      const result = classifyUploadError(refused(CallKind.Http, 500, 'Server oops'));
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBe(500);
     });
@@ -43,7 +49,7 @@ describe('classifyUploadError', () => {
   describe('network error detection', () => {
     it('classifies a request that never reached the server as network', () => {
       const result = classifyUploadError(
-        refused('network', undefined, undefined, 'transport error: connection reset')
+        refused(CallKind.Network, undefined, undefined, 'transport error: connection reset')
       );
       expect(result.type).toBe('network');
       expect(result.httpStatus).toBeUndefined();
@@ -65,7 +71,7 @@ describe('classifyUploadError', () => {
 
     it('does NOT classify as network when the server answered, even if the message mentions network', () => {
       const result = classifyUploadError(
-        refused('http', 500, undefined, 'Server returned network error')
+        refused(CallKind.Http, 500, undefined, 'Server returned network error')
       );
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBe(500);
@@ -74,7 +80,7 @@ describe('classifyUploadError', () => {
     it('does NOT classify a local engine failure as network', () => {
       // Waiting for connectivity cannot fix a missing file or a cold engine.
       const result = classifyUploadError(
-        refused('internal', undefined, undefined, 'file error: cannot open /rec/1.fit')
+        refused(CallKind.Internal, undefined, undefined, 'file error: cannot open /rec/1.fit')
       );
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBeUndefined();
@@ -83,27 +89,27 @@ describe('classifyUploadError', () => {
 
   describe('apiError (default) detection', () => {
     it('classifies a 400 with a message body as apiError', () => {
-      const result = classifyUploadError(refused('http', 400, 'Bad request'));
+      const result = classifyUploadError(refused(CallKind.Http, 400, 'Bad request'));
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBe(400);
       expect(result.apiDetail).toBe('Bad request');
     });
 
     it('carries the detail the engine extracted from the response body', () => {
-      const result = classifyUploadError(refused('http', 422, 'Invalid activity'));
+      const result = classifyUploadError(refused(CallKind.Http, 422, 'Invalid activity'));
       expect(result.type).toBe('apiError');
       expect(result.apiDetail).toBe('Invalid activity');
     });
 
     it('leaves apiDetail unset when the body carried nothing worth showing', () => {
-      const result = classifyUploadError(refused('http', 500, undefined, 'HTTP 500: '));
+      const result = classifyUploadError(refused(CallKind.Http, 500, undefined, 'HTTP 500: '));
       expect(result.apiDetail).toBeUndefined();
       expect(result.errMsg).toBe('HTTP 500: ');
     });
 
     it('maps a rejected credential to its status rather than to a network failure', () => {
       const result = classifyUploadError(
-        refused('unauthorized', 401, undefined, 'unauthorized (401)')
+        refused(CallKind.Unauthorized, 401, undefined, 'unauthorized (401)')
       );
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBe(401);
@@ -111,7 +117,7 @@ describe('classifyUploadError', () => {
 
     it('maps a rate-limited write to 429', () => {
       const result = classifyUploadError(
-        refused('rateLimited', 429, undefined, 'rate limited (429) after retries')
+        refused(CallKind.RateLimited, 429, undefined, 'rate limited (429) after retries')
       );
       expect(result.type).toBe('apiError');
       expect(result.httpStatus).toBe(429);

@@ -3,6 +3,14 @@ import { render } from '@testing-library/react-native';
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import type { FrequentSection } from '@/types';
 
+// The binding registers a TurboModule at import time. A hook on this screen's
+// import path compares against one of its generated enums, so the stub is the
+// module here.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../__shared__/veloqrsStub').withOverrides()
+);
+
 /**
  * Scenario: the detector flags a section whose ground is mostly a lift, the
  * flag survives every layer down to `isLift` on the FFI record, and no screen
