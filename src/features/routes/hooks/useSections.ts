@@ -9,7 +9,7 @@ import { useCustomSections } from './useCustomSections';
 import { useEngineSubscription } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import type { FrequentSection, RoutePoint } from '@/types';
+import type { FrequentSection, RoutePoint, SectionType } from '@/types';
 
 // Re-export for backwards compatibility
 export { generateSectionName } from '@/features/routes/lib/sectionNaming';
@@ -58,22 +58,12 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
     const engine = getEngine();
     if (!engine) return [];
     const summaries = engine.getAllSectionsIncludingHidden(sportType);
-    // Cast: disabled/supersededBy fields are added by migration 020.
-    // Generated bindings will include them after Rust rebuild.
-    return summaries.map((s: Record<string, unknown>) => ({
-      id: s.id as string,
-      sectionType: (s.sectionType === 'custom' ? 'custom' : 'auto') as 'custom' | 'auto',
-      name: (s.name as string) ?? undefined,
-      sportType: s.sportType as string,
+    return summaries.map((s) => ({
+      ...s,
+      sectionType: (s.sectionType === 'custom' ? 'custom' : 'auto') as SectionType,
       polyline: [] as RoutePoint[],
       activityIds: [] as string[],
-      visitCount: s.visitCount as number,
-      distanceMeters: s.distanceMeters as number,
-      confidence: s.confidence as number,
-      createdAt: s.createdAt as string,
-      isUserDefined: (s.isUserDefined as boolean) ?? false,
-      disabled: (s.disabled as boolean) ?? false,
-      supersededBy: (s.supersededBy as string | null) ?? null,
+      supersededBy: s.supersededBy ?? null,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, skipEngineFetch, sportType, sectionsTrigger]);
