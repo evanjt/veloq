@@ -26,7 +26,7 @@ describe('strength window timebase', () => {
   it.each(['Australia/Sydney', 'America/Los_Angeles', 'UTC'])(
     'ends the period at local end-of-day in %s',
     (tz) => {
-      const { endTs } = withTz(tz, () => getTimestampRange('week'));
+      const { endTs } = withTz(tz, () => getTimestampRange('7d'));
       expect(iso(endTs)).toMatch(/T23:59:59\.000Z$/);
     }
   );
@@ -34,13 +34,13 @@ describe('strength window timebase', () => {
   it.each(['Australia/Sydney', 'America/Los_Angeles', 'UTC'])(
     'starts the period at local midnight in %s',
     (tz) => {
-      const { startTs } = withTz(tz, () => getTimestampRange('week'));
+      const { startTs } = withTz(tz, () => getTimestampRange('7d'));
       expect(iso(startTs)).toMatch(/T00:00:00\.000Z$/);
     }
   );
 
   it('spans exactly the requested days', () => {
-    const { startTs, endTs } = withTz('Australia/Sydney', () => getTimestampRange('week'));
+    const { startTs, endTs } = withTz('Australia/Sydney', () => getTimestampRange('7d'));
     expect(endTs - startTs).toBe(7 * 86400 + 86399);
   });
 

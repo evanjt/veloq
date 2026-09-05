@@ -715,12 +715,7 @@
     "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム",
     "colorByGradient": "勾配で色付け",
-    "periodAll": "すべて",
-    "periodThisYear": "今年",
-    "periodSixMonths": "6か月",
-    "periodThreeMonths": "3か月",
-    "periodOneMonth": "1か月",
-    "periodOneWeek": "1週間"
+    "periodThisYear": "今年"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -1500,10 +1495,6 @@
     "recentAvg": "直近平均",
     "earlierAvg": "以前の平均",
     "peakWeek": "ピーク週",
-    "periodWeek": "週",
-    "period4Weeks": "4週間",
-    "period3Months": "3ヶ月",
-    "period6Months": "6ヶ月",
     "disclaimer": "ボリューム計算は、接続されたデバイスの運動データに基づく概算値です。",
     "exercise": "種目",
     "exercises": "種目"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "残り {{count}} 件を取得します",
     "statePaused": "次回アプリを開くまで一時停止"
+  },
+  "period": {
+    "short": {
+      "7d": "1週",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "すべて"
+    },
+    "long": {
+      "7d": "1週間",
+      "1m": "1か月",
+      "3m": "3か月",
+      "6m": "6か月",
+      "1y": "1年",
+      "all": "すべて"
+    }
   }
 }

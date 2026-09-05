@@ -8,6 +8,7 @@
  * refreshes the charts without a second network call.
  */
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { PERIOD_DAYS } from '@/shared/app/period';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
@@ -24,16 +25,8 @@ function useWellnessInvalidation(): void {
   useEngineChannel('activities', queryKeys.wellness.all);
 }
 
-const TIME_RANGE_DAYS: Record<TimeRange, number> = {
-  '7d': 7,
-  '1m': 30,
-  '3m': 90,
-  '6m': 180,
-  '1y': 365,
-};
-
 export function timeRangeToDays(range: TimeRange): number {
-  return TIME_RANGE_DAYS[range];
+  return PERIOD_DAYS[range];
 }
 
 function getDateRange(range: TimeRange): { oldest: string; newest: string } {
@@ -41,7 +34,7 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
   const newest = formatLocalDate(today);
 
   const oldest = new Date(today);
-  oldest.setDate(oldest.getDate() - TIME_RANGE_DAYS[range]);
+  oldest.setDate(oldest.getDate() - PERIOD_DAYS[range]);
 
   return {
     oldest: formatLocalDate(oldest),

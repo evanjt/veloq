@@ -715,12 +715,7 @@
     "viewSectionDetails": "Vis sektionsdetaljer",
     "zoomToActivity": "Zoom til aktivitet",
     "colorByGradient": "Farv efter gradient",
-    "periodAll": "Alle",
-    "periodThisYear": "I år",
-    "periodSixMonths": "6 måneder",
-    "periodThreeMonths": "3 måneder",
-    "periodOneMonth": "1 måned",
-    "periodOneWeek": "1 uge"
+    "periodThisYear": "I år"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -1500,10 +1495,6 @@
     "recentAvg": "Seneste gns",
     "earlierAvg": "Tidligere gns",
     "peakWeek": "Topuge",
-    "periodWeek": "uge",
-    "period4Weeks": "4 uger",
-    "period3Months": "3 måneder",
-    "period6Months": "6 måneder",
     "disclaimer": "Volumenberegninger er tilnærmelser baseret på træningsdata fra din tilsluttede enhed.",
     "exercise": "øvelse",
     "exercises": "øvelser"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}} %",
     "remaining": "{{count}} mangler at blive hentet",
     "statePaused": "På pause, indtil appen åbnes igen"
+  },
+  "period": {
+    "short": {
+      "7d": "1U",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Å",
+      "all": "Alle"
+    },
+    "long": {
+      "7d": "1 uge",
+      "1m": "1 måned",
+      "3m": "3 måneder",
+      "6m": "6 måneder",
+      "1y": "1 år",
+      "all": "Alle"
+    }
   }
 }

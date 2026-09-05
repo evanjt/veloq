@@ -1,15 +1,8 @@
 import type { TimeRange } from './timeRange';
+import { periodOptions } from './period';
 
-/**
- * Shared time range picker options (used by fitness and training screens)
- */
-export const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: '7d', label: '1W' },
-  { id: '1m', label: '1M' },
-  { id: '3m', label: '3M' },
-  { id: '6m', label: '6M' },
-  { id: '1y', label: '1Y' },
-];
+/** The fitness and training pickers' options, from the one period vocabulary. */
+export const TIME_RANGES = periodOptions<TimeRange>(['7d', '1m', '3m', '6m', '1y']);
 
 /**
  * Time constants in milliseconds for cache and query configuration
