@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useRef } from 'react';
+import { summaryCardFtp } from '@/features/home/lib/summaryCardFtp';
 import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useWellness } from '@/features/wellness';
@@ -218,8 +219,10 @@ export function useSummaryCardData(
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
     const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
-    const latestFtp = cyclingSettings?.ftp ?? cardData.ftpTrend.latestFtp ?? null;
-    const prevFtp = cardData.ftpTrend.previousFtp ?? null;
+    const { value: latestFtp, previous: prevFtp } = summaryCardFtp({
+      trend: cardData.ftpTrend,
+      configuredFtp: cyclingSettings?.ftp ?? null,
+    });
 
     const runPaceTrend = cardData.runPaceTrend;
     const swimPaceTrend = cardData.swimPaceTrend;

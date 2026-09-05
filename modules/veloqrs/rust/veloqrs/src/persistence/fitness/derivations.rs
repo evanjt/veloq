@@ -10,6 +10,39 @@ use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentEngine;
 
+/// The cycling `sportInfo` entry's model estimate, rounded, or none when the
+/// day carries no cycling entry.
+fn cycling_eftp(raw: &str) -> Option<u16> {
+    let body: serde_json::Value = serde_json::from_str(raw).ok()?;
+    let entries = body.get("sportInfo")?.as_array()?;
+    let entry = entries.iter().find(|e| {
+        e.get("type")
+            .and_then(|t| t.as_str())
+            .is_some_and(crate::sport::is_cycling)
+    })?;
+    let eftp = entry.get("eftp")?.as_f64()?;
+    (eftp.is_finite() && eftp > 0.0).then(|| eftp.round() as u16)
+}
+
+/// A `YYYY-MM-DD` day shifted by whole days, in the same shape.
+fn day_offset(date: &str, days: i64) -> String {
+    match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+        Ok(d) => (d + chrono::Duration::days(days))
+            .format("%Y-%m-%d")
+            .to_string(),
+        Err(_) => date.to_string(),
+    }
+}
+
+/// Midnight UTC of a `YYYY-MM-DD` day, which is the unit the record carries.
+fn epoch_seconds(date: &str) -> i64 {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or(0)
+}
+
 impl PersistentEngine {
     // ========================================================================
     // Aggregate Queries (SQL-based, for dashboard/stats/charts)
@@ -109,11 +142,24 @@ impl PersistentEngine {
         }
     }
 
-    /// Latest and previous cycling FTP setting with their dates, over the
-    /// twenty newest cycling rows in `ftp_history`. Both values are the
-    /// athlete's configured setting, so an unedited setting yields no
-    /// previous value and an edit reads as a change in fitness.
+    /// The cycling threshold now and a month ago, from the daily model
+    /// estimate intervals.icu computes.
+    ///
+    /// Not `icu_ftp`: that is the athlete's configured setting, and on a real
+    /// five-year account it holds one value throughout, so a trend read from it
+    /// has no previous value and the delta never renders. The estimate is
+    /// already on the device, in the wellness body's `sportInfo` entry for the
+    /// sport, so this costs no request and no column.
     pub fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
+        self.get_ftp_trend_to(&crate::persistence::wellness::today_iso())
+    }
+
+    /// How far back the comparison reaches. A daily series moves by a watt or
+    /// two a week, so yesterday is noise and a month is a change the athlete
+    /// would recognise.
+    const FTP_LOOKBACK_DAYS: i64 = 30;
+
+    pub fn get_ftp_trend_to(&self, today: &str) -> crate::FfiFtpTrend {
         let default = crate::FfiFtpTrend {
             latest_ftp: None,
             latest_date: None,
@@ -121,44 +167,48 @@ impl PersistentEngine {
             previous_date: None,
         };
 
-        // Cycling only: a running or swimming FTP is a different number.
-        let query = format!(
-            "SELECT ftp, date FROM ftp_history
-             WHERE sport_type IN ({})
-             ORDER BY date DESC
-             LIMIT 20",
-            crate::sport::sql_list(crate::sport::CYCLING)
-        );
-        let mut stmt = match self.db.prepare(&query) {
-            Ok(s) => s,
-            Err(_) => return default,
+        // A year of days is 365 rows of JSON, parsed once per call, and the
+        // caller is a screen bundle rather than a loop.
+        let rows = match self.daily_cycling_ftp(today) {
+            Ok(rows) if !rows.is_empty() => rows,
+            _ => return default,
         };
 
-        let rows: Vec<(i32, i64)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-            .ok()
-            .map(|iter| iter.flatten().collect())
-            .unwrap_or_default();
+        let (latest_date, latest_ftp) = rows[rows.len() - 1].clone();
+        let cutoff = day_offset(&latest_date, -Self::FTP_LOOKBACK_DAYS);
 
-        if rows.is_empty() {
-            return default;
-        }
-
-        let latest_ftp = rows[0].0 as u16;
-        let latest_date = rows[0].1;
-
-        // Find the first row with a different FTP value
-        let previous = rows.iter().find(|(ftp, _)| *ftp as u16 != latest_ftp);
+        // The newest day at or before the cutoff. Nothing that old means the
+        // history is shorter than the window, and one value is not a trend.
+        let previous = rows
+            .iter()
+            .rev()
+            .find(|(date, _)| date.as_str() <= cutoff.as_str());
 
         crate::FfiFtpTrend {
             latest_ftp: Some(latest_ftp),
-            latest_date: Some(latest_date),
-            previous_ftp: previous.map(|(ftp, _)| *ftp as u16),
-            previous_date: previous.map(|(_, date)| *date),
+            latest_date: Some(epoch_seconds(&latest_date)),
+            previous_ftp: previous.map(|(_, ftp)| *ftp),
+            previous_date: previous.map(|(date, _)| epoch_seconds(date)),
         }
     }
 
-    /// Save a pace (critical speed) snapshot for trend tracking.
+    /// Every stored day that carries a cycling estimate, oldest first.
+    fn daily_cycling_ftp(&self, today: &str) -> rusqlite::Result<Vec<(String, u16)>> {
+        let mut stmt = self.db.prepare(
+            "SELECT date, raw FROM wellness
+             WHERE raw IS NOT NULL AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt
+            .query_map(params![today], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .flatten()
+            .filter_map(|(date, raw)| cycling_eftp(&raw).map(|ftp| (date, ftp)))
+            .collect();
+        Ok(rows)
+    }
+
     pub fn save_pace_snapshot(
         &self,
         sport_type: &str,
@@ -174,8 +224,6 @@ impl PersistentEngine {
         );
     }
 
-    /// Pace trend for a sport and its family: latest and previous distinct
-    /// critical speed values with dates.
     pub fn get_pace_trend(&self, sport_type: &str) -> crate::FfiPaceTrend {
         let default = crate::FfiPaceTrend {
             latest_pace: None,
@@ -1072,22 +1120,165 @@ mod tests {
         assert!(engine.get_zone_distribution("Ride", "cadence").is_empty());
     }
 
+    /// Every sport in the cycling family carries the same threshold, and a
+    /// running entry on the same day is a different number.
     #[test]
     fn ftp_trend_reads_every_cycling_sport_and_no_other() {
         let mut engine = PersistentEngine::in_memory().unwrap();
-        let mut older = metric("a1", "TrackRide", Some(240));
-        older.date = 1_700_000_000;
-        let mut newer = metric("a2", "EBikeRide", Some(260));
-        newer.date = 1_700_100_000;
-        let mut run = metric("a3", "Run", Some(300));
-        run.date = 1_700_200_000;
+        let day = |date: &str, sport: &str, eftp: f64| {
+            let mut row = wellness_day(date, None);
+            row.raw = Some(
+                serde_json::json!({
+                    "id": date,
+                    "sportInfo": [
+                        {"type": "Run", "eftp": 300.0},
+                        {"type": sport, "eftp": eftp},
+                    ],
+                })
+                .to_string(),
+            );
+            row
+        };
         engine
-            .set_activity_metrics(vec![older, newer, run])
+            .upsert_wellness(&[
+                day("2026-08-01", "TrackRide", 240.0),
+                day("2026-09-05", "EBikeRide", 260.0),
+            ])
             .unwrap();
 
-        let trend = engine.get_ftp_trend();
+        let trend = engine.get_ftp_trend_to("2026-09-05");
         assert_eq!(trend.latest_ftp, Some(260));
         assert_eq!(trend.previous_ftp, Some(240));
+    }
+
+    /// The configured setting is not the trend. `ftp_history` still holds it
+    /// for the surfaces that mean a setting, and moving it must not move this.
+    #[test]
+    fn the_configured_setting_does_not_reach_the_trend() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut older = metric("a1", "Ride", Some(240));
+        older.date = 1_700_000_000;
+        let mut newer = metric("a2", "Ride", Some(300));
+        newer.date = 1_700_100_000;
+        engine.set_activity_metrics(vec![older, newer]).unwrap();
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-01", Some(150.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(
+            trend.latest_ftp,
+            Some(141),
+            "the estimate, not the 300 W setting"
+        );
+        assert_eq!(trend.previous_ftp, Some(150));
+    }
+
+    /// A wellness day carrying the daily model estimate for cycling, which is
+    /// what intervals.icu puts in `sportInfo[].eftp`.
+    fn wellness_day(
+        date: &str,
+        cycling_eftp: Option<f64>,
+    ) -> crate::persistence::wellness::WellnessRow {
+        let raw = cycling_eftp.map(|eftp| {
+            serde_json::json!({
+                "id": date,
+                "sportInfo": [
+                    {"type": "Ride", "eftp": eftp},
+                    {"type": "Run", "eftp": 999.0},
+                ],
+            })
+            .to_string()
+        });
+        crate::persistence::wellness::WellnessRow {
+            date: date.to_string(),
+            ctl: None,
+            atl: None,
+            ramp_rate: None,
+            hrv: None,
+            resting_hr: None,
+            weight: None,
+            sleep_secs: None,
+            sleep_score: None,
+            soreness: None,
+            fatigue: None,
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw,
+        }
+    }
+
+    /// Scenario: `icu_ftp` is the athlete's configured setting, and on a real
+    /// five-year account it holds one value throughout, so a trend read from it
+    /// never has a previous value and the delta never renders. The daily model
+    /// estimate is already on the device in the wellness body and does move.
+    ///
+    /// Expected behaviour: the trend is the daily estimate, newest against the
+    /// same series a month back, and the cycling entry alone.
+    #[test]
+    fn the_ftp_trend_is_the_daily_estimate_and_not_the_setting() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        // A setting that never moves, which is what the old trend read.
+        let mut older = metric("a1", "Ride", Some(155));
+        older.date = 1_700_000_000;
+        let mut newer = metric("a2", "Ride", Some(155));
+        newer.date = 1_700_100_000;
+        engine.set_activity_metrics(vec![older, newer]).unwrap();
+
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-06", Some(148.0)),
+                wellness_day("2026-09-04", Some(143.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, Some(141), "the newest daily estimate");
+        assert_eq!(
+            trend.previous_ftp,
+            Some(148),
+            "the estimate a month back, not the row before it"
+        );
+    }
+
+    /// A day with no cycling entry is not a cycling estimate, and a running one
+    /// is a different number entirely.
+    #[test]
+    fn the_ftp_trend_ignores_a_day_with_no_cycling_estimate() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[
+                wellness_day("2026-08-06", Some(150.0)),
+                wellness_day("2026-09-05", None),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, Some(150));
+        assert_eq!(trend.previous_ftp, None, "one value is not a trend");
+    }
+
+    /// An account with no wellness body has nothing to report, rather than
+    /// falling back to a setting that would read as a fitness change.
+    #[test]
+    fn the_ftp_trend_is_empty_without_a_daily_estimate() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut only = metric("a1", "Ride", Some(240));
+        only.date = 1_700_000_000;
+        engine.set_activity_metrics(vec![only]).unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.latest_ftp, None);
+        assert_eq!(trend.previous_ftp, None);
     }
 
     // The pace trend was keyed on `Run` alone, so a snapshot saved for a trail

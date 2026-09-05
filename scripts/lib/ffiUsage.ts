@@ -382,6 +382,8 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'reached through a dynamic property off the native module, so no static call exists to find',
   'SettingsManager.clearUserProfileCaches':
     'called through a cast to an inline optional-method type, deliberately, so there is no typed receiver to read',
+  'SectionManager.getNearPoint':
+    'the point query a live recording asks the catalogue, and the recording screen that would call it is frozen',
 
 };
 
