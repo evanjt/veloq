@@ -715,12 +715,7 @@
     "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动",
     "colorByGradient": "按坡度着色",
-    "periodAll": "全部",
-    "periodThisYear": "今年",
-    "periodSixMonths": "6 个月",
-    "periodThreeMonths": "3 个月",
-    "periodOneMonth": "1 个月",
-    "periodOneWeek": "1 周"
+    "periodThisYear": "今年"
   },
   "metrics": {
     "activityCount": "活动",
@@ -1500,10 +1495,6 @@
     "recentAvg": "近期平均",
     "earlierAvg": "之前平均",
     "peakWeek": "峰值周",
-    "periodWeek": "周",
-    "period4Weeks": "4 周",
-    "period3Months": "3 个月",
-    "period6Months": "6 个月",
     "disclaimer": "训练量计算是基于已连接设备的运动数据的近似值。",
     "exercise": "动作",
     "exercises": "动作"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "还有 {{count}} 项待获取",
     "statePaused": "已暂停，直到下次打开应用"
+  },
+  "period": {
+    "short": {
+      "7d": "1周",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "全部"
+    },
+    "long": {
+      "7d": "1 周",
+      "1m": "1 个月",
+      "3m": "3 个月",
+      "6m": "6 个月",
+      "1y": "1 年",
+      "all": "全部"
+    }
   }
 }

@@ -715,12 +715,7 @@
     "viewSectionDetails": "Ver detalles de la sección",
     "zoomToActivity": "Zoom a la actividad",
     "colorByGradient": "Color por gradiente",
-    "periodAll": "Todo",
-    "periodThisYear": "Este año",
-    "periodSixMonths": "6 meses",
-    "periodThreeMonths": "3 meses",
-    "periodOneMonth": "1 mes",
-    "periodOneWeek": "1 semana"
+    "periodThisYear": "Este año"
   },
   "metrics": {
     "activityCount": "Actividades",
@@ -1500,10 +1495,6 @@
     "recentAvg": "Promedio reciente",
     "earlierAvg": "Promedio anterior",
     "peakWeek": "Semana pico",
-    "periodWeek": "semana",
-    "period4Weeks": "4 semanas",
-    "period3Months": "3 meses",
-    "period6Months": "6 meses",
     "disclaimer": "Los cálculos de volumen son aproximaciones basadas en los datos de ejercicio de tu dispositivo conectado.",
     "exercise": "ejercicio",
     "exercises": "ejercicios"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Faltan {{count}} por descargar",
     "statePaused": "En pausa hasta que vuelvas a abrir la app"
+  },
+  "period": {
+    "short": {
+      "7d": "1S",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1A",
+      "all": "Todo"
+    },
+    "long": {
+      "7d": "1 semana",
+      "1m": "1 mes",
+      "3m": "3 meses",
+      "6m": "6 meses",
+      "1y": "1 año",
+      "all": "Todo"
+    }
   }
 }
