@@ -107,9 +107,8 @@ export function setSettings(host: DelegateHost, pairs: SettingPair[]): number {
 }
 
 /**
- * Days of stream history the athlete keeps, 0 meaning keep everything. Not the
- * activity `retentionDays` in `RouteSettingsStore`, which deletes whole
- * activities; this one only ever evicts stored series.
+ * Days of stream history the athlete keeps, 0 meaning keep everything. This
+ * only ever evicts stored series: nothing deletes whole activities by age.
  */
 export function streamRetentionDays(host: DelegateHost): number | undefined {
   if (!host.ready) return undefined;
