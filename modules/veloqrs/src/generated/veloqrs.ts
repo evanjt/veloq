@@ -7071,6 +7071,89 @@ const FfiConverterTypeFfiSectionMatch = (() => {
 })();
 
 /**
+ * A section whose line starts within reach of one fix.
+ *
+ * `start_distance_meters` is from the fix to the section's first point, not
+ * to its centre: a live recorder is asking what it is about to enter, and a
+ * long section's centre is nowhere near where it begins.
+ */
+export type FfiSectionNearPoint = {
+  id: string;
+  name?: string;
+  sportType: string;
+  distanceMeters: /*f64*/ number;
+  visitCount: /*u32*/ number;
+  startDistanceMeters: /*f64*/ number;
+  /**
+   * Bearing of the section's opening metres, degrees clockwise from north.
+   * `None` for a line whose first points coincide.
+   */
+  entryBearingDegrees?: /*f64*/ number;
+  /**
+   * Delta+varint encoded coordinates for map overlay
+   */
+  encodedPolyline: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiSectionNearPoint} record objects.
+ */
+export const FfiSectionNearPoint = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionNearPoint, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionNearPoint>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionNearPoint = (() => {
+  type TypeName = FfiSectionNearPoint;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        startDistanceMeters: FfiConverterFloat64.read(from),
+        entryBearingDegrees: FfiConverterOptionalFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.startDistanceMeters, into);
+      FfiConverterOptionalFloat64.write(value.entryBearingDegrees, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.startDistanceMeters) +
+        FfiConverterOptionalFloat64.allocationSize(value.entryBearingDegrees) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Tier 3.2: one entry of a batched section-performance fetch. Returned
  * in the same order as the requested section_ids so the TS caller can
  * map directly without rebuilding lookups.
@@ -8311,6 +8394,72 @@ const FfiConverterTypeFfiTimestampRange = (() => {
       return (
         FfiConverterInt64.allocationSize(value.startTs) +
         FfiConverterInt64.allocationSize(value.endTs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A week's load, day by day, with how evenly it was spread.
+ *
+ * The window sum says a week carried four hundred points and not whether that
+ * was one day or seven. Two weeks of the same total spread very differently:
+ * over one real account's 190 loaded weeks, those carrying 200 to 400 points
+ * ran from 0.45 to 1.92 on `evenness`.
+ */
+export type FfiWeekLoadShape = {
+  /**
+   * One entry per day of the window, gaps included as zero.
+   */
+  daily: Array</*f64*/ number>;
+  /**
+   * Days carrying any load at all.
+   */
+  trainingDays: /*u32*/ number;
+  /**
+   * Mean daily load over its standard deviation. Higher is more even.
+   */
+  evenness: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiWeekLoadShape} record objects.
+ */
+export const FfiWeekLoadShape = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWeekLoadShape, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWeekLoadShape>,
+  });
+})();
+
+const FfiConverterTypeFfiWeekLoadShape = (() => {
+  type TypeName = FfiWeekLoadShape;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        daily: FfiConverterArrayFloat64.read(from),
+        trainingDays: FfiConverterUInt32.read(from),
+        evenness: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayFloat64.write(value.daily, into);
+      FfiConverterUInt32.write(value.trainingDays, into);
+      FfiConverterFloat64.write(value.evenness, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayFloat64.allocationSize(value.daily) +
+        FfiConverterUInt32.allocationSize(value.trainingDays) +
+        FfiConverterFloat64.allocationSize(value.evenness)
       );
     }
   }
@@ -11787,6 +11936,14 @@ export interface FitnessManagerLike {
     prevEnd: /*i64*/ bigint,
   ) /*throws*/ : FfiSummaryCardData;
   /**
+   * A week's load day by day, with how evenly it was spread, or none when
+   * the week has too few training days for the spread to mean anything.
+   */
+  getWeekLoadShape(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ) /*throws*/ : FfiWeekLoadShape | undefined;
+  /**
    * Weekly training totals over a range, one entry per Monday-anchored
    * week that has activities. Derived from `activity_metrics` rather than
    * fetched, so there is no athlete-summary endpoint to keep in sync.
@@ -12162,6 +12319,32 @@ export class FitnessManager
             FfiConverterInt64.lower(currentEnd),
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A week's load day by day, with how evenly it was spread, or none when
+   * the week has too few training days for the spread to mean anything.
+   */
+  getWeekLoadShape(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ): FfiWeekLoadShape | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiWeekLoadShape.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_week_load_shape(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startTs),
+            FfiConverterInt64.lower(endTs),
             callStatus,
           );
         },
@@ -13486,6 +13669,18 @@ export interface SectionManagerLike {
   getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
   getLineages() /*throws*/ : Array<FfiSectionLineage>;
   getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
+  /**
+   * The sections a fix could be entering, nearest start first.
+   *
+   * Keyed on a coordinate rather than a section, so a live recording can
+   * ask what is in front of it. `sport` matches the stored sport exactly.
+   */
+  getNearPoint(
+    latitude: /*f64*/ number,
+    longitude: /*f64*/ number,
+    sportType: string | undefined,
+    radiusMeters: /*f64*/ number,
+  ) /*throws*/ : Array<FfiSectionNearPoint>;
   getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -14172,6 +14367,38 @@ export class SectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The sections a fix could be entering, nearest start first.
+   *
+   * Keyed on a coordinate rather than a section, so a live recording can
+   * ask what is in front of it. `sport` matches the stored sport exactly.
+   */
+  getNearPoint(
+    latitude: /*f64*/ number,
+    longitude: /*f64*/ number,
+    sportType: string | undefined,
+    radiusMeters: /*f64*/ number,
+  ): Array<FfiSectionNearPoint> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionNearPoint.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(latitude),
+            FfiConverterFloat64.lower(longitude),
+            FfiConverterOptionalString.lower(sportType),
+            FfiConverterFloat64.lower(radiusMeters),
             callStatus,
           );
         },
@@ -17419,6 +17646,11 @@ const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
 const FfiConverterOptionalTypeFfiStrengthInsightSeries =
   new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
 
+// FfiConverter for FfiWeekLoadShape | undefined
+const FfiConverterOptionalTypeFfiWeekLoadShape = new FfiConverterOptional(
+  FfiConverterTypeFfiWeekLoadShape,
+);
+
 // FfiConverter for FfiWellnessSparklines | undefined
 const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
   FfiConverterTypeFfiWellnessSparklines,
@@ -17660,6 +17892,11 @@ const FfiConverterArrayTypeFfiSectionLineage = new FfiConverterArray(
 // FfiConverter for Array<FfiSectionMatch>
 const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
   FfiConverterTypeFfiSectionMatch,
+);
+
+// FfiConverter for Array<FfiSectionNearPoint>
+const FfiConverterArrayTypeFfiSectionNearPoint = new FfiConverterArray(
+  FfiConverterTypeFfiSectionNearPoint,
 );
 
 // FfiConverter for Array<FfiSectionPerformanceBatchEntry>
@@ -18492,6 +18729,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape() !==
+    23960
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries() !==
     26182
   ) {
@@ -19065,6 +19310,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_near_point() !==
+    38937
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_near_point",
     );
   }
   if (
@@ -19859,6 +20112,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionLineage,
     FfiConverterTypeFfiSectionMatch,
+    FfiConverterTypeFfiSectionNearPoint,
     FfiConverterTypeFfiSectionPerformanceBatchEntry,
     FfiConverterTypeFfiSectionPerformanceData,
     FfiConverterTypeFfiSectionPerformanceRecord,
@@ -19877,6 +20131,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
+    FfiConverterTypeFfiWeekLoadShape,
     FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,

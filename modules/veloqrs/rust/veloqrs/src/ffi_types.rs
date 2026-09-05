@@ -203,6 +203,22 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 // Aggregate Query Result Types
 // ============================================================================
 
+/// A week's load, day by day, with how evenly it was spread.
+///
+/// The window sum says a week carried four hundred points and not whether that
+/// was one day or seven. Two weeks of the same total spread very differently:
+/// over one real account's 190 loaded weeks, those carrying 200 to 400 points
+/// ran from 0.45 to 1.92 on `evenness`.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiWeekLoadShape {
+    /// One entry per day of the window, gaps included as zero.
+    pub daily: Vec<f64>,
+    /// Days carrying any load at all.
+    pub training_days: u32,
+    /// Mean daily load over its standard deviation. Higher is more even.
+    pub evenness: f64,
+}
+
 /// Aggregated stats for a date range.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiPeriodStats {

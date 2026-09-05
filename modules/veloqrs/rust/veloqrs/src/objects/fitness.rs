@@ -226,6 +226,16 @@ impl FitnessManager {
         })
     }
 
+    /// A week's load day by day, with how evenly it was spread, or none when
+    /// the week has too few training days for the spread to mean anything.
+    fn get_week_load_shape(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<Option<crate::FfiWeekLoadShape>, VeloqError> {
+        with_engine(|e| e.get_week_load_shape(start_ts, end_ts))
+    }
+
     /// Sync a batch of wellness rows from the intervals.icu API into SQLite.
     /// Idempotent on `date`; call whenever the TS wellness query refreshes.
     fn upsert_wellness(&self, rows: Vec<crate::FfiWellnessRow>) -> Result<(), VeloqError> {
