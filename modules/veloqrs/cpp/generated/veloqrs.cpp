@@ -722,6 +722,8 @@ void uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
 void uniffi_veloqrs_fn_method_settingsmanager_set_setting(
     /*handle*/ uint64_t ptr, RustBuffer key, RustBuffer value,
     RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+    /*handle*/ uint64_t ptr, RustBuffer pairs, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
     /*handle*/ uint64_t ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_stream_retention_days(
@@ -1235,6 +1237,7 @@ uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_setting();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_setting();
+uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_settings();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings();
 uint16_t
 uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days();
@@ -7185,6 +7188,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11029,6 +11044,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "settingsmanager_set_settings"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_"
@@ -15714,6 +15741,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
   return jsi::Value::undefined();
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18975,6 +19018,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_settingsmanager_set_setting();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_settingsmanager_set_settings();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -403,7 +403,11 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
 /**
  * Validate a backup database file without touching the global engine.
  * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
- * "activity_count", "newest_activity"}.
+ * "activity_count", "newest_activity", "supported_schema_version"}.
+ *
+ * The supported version is this build's own, not the file's. It is the only
+ * honest thing to compare a backup against: the live database is the other
+ * candidate and a fresh install cannot read one.
  */
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
@@ -9174,6 +9178,54 @@ const FfiConverterTypeSectionSummary = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * One key and the value to store under it.
+ */
+export type SettingPair = {
+  key: string;
+  value: string;
+};
+
+/**
+ * Generated factory for {@link SettingPair} record objects.
+ */
+export const SettingPair = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<SettingPair, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<SettingPair>,
+  });
+})();
+
+const FfiConverterTypeSettingPair = (() => {
+  type TypeName = SettingPair;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        key: FfiConverterString.read(from),
+        value: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.key, into);
+      FfiConverterString.write(value.value, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.key) +
+        FfiConverterString.allocationSize(value.value)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 const stringConverter = {
   stringToBytes: (s: string) =>
     uniffiCaller.rustCall((status) =>
@@ -15206,6 +15258,11 @@ export interface SettingsManagerLike {
    * Set a single user preference (upsert).
    */
   setSetting(key: string, value: string) /*throws*/ : void;
+  /**
+   * Set several user preferences in one transaction, skipping each pair
+   * whose value is already stored. Returns how many were written.
+   */
+  setSettings(pairs: Array<SettingPair>) /*throws*/ : /*u32*/ number;
   setSportSettings(json: string) /*throws*/ : void;
   /**
    * Set the stream retention window in days, then evict what now falls
@@ -15379,6 +15436,28 @@ export class SettingsManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Set several user preferences in one transaction, skipping each pair
+   * whose value is already stored. Returns how many were written.
+   */
+  setSettings(pairs: Array<SettingPair>): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayTypeSettingPair.lower(pairs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -17790,6 +17869,11 @@ const FfiConverterArrayTypeSectionSummary = new FfiConverterArray(
   FfiConverterTypeSectionSummary,
 );
 
+// FfiConverter for Array<SettingPair>
+const FfiConverterArrayTypeSettingPair = new FfiConverterArray(
+  FfiConverterTypeSettingPair,
+);
+
 // FfiConverter for Array<string>
 const FfiConverterArrayString = new FfiConverterArray(FfiConverterString);
 
@@ -17963,7 +18047,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    28613
+    53210
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
@@ -19498,6 +19582,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings() !==
+    34826
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_settings",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings() !==
     43262
   ) {
@@ -20058,6 +20150,7 @@ export default Object.freeze({
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionPreview,
     FfiConverterTypeSectionSummary,
+    FfiConverterTypeSettingPair,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,
     FfiConverterTypeSyncManager,
