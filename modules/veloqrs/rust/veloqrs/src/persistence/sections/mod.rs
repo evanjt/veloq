@@ -1200,7 +1200,7 @@ impl PersistentEngine {
             .filter(|s| !s.id.starts_with("custom_"))
             .count();
         let custom_count = results.len() - auto_count;
-        log::info!(
+        log::trace!(
             "veloqrs: [PersistentEngine] get_section_summaries returned {} summaries ({} auto, {} custom)",
             results.len(),
             auto_count,
@@ -1208,7 +1208,7 @@ impl PersistentEngine {
         );
         if custom_count > 0 {
             for s in results.iter().filter(|s| s.id.starts_with("custom_")) {
-                log::info!(
+                log::trace!(
                     "veloqrs: [PersistentEngine]   custom section: id={}, name={:?}, visits={}, distance={:.0}m",
                     s.id,
                     s.name,
