@@ -92,10 +92,12 @@ impl PersistentEngine {
         //    of the section, so its lap_time is for that fragment, not a full
         //    traversal. Without this filter, a 200m partial of a 2km section
         //    can show up as a "PR" of 1:24 in feed badges.
-        //  - Skip rows whose actual GPS distance is < 70% of the section's
-        //    canonical distance (matches `get_section_performances_filtered`).
+        //  - Skip rows that span too little of the section, the same rule
+        //    `covers_enough_for_record` applies in Rust, written once here as
+        //    `COMPLETE_TRAVERSAL_SQL` so the two cannot drift.
         //  - Group by sport. A record and a trend are earned against the same
         //    sport's efforts, so shared ground carries one of each per sport.
+        let complete = crate::persistence::records::complete_traversal_sql();
         let pair_sql = format!(
             "SELECT sa.section_id, sa.direction, a.sport_type, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
@@ -106,11 +108,11 @@ impl PersistentEngine {
                AND s.disabled = 0
                AND s.superseded_by IS NULL
                AND sa.direction != 'partial'
-               AND (s.distance_meters IS NULL OR s.distance_meters <= 0
-                    OR sa.distance_meters >= s.distance_meters * 0.7)
+               AND ({complete})
              GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
-            effective_time_expr
+            effective_time_expr,
+            complete = complete
         );
 
         let mut pair_stmt = tx.prepare(&pair_sql)?;
@@ -154,10 +156,10 @@ impl PersistentEngine {
                AND a.sport_type = ?
                AND sa.excluded = 0
                AND sa.direction != 'partial'
-               AND (s.distance_meters IS NULL OR s.distance_meters <= 0
-                    OR sa.distance_meters >= s.distance_meters * 0.7)
+               AND ({complete})
              ORDER BY a.start_date ASC",
-            effective_time_expr
+            effective_time_expr,
+            complete = complete
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 

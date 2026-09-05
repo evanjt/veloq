@@ -1798,6 +1798,7 @@ mod tests {
             start_index: 17,
             end_index: 104,
             avg_hr: Some(142.0),
+            coverage: Some(1.0),
         }
     }
 
