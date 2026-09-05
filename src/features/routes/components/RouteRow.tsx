@@ -25,7 +25,7 @@ import {
 import {
   getActivityColor,
   getActivityIcon,
-  isRunningActivity,
+  isPaceSport,
 } from '@/features/activity/lib/activityUtils';
 import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
 import { useConsensusRoute } from '@/features/routes/hooks/useEngine';
@@ -229,7 +229,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // Get best pace (only available on RouteGroup with performance data)
   const bestPace = isRouteGroup(route) ? route.bestPace : undefined;
   const routeType = toActivityType(route.type);
-  const showPace = isRunningActivity(routeType);
+  const showPace = isPaceSport(routeType);
 
   // Format pace/speed for display
   const formattedPace = useMemo(() => {

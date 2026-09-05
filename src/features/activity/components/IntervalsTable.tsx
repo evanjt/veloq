@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { isRunningActivity, isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -21,7 +21,7 @@ interface IntervalsTableProps {
 }
 
 export function IntervalsTable({ intervals, activityType, isMetric, isDark }: IntervalsTableProps) {
-  const showPace = isRunningActivity(activityType);
+  const showPace = isPaceSport(activityType);
 
   const isCycling = isCyclingActivity(activityType);
   const hasHR = useMemo(() => intervals.some((i) => i.average_heartrate != null), [intervals]);

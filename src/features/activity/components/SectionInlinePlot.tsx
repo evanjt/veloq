@@ -23,7 +23,7 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { isPaceSport, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
@@ -61,7 +61,7 @@ function formatLap(
 ): string {
   const type = sportType as ActivityType;
   if (isSwimmingActivity(type)) return formatSwimPace(distanceMeters / lapTime, isMetric);
-  if (isRunningActivity(type)) return formatPace(distanceMeters / lapTime, isMetric);
+  if (isPaceSport(type)) return formatPace(distanceMeters / lapTime, isMetric);
   return formatDuration(lapTime);
 }
 
