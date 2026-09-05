@@ -23,6 +23,7 @@ const mockEngine = {
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),
   clear: jest.fn(),
+  getStats: jest.fn().mockReturnValue({ activityCount: 0, newestDate: null }),
 };
 
 const mockNativeModule = {
@@ -141,7 +142,9 @@ beforeEach(async () => {
   mockClearCredentials.mockReset();
   mockEngine.setSetting.mockReset();
   mockEngine.clear.mockReset();
-  mockEngine.getActivityCount.mockReset().mockReturnValue(80);
+  // A restore from the login screen lands on a fresh install, which holds
+  // nothing and is never asked to confirm the trade.
+  mockEngine.getActivityCount.mockReset().mockReturnValue(0);
   mockEngine.getSetting.mockReset().mockReturnValue(null);
   mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
   (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
