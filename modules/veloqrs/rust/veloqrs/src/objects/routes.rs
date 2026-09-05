@@ -54,16 +54,13 @@ impl RouteManager {
         })
     }
 
-    fn get_consensus_route(&self, group_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
+    /// The group's representative line, coordinate-encoded. The engine already
+    /// holds `GpsPoint`s, so this encodes them rather than boxing one record
+    /// per point for a caller that unboxed them again.
+    fn get_consensus_route(&self, group_id: String) -> Result<Vec<u8>, VeloqError> {
         with_engine(|e| {
             e.get_consensus_route(&group_id)
-                .map(|points| {
-                    points
-                        .iter()
-                        .copied()
-                        .map(crate::FfiGpsPoint::from)
-                        .collect()
-                })
+                .map(|points| crate::coords::encode(&points))
                 .unwrap_or_default()
         })
     }

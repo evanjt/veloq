@@ -13,7 +13,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
-import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
+import { decodeCoords, type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 // ============================================================================
@@ -281,10 +281,11 @@ export function useConsensusRoute(groupId: string | null): UseConsensusRouteResu
 
     setIsLoading(true);
     const engine = getEngine();
-    const gpsPoints = engine ? engine.getConsensusRoute(groupId) : [];
+    const encoded = engine?.getConsensusRoute(groupId);
+    const decoded = encoded ? decodeCoords(encoded) : [];
 
-    if (gpsPoints.length > 0) {
-      setPoints(gpsPoints.map((p) => ({ lat: p.latitude, lng: p.longitude })));
+    if (decoded.length > 0) {
+      setPoints(decoded.map((p) => ({ lat: p.latitude, lng: p.longitude })));
     } else {
       setPoints(null);
     }
@@ -379,10 +380,8 @@ export function useSectionPolyline(sectionId: string | null): UseSectionPolyline
     if (!engine) return [];
 
     try {
-      // Get polyline from Rust (uses LRU cache)
-      const gpsPoints = engine.getSectionPolyline(sectionId);
-      // Convert GpsPoint[] to {lat, lng}[]
-      return gpsPoints.map((p) => ({
+      // Coordinate-encoded from Rust, like every other track that crosses.
+      return decodeCoords(engine.getSectionPolyline(sectionId)).map((p) => ({
         lat: p.latitude,
         lng: p.longitude,
       }));

@@ -898,6 +898,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
+    ptr: bigint,
+    latitude: number,
+    longitude: number,
+    sportType: Uint8Array,
+    radiusMeters: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1688,6 +1696,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_near_point(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version(): number;

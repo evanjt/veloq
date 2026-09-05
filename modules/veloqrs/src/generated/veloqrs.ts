@@ -7071,6 +7071,89 @@ const FfiConverterTypeFfiSectionMatch = (() => {
 })();
 
 /**
+ * A section whose line starts within reach of one fix.
+ *
+ * `start_distance_meters` is from the fix to the section's first point, not
+ * to its centre: a live recorder is asking what it is about to enter, and a
+ * long section's centre is nowhere near where it begins.
+ */
+export type FfiSectionNearPoint = {
+  id: string;
+  name?: string;
+  sportType: string;
+  distanceMeters: /*f64*/ number;
+  visitCount: /*u32*/ number;
+  startDistanceMeters: /*f64*/ number;
+  /**
+   * Bearing of the section's opening metres, degrees clockwise from north.
+   * `None` for a line whose first points coincide.
+   */
+  entryBearingDegrees?: /*f64*/ number;
+  /**
+   * Delta+varint encoded coordinates for map overlay
+   */
+  encodedPolyline: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiSectionNearPoint} record objects.
+ */
+export const FfiSectionNearPoint = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionNearPoint, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionNearPoint>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionNearPoint = (() => {
+  type TypeName = FfiSectionNearPoint;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        name: FfiConverterOptionalString.read(from),
+        sportType: FfiConverterString.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        startDistanceMeters: FfiConverterFloat64.read(from),
+        entryBearingDegrees: FfiConverterOptionalFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterOptionalString.write(value.name, into);
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterFloat64.write(value.startDistanceMeters, into);
+      FfiConverterOptionalFloat64.write(value.entryBearingDegrees, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.startDistanceMeters) +
+        FfiConverterOptionalFloat64.allocationSize(value.entryBearingDegrees) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Tier 3.2: one entry of a batched section-performance fetch. Returned
  * in the same order as the requested section_ids so the TS caller can
  * map directly without rebuilding lookups.
@@ -12912,7 +12995,12 @@ export interface RouteManagerLike {
   getAll() /*throws*/ : Array<FfiRouteGroup>;
   getAllNames() /*throws*/ : Map<string, string>;
   getById(groupId: string) /*throws*/ : FfiRouteGroup | undefined;
-  getConsensusRoute(groupId: string) /*throws*/ : Array<FfiGpsPoint>;
+  /**
+   * The group's representative line, coordinate-encoded. The engine already
+   * holds `GpsPoint`s, so this encodes them rather than boxing one record
+   * per point for a caller that unboxed them again.
+   */
+  getConsensusRoute(groupId: string) /*throws*/ : ArrayBuffer;
   /**
    * Everything the route detail screen paints with: engine counts, the
    * route and the group list it is ranked within, every attempt across
@@ -13077,8 +13165,13 @@ export class RouteManager
     );
   }
 
-  getConsensusRoute(groupId: string): Array<FfiGpsPoint> /*throws*/ {
-    return FfiConverterArrayTypeFfiGpsPoint.lift(
+  /**
+   * The group's representative line, coordinate-encoded. The engine already
+   * holds `GpsPoint`s, so this encodes them rather than boxing one record
+   * per point for a caller that unboxed them again.
+   */
+  getConsensusRoute(groupId: string): ArrayBuffer /*throws*/ {
+    return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -13486,6 +13579,18 @@ export interface SectionManagerLike {
   getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
   getLineages() /*throws*/ : Array<FfiSectionLineage>;
   getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
+  /**
+   * The sections a fix could be entering, nearest start first.
+   *
+   * Keyed on a coordinate rather than a section, so a live recording can
+   * ask what is in front of it. `sport` matches the stored sport exactly.
+   */
+  getNearPoint(
+    latitude: /*f64*/ number,
+    longitude: /*f64*/ number,
+    sportType: string | undefined,
+    radiusMeters: /*f64*/ number,
+  ) /*throws*/ : Array<FfiSectionNearPoint>;
   getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -13501,7 +13606,12 @@ export interface SectionManagerLike {
     sportType: string | undefined,
   ) /*throws*/ : Array<FfiSectionPerformanceBatchEntry>;
   getPinnedVersion(sectionId: string) /*throws*/ : /*i64*/ bigint | undefined;
-  getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
+  /**
+   * The section's line, coordinate-encoded like every other track that
+   * leaves the engine. It used to box a record per point and its one caller
+   * unboxed them again, which is the cost the encoding exists to avoid.
+   */
+  getPolyline(sectionId: string) /*throws*/ : ArrayBuffer;
   getRecentChanges(days: /*u32*/ number) /*throws*/ : Array<FfiSectionChange>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
@@ -14180,6 +14290,38 @@ export class SectionManager
     );
   }
 
+  /**
+   * The sections a fix could be entering, nearest start first.
+   *
+   * Keyed on a coordinate rather than a section, so a live recording can
+   * ask what is in front of it. `sport` matches the stored sport exactly.
+   */
+  getNearPoint(
+    latitude: /*f64*/ number,
+    longitude: /*f64*/ number,
+    sportType: string | undefined,
+    radiusMeters: /*f64*/ number,
+  ): Array<FfiSectionNearPoint> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionNearPoint.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_near_point(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(latitude),
+            FfiConverterFloat64.lower(longitude),
+            FfiConverterOptionalString.lower(sportType),
+            FfiConverterFloat64.lower(radiusMeters),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -14248,8 +14390,13 @@ export class SectionManager
     );
   }
 
-  getPolyline(sectionId: string): Array<FfiGpsPoint> /*throws*/ {
-    return FfiConverterArrayTypeFfiGpsPoint.lift(
+  /**
+   * The section's line, coordinate-encoded like every other track that
+   * leaves the engine. It used to box a record per point and its one caller
+   * unboxed them again, which is the cost the encoding exists to avoid.
+   */
+  getPolyline(sectionId: string): ArrayBuffer /*throws*/ {
+    return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -17662,6 +17809,11 @@ const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
   FfiConverterTypeFfiSectionMatch,
 );
 
+// FfiConverter for Array<FfiSectionNearPoint>
+const FfiConverterArrayTypeFfiSectionNearPoint = new FfiConverterArray(
+  FfiConverterTypeFfiSectionNearPoint,
+);
+
 // FfiConverter for Array<FfiSectionPerformanceBatchEntry>
 const FfiConverterArrayTypeFfiSectionPerformanceBatchEntry =
   new FfiConverterArray(FfiConverterTypeFfiSectionPerformanceBatchEntry);
@@ -18765,7 +18917,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_consensus_route() !==
-    33297
+    36666
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_consensus_route",
@@ -19068,6 +19220,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_near_point() !==
+    38937
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_near_point",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances() !==
     50767
   ) {
@@ -19093,7 +19253,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline() !==
-    14756
+    40293
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_polyline",
@@ -19859,6 +20019,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionLineage,
     FfiConverterTypeFfiSectionMatch,
+    FfiConverterTypeFfiSectionNearPoint,
     FfiConverterTypeFfiSectionPerformanceBatchEntry,
     FfiConverterTypeFfiSectionPerformanceData,
     FfiConverterTypeFfiSectionPerformanceRecord,
