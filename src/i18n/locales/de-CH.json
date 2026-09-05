@@ -1352,7 +1352,8 @@
     "vsPrevious3Months": "vs vorheri 3 Mönet",
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
-    "year": "Jahr"
+    "year": "Jahr",
+    "atWeight": "bei {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobi Effizienz",
@@ -1389,7 +1390,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Zieh zum Erkunde",

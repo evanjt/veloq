@@ -1352,7 +1352,8 @@
     "vsPrevious3Months": "vs previous 3 months",
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
-    "year": "Year"
+    "year": "Year",
+    "atWeight": "at {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobic Efficiency",
@@ -1389,7 +1390,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Drag to explore",
