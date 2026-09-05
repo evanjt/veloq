@@ -407,7 +407,16 @@
     "formTSB": "Forme (TSB)",
     "noData": "Aucune donnée de forme",
     "restDay": "Jour de repos",
-    "selectActivity": "Sélectionner l'activité"
+    "selectActivity": "Sélectionner l'activité",
+    "weekShape": {
+      "title": "La forme de cette semaine",
+      "quiet": "Une semaine plus calme. Pas assez de jours d'entraînement pour lire une forme.",
+      "reading": {
+        "lopsided": "Ta charge s'est concentrée sur quelques jours parmi {{days}} jours d'entraînement.",
+        "mixed": "Mitigée : certains jours bien plus durs que d'autres, sur {{days}} jours d'entraînement.",
+        "even": "Répartie assez régulièrement sur {{days}} jours d'entraînement."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
