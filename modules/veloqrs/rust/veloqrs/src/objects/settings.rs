@@ -49,6 +49,13 @@ impl SettingsManager {
         })
     }
 
+    /// Where the athlete's rides start and finish most often, for the export
+    /// privacy row to offer. A guess: the trim stays off until it is confirmed
+    /// or replaced, and a library with too little to cluster answers none.
+    fn suggest_export_home(&self) -> Result<Option<crate::persistence::SuggestedHome>, VeloqError> {
+        with_engine(|e| e.suggest_export_home())
+    }
+
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {
@@ -84,9 +91,8 @@ impl SettingsManager {
 
     /// Days of stream history the athlete keeps. Zero means keep everything.
     ///
-    /// Not the same knob as the activity `retentionDays` in
-    /// `RouteSettingsStore`, which deletes whole activities. This one only ever
-    /// evicts stored series.
+    /// This only ever evicts stored series: nothing deletes whole activities
+    /// by age.
     fn stream_retention_days(&self) -> Result<i64, VeloqError> {
         with_engine(|e| e.stream_retention_days().unwrap_or(0))
     }

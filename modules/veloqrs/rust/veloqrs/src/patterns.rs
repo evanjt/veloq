@@ -1448,7 +1448,7 @@ mod tests {
         assert!((normalised[0][0] - 0.5).abs() < 1e-10);
     }
 
-    /// B238: the dominant season was picked with `max_by_key` over a `HashMap`,
+    /// The dominant season was picked with `max_by_key` over a `HashMap`,
     /// so two seasons on an equal count were decided by the iteration order,
     /// which `RandomState` makes different for every map.
     fn feature_on(id: &str, date: i64) -> ActivityFeature {

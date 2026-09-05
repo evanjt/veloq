@@ -407,7 +407,16 @@
     "formTSB": "Forma (TSB)",
     "noData": "Nessun dato forma disponibile",
     "restDay": "Giorno di riposo",
-    "selectActivity": "Seleziona attività"
+    "selectActivity": "Seleziona attività",
+    "weekShape": {
+      "title": "La forma di questa settimana",
+      "quiet": "Una settimana più tranquilla. Non ci sono abbastanza giorni di allenamento per leggere una forma.",
+      "reading": {
+        "lopsided": "Il tuo carico si è concentrato in un paio di giorni su {{days}} giorni di allenamento.",
+        "mixed": "Mista: alcuni giorni molto più duri di altri, su {{days}} giorni di allenamento.",
+        "even": "Distribuita in modo abbastanza uniforme su {{days}} giorni di allenamento."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "Vedi dettagli sezione",
     "zoomToActivity": "Zoom sull'attività",
     "colorByGradient": "Colore per inclinazione",
-    "periodAll": "Tutto",
-    "periodThisYear": "Quest'anno",
-    "periodSixMonths": "6 mesi",
-    "periodThreeMonths": "3 mesi",
-    "periodOneMonth": "1 mese",
-    "periodOneWeek": "1 settimana"
+    "periodThisYear": "Quest'anno"
   },
   "metrics": {
     "activityCount": "Attività",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "La nuova analisi non è partita",
     "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento.",
     "elevationBackfillPause": "Metti in pausa",
-    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra."
+    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra.",
+    "exportPrivacyTitle": "Tieni casa fuori dalle esportazioni",
+    "exportPrivacyDescription": "Taglia inizio e fine di ogni traccia entro 100 m da casa. Viene accorciata solo la copia esportata.",
+    "exportPrivacySuggested": "La maggior parte delle tue uscite parte dallo stesso punto, {{count}} di esse.",
+    "exportPrivacyConfirm": "Usalo come casa",
+    "exportPrivacyNoSuggestion": "Non ci sono ancora abbastanza uscite per capire dove sia casa."
   },
   "stats": {
     "activities": "Attività",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 3 mesi precedenti",
     "vsPrevious6Months": "vs 6 mesi precedenti",
     "week": "Settimana",
-    "year": "Anno"
+    "year": "Anno",
+    "atWeight": "a {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Efficienza aerobica",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Trascina per esplorare",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Media recente",
     "earlierAvg": "Media precedente",
     "peakWeek": "Settimana picco",
-    "periodWeek": "settimana",
-    "period4Weeks": "4 settimane",
-    "period3Months": "3 mesi",
-    "period6Months": "6 mesi",
     "disclaimer": "I calcoli del volume sono approssimazioni basate sui dati di allenamento del dispositivo connesso.",
     "exercise": "esercizio",
     "exercises": "esercizi"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Ne mancano {{count}} da scaricare",
     "statePaused": "In pausa fino alla prossima apertura dell'app"
+  },
+  "period": {
+    "short": {
+      "7d": "1S",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1A",
+      "all": "Tutto"
+    },
+    "long": {
+      "7d": "1 settimana",
+      "1m": "1 mese",
+      "3m": "3 mesi",
+      "6m": "6 mesi",
+      "1y": "1 anno",
+      "all": "Tutto"
+    }
   }
 }

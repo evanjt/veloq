@@ -18,6 +18,7 @@ mod mutations;
 mod named;
 mod naming;
 pub(crate) mod preview;
+mod proximity;
 mod queries;
 mod ranking;
 pub(crate) mod track_pool;

@@ -11,7 +11,7 @@ import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { polylineSvgPath, type XY } from '@/shared/charts';
 import { colors, darkColors, spacing, typography, layout, colorWithOpacity } from '@/theme';
-import type { EfficiencyPoint } from 'veloqrs';
+import type { EfficiencyPoint, EfficiencyTrend } from 'veloqrs';
 import { useSectionEfficiencyTrend } from '@/features/routes/hooks/useSectionEfficiencyTrend';
 
 const CHART_HEIGHT = 56;
@@ -47,15 +47,18 @@ export interface SectionEfficiencyCardProps {
   isDark: boolean;
   /** Canvas width. The card is full-bleed inside its own padding. */
   width?: number;
+  /** The screen bundle's trend, so the card makes no engine call of its own. */
+  bundledTrend?: EfficiencyTrend | null;
 }
 
 export function SectionEfficiencyCard({
   sectionId,
   isDark,
   width = 280,
+  bundledTrend,
 }: SectionEfficiencyCardProps) {
   const { t } = useTranslation();
-  const trend = useSectionEfficiencyTrend(sectionId);
+  const trend = useSectionEfficiencyTrend(sectionId, bundledTrend);
 
   if (!trend) return null;
 

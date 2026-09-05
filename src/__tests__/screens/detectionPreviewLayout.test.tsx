@@ -7,6 +7,14 @@ import { PreviewDiffStrip as mockDiffStrip } from '@/features/routes/components/
 import { render } from '@testing-library/react-native';
 import DetectionPreviewScreen from '@/app/detection-preview';
 
+// The binding registers a TurboModule at import time. A hook on this screen's
+// import path compares against one of its generated enums, so the stub is the
+// module here.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
+
 /**
  * Scenario: the preview screen puts the picker, the five sliders and the
  * decision row in a vertical ScrollView under the map, so tuning a slider

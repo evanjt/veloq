@@ -116,22 +116,3 @@ jest.mock("@shopify/react-native-skia", () => {
   };
 });
 
-jest.mock("victory-native", () => ({
-  CartesianChart: mockView("CartesianChart", "victory-cartesian-chart"),
-  Line: mockView("Line", "victory-line"),
-  Area: mockView("Area", "victory-area"),
-  Bar: mockView("Bar", "victory-bar"),
-  Scatter: mockView("Scatter", "victory-scatter"),
-  StackedBar: mockView("StackedBar", "victory-stacked-bar"),
-  Pie: mockView("Pie", "victory-pie"),
-  PolarChart: mockView("PolarChart", "victory-polar-chart"),
-  useChartPressState: () => ({
-    state: {
-      x: { value: { value: 0 }, position: { value: 0 } },
-      y: {},
-    },
-    isActive: false,
-  }),
-  useLinePath: () => ({ path: { toSVGString: () => "" } }),
-  useAreaPath: () => ({ path: { toSVGString: () => "" } }),
-}));

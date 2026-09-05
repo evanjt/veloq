@@ -3,12 +3,17 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  ChartCanvas,
+  ChartCrosshair,
+  CurveLine,
+  useChartColors,
+  useChartGestures,
+} from '@/shared/charts';
 import {
   calculateTSB,
   getFormZone,
@@ -42,7 +47,10 @@ interface ChartDataPoint {
   fatigue: number;
 }
 
-const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 4 } as const;
+const CHART_PADDING = { top: 4, bottom: 4 } as const;
+const SERIES = { form: (d: ChartDataPoint) => d.form };
+const xOf = (d: ChartDataPoint) => d.x;
+const ZONES: FormZone[] = ['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'];
 
 export const FormZoneChart = React.memo(function FormZoneChart({
   data,
@@ -134,6 +142,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   // Calculate domain - show at least -35 to 30
   const minForm = Math.min(-35, ...chartData.map((d) => d.form));
   const maxForm = Math.max(30, ...chartData.map((d) => d.form));
+  const yDomain: [number, number] = [minForm, maxForm];
 
   // Get current (latest) values for display when not selecting
   const currentData = chartData[chartData.length - 1];
@@ -164,86 +173,41 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
       <GestureDetector gesture={gesture}>
         <View style={[chartStyles.chartWrapper, { height }]}>
-          <CartesianChart
+          <ChartCanvas
             data={chartData}
-            xKey="x"
-            yKeys={['form']}
-            domain={{ y: [minForm, maxForm] }}
+            x={xOf}
+            series={SERIES}
+            yDomain={yDomain}
             padding={CHART_PADDING}
+            grid={5}
           >
-            {({ points, chartBounds }) => {
-              syncBounds(chartBounds);
+            {({ points, bounds, yFor }) => {
+              syncBounds(bounds);
               syncXCoords(points.form, (p) => p.x);
-
-              const chartHeight = chartBounds.bottom - chartBounds.top;
-              const yRange = maxForm - minForm;
-
-              // Calculate zone rectangles
-              const getZoneY = (value: number) => {
-                const normalized = (maxForm - value) / yRange;
-                return chartBounds.top + normalized * chartHeight;
-              };
-
               return (
                 <>
-                  {/* Zone backgrounds */}
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.transition.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.transition.min)}
-                    color={FORM_ZONE_COLORS.transition + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.fresh.min)}
-                    color={FORM_ZONE_COLORS.fresh + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.greyZone.min)}
-                    color={FORM_ZONE_COLORS.greyZone + '20'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.optimal.min)}
-                    color={FORM_ZONE_COLORS.optimal + '30'}
-                  />
-                  <ZoneBackground
-                    bounds={chartBounds}
-                    minY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.max)}
-                    maxY={getZoneY(FORM_ZONE_BOUNDARIES.highRisk.min)}
-                    color={FORM_ZONE_COLORS.highRisk + '30'}
-                  />
-
-                  {/* Zero line */}
+                  {ZONES.map((zone) => (
+                    <ZoneBackground
+                      key={zone}
+                      bounds={bounds}
+                      minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
+                      maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
+                      color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                    />
+                  ))}
                   <SkiaLine
-                    p1={vec(chartBounds.left, getZoneY(0))}
-                    p2={vec(chartBounds.right, getZoneY(0))}
+                    p1={vec(bounds.left, yFor(0))}
+                    p2={vec(bounds.right, yFor(0))}
                     color={chartColors.zeroLineSolid}
                     strokeWidth={1}
                     style="stroke"
                   />
-
-                  {/* Form line with casing */}
-                  <Line
-                    points={points.form}
-                    color={chartColors.casing}
-                    strokeWidth={2}
-                    curveType="natural"
-                  />
-                  <Line
-                    points={points.form}
-                    color={chartColors.formLine}
-                    strokeWidth={1}
-                    curveType="natural"
-                  />
+                  <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
+                  <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1} />
                 </>
               );
             }}
-          </CartesianChart>
+          </ChartCanvas>
 
           {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
           <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
@@ -263,7 +227,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
       {/* Zone legend */}
       <View style={styles.zoneLegend}>
-        {(['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'] as FormZone[]).map((zone) => (
+        {ZONES.map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
             <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_COLORS[zone] }]} />
             <Text style={[styles.zoneLabel, isDark && chartStyles.textDark]}>

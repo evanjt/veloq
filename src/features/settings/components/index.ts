@@ -11,6 +11,7 @@ export { DisplaySettings } from './DisplaySettings';
 export { ElevationBackfillStatus } from './ElevationBackfillStatus';
 export { FooterSection } from './FooterSection';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
+export { ExportPrivacyRow } from './ExportPrivacyRow';
 export { HeatmapRow } from './HeatmapRow';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';

@@ -11,12 +11,14 @@ import { SectionEfficiencyCard } from './SectionEfficiencyCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
-import type { MergeCandidate } from 'veloqrs';
+import type { EfficiencyTrend, MergeCandidate } from 'veloqrs';
 import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import { styles } from './SectionDetail.styles';
 
 export interface SectionContentAreaProps {
   isDark: boolean;
+  /** The screen bundle's efficiency trend, passed to the card. */
+  efficiencyTrend?: EfficiencyTrend | null;
   section: FrequentSection;
   isSectionDisabled: boolean;
   mergeCandidates: MergeCandidate[];
@@ -48,6 +50,7 @@ export interface SectionContentAreaProps {
 
 export function SectionContentArea({
   isDark,
+  efficiencyTrend,
   section,
   isSectionDisabled,
   mergeCandidates,
@@ -147,7 +150,11 @@ export function SectionContentArea({
       />
 
       {/* Aerobic efficiency across matched efforts, when the engine has it */}
-      <SectionEfficiencyCard sectionId={section.id} isDark={isDark} />
+      <SectionEfficiencyCard
+        sectionId={section.id}
+        isDark={isDark}
+        bundledTrend={efficiencyTrend}
+      />
 
       {/* Calendar performance history */}
       {calendarSummary && (

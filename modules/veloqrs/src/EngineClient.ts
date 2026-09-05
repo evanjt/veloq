@@ -9,6 +9,7 @@
  */
 
 import type {
+  SuggestedHome,
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
@@ -38,6 +39,7 @@ import type {
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
+  FfiWeekLoadShape,
   FfiWidgetSnapshotData,
   FfiRoutesScreenData,
   FfiSectionConfig,
@@ -234,7 +236,7 @@ class EngineClient implements DelegateHost {
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
       // in the native module.
-      if (this.pendingMetrics) {
+      if (this.pendingMetrics && this.pendingMetrics.length > 0) {
         this.timed('setActivityMetrics', () =>
           this.engine.activities().setMetrics(this.pendingMetrics!)
         );
@@ -472,7 +474,8 @@ class EngineClient implements DelegateHost {
   getGroupById = (groupId: string): FfiRouteGroup | null =>
     routeDelegates.getGroupById(this, groupId);
 
-  getSectionPolyline = (sectionId: string): FfiGpsPoint[] =>
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getSectionPolyline = (sectionId: string): ArrayBuffer =>
     sectionDelegates.getSectionPolyline(this, sectionId);
 
   getMapScreenData = (
@@ -513,7 +516,8 @@ class EngineClient implements DelegateHost {
   getGpsTrack = (activityId: string): FfiGpsPoint[] =>
     activityDelegates.getGpsTrack(this, activityId);
 
-  getConsensusRoute = (groupId: string): FfiGpsPoint[] =>
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getConsensusRoute = (groupId: string): ArrayBuffer =>
     routeDelegates.getConsensusRoute(this, groupId);
 
   getRoutePerformances = (
@@ -619,10 +623,13 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
-  /** Queues metrics until init completes, then delegates to activities module. */
+  /** Holds metrics until init completes, then delegates to activities module. */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
     if (!this.initialized) {
-      this.pendingMetrics = metrics;
+      if (metrics.length === 0) return;
+      // Appended, not replaced: demo entry writes several batches into this
+      // window and each one is a different set of activities.
+      this.pendingMetrics = this.pendingMetrics ? this.pendingMetrics.concat(metrics) : metrics;
       return;
     }
     activityDelegates.setActivityMetricsReady(this, metrics);
@@ -722,6 +729,10 @@ class EngineClient implements DelegateHost {
 
   getZoneDistribution = (sportType: string, zoneType: string): number[] =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType);
+
+  /** How a week's load was spread, or `null` below the engine's four-day floor. */
+  getWeekLoadShape = (startTs: number, endTs: number): FfiWeekLoadShape | null =>
+    fitnessDelegates.getWeekLoadShape(this, startTs, endTs);
 
   savePaceSnapshot = (
     sportType: string,
@@ -846,6 +857,9 @@ class EngineClient implements DelegateHost {
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
+
+  /** The export privacy row's suggested home, or null when there is no guess. */
+  suggestExportHome = (): SuggestedHome | null => settingsDelegates.suggestExportHome(this);
 
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 

@@ -78,6 +78,7 @@ impl PersistentEngine {
 
         let mut exported: u32 = 0;
         let mut skipped: Vec<SkippedActivity> = Vec::new();
+        let trim = PrivacyTrim::from_settings(self);
         let mut total_bytes: u64 = 0;
 
         // Query all activities with GPS tracks in one pass
@@ -156,6 +157,20 @@ impl PersistentEngine {
                         .unwrap_or_else(|| "unknown".to_string())
                 })
                 .unwrap_or_else(|| "unknown".to_string());
+
+            // The exported copy alone is shortened. The stored track and every
+            // index into it are untouched.
+            let points = match trim.as_ref().map(|t| t.apply(&points)) {
+                Some(Some(trimmed)) => trimmed,
+                Some(None) => {
+                    skipped.push(SkippedActivity::new(
+                        &activity_id,
+                        "trimmed to fewer points than a track",
+                    ));
+                    continue;
+                }
+                None => points,
+            };
 
             // Generate GPX XML
             let gpx = generate_gpx(display_name, sport, date_str.as_deref(), &points);
@@ -544,5 +559,363 @@ impl PersistentEngine {
         });
 
         super::BackupHandle { receiver: rx }
+    }
+}
+
+/// Where the athlete lives, and how much of a track around it never leaves the
+/// device in an export.
+///
+/// A ride's first and last fix are the most repeated coordinates in a library,
+/// so an export handed to a coach or attached to a support thread carries the
+/// door. Trimming happens here and nowhere else: the stored track, the
+/// reference triple and every `start_index` are untouched, so the detector's
+/// output does not move and a section's geometry on the device is unchanged.
+#[derive(Debug, Clone, Copy)]
+pub struct PrivacyTrim {
+    pub home_lat: f64,
+    pub home_lng: f64,
+    /// Metres. Zero is off, which is exactly the behaviour before this existed.
+    pub radius_m: f64,
+}
+
+/// Fewer points than this is not a track, so the activity is named in the skip
+/// ledger rather than exported as a degenerate one.
+const MIN_EXPORTABLE_POINTS: usize = 2;
+
+impl PrivacyTrim {
+    /// The trim the athlete has configured, or none. Both halves are needed:
+    /// a radius with no home cannot trim anything, and a home with no radius
+    /// is not a request to.
+    pub fn from_settings(engine: &PersistentEngine) -> Option<Self> {
+        let read = |key: &str| {
+            engine
+                .get_setting(key)
+                .ok()
+                .flatten()
+                .and_then(|v| v.parse::<f64>().ok())
+        };
+        let radius_m = read(super::settings_keys::EXPORT_PRIVACY_RADIUS_M)?;
+        if radius_m <= 0.0 {
+            return None;
+        }
+        Some(Self {
+            home_lat: read(super::settings_keys::EXPORT_HOME_LAT)?,
+            home_lng: read(super::settings_keys::EXPORT_HOME_LNG)?,
+            radius_m,
+        })
+    }
+
+    /// The track as it should be exported, or `None` when trimming leaves too
+    /// little to be a track.
+    ///
+    /// Only the ends are trimmed. A loop that passes the door mid-ride keeps
+    /// those points, because removing them would cut the track in two and the
+    /// thing being protected is where the ride starts and stops.
+    pub fn apply(&self, points: &[GpsPoint]) -> Option<Vec<GpsPoint>> {
+        if self.radius_m <= 0.0 || points.is_empty() {
+            return Some(points.to_vec());
+        }
+
+        let inside = |p: &GpsPoint| {
+            super::haversine_distance_meters(p.latitude, p.longitude, self.home_lat, self.home_lng)
+                <= self.radius_m
+        };
+
+        let first = points.iter().position(|p| !inside(p))?;
+        let last = points.iter().rposition(|p| !inside(p))?;
+        let kept = &points[first..=last];
+        (kept.len() >= MIN_EXPORTABLE_POINTS).then(|| kept.to_vec())
+    }
+}
+
+#[cfg(test)]
+mod privacy_trim_tests {
+    use super::*;
+
+    const HOME_LAT: f64 = 46.2333;
+    const HOME_LNG: f64 = 7.36;
+
+    /// Roughly `metres` north of home.
+    fn north(metres: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + metres / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn trim(radius_m: f64) -> PrivacyTrim {
+        PrivacyTrim {
+            home_lat: HOME_LAT,
+            home_lng: HOME_LNG,
+            radius_m,
+        }
+    }
+
+    /// Distance from home in metres, to the nearest ten, since the helper that
+    /// builds the fixture converts metres to degrees approximately.
+    fn distances(points: &[GpsPoint]) -> Vec<i64> {
+        points
+            .iter()
+            .map(|p| {
+                let m = super::super::haversine_distance_meters(
+                    p.latitude,
+                    p.longitude,
+                    HOME_LAT,
+                    HOME_LNG,
+                );
+                (m / 10.0).round() as i64 * 10
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_track_that_starts_and_ends_at_the_door_loses_both_ends() {
+        let track: Vec<GpsPoint> = [10.0, 60.0, 300.0, 900.0, 400.0, 50.0, 5.0]
+            .iter()
+            .map(|m| north(*m))
+            .collect();
+
+        let exported = trim(100.0).apply(&track).expect("the ride survives a trim");
+
+        assert_eq!(distances(&exported), vec![300, 900, 400]);
+    }
+
+    #[test]
+    fn a_track_that_never_approaches_home_is_untouched() {
+        let track: Vec<GpsPoint> = [800.0, 1200.0, 1500.0].iter().map(|m| north(*m)).collect();
+
+        assert_eq!(trim(100.0).apply(&track).unwrap(), track);
+    }
+
+    #[test]
+    fn a_radius_of_zero_is_exactly_the_old_behaviour() {
+        let track: Vec<GpsPoint> = [5.0, 10.0, 400.0].iter().map(|m| north(*m)).collect();
+
+        assert_eq!(trim(0.0).apply(&track).unwrap(), track);
+    }
+
+    #[test]
+    fn a_ride_entirely_inside_the_radius_is_not_exported() {
+        let track: Vec<GpsPoint> = [10.0, 40.0, 20.0].iter().map(|m| north(*m)).collect();
+
+        assert!(trim(100.0).apply(&track).is_none());
+    }
+
+    #[test]
+    fn a_trim_that_leaves_one_point_is_not_a_track() {
+        let track: Vec<GpsPoint> = [10.0, 500.0, 20.0].iter().map(|m| north(*m)).collect();
+
+        assert!(trim(100.0).apply(&track).is_none());
+    }
+
+    /// A loop that passes the door mid-ride keeps those points. Removing them
+    /// would cut the track in two, and what is protected is where it starts.
+    #[test]
+    fn a_pass_through_home_mid_ride_is_kept() {
+        let track: Vec<GpsPoint> = [900.0, 20.0, 800.0].iter().map(|m| north(*m)).collect();
+
+        let exported = trim(100.0).apply(&track).unwrap();
+
+        assert_eq!(distances(&exported), vec![900, 20, 800]);
+    }
+
+    #[test]
+    fn an_empty_track_stays_empty_rather_than_failing() {
+        assert_eq!(trim(100.0).apply(&[]).unwrap().len(), 0);
+    }
+}
+
+/// A home the athlete can confirm, and how sure the guess is.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SuggestedHome {
+    pub latitude: f64,
+    pub longitude: f64,
+    /// Rides whose first or last fix falls in the cluster.
+    pub activity_count: u32,
+    /// Endpoints in the cluster, of every endpoint in the library.
+    pub endpoint_share: f64,
+}
+
+/// The cell edge the suggestion clusters on, and the radius the trim defaults
+/// to. A ride's endpoints scatter by tens of metres around one door, so a
+/// hundred is wide enough to gather them and narrow enough not to swallow the
+/// next street.
+const HOME_CELL_M: f64 = 100.0;
+
+impl PersistentEngine {
+    /// Where the athlete's rides start and finish most often, or none when
+    /// there is not enough to guess from.
+    ///
+    /// A guess, not an answer: it is offered for confirmation and the trim
+    /// stays off until someone confirms it. Endpoints are the first and last
+    /// fix of every stored track, which is the pair a bulk export would carry.
+    pub fn suggest_export_home(&self) -> Option<SuggestedHome> {
+        let endpoints = self.track_endpoints();
+        if endpoints.len() < 2 {
+            return None;
+        }
+
+        // A cell grid rather than a clustering pass: the question is which
+        // hundred metres, and every endpoint is one row.
+        let mut cells: std::collections::HashMap<(i64, i64), Vec<(f64, f64)>> =
+            std::collections::HashMap::new();
+        let lat_cell = HOME_CELL_M / 111_320.0;
+        for (lat, lng) in &endpoints {
+            let lng_cell = HOME_CELL_M / (111_320.0 * lat.to_radians().cos().abs().max(0.01));
+            cells
+                .entry(((lat / lat_cell) as i64, (lng / lng_cell) as i64))
+                .or_default()
+                .push((*lat, *lng));
+        }
+
+        // Ties go to the lower cell key, so the same library suggests the same
+        // home every time it is asked.
+        let (_, densest) = cells
+            .into_iter()
+            .max_by_key(|(key, points)| (points.len(), std::cmp::Reverse(*key)))?;
+        if densest.len() < 2 {
+            return None;
+        }
+
+        // The cell picks the neighbourhood, distance picks the cluster. A door
+        // near a cell edge scatters its endpoints across two cells, so counting
+        // the cell alone undercounts it and pulls the centre to one side.
+        let seed_lat = densest.iter().map(|(lat, _)| lat).sum::<f64>() / densest.len() as f64;
+        let seed_lng = densest.iter().map(|(_, lng)| lng).sum::<f64>() / densest.len() as f64;
+        let cluster: Vec<&(f64, f64)> = endpoints
+            .iter()
+            .filter(|(lat, lng)| {
+                super::haversine_distance_meters(*lat, *lng, seed_lat, seed_lng) <= HOME_CELL_M
+            })
+            .collect();
+        if cluster.len() < 2 {
+            return None;
+        }
+
+        let count = cluster.len() as f64;
+        Some(SuggestedHome {
+            latitude: cluster.iter().map(|(lat, _)| lat).sum::<f64>() / count,
+            longitude: cluster.iter().map(|(_, lng)| lng).sum::<f64>() / count,
+            activity_count: cluster.len() as u32,
+            endpoint_share: count / endpoints.len() as f64,
+        })
+    }
+
+    /// The first and last fix of every stored track.
+    fn track_endpoints(&self) -> Vec<(f64, f64)> {
+        let Ok(mut stmt) = self.db.prepare("SELECT track_data FROM gps_tracks") else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map([], |row| row.get::<_, Vec<u8>>(0)) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for blob in rows.flatten() {
+            let TrackRead::Present(points) = TrackRead::from_blob(&blob) else {
+                continue;
+            };
+            if let (Some(first), Some(last)) = (points.first(), points.last()) {
+                out.push((first.latitude, first.longitude));
+                out.push((last.latitude, last.longitude));
+            }
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod suggested_home_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    const HOME_LAT: f64 = 46.2333;
+    const HOME_LNG: f64 = 7.36;
+
+    fn near_home(offset_m: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + offset_m / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn away(km: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + km * 1000.0 / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn engine(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("routes.db");
+        PersistentEngine::new(path.to_str().unwrap()).expect("engine")
+    }
+
+    #[test]
+    fn the_door_every_ride_starts_at_is_the_suggestion() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        for (i, offset) in [5.0, 20.0, 40.0, 15.0].iter().enumerate() {
+            engine
+                .add_activity(
+                    format!("ride{i}"),
+                    vec![near_home(*offset), away(3.0), near_home(offset + 10.0)],
+                    "Ride".into(),
+                )
+                .expect("add");
+        }
+
+        let home = engine.suggest_export_home().expect("a home to confirm");
+
+        let metres = super::super::haversine_distance_meters(
+            home.latitude,
+            home.longitude,
+            HOME_LAT,
+            HOME_LNG,
+        );
+        assert!(metres < 100.0, "the suggestion is {metres} m from the door");
+        assert_eq!(home.activity_count, 8, "both ends of all four rides");
+        assert!(home.endpoint_share > 0.9);
+    }
+
+    #[test]
+    fn a_library_with_nothing_to_cluster_suggests_nothing() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        engine
+            .add_activity("only".into(), vec![away(5.0), away(9.0)], "Ride".into())
+            .expect("add");
+
+        assert!(engine.suggest_export_home().is_none());
+    }
+
+    #[test]
+    fn an_empty_library_suggests_nothing_rather_than_a_point_at_zero() {
+        let dir = TempDir::new().unwrap();
+        assert!(engine(&dir).suggest_export_home().is_none());
+    }
+
+    /// The same library answers the same way twice, so a confirmation screen
+    /// does not offer a different home on a second visit.
+    #[test]
+    fn the_suggestion_is_stable() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        for i in 0..4 {
+            engine
+                .add_activity(
+                    format!("r{i}"),
+                    vec![near_home(f64::from(i) * 10.0), away(2.0)],
+                    "Ride".into(),
+                )
+                .expect("add");
+        }
+
+        let first = engine.suggest_export_home().expect("home");
+        let second = engine.suggest_export_home().expect("home");
+        assert_eq!(first.latitude, second.latitude);
+        assert_eq!(first.longitude, second.longitude);
     }
 }

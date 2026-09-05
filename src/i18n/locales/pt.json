@@ -407,7 +407,16 @@
     "formTSB": "Forma (TSB)",
     "noData": "Sem dados de forma disponiveis",
     "restDay": "Dia de descanso",
-    "selectActivity": "Selecionar atividade"
+    "selectActivity": "Selecionar atividade",
+    "weekShape": {
+      "title": "A forma desta semana",
+      "quiet": "Uma semana mais calma. Não há dias de treino suficientes para ler uma forma.",
+      "reading": {
+        "lopsided": "A tua carga concentrou-se em poucos dias em {{days}} dias de treino.",
+        "mixed": "Mista: alguns dias muito mais duros do que outros, ao longo de {{days}} dias de treino.",
+        "even": "Distribuída de forma bastante equilibrada por {{days}} dias de treino."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "Ver detalhes da secção",
     "zoomToActivity": "Ampliar para atividade",
     "colorByGradient": "Cor por inclinação",
-    "periodAll": "Tudo",
-    "periodThisYear": "Este ano",
-    "periodSixMonths": "6 meses",
-    "periodThreeMonths": "3 meses",
-    "periodOneMonth": "1 mês",
-    "periodOneWeek": "1 semana"
+    "periodThisYear": "Este ano"
   },
   "metrics": {
     "activityCount": "Atividades",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "A nova análise não começou",
     "previewKeepRefused": "As tuas definições estão guardadas. Está a decorrer outra análise, por isso o recálculo não começou. Tenta novamente daqui a pouco.",
     "elevationBackfillPause": "Pausar transferência",
-    "elevationBackfillPaused": "Transferência de altitude em pausa. Será retomada da próxima vez que abrir a app. Para parar de vez a deteção de troços, desligue Correspondencia de percursos acima."
+    "elevationBackfillPaused": "Transferência de altitude em pausa. Será retomada da próxima vez que abrir a app. Para parar de vez a deteção de troços, desligue Correspondencia de percursos acima.",
+    "exportPrivacyTitle": "Deixar a casa fora das exportações",
+    "exportPrivacyDescription": "Corta o início e o fim de cada percurso a 100 m de casa. Apenas a cópia exportada é encurtada.",
+    "exportPrivacySuggested": "A maioria dos teus treinos começa perto do mesmo sítio, {{count}} deles.",
+    "exportPrivacyConfirm": "Usar como casa",
+    "exportPrivacyNoSuggestion": "Ainda não há treinos suficientes para perceber onde fica casa."
   },
   "stats": {
     "activities": "Atividades",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 3 meses anteriores",
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
-    "year": "Ano"
+    "year": "Ano",
+    "atWeight": "a {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Eficiência aeróbica",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Arraste para explorar",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Média recente",
     "earlierAvg": "Média anterior",
     "peakWeek": "Semana de pico",
-    "periodWeek": "semana",
-    "period4Weeks": "4 semanas",
-    "period3Months": "3 meses",
-    "period6Months": "6 meses",
     "disclaimer": "Os cálculos de volume são aproximações baseadas nos dados de exercício do dispositivo ligado.",
     "exercise": "exercício",
     "exercises": "exercícios"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Faltam {{count}} para transferir",
     "statePaused": "Em pausa até a app ser aberta de novo"
+  },
+  "period": {
+    "short": {
+      "7d": "1S",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1A",
+      "all": "Tudo"
+    },
+    "long": {
+      "7d": "1 semana",
+      "1m": "1 mês",
+      "3m": "3 meses",
+      "6m": "6 meses",
+      "1y": "1 ano",
+      "all": "Tudo"
+    }
   }
 }

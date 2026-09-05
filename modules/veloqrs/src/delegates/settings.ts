@@ -6,7 +6,7 @@
  */
 
 import type { DelegateHost } from './host';
-import type { SettingPair } from '../generated/veloqrs';
+import type { SettingPair, SuggestedHome as FfiSuggestedHome } from '../generated/veloqrs';
 
 export function setNameTranslations(
   host: DelegateHost,
@@ -72,6 +72,21 @@ export function clearUserProfileCaches(host: DelegateHost): void {
   }
 }
 
+/**
+ * Where the athlete's rides start and finish most often, for the export
+ * privacy row to offer. A guess, so the trim stays off until it is confirmed
+ * or replaced, and a library with too little to cluster answers null.
+ */
+export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
+  } catch (e) {
+    console.error('[Engine] suggestExportHome threw:', e);
+    return null;
+  }
+}
+
 export function getSetting(host: DelegateHost, key: string): string | undefined {
   if (!host.ready) return undefined;
   try {
@@ -107,9 +122,8 @@ export function setSettings(host: DelegateHost, pairs: SettingPair[]): number {
 }
 
 /**
- * Days of stream history the athlete keeps, 0 meaning keep everything. Not the
- * activity `retentionDays` in `RouteSettingsStore`, which deletes whole
- * activities; this one only ever evicts stored series.
+ * Days of stream history the athlete keeps, 0 meaning keep everything. This
+ * only ever evicts stored series: nothing deletes whole activities by age.
  */
 export function streamRetentionDays(host: DelegateHost): number | undefined {
   if (!host.ready) return undefined;

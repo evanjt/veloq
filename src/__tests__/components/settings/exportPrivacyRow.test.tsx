@@ -1,0 +1,116 @@
+/**
+ * Scenario: a bulk export carries the athlete's door at full precision, and the
+ * engine can already trim it. The trim is off until a home is set, and no
+ * screen sets one, so the protection exists and never fires.
+ *
+ * Expected behaviour: a row that turns trimming on, offers the home the engine
+ * guessed for confirmation, and writes all three settings. Until a home is
+ * confirmed the switch cannot be turned on, because a radius with no home
+ * trims nothing and would read as protection that is not there.
+ */
+
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+
+import { ExportPrivacyRow } from '@/features/settings/components/ExportPrivacyRow';
+import { getEngine } from '@/shared/native/engine';
+
+jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, vars?: unknown) =>
+      typeof vars === 'object' && vars !== null && !('defaultValue' in vars)
+        ? `${key}:${JSON.stringify(vars)}`
+        : key,
+  }),
+}));
+
+const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
+
+const HOME = {
+  latitude: 46.2333,
+  longitude: 7.36,
+  activityCount: 402,
+  endpointShare: 0.24,
+};
+
+function engineWith(over: Record<string, unknown> = {}) {
+  const settings = new Map<string, string>();
+  const engine = {
+    suggestExportHome: jest.fn(() => HOME),
+    getSetting: jest.fn((key: string) => settings.get(key)),
+    setSetting: jest.fn((key: string, value: string) => settings.set(key, value)),
+    ...over,
+  };
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  return { engine, settings };
+}
+
+afterEach(() => jest.clearAllMocks());
+
+describe('the export privacy row', () => {
+  it('offers the home the engine guessed', async () => {
+    engineWith();
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-home')).toBeTruthy());
+  });
+
+  it('cannot be turned on before a home is confirmed', async () => {
+    const { settings } = engineWith();
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+
+    expect(settings.get('__export_privacy_radius_m')).toBeUndefined();
+  });
+
+  it('writes all three settings once the home is confirmed', async () => {
+    const { settings } = engineWith();
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-confirm')).toBeTruthy());
+
+    fireEvent.press(tree.getByTestId('export-privacy-confirm'));
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
+    expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(HOME.latitude, 4);
+    expect(Number(settings.get('__export_home_lng'))).toBeCloseTo(HOME.longitude, 4);
+  });
+
+  it('turns the trim off by writing a zero radius, which is the engine off switch', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', false);
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('0'));
+    // The home stays, so turning it back on does not ask again.
+    expect(settings.get('__export_home_lat')).toBe(String(HOME.latitude));
+  });
+
+  it('says there is nothing to suggest rather than offering a point at zero', async () => {
+    engineWith({ suggestExportHome: jest.fn(() => null) });
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());
+    expect(tree.queryByTestId('export-privacy-confirm')).toBeNull();
+  });
+
+  it('reads an install that already has a home as on', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch').props.value).toBe(true));
+  });
+});

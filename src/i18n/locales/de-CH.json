@@ -407,7 +407,16 @@
     "formTSB": "Tagesform (TSB)",
     "noData": "Kei Fitnessdate",
     "restDay": "Ruehtag",
-    "selectActivity": "Aktivität uswähle"
+    "selectActivity": "Aktivität uswähle",
+    "weekShape": {
+      "title": "Form dieser Woche",
+      "quiet": "Eine ruhigere Woche. Zu wenige Trainingstage, um eine Form abzulesen.",
+      "reading": {
+        "lopsided": "Deine Belastung lag an ein paar Tagen von {{days}} Trainingstagen.",
+        "mixed": "Gemischt: manche Tage deutlich härter als andere, über {{days}} Trainingstage.",
+        "even": "Recht gleichmässig über {{days}} Trainingstage verteilt."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "Abschnittsdetails aazeige",
     "zoomToActivity": "Uf Aktivität zoome",
     "colorByGradient": "Nach Gfälli färbe",
-    "periodAll": "Alle",
-    "periodThisYear": "Dieses Jahr",
-    "periodSixMonths": "6 Monate",
-    "periodThreeMonths": "3 Monate",
-    "periodOneMonth": "1 Monat",
-    "periodOneWeek": "1 Woche"
+    "periodThisYear": "Dieses Jahr"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
     "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
     "elevationBackfillPause": "Download pausieren",
-    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennig ganz abzuschalten, schalte oben Route-Matching aus."
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennig ganz abzuschalten, schalte oben Route-Matching aus.",
+    "exportPrivacyTitle": "Zuhause aus Exporten heraushalten",
+    "exportPrivacyDescription": "Kürzt Anfang und Ende jeder Aufzeichnung im Umkreis von 100 m um das Zuhause. Nur die exportierte Kopie wird gekürzt.",
+    "exportPrivacySuggested": "Die meisten deiner Fahrten starten in der Nähe eines Ortes, {{count}} davon.",
+    "exportPrivacyConfirm": "Als Zuhause verwenden",
+    "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen."
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs vorheri 3 Mönet",
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
-    "year": "Jahr"
+    "year": "Jahr",
+    "atWeight": "bei {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobi Effizienz",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Zieh zum Erkunde",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Letschte Schnitt",
     "earlierAvg": "Früheri Schnitt",
     "peakWeek": "Spitze-Wuche",
-    "periodWeek": "Wuche",
-    "period4Weeks": "4 Wuche",
-    "period3Months": "3 Mönet",
-    "period6Months": "6 Mönet",
     "disclaimer": "Volumeberechnige sind Nöcherigswert basierend uf Üebigsdatä vo dim verbundene Grät.",
     "exercise": "Üebig",
     "exercises": "Üebige"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}} %",
     "remaining": "No {{count}} z lade",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J",
+      "all": "Alle"
+    },
+    "long": {
+      "7d": "1 Woche",
+      "1m": "1 Monat",
+      "3m": "3 Monate",
+      "6m": "6 Monate",
+      "1y": "1 Jahr",
+      "all": "Alle"
+    }
   }
 }

@@ -504,12 +504,12 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
     );
 }
 
-/// A retention cleanup deletes activities but nothing removes their junction
-/// rows, so a spared (custom or accepted) section keeps counting ghosts
-/// forever. The delete must take the junction rows with it, letting the
-/// triggers recompute the column.
+/// A clear deletes activities but nothing removes their junction rows, so a
+/// spared (custom or accepted) section keeps counting ghosts forever. The
+/// delete must take the junction rows with it, letting the triggers recompute
+/// the column.
 #[test]
-fn a_retention_cleanup_takes_the_junction_rows_with_it() {
+fn a_clear_takes_the_junction_rows_with_it() {
     let s = setup();
     let mut engine = s.engine;
     insert_activity(&s.raw, "old", 1_000_000);
@@ -520,12 +520,26 @@ fn a_retention_cleanup_takes_the_junction_rows_with_it() {
             [],
         )
         .expect("age the old activity");
-    insert_section(&s.raw, "sec", "Ride");
+    // A section the clear spares, which is the only kind that can be left
+    // counting ghosts: an auto one goes with the activities.
+    s.raw
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                                   distance_meters, disabled, version, is_user_defined,
+                                   bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                                   created_at, updated_at)
+             VALUES ('sec', 'custom', 'Home climb', 'Ride', '[]', 500.0, 0, 1, 1,
+                     46.0, 46.01, 7.0, 7.01, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .expect("insert the custom section");
     insert_traversal(&s.raw, "sec", "old");
     insert_traversal(&s.raw, "sec", "recent");
 
-    let deleted = engine.cleanup_old_activities(30).expect("cleanup");
-    assert_eq!(deleted, 1, "exactly the aged activity is deleted");
+    // Neither activity backs the section's geometry, so the clear takes both
+    // and the junction rows have to go with them.
+    let cleared = engine.clear_derived().expect("clear");
+    assert_eq!(cleared.activities_removed, 2);
 
     let ghosts: i64 = s
         .raw
@@ -549,5 +563,5 @@ fn a_retention_cleanup_takes_the_junction_rows_with_it() {
             |r| r.get(0),
         )
         .expect("column read");
-    assert_eq!(column, 1, "visit_count still counts the deleted activity");
+    assert_eq!(column, 0, "visit_count still counts the deleted activities");
 }

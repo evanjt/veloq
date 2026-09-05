@@ -12,7 +12,6 @@ import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
   FfiSection,
-  FfiGpsPoint,
   FfiNamedCorridor,
   FfiRankedSection,
   FfiSectionDetailData,
@@ -117,8 +116,12 @@ export function getSectionById(host: DelegateHost, sectionId: string): FfiSectio
   return host.timed('getSectionById', () => host.engine.sections().getById(sectionId)) ?? null;
 }
 
-export function getSectionPolyline(host: DelegateHost, sectionId: string): FfiGpsPoint[] {
-  if (!host.ready) return [];
+/** Coordinate-encoded, like every track that leaves the engine. */
+/** No track at all, in the encoded form the engine returns. */
+const EMPTY_TRACK = new Uint8Array([]).buffer;
+
+export function getSectionPolyline(host: DelegateHost, sectionId: string): ArrayBuffer {
+  if (!host.ready) return EMPTY_TRACK;
   validateId(sectionId, 'section ID');
   return host.timed('getSectionPolyline', () => host.engine.sections().getPolyline(sectionId));
 }

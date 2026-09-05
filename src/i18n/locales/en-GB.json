@@ -407,7 +407,16 @@
     "formTSB": "Form (TSB)",
     "noData": "No fitness data available",
     "restDay": "Rest day",
-    "selectActivity": "Select Activity"
+    "selectActivity": "Select Activity",
+    "weekShape": {
+      "title": "This week's shape",
+      "quiet": "A quieter week. Not enough days with training on them to read a shape.",
+      "reading": {
+        "lopsided": "Your load sat in a couple of days across {{days}} days of training.",
+        "mixed": "A mix: some days much harder than others, over {{days}} days of training.",
+        "even": "Spread fairly evenly across {{days}} days of training."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewDetails": "View Details",
     "viewSectionDetails": "View section details",
     "zoomToActivity": "Zoom to activity",
-    "periodAll": "All",
-    "periodThisYear": "This year",
-    "periodSixMonths": "6 months",
-    "periodThreeMonths": "3 months",
-    "periodOneMonth": "1 month",
-    "periodOneWeek": "1 week"
+    "periodThisYear": "This year"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "Re-analysis did not start",
     "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment.",
     "elevationBackfillPause": "Pause download",
-    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route Matching above."
+    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route Matching above.",
+    "exportPrivacyTitle": "Leave home out of exports",
+    "exportPrivacyDescription": "Trims the start and end of each track within 100 m of home. Only the exported copy is shortened.",
+    "exportPrivacySuggested": "Most of your rides start near one place, {{count}} of them.",
+    "exportPrivacyConfirm": "Use it as home",
+    "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is."
   },
   "stats": {
     "activities": "Activities",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs previous 3 months",
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
-    "year": "Year"
+    "year": "Year",
+    "atWeight": "at {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobic Efficiency",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Drag to explore",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Recent avg",
     "earlierAvg": "Earlier avg",
     "peakWeek": "Peak week",
-    "periodWeek": "week",
-    "period4Weeks": "4 weeks",
-    "period3Months": "3 months",
-    "period6Months": "6 months",
     "disclaimer": "Volume calculations are approximations based on exercise data from your connected device.",
     "exercise": "exercise",
     "exercises": "exercises"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "{{count}} still to fetch",
     "statePaused": "Paused until the app is next opened"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "all": "All"
+    },
+    "long": {
+      "7d": "1 week",
+      "1m": "1 month",
+      "3m": "3 months",
+      "6m": "6 months",
+      "1y": "1 year",
+      "all": "All"
+    }
   }
 }

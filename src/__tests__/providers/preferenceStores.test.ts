@@ -77,7 +77,6 @@ const MAP_PREFS_KEY = 'veloq-map-preferences';
 
 const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
-  retentionDays: 0,
   autoCleanupEnabled: false,
 };
 
@@ -234,54 +233,18 @@ describe('RouteSettingsStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('setRetentionDays() - Clamping Logic', () => {
-    it('preserves 0 as special "keep all" value', async () => {
-      await useRouteSettings.getState().setRetentionDays(0);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
-    });
-
-    it('clamps values below 30 to minimum of 30', async () => {
-      for (const val of [1, 15, 29, -1, -100]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(30);
-      }
-    });
-
-    it('clamps values above 365 to maximum of 365', async () => {
-      for (const val of [366, 500, 1000]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(365);
-      }
-    });
-
-    it('passes through valid range values unchanged', async () => {
-      for (const val of [30, 60, 90, 180, 270, 365]) {
-        await useRouteSettings.getState().setRetentionDays(val);
-        expect(useRouteSettings.getState().settings.retentionDays).toBe(val);
-      }
-    });
-
-    it('persists validated (clamped) value', async () => {
-      await useRouteSettings.getState().setRetentionDays(15);
-      const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
-      expect(stored.retentionDays).toBe(30);
-    });
-  });
-
   describe('initialize() - Corruption Recovery', () => {
     it('loads valid settings', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
         JSON.stringify({
           enabled: false,
-          retentionDays: 90,
           autoCleanupEnabled: true,
         })
       );
       await initializeRouteSettings();
       const state = useRouteSettings.getState();
       expect(state.settings.enabled).toBe(false);
-      expect(state.settings.retentionDays).toBe(90);
       expect(state.isLoaded).toBe(true);
     });
 
@@ -304,7 +267,6 @@ describe('RouteSettingsStore', () => {
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: false }));
       await initializeRouteSettings();
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(0);
     });
 
     it('drops the retired detectionStrictness key from a stored payload', async () => {
@@ -312,7 +274,6 @@ describe('RouteSettingsStore', () => {
         ROUTE_SETTINGS_KEY,
         JSON.stringify({
           enabled: true,
-          retentionDays: 0,
           autoCleanupEnabled: false,
           heatmapEnabled: true,
           detectionStrictness: 90,
@@ -338,17 +299,15 @@ describe('RouteSettingsStore', () => {
       useRouteSettings.setState({
         settings: {
           enabled: true,
-          retentionDays: 90,
           autoCleanupEnabled: true,
         },
         isLoaded: true,
       });
 
       await useRouteSettings.getState().setEnabled(false);
-      expect(useRouteSettings.getState().settings.retentionDays).toBe(90);
       expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
 
-      await useRouteSettings.getState().setRetentionDays(180);
+      await useRouteSettings.getState().setAutoCleanupEnabled(true);
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
       expect(useRouteSettings.getState().settings.autoCleanupEnabled).toBe(true);
     });
@@ -370,14 +329,9 @@ describe('RouteSettingsStore', () => {
   describe('Concurrent Operations', () => {
     it('parallel updates preserve all changes', async () => {
       const store = useRouteSettings.getState();
-      await Promise.all([
-        store.setEnabled(false),
-        store.setRetentionDays(90),
-        store.setAutoCleanupEnabled(true),
-      ]);
+      await Promise.all([store.setEnabled(false), store.setAutoCleanupEnabled(true)]);
       const state = useRouteSettings.getState();
       expect(state.settings.enabled).toBe(false);
-      expect(state.settings.retentionDays).toBe(90);
       expect(state.settings.autoCleanupEnabled).toBe(true);
     });
   });
@@ -387,7 +341,6 @@ describe('RouteSettingsStore', () => {
       useRouteSettings.setState({
         settings: {
           enabled: false,
-          retentionDays: 180,
           autoCleanupEnabled: false,
         },
         isLoaded: true,

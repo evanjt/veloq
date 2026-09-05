@@ -44,6 +44,7 @@ pub use activities::{
 pub mod codec;
 pub mod cutover;
 pub(crate) mod export;
+pub use export::SuggestedHome;
 mod fitness;
 mod indicators;
 #[cfg(feature = "lock-trace")]

@@ -407,7 +407,16 @@
     "formTSB": "フォーム (TSB)",
     "noData": "フィットネスデータがありません",
     "restDay": "休息日",
-    "selectActivity": "アクティビティを選択"
+    "selectActivity": "アクティビティを選択",
+    "weekShape": {
+      "title": "今週のかたち",
+      "quiet": "静かな週でした。かたちを読み取れるほどのトレーニング日がありません。",
+      "reading": {
+        "lopsided": "負荷はトレーニング{{days}}日のうち数日に偏っていました。",
+        "mixed": "ばらつきあり。トレーニング{{days}}日のうち、特に重い日がありました。",
+        "even": "トレーニング{{days}}日にわたって、ほぼ均等に分かれていました。"
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム",
     "colorByGradient": "勾配で色付け",
-    "periodAll": "すべて",
-    "periodThisYear": "今年",
-    "periodSixMonths": "6か月",
-    "periodThreeMonths": "3か月",
-    "periodOneMonth": "1か月",
-    "periodOneWeek": "1週間"
+    "periodThisYear": "今年"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "再解析が開始されませんでした",
     "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。",
     "elevationBackfillPause": "ダウンロードを一時停止",
-    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。"
+    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。",
+    "exportPrivacyTitle": "エクスポートから自宅を除く",
+    "exportPrivacyDescription": "自宅から100m以内の軌跡の始点と終点を切り取ります。短くなるのはエクスポートしたコピーだけです。",
+    "exportPrivacySuggested": "あなたのライドの多くは同じ場所から始まっています（{{count}}件）。",
+    "exportPrivacyConfirm": "ここを自宅にする",
+    "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 前3ヶ月",
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
-    "year": "年"
+    "year": "年",
+    "atWeight": "{{kg}} kg 時"
   },
   "statsScreen": {
     "decoupling": "有酸素効率",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "ドラッグして探索",
@@ -1500,10 +1511,6 @@
     "recentAvg": "直近平均",
     "earlierAvg": "以前の平均",
     "peakWeek": "ピーク週",
-    "periodWeek": "週",
-    "period4Weeks": "4週間",
-    "period3Months": "3ヶ月",
-    "period6Months": "6ヶ月",
     "disclaimer": "ボリューム計算は、接続されたデバイスの運動データに基づく概算値です。",
     "exercise": "種目",
     "exercises": "種目"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "残り {{count}} 件を取得します",
     "statePaused": "次回アプリを開くまで一時停止"
+  },
+  "period": {
+    "short": {
+      "7d": "1週",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "すべて"
+    },
+    "long": {
+      "7d": "1週間",
+      "1m": "1か月",
+      "3m": "3か月",
+      "6m": "6か月",
+      "1y": "1年",
+      "all": "すべて"
+    }
   }
 }

@@ -10,6 +10,14 @@ import { fireEvent, render } from '@testing-library/react-native';
 import NamedCorridorsScreen from '@/app/named-corridors';
 import { useNamedCorridors } from '@/features/routes/hooks/useNamedCorridors';
 
+// The binding registers a TurboModule at import time. A hook on this screen's
+// import path compares against one of its generated enums, so the stub is the
+// module here.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
+
 jest.mock('@/features/routes/hooks/useNamedCorridors', () => ({
   useNamedCorridors: jest.fn(),
 }));

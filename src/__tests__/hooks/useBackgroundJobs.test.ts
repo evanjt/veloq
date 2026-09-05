@@ -7,9 +7,15 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
+import { SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useBackgroundJobs } from '@/features/settings/hooks/useBackgroundJobs';
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -18,7 +24,13 @@ jest.mock('@/shared/native/engine', () => ({
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 interface EngineState {
-  sync: { state: string; inFlight: number; completed: number; total: number; lastError?: string };
+  sync: {
+    state: SyncState;
+    inFlight: number;
+    completed: number;
+    total: number;
+    lastError?: string;
+  };
   detection: string;
   detectionProgress: { phase: string; completed: number; total: number; percent: number } | null;
   backfill: { phase: string; completed: number; total: number; failed: number } | null;
@@ -28,7 +40,7 @@ interface EngineState {
 
 function defaultState(): EngineState {
   return {
-    sync: { state: 'idle', inFlight: 0, completed: 0, total: 0 },
+    sync: { state: SyncState.Idle, inFlight: 0, completed: 0, total: 0 },
     detection: 'idle',
     detectionProgress: null,
     backfill: { phase: 'idle', completed: 0, total: 0, failed: 0 },
@@ -178,7 +190,7 @@ describe('useBackgroundJobs', () => {
   });
 
   it('reads an expired credential as a failed sync', () => {
-    state.sync = { state: 'authExpired', inFlight: 0, completed: 0, total: 0 };
+    state.sync = { state: SyncState.AuthExpired, inFlight: 0, completed: 0, total: 0 };
 
     const { result } = jobs();
 
@@ -186,7 +198,13 @@ describe('useBackgroundJobs', () => {
   });
 
   it('reads a settled sync that left an error as failed', () => {
-    state.sync = { state: 'idle', inFlight: 0, completed: 3, total: 3, lastError: 'timeout' };
+    state.sync = {
+      state: SyncState.Idle,
+      inFlight: 0,
+      completed: 3,
+      total: 3,
+      lastError: 'timeout',
+    };
 
     const { result } = jobs();
 
@@ -194,7 +212,7 @@ describe('useBackgroundJobs', () => {
   });
 
   it('carries a running sync count', () => {
-    state.sync = { state: 'syncing', inFlight: 2, completed: 5, total: 20 };
+    state.sync = { state: SyncState.Syncing, inFlight: 2, completed: 5, total: 20 };
 
     const { result } = jobs();
 

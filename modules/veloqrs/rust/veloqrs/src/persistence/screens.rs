@@ -370,6 +370,10 @@ impl super::PersistentEngine {
             .map(crate::FfiActivityMetrics::from)
             .collect();
 
+        // Read once: `get_geometry_versions` did this per call to flag the
+        // pinned row, and the bundle returns the version in its own right.
+        let pinned_version = self.pinned_section_version(section_id);
+
         crate::FfiSectionDetailData {
             activity_count: self.activity_count() as u32,
             nearby: self.get_nearby_sections(section_id, nearby_radius_meters),
@@ -380,6 +384,37 @@ impl super::PersistentEngine {
             map_signatures: self.get_map_signatures_for_ids(&activity_ids),
             missing_time_stream_ids: self
                 .get_activities_missing_time_streams(&portion_activity_ids),
+            history: self
+                .section_history(section_id)
+                .into_iter()
+                .map(|h| crate::FfiSectionHistoryEvent {
+                    id: h.id,
+                    at: h.at,
+                    kind: h.kind,
+                    details: h.details,
+                    geometry_version: h.geometry_version,
+                })
+                .collect(),
+            geometry_versions: self
+                .section_geometry_versions(section_id)
+                .into_iter()
+                .map(|v| crate::FfiSectionGeometryVersion {
+                    pinned: pinned_version == Some(v.version),
+                    version: v.version,
+                    created_at: v.created_at,
+                    milestone: v.milestone,
+                })
+                .collect(),
+            pinned_version,
+            excluded_laps: self
+                .get_excluded_section_laps(section_id)
+                .into_iter()
+                .map(|(activity_id, start_index)| crate::FfiExcludedLap {
+                    activity_id,
+                    start_index,
+                })
+                .collect(),
+            efficiency_trend: self.get_section_efficiency_trend(section_id),
             section: section.map(crate::FfiSection::from),
         }
     }

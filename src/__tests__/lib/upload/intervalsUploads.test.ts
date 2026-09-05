@@ -9,7 +9,7 @@
  * where the body is actually built.
  */
 
-import { engine } from 'veloqrs';
+import { CallKind, engine } from 'veloqrs';
 import {
   uploadActivityFile,
   createManualActivity,
@@ -37,7 +37,7 @@ jest.mock('@/shared/app/AuthStore', () => ({
 const mockUploadActivityFile = engine.uploadActivityFile as jest.Mock;
 const mockCreateManualActivity = engine.createManualActivity as jest.Mock;
 
-const OK = { kind: 'ok', id: 'i999', message: 'ok' };
+const OK = { kind: CallKind.Ok, id: 'i999', message: 'ok' };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -76,7 +76,7 @@ describe('uploadActivityFile', () => {
 
   it('accepts a success the server did not put an id on', async () => {
     // The activity is already upstream. Failing here would upload it twice.
-    mockUploadActivityFile.mockResolvedValue({ kind: 'ok', message: 'ok' });
+    mockUploadActivityFile.mockResolvedValue({ kind: CallKind.Ok, message: 'ok' });
 
     await expect(
       uploadActivityFile('file:///recordings/rec-1.fit', 'ride.fit')
@@ -85,7 +85,7 @@ describe('uploadActivityFile', () => {
 
   it('throws with the outcome attached when the write is refused', async () => {
     mockUploadActivityFile.mockResolvedValue({
-      kind: 'http',
+      kind: CallKind.Http,
       status: 403,
       detail: 'No permission',
       message: 'HTTP 403: No permission',
@@ -148,7 +148,7 @@ describe('createManualActivity', () => {
 
   it('throws with the outcome attached when the entry is refused', async () => {
     mockCreateManualActivity.mockResolvedValue({
-      kind: 'http',
+      kind: CallKind.Http,
       status: 400,
       detail: 'Bad request',
       message: 'HTTP 400: Bad request',

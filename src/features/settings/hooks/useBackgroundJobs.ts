@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
@@ -158,9 +159,12 @@ function useBackfillRemaining(): number | null {
   return remaining;
 }
 
-function syncState(state: string | undefined, lastError: string | undefined): BackgroundJobState {
-  if (state === 'syncing') return 'running';
-  if (state === 'authExpired') return 'failed';
+function syncState(
+  state: SyncState | undefined,
+  lastError: string | undefined
+): BackgroundJobState {
+  if (state === SyncState.Syncing) return 'running';
+  if (state === SyncState.AuthExpired) return 'failed';
   return lastError ? 'failed' : 'idle';
 }
 

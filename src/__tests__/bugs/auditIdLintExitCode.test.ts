@@ -8,6 +8,13 @@
  * TypeScript, and says nothing about a live identifier that merely looks like
  * one. The generated bindings carry the crate's own docstrings, so a hit there
  * would be the same comment reported twice and is skipped.
+ *
+ * It reads two forms. A backticked id anywhere, which is the audit's prose
+ * style, and an id that opens a comment and is followed by a colon, which is
+ * how three slipped in without backticks. It deliberately reads no more than
+ * that: a bare id mid-sentence cannot be told from the Galaxy S22 or from the
+ * insights engine's own rule labels, which share two of the audit's keys by
+ * coincidence, and a guard that renames either of those is worse than the gap.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -98,6 +105,60 @@ it('skips the generated bindings, which carry the crate comments already', () =>
     fixture({
       'modules/veloqrs/src/generated/veloqrs.ts': '/** Decided in `Q65`. */\nexport const g = 1;\n',
     })
+  );
+
+  expect(status).toBe(0);
+});
+
+it('fails on an id that opens a comment and is followed by a colon', () => {
+  const { status, output } = runGuard(
+    fixture({
+      'modules/veloqrs/rust/veloqrs/src/lib.rs':
+        '/// B238: the dominant season was picked with the wrong tie-break.\nfn a() {}\n',
+    })
+  );
+
+  expect(status).toBe(1);
+  expect(output).toContain('modules/veloqrs/rust/veloqrs/src/lib.rs:1');
+});
+
+it.each([
+  ['//', '// SB12: every apply stamps this build.'],
+  ['///', '/// D11: the cooldown.'],
+  ['*', ' * B258: the switch is the honest opt-out.'],
+])('catches the colon form after %s', (_marker, line) => {
+  expect(runGuard(fixture({ 'src/a.ts': `${line}\nexport const a = 1;\n` })).status).toBe(1);
+});
+
+it('says nothing about the phone the measurements came from', () => {
+  const { status } = runGuard(
+    fixture({
+      'src/b.ts':
+        '// Measured on the S22, which held every screen read for three seconds.\nexport const b = 2;\n',
+    })
+  );
+
+  expect(status).toBe(0);
+});
+
+it("says nothing about the insights engine's own rule labels", () => {
+  const { status } = runGuard(
+    fixture({
+      'src/c.ts': [
+        '/** R6 - lower and upper bounds of the flow corridor. */',
+        '/** D11 - push notification scheduler. */',
+        '// Pipeline: hard gates (G1-G4), score (R5-R8), diversity cap (D9-D10).',
+        'export const c = 3;',
+      ].join('\n'),
+    })
+  );
+
+  expect(status).toBe(0);
+});
+
+it('leaves a bare id mid-sentence alone, which is the half it cannot judge', () => {
+  const { status } = runGuard(
+    fixture({ 'src/d.ts': '// That is the shape SB10 left behind.\nexport const d = 4;\n' })
   );
 
   expect(status).toBe(0);

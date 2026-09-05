@@ -90,7 +90,7 @@ export function SectionPerformanceSection({
                   },
                 ]}
               >
-                {r.label}
+                {t(r.labelKey as never)}
               </Text>
             </Pressable>
           ))}

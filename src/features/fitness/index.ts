@@ -6,6 +6,7 @@ export {
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
+  WeekShapeCard,
 } from './components';
 
 export {

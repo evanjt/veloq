@@ -36,7 +36,7 @@ pub struct WellnessRow {
 
 /// Today in the athlete's own timezone, which is the day their wellness rows
 /// are stamped with.
-fn today_iso() -> String {
+pub(crate) fn today_iso() -> String {
     chrono::Local::now().date_naive().to_string()
 }
 

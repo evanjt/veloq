@@ -407,7 +407,16 @@
     "formTSB": "状态 (TSB)",
     "noData": "无可用体能数据",
     "restDay": "休息日",
-    "selectActivity": "选择活动"
+    "selectActivity": "选择活动",
+    "weekShape": {
+      "title": "本周的形态",
+      "quiet": "较为轻松的一周。训练天数不足，无法读出形态。",
+      "reading": {
+        "lopsided": "在 {{days}} 个训练日中，负荷集中在少数几天。",
+        "mixed": "有轻有重：在 {{days}} 个训练日中，某些天明显更重。",
+        "even": "在 {{days}} 个训练日中分布得相当均匀。"
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动",
     "colorByGradient": "按坡度着色",
-    "periodAll": "全部",
-    "periodThisYear": "今年",
-    "periodSixMonths": "6 个月",
-    "periodThreeMonths": "3 个月",
-    "periodOneMonth": "1 个月",
-    "periodOneWeek": "1 周"
+    "periodThisYear": "今年"
   },
   "metrics": {
     "activityCount": "活动",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "未开始重新分析",
     "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。",
     "elevationBackfillPause": "暂停下载",
-    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。"
+    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。",
+    "exportPrivacyTitle": "导出时不包含住所",
+    "exportPrivacyDescription": "裁去每条轨迹中距住所 100 米以内的起点和终点。只有导出的副本会被缩短。",
+    "exportPrivacySuggested": "你的大部分骑行都从同一个地方出发，其中 {{count}} 次。",
+    "exportPrivacyConfirm": "设为住所",
+    "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。"
   },
   "stats": {
     "activities": "活动",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 前 3 个月",
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
-    "year": "年"
+    "year": "年",
+    "atWeight": "按 {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "有氧效率",
@@ -1394,7 +1404,8 @@
     "ft": "英尺",
     "kcal": "千卡",
     "m": "米",
-    "watts": "瓦"
+    "watts": "瓦",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "拖动探索",
@@ -1500,10 +1511,6 @@
     "recentAvg": "近期平均",
     "earlierAvg": "之前平均",
     "peakWeek": "峰值周",
-    "periodWeek": "周",
-    "period4Weeks": "4 周",
-    "period3Months": "3 个月",
-    "period6Months": "6 个月",
     "disclaimer": "训练量计算是基于已连接设备的运动数据的近似值。",
     "exercise": "动作",
     "exercises": "动作"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "还有 {{count}} 项待获取",
     "statePaused": "已暂停，直到下次打开应用"
+  },
+  "period": {
+    "short": {
+      "7d": "1周",
+      "1m": "1月",
+      "3m": "3月",
+      "6m": "6月",
+      "1y": "1年",
+      "all": "全部"
+    },
+    "long": {
+      "7d": "1 周",
+      "1m": "1 个月",
+      "3m": "3 个月",
+      "6m": "6 个月",
+      "1y": "1 年",
+      "all": "全部"
+    }
   }
 }

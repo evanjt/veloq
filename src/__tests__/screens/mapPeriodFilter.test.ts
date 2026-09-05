@@ -10,7 +10,8 @@
  * rather than reading as the `1Y` that means 365 days elsewhere.
  */
 
-import { PERIOD_OPTIONS, PERIOD_DAYS, getPeriodStart } from '@/features/maps/lib/mapPeriod';
+import { PERIOD_OPTIONS, getPeriodStart } from '@/features/maps/lib/mapPeriod';
+import { PERIOD_DAYS } from '@/shared/app/period';
 import { RANGE_DAYS } from '@/features/routes/constants';
 import en from '@/i18n/locales/en-GB.json';
 
@@ -23,10 +24,10 @@ function labelFor(key: string): unknown {
 }
 
 describe('the map period picker', () => {
-  it('names every option through i18n', () => {
+  it('names every option through i18n, the spans from the shared period set', () => {
     expect(PERIOD_OPTIONS).toHaveLength(6);
     for (const option of PERIOD_OPTIONS) {
-      expect(option.labelKey).toMatch(/^maps\./);
+      expect(option.labelKey).toMatch(option.id === 'year' ? /^maps\./ : /^period\.short\./);
       expect(typeof labelFor(option.labelKey)).toBe('string');
     }
   });
@@ -35,7 +36,7 @@ describe('the map period picker', () => {
     expect(PERIOD_DAYS['1m']).toBe(RANGE_DAYS['1m']);
     expect(PERIOD_DAYS['3m']).toBe(RANGE_DAYS['3m']);
     expect(PERIOD_DAYS['6m']).toBe(RANGE_DAYS['6m']);
-    expect(PERIOD_DAYS['1w']).toBe(7);
+    expect(PERIOD_DAYS['7d']).toBe(7);
   });
 
   it.each([
@@ -44,10 +45,10 @@ describe('the map period picker', () => {
     ['2024-02-29T12:00:00Z', '1m'],
     ['2026-05-15T12:00:00Z', '3m'],
     ['2026-05-15T12:00:00Z', '6m'],
-    ['2026-05-15T12:00:00Z', '1w'],
+    ['2026-05-15T12:00:00Z', '7d'],
   ])('starts %s minus %s exactly that many days back', (now, period) => {
     const at = new Date(now);
-    const start = getPeriodStart(period as keyof typeof PERIOD_DAYS, at);
+    const start = getPeriodStart(period as '1m' | '3m' | '6m' | '7d', at);
     const days = Math.round((at.getTime() - start.getTime()) / DAY_MS);
 
     expect(days).toBe(PERIOD_DAYS[period as keyof typeof PERIOD_DAYS]);

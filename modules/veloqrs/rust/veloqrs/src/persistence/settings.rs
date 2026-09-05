@@ -36,6 +36,13 @@ pub mod settings_keys {
     /// the feature is on by default and an install that never touched the
     /// switch must not read as opted out.
     pub const DETECTION_ENABLED: &str = "__detection_enabled";
+
+    /// Where the athlete lives, and how much of a track around it an export
+    /// leaves behind. Absent or a zero radius means an export is exactly what
+    /// it was before this existed.
+    pub const EXPORT_HOME_LAT: &str = "__export_home_lat";
+    pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
+    pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
 }
 
 impl PersistentEngine {

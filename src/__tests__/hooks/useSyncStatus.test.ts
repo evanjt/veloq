@@ -11,7 +11,12 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
-import type { SyncStatus } from 'veloqrs';
+import { SyncState, type SyncStatus } from 'veloqrs';
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -24,7 +29,7 @@ function status(state: SyncStatus['state'], completed: number): SyncStatus {
     state,
     completed,
     total: 3,
-    inFlight: state === 'syncing' ? 1 : 0,
+    inFlight: state === SyncState.Syncing ? 1 : 0,
     lastError: undefined,
   } as unknown as SyncStatus;
 }
@@ -57,11 +62,11 @@ afterEach(() => {
 });
 
 it('reads once at mount and never on a timer', () => {
-  const engine = fakeEngine(status('syncing', 0));
+  const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
   const { result } = renderHook(() => useSyncStatus());
-  expect(result.current?.state).toBe('syncing');
+  expect(result.current?.state).toBe(SyncState.Syncing);
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
 
   act(() => {
@@ -71,11 +76,11 @@ it('reads once at mount and never on a timer', () => {
 });
 
 it('re-reads when the engine announces a step', () => {
-  const engine = fakeEngine(status('syncing', 0));
+  const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
   const { result } = renderHook(() => useSyncStatus());
-  engine.setSnapshot(status('syncing', 2));
+  engine.setSnapshot(status(SyncState.Syncing, 2));
   act(() => {
     engine.announce('syncProgress');
   });
@@ -84,20 +89,20 @@ it('re-reads when the engine announces a step', () => {
 });
 
 it('re-reads when the engine announces the settle', () => {
-  const engine = fakeEngine(status('syncing', 0));
+  const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
   const { result } = renderHook(() => useSyncStatus());
-  engine.setSnapshot(status('idle', 3));
+  engine.setSnapshot(status(SyncState.Idle, 3));
   act(() => {
     engine.announce('syncSettled');
   });
 
-  expect(result.current?.state).toBe('idle');
+  expect(result.current?.state).toBe(SyncState.Idle);
 });
 
 it('drops its subscriptions on unmount', () => {
-  const engine = fakeEngine(status('idle', 0));
+  const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
   const { unmount } = renderHook(() => useSyncStatus());

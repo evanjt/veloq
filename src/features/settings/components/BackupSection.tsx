@@ -28,6 +28,7 @@ import {
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, ink } from '@/theme';
+import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
 const BACKEND_LABELS = {
@@ -472,6 +473,9 @@ export function BackupSection() {
         >
           <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
         </Modal>
+
+        {/* What an export leaves behind, beside the warning about what it is */}
+        <ExportPrivacyRow />
 
         {/* Encryption warning */}
         <View style={[styles.warningRow, isDark && styles.warningRowDark]}>

@@ -407,7 +407,16 @@
     "formTSB": "Vorm (TSB)",
     "noData": "Geen fitheidsgegevens beschikbaar",
     "restDay": "Rustdag",
-    "selectActivity": "Activiteit selecteren"
+    "selectActivity": "Activiteit selecteren",
+    "weekShape": {
+      "title": "De vorm van deze week",
+      "quiet": "Een rustigere week. Te weinig trainingsdagen om een vorm af te lezen.",
+      "reading": {
+        "lopsided": "Je belasting lag in een paar dagen van {{days}} trainingsdagen.",
+        "mixed": "Gemengd: sommige dagen veel zwaarder dan andere, over {{days}} trainingsdagen.",
+        "even": "Redelijk gelijkmatig verdeeld over {{days}} trainingsdagen."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit",
     "colorByGradient": "Kleur op stijging",
-    "periodAll": "Alles",
-    "periodThisYear": "Dit jaar",
-    "periodSixMonths": "6 maanden",
-    "periodThreeMonths": "3 maanden",
-    "periodOneMonth": "1 maand",
-    "periodOneWeek": "1 week"
+    "periodThisYear": "Dit jaar"
   },
   "metrics": {
     "activityCount": "Activiteiten",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "Heranalyse is niet gestart",
     "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw.",
     "elevationBackfillPause": "Download pauzeren",
-    "elevationBackfillPaused": "Hoogtedownload gepauzeerd. Deze gaat verder wanneer je de app opnieuw opent. Zet Route-matching hierboven uit om sectiedetectie helemaal te stoppen."
+    "elevationBackfillPaused": "Hoogtedownload gepauzeerd. Deze gaat verder wanneer je de app opnieuw opent. Zet Route-matching hierboven uit om sectiedetectie helemaal te stoppen.",
+    "exportPrivacyTitle": "Thuis buiten exports houden",
+    "exportPrivacyDescription": "Knipt het begin en einde van elk spoor binnen 100 m van thuis weg. Alleen de geëxporteerde kopie wordt ingekort.",
+    "exportPrivacySuggested": "De meeste van je ritten starten vlak bij één plek, {{count}} ervan.",
+    "exportPrivacyConfirm": "Gebruik dit als thuis",
+    "exportPrivacyNoSuggestion": "Nog niet genoeg ritten om te bepalen waar thuis is."
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs vorige 3 maanden",
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
-    "year": "Jaar"
+    "year": "Jaar",
+    "atWeight": "bij {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobe efficiëntie",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Sleep om te verkennen",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Recent gem.",
     "earlierAvg": "Eerder gem.",
     "peakWeek": "Piekweek",
-    "periodWeek": "week",
-    "period4Weeks": "4 weken",
-    "period3Months": "3 maanden",
-    "period6Months": "6 maanden",
     "disclaimer": "Volumeberekeningen zijn benaderingen op basis van trainingsgegevens van je verbonden apparaat.",
     "exercise": "oefening",
     "exercises": "oefeningen"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Nog {{count}} op te halen",
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J",
+      "all": "Alles"
+    },
+    "long": {
+      "7d": "1 week",
+      "1m": "1 maand",
+      "3m": "3 maanden",
+      "6m": "6 maanden",
+      "1y": "1 jaar",
+      "all": "Alles"
+    }
   }
 }

@@ -582,6 +582,7 @@ export interface TranslationResource {
     ft: string;
     bpm: string;
     watts: string;
+    wattsPerKg: string;
     kcal: string;
   };
 
@@ -670,10 +671,6 @@ export interface TranslationResource {
     recentAvg: string;
     earlierAvg: string;
     peakWeek: string;
-    periodWeek: string;
-    period4Weeks: string;
-    period3Months: string;
-    period6Months: string;
     disclaimer: string;
     exercise: string;
     exercises: string;
@@ -1159,6 +1156,7 @@ export interface TranslationResource {
   };
 
   stats: {
+    atWeight: string;
     activityCalendar: string;
     activitiesCount: string;
     current: string;
@@ -1247,6 +1245,16 @@ export interface TranslationResource {
     activitiesCount: string;
     restDay: string;
     selectActivity: string;
+    weekShape: {
+      title: string;
+      /** Under the engine's four-day floor, which is half the weeks on a real account. */
+      quiet: string;
+      reading: {
+        lopsided: string;
+        mixed: string;
+        even: string;
+      };
+    };
   };
 
   formZones: {
@@ -1437,13 +1445,13 @@ export interface TranslationResource {
     };
   };
 
+  period: {
+    short: { '7d': string; '1m': string; '3m': string; '6m': string; '1y': string; all: string };
+    long: { '7d': string; '1m': string; '3m': string; '6m': string; '1y': string; all: string };
+  };
+
   maps: {
-    periodAll: string;
     periodThisYear: string;
-    periodSixMonths: string;
-    periodThreeMonths: string;
-    periodOneMonth: string;
-    periodOneWeek: string;
     closeMap: string;
     toggleStyle: string;
     enable3D: string;

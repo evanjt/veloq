@@ -21,7 +21,7 @@
  *      network error and silently queued.
  */
 
-import type { CallOutcome } from 'veloqrs';
+import { CallKind, type CallOutcome } from 'veloqrs';
 
 export type UploadErrorType = 'network' | 'http403' | 'apiError';
 
@@ -43,7 +43,8 @@ function getOutcome(err: unknown): CallOutcome | undefined {
   if (!err || typeof err !== 'object' || !('outcome' in err)) return undefined;
   const outcome = (err as { outcome?: unknown }).outcome;
   if (!outcome || typeof outcome !== 'object') return undefined;
-  return typeof (outcome as CallOutcome).kind === 'string' ? (outcome as CallOutcome) : undefined;
+  const kind = (outcome as CallOutcome).kind;
+  return Object.values(CallKind).includes(kind) ? (outcome as CallOutcome) : undefined;
 }
 
 function fromOutcome(outcome: CallOutcome, errMsg: string): UploadErrorClassification {
@@ -56,7 +57,7 @@ function fromOutcome(outcome: CallOutcome, errMsg: string): UploadErrorClassific
   // Only a request that never reached the server is a network failure. A
   // refused, rate-limited or locally-failed write is not, and queueing one for
   // a connectivity retry would wait on a change that cannot help it.
-  if (outcome.kind === 'network') {
+  if (outcome.kind === CallKind.Network) {
     return { type: 'network', errMsg };
   }
   return { type: 'apiError', httpStatus, apiDetail, errMsg };

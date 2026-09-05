@@ -203,6 +203,22 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 // Aggregate Query Result Types
 // ============================================================================
 
+/// A week's load, day by day, with how evenly it was spread.
+///
+/// The window sum says a week carried four hundred points and not whether that
+/// was one day or seven. Two weeks of the same total spread very differently:
+/// over one real account's 190 loaded weeks, those carrying 200 to 400 points
+/// ran from 0.45 to 1.92 on `evenness`.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiWeekLoadShape {
+    /// One entry per day of the window, gaps included as zero.
+    pub daily: Vec<f64>,
+    /// Days carrying any load at all.
+    pub training_days: u32,
+    /// Mean daily load over its standard deviation. Higher is more even.
+    pub evenness: f64,
+}
+
 /// Aggregated stats for a date range.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiPeriodStats {
@@ -1646,6 +1662,16 @@ pub struct FfiSectionDetailData {
     pub map_signatures: Vec<FfiMapSignature>,
     /// Activities whose time streams still have to be fetched
     pub missing_time_stream_ids: Vec<String>,
+    /// The section's change ledger, oldest first
+    pub history: Vec<FfiSectionHistoryEvent>,
+    /// Every stored geometry version, with the pinned one flagged
+    pub geometry_versions: Vec<FfiSectionGeometryVersion>,
+    /// The pinned version, or `None` when the section follows the newest cut
+    pub pinned_version: Option<i64>,
+    /// Laps the user excluded, keyed the way the junction rows are
+    pub excluded_laps: Vec<FfiExcludedLap>,
+    /// Efficiency trend, or `None` with too few efforts to call one
+    pub efficiency_trend: Option<FfiEfficiencyTrend>,
 }
 
 /// The section detail reads that need lap times.
@@ -2533,6 +2559,26 @@ pub struct FfiMergeCandidate {
     pub visit_count: u32,
     pub overlap_pct: f64,
     pub center_distance_meters: f64,
+}
+
+/// A section whose line starts within reach of one fix.
+///
+/// `start_distance_meters` is from the fix to the section's first point, not
+/// to its centre: a live recorder is asking what it is about to enter, and a
+/// long section's centre is nowhere near where it begins.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionNearPoint {
+    pub id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub start_distance_meters: f64,
+    /// Bearing of the section's opening metres, degrees clockwise from north.
+    /// `None` for a line whose first points coincide.
+    pub entry_bearing_degrees: Option<f64>,
+    /// Delta+varint encoded coordinates for map overlay
+    pub encoded_polyline: Vec<u8>,
 }
 
 /// Nearby section summary with distance info and polyline for map rendering.

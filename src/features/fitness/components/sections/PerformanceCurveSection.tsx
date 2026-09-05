@@ -1,4 +1,6 @@
 import React from 'react';
+import { usePowerCurve, usePaceCurve } from '@/features/stats/hooks';
+import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +50,31 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
+  // The chart under each row decides whether there is a series, so the header
+  // asks the same query it does. Both read one cache entry.
+  const powerCurve = usePowerCurve({ days, enabled: sportMode === 'Cycling' });
+  const runCurve = usePaceCurve({ sport: 'Run', days, enabled: sportMode === 'Running' });
+  const swimCurve = usePaceCurve({ sport: 'Swim', days, enabled: sportMode === 'Swimming' });
+
+  const headerFtp = curveHeaderValue({
+    value: currentFTP,
+    hasSeries: powerCurve.data.secs.length > 0,
+    isLoading: powerCurve.isLoading,
+    isError: powerCurve.isError,
+  });
+  const headerRunPace = curveHeaderValue({
+    value: thresholdPace,
+    hasSeries: runCurve.data.distances.length > 0,
+    isLoading: runCurve.isLoading,
+    isError: runCurve.isError,
+  });
+  const headerSwimPace = curveHeaderValue({
+    value: swimThresholdPace,
+    hasSeries: swimCurve.data.distances.length > 0,
+    isLoading: swimCurve.isLoading,
+    isError: swimCurve.isError,
+  });
+
   return (
     <>
       {/* Performance Section - Power/Pace Curve */}
@@ -66,17 +93,17 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           onToggle={onPerformanceToggle}
           estimatedHeight={240}
           headerRight={
-            sportMode === 'Cycling' && currentFTP ? (
+            sportMode === 'Cycling' && headerFtp ? (
               <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                {currentFTP}w
+                {headerFtp}w
               </Text>
-            ) : sportMode === 'Running' && thresholdPace ? (
+            ) : sportMode === 'Running' && headerRunPace ? (
               <Text style={[styles.headerValue, { color: SPORT_COLORS.Running }]}>
-                {formatPaceCompact(thresholdPace)}/km
+                {formatPaceCompact(headerRunPace)}/km
               </Text>
-            ) : sportMode === 'Swimming' && swimThresholdPace ? (
+            ) : sportMode === 'Swimming' && headerSwimPace ? (
               <Text style={[styles.headerValue, { color: SPORT_COLORS.Swimming }]}>
-                {formatSwimPace(swimThresholdPace)}/100m
+                {formatSwimPace(headerSwimPace)}/100m
               </Text>
             ) : null
           }

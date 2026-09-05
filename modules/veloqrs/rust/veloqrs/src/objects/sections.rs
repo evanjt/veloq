@@ -128,16 +128,21 @@ impl SectionManager {
         })
     }
 
-    fn get_polyline(&self, section_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
+    /// The section's line, coordinate-encoded like every other track that
+    /// leaves the engine. It used to box a record per point and its one caller
+    /// unboxed them again, which is the cost the encoding exists to avoid.
+    fn get_polyline(&self, section_id: String) -> Result<Vec<u8>, VeloqError> {
         with_engine(|e| {
             let flat = e.get_section_polyline(&section_id);
-            flat.chunks(2)
-                .map(|c| crate::FfiGpsPoint {
+            let points: Vec<crate::GpsPoint> = flat
+                .chunks_exact(2)
+                .map(|c| crate::GpsPoint {
                     latitude: c[0],
                     longitude: c[1],
                     elevation: None,
                 })
-                .collect()
+                .collect();
+            crate::coords::encode(&points)
         })
     }
 
@@ -740,6 +745,22 @@ impl SectionManager {
     ) -> Result<crate::FfiSectionChartData, VeloqError> {
         with_engine(|e| {
             e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref())
+        })
+    }
+
+    /// The sections a fix could be entering, nearest start first.
+    ///
+    /// Keyed on a coordinate rather than a section, so a live recording can
+    /// ask what is in front of it. `sport` matches the stored sport exactly.
+    fn get_near_point(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        sport_type: Option<String>,
+        radius_meters: f64,
+    ) -> Result<Vec<crate::FfiSectionNearPoint>, VeloqError> {
+        with_engine_read(|e| {
+            e.sections_near_point(latitude, longitude, sport_type.as_deref(), radius_meters)
         })
     }
 

@@ -14,6 +14,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
 import { useStartupData } from '@/features/home/hooks/useStartupData';
+import { SyncState } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -31,7 +32,7 @@ jest.mock('@/features/insights/lib/insightsParams', () => ({
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const listeners = new Map<string, Set<() => void>>();
-let syncState = 'syncing';
+let syncState: SyncState = SyncState.Syncing;
 let reads = 0;
 
 function engine() {
@@ -70,7 +71,7 @@ describe('useStartupData read count', () => {
     jest.useFakeTimers();
     listeners.clear();
     reads = 0;
-    syncState = 'syncing';
+    syncState = SyncState.Syncing;
     mockGetEngine.mockReturnValue(engine());
   });
 
@@ -99,14 +100,14 @@ describe('useStartupData read count', () => {
     announce('activities');
     expect(reads).toBe(1);
 
-    syncState = 'idle';
+    syncState = SyncState.Idle;
     announce('syncSettled');
 
     expect(reads).toBe(2);
   });
 
   it('still refreshes on an announcement outside a sync', () => {
-    syncState = 'idle';
+    syncState = SyncState.Idle;
     mount();
     expect(reads).toBe(1);
 
@@ -123,7 +124,7 @@ describe('useStartupData read count', () => {
   });
 
   it('does not read again when the settle brings nothing new to announce', () => {
-    syncState = 'idle';
+    syncState = SyncState.Idle;
     mount();
     const after = reads;
 

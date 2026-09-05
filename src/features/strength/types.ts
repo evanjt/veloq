@@ -17,7 +17,7 @@ export interface StrengthSummary {
   totalSets: number;
 }
 
-export type StrengthPeriod = 'week' | '4weeks' | '3months' | '6months';
+export type { StrengthPeriod } from './periods';
 
 export interface StrengthProgressPoint {
   label: string;

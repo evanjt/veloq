@@ -407,7 +407,16 @@
     "formTSB": "Form-balance (TSB)",
     "noData": "Ingen fitnessdata tilgængelig",
     "restDay": "Hviledag",
-    "selectActivity": "Vælg aktivitet"
+    "selectActivity": "Vælg aktivitet",
+    "weekShape": {
+      "title": "Ugens form",
+      "quiet": "En roligere uge. Ikke nok dage med træning til at aflæse en form.",
+      "reading": {
+        "lopsided": "Din belastning lå i et par dage ud af {{days}} træningsdage.",
+        "mixed": "Blandet: nogle dage var meget hårdere end andre, over {{days}} træningsdage.",
+        "even": "Fordelt nogenlunde jævnt over {{days}} træningsdage."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -715,12 +724,7 @@
     "viewSectionDetails": "Vis sektionsdetaljer",
     "zoomToActivity": "Zoom til aktivitet",
     "colorByGradient": "Farv efter gradient",
-    "periodAll": "Alle",
-    "periodThisYear": "I år",
-    "periodSixMonths": "6 måneder",
-    "periodThreeMonths": "3 måneder",
-    "periodOneMonth": "1 måned",
-    "periodOneWeek": "1 uge"
+    "periodThisYear": "I år"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -1293,7 +1297,12 @@
     "previewKeepRefusedTitle": "Genanalysen startede ikke",
     "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik.",
     "elevationBackfillPause": "Sæt download på pause",
-    "elevationBackfillPaused": "Højdedownload sat på pause. Den genoptages, næste gang du åbner appen. Slå Rutematchning fra ovenfor for at stoppe sektionsdetektering helt."
+    "elevationBackfillPaused": "Højdedownload sat på pause. Den genoptages, næste gang du åbner appen. Slå Rutematchning fra ovenfor for at stoppe sektionsdetektering helt.",
+    "exportPrivacyTitle": "Udelad hjemmet i eksporter",
+    "exportPrivacyDescription": "Beskærer starten og slutningen af hvert spor inden for 100 m fra hjemmet. Kun den eksporterede kopi forkortes.",
+    "exportPrivacySuggested": "De fleste af dine ture starter nær ét sted, {{count}} af dem.",
+    "exportPrivacyConfirm": "Brug det som hjem",
+    "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er."
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs forrige 3 måneder",
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
-    "year": "År"
+    "year": "År",
+    "atWeight": "ved {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerob effektivitet",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Træk for at udforske",
@@ -1500,10 +1511,6 @@
     "recentAvg": "Seneste gns",
     "earlierAvg": "Tidligere gns",
     "peakWeek": "Topuge",
-    "periodWeek": "uge",
-    "period4Weeks": "4 uger",
-    "period3Months": "3 måneder",
-    "period6Months": "6 måneder",
     "disclaimer": "Volumenberegninger er tilnærmelser baseret på træningsdata fra din tilsluttede enhed.",
     "exercise": "øvelse",
     "exercises": "øvelser"
@@ -1611,5 +1618,23 @@
     "progressPercent": "{{percent}} %",
     "remaining": "{{count}} mangler at blive hentet",
     "statePaused": "På pause, indtil appen åbnes igen"
+  },
+  "period": {
+    "short": {
+      "7d": "1U",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Å",
+      "all": "Alle"
+    },
+    "long": {
+      "7d": "1 uge",
+      "1m": "1 måned",
+      "3m": "3 måneder",
+      "6m": "6 måneder",
+      "1y": "1 år",
+      "all": "Alle"
+    }
   }
 }
