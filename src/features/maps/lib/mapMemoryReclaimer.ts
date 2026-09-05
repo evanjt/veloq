@@ -1,5 +1,8 @@
+import { AppState } from 'react-native';
+
 import { registerReclaimer, TRIM_MODERATE } from '@/shared/app/memoryPressure';
 
+import { releaseMountedSurfaces, rebuildReleasedSurfaces } from './mapSurfaceRegistry';
 import { emitClearTileCache } from './terrainSnapshotEvents';
 
 /**
@@ -13,4 +16,28 @@ export function registerTileCacheReclaimer(): () => void {
     minLevel: TRIM_MODERATE,
     release: () => emitClearTileCache(),
   });
+}
+
+/**
+ * The MapLibre instances themselves, with every texture in them. A map the
+ * athlete is looking at is never torn down, which is what iOS's foreground
+ * warning would otherwise do. The rebuild is a page reload on the next
+ * foreground, the same path a crashed render process takes.
+ */
+export function registerMapSurfaceReclaimer(): () => void {
+  const off = registerReclaimer({
+    name: 'map-surfaces',
+    minLevel: TRIM_MODERATE,
+    release: () => {
+      if (AppState.currentState === 'active') return;
+      releaseMountedSurfaces();
+    },
+  });
+  const foreground = AppState.addEventListener('change', (state) => {
+    if (state === 'active') rebuildReleasedSurfaces();
+  });
+  return () => {
+    off();
+    foreground.remove();
+  };
 }

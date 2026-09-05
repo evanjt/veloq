@@ -3,6 +3,7 @@ package com.veloq.memory
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
+import com.facebook.drawee.backends.pipeline.Fresco
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -23,6 +24,11 @@ class VeloqMemoryModule : Module() {
     Name("VeloqMemory")
 
     Events("onTrimMemory")
+
+    // React Native clears Fresco's bitmaps only when the last activity is destroyed.
+    Function("clearImageCache") {
+      if (Fresco.hasBeenInitialized()) Fresco.getImagePipeline().clearMemoryCaches()
+    }
 
     OnStartObserving("onTrimMemory") {
       if (callbacks != null) return@OnStartObserving

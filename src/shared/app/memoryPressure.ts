@@ -58,9 +58,19 @@ interface VeloqMemoryModule {
     event: 'onTrimMemory',
     listener: (event: { level: number }) => void
   ): { remove(): void };
+  clearImageCache?(): void;
 }
 
 const VeloqMemory = requireOptionalNativeModule<VeloqMemoryModule>('VeloqMemory');
+
+/**
+ * Drops Fresco's decoded bitmaps. React Native clears them only when the last
+ * activity is destroyed, and no trim level reaches the image pipeline from
+ * JavaScript, so the native module does it. No-op where the module is absent.
+ */
+export function clearNativeImageCache(): void {
+  VeloqMemory?.clearImageCache?.();
+}
 
 /**
  * Subscribes both platform signals. iOS gives no level and no second warning, so its
