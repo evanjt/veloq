@@ -104,7 +104,7 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
 /// `section_catalogue_archive_members` is deliberately absent. It is a frozen
 /// snapshot of the pre-cutover catalogue with the lap data denormalised into
 /// it, so removing an activity from it would rewrite a record of what was once
-/// true. Whether the archive owns its rows is `C21`.
+/// true. Whether the archive owns those rows or mirrors them is unsettled.
 const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "activity_bodies",
     "activity_metrics",
