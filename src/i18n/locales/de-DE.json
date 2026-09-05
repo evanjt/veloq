@@ -247,7 +247,10 @@
     "grantCameraAccess": "Kamerazugriff gewähren",
     "fillAllFields": "Bitte fülle alle Felder aus",
     "nextcloudSetup": "Bei Verwendung von Nextcloud WebDAV",
-    "manualSetup": "Oder manuell eingeben"
+    "manualSetup": "Oder manuell eingeben",
+    "webdavHttpsRequired": "Verwende eine https://-Adresse. Ein einfacher http://-Server würde dein Passwort und deine gesamte Datenbank unverschlüsselt erhalten.",
+    "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
+    "webdavPlainLan": "Unverschlüsselten Server in meinem eigenen Netzwerk erlauben"
   },
   "bestEffortsScreen": {
     "title": "Beste Leistungen",

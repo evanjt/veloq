@@ -247,7 +247,10 @@
     "grantCameraAccess": "Giv kameraadgang",
     "fillAllFields": "Udfyld venligst alle felter",
     "nextcloudSetup": "Hvis du bruger Nextcloud WebDAV",
-    "manualSetup": "Eller indtast manuelt"
+    "manualSetup": "Eller indtast manuelt",
+    "webdavHttpsRequired": "Brug en https://-adresse. En almindelig http://-server ville modtage din adgangskode og hele din database ukrypteret.",
+    "webdavInvalidUrl": "Det er ikke en gyldig serveradresse",
+    "webdavPlainLan": "Tillad en ukrypteret server på mit eget netværk"
   },
   "bestEffortsScreen": {
     "title": "Bedste indsatser",
