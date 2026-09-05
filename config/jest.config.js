@@ -28,8 +28,17 @@ const worktreeIgnores = inWorktree ? [] : ["/.claude/worktrees/"];
 // the only run that collects them.
 const perfIgnores = process.env.VELOQ_PERF === "1" ? [] : ["\\.perf\\.test\\."];
 
+// Jest's default cache directory is the system temp directory, which on this
+// machine is a tmpfs, so every transform cache and haste map was resident
+// memory. The path is keyed on the project root, so each worktree gets its own
+// and a removed worktree leaves its cache behind: five sessions reached 8.4 GB
+// across 354 directories and three of them died with /tmp full. Under the repo
+// it is on disk, still per worktree, and `.jest-cache/` is git-ignored.
+const cacheDirectory = require("path").join(__dirname, "..", ".jest-cache");
+
 module.exports = {
   preset: "jest-expo",
+  cacheDirectory,
   testEnvironment: "node",
   silent: true,
   rootDir: "..",
