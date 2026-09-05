@@ -183,6 +183,8 @@
     "accountChangeTitle": "Account diverso rilevato",
     "accountChangeMessage": "Questo dispositivo ha dati in cache di un altro account ({{cachedAthleteId}}). Accedere con un account diverso eliminerà permanentemente questi dati. Torna indietro e accedi a quell'account per conservarli.",
     "accountChangeDemoMessage": "Questo dispositivo ha dati in cache di un altro account ({{cachedAthleteId}}). Continuare in modalità demo eliminerà permanentemente questi dati. Torna indietro e accedi prima a quell'account per conservarli.",
+    "accountChangeUnknownMessage": "Questo dispositivo contiene una libreria di un altro account. Accedere con un account diverso la eliminerà permanentemente. Per conservarla, torna indietro e accedi con quell'account.",
+    "accountChangeUnknownDemoMessage": "Questo dispositivo contiene una libreria di un altro account. Continuare in modalità demo la eliminerà permanentemente. Per conservarla, torna indietro e accedi prima con quell'account.",
     "accountChangeContinue": "Continua ed elimina",
     "disconnectAndClearTitle": "Disconnettersi ed eliminare i dati?",
     "disconnectAndClearMessage": "Questo ti disconnette E elimina tutte le attività, tracce GPS, sezioni e dati dei percorsi in cache su questo dispositivo. I dati verranno risincronizzati da intervals.icu al prossimo accesso. Questa azione non può essere annullata.",

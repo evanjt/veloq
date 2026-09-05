@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anden konto registreret",
     "accountChangeMessage": "Denne enhed har cachedata for en anden konto ({{cachedAthleteId}}). At logge ind med en anden konto vil permanent slette disse data. Gå tilbage og log ind på den konto i stedet for at beholde dem.",
     "accountChangeDemoMessage": "Denne enhed har cachedata for en anden konto ({{cachedAthleteId}}). Fortsætter du til demotilstand, slettes disse data permanent. Gå tilbage og log ind på den konto først for at beholde dem.",
+    "accountChangeUnknownMessage": "Denne enhed har et bibliotek fra en anden konto. At logge ind med en anden konto vil permanent slette det. Gå tilbage og log ind på den konto for at beholde det.",
+    "accountChangeUnknownDemoMessage": "Denne enhed har et bibliotek fra en anden konto. Fortsætter du til demotilstand, slettes det permanent. Gå tilbage og log ind på den konto først for at beholde det.",
     "accountChangeContinue": "Fortsæt og slet",
     "disconnectAndClearTitle": "Log ud og slet data?",
     "disconnectAndClearMessage": "Dette logger dig ud OG sletter alle cachelagrede aktiviteter, GPS-spor, sektioner og rutedata på denne enhed. Data synkroniseres igen fra intervals.icu næste gang du logger ind. Dette kan ikke fortrydes.",
