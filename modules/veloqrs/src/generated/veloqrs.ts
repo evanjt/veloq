@@ -5251,6 +5251,10 @@ export type FfiRouteDetailData = {
    * Simplified GPS signatures for the route's activities
    */
   mapSignatures: Array<FfiMapSignature>;
+  /**
+   * Visible sections the route's activities pass through
+   */
+  sectionIds: Array<string>;
 };
 
 /**
@@ -5283,6 +5287,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         routeNames: FfiConverterMapStringString.read(from),
         excludedActivityIds: FfiConverterArrayString.read(from),
         mapSignatures: FfiConverterArrayTypeFfiMapSignature.read(from),
+        sectionIds: FfiConverterArrayString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5294,6 +5299,7 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
       FfiConverterMapStringString.write(value.routeNames, into);
       FfiConverterArrayString.write(value.excludedActivityIds, into);
       FfiConverterArrayTypeFfiMapSignature.write(value.mapSignatures, into);
+      FfiConverterArrayString.write(value.sectionIds, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5306,7 +5312,10 @@ const FfiConverterTypeFfiRouteDetailData = (() => {
         FfiConverterArrayBuffer.allocationSize(value.encodedConsensus) +
         FfiConverterMapStringString.allocationSize(value.routeNames) +
         FfiConverterArrayString.allocationSize(value.excludedActivityIds) +
-        FfiConverterArrayTypeFfiMapSignature.allocationSize(value.mapSignatures)
+        FfiConverterArrayTypeFfiMapSignature.allocationSize(
+          value.mapSignatures,
+        ) +
+        FfiConverterArrayString.allocationSize(value.sectionIds)
       );
     }
   }
@@ -5845,6 +5854,9 @@ export type FfiSection = {
   version?: /*u32*/ number;
   updatedAt?: string;
   createdAt: string;
+  /**
+   * Routes the section's activities are grouped into, from the junction join
+   */
   routeIds?: Array<string>;
   sourceActivityId?: string;
   startIndex?: /*u32*/ number;
@@ -6584,9 +6596,8 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
  * Which sections a read wants. Every field is a narrowing, and an empty
  * filter is every visible section.
  *
- * One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
- * and `get_for_activity` all returned the same list and only two of them
- * applied the corridor-name overlay (`C31`).
+ * One record rather than a call per narrowing: every read returns the same
+ * list, and the corridor-name overlay is applied once behind it.
  */
 export type FfiSectionFilter = {
   /**
@@ -6805,7 +6816,7 @@ export type FfiSectionLap = {
    */
   distance: /*f64*/ number;
   /**
-   * Direction: "forward" or "backward"
+   * Direction: "same", "reverse" or "partial"
    */
   direction: string;
   /**
@@ -7171,7 +7182,7 @@ export type FfiSectionPerformanceRecord = {
    */
   avgPace: /*f64*/ number;
   /**
-   * Primary direction: "forward" or "backward"
+   * Primary direction: "same" or "reverse"
    */
   direction: string;
   /**
