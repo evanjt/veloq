@@ -224,13 +224,16 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         color = colors.chartBandNeutral;
       }
 
+      // An interval with no moving time still counts as one, it just adds
+      // nothing to the total.
+      const movingTime = interval.moving_time ?? 0;
       if (chipMap.has(key)) {
         const idx = chipMap.get(key)!;
         chips[idx].count++;
-        chips[idx].totalTime += interval.moving_time;
+        chips[idx].totalTime += movingTime;
       } else {
         chipMap.set(key, chips.length);
-        chips.push({ label, color, count: 1, totalTime: interval.moving_time });
+        chips.push({ label, color, count: 1, totalTime: movingTime });
       }
     }
     return chips;

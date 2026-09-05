@@ -71,19 +71,17 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         </Text>
         <View style={styles.statsRow}>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {formatDistance(item.distance, isMetric)}
+            {item.distance != null ? formatDistance(item.distance, isMetric) : '--'}
           </Text>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {formatDuration(item.moving_time)}
+            {item.moving_time != null ? formatDuration(item.moving_time) : '--'}
           </Text>
           <Text style={[styles.colStat, isDark && styles.textLight]}>
-            {showPace
-              ? item.average_speed > 0
+            {item.average_speed == null || item.average_speed <= 0
+              ? '--'
+              : showPace
                 ? formatPace(item.average_speed, isMetric)
-                : '--'
-              : item.average_speed > 0
-                ? formatSpeed(item.average_speed, isMetric)
-                : '--'}
+                : formatSpeed(item.average_speed, isMetric)}
           </Text>
           {hasHR && (
             <Text
