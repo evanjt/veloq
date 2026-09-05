@@ -389,7 +389,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       // The restored database is not the one the launch triggers ran against.
       // Every stamp that described the replaced database goes first, and then
       // both triggers run here rather than waiting for a cold start: the
-      // engine-init effect does not re-run on a restore (`SB13`).
+      // engine-init effect does not re-run on a restore.
       await clearDatabaseStamps();
       await startElevationBackfillAfterUpdate().catch(() => false);
       await startDetectorCutoverAfterUpdate().catch(() => false);
@@ -469,7 +469,7 @@ const LEGACY_BACKUP_VERSION = 2;
  * `.veloqdb` restore clears those markers instead, because it replaces the very
  * database they described, and the list of them is `DATABASE_LOCAL_STAMPS`; the
  * legacy JSON path below does not touch the database, so it leaves them alone
- * (`SB13`).
+ *.
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',

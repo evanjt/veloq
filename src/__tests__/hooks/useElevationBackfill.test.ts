@@ -231,7 +231,7 @@ describe('useElevationBackfill', () => {
 /**
  * At rest the phase is `idle` on every launch, because it is a process-global
  * that only a pass moves. The outstanding count is the durable fact, and
- * nothing read it (`B247`).
+ * nothing read it.
  */
 describe('useElevationBackfill outstanding count', () => {
   it('reads the count at rest', () => {

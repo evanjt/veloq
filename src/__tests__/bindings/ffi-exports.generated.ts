@@ -81,7 +81,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 626,
     paramCount: 1,
     returnType: 'void',
-    docs: 'Tell the engine what TypeScript sees on the network. `Q65` put the network lifecycle in Rust, and nothing in the crate can see the network itself, so this is the whole of its connectivity input. Call it from the same place that calls `onlineManager.setOnline`, on every transition and on foreground, so there is one debounce and one edge rather than two. The value is advisory and only ever a reason to refuse work: a state nobody has refreshed for fifteen minutes expires back to "try", and an install that never calls this behaves exactly as it did before.',
+    docs: 'Tell the engine what TypeScript sees on the network. The network lifecycle is Rust\'s, and nothing in the crate can see the network itself, so this is the whole of its connectivity input. Call it from the same place that calls `onlineManager.setOnline`, on every transition and on foreground, so there is one debounce and one edge rather than two. The value is advisory and only ever a reason to refuse work: a state nobody has refreshed for fifteen minutes expires back to "try", and an install that never calls this behaves exactly as it did before.',
   },
   {
     name: 'get_network_push',

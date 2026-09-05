@@ -1,6 +1,6 @@
 /**
  * The start date the engine needs to decide whether a sync downloads every
- * series or only the three the track needs (`B140`).
+ * series or only the three the track needs.
  *
  * It has to come from here rather than from the database: `activities.start_date`
  * is filled by the metrics sync, which lands after the GPS sync on a first run,
