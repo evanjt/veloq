@@ -50,15 +50,9 @@ const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: n
   strict: { matchPct: 65, endpoint: 180 },
 };
 
-// The configuration the detector is validated at. Written in full so it
-// cannot inherit a value an older config left behind.
-export const UNIFIED_CONFIG = {
-  proximityThreshold: 200,
-  minSectionLength: 150,
-  maxSectionLength: 200000,
-  minActivities: 2,
-  divergenceThreshold: 0.15,
-};
+// The configuration the detector is validated at, generated from
+// `SectionConfig::default()` so the two cannot drift apart (`C37`).
+export { UNIFIED_CONFIG } from './unifiedConfig.generated';
 
 /**
  * Apply the route-grouping strictness to the Rust engine. The detector's own
