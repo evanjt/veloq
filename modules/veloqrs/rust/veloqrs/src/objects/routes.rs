@@ -27,28 +27,25 @@ impl RouteManager {
         with_engine(|e| e.get_group_by_id(&group_id).map(crate::FfiRouteGroup::from))
     }
 
-    fn get_summaries_with_count(&self) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
-        with_engine(|e| crate::FfiGroupSummariesResult {
-            total_count: e.get_group_count(),
-            summaries: e.get_group_summaries(),
-        })
-    }
-
-    /// Filtered + sorted group summaries. Pushes the activity-count threshold
-    /// and sort key into Rust so the hook stops re-iterating in TS.
-    /// `sort_key` accepts "count" or "name"; anything else maps to "count".
-    fn get_filtered_summaries(
+    /// Group summaries with the total count beside them.
+    ///
+    /// `sort_key` accepts "count" and "name"; anything else, and `None`,
+    /// leaves the engine's own order.
+    fn get_summaries(
         &self,
-        min_activities: u32,
-        sort_key: String,
+        min_activities: Option<u32>,
+        sort_key: Option<String>,
     ) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
         with_engine(|e| {
             let total_count = e.get_group_count();
             let mut summaries = e.get_group_summaries();
-            summaries.retain(|g| g.activity_count >= min_activities);
-            match sort_key.as_str() {
-                "name" => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
-                _ => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+            if let Some(min_activities) = min_activities {
+                summaries.retain(|g| g.activity_count >= min_activities);
+            }
+            match sort_key.as_deref() {
+                Some("name") => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
+                Some("count") => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+                _ => {}
             }
             crate::FfiGroupSummariesResult {
                 total_count,

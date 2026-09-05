@@ -5816,7 +5816,6 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
 })();
 
 /**
- * Unified section for FFI.
  * Represents both auto-detected and custom sections with the same structure.
  */
 export type FfiSection = {
@@ -6574,6 +6573,85 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
         FfiConverterArrayBuffer.allocationSize(value.encodedTrack) +
         FfiConverterUInt32.allocationSize(value.sectionStartIdx) +
         FfiConverterUInt32.allocationSize(value.sectionEndIdx)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Unified section for FFI.
+ * Which sections a read wants. Every field is a narrowing, and an empty
+ * filter is every visible section.
+ *
+ * One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
+ * and `get_for_activity` all returned the same list and only two of them
+ * applied the corridor-name overlay (`C31`).
+ */
+export type FfiSectionFilter = {
+  /**
+   * Only this sport's sections.
+   */
+  sportType?: string;
+  /**
+   * Only sections visited at least this many times.
+   */
+  minVisits?: /*u32*/ number;
+  /**
+   * Only "auto" or only "custom" sections.
+   */
+  sectionType?: string;
+  /**
+   * Only sections this activity passes through.
+   */
+  activityId?: string;
+};
+
+/**
+ * Generated factory for {@link FfiSectionFilter} record objects.
+ */
+export const FfiSectionFilter = (() => {
+  const defaults = () => ({
+    sportType: undefined,
+    minVisits: undefined,
+    sectionType: undefined,
+    activityId: undefined,
+  });
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionFilter, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionFilter>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionFilter = (() => {
+  type TypeName = FfiSectionFilter;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sportType: FfiConverterOptionalString.read(from),
+        minVisits: FfiConverterOptionalUInt32.read(from),
+        sectionType: FfiConverterOptionalString.read(from),
+        activityId: FfiConverterOptionalString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalString.write(value.sportType, into);
+      FfiConverterOptionalUInt32.write(value.minVisits, into);
+      FfiConverterOptionalString.write(value.sectionType, into);
+      FfiConverterOptionalString.write(value.activityId, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.sportType) +
+        FfiConverterOptionalUInt32.allocationSize(value.minVisits) +
+        FfiConverterOptionalString.allocationSize(value.sectionType) +
+        FfiConverterOptionalString.allocationSize(value.activityId)
       );
     }
   }
@@ -12696,15 +12774,6 @@ export interface RouteManagerLike {
     routeId: string,
     sportType: string | undefined,
   ) /*throws*/ : FfiRoutePerformanceResult;
-  /**
-   * Filtered + sorted group summaries. Pushes the activity-count threshold
-   * and sort key into Rust so the hook stops re-iterating in TS.
-   * `sort_key` accepts "count" or "name"; anything else maps to "count".
-   */
-  getFilteredSummaries(
-    minActivities: /*u32*/ number,
-    sortKey: string,
-  ) /*throws*/ : FfiGroupSummariesResult;
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
@@ -12721,7 +12790,16 @@ export interface RouteManagerLike {
     userLat: /*f64*/ number,
     userLng: /*f64*/ number,
   ) /*throws*/ : FfiRoutesScreenData;
-  getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
+  /**
+   * Group summaries with the total count beside them.
+   *
+   * `sort_key` accepts "count" and "name"; anything else, and `None`,
+   * leaves the engine's own order.
+   */
+  getSummaries(
+    minActivities: /*u32*/ number | undefined,
+    sortKey: string | undefined,
+  ) /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
   setRepresentative(routeId: string, activityId: string) /*throws*/ : void;
@@ -12932,33 +13010,6 @@ export class RouteManager
     );
   }
 
-  /**
-   * Filtered + sorted group summaries. Pushes the activity-count threshold
-   * and sort key into Rust so the hook stops re-iterating in TS.
-   * `sort_key` accepts "count" or "name"; anything else maps to "count".
-   */
-  getFilteredSummaries(
-    minActivities: /*u32*/ number,
-    sortKey: string,
-  ): FfiGroupSummariesResult /*throws*/ {
-    return FfiConverterTypeFfiGroupSummariesResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-            FfiConverterUInt32.lower(minActivities),
-            FfiConverterString.lower(sortKey),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
@@ -13019,15 +13070,26 @@ export class RouteManager
     );
   }
 
-  getSummariesWithCount(): FfiGroupSummariesResult /*throws*/ {
+  /**
+   * Group summaries with the total count beside them.
+   *
+   * `sort_key` accepts "count" and "name"; anything else, and `None`,
+   * leaves the engine's own order.
+   */
+  getSummaries(
+    minActivities: /*u32*/ number | undefined,
+    sortKey: string | undefined,
+  ): FfiGroupSummariesResult /*throws*/ {
     return FfiConverterTypeFfiGroupSummariesResult.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
         ),
         /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterOptionalUInt32.lower(minActivities),
+            FfiConverterOptionalString.lower(sortKey),
             callStatus,
           );
         },
@@ -13222,7 +13284,6 @@ export interface SectionManagerLike {
   getActivitySectionEncounters(
     activityId: string,
   ) /*throws*/ : Array<FfiSectionEncounter>;
-  getAll() /*throws*/ : Array<FfiSection>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
@@ -13231,7 +13292,6 @@ export interface SectionManagerLike {
     sportType: string | undefined,
   ) /*throws*/ : Array<SectionSummary>;
   getById(sectionId: string) /*throws*/ : FfiSection | undefined;
-  getByType(sectionType: string | undefined) /*throws*/ : Array<FfiSection>;
   getCalendarSummary(
     sectionId: string,
   ) /*throws*/ : FfiCalendarSummary | undefined;
@@ -13279,22 +13339,6 @@ export interface SectionManagerLike {
     sectionId: string,
   ) /*throws*/ : FfiSectionPerformanceResult;
   getExtensionTrack(sectionId: string) /*throws*/ : FfiSectionExtensionTrack;
-  getFiltered(
-    sportType: string | undefined,
-    minVisits: /*u32*/ number | undefined,
-  ) /*throws*/ : Array<FfiSection>;
-  /**
-   * Filtered + sorted section summaries. Pushes the visit-count threshold
-   * and sort key into Rust so TS stops re-iterating the summaries list.
-   * `sort_key` accepts "visits", "distance", "name"; anything else maps to
-   * the default ("visits").
-   */
-  getFilteredSummaries(
-    sportType: string | undefined,
-    minVisits: /*u32*/ number,
-    sortKey: string,
-  ) /*throws*/ : FfiSectionSummariesResult;
-  getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
   /**
    * A stored version's line, coordinate-encoded like a section polyline.
    */
@@ -13340,8 +13384,26 @@ export interface SectionManagerLike {
   getRecentChanges(days: /*u32*/ number) /*throws*/ : Array<FfiSectionChange>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
-  getSummariesWithCount(
-    sportType: string | undefined,
+  /**
+   * The sections a read wants, with the corridor-name overlay applied.
+   *
+   * One call rather than four: the filter narrows by sport, visit floor,
+   * type and activity, and an empty filter is every visible section. The
+   * overlay is applied here, once, so the name an athlete gave a corridor
+   * reads the same on every screen.
+   */
+  getSections(filter: FfiSectionFilter) /*throws*/ : Array<FfiSection>;
+  /**
+   * Section summaries for a filter, with the total count beside them.
+   *
+   * `sort_key` accepts "visits", "distance" and "name"; anything else, and
+   * `None`, leaves the engine's own order. The visit floor counts outings
+   * and the sort counts traversals: laps show ground covered, not that the
+   * athlete came back.
+   */
+  getSummaries(
+    filter: FfiSectionFilter,
+    sortKey: string | undefined,
   ) /*throws*/ : FfiSectionSummariesResult;
   /**
    * Home-screen "Sections for you" list. Composes ML ranking + performance
@@ -13695,23 +13757,6 @@ export class SectionManager
     );
   }
 
-  getAll(): Array<FfiSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiSection.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
   getAllNames(): Map<string, string> /*throws*/ {
     return FfiConverterMapStringString.lift(
       uniffiCaller.rustCallWithError(
@@ -13762,24 +13807,6 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getByType(sectionType: string | undefined): Array<FfiSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiSection.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sectionType),
             callStatus,
           );
         },
@@ -14001,76 +14028,6 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getFiltered(
-    sportType: string | undefined,
-    minVisits: /*u32*/ number | undefined,
-  ): Array<FfiSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiSection.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportType),
-            FfiConverterOptionalUInt32.lower(minVisits),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Filtered + sorted section summaries. Pushes the visit-count threshold
-   * and sort key into Rust so TS stops re-iterating the summaries list.
-   * `sort_key` accepts "visits", "distance", "name"; anything else maps to
-   * the default ("visits").
-   */
-  getFilteredSummaries(
-    sportType: string | undefined,
-    minVisits: /*u32*/ number,
-    sortKey: string,
-  ): FfiSectionSummariesResult /*throws*/ {
-    return FfiConverterTypeFfiSectionSummariesResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportType),
-            FfiConverterUInt32.lower(minVisits),
-            FfiConverterString.lower(sortKey),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getForActivity(activityId: string): Array<FfiSection> /*throws*/ {
-    return FfiConverterArrayTypeFfiSection.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(activityId),
             callStatus,
           );
         },
@@ -14363,8 +14320,43 @@ export class SectionManager
     );
   }
 
-  getSummariesWithCount(
-    sportType: string | undefined,
+  /**
+   * The sections a read wants, with the corridor-name overlay applied.
+   *
+   * One call rather than four: the filter narrows by sport, visit floor,
+   * type and activity, and an empty filter is every visible section. The
+   * overlay is applied here, once, so the name an athlete gave a corridor
+   * reads the same on every screen.
+   */
+  getSections(filter: FfiSectionFilter): Array<FfiSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiSection.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiSectionFilter.lower(filter),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Section summaries for a filter, with the total count beside them.
+   *
+   * `sort_key` accepts "visits", "distance" and "name"; anything else, and
+   * `None`, leaves the engine's own order. The visit floor counts outings
+   * and the sort counts traversals: laps show ground covered, not that the
+   * athlete came back.
+   */
+  getSummaries(
+    filter: FfiSectionFilter,
+    sortKey: string | undefined,
   ): FfiSectionSummariesResult /*throws*/ {
     return FfiConverterTypeFfiSectionSummariesResult.lift(
       uniffiCaller.rustCallWithError(
@@ -14372,9 +14364,10 @@ export class SectionManager
           FfiConverterTypeVeloqError,
         ),
         /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportType),
+            FfiConverterTypeFfiSectionFilter.lower(filter),
+            FfiConverterOptionalString.lower(sortKey),
             callStatus,
           );
         },
@@ -18840,14 +18833,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries() !==
-    60896
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !==
     27410
   ) {
@@ -18864,11 +18849,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count() !==
-    9928
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries() !==
+    61118
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count",
+      "uniffi_veloqrs_checksum_method_routemanager_get_summaries",
     );
   }
   if (
@@ -19000,14 +18985,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all() !==
-    33228
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_all",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names() !==
     23962
   ) {
@@ -19029,14 +19006,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_by_id",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type() !==
-    62275
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_by_type",
     );
   }
   if (
@@ -19117,30 +19086,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered() !==
-    4908
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries() !==
-    56335
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity() !==
-    14554
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity",
     );
   }
   if (
@@ -19256,11 +19201,19 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count() !==
-    49447
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections() !==
+    24056
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count",
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries() !==
+    46943
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_summaries",
     );
   }
   if (
@@ -19984,6 +19937,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionDetailData,
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
+    FfiConverterTypeFfiSectionFilter,
     FfiConverterTypeFfiSectionGeometryVersion,
     FfiConverterTypeFfiSectionHistoryEvent,
     FfiConverterTypeFfiSectionLap,

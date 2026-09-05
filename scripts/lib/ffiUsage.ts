@@ -383,11 +383,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'SettingsManager.clearUserProfileCaches':
     'called through a cast to an inline optional-method type, deliberately, so there is no typed receiver to read',
 
-  // Their TypeScript wrappers went with `D42`, which found no caller for
-  // either. Both are `C31`'s to fold into the section and route list calls
-  // that remain, so they stay exported until it decides their shape.
-  'SectionManager.getAll': 'C31 owns which call returns a list of sections',
-  'RouteManager.getSummariesWithCount': 'C31 owns which call returns a list of routes',
 };
 
 /**

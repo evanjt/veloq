@@ -158,7 +158,7 @@ describe('the FFI usage report', () => {
     });
 
     it('keeps two objects sharing a method name apart', () => {
-      const shared = keys.filter((k) => k.camelName === 'getAll');
+      const shared = keys.filter((k) => k.camelName === 'getDetailData');
       expect(shared.length).toBeGreaterThan(1);
       expect(new Set(shared.map((k) => k.key)).size).toBe(shared.length);
     });
@@ -170,21 +170,25 @@ describe('the FFI usage report', () => {
     });
 
     it('uses the receiver to pick between exports sharing a name', () => {
-      const resolved = resolveCall(call('routeManager', 'getAll'), keys);
-      expect(resolved).toEqual(['RouteManager.getAll']);
+      const resolved = resolveCall(call('routeManager', 'getDetailData'), keys);
+      expect(resolved).toEqual(['RouteManager.getDetailData']);
     });
 
     it('follows the engine accessor the delegates reach an object through', () => {
       // `host.engine.routes().getAll()`: the receiver is the accessor, and the
       // generated bindings declare what it returns.
-      expect(resolveCall(call('routes', 'getAll'), keys)).toEqual(['RouteManager.getAll']);
-      expect(resolveCall(call('sections', 'getAll'), keys)).toEqual(['SectionManager.getAll']);
+      expect(resolveCall(call('routes', 'getDetailData'), keys)).toEqual([
+        'RouteManager.getDetailData',
+      ]);
+      expect(resolveCall(call('sections', 'getDetailData'), keys)).toEqual([
+        'SectionManager.getDetailData',
+      ]);
     });
 
     it('reports a shared name it cannot place against every candidate', () => {
-      const resolved = resolveCall(call('client', 'getAll'), keys);
+      const resolved = resolveCall(call('client', 'getDetailData'), keys);
       expect(resolved.length).toBeGreaterThan(1);
-      expect(resolved.every((k) => k.endsWith('.getAll'))).toBe(true);
+      expect(resolved.every((k) => k.endsWith('.getDetailData'))).toBe(true);
     });
 
     it('resolves nothing for a method no export declares', () => {
@@ -192,7 +196,7 @@ describe('the FFI usage report', () => {
     });
 
     it('counts a placed call and refuses to count one it could not place', () => {
-      expect(callIsAttributed(call('routes', 'getAll'), keys)).toBe(true);
+      expect(callIsAttributed(call('routes', 'getDetailData'), keys)).toBe(true);
       // `StyleSheet.create` was 338 of the 341 calls the report gave
       // `VeloqEngine.create`, and gave `SectionManager.create` as well.
       expect(callIsAttributed(call('StyleSheet', 'create'), keys)).toBe(false);
