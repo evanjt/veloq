@@ -14,6 +14,7 @@ import type {
   FfiPeriodStats,
   FfiStalePrOpportunity,
   FfiStartupData,
+  FfiWeekLoadShape,
   FfiWidgetSnapshotData,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -107,6 +108,25 @@ export function getZoneDistribution(
   if (!host.ready) return [];
   return host.timed('getZoneDistribution', () =>
     host.engine.fitness().getZoneDistribution(sportType, zoneType)
+  );
+}
+
+/**
+ * How a week's load was spread, or `null` when the engine withheld a reading.
+ * It withholds below four training days, because the ratio is a constant on a
+ * sparser week, and half of a real account's weeks are that sparse.
+ */
+export function getWeekLoadShape(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiWeekLoadShape | null {
+  if (!host.ready) return null;
+  return (
+    host.timed('getWeekLoadShape', () =>
+      host.engine.fitness().getWeekLoadShape(BigInt(startTs), BigInt(endTs))
+    ) ??
+    null
   );
 }
 

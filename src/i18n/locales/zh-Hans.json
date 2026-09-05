@@ -407,7 +407,16 @@
     "formTSB": "状态 (TSB)",
     "noData": "无可用体能数据",
     "restDay": "休息日",
-    "selectActivity": "选择活动"
+    "selectActivity": "选择活动",
+    "weekShape": {
+      "title": "本周的形态",
+      "quiet": "较为轻松的一周。训练天数不足，无法读出形态。",
+      "reading": {
+        "lopsided": "在 {{days}} 个训练日中，负荷集中在少数几天。",
+        "mixed": "有轻有重：在 {{days}} 个训练日中，某些天明显更重。",
+        "even": "在 {{days}} 个训练日中分布得相当均匀。"
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 前 3 个月",
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
-    "year": "年"
+    "year": "年",
+    "atWeight": "按 {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "有氧效率",
@@ -1394,7 +1404,8 @@
     "ft": "英尺",
     "kcal": "千卡",
     "m": "米",
-    "watts": "瓦"
+    "watts": "瓦",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "拖动探索",

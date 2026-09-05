@@ -407,7 +407,16 @@
     "formTSB": "フォーム (TSB)",
     "noData": "フィットネスデータがありません",
     "restDay": "休息日",
-    "selectActivity": "アクティビティを選択"
+    "selectActivity": "アクティビティを選択",
+    "weekShape": {
+      "title": "今週のかたち",
+      "quiet": "静かな週でした。かたちを読み取れるほどのトレーニング日がありません。",
+      "reading": {
+        "lopsided": "負荷はトレーニング{{days}}日のうち数日に偏っていました。",
+        "mixed": "ばらつきあり。トレーニング{{days}}日のうち、特に重い日がありました。",
+        "even": "トレーニング{{days}}日にわたって、ほぼ均等に分かれていました。"
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 前3ヶ月",
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
-    "year": "年"
+    "year": "年",
+    "atWeight": "{{kg}} kg 時"
   },
   "statsScreen": {
     "decoupling": "有酸素効率",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "ドラッグして探索",

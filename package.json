@@ -28,7 +28,7 @@
     "test:perf": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint . --no-warn-ignored --max-warnings 1004",
+    "lint": "eslint . --no-warn-ignored --max-warnings 994",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
@@ -129,7 +129,6 @@
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.8.3",
     "veloqrs": "./modules/veloqrs",
-    "victory-native": "^41.20.2",
     "zod": "^4.3.5",
     "zustand": "^5.0.12"
   },

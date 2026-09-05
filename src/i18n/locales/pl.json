@@ -407,7 +407,16 @@
     "formTSB": "Forma (TSB)",
     "noData": "Brak dostępnych danych kondycji",
     "restDay": "Dzień odpoczynku",
-    "selectActivity": "Wybierz aktywność"
+    "selectActivity": "Wybierz aktywność",
+    "weekShape": {
+      "title": "Kształt tego tygodnia",
+      "quiet": "Spokojniejszy tydzień. Za mało dni z treningiem, aby odczytać kształt.",
+      "reading": {
+        "lopsided": "Twoje obciążenie skupiło się w kilku dniach z {{days}} dni treningowych.",
+        "mixed": "Mieszany: niektóre dni znacznie cięższe od innych, przez {{days}} dni treningowych.",
+        "even": "Rozłożone dość równomiernie przez {{days}} dni treningowych."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1359,7 +1368,8 @@
     "vsPrevious3Months": "vs poprzednie 3 miesiące",
     "vsPrevious6Months": "vs poprzednie 6 miesięcy",
     "week": "Tydzień",
-    "year": "Rok"
+    "year": "Rok",
+    "atWeight": "przy {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Efektywność aerobowa",
@@ -1396,7 +1406,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Przeciągnij, aby eksplorować",

@@ -407,7 +407,16 @@
     "formTSB": "Form (TSB)",
     "noData": "No fitness data available",
     "restDay": "Rest day",
-    "selectActivity": "Select Activity"
+    "selectActivity": "Select Activity",
+    "weekShape": {
+      "title": "This week's shape",
+      "quiet": "A quieter week. Not enough days with training on them to read a shape.",
+      "reading": {
+        "lopsided": "Your load sat in a couple of days across {{days}} days of training.",
+        "mixed": "A mix: some days much harder than others, over {{days}} days of training.",
+        "even": "Spread fairly evenly across {{days}} days of training."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs previous 3 months",
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
-    "year": "Year"
+    "year": "Year",
+    "atWeight": "at {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobic Efficiency",
@@ -1394,7 +1404,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Drag to explore",
