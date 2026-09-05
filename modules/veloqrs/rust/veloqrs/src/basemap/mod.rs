@@ -26,8 +26,8 @@ mod store;
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use store::TileStore;
 
-use once_cell::sync::Lazy;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 
 /// The one store for the process, once TypeScript has said where it lives.
@@ -35,7 +35,7 @@ use std::sync::{Arc, Mutex};
 /// Held here rather than on `PersistentEngine` because a tile read must not
 /// queue behind the engine lock: a single map pan asks for dozens of tiles
 /// while a sync or a detect may be holding that lock for seconds.
-static STORE: Lazy<Mutex<Option<Arc<TileStore>>>> = Lazy::new(|| Mutex::new(None));
+static STORE: LazyLock<Mutex<Option<Arc<TileStore>>>> = LazyLock::new(|| Mutex::new(None));
 
 /// Point the store at a directory. Called once at engine init from JS.
 pub fn set_path(path: String) {
