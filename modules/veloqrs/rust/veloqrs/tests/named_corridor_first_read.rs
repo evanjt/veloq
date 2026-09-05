@@ -1,13 +1,13 @@
-//! One call answers "which sections", with a filter, and the corridor-name
-//! overlay is applied once inside it.
+//! Naming a corridor shows on the next sections read.
 //!
-//! There were four: `get_all`, `get_filtered`, `get_by_type` and
-//! `get_for_activity`, all returning the same record, with the overlay block
-//! pasted into the first two and missing from the other two, so the name an
-//! athlete gave a corridor showed on the sections list and not on the
-//! activity screen.
+//! The list reads the cached overlay and does not refresh it under the read
+//! lock, which is right: resolution walks the visible catalogue and doing it
+//! inline would put a write under every list read. `load` warms the cache, so
+//! a launch is correct. Writing a name did not, so the athlete renamed a
+//! section, went back to the list, and read the old name until some other
+//! screen happened to resolve the overlay.
 //!
-//! Run: `cargo test --test section_filter_one_call -p veloqrs`
+//! Run: `cargo test --test named_corridor_first_read -p veloqrs`
 
 use std::sync::{Mutex, MutexGuard};
 
@@ -35,8 +35,6 @@ fn track() -> Vec<GpsPoint> {
         .collect()
 }
 
-/// One auto section over `a1`, one custom section the athlete drew over `a2`,
-/// and the auto one named.
 /// The section's own ground, in the shape `polyline_json` is read as.
 fn polyline_json(points: &[GpsPoint]) -> String {
     let values: Vec<serde_json::Value> = points
@@ -101,130 +99,73 @@ fn seed(dir: &TempDir) {
     drop(raw);
 
     assert!(persistent_engine_init(path.to_str().unwrap().to_string()));
-    with_persistent_engine(|engine| {
-        engine
-            .set_section_name("s_auto", Some(NAMED))
-            .expect("name the corridor");
-    })
-    .expect("engine");
 }
 
-fn ids(filter: FfiSectionFilter) -> Vec<String> {
-    let mut found: Vec<String> = SectionManager::new()
-        .get_sections(filter)
-        .expect("get_sections")
-        .into_iter()
-        .map(|s| s.id)
-        .collect();
-    found.sort();
-    found
-}
-
-fn name_of(filter: FfiSectionFilter, id: &str) -> Option<String> {
+fn read_name(id: &str) -> Option<String> {
     SectionManager::new()
-        .get_sections(filter)
+        .get_sections(FfiSectionFilter::default())
         .expect("get_sections")
         .into_iter()
         .find(|s| s.id == id)
         .and_then(|s| s.name)
 }
 
-#[test]
-fn an_empty_filter_returns_every_visible_section() {
-    let _g = serial();
-    let dir = TempDir::new().unwrap();
-    seed(&dir);
-
-    assert_eq!(ids(FfiSectionFilter::default()), ["s_auto", "s_custom"]);
+fn name_it(section_id: &str, name: Option<&str>) {
+    with_persistent_engine(|engine| {
+        engine
+            .set_section_name(section_id, name)
+            .expect("set the name")
+    })
+    .expect("engine");
 }
 
 #[test]
-fn a_sport_narrows_the_list() {
+fn a_corridor_named_now_reads_back_now() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
 
-    assert_eq!(
-        ids(FfiSectionFilter {
-            sport_type: Some("Run".into()),
-            ..Default::default()
-        }),
-        ["s_custom"]
-    );
+    name_it("s_auto", Some(NAMED));
+
+    assert_eq!(read_name("s_auto").as_deref(), Some(NAMED));
 }
 
 #[test]
-fn a_visit_floor_narrows_the_list() {
+fn renaming_a_corridor_replaces_the_name_the_list_shows() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
+    name_it("s_auto", Some(NAMED));
 
-    assert_eq!(
-        ids(FfiSectionFilter {
-            min_visits: Some(2),
-            ..Default::default()
-        }),
-        ["s_auto"]
-    );
+    name_it("s_auto", Some("Col de la Croix"));
+
+    assert_eq!(read_name("s_auto").as_deref(), Some("Col de la Croix"));
 }
 
 #[test]
-fn a_type_narrows_the_list() {
+fn clearing_the_name_returns_the_generated_one() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
+    name_it("s_auto", Some(NAMED));
 
-    assert_eq!(
-        ids(FfiSectionFilter {
-            section_type: Some("custom".into()),
-            ..Default::default()
-        }),
-        ["s_custom"]
-    );
+    name_it("s_auto", None);
+
+    assert_eq!(read_name("s_auto").as_deref(), Some("Section 1"));
 }
 
 #[test]
-fn an_activity_narrows_the_list() {
+fn the_name_survives_a_relaunch() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
+    name_it("s_auto", Some(NAMED));
 
-    assert_eq!(
-        ids(FfiSectionFilter {
-            activity_id: Some("a1".into()),
-            ..Default::default()
-        }),
-        ["s_auto"]
-    );
-}
+    assert!(persistent_engine_init(
+        dir.path().join("filter.db").to_str().unwrap().to_string()
+    ));
 
-#[test]
-fn the_corridor_name_shows_under_every_filter() {
-    let _g = serial();
-    let dir = TempDir::new().unwrap();
-    seed(&dir);
-
-    for filter in [
-        FfiSectionFilter::default(),
-        FfiSectionFilter {
-            sport_type: Some("Ride".into()),
-            ..Default::default()
-        },
-        FfiSectionFilter {
-            section_type: Some("auto".into()),
-            ..Default::default()
-        },
-        FfiSectionFilter {
-            activity_id: Some("a1".into()),
-            ..Default::default()
-        },
-    ] {
-        assert_eq!(
-            name_of(filter.clone(), "s_auto").as_deref(),
-            Some(NAMED),
-            "the corridor name is missing under {filter:?}"
-        );
-    }
+    assert_eq!(read_name("s_auto").as_deref(), Some(NAMED));
 }
 
 #[test]
@@ -232,9 +173,7 @@ fn a_section_the_athlete_drew_keeps_its_own_name() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     seed(&dir);
+    name_it("s_auto", Some(NAMED));
 
-    assert_eq!(
-        name_of(FfiSectionFilter::default(), "s_custom").as_deref(),
-        Some("Home climb")
-    );
+    assert_eq!(read_name("s_custom").as_deref(), Some("Home climb"));
 }
