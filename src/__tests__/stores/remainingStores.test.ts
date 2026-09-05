@@ -18,12 +18,15 @@ import {
 } from '@/features/settings/stores/WhatsNewStore';
 
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
-jest.mock('veloqrs', () => ({
-  EngineClient: {
-    setMetricRecorder: jest.fn(),
-    setDebugEnabled: jest.fn(),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    EngineClient: {
+      setMetricRecorder: jest.fn(),
+      setDebugEnabled: jest.fn(),
+    },
+  })
+);
 jest.mock('@/shared/debug/renderTimer', () => ({
   recordFFIMetric: jest.fn(),
 }));

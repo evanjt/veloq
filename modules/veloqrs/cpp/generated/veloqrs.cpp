@@ -480,9 +480,6 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-    /*handle*/ uint64_t ptr, uint32_t min_activities, RustBuffer sort_key,
-    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_performances(
     /*handle*/ uint64_t ptr, RustBuffer group_id,
     RustBuffer current_activity_id, RustBuffer sport_type,
@@ -493,8 +490,9 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_screen_data(
     uint32_t min_group_activity_count, int8_t prioritize_nearest_groups,
     int8_t prioritize_nearest_sections, double user_lat, double user_lng,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries(
+    /*handle*/ uint64_t ptr, RustBuffer min_activities, RustBuffer sort_key,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_routemanager_include_activity(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -551,8 +549,6 @@ RustBuffer
 uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_all(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -561,9 +557,6 @@ uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-    /*handle*/ uint64_t ptr, RustBuffer section_type,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
@@ -593,15 +586,6 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-    /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer min_visits,
-    RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-    /*handle*/ uint64_t ptr, RustBuffer sport_type, uint32_t min_visits,
-    RustBuffer sort_key, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
-    /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
     /*handle*/ uint64_t ptr, RustBuffer section_id, int64_t version,
@@ -641,8 +625,10 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_retired(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
-    /*handle*/ uint64_t ptr, RustBuffer sport_type,
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_sections(
+    /*handle*/ uint64_t ptr, RustBuffer filter, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
+    /*handle*/ uint64_t ptr, RustBuffer filter, RustBuffer sort_key,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
     /*handle*/ uint64_t ptr, RustBuffer sport_type, uint32_t limit,
@@ -1140,10 +1126,9 @@ uint16_t uniffi_veloqrs_checksum_method_routemanager_get_detail_data();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities();
 uint16_t
 uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances();
-uint16_t uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_performances();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_screen_data();
-uint16_t uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count();
+uint16_t uniffi_veloqrs_checksum_method_routemanager_get_summaries();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_include_activity();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_name();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_set_representative();
@@ -1162,12 +1147,10 @@ uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_all();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_all_names();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_by_id();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_by_type();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_count();
@@ -1180,9 +1163,6 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_performances();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_filtered();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions();
@@ -1198,8 +1178,8 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_polyline();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_recent_changes();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_retired();
-uint16_t
-uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_sections();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_summaries();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_include_activity();
@@ -6150,18 +6130,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "routemanager_get_filtered_summaries"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6187,17 +6155,16 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count"] =
+  props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries"] =
       jsi::Function::createFromHostFunction(
           rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_method_"
-                                    "routemanager_get_summaries_with_count"),
-          1,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_routemanager_get_summaries"),
+          3,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
+                ->cpp_uniffi_veloqrs_fn_method_routemanager_get_summaries(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_routemanager_include_activity"] =
@@ -6423,17 +6390,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6469,18 +6425,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
                 rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_type"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_by_type"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary"] =
       jsi::Function::createFromHostFunction(
@@ -6603,44 +6547,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_method_"
-                                    "sectionmanager_get_filtered_summaries"),
-          4,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_"
@@ -6814,18 +6720,30 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_"
-        "count"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                    "sectionmanager_get_summaries_with_count"),
-      2,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
-                rt, thisVal, args, count);
-      });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_sections"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10048,18 +9966,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_excluded_performances(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_filtered_"
-        "summaries"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "routemanager_get_filtered_summaries"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10084,18 +9990,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_"
-        "count"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "routemanager_get_summaries_with_count"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(
-                rt, thisVal, args, count);
-      });
+  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_summaries(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10291,18 +10198,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_all(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10339,19 +10234,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_"
@@ -10475,42 +10357,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "sectionmanager_get_filtered"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_"
-        "summaries"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "sectionmanager_get_filtered_summaries"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "sectionmanager_get_for_activity"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_"
         "version_coords"] = jsi::Function::createFromHostFunction(
       rt,
@@ -10682,18 +10528,30 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_retired(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_"
-        "count"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "sectionmanager_get_summaries_with_count"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count(
-                rt, thisVal, args, count);
-      });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "sectionmanager_get_sections"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_sections(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "sectionmanager_get_summaries"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_workout_"
         "sections"] = jsi::Function::createFromHostFunction(
       rt,
@@ -14296,23 +14154,6 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_performances(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -14353,15 +14194,17 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_summaries(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
+  auto value = uniffi_veloqrs_fn_method_routemanager_get_summaries(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -14677,20 +14520,6 @@ jsi::Value NativeVeloqrs::
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_all(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -14730,22 +14559,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
@@ -14910,57 +14723,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
@@ -15196,16 +14958,33 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_sections(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_sections(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -18261,15 +18040,6 @@ jsi::Value NativeVeloqrs::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_get_performances(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -18286,12 +18056,11 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count();
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routemanager_get_summaries(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_routemanager_get_summaries();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -18426,14 +18195,6 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_all(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_all();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18455,14 +18216,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_by_id();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_by_type(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_by_type();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -18550,31 +18303,6 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_filtered();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -18699,12 +18427,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_retired(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count();
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_sections(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_sections();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_get_summaries();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

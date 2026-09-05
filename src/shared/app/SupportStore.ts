@@ -15,7 +15,6 @@ interface SupportState {
   remindLater: () => void;
   neverShowAgain: () => void;
   recordAction: () => void;
-  setLegacyPurchaser: () => void;
   _debugOverride: (partial: Partial<PersistedData>) => void;
   initialize: () => Promise<void>;
 }
@@ -104,14 +103,6 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   recordAction: () => {
     set((s) => {
       const next = { ...s, lastActionDate: formatLocalDate(new Date()), dismissCount: 0 };
-      persist(next);
-      return next;
-    });
-  },
-
-  setLegacyPurchaser: () => {
-    set((s) => {
-      const next = { ...s, isLegacyPurchaser: true };
       persist(next);
       return next;
     });

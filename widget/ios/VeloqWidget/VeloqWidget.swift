@@ -134,7 +134,9 @@ struct VeloqRecordWidget: Widget {
 
 // WidgetBundle bodies can't branch on availability with different widget types,
 // so a plain @main type dispatches between the iOS 17 bundle (configurable
-// dashboard) and the iOS 15/16 bundle (static dashboard).
+// dashboard) and the iOS 15/16 bundle (static dashboard). Both bundles are
+// generated into WidgetBundles.swift at prebuild, because their membership is
+// the Quick-Record gate and a result builder cannot read a JavaScript flag.
 @main
 struct VeloqWidgetLauncher {
   static func main() {
@@ -143,21 +145,6 @@ struct VeloqWidgetLauncher {
     } else {
       VeloqWidgets.main()
     }
-  }
-}
-
-struct VeloqWidgets: WidgetBundle {
-  var body: some Widget {
-    VeloqWidget()
-    VeloqLatestActivityWidget()
-  }
-}
-
-@available(iOS 17.0, *)
-struct VeloqWidgetsConfigurable: WidgetBundle {
-  var body: some Widget {
-    VeloqConfigurableWidget()
-    VeloqLatestActivityWidget()
   }
 }
 

@@ -10,7 +10,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// What Rust tells TypeScript when work finishes off the JavaScript thread.
 ///
@@ -46,7 +46,8 @@ pub trait EngineObserver: Send + Sync {
     fn preview_finished(&self);
 }
 
-static OBSERVER: Lazy<RwLock<Option<Arc<dyn EngineObserver>>>> = Lazy::new(|| RwLock::new(None));
+static OBSERVER: LazyLock<RwLock<Option<Arc<dyn EngineObserver>>>> =
+    LazyLock::new(|| RwLock::new(None));
 
 /// Register the observer, replacing any previous one. `None` clears it.
 ///

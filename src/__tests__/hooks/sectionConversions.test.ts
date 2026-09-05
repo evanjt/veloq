@@ -40,71 +40,74 @@ function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayB
   return new Uint8Array(bytes).buffer;
 }
 
-jest.mock('veloqrs', () => ({
-  decodeCoords: (buf: ArrayBuffer) => {
-    const SCALE = 1e7;
-    const bytes = new Uint8Array(buf);
-    let pos = 0;
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: (buf: ArrayBuffer) => {
+      const SCALE = 1e7;
+      const bytes = new Uint8Array(buf);
+      let pos = 0;
 
-    function readVarint(): number {
-      let result = 0;
-      let shift = 0;
-      while (pos < bytes.length) {
-        const byte = bytes[pos++];
-        result |= (byte & 0x7f) << shift;
-        if ((byte & 0x80) === 0) break;
-        shift += 7;
+      function readVarint(): number {
+        let result = 0;
+        let shift = 0;
+        while (pos < bytes.length) {
+          const byte = bytes[pos++];
+          result |= (byte & 0x7f) << shift;
+          if ((byte & 0x80) === 0) break;
+          shift += 7;
+        }
+        return result >>> 0;
       }
-      return result >>> 0;
-    }
 
-    function readZigzag(): number {
-      const v = readVarint();
-      return (v >>> 1) ^ -(v & 1);
-    }
-
-    const count = readVarint();
-    const points: { latitude: number; longitude: number; elevation?: number }[] = [];
-    let lat = 0;
-    let lng = 0;
-    for (let i = 0; i < count; i++) {
-      if (pos >= bytes.length) break;
-      lat += readZigzag();
-      lng += readZigzag();
-      points.push({ latitude: lat / SCALE, longitude: lng / SCALE });
-    }
-
-    // Optional trailing elevation section: 0xE1 tag, mode byte (bit 0 =
-    // presence bitmap, bit 1 = exact f64 LE), then per-point payloads.
-    if (pos >= bytes.length || bytes[pos] !== 0xe1) return points;
-    pos++;
-    if (pos >= bytes.length) return points;
-    const mode = bytes[pos++];
-    const exact = (mode & 0b10) !== 0;
-    let bitmap: Uint8Array | null = null;
-    if ((mode & 0b01) !== 0) {
-      const len = Math.ceil(points.length / 8);
-      if (bytes.length < pos + len) return points;
-      bitmap = bytes.subarray(pos, pos + len);
-      pos += len;
-    }
-    const view = new DataView(buf);
-    let prev = 0;
-    for (let i = 0; i < points.length; i++) {
-      if (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) === 0) continue;
-      if (exact) {
-        if (bytes.length < pos + 8) return points;
-        points[i].elevation = view.getFloat64(pos, true);
-        pos += 8;
-      } else {
-        if (pos >= bytes.length) return points;
-        prev += readZigzag();
-        points[i].elevation = prev / 10;
+      function readZigzag(): number {
+        const v = readVarint();
+        return (v >>> 1) ^ -(v & 1);
       }
-    }
-    return points;
-  },
-}));
+
+      const count = readVarint();
+      const points: { latitude: number; longitude: number; elevation?: number }[] = [];
+      let lat = 0;
+      let lng = 0;
+      for (let i = 0; i < count; i++) {
+        if (pos >= bytes.length) break;
+        lat += readZigzag();
+        lng += readZigzag();
+        points.push({ latitude: lat / SCALE, longitude: lng / SCALE });
+      }
+
+      // Optional trailing elevation section: 0xE1 tag, mode byte (bit 0 =
+      // presence bitmap, bit 1 = exact f64 LE), then per-point payloads.
+      if (pos >= bytes.length || bytes[pos] !== 0xe1) return points;
+      pos++;
+      if (pos >= bytes.length) return points;
+      const mode = bytes[pos++];
+      const exact = (mode & 0b10) !== 0;
+      let bitmap: Uint8Array | null = null;
+      if ((mode & 0b01) !== 0) {
+        const len = Math.ceil(points.length / 8);
+        if (bytes.length < pos + len) return points;
+        bitmap = bytes.subarray(pos, pos + len);
+        pos += len;
+      }
+      const view = new DataView(buf);
+      let prev = 0;
+      for (let i = 0; i < points.length; i++) {
+        if (bitmap !== null && (bitmap[i >> 3] & (1 << (i % 8))) === 0) continue;
+        if (exact) {
+          if (bytes.length < pos + 8) return points;
+          points[i].elevation = view.getFloat64(pos, true);
+          pos += 8;
+        } else {
+          if (pos >= bytes.length) return points;
+          prev += readZigzag();
+          points[i].elevation = prev / 10;
+        }
+      }
+      return points;
+    },
+  })
+);
 
 jest.mock('@/shared/ffi/ffiConversions', () => ({
   convertActivityPortions: (portions: any[]) =>

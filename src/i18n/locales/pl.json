@@ -716,7 +716,13 @@
     "viewDetails": "Zobacz szczegóły",
     "viewSectionDetails": "Zobacz szczegóły sekcji",
     "zoomToActivity": "Przybliż do aktywności",
-    "colorByGradient": "Kolor wg nachylenia"
+    "colorByGradient": "Kolor wg nachylenia",
+    "periodAll": "Wszystko",
+    "periodThisYear": "W tym roku",
+    "periodSixMonths": "6 miesięcy",
+    "periodThreeMonths": "3 miesiące",
+    "periodOneMonth": "1 miesiąc",
+    "periodOneWeek": "1 tydzień"
   },
   "metrics": {
     "activityCount": "Aktywności",

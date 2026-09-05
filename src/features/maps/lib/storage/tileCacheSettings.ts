@@ -46,6 +46,7 @@ export const useTileCacheSettings = create<TileCacheSettingsState>((set) => ({
       const raw = await getSetting(STORAGE_KEY);
       const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
       set({ budgetMb: clampTileCacheBudgetMb(parsed.budgetMb), isLoaded: true });
+      await flattenCacheMode(parsed);
     } catch {
       set({ budgetMb: DEFAULT_TILE_CACHE_BUDGET_MB, isLoaded: true });
     }
@@ -68,14 +69,19 @@ export async function initializeTileCacheSettings(): Promise<void> {
   await useTileCacheSettings.getState().initialize();
 }
 
+/** An older install's proactive cache mode is flattened to ambient in place. */
+async function flattenCacheMode(raw: Record<string, unknown>): Promise<void> {
+  if (raw.cacheMode && raw.cacheMode !== 'ambient') {
+    await setSetting(STORAGE_KEY, JSON.stringify({ cacheMode: 'ambient' }));
+  }
+}
+
+/** The launch path reads the key once through `initialize`; a restore calls this on its own. */
 export async function migrateTileCacheSettings(): Promise<void> {
   try {
     const stored = await getSetting(STORAGE_KEY);
     if (!stored) return;
-    const raw = JSON.parse(stored) as Record<string, unknown>;
-    if (raw.cacheMode && raw.cacheMode !== 'ambient') {
-      await setSetting(STORAGE_KEY, JSON.stringify({ cacheMode: 'ambient' }));
-    }
+    await flattenCacheMode(JSON.parse(stored) as Record<string, unknown>);
   } catch {
     // A corrupt or unreadable value is left alone: startup must not fail on it.
   }

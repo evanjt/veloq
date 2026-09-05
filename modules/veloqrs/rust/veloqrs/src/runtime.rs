@@ -6,12 +6,12 @@
 //! one runtime for the whole process; all fetches and the future sync service run
 //! on it.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use tokio::runtime::Runtime;
 
 /// One multi-thread tokio runtime for the whole process, built lazily on first
 /// use and kept for the process lifetime.
-pub static ASYNC_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+pub static ASYNC_RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(8)
         .thread_name("veloq-net")

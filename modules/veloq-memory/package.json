@@ -1,0 +1,17 @@
+{
+  "name": "veloq-memory",
+  "version": "0.1.0",
+  "description": "Forwards Android onTrimMemory levels to JavaScript so regenerable caches can be dropped before the low-memory killer runs",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

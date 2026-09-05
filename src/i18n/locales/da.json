@@ -714,7 +714,13 @@
     "viewDetails": "Vis detaljer",
     "viewSectionDetails": "Vis sektionsdetaljer",
     "zoomToActivity": "Zoom til aktivitet",
-    "colorByGradient": "Farv efter gradient"
+    "colorByGradient": "Farv efter gradient",
+    "periodAll": "Alle",
+    "periodThisYear": "I år",
+    "periodSixMonths": "6 måneder",
+    "periodThreeMonths": "3 måneder",
+    "periodOneMonth": "1 måned",
+    "periodOneWeek": "1 uge"
   },
   "metrics": {
     "activityCount": "Aktiviteter",

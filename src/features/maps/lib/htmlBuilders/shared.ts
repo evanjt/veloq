@@ -331,3 +331,19 @@ export function mapLibreHead(options: { title?: string; mapHeight?: string } = {
   </style>
 </head>`;
 }
+
+/**
+ * Tears the page's map down in place. `map.remove()` releases the GL context
+ * and every texture; the page is reloaded before anything asks for it again.
+ */
+export function buildReleaseMapScript(): string {
+  return `
+    (function() {
+      if (window.map) {
+        try { window.map.remove(); } catch (e) {}
+        window.map = null;
+      }
+    })();
+    true;
+  `;
+}

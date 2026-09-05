@@ -9,6 +9,8 @@
 
 import { engine } from 'veloqrs';
 
+import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
+
 /** The channel `EngineObserver.time_streams_stored` lands on. */
 const STORED_CHANNEL = 'timeStreamsStored';
 
@@ -31,27 +33,20 @@ export function awaitTimeStreams(
     return Promise.resolve(outstanding.size);
   }
 
-  return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout>;
-    let unsubscribe: (() => void) | undefined;
-
-    const settle = () => {
-      clearTimeout(timer);
-      unsubscribe?.();
-      signal?.removeEventListener('abort', settle);
-      resolve(outstanding.size);
-    };
-
-    timer = setTimeout(settle, timeoutMs);
-    signal?.addEventListener('abort', settle);
-    unsubscribe = engine.subscribe(STORED_CHANNEL, (payload?: unknown) => {
+  return awaitEngineAnnouncement<number>({
+    channel: STORED_CHANNEL,
+    timeoutMs,
+    signal,
+    onDeadline: () => outstanding.size,
+    subscribe: (channel, listener) => engine.subscribe(channel, listener),
+    read: (payload) => {
       const stored = (payload as { activityIds?: string[] } | undefined)?.activityIds;
-      if (!stored) return;
+      if (!stored) return undefined;
       const before = outstanding.size;
       stored.forEach((id) => outstanding.delete(id));
-      if (outstanding.size === before) return;
+      if (outstanding.size === before) return undefined;
       onProgress?.(outstanding.size);
-      if (outstanding.size === 0) settle();
-    });
+      return outstanding.size === 0 ? 0 : undefined;
+    },
   });
 }

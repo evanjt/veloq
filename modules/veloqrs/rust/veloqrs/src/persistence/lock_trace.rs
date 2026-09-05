@@ -13,7 +13,7 @@ use std::panic::Location;
 use std::sync::{Mutex, Once};
 use std::time::{Duration, Instant};
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 const SLOW: Duration = Duration::from_millis(8);
 const REPORT_EVERY: Duration = Duration::from_secs(15);
@@ -41,7 +41,7 @@ struct Table {
     dirty: bool,
 }
 
-static TABLE: Lazy<Mutex<Table>> = Lazy::new(|| {
+static TABLE: LazyLock<Mutex<Table>> = LazyLock::new(|| {
     Mutex::new(Table {
         by_caller: HashMap::new(),
         wait_hist: [0; 7],

@@ -10,7 +10,8 @@
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import type { Activity } from '@/types';
 
-jest.mock('veloqrs', () => ({}), { virtual: true });
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {

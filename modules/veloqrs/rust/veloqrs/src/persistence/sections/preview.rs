@@ -7,9 +7,9 @@
 
 use crate::FrequentSection;
 use base64::Engine as _;
-use once_cell::sync::Lazy;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
@@ -42,8 +42,8 @@ type DegreeBox = (f64, f64, f64, f64);
 /// The one preview slot. Occupied from start until the result is taken or the
 /// run ends cancelled or dead, so a second preview can never overlap the
 /// first: two resident pools would double the peak memory on a phone.
-pub static SECTION_PREVIEW_HANDLE: Lazy<Mutex<Option<SectionPreviewHandle>>> =
-    Lazy::new(|| Mutex::new(None));
+pub static SECTION_PREVIEW_HANDLE: LazyLock<Mutex<Option<SectionPreviewHandle>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 /// A ranked riding area: one occupied ~5 km bin.
 #[derive(Debug, Clone)]

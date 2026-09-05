@@ -26,7 +26,8 @@ import { getFormZone } from '@/features/fitness/lib/fitness';
 import type { RawStreamItem } from '@/types';
 
 // Mock veloqrs native module - toActivityMetrics imports the type
-jest.mock('veloqrs', () => ({}));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('veloqrs', () => require('__shared__/veloqrsStub'));
 
 // Import after mock is set up
 // eslint-disable-next-line @typescript-eslint/no-require-imports

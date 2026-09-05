@@ -29,7 +29,12 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 
-jest.mock('veloqrs', () => ({ decodeCoords: () => [] }));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: () => [],
+  })
+);
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 jest.mock('@/shared/native/engine', () => ({

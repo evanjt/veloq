@@ -19,7 +19,7 @@ export {
 export type { WellnessInput } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG } from './lib/config';
 
-export { detectStalePROpportunities, stalePROpportunityToInsight } from './generators/stalePr';
+export { stalePROpportunityToInsight } from './generators/stalePr';
 export { generateEfficiencyTrendInsights } from './generators/efficiencyTrend';
 
 export {

@@ -714,7 +714,13 @@
     "viewDetails": "Have a look",
     "viewSectionDetails": "View section details",
     "zoomToActivity": "Zoom in on that",
-    "colorByGradient": "Colour by gradient"
+    "colorByGradient": "Colour by gradient",
+    "periodAll": "All",
+    "periodThisYear": "This year",
+    "periodSixMonths": "6 months",
+    "periodThreeMonths": "3 months",
+    "periodOneMonth": "1 month",
+    "periodOneWeek": "1 week"
   },
   "metrics": {
     "activityCount": "Activities",

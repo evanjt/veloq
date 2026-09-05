@@ -224,10 +224,24 @@ function buildWellness(): WellnessInput[] {
 
 function buildMockEngine(): unknown {
   // The bundle carries the section and strength data, so the engine mock
-  // exists for the stale-PR generator's optional lookup and for the HRV
-  // verdict, which is Rust's alone. The shape is what `compute_hrv_trend`
-  // returns over the trailing seven days of `buildWellness`.
+  // exists for the two answers only Rust gives: the HRV verdict, and the
+  // stale-PR filter, whose row here is Ride Neglected C at 65 days against
+  // the 270 to 285 W gain the fixture's FTP trend carries.
   return {
+    findStalePrOpportunities: () => [
+      {
+        sectionId: 'sec-ride-neglected-C',
+        sectionName: 'Ride Neglected C',
+        bestTimeSecs: 410,
+        daysSinceLast: 65,
+        traversalCount: 6,
+        fitnessMetric: 'power',
+        currentValue: 285,
+        previousValue: 270,
+        gainPercent: 5.6,
+        unit: 'W',
+      },
+    ],
     computeHrvTrend: () => ({
       label: 'trendingDown',
       avg: 470 / 7,

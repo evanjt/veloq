@@ -10,75 +10,68 @@ pub struct SectionManager {
 #[uniffi::export]
 impl SectionManager {
     #[uniffi::constructor]
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Self { _private: () })
     }
 
-    fn get_all(&self) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        // Read lock: get_visible_sections() only borrows in-memory state (no
-        // self.db), so concurrent reads are sound and no longer serialize on the
-        // engine write lock - this is the hot Routes/section-list path. Corridor
-        // names come from the cached overlay (no refresh under the read lock).
-        with_engine_read(|e| {
-            let names = e.named_overlay_cached_names();
-            e.get_visible_sections()
-                .into_iter()
-                .map(|s| {
-                    let mut f = crate::FfiSection::from(s);
-                    if !s.is_user_defined {
-                        if let Some(n) = names.get(&s.id) {
-                            f.name = Some(n.clone());
-                        }
-                    }
-                    f
-                })
-                .collect()
-        })
-    }
-
-    fn get_filtered(
+    /// The sections a read wants, with the corridor-name overlay applied.
+    ///
+    /// One call rather than four: the filter narrows by sport, visit floor,
+    /// type and activity, and an empty filter is every visible section. The
+    /// overlay is applied here, once, so the name an athlete gave a corridor
+    /// reads the same on every screen.
+    pub fn get_sections(
         &self,
-        sport_type: Option<String>,
-        min_visits: Option<u32>,
+        filter: crate::FfiSectionFilter,
     ) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        // Read lock: get_sections_filtered() filters the in-memory Vec only.
-        // Corridor names from the cached overlay, as in get_all.
+        // Read lock throughout: every path below borrows the engine and none
+        // mutates it, so the section list no longer serialises on the write
+        // lock the detector's apply holds.
         with_engine_read(|e| {
+            let mut sections: Vec<crate::FfiSection> =
+                match (&filter.activity_id, &filter.section_type) {
+                    (Some(activity_id), _) => e
+                        .get_sections_for_activity(activity_id)
+                        .into_iter()
+                        .map(crate::FfiSection::from)
+                        .collect(),
+                    (None, Some(section_type)) => e
+                        .get_sections_by_type(SectionType::from_str(section_type))
+                        .into_iter()
+                        .map(crate::FfiSection::from)
+                        .collect(),
+                    (None, None) => e
+                        .get_sections_filtered(filter.sport_type.as_deref(), filter.min_visits)
+                        .into_iter()
+                        .map(crate::FfiSection::from)
+                        .collect(),
+                };
+
+            // The two database-backed paths above filter by their own key
+            // alone, so a filter naming more than one narrowing is finished
+            // here rather than in three query builders.
+            if filter.activity_id.is_some() || filter.section_type.is_some() {
+                if let Some(sport) = filter.sport_type.as_deref() {
+                    sections.retain(|s| s.sport_type == sport);
+                }
+                if let Some(min_visits) = filter.min_visits {
+                    sections.retain(|s| s.visit_count >= min_visits);
+                }
+            }
+            if let Some(section_type) = filter.section_type.as_deref() {
+                sections.retain(|s| s.section_type == section_type);
+            }
+
             let names = e.named_overlay_cached_names();
-            e.get_sections_filtered(sport_type.as_deref(), min_visits)
-                .into_iter()
-                .map(|s| {
-                    let mut f = crate::FfiSection::from(s);
-                    if !s.is_user_defined {
-                        if let Some(n) = names.get(&s.id) {
-                            f.name = Some(n.clone());
-                        }
-                    }
-                    f
-                })
-                .collect()
-        })
-    }
-
-    fn get_by_type(
-        &self,
-        section_type: Option<String>,
-    ) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        let st = section_type.as_deref().and_then(SectionType::from_str);
-        with_engine(|e| {
-            e.get_sections_by_type(st)
-                .into_iter()
-                .map(crate::FfiSection::from)
-                .collect()
-        })
-    }
-
-    fn get_for_activity(&self, activity_id: String) -> Result<Vec<crate::FfiSection>, VeloqError> {
-        with_engine(|e| {
-            e.get_sections_for_activity(&activity_id)
-                .into_iter()
-                .map(crate::FfiSection::from)
-                .collect()
+            for section in &mut sections {
+                if section.is_user_defined {
+                    continue;
+                }
+                if let Some(name) = names.get(&section.id) {
+                    section.name = Some(name.clone());
+                }
+            }
+            sections
         })
     }
 
@@ -95,50 +88,38 @@ impl SectionManager {
         with_engine(|e| e.get_section_count())
     }
 
-    fn get_summaries_with_count(
+    /// Section summaries for a filter, with the total count beside them.
+    ///
+    /// `sort_key` accepts "visits", "distance" and "name"; anything else, and
+    /// `None`, leaves the engine's own order. The visit floor counts outings
+    /// and the sort counts traversals: laps show ground covered, not that the
+    /// athlete came back.
+    fn get_summaries(
         &self,
-        sport_type: Option<String>,
+        filter: crate::FfiSectionFilter,
+        sort_key: Option<String>,
     ) -> Result<crate::FfiSectionSummariesResult, VeloqError> {
         with_engine(|e| {
             let total_count = e.get_section_count();
-            let summaries = match sport_type {
+            let mut summaries = match filter.sport_type {
                 Some(ref sport) => e.get_section_summaries_for_sport(sport),
                 None => e.get_section_summaries(),
             };
-            crate::FfiSectionSummariesResult {
-                total_count,
-                summaries,
+            if let Some(min_visits) = filter.min_visits {
+                summaries.retain(|s| s.activity_count >= min_visits);
             }
-        })
-    }
-
-    /// Filtered + sorted section summaries. Pushes the visit-count threshold
-    /// and sort key into Rust so TS stops re-iterating the summaries list.
-    /// `sort_key` accepts "visits", "distance", "name"; anything else maps to
-    /// the default ("visits").
-    fn get_filtered_summaries(
-        &self,
-        sport_type: Option<String>,
-        min_visits: u32,
-        sort_key: String,
-    ) -> Result<crate::FfiSectionSummariesResult, VeloqError> {
-        with_engine(|e| {
-            let total_count = e.get_section_count();
-            let mut summaries = match sport_type {
-                Some(ref sport) => e.get_section_summaries_for_sport(sport),
-                None => e.get_section_summaries(),
-            };
-            // The floor counts outings, the sort counts traversals: laps show
-            // ground covered, not that the athlete came back.
-            summaries.retain(|s| s.activity_count >= min_visits);
-            match sort_key.as_str() {
-                "distance" => summaries.sort_by(|a, b| {
+            if let Some(section_type) = filter.section_type.as_deref() {
+                summaries.retain(|s| s.section_type == section_type);
+            }
+            match sort_key.as_deref() {
+                Some("distance") => summaries.sort_by(|a, b| {
                     b.distance_meters
                         .partial_cmp(&a.distance_meters)
                         .unwrap_or(std::cmp::Ordering::Equal)
                 }),
-                "name" => summaries.sort_by(|a, b| a.id.cmp(&b.id)),
-                _ => summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count)),
+                Some("name") => summaries.sort_by(|a, b| a.id.cmp(&b.id)),
+                Some("visits") => summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count)),
+                _ => {}
             }
             crate::FfiSectionSummariesResult {
                 total_count,

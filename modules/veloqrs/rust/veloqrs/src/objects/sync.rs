@@ -23,10 +23,10 @@ use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityRecord, ManualActivityBody};
 use crate::persistence::PersistentEngine;
 use crate::persistence::bodies::CurveKind;
-use once_cell::sync::Lazy;
 use rusqlite::Result as SqlResult;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -383,7 +383,7 @@ impl SyncService {
 }
 
 /// The process-wide sync service.
-pub static SYNC_SERVICE: Lazy<SyncService> = Lazy::new(SyncService::new);
+pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(SyncService::new);
 
 /// Park the service on a rejected credential.
 ///
@@ -486,7 +486,7 @@ fn landed(stored: Option<bool>) -> bool {
 /// curve must not be refused because the launch sync is still running. What it
 /// must not do is stack one request per render, so each key is admitted once
 /// until its job finishes.
-static IN_FLIGHT: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+static IN_FLIGHT: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// Run an on-demand fetch unless one with the same key is already running.
 /// Returns false when the request was folded into an in-flight one, or when

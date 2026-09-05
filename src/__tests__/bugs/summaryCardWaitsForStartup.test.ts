@@ -14,7 +14,8 @@ import { renderHook } from '@testing-library/react-native';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => ({}));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
