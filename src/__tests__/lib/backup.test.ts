@@ -384,6 +384,55 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     expect(queryClient.invalidateQueries).toHaveBeenCalled();
   });
 
+  /**
+   * The snapshot is taken with the engine closed and the live database intact.
+   * A throw there used to escape the function, so the caller alerted over an
+   * app whose database was fine on disk and closed in memory until relaunch.
+   */
+  it('reports a failure and reopens the engine when the snapshot cannot be taken', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(false);
+    expect(mockNativeModule.engine.initWithPath).toHaveBeenCalledWith('/data/veloq.db');
+  });
+
+  it('leaves the live database alone when the snapshot cannot be taken', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'file:///data/veloq.db' })
+    );
+  });
+
+  it('never rolls back from a snapshot it did not take', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.copyAsync as jest.Mock).mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'file:///data/veloq.db.bak') throw new Error('No space left on device');
+    });
+
+    await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'file:///data/veloq.db.bak' })
+    );
+  });
+
   it('rolls back to the snapshot when initWithPath fails after overwrite', async () => {
     mockProbe(
       JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
