@@ -26,7 +26,6 @@ import type {
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import type {
-  FfiActivityIndicator,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
   FfiSectionMatch,
@@ -41,11 +40,6 @@ const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   forwardStats: undefined,
   reverseStats: undefined,
 };
-
-export function getSections(host: DelegateHost): FfiSection[] {
-  if (!host.ready) return [];
-  return host.timed('getSections', () => host.engine.sections().getAll());
-}
 
 export function getSectionsFiltered(
   host: DelegateHost,
@@ -69,7 +63,7 @@ export function getSectionsForActivity(host: DelegateHost, activityId: string): 
 
 /**
  * Total section count without deserializing section blobs. Cheap alternative
- * to `getSectionSummaries().totalCount` / `getSections().length` for callers
+ * to `getSectionSummaries().totalCount` for callers
  * that only need to test emptiness or show a count. Backed by
  * `SectionManager.get_count`.
  */
@@ -350,17 +344,6 @@ export function getMergeCandidates(host: DelegateHost, sectionId: string): FfiMe
   validateId(sectionId, 'section ID');
   return host.timed('getMergeCandidates', () =>
     host.engine.sections().getMergeCandidates(sectionId)
-  );
-}
-
-/** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
-export function getActivityIndicators(
-  host: DelegateHost,
-  activityIds: string[]
-): FfiActivityIndicator[] {
-  if (!host.ready || activityIds.length === 0) return [];
-  return host.timed('getActivityIndicators', () =>
-    host.engine.sections().getActivityIndicators(activityIds)
   );
 }
 

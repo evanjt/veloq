@@ -544,9 +544,6 @@ void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustBuffer section_polyline_flat, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
-    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer section_ids,
     RustCallStatus *uniffi_out_err);
@@ -1161,8 +1158,6 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_extract_trace();
-uint16_t
-uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections();
 uint16_t
@@ -6403,18 +6398,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_"
-        "indicators"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                    "sectionmanager_get_activity_indicators"),
-      2,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_"
         "sections"] = jsi::Function::createFromHostFunction(
       rt,
@@ -10283,18 +10266,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_"
-        "indicators"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "sectionmanager_get_activity_indicators"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators(
-                rt, thisVal, args, count);
-      });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_"
         "sections"] = jsi::Function::createFromHostFunction(
       rt,
@@ -14672,22 +14643,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -18449,15 +18404,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_extract_trace();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
