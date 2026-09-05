@@ -103,6 +103,22 @@ describe('the record gate is one flag', () => {
     expect(swift.indexOf('VeloqRecordWidget()', configurable)).toBeGreaterThan(configurable);
   });
 
+  it('compiles the generated bundles, which exist only under ios/', () => {
+    const projectRoot = path.join(__dirname, '../..');
+    const compiled = iosPlugin.widgetSwiftFiles(projectRoot);
+
+    expect(compiled).toContain(iosPlugin.BUNDLES_FILE);
+    expect(compiled).toContain('VeloqWidget.swift');
+    // The tracked tree is where the list is read from and the generated file is
+    // not in it, so a list taken from disk alone leaves `VeloqWidgetLauncher`
+    // calling `main()` on two types the target never compiled.
+    const tracked = fs
+      .readdirSync(path.join(projectRoot, 'widget/ios/VeloqWidget'))
+      .filter((f) => f.endsWith('.swift'));
+    expect(tracked).not.toContain(iosPlugin.BUNDLES_FILE);
+    expect(compiled.filter((f: string) => f === iosPlugin.BUNDLES_FILE)).toHaveLength(1);
+  });
+
   it('declares the bundles once, generated rather than tracked, so they cannot drift', () => {
     const tracked = fs.readFileSync(
       path.join(__dirname, '../../widget/ios/VeloqWidget/VeloqWidget.swift'),
