@@ -17,38 +17,19 @@ import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
-import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
-import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
-import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
-import {
-  initializeTileCacheSettings,
-  migrateTileCacheSettings,
-} from '@/features/maps/lib/storage/tileCacheSettings';
-import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useCutoverRetry } from '@/features/routes/hooks/useCutoverRetry';
-import {
-  initializeRouteSettings,
-  isHeatmapEnabled,
-} from '@/features/routes/stores/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
-import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
-import { initializeSupportStore, useSupportStore } from '@/shared/app/SupportStore';
-import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
-import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
-import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { initializeI18n, i18n } from '@/i18n';
+import { i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
 import {
   ShaderWarmup,
@@ -84,6 +65,7 @@ import {
 // Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
 import { debug } from '@/shared/debug/debug';
+import { initializeApp } from './launch';
 
 const log = debug.create('RootLayout');
 enableFreeze(true);
@@ -373,78 +355,15 @@ export default function RootLayout() {
   const [startupError, setStartupError] = useState<string | null>(null);
   const colorScheme = useResolvedColorScheme();
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
-  const initializeAuth = useAuthStore((state) => state.initialize);
 
-  // Initialize theme, auth, sport preference, HR zones, route settings, and i18n on app start
   useEffect(() => {
-    async function initialize() {
-      try {
-        // Initialize language first to get the saved locale
-        const savedLocale = await initializeLanguage();
-        // Then initialize i18n with the saved locale
-        await initializeI18n(savedLocale);
-        // Initialize other providers in parallel
-        // Dashboard preferences uses 'Cycling' fallback if sport preference isn't loaded yet
-        const results = await Promise.allSettled([
-          initializeTheme(),
-          initializeAuth(),
-          initializeSportPreference(),
-          initializeUnitPreference(),
-          initializeHRZones(),
-          initializeRouteSettings(),
-          initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
-          initializeDebugStore(),
-          migrateTileCacheSettings(),
-          initializeTileCacheSettings(),
-          initializeWhatsNewStore(),
-          initializeInsightsStore(),
-          initializeRecordingPreferences(),
-          initializeUploadPermission(),
-          initializeNotificationPreferences(),
-          initializeNotificationPrompt(),
-          initializeSupportStore(),
-        ]);
-
-        // One-time legacy purchaser detection: if user already had data
-        // when the app went free, mark them so they see a different card
-        const support = useSupportStore.getState();
-        if (support.isLoaded && !support.isLegacyPurchaser) {
-          try {
-            const eng = getEngine();
-            if (eng && eng.getActivityCount() > 0) {
-              support.setLegacyPurchaser();
-            }
-          } catch {
-            // Engine not available yet - skip, will be a new user
-          }
-        }
-
-        const failed = results.filter((result) => result.status === 'rejected');
-        if (failed.length > 0) {
-          const firstError = failed[0] as PromiseRejectedResult;
-          const message =
-            firstError.reason instanceof Error
-              ? firstError.reason.message
-              : String(firstError.reason ?? 'Unknown startup error');
-          setStartupError(message);
-          if (__DEV__) {
-            console.warn(
-              `[AppInit] ${failed.length} initializer(s) failed. First error: ${message}`
-            );
-          }
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown startup error';
-        setStartupError(message);
-        if (__DEV__) {
-          console.error('[AppInit] Fatal initialization error:', error);
-        }
-      } finally {
+    initializeApp()
+      .catch((error: unknown) => (error instanceof Error ? error.message : 'Unknown startup error'))
+      .then((message) => {
+        if (message) setStartupError(message);
         setAppReady(true);
-      }
-    }
-    initialize();
-  }, [initializeAuth]);
+      });
+  }, []);
 
   // Set up notification handlers once on mount
   useEffect(() => {
