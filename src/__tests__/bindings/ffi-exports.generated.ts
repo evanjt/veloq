@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 220 methods inside `#[uniffi::export] impl` blocks across
+ * 221 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 238 exports (18 standalone + 220 methods)
+ * Total: 239 exports (18 standalone + 221 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
