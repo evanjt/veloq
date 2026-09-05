@@ -1545,57 +1545,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
 })();
 
 /**
- * Bundled patterns payload for the home screen: today's pattern alongside
- * the full detected set, delivered in a single FFI call.
- */
-export type FfiActivityPatternsBundle = {
-  today?: FfiActivityPattern;
-  all: Array<FfiActivityPattern>;
-};
-
-/**
- * Generated factory for {@link FfiActivityPatternsBundle} record objects.
- */
-export const FfiActivityPatternsBundle = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityPatternsBundle,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivityPatternsBundle>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityPatternsBundle = (() => {
-  type TypeName = FfiActivityPatternsBundle;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        today: FfiConverterOptionalTypeFfiActivityPattern.read(from),
-        all: FfiConverterArrayTypeFfiActivityPattern.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterOptionalTypeFfiActivityPattern.write(value.today, into);
-      FfiConverterArrayTypeFfiActivityPattern.write(value.all, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(value.today) +
-        FfiConverterArrayTypeFfiActivityPattern.allocationSize(value.all)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Lightweight route highlight for an activity: was this a PR on the route?
  */
 export type FfiActivityRouteHighlight = {
@@ -11536,11 +11485,6 @@ export interface FitnessManagerLike {
    * Get all activity IDs that have metrics stored (GPS and non-GPS).
    */
   getActivityMetricIds() /*throws*/ : Array<string>;
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday() /*throws*/ : FfiActivityPatternsBundle;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   /**
    * Calendar event bodies over an inclusive window, oldest first.
@@ -11773,27 +11717,6 @@ export class FitnessManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
-            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday(): FfiActivityPatternsBundle /*throws*/ {
-    return FfiConverterTypeFfiActivityPatternsBundle.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -18574,14 +18497,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today() !==
-    11598
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types() !==
     18354
   ) {
@@ -20046,7 +19961,6 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
-    FfiConverterTypeFfiActivityPatternsBundle,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
     FfiConverterTypeFfiBatchTrace,

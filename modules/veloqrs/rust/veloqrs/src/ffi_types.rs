@@ -1400,14 +1400,6 @@ pub struct FfiRankedSectionsBySport {
     pub sections: Vec<FfiRankedSection>,
 }
 
-/// Bundled patterns payload for the home screen: today's pattern alongside
-/// the full detected set, delivered in a single FFI call.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiActivityPatternsBundle {
-    pub today: Option<FfiActivityPattern>,
-    pub all: Vec<FfiActivityPattern>,
-}
-
 /// A detected recurring training pattern from k-means clustering.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityPattern {

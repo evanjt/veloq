@@ -1,11 +1,11 @@
 /**
- * Scenario: the insights tab computed the activity patterns twice. The
- * insights bundle carries them, and `TodayBanner` then called
- * `getActivityPatternsWithToday` for a second k-means pass over the same
- * metric rows on the same screen.
+ * Scenario: the insights tab computed the activity patterns twice, once in
+ * the bundle the hook already holds and once again for the banner, a second
+ * k-means pass over the same metric rows on the same screen.
  *
  * Expected behaviour: the hook that already holds the bundle hands the
- * pattern down, and the banner makes no engine call of its own.
+ * pattern down, and the banner makes no engine call at all. The engine below
+ * answers every method, so a call of any name fails here.
  */
 
 import React from 'react';
@@ -62,10 +62,13 @@ const PATTERN = {
   commonSections: [],
 };
 
-const engine = {
-  getActivityPatternsWithToday: jest.fn(() => ({ today: PATTERN, all: [PATTERN] })),
-  subscribe: jest.fn(() => () => {}),
-};
+const engineCall = jest.fn((..._args: unknown[]) => ({ today: PATTERN, all: [PATTERN] }));
+
+/** Answers to any method name, so the assertions cannot go stale on a rename. */
+const engine = new Proxy({ subscribe: () => () => {} } as Record<string, unknown>, {
+  get: (target, property: string) =>
+    property in target ? target[property] : (...args: unknown[]) => engineCall(...args),
+});
 
 let pending: (() => void)[] = [];
 
@@ -95,14 +98,14 @@ describe('TodayBanner', () => {
       />
     );
 
-    expect(engine.getActivityPatternsWithToday).not.toHaveBeenCalled();
+    expect(engineCall).not.toHaveBeenCalled();
     expect(getByText(/Wednesdays you usually run/)).toBeTruthy();
   });
 
   it('makes no engine call when it is handed no pattern', () => {
     render(<TodayBanner todayPattern={null} />);
 
-    expect(engine.getActivityPatternsWithToday).not.toHaveBeenCalled();
+    expect(engineCall).not.toHaveBeenCalled();
   });
 });
 
@@ -120,6 +123,6 @@ describe('useInsights', () => {
     });
 
     expect(result.current.todayPattern).toEqual(PATTERN);
-    expect(engine.getActivityPatternsWithToday).not.toHaveBeenCalled();
+    expect(engineCall).not.toHaveBeenCalled();
   });
 });

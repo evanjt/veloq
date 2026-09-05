@@ -12,7 +12,6 @@ import type {
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
-  FfiActivityPattern,
   FfiCallOutcome,
   FfiManualActivity,
   FfiExerciseActivities,
@@ -786,15 +785,6 @@ class EngineClient implements DelegateHost {
 
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */
   pollTileGeneration = (): string => heatmapDelegates.pollTileGeneration(this);
-
-  // ==========================================================================
-  // Activity Pattern Detection (K-means clustering)
-  // ==========================================================================
-
-  getActivityPatternsWithToday = (): {
-    today: FfiActivityPattern | undefined;
-    all: FfiActivityPattern[];
-  } => fitnessDelegates.getActivityPatternsWithToday(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
