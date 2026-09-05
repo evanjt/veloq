@@ -714,7 +714,13 @@
     "viewDetails": "查看详情",
     "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动",
-    "colorByGradient": "按坡度着色"
+    "colorByGradient": "按坡度着色",
+    "periodAll": "全部",
+    "periodThisYear": "今年",
+    "periodSixMonths": "6 个月",
+    "periodThreeMonths": "3 个月",
+    "periodOneMonth": "1 个月",
+    "periodOneWeek": "1 周"
   },
   "metrics": {
     "activityCount": "活动",

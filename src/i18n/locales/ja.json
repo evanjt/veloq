@@ -714,7 +714,13 @@
     "viewDetails": "詳細を表示",
     "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム",
-    "colorByGradient": "勾配で色付け"
+    "colorByGradient": "勾配で色付け",
+    "periodAll": "すべて",
+    "periodThisYear": "今年",
+    "periodSixMonths": "6か月",
+    "periodThreeMonths": "3か月",
+    "periodOneMonth": "1か月",
+    "periodOneWeek": "1週間"
   },
   "metrics": {
     "activityCount": "アクティビティ",
