@@ -617,7 +617,6 @@ impl PersistentEngine {
                 representative_range: None,
                 activity_ids: Vec::new(),
                 activity_portions: Vec::new(),
-                route_ids: Vec::new(),
                 activity_traces: std::collections::HashMap::new(),
                 confidence: 0.0,
                 observation_count: 0,

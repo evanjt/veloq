@@ -145,7 +145,6 @@ fn detection_save_writes_blob_as_authority() {
                 distance_meters: tracematch::matching::calculate_route_distance(&polyline),
                 direction: Direction::Same,
             }],
-            route_ids: vec![],
             visit_count: 1,
             distance_meters: tracematch::matching::calculate_route_distance(&polyline),
             activity_traces: std::collections::HashMap::new(),

@@ -2200,7 +2200,6 @@ mod tests {
                     direction: Direction::Same,
                 })
                 .collect(),
-            route_ids: vec![],
             visit_count: activity_ids.len() as u32,
             distance_meters: 5000.0,
             activity_traces: std::collections::HashMap::new(),
