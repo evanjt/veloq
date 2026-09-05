@@ -582,6 +582,7 @@ export interface TranslationResource {
     ft: string;
     bpm: string;
     watts: string;
+    wattsPerKg: string;
     kcal: string;
   };
 
@@ -1155,6 +1156,7 @@ export interface TranslationResource {
   };
 
   stats: {
+    atWeight: string;
     activityCalendar: string;
     activitiesCount: string;
     current: string;
