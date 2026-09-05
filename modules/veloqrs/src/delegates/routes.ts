@@ -7,7 +7,6 @@
  */
 
 import type {
-  FfiGpsPoint,
   FfiRouteGroup,
   FfiRouteDetailData,
   FfiRoutePerformanceResult,
@@ -74,8 +73,12 @@ export function getAllRouteNames(host: DelegateHost): Record<string, string> {
   return Object.fromEntries(map);
 }
 
-export function getConsensusRoute(host: DelegateHost, groupId: string): FfiGpsPoint[] {
-  if (!host.ready) return [];
+/** Coordinate-encoded, like every track that leaves the engine. */
+/** No track at all, in the encoded form the engine returns. */
+const EMPTY_TRACK = new Uint8Array([]).buffer;
+
+export function getConsensusRoute(host: DelegateHost, groupId: string): ArrayBuffer {
+  if (!host.ready) return EMPTY_TRACK;
   validateId(groupId, 'group ID');
   return host.timed('getConsensusRoute', () => host.engine.routes().getConsensusRoute(groupId));
 }

@@ -472,7 +472,8 @@ class EngineClient implements DelegateHost {
   getGroupById = (groupId: string): FfiRouteGroup | null =>
     routeDelegates.getGroupById(this, groupId);
 
-  getSectionPolyline = (sectionId: string): FfiGpsPoint[] =>
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getSectionPolyline = (sectionId: string): ArrayBuffer =>
     sectionDelegates.getSectionPolyline(this, sectionId);
 
   getMapScreenData = (
@@ -513,7 +514,8 @@ class EngineClient implements DelegateHost {
   getGpsTrack = (activityId: string): FfiGpsPoint[] =>
     activityDelegates.getGpsTrack(this, activityId);
 
-  getConsensusRoute = (groupId: string): FfiGpsPoint[] =>
+  /** Coordinate-encoded; put it through `decodeCoords`. */
+  getConsensusRoute = (groupId: string): ArrayBuffer =>
     routeDelegates.getConsensusRoute(this, groupId);
 
   getRoutePerformances = (
