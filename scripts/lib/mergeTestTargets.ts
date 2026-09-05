@@ -83,6 +83,11 @@ export function hasTargets(targets: MergeTargets): boolean {
   );
 }
 
+/** One shell word: the hook runs the line through `eval`, and `src/app/(tabs)/` is a path. */
+function shellQuote(path: string): string {
+  return `'${path.replace(/'/g, "'\\''")}'`;
+}
+
 /** The shell commands those targets call for, one per line, in order. */
 export function mergeTestCommands(targets: MergeTargets): string[] {
   const commands: string[] = [];
@@ -98,7 +103,7 @@ export function mergeTestCommands(targets: MergeTargets): string[] {
   }
   if (targets.typescript.length > 0) {
     commands.push(
-      `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${targets.typescript.join(' ')}`
+      `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${targets.typescript.map(shellQuote).join(' ')}`
     );
   }
 

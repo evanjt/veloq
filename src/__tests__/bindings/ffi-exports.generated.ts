@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 218 methods inside `#[uniffi::export] impl` blocks across
+ * 219 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 236 exports (18 standalone + 218 methods)
+ * Total: 237 exports (18 standalone + 219 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1822,10 +1822,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SectionManager',
   },
   {
+    name: 'get_near_point',
+    camelName: 'getNearPoint',
+    file: 'objects/sections.rs',
+    line: 750,
+    paramCount: 4,
+    returnType: 'Result<Vec<crate::FfiSectionNearPoint>, VeloqError>',
+    docs: 'The sections a fix could be entering, nearest start first. Keyed on a coordinate rather than a section, so a live recording can ask what is in front of it. `sport` matches the stored sport exactly.',
+    object: 'SectionManager',
+  },
+  {
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/sections.rs',
-    line: 750,
+    line: 766,
     paramCount: 2,
     returnType: 'Result<crate::FfiSectionDetailData, VeloqError>',
     docs: 'Everything the section detail screen can paint before its time streams have been fetched: the section, its neighbours and merge candidates, exclusions, bounds state, per-activity metrics and signatures, and the activities whose streams are still missing.',
@@ -1835,7 +1845,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_performance',
     camelName: 'getDetailPerformance',
     file: 'objects/sections.rs',
-    line: 761,
+    line: 777,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionPerformanceData, VeloqError>',
     docs: 'The lap-time reads for the section detail screen: calendar summary, performance records and chart payload. Call once the streams reported by `get_detail_data` have landed.',
@@ -2566,6 +2576,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'mergeSections',
   'getWorkoutSections',
   'getChartData',
+  'getNearPoint',
   'getDetailData',
   'getDetailPerformance',
   'new',
@@ -2789,6 +2800,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   merge_sections: 'mergeSections',
   get_workout_sections: 'getWorkoutSections',
   get_chart_data: 'getChartData',
+  get_near_point: 'getNearPoint',
   get_detail_performance: 'getDetailPerformance',
   get_athlete_profile: 'getAthleteProfile',
   set_athlete_profile: 'setAthleteProfile',
