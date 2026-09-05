@@ -627,7 +627,7 @@ impl From<&tracematch::FrequentSection> for FfiSection {
             version: Some(s.version),
             updated_at: s.updated_at.clone(),
             created_at: s.created_at.clone().unwrap_or_default(),
-            route_ids: Some(s.route_ids.clone()),
+            route_ids: None,
             source_activity_id: None,
             start_index: None,
             end_index: None,
@@ -2157,7 +2157,6 @@ mod tests {
                 distance_meters: 900.0,
                 direction: tracematch::Direction::Same,
             }],
-            route_ids: vec!["route_9".to_string()],
             visit_count: 6,
             distance_meters: 950.0,
             activity_traces: std::collections::HashMap::new(),
@@ -2196,7 +2195,6 @@ mod tests {
             "the catalogue's non-optional id must not arrive as None"
         );
         assert_eq!(ffi.activity_ids, vec!["act_1", "act_2"]);
-        assert_eq!(ffi.route_ids, Some(vec!["route_9".to_string()]));
         assert_eq!(ffi.visit_count, 6);
         assert_eq!(ffi.confidence, Some(0.75));
         assert_eq!(ffi.observation_count, Some(8));

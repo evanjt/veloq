@@ -91,7 +91,6 @@ fn auto_section(id: &str, polyline: Vec<GpsPoint>, members: &[&str]) -> Frequent
         representative_range: None,
         activity_ids: members.iter().map(|a| (*a).to_string()).collect(),
         activity_portions: portions,
-        route_ids: Vec::new(),
         visit_count: members.len() as u32,
         distance_meters: 200.0,
         activity_traces: Default::default(),

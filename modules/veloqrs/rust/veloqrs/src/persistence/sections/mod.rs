@@ -409,7 +409,6 @@ impl PersistentEngine {
                         representative_range,
                         activity_ids,
                         activity_portions: portions,
-                        route_ids: vec![],
                         visit_count,
                         distance_meters: row.get(5)?,
                         activity_traces: std::collections::HashMap::new(),
@@ -1008,7 +1007,6 @@ impl PersistentEngine {
             // FROM this field, so a blank here turns the next save into a
             // wipe of the section's traversals.
             activity_portions: self.get_section_portions(section_id),
-            route_ids: vec![], // Not stored in DB
             visit_count,
             distance_meters,
             activity_traces: std::collections::HashMap::new(), // Not stored in DB
@@ -1288,7 +1286,6 @@ impl PersistentEngine {
             representative_range: None,
             activity_ids: section.activity_ids,
             activity_portions: portions,
-            route_ids: section.route_ids.unwrap_or_default(),
             visit_count: section.visit_count,
             distance_meters: section.distance_meters,
             activity_traces: std::collections::HashMap::new(),

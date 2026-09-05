@@ -1468,7 +1468,6 @@ mod tests {
             representative_range: Some((0, 12)),
             activity_ids: vec!["a1".to_string()],
             activity_portions: vec![],
-            route_ids: vec![],
             visit_count: 3,
             activity_traces: HashMap::new(),
             confidence: 0.9,
