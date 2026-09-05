@@ -6,6 +6,8 @@
  * - .veloq:   Legacy JSON backup (custom sections, names, preferences only)
  */
 
+import { Alert } from 'react-native';
+import { i18n } from '@/i18n';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -88,7 +90,60 @@ const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
   activity_count: z.number(),
+  // Older binaries answer without it, and an undated backup reads as unknown.
+  newest_activity: z.number().nullable().optional(),
 });
+
+interface DatabaseReplacementArgs {
+  backupActivityCount: number | null;
+  backupNewestActivity: number | null;
+  liveActivityCount: number;
+  liveNewestActivity: number | null;
+}
+
+/** Epoch seconds as a local date, or a dash when the side has no date. */
+function describeDate(epochSeconds: number | null): string {
+  if (epochSeconds == null) return '\u2014';
+  return new Date(epochSeconds * 1000).toLocaleDateString();
+}
+
+/**
+ * Ask before a picked file replaces a library that is still on the device.
+ * Resolves whether the athlete accepted. The counts and dates are both sides
+ * of the trade, because an older snapshot of the same account is the one
+ * mis-pick nothing else here can catch.
+ */
+function confirmDatabaseReplacement(args: DatabaseReplacementArgs): Promise<boolean> {
+  const t = i18n.t.bind(i18n);
+  const body = t('backup.replaceLiveMessage', {
+    backupCount: args.backupActivityCount ?? '?',
+    backupDate: describeDate(args.backupNewestActivity),
+    liveCount: args.liveActivityCount,
+    liveDate: describeDate(args.liveNewestActivity),
+    defaultValue:
+      'This will replace the library on this device ({{liveCount}} activities, newest {{liveDate}}) with the backup ({{backupCount}} activities, newest {{backupDate}}). Anything on the device that is not in the backup is deleted and cannot be recovered.',
+  });
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('backup.replaceLiveTitle', { defaultValue: 'Replace this device\u2019s library?' }),
+      body,
+      [
+        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: t('backup.replaceLiveConfirm', { defaultValue: 'Replace' }),
+          style: 'destructive',
+          onPress: () => resolve(true),
+        },
+      ]
+    );
+  });
+}
+
+/** Engine dates arrive as bigint over the FFI, and as null when there are none. */
+function toEpochSeconds(value: number | bigint | null | undefined): number | null {
+  return value == null ? null : Number(value);
+}
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
@@ -156,6 +211,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     const currentAthleteId = useAuthStore.getState().athleteId;
     let backupAthleteId: string | null = null;
+    let backupMeta: z.infer<typeof BackupValidationSchema> | null = null;
 
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,7 +223,6 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // binary). If it exists and rejects or throws, refuse - never overwrite the
     // live DB on a bad backup.
     if (validateFn) {
-      let backupMeta: z.infer<typeof BackupValidationSchema>;
       try {
         backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
       } catch (e) {
@@ -231,6 +286,27 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     }
 
     const engine = getEngine();
+
+    // The live library is about to go, and the rollback copy is deleted on
+    // success, so this is the last point anything can be kept. A device with
+    // nothing on it has nothing to trade and is not asked.
+    if ((engine?.getActivityCount() ?? 0) > 0) {
+      const accepted = await confirmDatabaseReplacement({
+        backupActivityCount: backupMeta?.activity_count ?? null,
+        backupNewestActivity: backupMeta?.newest_activity ?? null,
+        liveActivityCount: engine?.getActivityCount() ?? 0,
+        liveNewestActivity: toEpochSeconds(engine?.getStats()?.newestDate),
+      });
+      if (!accepted) {
+        await cleanupTemp();
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Restore cancelled',
+        };
+      }
+    }
+
     const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
     const backupPath = `${dbPath}.bak`;
     // Whether the rollback copy is a complete one. A snapshot that threw

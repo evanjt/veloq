@@ -402,7 +402,8 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
 }
 /**
  * Validate a backup database file without touching the global engine.
- * Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+ * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
+ * "activity_count", "newest_activity"}.
  */
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
@@ -17962,7 +17963,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    1802
+    28613
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
