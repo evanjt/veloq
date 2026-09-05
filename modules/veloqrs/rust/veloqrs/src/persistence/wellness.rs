@@ -34,6 +34,26 @@ pub struct WellnessRow {
     pub raw: Option<String>,
 }
 
+/// Today in the athlete's own timezone, which is the day their wellness rows
+/// are stamped with.
+fn today_iso() -> String {
+    chrono::Local::now().date_naive().to_string()
+}
+
+/// `days` days after `date`, or `date` itself when it cannot be read.
+fn iso_days_after(date: &str, days: u32) -> String {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|d| (d + chrono::Duration::days(i64::from(days))).to_string())
+        .unwrap_or_else(|_| date.to_string())
+}
+
+/// `days` days before `date`, or `date` itself when it cannot be read.
+fn iso_days_before(date: &str, days: u32) -> String {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|d| (d - chrono::Duration::days(i64::from(days))).to_string())
+        .unwrap_or_else(|_| date.to_string())
+}
+
 /// Drop non-finite floats (NaN / +/-Inf) to NULL so corrupt API values never
 /// reach the form charts that subtract and plot them.
 fn finite(v: Option<f64>) -> Option<f64> {
@@ -137,16 +157,27 @@ impl PersistentEngine {
     }
 
     /// Trailing N-day wellness rows, oldest first. `days` includes today.
+    ///
+    /// A day the athlete has no row for is a gap, not a shorter window: rows
+    /// exist only for the days intervals.icu has data for, so taking the last
+    /// N rows spans as much calendar time as the gaps require and every
+    /// caller reading position as date reads across them.
     pub fn get_wellness_window(&self, days: u32) -> SqlResult<Vec<WellnessRow>> {
+        self.get_wellness_window_to(days, &today_iso())
+    }
+
+    /// The same window ending on `today`, which the tests pin.
+    pub fn get_wellness_window_to(&self, days: u32, today: &str) -> SqlResult<Vec<WellnessRow>> {
+        let oldest = iso_days_before(today, days.saturating_sub(1));
         let mut stmt = self.db.prepare(
             "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
                     mood, motivation, raw
              FROM wellness
-             ORDER BY date DESC
-             LIMIT ?",
+             WHERE date >= ? AND date <= ?
+             ORDER BY date ASC",
         )?;
-        let rows = stmt.query_map(params![days], |r| {
+        let rows = stmt.query_map(params![oldest, today], |r| {
             Ok(WellnessRow {
                 date: r.get(0)?,
                 ctl: r.get(1)?,
@@ -165,9 +196,7 @@ impl PersistentEngine {
                 raw: r.get(14)?,
             })
         })?;
-        let mut out: Vec<WellnessRow> = rows.collect::<SqlResult<Vec<_>>>()?;
-        out.reverse(); // oldest first so callers can render left-to-right
-        Ok(out)
+        rows.collect::<SqlResult<Vec<_>>>()
     }
 
     /// Untyped wellness bodies over an inclusive date window, oldest first.
@@ -217,26 +246,37 @@ impl PersistentEngine {
         &self,
         days: u32,
     ) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
-        let window = self.get_wellness_window(days)?;
+        self.get_wellness_sparklines_to(days, &today_iso())
+    }
+
+    /// The same sparklines ending on `today`, which the tests pin.
+    ///
+    /// One entry per calendar day from the athlete's first row in the window
+    /// to `today`, so a caller indexing by position reads a date: the last
+    /// entry is today, the one before it is yesterday, and seven back is a
+    /// week. A day with no row at all carries the last value forward, which is
+    /// what a line chart draws between two points anyway.
+    pub fn get_wellness_sparklines_to(
+        &self,
+        days: u32,
+        today: &str,
+    ) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
+        let window = self.daily_wellness_window(days, today)?;
         if window.is_empty() {
             return Ok(None);
         }
 
-        let fitness: Vec<i32> = window
+        // A day with no row of its own holds the last value the athlete had,
+        // the same treatment `hrv` and `rhr` already got. Dropping it to zero
+        // draws a cliff where the athlete simply did not sync.
+        let ctl = forward_fill(window.iter().map(|w| w.ctl));
+        let atl = forward_fill(window.iter().map(|w| w.atl));
+        let fitness: Vec<i32> = ctl.iter().map(|v| v.round() as i32).collect();
+        let fatigue: Vec<i32> = atl.iter().map(|v| v.round() as i32).collect();
+        let form: Vec<i32> = ctl
             .iter()
-            .map(|w| w.ctl.unwrap_or(0.0).round() as i32)
-            .collect();
-        let fatigue: Vec<i32> = window
-            .iter()
-            .map(|w| w.atl.unwrap_or(0.0).round() as i32)
-            .collect();
-        let form: Vec<i32> = window
-            .iter()
-            .map(|w| {
-                let ctl = w.ctl.unwrap_or(0.0);
-                let atl = w.atl.unwrap_or(0.0);
-                (ctl - atl).round() as i32
-            })
+            .zip(&atl)
+            .map(|(c, a)| (c - a).round() as i32)
             .collect();
 
         let hrv = forward_fill_round(window.iter().map(|w| w.hrv));
@@ -251,17 +291,81 @@ impl PersistentEngine {
         }))
     }
 
+    /// The window with a row for every calendar day it spans, starting at the
+    /// athlete's first row inside it. A day with no row of its own carries no
+    /// values, so the forward fill below stands in for it.
+    fn daily_wellness_window(&self, days: u32, today: &str) -> SqlResult<Vec<WellnessRow>> {
+        let rows = self.get_wellness_window_to(days, today)?;
+        let Some(first) = rows.first().map(|r| r.date.clone()) else {
+            return Ok(Vec::new());
+        };
+        let mut by_date: std::collections::HashMap<String, WellnessRow> =
+            rows.into_iter().map(|r| (r.date.clone(), r)).collect();
+
+        let mut out = Vec::new();
+        let mut date = first;
+        while date.as_str() <= today {
+            let next = iso_days_after(&date, 1);
+            let filled = by_date.remove(&date).unwrap_or_else(|| WellnessRow {
+                date: date.clone(),
+                ctl: None,
+                atl: None,
+                ramp_rate: None,
+                hrv: None,
+                resting_hr: None,
+                weight: None,
+                sleep_secs: None,
+                sleep_score: None,
+                soreness: None,
+                fatigue: None,
+                stress: None,
+                mood: None,
+                motivation: None,
+                raw: None,
+            });
+            out.push(filled);
+            if next == date {
+                break;
+            }
+            date = next;
+        }
+        Ok(out)
+    }
+
     /// HRV trend over the trailing window. Splits the window in half and
     /// compares averages; flags consecutive-day decline (Kiviniemi 2007
     /// guidance). Returns `None` when there are fewer than 5 valid HRV days.
     pub fn compute_hrv_trend(&self, days: u32) -> SqlResult<Option<crate::FfiHrvTrend>> {
-        let window = self.get_wellness_window(days)?;
+        self.compute_hrv_trend_to(days, &today_iso())
+    }
+
+    /// The same trend ending on `today`, which the tests pin.
+    pub fn compute_hrv_trend_to(
+        &self,
+        days: u32,
+        today: &str,
+    ) -> SqlResult<Option<crate::FfiHrvTrend>> {
+        let window = self.get_wellness_window_to(days, today)?;
+        // A decline is two days running, so the pair the flag reads has to be
+        // two days running. Rows either side of a gap are adjacent in the
+        // array and days apart on the calendar.
+        let last_two_adjacent = window
+            .iter()
+            .rev()
+            .filter(|w| w.hrv.is_some_and(|v| v > 0.0))
+            .take(2)
+            .map(|w| w.date.clone())
+            .collect::<Vec<_>>();
+        let consecutive = match last_two_adjacent.as_slice() {
+            [newer, older] => iso_days_before(newer, 1) == *older,
+            _ => false,
+        };
         let values: Vec<f64> = window
             .iter()
             .filter_map(|w| w.hrv)
             .filter(|v| *v > 0.0)
             .collect();
-        let Some((label, avg)) = hrv_verdict(&values) else {
+        let Some((label, avg)) = hrv_verdict(&values, consecutive) else {
             return Ok(None);
         };
 
@@ -277,6 +381,26 @@ impl PersistentEngine {
 
 /// Forward-fill an iterator of optional floats into rounded i32s. Returns
 /// an empty Vec when every value is None/zero (TS behaviour).
+/// Each value, with a missing one holding the last real value before it.
+/// Empty when nothing in the series is real.
+fn forward_fill<I>(iter: I) -> Vec<f64>
+where
+    I: Iterator<Item = Option<f64>>,
+{
+    let raw: Vec<Option<f64>> = iter.collect();
+    let Some(mut last) = raw.iter().copied().find(|v| v.is_some()).flatten() else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(raw.len());
+    for v in raw {
+        if let Some(val) = v {
+            last = val;
+        }
+        out.push(last);
+    }
+    out
+}
+
 fn forward_fill_round<I>(iter: I) -> Vec<i32>
 where
     I: Iterator<Item = Option<f64>>,
@@ -300,7 +424,7 @@ where
 /// The label and window average behind [`PersistentEngine::compute_hrv_trend`],
 /// split out from the read so the rule itself can be tested without a database.
 /// `None` when the window is too short to say anything.
-fn hrv_verdict(values: &[f64]) -> Option<(&'static str, f64)> {
+fn hrv_verdict(values: &[f64], last_two_are_consecutive_days: bool) -> Option<(&'static str, f64)> {
     if values.len() < 5 {
         return None;
     }
@@ -321,7 +445,10 @@ fn hrv_verdict(values: &[f64]) -> Option<(&'static str, f64)> {
     let second_avg = mean(&values[mid..]);
 
     let last_two = &values[values.len().saturating_sub(2)..];
-    let consecutive_decline = last_two.len() == 2 && last_two[0] > last_two[1] && last_two[1] < avg;
+    let consecutive_decline = last_two_are_consecutive_days
+        && last_two.len() == 2
+        && last_two[0] > last_two[1]
+        && last_two[1] < avg;
 
     // Higher HRV is the better direction, so this reads as a value, not a
     // time. A consecutive decline overrides a stable verdict: two days down
@@ -344,19 +471,19 @@ mod tests {
 
     #[test]
     fn a_window_under_five_days_has_no_hrv_verdict() {
-        assert_eq!(hrv_verdict(&[50.0, 52.0]), None);
-        assert_eq!(hrv_verdict(&[]), None);
+        assert_eq!(hrv_verdict(&[50.0, 52.0], true), None);
+        assert_eq!(hrv_verdict(&[], true), None);
     }
 
     #[test]
     fn a_window_averaging_zero_has_no_hrv_verdict() {
-        assert_eq!(hrv_verdict(&[0.0, 0.0, 0.0, 0.0, 0.0]), None);
+        assert_eq!(hrv_verdict(&[0.0, 0.0, 0.0, 0.0, 0.0], true), None);
     }
 
     #[test]
     fn a_rising_second_half_trends_up() {
         assert_eq!(
-            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0]).map(|(l, _)| l),
+            hrv_verdict(&[40.0, 45.0, 50.0, 55.0, 60.0], true).map(|(l, _)| l),
             Some("trendingUp")
         );
     }
@@ -364,14 +491,14 @@ mod tests {
     #[test]
     fn a_falling_second_half_trends_down() {
         assert_eq!(
-            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0]).map(|(l, _)| l),
+            hrv_verdict(&[60.0, 55.0, 50.0, 45.0, 40.0], true).map(|(l, _)| l),
             Some("trendingDown")
         );
     }
 
     #[test]
     fn a_flat_window_is_stable() {
-        let verdict = hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.0]);
+        let verdict = hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.0], true);
         assert_eq!(verdict.map(|(l, _)| l), Some("stable"));
         assert_eq!(verdict.map(|(_, avg)| avg), Some(50.0));
     }
@@ -381,7 +508,18 @@ mod tests {
         // Second half is 1 % above the first, under the 2 % deadband, and the
         // last two days rise so the decline override cannot fire.
         assert_eq!(
-            hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.5]).map(|(l, _)| l),
+            hrv_verdict(&[50.0, 50.0, 50.0, 50.0, 50.5], true).map(|(l, _)| l),
+            Some("stable")
+        );
+    }
+
+    #[test]
+    fn a_drop_across_a_gap_does_not_override_stable() {
+        // The same values, with the last two rows days apart rather than one.
+        // Two days running is the rule, so a pair that is not two days
+        // running cannot fire it.
+        assert_eq!(
+            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], false).map(|(l, _)| l),
             Some("stable")
         );
     }
@@ -391,7 +529,7 @@ mod tests {
         // Halves are within the deadband, but the window ends on a drop that
         // sits under the window average.
         assert_eq!(
-            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0]).map(|(l, _)| l),
+            hrv_verdict(&[50.0, 50.0, 50.0, 51.0, 49.0], true).map(|(l, _)| l),
             Some("trendingDown")
         );
     }
