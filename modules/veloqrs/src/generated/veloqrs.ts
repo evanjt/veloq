@@ -275,6 +275,26 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
+ * Pause the elevation backfill for the rest of this process.
+ *
+ * The pass in flight ends at its next batch and reports `paused`, and no
+ * launch or resume attempt starts another until the app is reopened. Nothing
+ * is persisted, so a forgotten pause can never strand the migration. Returns
+ * whether a pass was running when the pause landed.
+ */
+export function pauseElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Tell the engine what TypeScript sees on the network.
  *
  * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
@@ -17812,6 +17832,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_is_cutover_running",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
+    42876
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
     );
   }
   if (

@@ -1279,7 +1279,9 @@
     "previewKeepTitle": "Zastosować te ustawienia?",
     "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
     "previewKeepRefusedTitle": "Ponowna analiza nie ruszyła",
-    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę."
+    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę.",
+    "elevationBackfillPause": "Wstrzymaj pobieranie",
+    "elevationBackfillPaused": "Pobieranie wysokości wstrzymane. Zostanie wznowione przy następnym otwarciu aplikacji. Aby całkowicie wyłączyć wykrywanie sekcji, wyłącz powyżej Dopasowywanie tras."
   },
   "stats": {
     "activities": "Aktywności",
@@ -1587,6 +1589,7 @@
     "stateFailed": "Zatrzymane przedwcześnie",
     "progressCount": "{{completed}} z {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Pozostało {{count}} do pobrania"
+    "remaining": "Pozostało {{count}} do pobrania",
+    "statePaused": "Wstrzymane do następnego otwarcia aplikacji"
   }
 }

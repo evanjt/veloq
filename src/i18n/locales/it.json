@@ -1277,7 +1277,9 @@
     "previewKeepTitle": "Applicare queste impostazioni?",
     "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
     "previewKeepRefusedTitle": "La nuova analisi non è partita",
-    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento."
+    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento.",
+    "elevationBackfillPause": "Metti in pausa",
+    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra."
   },
   "stats": {
     "activities": "Attività",
@@ -1585,6 +1587,7 @@
     "stateFailed": "Interrotta prima del termine",
     "progressCount": "{{completed}} di {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Ne mancano {{count}} da scaricare"
+    "remaining": "Ne mancano {{count}} da scaricare",
+    "statePaused": "In pausa fino alla prossima apertura dell'app"
   }
 }

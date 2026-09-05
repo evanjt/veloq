@@ -8,14 +8,24 @@
 
 import {
   startElevationBackfill as ffiStartElevationBackfill,
+  pauseElevationBackfill as ffiPauseElevationBackfill,
   getElevationBackfillProgress as ffiGetElevationBackfillProgress,
   getElevationBackfillRemaining as ffiGetElevationBackfillRemaining,
   type ElevationBackfillProgress,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-/** Live and terminal states the backfill reports. */
-export type ElevationBackfillPhase = 'idle' | 'fetching' | 'complete' | 'partial' | 'failed';
+/**
+ * Live and terminal states the backfill reports. `paused` is the athlete's
+ * own stop: it holds for the process and lifts on the next launch.
+ */
+export type ElevationBackfillPhase =
+  | 'idle'
+  | 'fetching'
+  | 'complete'
+  | 'partial'
+  | 'failed'
+  | 'paused';
 
 export type { ElevationBackfillProgress };
 
@@ -30,6 +40,21 @@ export function startElevationBackfill(host: DelegateHost): boolean {
     return host.timed('startElevationBackfill', () => ffiStartElevationBackfill());
   } catch (e) {
     console.error('[Engine] startElevationBackfill threw:', e);
+    return false;
+  }
+}
+
+/**
+ * Pause the backfill for the rest of this process. The pass in flight ends at
+ * its next batch and reports `paused`, nothing starts another until the app
+ * is reopened, and nothing is persisted. Returns whether a pass was running.
+ */
+export function pauseElevationBackfill(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  try {
+    return host.timed('pauseElevationBackfill', () => ffiPauseElevationBackfill());
+  } catch (e) {
+    console.error('[Engine] pauseElevationBackfill threw:', e);
     return false;
   }
 }

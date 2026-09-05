@@ -24,8 +24,9 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_RETRY_ROUNDS, BackfillRun, MAX_CONSECUTIVE_FAILURES, backfill_progress,
-    backfill_retry_delays, detect_runs_started, run_elevation_backfill,
+    BACKFILL_PHASE_PAUSED, BACKFILL_RETRY_ROUNDS, BackfillRun, MAX_CONSECUTIVE_FAILURES,
+    backfill_progress, backfill_retry_delays, detect_runs_started, pause_elevation_backfill,
+    reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
@@ -1710,5 +1711,61 @@ fn a_pass_finishing_an_earlier_pass_still_cuts() {
         second.detects_started, 1,
         "the pass that drains makes good on the earlier one's cut"
     );
+    drain_detection();
+}
+
+/// Scenario: the athlete pauses the download while a pass is fetching. The
+/// pass ends at its next batch boundary and reports `paused`, so the page can
+/// say the download resumes when the app is next opened. The queue is left
+/// half full, so the final re-cut, which is only honest over a fully
+/// converted library, must not fire, and detection must come back on.
+#[test]
+fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
+    let _serial = serial();
+    reset_elevation_backfill_pause();
+    let ids: Vec<String> = (0..2 * MAX_CONSECUTIVE_FAILURES)
+        .map(|i| format!("a{}", i))
+        .collect();
+    let refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+    let (_dir, _path) = seeded_engine(&refs);
+    let detects_before = detect_runs_started();
+
+    let server = MockServer::start();
+    for (i, id) in ids.iter().enumerate() {
+        server.mock(|when, then| {
+            when.path(format!("/activity/{}/streams.json", id));
+            then.status(200)
+                .delay(Duration::from_millis(150))
+                .json_body(elevated_streams(i as f64 * 0.02));
+        });
+    }
+
+    let base = server.base_url();
+    let runner = std::thread::spawn(move || run_elevation_backfill(&fast_transport(base)));
+    wait_for_fetching();
+    assert!(pause_elevation_backfill(), "a pass was in flight to stop");
+
+    let run = runner.join().expect("runner thread");
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("a paused pass still finishes: {run:?}");
+    };
+    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
+    assert!(
+        outcome.elevated > 0,
+        "the batch in flight was allowed to land"
+    );
+    assert!(outstanding() > 0, "the rest of the queue is still owed");
+    assert_eq!(outcome.detects_started, 0);
+    assert_eq!(
+        detect_runs_started(),
+        detects_before,
+        "no re-cut over a half-converted library"
+    );
+    assert!(
+        !detection_suspended(),
+        "the guard must release when the pass ends"
+    );
+
+    reset_elevation_backfill_pause();
     drain_detection();
 }

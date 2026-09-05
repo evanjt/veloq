@@ -1277,7 +1277,9 @@
     "previewKeepTitle": "Diese Einstellungen anwenden?",
     "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
-    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
+    "elevationBackfillPause": "Download pausieren",
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennung ganz abzuschalten, schalte oben Routenabgleich aus."
   },
   "stats": {
     "activities": "Aktivitäten",
@@ -1585,6 +1587,7 @@
     "stateFailed": "Vorzeitig gestoppt",
     "progressCount": "{{completed}} von {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "Noch {{count}} zu laden"
+    "remaining": "Noch {{count}} zu laden",
+    "statePaused": "Pausiert, bis die App wieder geöffnet wird"
   }
 }
