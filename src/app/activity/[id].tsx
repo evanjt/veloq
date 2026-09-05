@@ -181,15 +181,17 @@ export default function ActivityDetailScreen() {
   // Memoised so a chart scrub, which re-renders this screen per touch move,
   // hands the hooks the same bundle wrapper rather than a fresh literal.
   const preComputedMatches = useMemo(
-    () =>
-      detail ? { sections: detail.matchedSections, sectionCount: detail.sectionCount } : undefined,
+    () => ({
+      sections: detail?.matchedSections ?? [],
+      sectionCount: detail?.sectionCount ?? 0,
+    }),
     [detail]
   );
   const preComputedOverlays = useMemo(
-    () =>
-      detail
-        ? { sectionTraces: detail.sectionTraces, prSectionIds: detail.prSectionIds }
-        : undefined,
+    () => ({
+      sectionTraces: detail?.sectionTraces ?? {},
+      prSectionIds: detail?.prSectionIds ?? new Set<string>(),
+    }),
     [detail]
   );
 
@@ -209,8 +211,7 @@ export default function ActivityDetailScreen() {
 
   // Section encounters for the sections tab (one entry per section+direction)
   const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
-    interactive ? id : undefined,
-    detail?.encounters
+    detail?.encounters ?? []
   );
 
   // Filter custom sections that match this activity (still needed for map overlays)
