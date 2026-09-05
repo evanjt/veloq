@@ -1288,7 +1288,12 @@
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
     "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
     "elevationBackfillPause": "Download pausieren",
-    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennung ganz abzuschalten, schalte oben Routenabgleich aus."
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennung ganz abzuschalten, schalte oben Routenabgleich aus.",
+    "exportPrivacyTitle": "Zuhause aus Exporten heraushalten",
+    "exportPrivacyDescription": "Kürzt Anfang und Ende jeder Aufzeichnung im Umkreis von 100 m um das Zuhause. Nur die exportierte Kopie wird gekürzt.",
+    "exportPrivacySuggested": "Die meisten deiner Fahrten starten in der Nähe eines Ortes, {{count}} davon.",
+    "exportPrivacyConfirm": "Als Zuhause verwenden",
+    "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen."
   },
   "stats": {
     "activities": "Aktivitäten",

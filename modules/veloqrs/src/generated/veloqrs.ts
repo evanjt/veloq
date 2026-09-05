@@ -9396,6 +9396,68 @@ const FfiConverterTypeSettingPair = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * A home the athlete can confirm, and how sure the guess is.
+ */
+export type SuggestedHome = {
+  latitude: /*f64*/ number;
+  longitude: /*f64*/ number;
+  /**
+   * Rides whose first or last fix falls in the cluster.
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Endpoints in the cluster, of every endpoint in the library.
+   */
+  endpointShare: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link SuggestedHome} record objects.
+ */
+export const SuggestedHome = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<SuggestedHome, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<SuggestedHome>,
+  });
+})();
+
+const FfiConverterTypeSuggestedHome = (() => {
+  type TypeName = SuggestedHome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        latitude: FfiConverterFloat64.read(from),
+        longitude: FfiConverterFloat64.read(from),
+        activityCount: FfiConverterUInt32.read(from),
+        endpointShare: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterFloat64.write(value.latitude, into);
+      FfiConverterFloat64.write(value.longitude, into);
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterFloat64.write(value.endpointShare, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.latitude) +
+        FfiConverterFloat64.allocationSize(value.longitude) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterFloat64.allocationSize(value.endpointShare)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 const stringConverter = {
   stringToBytes: (s: string) =>
     uniffiCaller.rustCall((status) =>
@@ -15291,6 +15353,12 @@ export interface SettingsManagerLike {
    * Bytes the stream store holds, for the cache readout.
    */
   streamStoreBytes() /*throws*/ : /*i64*/ bigint;
+  /**
+   * Where the athlete's rides start and finish most often, for the export
+   * privacy row to offer. A guess: the trim stays off until it is confirmed
+   * or replaced, and a library with too little to cluster answers none.
+   */
+  suggestExportHome() /*throws*/ : SuggestedHome | undefined;
 }
 /**
  * @deprecated Use `SettingsManagerLike` instead.
@@ -15541,6 +15609,28 @@ export class SettingsManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Where the athlete's rides start and finish most often, for the export
+   * privacy row to offer. A guess: the trim stays off until it is confirmed
+   * or replaced, and a library with too little to cluster answers none.
+   */
+  suggestExportHome(): SuggestedHome | undefined /*throws*/ {
+    return FfiConverterOptionalTypeSuggestedHome.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
             uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -17576,6 +17666,11 @@ const FfiConverterOptionalTypeNetworkPush = new FfiConverterOptional(
   FfiConverterTypeNetworkPush,
 );
 
+// FfiConverter for SuggestedHome | undefined
+const FfiConverterOptionalTypeSuggestedHome = new FfiConverterOptional(
+  FfiConverterTypeSuggestedHome,
+);
+
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
@@ -19524,6 +19619,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home() !==
+    43916
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
     57349
   ) {
@@ -20057,6 +20160,7 @@ export default Object.freeze({
     FfiConverterTypeSettingPair,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,
+    FfiConverterTypeSuggestedHome,
     FfiConverterTypeSyncManager,
     FfiConverterTypeSyncState,
     FfiConverterTypeVeloqEngine,

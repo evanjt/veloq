@@ -1288,7 +1288,12 @@
     "previewKeepRefusedTitle": "La nuova analisi non è partita",
     "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento.",
     "elevationBackfillPause": "Metti in pausa",
-    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra."
+    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra.",
+    "exportPrivacyTitle": "Tieni casa fuori dalle esportazioni",
+    "exportPrivacyDescription": "Taglia inizio e fine di ogni traccia entro 100 m da casa. Viene accorciata solo la copia esportata.",
+    "exportPrivacySuggested": "La maggior parte delle tue uscite parte dallo stesso punto, {{count}} di esse.",
+    "exportPrivacyConfirm": "Usalo come casa",
+    "exportPrivacyNoSuggestion": "Non ci sono ancora abbastanza uscite per capire dove sia casa."
   },
   "stats": {
     "activities": "Attività",

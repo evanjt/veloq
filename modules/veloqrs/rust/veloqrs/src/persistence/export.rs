@@ -725,3 +725,197 @@ mod privacy_trim_tests {
         assert_eq!(trim(100.0).apply(&[]).unwrap().len(), 0);
     }
 }
+
+/// A home the athlete can confirm, and how sure the guess is.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SuggestedHome {
+    pub latitude: f64,
+    pub longitude: f64,
+    /// Rides whose first or last fix falls in the cluster.
+    pub activity_count: u32,
+    /// Endpoints in the cluster, of every endpoint in the library.
+    pub endpoint_share: f64,
+}
+
+/// The cell edge the suggestion clusters on, and the radius the trim defaults
+/// to. A ride's endpoints scatter by tens of metres around one door, so a
+/// hundred is wide enough to gather them and narrow enough not to swallow the
+/// next street.
+const HOME_CELL_M: f64 = 100.0;
+
+impl PersistentEngine {
+    /// Where the athlete's rides start and finish most often, or none when
+    /// there is not enough to guess from.
+    ///
+    /// A guess, not an answer: it is offered for confirmation and the trim
+    /// stays off until someone confirms it. Endpoints are the first and last
+    /// fix of every stored track, which is the pair a bulk export would carry.
+    pub fn suggest_export_home(&self) -> Option<SuggestedHome> {
+        let endpoints = self.track_endpoints();
+        if endpoints.len() < 2 {
+            return None;
+        }
+
+        // A cell grid rather than a clustering pass: the question is which
+        // hundred metres, and every endpoint is one row.
+        let mut cells: std::collections::HashMap<(i64, i64), Vec<(f64, f64)>> =
+            std::collections::HashMap::new();
+        let lat_cell = HOME_CELL_M / 111_320.0;
+        for (lat, lng) in &endpoints {
+            let lng_cell = HOME_CELL_M / (111_320.0 * lat.to_radians().cos().abs().max(0.01));
+            cells
+                .entry(((lat / lat_cell) as i64, (lng / lng_cell) as i64))
+                .or_default()
+                .push((*lat, *lng));
+        }
+
+        // Ties go to the lower cell key, so the same library suggests the same
+        // home every time it is asked.
+        let (_, densest) = cells
+            .into_iter()
+            .max_by_key(|(key, points)| (points.len(), std::cmp::Reverse(*key)))?;
+        if densest.len() < 2 {
+            return None;
+        }
+
+        // The cell picks the neighbourhood, distance picks the cluster. A door
+        // near a cell edge scatters its endpoints across two cells, so counting
+        // the cell alone undercounts it and pulls the centre to one side.
+        let seed_lat = densest.iter().map(|(lat, _)| lat).sum::<f64>() / densest.len() as f64;
+        let seed_lng = densest.iter().map(|(_, lng)| lng).sum::<f64>() / densest.len() as f64;
+        let cluster: Vec<&(f64, f64)> = endpoints
+            .iter()
+            .filter(|(lat, lng)| {
+                super::haversine_distance_meters(*lat, *lng, seed_lat, seed_lng) <= HOME_CELL_M
+            })
+            .collect();
+        if cluster.len() < 2 {
+            return None;
+        }
+
+        let count = cluster.len() as f64;
+        Some(SuggestedHome {
+            latitude: cluster.iter().map(|(lat, _)| lat).sum::<f64>() / count,
+            longitude: cluster.iter().map(|(_, lng)| lng).sum::<f64>() / count,
+            activity_count: cluster.len() as u32,
+            endpoint_share: count / endpoints.len() as f64,
+        })
+    }
+
+    /// The first and last fix of every stored track.
+    fn track_endpoints(&self) -> Vec<(f64, f64)> {
+        let Ok(mut stmt) = self.db.prepare("SELECT track_data FROM gps_tracks") else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map([], |row| row.get::<_, Vec<u8>>(0)) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for blob in rows.flatten() {
+            let TrackRead::Present(points) = TrackRead::from_blob(&blob) else {
+                continue;
+            };
+            if let (Some(first), Some(last)) = (points.first(), points.last()) {
+                out.push((first.latitude, first.longitude));
+                out.push((last.latitude, last.longitude));
+            }
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod suggested_home_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    const HOME_LAT: f64 = 46.2333;
+    const HOME_LNG: f64 = 7.36;
+
+    fn near_home(offset_m: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + offset_m / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn away(km: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + km * 1000.0 / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn engine(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("routes.db");
+        PersistentEngine::new(path.to_str().unwrap()).expect("engine")
+    }
+
+    #[test]
+    fn the_door_every_ride_starts_at_is_the_suggestion() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        for (i, offset) in [5.0, 20.0, 40.0, 15.0].iter().enumerate() {
+            engine
+                .add_activity(
+                    format!("ride{i}"),
+                    vec![near_home(*offset), away(3.0), near_home(offset + 10.0)],
+                    "Ride".into(),
+                )
+                .expect("add");
+        }
+
+        let home = engine.suggest_export_home().expect("a home to confirm");
+
+        let metres = super::super::haversine_distance_meters(
+            home.latitude,
+            home.longitude,
+            HOME_LAT,
+            HOME_LNG,
+        );
+        assert!(metres < 100.0, "the suggestion is {metres} m from the door");
+        assert_eq!(home.activity_count, 8, "both ends of all four rides");
+        assert!(home.endpoint_share > 0.9);
+    }
+
+    #[test]
+    fn a_library_with_nothing_to_cluster_suggests_nothing() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        engine
+            .add_activity("only".into(), vec![away(5.0), away(9.0)], "Ride".into())
+            .expect("add");
+
+        assert!(engine.suggest_export_home().is_none());
+    }
+
+    #[test]
+    fn an_empty_library_suggests_nothing_rather_than_a_point_at_zero() {
+        let dir = TempDir::new().unwrap();
+        assert!(engine(&dir).suggest_export_home().is_none());
+    }
+
+    /// The same library answers the same way twice, so a confirmation screen
+    /// does not offer a different home on a second visit.
+    #[test]
+    fn the_suggestion_is_stable() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        for i in 0..4 {
+            engine
+                .add_activity(
+                    format!("r{i}"),
+                    vec![near_home(f64::from(i) * 10.0), away(2.0)],
+                    "Ride".into(),
+                )
+                .expect("add");
+        }
+
+        let first = engine.suggest_export_home().expect("home");
+        let second = engine.suggest_export_home().expect("home");
+        assert_eq!(first.latitude, second.latitude);
+        assert_eq!(first.longitude, second.longitude);
+    }
+}

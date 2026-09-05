@@ -49,6 +49,13 @@ impl SettingsManager {
         })
     }
 
+    /// Where the athlete's rides start and finish most often, for the export
+    /// privacy row to offer. A guess: the trim stays off until it is confirmed
+    /// or replaced, and a library with too little to cluster answers none.
+    fn suggest_export_home(&self) -> Result<Option<crate::persistence::SuggestedHome>, VeloqError> {
+        with_engine(|e| e.suggest_export_home())
+    }
+
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {

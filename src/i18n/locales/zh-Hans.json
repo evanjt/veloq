@@ -1288,7 +1288,12 @@
     "previewKeepRefusedTitle": "未开始重新分析",
     "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。",
     "elevationBackfillPause": "暂停下载",
-    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。"
+    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。",
+    "exportPrivacyTitle": "导出时不包含住所",
+    "exportPrivacyDescription": "裁去每条轨迹中距住所 100 米以内的起点和终点。只有导出的副本会被缩短。",
+    "exportPrivacySuggested": "你的大部分骑行都从同一个地方出发，其中 {{count}} 次。",
+    "exportPrivacyConfirm": "设为住所",
+    "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。"
   },
   "stats": {
     "activities": "活动",
