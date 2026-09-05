@@ -30,6 +30,10 @@ function rustFiles(dir) {
 
 // Public methods declared inside `impl PersistentEngine` blocks.
 // Brace-count from each impl header; collect `pub fn` names in that span.
+//
+// A method carrying `#[doc(hidden)]` is declared test support by its author
+// and is skipped: it is reachable, so the compiler keeps the tests honest,
+// but it is not app surface and listing it every run buries the ones that are.
 function engineMethods() {
   const methods = new Map(); // name -> file
   for (const file of rustFiles(SRC)) {
@@ -37,14 +41,19 @@ function engineMethods() {
     const lines = text.split('\n');
     let depth = 0;
     let inImpl = false;
+    let hidden = false;
     for (const line of lines) {
       if (!inImpl && /^impl\s+PersistentEngine\b/.test(line)) {
         inImpl = true;
         depth = 0;
       }
       if (inImpl) {
+        if (/^\s*#\[doc\(hidden\)\]/.test(line)) hidden = true;
         const m = line.match(/^\s*pub\s+fn\s+([a-z0-9_]+)/);
-        if (m) methods.set(m[1], path.relative(ROOT, file));
+        if (m) {
+          if (!hidden) methods.set(m[1], path.relative(ROOT, file));
+          hidden = false;
+        }
         for (const ch of line) {
           if (ch === '{') depth += 1;
           if (ch === '}') depth -= 1;
@@ -56,15 +65,23 @@ function engineMethods() {
   return methods;
 }
 
-function callers(name, files, skipDeclFile) {
+/**
+ * Call sites of `name`, in either shape Rust offers.
+ *
+ * `.name(` is a method call on a receiver; `Type::name(` and `Self::name(` are
+ * how an associated function is reached, which is every constructor. Matching
+ * only the first called `PersistentEngine::new` uncalled, and it has hundreds
+ * of call sites. The declaration itself is `pub fn name(`, which neither shape
+ * matches, so a declaration is never counted as its own caller.
+ */
+function callers(name, files) {
   let count = 0;
-  const re = new RegExp(`\\.${name}\\s*\\(`);
+  const re = new RegExp(`(?:\\.|\\b[A-Za-z_][A-Za-z0-9_]*::)${name}\\s*\\(`);
   for (const file of files) {
     const text = fs.readFileSync(file, 'utf8');
     for (const line of text.split('\n')) {
       if (re.test(line) && !line.trim().startsWith('//')) count += 1;
     }
-    if (file === skipDeclFile) count -= 0; // declaration lines never match `.name(`
   }
   return count;
 }
