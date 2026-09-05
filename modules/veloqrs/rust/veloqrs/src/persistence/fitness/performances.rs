@@ -180,6 +180,10 @@ impl PersistentEngine {
             }
         }
 
+        // One commit for the pass, not one per lap.
+        let Ok(tx) = self.db.unchecked_transaction() else {
+            return 0;
+        };
         let mut populated = 0u32;
         for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
             let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
@@ -187,13 +191,16 @@ impl PersistentEngine {
                 times, *start_idx, *end_idx, *distance,
             );
             if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
-                let _ = self.db.execute(
+                let _ = tx.execute(
                     "UPDATE section_activities SET lap_time = ?, lap_pace = ?
                      WHERE section_id = ? AND activity_id = ? AND start_index = ?",
                     params![lap_time, lap_pace, section_id, activity_id, start_idx],
                 );
                 populated += 1;
             }
+        }
+        if tx.commit().is_err() {
+            return 0;
         }
 
         if populated > 0 {
@@ -1184,8 +1191,86 @@ impl PersistentEngine {
 
 #[cfg(test)]
 mod tests {
+    use rusqlite::params;
+
+    use super::super::super::PersistentEngine;
+    use super::super::super::commit_counter;
     use super::attempt_standing;
     use crate::RoutePerformance;
+    use tracematch::GpsPoint;
+
+    fn engine_with_null_laps(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords: Vec<GpsPoint> = (0..8)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + i as f64 * 0.001,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity("a1".to_string(), coords, "Ride".to_string())
+            .unwrap();
+        engine
+            .store_time_stream("a1", &[0, 10, 20, 30, 40, 50, 60, 70])
+            .unwrap();
+        for s in 0..sections {
+            let sid = format!("s{s}");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, format!("Section {s}")],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters)
+                     VALUES (?, 'a1', 'same', 1, 5, 400.0)",
+                    params![sid],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    /// The lazy populate the section screen triggers had the same one-commit-
+    /// per-lap shape as the indicator backfill.
+    #[test]
+    fn populating_many_laps_is_one_commit() {
+        let mut engine = engine_with_null_laps(12);
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_section_performance_cache(), 12);
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        let nulls: i64 = engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(nulls, 0);
+    }
+
+    #[test]
+    fn populating_nothing_commits_nothing() {
+        let mut engine = engine_with_null_laps(2);
+        engine.backfill_section_performance_cache();
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_section_performance_cache(), 0);
+
+        assert_eq!(commit_counter::count(&commits), 0);
+    }
 
     fn perf(activity_id: &str, moving_time: u32) -> RoutePerformance {
         RoutePerformance {
