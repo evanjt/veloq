@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApparentTemperature } from '@/features/activity/lib/activityUtils';
 import { formatDuration } from '@/shared/format/format';
+import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors, darkColors } from '@/theme';
@@ -302,7 +303,7 @@ export function useActivityStats({
     // Form from wellness (TSB = CTL - ATL)
     if (wellness?.ctl != null && wellness?.atl != null) {
       const tsb = wellness.ctl - wellness.atl;
-      const formColor = tsb > 5 ? colors.success : tsb > -10 ? colors.chartYellow : colors.error;
+      const formColor = FORM_ZONE_COLORS[getFormZone(tsb)];
 
       result.push({
         title: t('activity.stats.yourForm'),
