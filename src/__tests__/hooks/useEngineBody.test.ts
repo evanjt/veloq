@@ -65,12 +65,16 @@ it('asks once and then makes no engine call on a timer', () => {
 
   expect(request).toHaveBeenCalledTimes(1);
   const before = engine.subscribe.mock.calls.length;
+  // The two the mount spends reconciling the pre-subscription window. What
+  // must never grow is the count after time passes, which is the timer this
+  // hook is here not to have.
+  const countReads = engine.getBodiesStored.mock.calls.length;
 
   act(() => {
     jest.advanceTimersByTime(30_000);
   });
 
-  expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  expect(engine.getBodiesStored).toHaveBeenCalledTimes(countReads);
   expect(engine.triggerRefresh).not.toHaveBeenCalled();
   expect(request).toHaveBeenCalledTimes(1);
   expect(engine.subscribe.mock.calls.length).toBe(before);
@@ -150,4 +154,70 @@ it('still asks when the engine is not up yet, and subscribes to nothing', () => 
   expect(request).toHaveBeenCalledTimes(1);
   expect(engine.subscribe).not.toHaveBeenCalled();
   expect(() => unmount()).not.toThrow();
+});
+
+/**
+ * Scenario: the body lands between the request going out and the subscription
+ * being registered. `body_stored` is announced to nobody, because nobody is
+ * listening yet, and the query would wait for an event that has already
+ * happened.
+ *
+ * Expected behaviour: the counter Rust keeps for exactly this window is read
+ * once on either side of the request, and a count that moved invalidates the
+ * query the announcement would have.
+ */
+describe('a body that lands before the subscription', () => {
+  it('invalidates on the counter, since the announcement went to nobody', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    // Moves once, between the request effect and the subscribe effect.
+    let count = 0;
+    engine.getBodiesStored = jest.fn(() => {
+      const now = count;
+      count += 1;
+      return now;
+    });
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
+  });
+
+  it('invalidates nothing when the count did not move', () => {
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    engine.getBodiesStored = jest.fn(() => 7);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it('reads the counter twice and never on a timer', () => {
+    engine.getBodiesStored = jest.fn(() => 3);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
+    const reads = engine.getBodiesStored.mock.calls.length;
+
+    act(() => {
+      jest.advanceTimersByTime(30_000);
+    });
+
+    expect(reads).toBe(2);
+    expect(engine.getBodiesStored).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads no counter at all when the body is already present', () => {
+    engine.getBodiesStored = jest.fn(() => 0);
+
+    renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
+
+    expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  });
+
+  it('reads no counter when the hook is disabled', () => {
+    engine.getBodiesStored = jest.fn(() => 0);
+
+    renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
+
+    expect(engine.getBodiesStored).not.toHaveBeenCalled();
+  });
 });
