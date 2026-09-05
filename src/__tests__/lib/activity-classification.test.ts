@@ -2,7 +2,7 @@ import {
   sortByDateId,
   getActivityColor,
   getActivityIcon,
-  isRunningActivity,
+  isPaceSport,
   isCyclingActivity,
 } from '@/features/activity/lib/activityUtils';
 import { activityTypeColors } from '@/theme/colors';
@@ -42,12 +42,14 @@ describe('icon & color lookup', () => {
 });
 
 describe('type classification', () => {
-  it('classifies running activities', () => {
+  // The name says what every caller asks: pace or speed. A walk is a pace, so
+  // it belongs here, and it is not a run.
+  it('classifies the sports shown in pace', () => {
     for (const type of ['Run', 'VirtualRun', 'Walk', 'Hike', 'TrailRun', 'Treadmill'] as const) {
-      expect(isRunningActivity(type)).toBe(true);
+      expect(isPaceSport(type)).toBe(true);
     }
     for (const type of ['Ride', 'Swim', 'Workout'] as const) {
-      expect(isRunningActivity(type)).toBe(false);
+      expect(isPaceSport(type)).toBe(false);
     }
   });
 
