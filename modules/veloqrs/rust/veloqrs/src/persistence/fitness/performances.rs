@@ -221,7 +221,7 @@ impl PersistentEngine {
         };
         if let Some(cached) = self.perf_cache.get(&cache_key) {
             let cached = cached.clone();
-            log::info!(
+            log::trace!(
                 "[PERF] get_section_performances({}) -> cached in {:?}",
                 cache_key,
                 start.elapsed()
@@ -249,7 +249,7 @@ impl PersistentEngine {
             },
         };
 
-        log::debug!(
+        log::trace!(
             "Section found. activity_portions count: {}",
             section.activity_portions.len()
         );
@@ -519,7 +519,7 @@ impl PersistentEngine {
             })
             .collect();
 
-        log::debug!("Built {} performance records", records.len());
+        log::trace!("Built {} performance records", records.len());
 
         // Sort by date
         records.sort_by_key(|r| r.activity_date);
@@ -665,7 +665,7 @@ impl PersistentEngine {
             reverse_stats,
         };
 
-        log::info!(
+        log::trace!(
             "[PERF] get_section_performances({}) -> {} records in {:?}",
             section_id,
             result.records.len(),
