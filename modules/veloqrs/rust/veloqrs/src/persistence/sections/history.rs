@@ -126,6 +126,28 @@ pub struct SectionHistoryEvent {
     pub geometry_version: Option<i64>,
 }
 
+/// The blob to store for a version: nothing when the version is a slice of a
+/// stored stream, the encoded line otherwise.
+///
+/// A section is `(activity_id, start, end)` into one stored stream, so an
+/// exact version's blob is a second copy of geometry the device already holds.
+/// It is dropped only when re-slicing the triple reproduces the line here and
+/// now, so a caller that names a range the line did not come from keeps its
+/// blob rather than losing the version. The two sides are compared through the
+/// encoding, the same normalisation the ingest's mutation check uses, so a
+/// quantised store of the same ground is not read as a difference.
+fn droppable_blob(
+    conn: &rusqlite::Connection,
+    polyline: &[GpsPoint],
+    reference: Option<(&str, u32, u32)>,
+) -> Vec<u8> {
+    let encoded = codec::encode_polyline(polyline);
+    let reproduces = reference
+        .and_then(|r| geometry::rebuild(conn, r))
+        .is_some_and(|sliced| codec::encode_polyline(&sliced) == encoded);
+    if reproduces { Vec::new() } else { encoded }
+}
+
 /// Store `polyline` as the next geometry version of `section_id` and prune
 /// per the retention policy. Returns the version number written. Takes a bare
 /// connection so the emitter can write inside the catalogue-save transaction;
@@ -163,7 +185,7 @@ pub(super) fn record_geometry_on(
             section_id,
             version,
             ENCODING_QUANTISED,
-            codec::encode_polyline(polyline),
+            droppable_blob(conn, polyline, reference),
             milestone as i64,
             reference.map(|(id, _, _)| id),
             reference.map(|(_, start, _)| start),
@@ -562,15 +584,38 @@ pub(super) fn milestone_prior_geometry_on(
     section_id: &str,
     current: Option<&[GpsPoint]>,
 ) -> rusqlite::Result<Option<i64>> {
+    // The newest version's own line, not its bytes: an exact version stores
+    // its triple and no blob, so comparing the raw column would call every
+    // unchanged line a change and write a version per detect.
     let newest: Option<(i64, Vec<u8>)> = conn
         .query_row(
-            "SELECT version, blob FROM section_geometry
+            "SELECT version, blob, rep_activity_id, rep_start_index, rep_end_index
+             FROM section_geometry
              WHERE section_id = ?1
                AND version = (SELECT MAX(version) FROM section_geometry WHERE section_id = ?1)",
             params![section_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<u32>>(3)?,
+                    row.get::<_, Option<u32>>(4)?,
+                ))
+            },
         )
-        .optional()?;
+        .optional()?
+        .map(|(version, blob, rep_id, start, end)| {
+            let stored = match (blob.is_empty(), rep_id, start, end) {
+                (true, Some(id), Some(start), Some(end)) => {
+                    geometry::rebuild(conn, (id.as_str(), start, end))
+                        .map(|points| codec::encode_polyline(&points))
+                        .unwrap_or_default()
+                }
+                _ => blob,
+            };
+            (version, stored)
+        });
     let current = current.filter(|points| !points.is_empty());
     // The outgoing line's provenance is whatever the row still says it is.
     let reference: Option<(String, u32, u32)> = conn
@@ -1133,5 +1178,80 @@ impl PersistentEngine {
             .optional()
             .ok()
             .flatten()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PersistentEngine;
+    use tempfile::TempDir;
+
+    /// A line long enough that the version below is an interior slice of it.
+    fn ride() -> Vec<GpsPoint> {
+        (0..80)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + f64::from(i) * 0.000_09,
+                longitude: 7.36 + f64::from(i) * 0.000_11,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    fn engine_with_ride() -> (PersistentEngine, TempDir, Vec<GpsPoint>) {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history.db").to_str().expect("utf-8"))
+                .expect("open engine");
+        engine
+            .add_activity("a1".to_string(), ride(), "Ride".to_string())
+            .expect("add_activity");
+        let stored = engine.get_gps_track("a1").expect("stored track");
+        (engine, dir, stored)
+    }
+
+    fn versions(conn: &rusqlite::Connection, section_id: &str) -> Vec<i64> {
+        let mut stmt = conn
+            .prepare("SELECT version FROM section_geometry WHERE section_id = ? ORDER BY version")
+            .expect("prepare");
+        let rows = stmt
+            .query_map(params![section_id], |row| row.get::<_, i64>(0))
+            .expect("query");
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
+    /// The milestone asks whether the newest stored version is already the
+    /// line it is about to keep. An exact version answers that from its
+    /// triple, so dropping its blob must not make every change look like a
+    /// change and write a version per detect.
+    #[test]
+    fn a_milestone_of_an_unchanged_exact_version_writes_no_second_copy() {
+        let (engine, _dir, stored) = engine_with_ride();
+        let line = stored[20..60].to_vec();
+        let reference = Some(("a1", 20u32, 60u32));
+        record_geometry_on(&engine.db, "s1", &line, false, reference).expect("record");
+
+        let milestoned = milestone_prior_geometry_on(&engine.db, "s1", Some(&line))
+            .expect("milestone")
+            .expect("a stored version to keep");
+
+        assert_eq!(milestoned, 1, "the version already stored is the milestone");
+        assert_eq!(versions(&engine.db, "s1"), vec![1]);
+    }
+
+    /// A line that really did change still lands as a new milestone version.
+    #[test]
+    fn a_milestone_of_a_changed_line_writes_a_new_version() {
+        let (engine, _dir, stored) = engine_with_ride();
+        let line = stored[20..60].to_vec();
+        record_geometry_on(&engine.db, "s1", &line, false, Some(("a1", 20, 60))).expect("record");
+
+        let moved = stored[24..64].to_vec();
+        let milestoned = milestone_prior_geometry_on(&engine.db, "s1", Some(&moved))
+            .expect("milestone")
+            .expect("a version");
+
+        assert_eq!(milestoned, 2);
+        assert_eq!(versions(&engine.db, "s1"), vec![1, 2]);
     }
 }

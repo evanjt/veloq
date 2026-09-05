@@ -193,24 +193,33 @@ fn the_algorithm_change_milestones_a_cleared_line() {
     engine.apply_sections(Vec::new()).expect("apply_sections");
     drop(engine);
 
+    // The version is read the way a revert reads it, blob first and the triple
+    // second: an exact version stores the triple and no blob, so the bytes in
+    // the column are not the shape.
     let conn = open(&path);
-    let blob: Option<Vec<u8>> = conn
+    let (version, blob): (i64, Vec<u8>) = conn
         .query_row(
-            "SELECT blob FROM section_geometry WHERE section_id = 's_prior'
+            "SELECT version, blob FROM section_geometry WHERE section_id = 's_prior'
              ORDER BY version DESC LIMIT 1",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .ok();
-    let points = blob
-        .as_deref()
-        .and_then(codec::decode_polyline)
-        .unwrap_or_default();
+        .expect("a milestone version");
+    assert!(
+        blob.is_empty(),
+        "a version that re-slices must not hold a second copy of the line"
+    );
+
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let points = engine
+        .section_geometry_polyline("s_prior", version)
+        .expect("the milestoned version has to be readable");
     assert_eq!(
         points.len(),
         12,
         "the outgoing shape has to be milestoned from the triple, not lost"
     );
+    assert_eq!(points, track(0.0)[0..12], "and it has to be the same line");
 }
 
 /// Scenario: a stored geometry version's own blob no longer decodes, and the
