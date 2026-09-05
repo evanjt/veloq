@@ -28,6 +28,16 @@ const stubHrvTrend = (
   } as unknown as ReturnType<typeof getEngine>);
 };
 
+/**
+ * The stale-PR filter is the engine's, so a generator test hands it the rows
+ * the engine would have returned rather than the raw sections it filters.
+ */
+const stubStalePrRows = (rows: unknown[]) => {
+  mockGetEngine.mockReturnValue({
+    findStalePrOpportunities: () => rows,
+  } as unknown as ReturnType<typeof getEngine>);
+};
+
 // Mock translation function - returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
   if (!params) return key;
@@ -527,6 +537,32 @@ describe('generateInsights', () => {
 
   describe('stale PR grouping', () => {
     it('formats grouped stale PR subtitles with sport-appropriate units', () => {
+      stubStalePrRows([
+        {
+          sectionId: 'ride-1',
+          sectionName: 'North Climb',
+          bestTimeSecs: 590,
+          daysSinceLast: 60,
+          traversalCount: 8,
+          fitnessMetric: 'power',
+          currentValue: 270,
+          previousValue: 250,
+          gainPercent: 8,
+          unit: 'W',
+        },
+        {
+          sectionId: 'swim-1',
+          sectionName: 'Pool Threshold Set',
+          bestTimeSecs: 360,
+          daysSinceLast: 75,
+          traversalCount: 5,
+          fitnessMetric: 'pace',
+          currentValue: 1.1,
+          previousValue: 1.0,
+          gainPercent: 10,
+          unit: '/100m',
+        },
+      ]);
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
