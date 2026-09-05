@@ -6,7 +6,7 @@
  * Expected behaviour: the row reads the engine's window rather than a local
  * copy, a fresh install reads 90 days, choosing a window writes it once and
  * re-reads the size the eviction left behind, reset returns to 90, and the
- * activity `retentionDays` in `RouteSettingsStore` is never written. That last
+ * activity retention path does not exist at all. That last
  * one deletes whole activities and is a different setting with a similar name.
  */
 
@@ -43,7 +43,7 @@ jest.mock('@/features/routes/stores/EngineStatusStore', () => ({
 
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   useRouteSettings: () => ({
-    settings: { retentionDays: 0 },
+    settings: {},
     updateSettings: mockUpdateRouteSettings,
   }),
 }));
