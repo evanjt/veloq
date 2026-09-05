@@ -89,13 +89,6 @@ export function getActivitiesMissingTimeStreams(
   );
 }
 
-export function getActivityMetricsForIds(host: DelegateHost, ids: string[]): FfiActivityMetrics[] {
-  if (!host.ready || ids.length === 0) return [];
-  return host.timed('getActivityMetricsForIds', () =>
-    host.engine.activities().getMetricsForIds(ids)
-  );
-}
-
 /// A refusal carries the sections that hold the activity as their geometry
 /// reference, so the caller can name them.
 export type RemoveActivityResult = { ok: true } | { ok: false; reason: string };

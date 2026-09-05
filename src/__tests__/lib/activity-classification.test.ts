@@ -2,7 +2,7 @@ import {
   sortByDateId,
   getActivityColor,
   getActivityIcon,
-  isRunningActivity,
+  isPaceSport,
   isCyclingActivity,
 } from '@/features/activity/lib/activityUtils';
 import { activityTypeColors } from '@/theme/colors';
@@ -42,21 +42,35 @@ describe('icon & color lookup', () => {
 });
 
 describe('type classification', () => {
-  it('classifies running activities', () => {
+  // The name says what every caller asks: pace or speed. A walk is a pace, so
+  // it belongs here, and it is not a run.
+  it('classifies the sports shown in pace', () => {
     for (const type of ['Run', 'VirtualRun', 'Walk', 'Hike', 'TrailRun', 'Treadmill'] as const) {
-      expect(isRunningActivity(type)).toBe(true);
+      expect(isPaceSport(type)).toBe(true);
     }
     for (const type of ['Ride', 'Swim', 'Workout'] as const) {
-      expect(isRunningActivity(type)).toBe(false);
+      expect(isPaceSport(type)).toBe(false);
     }
   });
 
-  it('classifies cycling activities', () => {
-    for (const type of ['Ride', 'VirtualRide'] as const) {
+  // The six the engine's fitness gain counts as cycling (`objects/fitness.rs`).
+  // `EBikeRide` is in its FTP list and not its gain list, and is not asserted
+  // either way until the taxonomy has one owner.
+  it('classifies every cycling type the engine counts', () => {
+    for (const type of [
+      'Ride',
+      'VirtualRide',
+      'MountainBikeRide',
+      'GravelRide',
+      'Handcycle',
+      'Velomobile',
+    ] as const) {
       expect(isCyclingActivity(type)).toBe(true);
     }
-    for (const type of ['Run', 'Swim', 'Walk'] as const) {
+    for (const type of ['Run', 'Swim', 'Walk', 'Rowing'] as const) {
       expect(isCyclingActivity(type)).toBe(false);
     }
+    expect(isCyclingActivity('Unicycle' as ActivityType)).toBe(false);
+    expect(isCyclingActivity('' as ActivityType)).toBe(false);
   });
 });

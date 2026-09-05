@@ -28,7 +28,7 @@
     "test:perf": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint . --no-warn-ignored --max-warnings 1007",
+    "lint": "eslint . --no-warn-ignored --max-warnings 996",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
@@ -66,6 +66,7 @@
     "lint:em-dashes": "node scripts/lint-em-dashes.mjs",
     "lint:comment-line-refs": "node scripts/lint-comment-line-refs.mjs",
     "lint:au-spelling": "node scripts/lint-au-spelling.mjs",
+    "lint:audit-ids": "node scripts/lint-audit-ids.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
     "gen:muscle-polygons": "node scripts/generate-muscle-polygons.mjs",
@@ -74,7 +75,7 @@
     "lint:render-engine-reads": "node scripts/lint-render-engine-reads.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling",
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {

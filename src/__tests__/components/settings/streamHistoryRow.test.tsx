@@ -1,8 +1,7 @@
 /**
- * Scenario: `Q31` asked for a control over how much stream history the athlete
- * keeps, a readout of what it costs, a 90 day default and a reset that clears
- * the excess. `B132` built the store and its window in Rust; nothing rendered
- * either.
+ * Scenario: the athlete needs a control over how much stream history is kept,
+ * a readout of what it costs, a 90 day default and a reset that clears the
+ * excess. The engine owns the store and the window; nothing rendered either.
  *
  * Expected behaviour: the row reads the engine's window rather than a local
  * copy, a fresh install reads 90 days, choosing a window writes it once and

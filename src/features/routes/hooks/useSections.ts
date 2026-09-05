@@ -9,7 +9,8 @@ import { useCustomSections } from './useCustomSections';
 import { useEngineSubscription } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
-import type { FrequentSection, RoutePoint, SectionType } from '@/types';
+import type { FrequentSection } from '@/types';
+import { convertSectionSummaryToApp } from '@/features/routes/lib/sectionConversions';
 
 // Re-export for backwards compatibility
 export { generateSectionName } from '@/features/routes/lib/sectionNaming';
@@ -57,14 +58,7 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
     if (!enabled || skipEngineFetch) return [];
     const engine = getEngine();
     if (!engine) return [];
-    const summaries = engine.getAllSectionsIncludingHidden(sportType);
-    return summaries.map((s) => ({
-      ...s,
-      sectionType: (s.sectionType === 'custom' ? 'custom' : 'auto') as SectionType,
-      polyline: [] as RoutePoint[],
-      activityIds: [] as string[],
-      supersededBy: s.supersededBy ?? null,
-    }));
+    return engine.getAllSectionsIncludingHidden(sportType).map(convertSectionSummaryToApp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, skipEngineFetch, sportType, sectionsTrigger]);
   const engineSections = skipEngineFetch ? preloadedEngineSections! : hookEngineSections;

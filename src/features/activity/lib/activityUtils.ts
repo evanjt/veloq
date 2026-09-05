@@ -127,14 +127,17 @@ export function getActivityColor(type: ActivityType): string {
 }
 
 /**
- * Check if activity type is a running activity.
+ * Whether this activity is measured in pace rather than speed.
  *
- * Includes running, walking, and hiking activities (both virtual and outdoor).
+ * Walking and hiking answer true beside the three run types, which is correct
+ * for the question every caller is asking and reads as a miscoded sport test
+ * under any name that says running. Swimming has its own pace and its own
+ * predicate, because it is metres per hundred rather than per kilometre.
  *
  * @param type - Activity type to check
- * @returns True if activity is running-related
+ * @returns True if the activity's speed is shown as a pace
  */
-export function isRunningActivity(type: ActivityType): boolean {
+export function isPaceSport(type: ActivityType): boolean {
   return ['Run', 'VirtualRun', 'Walk', 'Hike', 'TrailRun', 'Treadmill'].includes(type);
 }
 
@@ -146,8 +149,18 @@ export function isRunningActivity(type: ActivityType): boolean {
  * @param type - Activity type to check
  * @returns True if activity is cycling-related
  */
+/** The six the engine's fitness gain counts as cycling (`objects/fitness.rs`). */
+const CYCLING_TYPES: readonly ActivityType[] = [
+  'Ride',
+  'VirtualRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'Handcycle',
+  'Velomobile',
+];
+
 export function isCyclingActivity(type: ActivityType): boolean {
-  return ['Ride', 'VirtualRide'].includes(type);
+  return CYCLING_TYPES.includes(type);
 }
 
 export function isSwimmingActivity(type: ActivityType): boolean {

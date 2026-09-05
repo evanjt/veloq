@@ -1,19 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Alert, View, Text, StyleSheet } from 'react-native';
-import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/features/maps/components';
 import { useActivityBoundsCache } from '@/features/activity/hooks';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useActivityYearCounts } from '@/shared/app/useActivityYearCounts';
-import { formatLocalDate, formatFileSize } from '@/shared/format/format';
-import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { formatLocalDate } from '@/shared/format/format';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { getEngine } from '@/shared/native/engine';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
@@ -21,36 +15,6 @@ import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from
 export function SyncRangePanel() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-
-  // --- Heatmap toggle state ---
-  const heatmapEnabled = useRouteSettings((s) => s.settings.heatmapEnabled);
-  const setHeatmapEnabled = useRouteSettings((s) => s.setHeatmapEnabled);
-  const [heatmapSize, setHeatmapSize] = useState(0);
-
-  const refreshHeatmapSize = useCallback(() => {
-    setHeatmapSize(getHeatmapTilesCacheSize());
-  }, []);
-
-  useEffect(() => {
-    refreshHeatmapSize();
-  }, [refreshHeatmapSize, heatmapEnabled]);
-
-  const handleHeatmapToggle = useCallback(
-    (enabled: boolean) => {
-      setHeatmapEnabled(enabled);
-      const engine = getEngine();
-      if (enabled) {
-        engine?.enableHeatmapTiles();
-      } else {
-        engine?.clearHeatmapTiles(HEATMAP_TILES_DIR);
-        const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
-        engine?.clearHeatmapTiles(legacyDir);
-        engine?.disableHeatmapTiles();
-      }
-      refreshHeatmapSize();
-    },
-    [setHeatmapEnabled, refreshHeatmapSize]
-  );
 
   // --- Data range state ---
   const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
@@ -114,35 +78,6 @@ export function SyncRangePanel() {
         {t('settings.localDataRange').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {/* Heatmap toggle */}
-        <View style={settingsStyles.actionRow}>
-          <MaterialCommunityIcons
-            name="map-legend"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <View style={styles.toggleTextWrap}>
-            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-              {t('settings.heatmapGeneration', 'Heatmap')}
-            </Text>
-            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
-              {heatmapEnabled && heatmapSize > 0
-                ? t('settings.heatmapStorageUsed', {
-                    defaultValue: 'Using {{size}} of device storage',
-                    size: formatFileSize(heatmapSize),
-                  })
-                : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
-            </Text>
-          </View>
-          <Switch
-            value={heatmapEnabled}
-            onValueChange={handleHeatmapToggle}
-            color={colors.primary}
-          />
-        </View>
-
-        <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
-
         {/* Timeline slider */}
         <View style={styles.sliderWrap}>
           <TimelineSlider

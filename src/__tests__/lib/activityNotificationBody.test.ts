@@ -241,7 +241,7 @@ describe('buildActivityNotificationBody priority ladder', () => {
  *
  * Expected behaviour: the finding survives the cut and the names give way.
  * The PR and its delta are the only reason the enrichment pipeline exists, so
- * they can never be what falls off the end (`B148`).
+ * they can never be what falls off the end.
  */
 describe('the body fits the collapsed lock screen', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -333,7 +333,7 @@ describe('the body fits the collapsed lock screen', () => {
  * Expected behaviour: the body carries whatever the engine still knows and
  * nothing else. It used to fall back to the notification's own title, so the
  * athlete got "Activity Recorded" over "Activity Recorded", which is a strictly
- * worse notification than the generic one it replaced (`B149`).
+ * worse notification than the generic one it replaced.
  */
 describe('an activity with no name', () => {
   beforeEach(() => jest.clearAllMocks());

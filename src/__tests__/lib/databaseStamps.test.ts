@@ -1,7 +1,7 @@
 /**
  * Scenario: a `.veloqdb` restore replaces the database under stamps that
- * describe it. `SB13` cleared one of them and the other two were left, so a
- * restored library with no sections never gets its one-shot redetect and its
+ * describe it. Clearing one and leaving the other two means a restored
+ * library with no sections never gets its one-shot redetect and its
  * terrain previews stay keyed to route ids that no longer exist.
  *
  * Expected behaviour: one list, cleared in one place, built from each owner's

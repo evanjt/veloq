@@ -385,3 +385,59 @@ describe('composeRoutePreview', () => {
     expect(composeRoutePreview(junk)).toBeNull();
   });
 });
+
+/**
+ * The engine sends one entry per calendar day, so the widget's positional
+ * reads are date reads: the last entry is today, the one before it is
+ * yesterday, and seven back is a week. These pin that reading, because the
+ * arrays used to skip the days the athlete had no row for and every index
+ * here silently crossed the gap.
+ */
+describe('the widget reads the series by day', () => {
+  /** Thirty days of fitness, climbing by one a day to 60 today. */
+  const THIRTY_DAYS = Array.from({ length: 30 }, (_, i) => 31 + i);
+
+  function snapshotOf(fitness: number[]) {
+    return composeSnapshot(
+      makeRaw({
+        sparklines: {
+          fitness,
+          fatigue: fitness.map(() => 20),
+          form: fitness.map(() => 5),
+          hrv: fitness.map(() => 60),
+          rhr: fitness.map(() => 50),
+        },
+      })
+    );
+  }
+
+  it('takes yesterday from the entry before last', () => {
+    const snapshot = snapshotOf(THIRTY_DAYS);
+
+    expect(snapshot.metrics.fitness.value).toBe(60);
+    expect(snapshot.metrics.fitness.deltaVsYesterday).toBe(1);
+  });
+
+  it('spans seven calendar days for the ramp rate', () => {
+    const snapshot = snapshotOf(THIRTY_DAYS);
+
+    // Today is 60 and the entry seven back is 54, one per day.
+    expect(snapshot.metrics.rampRate.value).toBe(6);
+  });
+
+  it('reads a flat stretch as flat rather than as missing days', () => {
+    const flatEnd = [...THIRTY_DAYS.slice(0, 27), 58, 58, 58];
+
+    const snapshot = snapshotOf(flatEnd);
+
+    expect(snapshot.metrics.fitness.deltaVsYesterday).toBe(0);
+    expect(snapshot.metrics.fitness.trendDir).toBe('flat');
+  });
+
+  it('answers on a series shorter than the ramp window', () => {
+    const snapshot = snapshotOf([40, 42, 44]);
+
+    expect(snapshot.metrics.fitness.value).toBe(44);
+    expect(snapshot.metrics.rampRate.value).toBe(4);
+  });
+});

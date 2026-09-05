@@ -1,8 +1,8 @@
 /**
  * The stream retention window, as the settings screen offers it.
  *
- * `B132` put the window in Rust and made zero mean keep everything. This is
- * only the set of values the row cycles through and the rule for reading a
+ * The window lives in Rust, where zero means keep everything. This is only
+ * the set of values the row cycles through and the rule for reading a
  * value the engine hands back, so the policy stays in one place.
  *
  * Not the activity `retentionDays` in `RouteSettingsStore`. That one deletes

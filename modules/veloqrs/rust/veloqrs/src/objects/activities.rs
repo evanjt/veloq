@@ -90,18 +90,6 @@ impl ActivityManager {
         })?
     }
 
-    fn get_metrics_for_ids(
-        &self,
-        ids: Vec<String>,
-    ) -> Result<Vec<crate::FfiActivityMetrics>, VeloqError> {
-        with_engine(|engine| {
-            ids.iter()
-                .filter_map(|id| engine.activity_metrics.get(id).cloned())
-                .map(crate::FfiActivityMetrics::from)
-                .collect()
-        })
-    }
-
     /// Store untyped activity bodies. Demo mode seeds the same table a live
     /// sync writes, so every downstream read is identical in both modes.
     fn upsert_activity_bodies(&self, rows: Vec<crate::FfiActivityBody>) -> Result<(), VeloqError> {

@@ -107,7 +107,7 @@ impl PersistentEngine {
             })
         });
 
-        match rows {
+        let mut sections: Vec<Section> = match rows {
             Ok(iter) => iter
                 .filter_map(|r| r.ok())
                 .map(|mut s| {
@@ -118,7 +118,13 @@ impl PersistentEngine {
                 })
                 .collect(),
             Err(_) => Vec::new(),
+        };
+        let ids: Vec<String> = sections.iter().map(|s| s.id.clone()).collect();
+        let mut routes = self.route_ids_for_sections(&ids);
+        for section in &mut sections {
+            section.route_ids = Some(routes.remove(&section.id).unwrap_or_default());
         }
+        sections
     }
 
     /// Get all visible sections that contain a specific activity.
@@ -418,6 +424,10 @@ impl PersistentEngine {
 
             let activity_ids = self.get_section_activity_ids(&id);
             let visit_count = self.get_section_visit_count(&id);
+            let route_ids = self
+                .route_ids_for_sections(std::slice::from_ref(&id))
+                .remove(&id)
+                .unwrap_or_default();
 
             Ok(Section {
                 id,
@@ -459,7 +469,7 @@ impl PersistentEngine {
                 start_index: row.get(16)?,
                 end_index: row.get(17)?,
                 created_at: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
-                route_ids: None,
+                route_ids: Some(route_ids),
                 disabled: row.get::<_, Option<i32>>(20)?.unwrap_or(0) != 0,
                 superseded_by: row.get(21)?,
             })

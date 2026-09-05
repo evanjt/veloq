@@ -75,11 +75,8 @@ import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type {
   FfiActivityRouteHighlight,
-  FfiMergeCandidate,
-  FfiNearbySectionSummary,
   FfiSectionMatch,
   HeatmapDay,
-  SectionEncounter,
 } from './delegates/shared-types';
 
 // Types for new FFI methods - will be auto-generated after Rust rebuild.
@@ -87,11 +84,11 @@ import type {
 // existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
 export type {
   FfiSectionMatch,
-  FfiMergeCandidate,
-  FfiNearbySectionSummary,
   FfiActivitySectionHighlight,
   FfiActivityRouteHighlight,
   FfiActivityIndicator,
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
   SectionEncounter,
 } from './delegates/shared-types';
 
@@ -492,15 +489,6 @@ class EngineClient implements DelegateHost {
     centerLng: number;
   }[] => mapsDelegates.getAllMapSignatures(this);
 
-  getMapSignaturesForIds = (
-    ids: string[]
-  ): {
-    activityId: string;
-    encodedCoords: ArrayBuffer;
-    centerLat: number;
-    centerLng: number;
-  }[] => mapsDelegates.getMapSignaturesForIds(this, ids);
-
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
 
@@ -560,9 +548,6 @@ class EngineClient implements DelegateHost {
     sportType?: string
   ): { sectionId: string; result: FfiSectionPerformanceResult }[] =>
     sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
-
-  getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
-    sectionDelegates.getActivityPrSections(this, activityId, sectionIds);
 
   getWorkoutSections = (sportType: string, limit: number): sectionDelegates.FfiWorkoutSection[] =>
     sectionDelegates.getWorkoutSections(this, sportType, limit);
@@ -966,12 +951,6 @@ class EngineClient implements DelegateHost {
   getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
     sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
-  extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
-    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
-
-  getActivityMetricsForIds = (ids: string[]): FfiActivityMetrics[] =>
-    activityDelegates.getActivityMetricsForIds(this, ids);
-
   setSectionReference = (sectionId: string, activityId: string): boolean =>
     sectionDelegates.setSectionReference(this, sectionId, activityId);
 
@@ -990,9 +969,6 @@ class EngineClient implements DelegateHost {
 
   resetSectionBounds = (sectionId: string): boolean =>
     sectionDelegates.resetSectionBounds(this, sectionId);
-
-  hasOriginalBounds = (sectionId: string): boolean =>
-    sectionDelegates.hasOriginalBounds(this, sectionId);
 
   getSectionExtensionTrack = (
     sectionId: string
@@ -1110,12 +1086,6 @@ class EngineClient implements DelegateHost {
   indexNewActivity = (activityId: string): FfiIndexActivitySummary | null =>
     sectionDelegates.indexNewActivity(this, activityId);
 
-  getNearbySections = (sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] =>
-    sectionDelegates.getNearbySections(this, sectionId, radiusMeters);
-
-  getMergeCandidates = (sectionId: string): FfiMergeCandidate[] =>
-    sectionDelegates.getMergeCandidates(this, sectionId);
-
   mergeSections = (primaryId: string, secondaryId: string): string | null =>
     sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
@@ -1125,10 +1095,6 @@ class EngineClient implements DelegateHost {
 
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
-
-  /** Get section encounters for an activity: one entry per (section, direction). */
-  getActivitySectionEncounters = (activityId: string): SectionEncounter[] =>
-    sectionDelegates.getActivitySectionEncounters(this, activityId);
 
   forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
 

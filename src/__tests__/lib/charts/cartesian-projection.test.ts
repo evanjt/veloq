@@ -44,6 +44,10 @@ describe('domainContains', () => {
     expect(domainContains([403, 134], 500)).toBe(false);
     expect(domainContains([403, 134], 100)).toBe(false);
   });
+
+  it('refuses a value that is not a number', () => {
+    expect(domainContains([403, 134], Number.NaN)).toBe(false);
+  });
 });
 
 describe('scaleFor', () => {
@@ -72,6 +76,11 @@ describe('yForValue and xForValue', () => {
     // 314 s/km between 403 (bottom) and 134 (top): a third of the way up.
     const y = yForValue(314, [403, 134], bounds);
     expect(y).toBeCloseTo(bounds.bottom - 0.331 * (bounds.bottom - bounds.top), 1);
+  });
+
+  it('respects a plot that does not start at zero', () => {
+    expect(yForValue(134, [403, 134], { ...bounds, top: 40, bottom: 340 })).toBe(40);
+    expect(yForValue(403, [403, 134], { ...bounds, top: 40, bottom: 340 })).toBe(340);
   });
 
   it('maps x across the box', () => {

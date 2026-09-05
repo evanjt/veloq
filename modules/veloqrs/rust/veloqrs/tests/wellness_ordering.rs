@@ -5,10 +5,17 @@
 //! oldest-first, so the LAST element is the most recent day. The widget read
 //! index 0 as today for a release, which showed month-old numbers with inverted
 //! trend arrows. These tests pin the contract so that cannot regress silently.
+//!
+//! The window ends on a pinned day rather than on the real clock: it is a span
+//! of calendar days, so a fixture dated last month would otherwise fall out of
+//! it as the months turn.
 
 use tempfile::TempDir;
 use veloqrs::persistence::PersistentEngine;
 use veloqrs::persistence::wellness::WellnessRow;
+
+/// The newest day in the fixture, and the day every window here ends on.
+const TODAY: &str = "2026-08-08";
 
 fn row(date: &str, ctl: f64, atl: f64) -> WellnessRow {
     WellnessRow {
@@ -52,7 +59,7 @@ fn engine_with_five_days() -> (TempDir, PersistentEngine) {
 fn sparklines_end_with_the_most_recent_day() {
     let (_tmp, engine) = engine_with_five_days();
     let sp = engine
-        .get_wellness_sparklines(30)
+        .get_wellness_sparklines_to(30, TODAY)
         .expect("read")
         .expect("some rows");
 
@@ -70,7 +77,7 @@ fn sparklines_end_with_the_most_recent_day() {
 fn every_series_shares_one_ordering() {
     let (_tmp, engine) = engine_with_five_days();
     let sp = engine
-        .get_wellness_sparklines(30)
+        .get_wellness_sparklines_to(30, TODAY)
         .expect("read")
         .expect("some rows");
 
@@ -89,7 +96,7 @@ fn every_series_shares_one_ordering() {
 fn the_window_takes_the_newest_days_when_it_is_shorter_than_the_history() {
     let (_tmp, engine) = engine_with_five_days();
     let sp = engine
-        .get_wellness_sparklines(2)
+        .get_wellness_sparklines_to(2, TODAY)
         .expect("read")
         .expect("some rows");
 

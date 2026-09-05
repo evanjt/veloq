@@ -8,7 +8,6 @@
  */
 
 import { validateId } from '../../conversions';
-import { decodeCoords } from '../../coords';
 import type {
   FfiCalendarSummary,
   FfiEfficiencyTrend,
@@ -26,10 +25,7 @@ import type {
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import type {
-  FfiMergeCandidate,
-  FfiNearbySectionSummary,
   FfiSectionMatch,
-  SectionEncounter,
 } from '../shared-types';
 
 const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
@@ -182,17 +178,6 @@ export function getPerformancesBatch(
   );
 }
 
-export function getActivityPrSections(
-  host: DelegateHost,
-  activityId: string,
-  sectionIds: string[]
-): string[] {
-  if (!host.ready || sectionIds.length === 0) return [];
-  return host.timed('getActivityPrSections', () =>
-    host.engine.sections().getActivityPrSections(activityId, sectionIds)
-  );
-}
-
 export type { FfiWorkoutSection } from '../../generated/veloqrs';
 
 export function getWorkoutSections(
@@ -283,12 +268,6 @@ export function getSectionReferenceInfo(
   return { activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false };
 }
 
-export function hasOriginalBounds(host: DelegateHost, sectionId: string): boolean {
-  if (!host.ready) return false;
-  validateId(sectionId, 'section ID');
-  return host.timed('hasOriginalBounds', () => host.engine.sections().hasOriginalBounds(sectionId));
-}
-
 /**
  * Get the representative activity's full GPS track for section expansion.
  * Returns the track as delta+varint encoded coords + section start/end indices.
@@ -327,67 +306,6 @@ export function matchActivityToSections(host: DelegateHost, activityId: string):
   return host.timed('matchActivityToSections', () =>
     host.engine.sections().matchActivityToSections(activityId)
   );
-}
-
-export function getNearbySections(
-  host: DelegateHost,
-  sectionId: string,
-  radiusMeters: number = 500
-): FfiNearbySectionSummary[] {
-  if (!host.ready) return [];
-  validateId(sectionId, 'section ID');
-  return host.timed('getNearbySections', () =>
-    host.engine.sections().getNearbySections(sectionId, radiusMeters)
-  );
-}
-
-export function getMergeCandidates(host: DelegateHost, sectionId: string): FfiMergeCandidate[] {
-  if (!host.ready) return [];
-  validateId(sectionId, 'section ID');
-  return host.timed('getMergeCandidates', () =>
-    host.engine.sections().getMergeCandidates(sectionId)
-  );
-}
-
-/** Get section encounters for an activity: one entry per (section, direction). */
-export function getActivitySectionEncounters(
-  host: DelegateHost,
-  activityId: string
-): SectionEncounter[] {
-  if (!host.ready || !activityId) return [];
-  return host.timed('getActivitySectionEncounters', () => {
-    const raw = host.engine.sections().getActivitySectionEncounters(activityId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return raw.map((e: any) => ({
-      sectionId: e.sectionId,
-      sectionName: e.sectionName,
-      direction: e.direction,
-      distanceMeters: e.distanceMeters,
-      lapTime: e.lapTime,
-      lapPace: e.lapPace,
-      isPr: e.isPr,
-      visitCount: e.visitCount,
-      historyTimes: Array.from(e.historyTimes),
-      historyActivityIds: Array.from(e.historyActivityIds),
-    }));
-  });
-}
-
-export function extractSectionTrace(
-  host: DelegateHost,
-  activityId: string,
-  sectionPolylineFlat: number[]
-): FfiGpsPoint[] {
-  if (!host.ready) return [];
-  validateId(activityId, 'activity ID');
-  const encoded = host.timed('extractSectionTrace', () =>
-    host.engine.sections().extractTrace(activityId, sectionPolylineFlat)
-  );
-  return decodeCoords(encoded).map((p) => ({
-    latitude: p.latitude,
-    longitude: p.longitude,
-    elevation: undefined,
-  }));
 }
 
 /**
