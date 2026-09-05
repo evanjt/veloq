@@ -2,6 +2,7 @@ import { useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useWellness } from '@/features/wellness';
+import { computeWellnessStats } from '@/features/wellness/lib/wellnessStats';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve } from '@/features/stats';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
@@ -146,55 +147,7 @@ export function useSummaryCardData(
     await refetchWellness();
   }, [refetchWellness]);
 
-  // Wellness-derived stats (pure JS math, no FFI calls)
-  const wellnessStats = useMemo(() => {
-    const sorted = wellnessData ? [...wellnessData].sort((a, b) => b.id.localeCompare(a.id)) : [];
-    const latest = sorted[0];
-    const previous = sorted[1];
-
-    const fitness = Math.round(latest?.ctl ?? latest?.ctlLoad ?? 0);
-    const fatigue = Math.round(latest?.atl ?? latest?.atlLoad ?? 0);
-    const form = fitness - fatigue;
-    const hrv = latest?.hrv ?? null;
-    const rhr = latest?.restingHR ?? null;
-    const weight = latest?.weight ?? null;
-
-    const prevFitness = Math.round(previous?.ctl ?? previous?.ctlLoad ?? fitness);
-    const prevFatigue = Math.round(previous?.atl ?? previous?.atlLoad ?? fatigue);
-    const prevForm = prevFitness - prevFatigue;
-    const prevHrv = previous?.hrv ?? hrv;
-    const prevRhr = previous?.restingHR ?? rhr;
-    // Look back ~7 days for weight trend (day-to-day changes are too small)
-    const prevWeight =
-      sorted.slice(1).find((w) => w.weight !== null && w.weight !== undefined)?.weight ?? weight;
-    const weekAgoWeight =
-      sorted.slice(5).find((w) => w.weight !== null && w.weight !== undefined)?.weight ??
-      prevWeight;
-
-    const getTrend = (
-      current: number | null,
-      prev: number | null,
-      threshold = 1
-    ): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
-      const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
-    };
-
-    return {
-      fitness,
-      fitnessTrend: getTrend(fitness, prevFitness, 1),
-      form,
-      formTrend: getTrend(form, prevForm, 2),
-      hrv,
-      hrvTrend: getTrend(hrv, prevHrv, 2),
-      rhr,
-      rhrTrend: getTrend(rhr, prevRhr, 1),
-      weight,
-      weightTrend: getTrend(weight, weekAgoWeight, 0.3),
-    };
-  }, [wellnessData]);
+  const wellnessStats = useMemo(() => computeWellnessStats(wellnessData), [wellnessData]);
 
   // Engine-derived stats - uses precomputed data from getStartupData when available,
   // falls back to direct FFI call (settings preview, non-feed contexts)
