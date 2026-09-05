@@ -255,6 +255,11 @@ impl PersistentEngine {
             Some(n) => self.upsert_named_intent_for(section_id, n)?,
             None => self.delete_named_intent_for(section_id)?,
         }
+        // The list reads the cached overlay and never refreshes it, so
+        // resolving here is what puts the new name on the next read. Without
+        // it a rename showed the name it replaced until some other screen
+        // resolved the overlay.
+        self.ensure_named_overlay();
         Ok(())
     }
 
