@@ -21,7 +21,7 @@ import {
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
 import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import {
   ActivityPopup,
   SectionPopup,
