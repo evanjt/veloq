@@ -23,6 +23,12 @@ interface FfiExport {
   line: number;
   returnType: string;
   params: string[];
+  /**
+   * The item's doc comment, joined into one line. UniFFI hashes the whole
+   * metadata buffer and that buffer carries the docstring, so this is part of
+   * the ABI, not a comment.
+   */
+  docs: string;
   /** If set, this export is a method on a UniFFI Object with this name. */
   object?: string;
 }
@@ -98,6 +104,31 @@ function parseFnDecl(
 }
 
 /**
+ * The doc comment attached to the item declared at `declLine`, joined into one
+ * line, skipping any attributes between the comment and the declaration.
+ *
+ * It is collected because `uniffi` hashes it: `FnMetadata` carries the
+ * docstring and the export macro hashes the whole metadata buffer, so editing
+ * a comment moves the runtime checksum the generated bindings assert.
+ */
+function docsAbove(lines: string[], declLine: number): string {
+  const collected: string[] = [];
+  for (let i = declLine - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('#[') || trimmed.length === 0) {
+      if (trimmed.length === 0 && collected.length > 0) break;
+      continue;
+    }
+    if (trimmed.startsWith('///')) {
+      collected.push(trimmed.slice(3).trim());
+      continue;
+    }
+    break;
+  }
+  return collected.reverse().join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Parse a Rust file for #[uniffi::export] exports.
  *
  * Handles two shapes:
@@ -159,6 +190,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
           line: decl.line,
           returnType: decl.returnType,
           params: decl.params,
+          docs: docsAbove(lines, j),
           object: implName,
         });
       }
@@ -176,6 +208,9 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
         line: decl.line,
         returnType: decl.returnType,
         params: decl.params,
+        // The export attribute sits above the declaration, so the comment is
+        // above that, not above `declStart`.
+        docs: docsAbove(lines, i),
       });
     }
   }
@@ -308,6 +343,7 @@ if (checkMode) {
     object?: string;
     paramCount?: number;
     returnType?: string;
+    docs?: string;
   }[] = [];
   try {
     manifestEntries = require(tsOutput).FFI_EXPORTS;
@@ -332,6 +368,25 @@ if (checkMode) {
       console.error('ERROR: FFI signature drift detected (arity/return type changed)!');
       drift.forEach((d) => console.error('  ' + d));
       console.error('Run: npm run ffi:manifest');
+      process.exit(1);
+    }
+
+    // A docstring is hashed into the export's runtime checksum, so an edited
+    // comment against unregenerated bindings is a build that refuses to start
+    // with ApiChecksumMismatch. Entries with no recorded docs are skipped:
+    // that is a manifest written before this was captured, not a change.
+    const docDrift: string[] = [];
+    for (const exp of exports) {
+      const m = manifestSig.get(sigKey(exp));
+      if (!m || m.docs == null) continue;
+      if (m.docs !== exp.docs) docDrift.push(sigKey(exp));
+    }
+    if (docDrift.length > 0) {
+      console.error('ERROR: FFI doc comment drift detected!');
+      console.error('A docstring is hashed into the export checksum the bindings assert,');
+      console.error('so this tree would fail uniffiEnsureInitialized with ApiChecksumMismatch.');
+      docDrift.forEach((d) => console.error('  ' + d));
+      console.error('Regenerate the bindings, then run: npm run ffi:manifest');
       process.exit(1);
     }
   }
@@ -413,6 +468,12 @@ export interface FfiExportInfo {
   paramCount: number;
   /** Raw Rust return type, or 'void'. */
   returnType: string;
+  /**
+   * The item's doc comment on one line. UniFFI hashes the metadata buffer and
+   * that buffer carries the docstring, so an edit here moves the checksum the
+   * generated bindings assert at startup.
+   */
+  docs: string;
   /** If defined, the UniFFI Object that owns this method. */
   object?: string;
 }
@@ -422,8 +483,8 @@ export interface FfiExportInfo {
  * Total: ${exports.length} exports (${standaloneCount} standalone + ${methodCount} methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = ${JSON.stringify(
-    exports.map(({ name, camelName, file, line, object, params, returnType }) => {
-      const base = { name, camelName, file, line, paramCount: params.length, returnType };
+    exports.map(({ name, camelName, file, line, object, params, returnType, docs }) => {
+      const base = { name, camelName, file, line, paramCount: params.length, returnType, docs };
       return object ? { ...base, object } : base;
     }),
     null,
