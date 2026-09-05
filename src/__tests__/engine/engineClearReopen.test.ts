@@ -18,7 +18,7 @@ const mockNativeEngine = {
   destroy: jest.fn(),
   settings: () => mockSettings,
 };
-const mockCreate = jest.fn(() => mockNativeEngine);
+const mockCreate = jest.fn((_dbPath: string) => mockNativeEngine);
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   VeloqEngine: {
