@@ -148,6 +148,14 @@ describe('the merge hook', () => {
     expect(hook).toMatch(/check-merge-tests/);
   });
 
+  it('runs the whole-tree guards, which a worktree commit never did', () => {
+    expect(hook).toMatch(/npm run audit\b/);
+  });
+
+  it('runs them before the suites, so the cheap check fails first', () => {
+    expect(hook.indexOf('npm run audit')).toBeLessThan(hook.indexOf('check-merge-tests'));
+  });
+
   it('still holds the lint ceiling it was written for', () => {
     expect(hook).toMatch(/npm run lint\b/);
   });
