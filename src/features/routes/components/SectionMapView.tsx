@@ -51,6 +51,7 @@ import {
 import { TRIM_UPDATE_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
 import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
+import { toActivityType } from '@/features/routes/types';
 import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
 import {
   buildSectionLayers,
@@ -64,38 +65,6 @@ import {
   sectionCameraSpec,
 } from '@/features/routes/lib/sectionMapCamera';
 import { styles } from './sectionMapView.styles';
-
-/**
- * Type guard to validate sport type strings from Rust engine.
- * Ensures string matches known ActivityType values.
- *
- * @param sportType - Unknown string from Rust engine
- * @returns True if string is a valid ActivityType
- */
-function isValidActivityType(sportType: string): sportType is ActivityType {
-  const validTypes: Set<string> = new Set([
-    'Ride',
-    'Run',
-    'Swim',
-    'Walk',
-    'Hike',
-    'VirtualRide',
-    'VirtualRun',
-    'Workout',
-    'WeightTraining',
-    'Yoga',
-    'Snowboard',
-    'AlpineSki',
-    'NordicSki',
-    'BackcountrySki',
-    'Rowing',
-    'Kayaking',
-    'Canoeing',
-    'OpenWaterSwim',
-    'TrailRun',
-  ]);
-  return validTypes.has(sportType);
-}
 
 interface SectionMapViewProps {
   section: FrequentSection;
@@ -146,11 +115,11 @@ export const SectionMapView = memo(function SectionMapView({
   const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
   const { getStyleForActivity } = useMapPreferences();
 
-  // Validate sport type from Rust engine, fallback to 'Ride' if invalid
-  // This prevents crashes when native module returns unexpected sport types
-  const validSportType: ActivityType = isValidActivityType(section.sportType)
-    ? section.sportType
-    : 'Ride'; // Safe fallback
+  // The engine sends the sport as a string, so it is read against the one
+  // activity vocabulary the app keeps. A sport nothing recognises is `Other`,
+  // which has a style and a colour of its own; calling it a road ride hands
+  // back the wrong one of the athlete's own choices.
+  const validSportType: ActivityType = toActivityType(section.sportType);
 
   const preferredStyle = getStyleForActivity(validSportType);
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
