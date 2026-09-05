@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { engine } from 'veloqrs';
+import { useMemo, useCallback } from 'react';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
@@ -30,111 +29,13 @@ export function useSectionOverlays(
   engineSectionMatches: SectionMatch[],
   customMatchedSections: Section[],
   coordinates: LatLng[],
-  preComputed?: PreComputedOverlays
+  bundle: PreComputedOverlays
 ) {
-  const skipOwnFfiCall = preComputed !== undefined;
-
-  // Internal state for computed traces
-  const [computedActivityTraces, setComputedActivityTraces] = useState<Record<string, LatLng[]>>(
-    {}
-  );
-
-  // Create stable section IDs string to avoid infinite loops
-  const engineSectionIds = useMemo(
-    () =>
-      engineSectionMatches
-        .map((m) => m.section.id)
-        .sort()
-        .join(','),
-    [engineSectionMatches]
-  );
-  const customSectionIds = useMemo(
-    () =>
-      customMatchedSections
-        .map((s) => s.id)
-        .sort()
-        .join(','),
-    [customMatchedSections]
-  );
-
-  // Compute activity traces using Rust engine's extractSectionTrace
-  // Always compute traces (not just on sections tab) so overlays show on the map immediately
-  useEffect(() => {
-    if (!activityId || skipOwnFfiCall) {
-      return;
-    }
-
-    // Deduplicate sections by ID (custom sections might appear in both lists)
-    const seenIds = new Set<string>();
-    const combinedSections = [
-      ...engineSectionMatches.map((m) => m.section),
-      ...customMatchedSections,
-    ].filter((section) => {
-      if (seenIds.has(section.id)) return false;
-      seenIds.add(section.id);
-      return true;
-    });
-    if (combinedSections.length === 0) {
-      setComputedActivityTraces({});
-      return;
-    }
-
-    const traces: Record<string, LatLng[]> = {};
-
-    for (const section of combinedSections) {
-      // Use section polyline directly (already has data from engine)
-      const polyline = section.polyline || [];
-
-      if (polyline.length < 2) continue;
-
-      // Flatten polyline to [lat, lng, lat, lng, ...] for Rust engine
-      const polylineFlat: number[] = [];
-      for (const p of polyline as {
-        lat?: number;
-        lng?: number;
-        latitude?: number;
-        longitude?: number;
-      }[]) {
-        polylineFlat.push(p.lat ?? p.latitude ?? 0, p.lng ?? p.longitude ?? 0);
-      }
-
-      const extractedTrace = engine.extractSectionTrace(activityId, polylineFlat);
-
-      if (extractedTrace && extractedTrace.length > 0) {
-        // Convert GpsPoint[] to LatLng format
-        traces[section.id] = extractedTrace.map((p) => ({
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
-      }
-    }
-
-    setComputedActivityTraces(traces);
-    // Use stable string IDs instead of array references to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, engineSectionIds, customSectionIds, skipOwnFfiCall]);
-
-  const activityTraces = preComputed?.sectionTraces ?? computedActivityTraces;
+  const activityTraces = bundle.sectionTraces;
 
   // Determine which sections this activity holds the PR for.
   // Single FFI call instead of per-section getSectionPerformances loop.
-  const prSectionIds = useMemo((): Set<string> => {
-    if (preComputed) return preComputed.prSectionIds;
-    if (!activityId) return new Set();
-    const allIds = [
-      ...engineSectionMatches.map((m) => m.section.id),
-      ...customMatchedSections.map((s) => s.id),
-    ];
-    if (allIds.length === 0) return new Set();
-    try {
-      return new Set(engine.getActivityPrSections(activityId, allIds));
-    } catch {
-      return new Set();
-    }
-    // Keyed on the bundle's own set, not the wrapper literal the screen
-    // rebuilds every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineSectionMatches, customMatchedSections, activityId, preComputed?.prSectionIds]);
+  const prSectionIds = bundle.prSectionIds;
 
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
