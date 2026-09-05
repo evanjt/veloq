@@ -14,6 +14,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+
+import FeedScreen from '@/app/(tabs)/index';
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
@@ -104,8 +106,6 @@ jest.mock('@/features/activity/components', () => {
       ReactLocal.createElement(Text, { testID: `card-${activity.id}` }, activity.name),
   };
 });
-
-import FeedScreen from '@/app/(tabs)/index';
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
