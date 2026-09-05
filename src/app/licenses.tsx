@@ -70,11 +70,6 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'MIT',
         repository: 'https://github.com/software-mansion/react-native-svg',
       },
-      {
-        name: 'Victory Native',
-        license: 'MIT',
-        repository: 'https://github.com/FormidableLabs/victory',
-      },
     ],
   },
   {
