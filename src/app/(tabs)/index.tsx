@@ -585,7 +585,7 @@ export default function FeedScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews={Platform.OS === 'ios'}
+          removeClippedSubviews
           maxToRenderPerBatch={Platform.OS === 'ios' ? 4 : 3}
           windowSize={Platform.OS === 'ios' ? 7 : 5}
           initialNumToRender={2}
