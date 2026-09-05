@@ -52,6 +52,7 @@ pub(crate) mod records;
 mod route_identity;
 mod routes;
 mod schema;
+pub use schema::SUPPORTED_SCHEMA_VERSION;
 mod screens;
 pub mod sections;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
@@ -1809,6 +1810,12 @@ pub mod persistent_engine_ffi {
                     db_path,
                     e
                 );
+                if schema::is_forward_schema_error(&e) {
+                    // A newer database is healthy, not broken. Quarantining it
+                    // would move the athlete's library aside for being ahead
+                    // of the app they downgraded to.
+                    return false;
+                }
                 if is_transient_open_error(&e) {
                     // The next launch (or the banner retry) can succeed on the
                     // same file. Quarantining here would discard a healthy

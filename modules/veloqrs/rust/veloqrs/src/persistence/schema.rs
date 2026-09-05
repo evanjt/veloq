@@ -7,11 +7,22 @@ use std::collections::{HashMap, HashSet};
 
 use super::{PersistentEngine, codec, sections};
 
+/// App-level schema version for post-migration Rust hooks.
+/// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
+/// Hooks <= 7 are dead code for any user on 0.2.2+.
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 21;
+
+/// Marks the refusal to open a database a later build wrote, so the init
+/// failover can tell it apart from corruption and leave the file alone.
+pub(crate) const FORWARD_SCHEMA_MARKER: &str = "database schema is newer than this build";
+
+/// Whether an open failed because the file is ahead of this build.
+pub(crate) fn is_forward_schema_error(e: &rusqlite::Error) -> bool {
+    e.to_string().contains(FORWARD_SCHEMA_MARKER)
+}
+
 impl PersistentEngine {
-    /// App-level schema version for post-migration Rust hooks.
-    /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
-    /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 21;
+    pub(super) const SCHEMA_VERSION: i32 = SUPPORTED_SCHEMA_VERSION;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -87,6 +98,21 @@ impl PersistentEngine {
             current_version,
             Self::SCHEMA_VERSION
         );
+
+        // Migrations only run upward, so a file a later build wrote is missing
+        // nothing the app can add: it has columns this code does not know and
+        // lacks none it does. Opening it fails at query time instead, one
+        // feature at a time. Refuse it whole, and leave the file where it is.
+        if current_version > Self::SCHEMA_VERSION {
+            return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+                std::io::Error::other(format!(
+                    "{}: file is version {}, this build supports {}",
+                    FORWARD_SCHEMA_MARKER,
+                    current_version,
+                    Self::SCHEMA_VERSION
+                )),
+            )));
+        }
 
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
