@@ -23,6 +23,12 @@ export interface FfiExportInfo {
   paramCount: number;
   /** Raw Rust return type, or 'void'. */
   returnType: string;
+  /**
+   * The item's doc comment on one line. UniFFI hashes the metadata buffer and
+   * that buffer carries the docstring, so an edit here moves the checksum the
+   * generated bindings assert at startup.
+   */
+  docs: string;
   /** If defined, the UniFFI Object that owns this method. */
   object?: string;
 }
@@ -39,6 +45,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 44,
     paramCount: 0,
     returnType: 'DownloadProgressResult',
+    docs: 'Get current download progress for FFI polling. TypeScript should poll this every 100ms during fetch operations to get smooth progress updates without cross-thread callback issues. Returns DownloadProgressResult with completed/total/active fields. When active is false, the download has completed (or never started).',
   },
   {
     name: 'validate_backup_database',
@@ -47,6 +54,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 101,
     paramCount: 1,
     returnType: 'Result<String, crate::VeloqError>',
+    docs: 'Validate a backup database file without touching the global engine. Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count", "newest_activity", "supported_schema_version"}. The supported version is this build\'s own, not the file\'s. It is the only honest thing to compare a backup against: the live database is the other candidate and a fresh install cannot read one.',
   },
   {
     name: 'start_fetch_and_store',
@@ -55,6 +63,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 262,
     paramCount: 2,
     returnType: 'void',
+    docs: 'Start a background fetch that downloads GPS data and stores it directly in the persistent engine. This eliminates the FFI round-trip where GPS data would otherwise be sent to TypeScript and back. Poll get_download_progress() to monitor progress. When active becomes false, call take_fetch_and_store_result() to get the result. This is ~3x faster than the separate fetch + addActivities approach because: - No ~1.7MB GPS data transfer from Rust to TypeScript - No ~865KB GPS data transfer from TypeScript back to Rust - Direct storage in SQLite without serialization overhead',
   },
   {
     name: 'take_fetch_and_store_result',
@@ -63,6 +72,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 567,
     paramCount: 0,
     returnType: 'Option<FetchAndStoreResult>',
+    docs: 'Take the result from a completed fetch+store operation. Returns None if operation is still in progress. Returns the result and clears storage when complete.',
   },
   {
     name: 'set_network_online',
@@ -71,6 +81,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 626,
     paramCount: 1,
     returnType: 'void',
+    docs: 'Tell the engine what TypeScript sees on the network. `Q65` put the network lifecycle in Rust, and nothing in the crate can see the network itself, so this is the whole of its connectivity input. Call it from the same place that calls `onlineManager.setOnline`, on every transition and on foreground, so there is one debounce and one edge rather than two. The value is advisory and only ever a reason to refuse work: a state nobody has refreshed for fifteen minutes expires back to "try", and an install that never calls this behaves exactly as it did before.',
   },
   {
     name: 'get_network_push',
@@ -79,6 +90,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 637,
     paramCount: 0,
     returnType: 'Option<NetworkPush>',
+    docs: 'What was last pushed to [`set_network_online`], and how many seconds ago. `null` means nothing has ever been pushed. For the debug screen and for tests that need to see the push landed, not for scheduling: everything that schedules reads the state in Rust.',
   },
   {
     name: 'start_elevation_backfill',
@@ -87,6 +99,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 659,
     paramCount: 0,
     returnType: 'bool',
+    docs: 'Start the elevation backfill on a background thread. Returns false when nothing is outstanding, when a run is already in flight, or when no credential is set yet, so it is safe to call on every launch.',
   },
   {
     name: 'pause_elevation_backfill',
@@ -95,6 +108,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 671,
     paramCount: 0,
     returnType: 'bool',
+    docs: 'Pause the elevation backfill for the rest of this process. The pass in flight ends at its next batch and reports `paused`, and no launch or resume attempt starts another until the app is reopened. Nothing is persisted, so a forgotten pause can never strand the migration. Returns whether a pass was running when the pause landed.',
   },
   {
     name: 'get_elevation_backfill_remaining',
@@ -103,6 +117,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 685,
     paramCount: 0,
     returnType: 'Result<u32, crate::VeloqError>',
+    docs: 'How many stored tracks the backfill still has to ask upstream about. Zero means the library has been fully asked, so the launch trigger can stop attempting runs for this install. Raises rather than answering zero when it cannot answer at all. The launch trigger stamps the app version on a zero and the cutover trigger reads one as permission to cut, so an absent engine or a locked database has to reach the caller as the null its delegate already handles.',
   },
   {
     name: 'get_elevation_backfill_progress',
@@ -111,6 +126,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 695,
     paramCount: 0,
     returnType: 'ElevationBackfillProgress',
+    docs: "Read the elevation backfill's progress. Safe to poll at any time.",
   },
   {
     name: 'is_cutover_pending',
@@ -119,6 +135,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 708,
     paramCount: 0,
     returnType: 'bool',
+    docs: 'Whether the Corridor-to-Unified cutover is pending.',
   },
   {
     name: 'is_cutover_running',
@@ -127,6 +144,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 714,
     paramCount: 0,
     returnType: 'bool',
+    docs: 'Whether a cutover run is currently in flight.',
   },
   {
     name: 'start_detector_cutover',
@@ -135,6 +153,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 733,
     paramCount: 0,
     returnType: 'bool',
+    docs: 'Start the cutover on a background thread. Returns whether a run was started: false means no engine, not owed, or already running. A full cut is a cold detect over the whole library, so it must never be driven from the calling thread.',
   },
   {
     name: 'get_cutover_progress',
@@ -143,6 +162,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 739,
     paramCount: 0,
     returnType: 'CutoverProgress',
+    docs: 'How far the running cutover has got.',
   },
   {
     name: 'get_change_card_support',
@@ -151,6 +171,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 748,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
+    docs: 'Which claims the change card may make on this build.',
   },
   {
     name: 'get_cutover_diff',
@@ -159,6 +180,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 772,
     paramCount: 0,
     returnType: 'Option<String>',
+    docs: 'The stored cutover diff payload, if any.',
   },
   {
     name: 'detect_sections_standalone',
@@ -167,6 +189,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 786,
     paramCount: 3,
     returnType: 'Result<String, crate::VeloqError>',
+    docs: 'Run section detection on arbitrary GPS traces without the persistent engine. Used for illustrations and previews. Takes JSON-encoded inputs and returns JSON-encoded FrequentSection array. Untimed, unlike the real detect and the section preview, which both read the stored streams. Its only caller draws the synthetic detection illustration in settings, whose traces carry neither elevation nor time, so the lift veto takes its early exit whatever is passed here.',
   },
   {
     name: 'new',
@@ -175,6 +198,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 13,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -184,6 +208,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 17,
     paramCount: 4,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -193,6 +218,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 76,
     paramCount: 0,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -202,6 +228,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 80,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -211,6 +238,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 84,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -220,6 +248,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 93,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivityMetrics>, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -229,6 +258,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 107,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Store untyped activity bodies. Demo mode seeds the same table a live sync writes, so every downstream read is identical in both modes.',
     object: 'ActivityManager',
   },
   {
@@ -238,6 +268,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 126,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Untyped activity bodies over an inclusive timestamp window, newest first. The feed and detail screens read fields no Rust type models, so they parse these rather than a reconstruction from `activity_metrics`.',
     object: 'ActivityManager',
   },
   {
@@ -247,6 +278,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 140,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: "Store an activity's interval payload directly, for demo seeding.",
     object: 'ActivityManager',
   },
   {
@@ -256,6 +288,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 151,
     paramCount: 5,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Store a curve payload directly, for demo seeding. `kind` is "power" or "pace".',
     object: 'ActivityManager',
   },
   {
@@ -265,6 +298,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 177,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Replace the calendar events in a window, for demo seeding.',
     object: 'ActivityManager',
   },
   {
@@ -274,6 +308,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 199,
     paramCount: 2,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: 'A stream payload for an activity and series selection: the cached server body, or one rebuilt from the points and times the ingest already stored. `None` when neither can answer the selection, which is what makes the caller fetch.',
     object: 'ActivityManager',
   },
   {
@@ -283,6 +318,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 212,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -292,6 +328,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 223,
     paramCount: 1,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -301,6 +338,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 230,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiGpsPoint>, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -310,6 +348,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 238,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -319,6 +358,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 253,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
+    docs: '',
     object: 'ActivityManager',
   },
   {
@@ -328,6 +368,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 260,
     paramCount: 1,
     returnType: 'Result<crate::FfiActivityHighlightsBundle, VeloqError>',
+    docs: 'Combined activity-list highlight bundle: section indicators (PRs + trends) and route highlights for the same batch of activity IDs in a single FFI round-trip. Consumed by `useActivitySectionHighlights`.',
     object: 'ActivityManager',
   },
   {
@@ -337,6 +378,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 277,
     paramCount: 2,
     returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
+    docs: "Everything the activity detail screen paints with, in one engine lock: engine counts, route groups, matched and custom sections, encounters, indicator highlights, this activity's portion of each section it traverses, and the sections where it holds the record. `min_route_activities` filters the returned route groups here, so the screen does not filter them after the fact.",
     object: 'ActivityManager',
   },
   {
@@ -346,6 +388,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 19,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'BasemapManager',
   },
   {
@@ -355,6 +398,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 25,
     paramCount: 1,
     returnType: 'void',
+    docs: 'Set the filesystem path for the basemap tile tree. Called once at engine init from JS, the way `setTilesPath` hands over the heatmap path.',
     object: 'BasemapManager',
   },
   {
@@ -364,6 +408,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 31,
     paramCount: 4,
     returnType: 'Option<Vec<u8>>',
+    docs: "One tile's bytes, or none. A hit moves the tile to the back of the eviction queue.",
     object: 'BasemapManager',
   },
   {
@@ -373,6 +418,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 37,
     paramCount: 7,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Store one tile. `pinned` marks the pre-seeded offline base, which eviction takes last.',
     object: 'BasemapManager',
   },
   {
@@ -382,6 +428,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 53,
     paramCount: 0,
     returnType: 'u64',
+    docs: 'Total bytes across every source, answered without a WebView.',
     object: 'BasemapManager',
   },
   {
@@ -391,6 +438,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 58,
     paramCount: 1,
     returnType: 'u64',
+    docs: 'Bytes held for one source.',
     object: 'BasemapManager',
   },
   {
@@ -400,6 +448,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 63,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Drop every basemap tile, pinned pre-seed included.',
     object: 'BasemapManager',
   },
   {
@@ -409,6 +458,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 68,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Drop every tile of one source.',
     object: 'BasemapManager',
   },
   {
@@ -418,6 +468,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 74,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Bring one source under a byte budget, least recently read first and the pinned pre-seed last.',
     object: 'BasemapManager',
   },
   {
@@ -427,6 +478,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 182,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -436,6 +488,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 186,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -445,6 +498,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 239,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -454,6 +508,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 248,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -463,6 +518,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 268,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Force full re-detection by clearing processed activity IDs first. This ensures all activities are re-evaluated against sections. Returns false if detection is already running.',
     object: 'DetectionManager',
   },
   {
@@ -472,6 +528,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 315,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -481,6 +538,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 321,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -490,6 +548,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 325,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -499,6 +558,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 352,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
+    docs: '',
     object: 'DetectionManager',
   },
   {
@@ -508,6 +568,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 16,
     paramCount: 1,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -517,6 +578,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 34,
     paramCount: 1,
     returnType: 'void',
+    docs: 'Register the listener Rust calls when work finishes off the JavaScript thread. One per process; a second call replaces the first.',
     object: 'VeloqEngine',
   },
   {
@@ -526,6 +588,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 38,
     paramCount: 0,
     returnType: 'bool',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -535,6 +598,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 45,
     paramCount: 0,
     returnType: 'Result<PersistentEngineStats, VeloqError>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -544,6 +608,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 49,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -553,6 +618,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 55,
     paramCount: 0,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream). Used for one-time backfill after upgrade.',
     object: 'VeloqEngine',
   },
   {
@@ -562,6 +628,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 59,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -571,6 +638,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 69,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Clear only route/section data, keeping GPS tracks and activities. Used when route matching is toggled off.',
     object: 'VeloqEngine',
   },
   {
@@ -580,6 +648,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 80,
     paramCount: 0,
     returnType: 'Result<DerivedClear, VeloqError>',
+    docs: "Empty what the engine can re-derive and keep what the athlete made: the clear-cache button's database half.",
     object: 'VeloqEngine',
   },
   {
@@ -589,6 +658,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 90,
     paramCount: 0,
     returnType: 'void',
+    docs: 'Drop the persistent engine entirely, closing the SQLite connection. The next call to `create()` will re-initialise from scratch.',
     object: 'VeloqEngine',
   },
   {
@@ -598,6 +668,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 96,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -607,6 +678,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 103,
     paramCount: 2,
     returnType: 'void',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -616,6 +688,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 110,
     paramCount: 0,
     returnType: 'Arc<super::sections::SectionManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -625,6 +698,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 114,
     paramCount: 0,
     returnType: 'Arc<super::activities::ActivityManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -634,6 +708,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 118,
     paramCount: 0,
     returnType: 'Arc<super::routes::RouteManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -643,6 +718,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 122,
     paramCount: 0,
     returnType: 'Arc<super::maps::MapManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -652,6 +728,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 126,
     paramCount: 0,
     returnType: 'Arc<super::fitness::FitnessManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -661,6 +738,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 130,
     paramCount: 0,
     returnType: 'Arc<super::settings::SettingsManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -670,6 +748,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 134,
     paramCount: 0,
     returnType: 'Arc<super::detection::DetectionManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -679,6 +758,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 138,
     paramCount: 0,
     returnType: 'Arc<super::strength::StrengthManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -688,6 +768,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 142,
     paramCount: 0,
     returnType: 'Arc<super::tiles::HeatmapManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -697,6 +778,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 146,
     paramCount: 0,
     returnType: 'Arc<super::sync::SyncManager>',
+    docs: '',
     object: 'VeloqEngine',
   },
   {
@@ -706,6 +788,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 153,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Start an atomic SQLite backup at the given path on a background thread. Poll `poll_backup` for the outcome. The copy runs on its own connection, so neither the engine lock nor the calling thread waits for it.',
     object: 'VeloqEngine',
   },
   {
@@ -715,6 +798,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 168,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
+    docs: 'Poll the running backup: "idle" | "running" | "complete". A failed copy is an error, and either outcome clears the slot so the next backup can start.',
     object: 'VeloqEngine',
   },
   {
@@ -724,6 +808,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 196,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
+    docs: 'Get backup metadata as JSON for validation before restore. Returns: {"schema_version", "activity_count", "section_count", "athlete_id"}.',
     object: 'VeloqEngine',
   },
   {
@@ -733,6 +818,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 223,
     paramCount: 1,
     returnType: 'Result<crate::persistence::export::BulkExportResult, VeloqError>',
+    docs: 'Bulk export all activities with GPS data as a ZIP of GPX files. Streams one track at a time - constant memory regardless of activity count.',
     object: 'VeloqEngine',
   },
   {
@@ -742,6 +828,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 234,
     paramCount: 1,
     returnType: 'Result<crate::persistence::export::BulkExportResult, VeloqError>',
+    docs: 'Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.',
     object: 'VeloqEngine',
   },
   {
@@ -751,6 +838,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 80,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -760,6 +848,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 85,
     paramCount: 0,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Get all activity IDs that have metrics stored (GPS and non-GPS).',
     object: 'FitnessManager',
   },
   {
@@ -769,6 +858,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 95,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiWeeklySummary>, VeloqError>',
+    docs: 'Weekly training totals over a range, one entry per Monday-anchored week that has activities. Derived from `activity_metrics` rather than fetched, so there is no athlete-summary endpoint to keep in sync. `week_starts` are supplied by the caller because week boundaries are a local-calendar question, and Rust has no view of the device timezone.',
     object: 'FitnessManager',
   },
   {
@@ -778,6 +868,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 119,
     paramCount: 2,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: 'A stored power curve body, or `None` when that sport and window have never been fetched. `None` means "ask for it", not "no data".',
     object: 'FitnessManager',
   },
   {
@@ -787,6 +878,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 134,
     paramCount: 3,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: 'A stored pace curve body, keyed by sport, window and the gap flag.',
     object: 'FitnessManager',
   },
   {
@@ -796,6 +888,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 154,
     paramCount: 1,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: "An activity's stored interval body, or `None` if never fetched.",
     object: 'FitnessManager',
   },
   {
@@ -805,6 +898,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 164,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Calendar event bodies over an inclusive window, oldest first.',
     object: 'FitnessManager',
   },
   {
@@ -814,6 +908,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 177,
     paramCount: 2,
     returnType: 'Result<Vec<f64>, VeloqError>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -823,6 +918,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 185,
     paramCount: 5,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -832,6 +928,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 198,
     paramCount: 0,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -841,6 +938,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 202,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiHeatmapDay>, VeloqError>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -850,6 +948,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 210,
     paramCount: 4,
     returnType: 'Result<crate::FfiSummaryCardData, VeloqError>',
+    docs: '',
     object: 'FitnessManager',
   },
   {
@@ -859,6 +958,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 228,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Sync a batch of wellness rows from the intervals.icu API into SQLite. Idempotent on `date`; call whenever the TS wellness query refreshes.',
     object: 'FitnessManager',
   },
   {
@@ -868,6 +968,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 260,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Untyped wellness bodies over an inclusive date window, oldest first. The wellness screens read fields the typed row does not model, so they parse these rather than a reconstruction.',
     object: 'FitnessManager',
   },
   {
@@ -877,6 +978,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 277,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiWellnessSparklines>, VeloqError>',
+    docs: 'Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing `days` window. Returns `None` until wellness has been synced at least once. Replaces the 5 parallel useMemo passes in `useSummaryCardData.ts` - TS is now a thin pass-through.',
     object: 'FitnessManager',
   },
   {
@@ -886,6 +988,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 292,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiHrvTrend>, VeloqError>',
+    docs: 'HRV trend (label + averages + sparkline) over the trailing `days` window. Returns `None` when there are <5 valid HRV days. TS maps the returned label to an i18n key and renders.',
     object: 'FitnessManager',
   },
   {
@@ -895,6 +998,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 316,
     paramCount: 4,
     returnType: 'Result<Vec<crate::FfiStalePrOpportunity>, VeloqError>',
+    docs: "Stale-PR opportunity detection. Pure pattern recognition: flags sections whose PR might be beatable because the user's threshold fitness (FTP for cycling, critical speed for run/swim) has improved by at least `min_gain_percent` since the PR was set, and the section hasn't been visited in `stale_threshold_days+` days. Sport-aware: cycling sections look at FTP, running at run pace, swimming at swim pace. `exclude_section_ids` is the set of section IDs already surfaced by other insights (e.g. recent section_pr cards) - we don't want to double-surface the same section in the same insights feed. Returns up to `max_opportunities` opportunities, sorted by traversal_count DESC (more-frequented sections first).",
     object: 'FitnessManager',
   },
   {
@@ -904,6 +1008,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 385,
     paramCount: 1,
     returnType: 'Result<crate::FfiInsightsData, VeloqError>',
+    docs: 'Batch insights data: combines period stats, trends, patterns, recent PRs and the section and strength tail. Reduces the Insights hook to a single round-trip.',
     object: 'FitnessManager',
   },
   {
@@ -913,6 +1018,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 396,
     paramCount: 2,
     returnType: 'Result<crate::FfiStartupData, VeloqError>',
+    docs: "The feed's first paint in a single engine lock: the summary card and the GPS preview tracks. `params` supplies the summary card's two week windows; the rest of the insights bundle is fetched by the insights tab when it opens, not here.",
     object: 'FitnessManager',
   },
   {
@@ -922,6 +1028,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 415,
     paramCount: 5,
     returnType: 'Result<crate::FfiWidgetSnapshotData, VeloqError>',
+    docs: 'Everything the home-screen widget snapshot is composed from: wellness sparklines, the summary card, and the latest activity with its record flag and GPS track. Replaces the six-call gather in the widget writer.',
     object: 'FitnessManager',
   },
   {
@@ -931,6 +1038,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 13,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'MapManager',
   },
   {
@@ -940,6 +1048,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 17,
     paramCount: 4,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'MapManager',
   },
   {
@@ -949,6 +1058,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 36,
     paramCount: 3,
     returnType: 'Result<crate::FfiMapScreenData, VeloqError>',
+    docs: 'Everything the map tab paints with: the engine total, the sport types the filter chips offer, and the activities inside the window.',
     object: 'MapManager',
   },
   {
@@ -958,6 +1068,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 45,
     paramCount: 0,
     returnType: 'Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError>',
+    docs: '',
     object: 'MapManager',
   },
   {
@@ -967,6 +1078,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 49,
     paramCount: 1,
     returnType: 'Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError>',
+    docs: '',
     object: 'MapManager',
   },
   {
@@ -976,6 +1088,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 30,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'SectionPreview',
   },
   {
@@ -985,6 +1098,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 37,
     paramCount: 1,
     returnType: 'Result<Vec<FfiPreviewCentre>, VeloqError>',
+    docs: 'Ranked riding areas. Sections substrate (bounds cache + visit_count) when any auto section carries bounds, activity-bbox bins otherwise ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.',
     object: 'SectionPreview',
   },
   {
@@ -994,6 +1108,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 60,
     paramCount: 2,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: "The live auto catalogue for the riding area containing (lat, lng), as a JSON array in the same section shape a run's payload carries. Scoped by the same component the run uses, so the screen opens on exactly the catalogue the next run will diff against. None when no activity covers the point.",
     object: 'SectionPreview',
   },
   {
@@ -1003,6 +1118,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 71,
     paramCount: 3,
     returnType: 'Result<bool, VeloqError>',
+    docs: "Resolve the whole geo component containing (lat, lng) and start the pure preview detect over it. Only the five exposed fields of `config` overlay the engine's live config. Returns false when a preview or real detect is running, detection is suspended for a backfill, or no activity covers the point.",
     object: 'SectionPreview',
   },
   {
@@ -1012,6 +1128,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 142,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
+    docs: '"idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"',
     object: 'SectionPreview',
   },
   {
@@ -1021,6 +1138,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 173,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
+    docs: '',
     object: 'SectionPreview',
   },
   {
@@ -1030,6 +1148,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 192,
     paramCount: 0,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: 'The one JSON payload, once. None while running or after taken.',
     object: 'SectionPreview',
   },
   {
@@ -1039,6 +1158,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 210,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Cooperative: aborts within one load chunk; once inside the detect the run completes and is discarded.',
     object: 'SectionPreview',
   },
   {
@@ -1048,6 +1168,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 12,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1057,6 +1178,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 16,
     paramCount: 0,
     returnType: 'Result<Vec<crate::FfiRouteGroup>, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1066,6 +1188,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 26,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiRouteGroup>, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1075,6 +1198,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 30,
     paramCount: 0,
     returnType: 'Result<crate::FfiGroupSummariesResult, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1084,6 +1208,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 40,
     paramCount: 2,
     returnType: 'Result<crate::FfiGroupSummariesResult, VeloqError>',
+    docs: 'Filtered + sorted group summaries. Pushes the activity-count threshold and sort key into Rust so the hook stops re-iterating in TS. `sort_key` accepts "count" or "name"; anything else maps to "count".',
     object: 'RouteManager',
   },
   {
@@ -1093,6 +1218,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 60,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiGpsPoint>, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1102,6 +1228,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 74,
     paramCount: 3,
     returnType: 'Result<crate::FfiRoutePerformanceResult, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1111,6 +1238,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 90,
     paramCount: 9,
     returnType: 'Result<crate::FfiRoutesScreenData, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1120,6 +1248,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 117,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1129,6 +1258,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 131,
     paramCount: 0,
     returnType: 'Result<std::collections::HashMap<String, String>, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1138,6 +1268,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 135,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1147,6 +1278,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 149,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1156,6 +1288,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 163,
     paramCount: 1,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1165,6 +1298,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 167,
     paramCount: 2,
     returnType: 'Result<crate::FfiRoutePerformanceResult, VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1174,6 +1308,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 180,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError>',
+    docs: 'Batch-query route highlights (PRs and trends) for a list of activity IDs.',
     object: 'RouteManager',
   },
   {
@@ -1183,6 +1318,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 190,
     paramCount: 3,
     returnType: 'Result<crate::FfiRouteDetailData, VeloqError>',
+    docs: 'Everything the route detail screen paints with: engine counts, the route and the group list it is ranked within, every attempt across sports, the consensus polyline, names, exclusions and signatures.',
     object: 'RouteManager',
   },
   {
@@ -1192,6 +1328,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 205,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'RouteManager',
   },
   {
@@ -1201,6 +1338,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 13,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1210,6 +1348,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 17,
     paramCount: 0,
     returnType: 'Result<Vec<crate::FfiSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1219,6 +1358,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 39,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1228,6 +1368,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 63,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1237,6 +1378,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 76,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1246,6 +1388,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 85,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1255,6 +1398,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 94,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Total number of sections, without deserializing any section blobs. Cheap alternative to `get_summaries`/`get_all` for count-only callers.',
     object: 'SectionManager',
   },
   {
@@ -1264,6 +1408,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 98,
     paramCount: 1,
     returnType: 'Result<crate::FfiSectionSummariesResult, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1273,6 +1418,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 119,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionSummariesResult, VeloqError>',
+    docs: 'Filtered + sorted section summaries. Pushes the visit-count threshold and sort key into Rust so TS stops re-iterating the summaries list. `sort_key` accepts "visits", "distance", "name"; anything else maps to the default ("visits").',
     object: 'SectionManager',
   },
   {
@@ -1282,6 +1428,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 150,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiGpsPoint>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1291,6 +1438,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 163,
     paramCount: 2,
     returnType: 'Result<crate::FfiSectionPerformanceResult, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1300,6 +1448,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 179,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiSectionPerformanceBatchEntry>, VeloqError>',
+    docs: 'Tier 3.2: batched section-performance fetch. Returns one entry per requested section_id (in input order). Saves N FFI round-trips when the caller (Insights, Routes list) needs perfs for many sections in one render.',
     object: 'SectionManager',
   },
   {
@@ -1309,6 +1458,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 198,
     paramCount: 1,
     returnType: 'Result<crate::FfiSectionPerformanceResult, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1318,6 +1468,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 215,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiCalendarSummary>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1327,6 +1478,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 225,
     paramCount: 1,
     returnType: 'Result<crate::FfiSectionReferenceInfo, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1336,6 +1488,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 242,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1345,6 +1498,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 249,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1354,6 +1508,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 256,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1363,6 +1518,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 265,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1372,6 +1528,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 273,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1381,6 +1538,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 287,
     paramCount: 0,
     returnType: 'Result<Vec<crate::FfiNamedCorridor>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1390,6 +1548,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 296,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1399,6 +1558,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 305,
     paramCount: 0,
     returnType: 'Result<std::collections::HashMap<String, String>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1408,6 +1568,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 309,
     paramCount: 7,
     returnType: 'Result<String, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1417,6 +1578,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 342,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1426,6 +1588,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 357,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1435,6 +1598,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 372,
     paramCount: 1,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1444,6 +1608,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 376,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1453,6 +1618,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 395,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1462,6 +1628,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 414,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1471,6 +1638,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 432,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionGeometryVersion>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1480,6 +1648,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 451,
     paramCount: 2,
     returnType: 'Result<Vec<u8>, VeloqError>',
+    docs: "A stored version's line, coordinate-encoded like a section polyline.",
     object: 'SectionManager',
   },
   {
@@ -1489,6 +1658,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 463,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1498,6 +1668,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 470,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1507,6 +1678,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 479,
     paramCount: 1,
     returnType: 'Result<Option<i64>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1516,6 +1688,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 483,
     paramCount: 0,
     returnType: 'Result<Vec<crate::FfiRetiredSection>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1525,6 +1698,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 498,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionChange>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1534,6 +1708,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 511,
     paramCount: 0,
     returnType: 'Result<Vec<crate::FfiSectionLineage>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1543,6 +1718,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 524,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiExcludedLap>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1552,6 +1728,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 539,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1561,6 +1738,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 546,
     paramCount: 2,
     returnType: 'Result<Vec<u8>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1570,6 +1748,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 582,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1579,6 +1758,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 589,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1588,6 +1768,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 596,
     paramCount: 1,
     returnType: 'Result<bool, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1597,6 +1778,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 600,
     paramCount: 1,
     returnType: 'Result<crate::FfiSectionExtensionTrack, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1606,6 +1788,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 616,
     paramCount: 4,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1615,6 +1798,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 629,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiEfficiencyTrend>, VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1624,6 +1808,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 636,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1633,6 +1818,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 643,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1642,6 +1828,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 650,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1651,6 +1838,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 661,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SectionManager',
   },
   {
@@ -1660,6 +1848,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 669,
     paramCount: 1,
     returnType: 'Result<Vec<crate::SectionSummary>, VeloqError>',
+    docs: 'Get ALL section summaries including disabled/superseded (for restore UI).',
     object: 'SectionManager',
   },
   {
@@ -1669,6 +1858,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 689,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionMatch>, VeloqError>',
+    docs: "Match an activity's GPS track against all existing sections. Returns all matches found (may be empty if activity doesn't traverse any section).",
     object: 'SectionManager',
   },
   {
@@ -1678,6 +1868,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 735,
     paramCount: 1,
     returnType: 'Result<crate::FfiIndexActivitySummary, VeloqError>',
+    docs: 'Cheap post-ingest indexing for one freshly downloaded activity: match it against existing sections, insert junction rows, regroup incrementally, and refresh indicators. Does not create new sections - those wait for the next full detection run.',
     object: 'SectionManager',
   },
   {
@@ -1687,6 +1878,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 749,
     paramCount: 2,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Force-match a single activity to a specific section with relaxed thresholds. Returns true if a match was found and the section_activities row was inserted.',
     object: 'SectionManager',
   },
   {
@@ -1696,6 +1888,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 766,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiNearbySectionSummary>, VeloqError>',
+    docs: 'Get sections near a given section within a radius. Returns summaries with polyline coordinates for map overlay rendering.',
     object: 'SectionManager',
   },
   {
@@ -1705,6 +1898,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 776,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiMergeCandidate>, VeloqError>',
+    docs: 'Find sections that are candidates for merging with the given section. Candidates have >30% polyline overlap or centers within 300m with similar distances.',
     object: 'SectionManager',
   },
   {
@@ -1714,6 +1908,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 785,
     paramCount: 2,
     returnType: 'Result<String, VeloqError>',
+    docs: 'Merge two sections. Moves all traversal history from secondary into primary. Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.',
     object: 'SectionManager',
   },
   {
@@ -1723,6 +1918,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 802,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivityIndicator>, VeloqError>',
+    docs: 'Read pre-computed indicators for a batch of activity IDs. Returns section PRs, route PRs, section trends, and route trends from the materialised `activity_indicators` table.',
     object: 'SectionManager',
   },
   {
@@ -1732,6 +1928,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 811,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionEncounter>, VeloqError>',
+    docs: 'Get section encounters for an activity: one entry per (section, direction). Canonical data unit for the sections tab in activity detail.',
     object: 'SectionManager',
   },
   {
@@ -1741,6 +1938,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 821,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Given an activity and a list of section IDs, return the subset where `activity_id` currently holds the best record. Collapses a per-section N+1 `get_performances` loop into a single FFI round-trip.',
     object: 'SectionManager',
   },
   {
@@ -1750,6 +1948,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 843,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiWorkoutSection>, VeloqError>',
+    docs: 'Home-screen "Sections for you" list. Composes ML ranking + performance lookups in one FFI round-trip instead of N+1 per-section `getPerformances` calls from TS.',
     object: 'SectionManager',
   },
   {
@@ -1759,6 +1958,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 854,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionChartData, VeloqError>',
+    docs: 'Pre-computed chart payload for the section-detail screen: per-lap points, speed ranks, best/avg/last stats - all in one FFI round-trip. Replaces the 3+ useMemo aggregations in `useSectionChartData`.',
     object: 'SectionManager',
   },
   {
@@ -1768,6 +1968,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 869,
     paramCount: 2,
     returnType: 'Result<crate::FfiSectionDetailData, VeloqError>',
+    docs: 'Everything the section detail screen can paint before its time streams have been fetched: the section, its neighbours and merge candidates, exclusions, bounds state, per-activity metrics and signatures, and the activities whose streams are still missing.',
     object: 'SectionManager',
   },
   {
@@ -1777,6 +1978,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 880,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionPerformanceData, VeloqError>',
+    docs: 'The lap-time reads for the section detail screen: calendar summary, performance records and chart payload. Call once the streams reported by `get_detail_data` have landed.',
     object: 'SectionManager',
   },
   {
@@ -1786,6 +1988,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 19,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'SettingsManager',
   },
   {
@@ -1795,6 +1998,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 23,
     paramCount: 0,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: '',
     object: 'SettingsManager',
   },
   {
@@ -1804,6 +2008,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 27,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SettingsManager',
   },
   {
@@ -1813,6 +2018,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 33,
     paramCount: 0,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: '',
     object: 'SettingsManager',
   },
   {
@@ -1822,6 +2028,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 37,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: '',
     object: 'SettingsManager',
   },
   {
@@ -1831,6 +2038,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 46,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Clear the cached athlete profile and sport settings blobs without touching activity / GPS / section data. Used by the lightweight "Sign out" path.',
     object: 'SettingsManager',
   },
   {
@@ -1840,6 +2048,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 53,
     paramCount: 1,
     returnType: 'Result<Option<String>, VeloqError>',
+    docs: 'Get a single user preference by key.',
     object: 'SettingsManager',
   },
   {
@@ -1849,6 +2058,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 62,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Set a single user preference (upsert).',
     object: 'SettingsManager',
   },
   {
@@ -1858,6 +2068,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 73,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Set several user preferences in one transaction, skipping each pair whose value is already stored. Returns how many were written.',
     object: 'SettingsManager',
   },
   {
@@ -1867,6 +2078,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 90,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
+    docs: 'Days of stream history the athlete keeps. Zero means keep everything. Not the same knob as the activity `retentionDays` in `RouteSettingsStore`, which deletes whole activities. This one only ever evicts stored series.',
     object: 'SettingsManager',
   },
   {
@@ -1876,6 +2088,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 96,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Set the stream retention window in days, then evict what now falls outside it. Zero keeps everything.',
     object: 'SettingsManager',
   },
   {
@@ -1885,6 +2098,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 106,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
+    docs: 'Bytes the stream store holds, for the cache readout.',
     object: 'SettingsManager',
   },
   {
@@ -1894,6 +2108,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 115,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Delete a single user preference.',
     object: 'SettingsManager',
   },
   {
@@ -1903,6 +2118,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 110,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'StrengthManager',
   },
   {
@@ -1912,6 +2128,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 116,
     paramCount: 1,
     returnType: 'Result<Vec<FfiExerciseSet>, VeloqError>',
+    docs: 'Get cached exercise sets for an activity (from SQLite). Returns empty vec if not yet downloaded/parsed.',
     object: 'StrengthManager',
   },
   {
@@ -1921,6 +2138,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 128,
     paramCount: 1,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Check if FIT file has been processed for this activity.',
     object: 'StrengthManager',
   },
   {
@@ -1930,6 +2148,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 145,
     paramCount: 1,
     returnType: 'bool',
+    docs: 'Start a FIT download for one activity, parse its exercise sets and store them. Returns false when a download for this activity is already in flight or there are no credentials. Nothing is returned to the caller: the download ran on the JS thread before, so a black-hole network froze the UI for as long as the request took. The sets land in SQLite and are read back through `get_exercise_sets`, the same path a cache hit takes.',
     object: 'StrengthManager',
   },
   {
@@ -1939,6 +2158,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 162,
     paramCount: 1,
     returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Get activity IDs from the input list that have not been FIT-processed yet.',
     object: 'StrengthManager',
   },
   {
@@ -1948,6 +2168,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 180,
     paramCount: 1,
     returnType: 'bool',
+    docs: 'Start FIT downloads for a batch of activities. Returns false when a batch is already in flight or there are no credentials. Runs in the background for the same reason the single fetch does: the caller is the sync path on the JS thread, and this loop is one blocking request per activity.',
     object: 'StrengthManager',
   },
   {
@@ -1957,6 +2178,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 224,
     paramCount: 2,
     returnType: 'Result<FfiStrengthSummary, VeloqError>',
+    docs: 'Get aggregated strength training volume for a date range. Uses weighted set counting: primary=1.0, secondary=0.5. Timestamps are Unix seconds.',
     object: 'StrengthManager',
   },
   {
@@ -1966,6 +2188,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 242,
     paramCount: 1,
     returnType: 'Result<Vec<FfiStrengthSummary>, VeloqError>',
+    docs: 'Batch variant of `get_strength_summary`. Aggregates each range under a single engine lock, so the insights hook can request a monthly window plus N trailing weekly windows in one FFI round-trip.',
     object: 'StrengthManager',
   },
   {
@@ -1975,6 +2198,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 262,
     paramCount: 3,
     returnType: 'Result<FfiMuscleExerciseSummary, VeloqError>',
+    docs: 'Get exercise summaries for a specific muscle group within a date range. Returns exercises grouped by frequency, sorted by activity count descending.',
     object: 'StrengthManager',
   },
   {
@@ -1984,6 +2208,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 348,
     paramCount: 4,
     returnType: 'Result<FfiExerciseActivities, VeloqError>',
+    docs: 'Get activities for a specific exercise filtered by muscle group. Returns activities sorted by date descending with per-activity stats.',
     object: 'StrengthManager',
   },
   {
@@ -1993,6 +2218,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 432,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
+    docs: "Parse raw FIT bytes locally and store any strength sets for this activity. Returns the number of sets inserted. No network access - callers supply the bytes (e.g. just-recorded FIT buffer, downloaded file, backup). Also marks the activity as FIT-processed so the network path won't attempt to re-download.",
     object: 'StrengthManager',
   },
   {
@@ -2002,6 +2228,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 481,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
+    docs: "Insert pre-parsed exercise sets for an activity without touching the network or FIT-file pipeline. Demo mode uses this to seed synthetic WeightTraining activities; the production path still goes through fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed so the normal code path won't attempt to re-download.",
     object: 'StrengthManager',
   },
   {
@@ -2011,6 +2238,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 527,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Check if there are any strength activities with exercise data.',
     object: 'StrengthManager',
   },
   {
@@ -2020,6 +2248,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 540,
     paramCount: 1,
     returnType: 'Result<Vec<FfiMuscleGroup>, VeloqError>',
+    docs: 'Get aggregated muscle groups for an activity. Returns slugs matching react-native-body-highlighter format.',
     object: 'StrengthManager',
   },
   {
@@ -2029,6 +2258,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 562,
     paramCount: 2,
     returnType: 'Result<FfiMuscleGroupDetail, VeloqError>',
+    docs: 'Per-activity muscle detail: groups exercise sets by display name, classifies primary/secondary role, returns totals + sorted exercise list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.',
     object: 'StrengthManager',
   },
   {
@@ -2038,6 +2268,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 895,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'SyncManager',
   },
   {
@@ -2047,6 +2278,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 900,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Set the credential once (method = "oauth" | "api_key"). Never passed per request.',
     object: 'SyncManager',
   },
   {
@@ -2056,6 +2288,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 914,
     paramCount: 0,
     returnType: 'void',
+    docs: 'Forget the credential (logout).',
     object: 'SyncManager',
   },
   {
@@ -2065,6 +2298,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 921,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Start a sync. Returns instantly: true if a new sync started, false if one was already running or credentials are missing. Work runs on the shared runtime; observe progress via `get_sync_status`.',
     object: 'SyncManager',
   },
   {
@@ -2074,6 +2308,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 943,
     paramCount: 2,
     returnType: 'Result<bool, VeloqError>',
+    docs: 'Fetch and store one date window of activities. Returns instantly: true if the job started, false if a sync is already running or credentials are missing. The feed calls this for windows the default sync misses.',
     object: 'SyncManager',
   },
   {
@@ -2083,6 +2318,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 976,
     paramCount: 2,
     returnType: 'bool',
+    docs: 'Fetch and store a power curve for a sport and window. Returns false if the same curve is already being fetched or no credentials are set.',
     object: 'SyncManager',
   },
   {
@@ -2092,6 +2328,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 999,
     paramCount: 3,
     returnType: 'bool',
+    docs: 'Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and is only honoured for running.',
     object: 'SyncManager',
   },
   {
@@ -2101,6 +2338,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1022,
     paramCount: 1,
     returnType: 'bool',
+    docs: "Fetch and store an activity's work/recovery intervals.",
     object: 'SyncManager',
   },
   {
@@ -2110,6 +2348,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1040,
     paramCount: 2,
     returnType: 'bool',
+    docs: 'Fetch and store the calendar events in a date window, replacing what was there so an event cancelled upstream disappears here too.',
     object: 'SyncManager',
   },
   {
@@ -2119,6 +2358,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1075,
     paramCount: 2,
     returnType: 'bool',
+    docs: "Fetch and store an activity's streams for a series selection. The types string is the cache key, so callers must pass it consistently.",
     object: 'SyncManager',
   },
   {
@@ -2128,6 +2368,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1097,
     paramCount: 1,
     returnType: 'bool',
+    docs: "Fetch and store an activity's full detail body, replacing the lighter row the list sync wrote.",
     object: 'SyncManager',
   },
   {
@@ -2137,6 +2378,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1126,
     paramCount: 1,
     returnType: 'bool',
+    docs: 'Fetch and store the `time` streams the section-performance maths needs. Activities that already have one are skipped, so a repeat call over the same list costs nothing.',
     object: 'SyncManager',
   },
   {
@@ -2146,6 +2388,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1159,
     paramCount: 4,
     returnType: 'FfiCallOutcome',
+    docs: 'Upload a recorded activity file. The FIT streams from `file_path`, so a long ride never crosses FFI as bytes and never lands in memory. The call resolves when the server has answered; failures come back as an outcome, not as a thrown error.',
     object: 'SyncManager',
   },
   {
@@ -2155,6 +2398,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1182,
     paramCount: 1,
     returnType: 'FfiCallOutcome',
+    docs: 'Create an activity with no file behind it, for indoor entries.',
     object: 'SyncManager',
   },
   {
@@ -2164,6 +2408,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1198,
     paramCount: 2,
     returnType: 'FfiCallOutcome',
+    docs: 'Check a credential against `/athlete/me` and report the athlete it belongs to. Login confirms a key this way before committing it, so the credential under test is deliberately not the one the service holds.',
     object: 'SyncManager',
   },
   {
@@ -2173,6 +2418,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1226,
     paramCount: 0,
     returnType: 'void',
+    docs: 'Soft-cancel the running sync.',
     object: 'SyncManager',
   },
   {
@@ -2182,6 +2428,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1231,
     paramCount: 0,
     returnType: 'FfiSyncStatus',
+    docs: 'Current status snapshot.',
     object: 'SyncManager',
   },
   {
@@ -2191,6 +2438,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1240,
     paramCount: 0,
     returnType: 'u64',
+    docs: 'How many on-demand bodies have landed in SQLite this session. An on-demand fetch settles on a Rust thread with no way to reach the TypeScript listener map, so a reader waiting on a body watches this and fans a change out over the engine channel when it moves.',
     object: 'SyncManager',
   },
   {
@@ -2200,6 +2448,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 12,
     paramCount: 0,
     returnType: 'Arc<Self>',
+    docs: '',
     object: 'HeatmapManager',
   },
   {
@@ -2209,6 +2458,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 18,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Set the filesystem path for heatmap tile storage. Called once at engine init from JS (documentDirectory + "heatmap-tiles/").',
     object: 'HeatmapManager',
   },
   {
@@ -2218,6 +2468,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 23,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
+    docs: 'Disable heatmap tile generation by clearing the tiles path.',
     object: 'HeatmapManager',
   },
   {
@@ -2227,6 +2478,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 28,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
+    docs: 'Clear all heatmap tiles from disk.',
     object: 'HeatmapManager',
   },
   {
@@ -2236,6 +2488,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 34,
     paramCount: 1,
     returnType: 'Result<u64, VeloqError>',
+    docs: 'Get total size of heatmap tile cache in bytes. Walks the z/x/y directory tree natively - much faster than JS filesystem calls.',
     object: 'HeatmapManager',
   },
   {
@@ -2245,6 +2498,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 65,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
+    docs: 'Poll tile generation progress: "idle" | "running" | "complete"',
     object: 'HeatmapManager',
   },
   {
@@ -2254,6 +2508,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 91,
     paramCount: 0,
     returnType: 'Result<Vec<u32>, VeloqError>',
+    docs: 'Get tile generation progress: (processed, total). Returns (0, 0) if idle.',
     object: 'HeatmapManager',
   },
   {
@@ -2263,6 +2518,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 1979,
     paramCount: 3,
     returnType: 'f64',
+    docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
   },
 ];
 
