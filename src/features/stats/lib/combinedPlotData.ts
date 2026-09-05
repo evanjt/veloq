@@ -8,7 +8,7 @@
  */
 
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
-import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { measuresPower } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { finiteExtent } from '@/shared/charts/extent';
@@ -263,6 +263,51 @@ export function computeAllAverages(
   return results;
 }
 
+/** The first sample at or after `second`, or the last sample when it is past the end. */
+function firstAtOrAfter(seconds: number[], second: number): number {
+  let lo = 0;
+  let hi = seconds.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (seconds[mid] < second) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** The last sample at or before `second`, or the first sample when it is before the start. */
+function lastAtOrBefore(seconds: number[], second: number): number {
+  const at = firstAtOrAfter(seconds, second);
+  if (seconds[at] <= second) return at;
+  return Math.max(0, at - 1);
+}
+
+/**
+ * Where an interval starts and ends in the stream the chart is drawing.
+ *
+ * `start_index` and `end_index` are intervals.icu's, into the response as it
+ * was sent. Both stream readers drop every sample without a coordinate before
+ * the chart sees it, so a raw index is one sample late for every drop before
+ * it, and the clamp hides the overshoot on the last interval. The seconds are
+ * index-free and survive the reduction, so they are the anchor when the body
+ * carries them.
+ */
+function intervalIndices(
+  interval: ActivityInterval,
+  seconds: number[],
+  length: number
+): { startIdx: number; endIdx: number } {
+  const last = length - 1;
+  if (seconds.length === length && interval.start_time != null && interval.end_time != null) {
+    const startIdx = firstAtOrAfter(seconds, interval.start_time);
+    return { startIdx, endIdx: Math.max(startIdx, lastAtOrBefore(seconds, interval.end_time)) };
+  }
+  return {
+    startIdx: Math.max(0, Math.min(interval.start_index, last)),
+    endIdx: Math.max(0, Math.min(interval.end_index, last)),
+  };
+}
+
 /**
  * Compute the interval bands behind the chart.
  *
@@ -284,15 +329,18 @@ export function computeIntervalBands(
   const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
   if (xSource.length === 0) return [];
 
-  const isCycling = activityType ? isCyclingActivity(activityType) : false;
+  const hasPowerZones = activityType ? measuresPower(activityType) : false;
 
   // Find the series whose avg values we'll use for dashed lines
   // Prefer the first selected series (power for cycling users, HR for runners)
   const primarySeries = seriesInfo[0];
 
+  // The bands are placed against `time`, not against the axis being drawn, so
+  // the distance axis is read at the index the seconds lookup returns.
+  const seconds = streams.time || [];
+
   return intervals.map((interval) => {
-    const startIdx = Math.max(0, Math.min(interval.start_index, xSource.length - 1));
-    const endIdx = Math.max(0, Math.min(interval.end_index, xSource.length - 1));
+    const { startIdx, endIdx } = intervalIndices(interval, seconds, xSource.length);
 
     let startX: number;
     let endX: number;
@@ -314,7 +362,7 @@ export function computeIntervalBands(
     let bandColour: BandColourToken;
     let bandOpacity: number;
     if (isWork && interval.zone != null && interval.zone >= 1) {
-      bandColour = { kind: 'zone', scale: isCycling ? 'power' : 'hr', zone: interval.zone };
+      bandColour = { kind: 'zone', scale: hasPowerZones ? 'power' : 'hr', zone: interval.zone };
       bandOpacity = 0.35;
     } else if (isWork) {
       bandColour = { kind: 'role', role: 'work' };
