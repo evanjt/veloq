@@ -13,7 +13,7 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
-import { PERIOD_OPTIONS, getPeriodStart, type PeriodKey } from '@/features/maps/lib/mapPeriod';
+import { PERIOD_OPTIONS, getPeriodStart, type MapPeriod } from '@/features/maps/lib/mapPeriod';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -90,7 +90,7 @@ export default function MapScreen() {
 
   // Filter state
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
-  const [period, setPeriod] = useState<PeriodKey>('all');
+  const [period, setPeriod] = useState<MapPeriod>('all');
   const [distanceFilter, setDistanceFilter] = useState<DistanceKey>('all');
 
   // Memoize period start date to keep reference stable across renders
@@ -248,7 +248,7 @@ export default function MapScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chipRow}
           >
-            {PERIOD_OPTIONS.map(({ key, labelKey }) => (
+            {PERIOD_OPTIONS.map(({ id: key, labelKey }) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setPeriod(key)}

@@ -715,12 +715,7 @@
     "viewSectionDetails": "Abschnittsdetails aazeige",
     "zoomToActivity": "Uf Aktivität zoome",
     "colorByGradient": "Nach Gfälli färbe",
-    "periodAll": "Alle",
-    "periodThisYear": "Dieses Jahr",
-    "periodSixMonths": "6 Monate",
-    "periodThreeMonths": "3 Monate",
-    "periodOneMonth": "1 Monat",
-    "periodOneWeek": "1 Woche"
+    "periodThisYear": "Dieses Jahr"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1500,10 +1495,6 @@
     "recentAvg": "Letschte Schnitt",
     "earlierAvg": "Früheri Schnitt",
     "peakWeek": "Spitze-Wuche",
-    "periodWeek": "Wuche",
-    "period4Weeks": "4 Wuche",
-    "period3Months": "3 Mönet",
-    "period6Months": "6 Mönet",
     "disclaimer": "Volumeberechnige sind Nöcherigswert basierend uf Üebigsdatä vo dim verbundene Grät.",
     "exercise": "Üebig",
     "exercises": "Üebige"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}} %",
     "remaining": "No {{count}} z lade",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J",
+      "all": "Alle"
+    },
+    "long": {
+      "7d": "1 Woche",
+      "1m": "1 Monat",
+      "3m": "3 Monate",
+      "6m": "6 Monate",
+      "1y": "1 Jahr",
+      "all": "Alle"
+    }
   }
 }

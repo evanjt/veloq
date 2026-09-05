@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { PERIOD_DAYS } from '@/shared/app/period';
 import { useQuery } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
@@ -54,20 +55,7 @@ export function getTimestampRange(period: StrengthPeriod): { startTs: number; en
 
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
-  switch (period) {
-    case 'week':
-      start.setDate(start.getDate() - 7);
-      break;
-    case '4weeks':
-      start.setDate(start.getDate() - 28);
-      break;
-    case '3months':
-      start.setMonth(start.getMonth() - 3);
-      break;
-    case '6months':
-      start.setMonth(start.getMonth() - 6);
-      break;
-  }
+  start.setDate(start.getDate() - PERIOD_DAYS[period]);
   const startTs = localWallClockToEpochSeconds(start);
 
   return { startTs, endTs };

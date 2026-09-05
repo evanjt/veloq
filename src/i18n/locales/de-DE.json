@@ -715,12 +715,7 @@
     "viewSectionDetails": "Abschnittsdetails anzeigen",
     "zoomToActivity": "Auf Aktivität zoomen",
     "colorByGradient": "Nach Gefälle färben",
-    "periodAll": "Alle",
-    "periodThisYear": "Dieses Jahr",
-    "periodSixMonths": "6 Monate",
-    "periodThreeMonths": "3 Monate",
-    "periodOneMonth": "1 Monat",
-    "periodOneWeek": "1 Woche"
+    "periodThisYear": "Dieses Jahr"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1500,10 +1495,6 @@
     "recentAvg": "Aktueller Ø",
     "earlierAvg": "Früherer Ø",
     "peakWeek": "Spitzenwoche",
-    "periodWeek": "Woche",
-    "period4Weeks": "4 Wochen",
-    "period3Months": "3 Monate",
-    "period6Months": "6 Monate",
     "disclaimer": "Volumenberechnungen sind Näherungswerte basierend auf Übungsdaten Ihres verbundenen Geräts.",
     "exercise": "Übung",
     "exercises": "Übungen"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}} %",
     "remaining": "Noch {{count}} zu laden",
     "statePaused": "Pausiert, bis die App wieder geöffnet wird"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J",
+      "all": "Alle"
+    },
+    "long": {
+      "7d": "1 Woche",
+      "1m": "1 Monat",
+      "3m": "3 Monate",
+      "6m": "6 Monate",
+      "1y": "1 Jahr",
+      "all": "Alle"
+    }
   }
 }

@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
 import { type TimeRange } from '@/features/wellness';
+import { useTranslation } from 'react-i18next';
 
 interface TimeRangeSelectorProps {
   timeRange: TimeRange;
@@ -20,6 +21,7 @@ export const TimeRangeSelector = React.memo(function TimeRangeSelector({
   onTimeRangeChange,
   isDark,
 }: TimeRangeSelectorProps) {
+  const { t } = useTranslation();
   return (
     <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
       {TIME_RANGES.map((range) => (
@@ -41,7 +43,7 @@ export const TimeRangeSelector = React.memo(function TimeRangeSelector({
               timeRange === range.id && styles.timeRangeTextActive,
             ]}
           >
-            {range.label}
+            {t(range.labelKey as never)}
           </Text>
         </TouchableOpacity>
       ))}
