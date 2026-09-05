@@ -26,6 +26,7 @@ import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
+import { TREND_DEADBAND, trendDirection } from '@/shared/format/trend';
 
 export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
 
@@ -235,7 +236,8 @@ export interface RawWidgetData {
   translate?: (key: string) => string;
 }
 
-const FORM_DEADBAND = 1; // CTL/ATL/form points are integers; <1 change reads as flat
+// The default for the integer point metrics: fitness, fatigue and resting HR.
+const POINT_DEADBAND = TREND_DEADBAND.fitness;
 const IMPACT_MAX_AGE_DAYS = 2; // only attribute impact to a genuinely recent activity
 export const ROUTE_PREVIEW_MAX_POINTS = 150;
 
@@ -245,10 +247,8 @@ function num(v: number | bigint | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function trendOf(today: number, yesterday: number, deadband = FORM_DEADBAND): TrendDir {
-  const delta = today - yesterday;
-  if (Math.abs(delta) < deadband) return 'flat';
-  return delta > 0 ? 'up' : 'down';
+function trendOf(today: number, yesterday: number, deadband: number = POINT_DEADBAND): TrendDir {
+  return trendDirection(today, yesterday, deadband);
 }
 
 /** Trend between two possibly-missing values; missing data reads as flat. */
@@ -257,12 +257,11 @@ function trendOfNullable(
   prev: number | null | undefined,
   deadband: number
 ): TrendDir {
-  if (current == null || prev == null) return 'flat';
-  return trendOf(current, prev, deadband);
+  return trendDirection(current, prev, deadband);
 }
 
 /** Build a MetricValue from an oldest-first series. Safe on empty/short arrays. */
-function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
+function metricFrom(series: number[], deadband: number = POINT_DEADBAND): MetricValue {
   if (!series || series.length === 0) return { value: 0, trendDir: 'flat' };
   const today = num(series[series.length - 1]);
   if (series.length === 1) return { value: today, trendDir: 'flat' };
@@ -376,7 +375,7 @@ function composeSummaryCard(
         };
       }
       case 'form': {
-        const m = metricFrom(sp?.form ?? [], 2);
+        const m = metricFrom(sp?.form ?? [], TREND_DEADBAND.form);
         const v = Math.round(m.value);
         return {
           id,
@@ -387,7 +386,7 @@ function composeSummaryCard(
         };
       }
       case 'hrv': {
-        const m = metricFrom(sp?.hrv ?? [], 2);
+        const m = metricFrom(sp?.hrv ?? [], TREND_DEADBAND.hrv);
         return {
           id,
           label: t('metrics.hrv'),
@@ -413,7 +412,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.week'),
           value: `${hours}h`,
-          trendDir: trendOf(hours, prevHours, 0.5),
+          trendDir: trendOf(hours, prevHours, TREND_DEADBAND.weekHours),
           colorKey: 'default',
         };
       }
@@ -423,7 +422,7 @@ function composeSummaryCard(
           id,
           label: '#',
           value: String(count),
-          trendDir: trendOf(count, num(summary?.prevWeek.count), 1),
+          trendDir: trendOf(count, num(summary?.prevWeek.count), TREND_DEADBAND.weekCount),
           colorKey: 'default',
         };
       }
@@ -433,7 +432,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.ftp'),
           value: latestFtp == null ? '-' : String(Math.round(latestFtp)),
-          trendDir: trendOfNullable(latestFtp, summary?.ftpTrend?.previousFtp, 2),
+          trendDir: trendOfNullable(latestFtp, summary?.ftpTrend?.previousFtp, TREND_DEADBAND.ftp),
           colorKey: 'default',
         };
       }
@@ -443,7 +442,11 @@ function composeSummaryCard(
           id,
           label: t('metrics.pace'),
           value: pace == null || pace <= 0 ? '-' : formatPaceCompact(pace, raw.isMetric),
-          trendDir: trendOfNullable(pace, summary?.runPaceTrend?.previousPace, 0.05),
+          trendDir: trendOfNullable(
+            pace,
+            summary?.runPaceTrend?.previousPace,
+            TREND_DEADBAND.thresholdPace
+          ),
           colorKey: 'default',
         };
       }
@@ -453,7 +456,7 @@ function composeSummaryCard(
           id,
           label: t('metrics.css'),
           value: pace == null || pace <= 0 ? '-' : formatSwimPace(pace, raw.isMetric),
-          trendDir: trendOfNullable(pace, summary?.swimPaceTrend?.previousPace, 0.05),
+          trendDir: trendOfNullable(pace, summary?.swimPaceTrend?.previousPace, TREND_DEADBAND.css),
           colorKey: 'default',
         };
       }
