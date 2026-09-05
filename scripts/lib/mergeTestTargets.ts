@@ -15,12 +15,15 @@
 
 const CRATE = 'modules/veloqrs/rust/veloqrs/';
 const RUST_TEST_DIR = `${CRATE}tests/`;
+const TRACEMATCH = 'modules/veloqrs/rust/tracematch';
 
 export interface MergeTargets {
   /** `cargo test -p veloqrs --test <name>` for each. */
   rustTests: string[];
   /** Whether the crate's own unit tests have to run. */
   rustLib: boolean;
+  /** Whether the tracematch crate's suites have to run. */
+  tracematchLib: boolean;
   /** TypeScript files to hand to `jest --findRelatedTests`. */
   typescript: string[];
 }
@@ -44,6 +47,17 @@ function touchesRustSource(path: string): boolean {
   return path.startsWith(`${CRATE}src/`) || path === `${CRATE}Cargo.toml`;
 }
 
+/**
+ * tracematch is a submodule, so its own merge happens inside a git the
+ * superproject cannot gate. What reaches here is the pointer bump, one path
+ * and no contents, and running the crate against it is the gate that is
+ * achievable. A path inside the submodule counts too, for a caller that
+ * expands the pointer itself.
+ */
+function touchesTracematch(path: string): boolean {
+  return path === TRACEMATCH || path.startsWith(`${TRACEMATCH}/`);
+}
+
 function isTypeScript(path: string): boolean {
   return /\.(ts|tsx)$/.test(path) && !path.startsWith('modules/veloqrs/src/generated/');
 }
@@ -54,11 +68,39 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
   return {
     rustTests: rustTests.sort(),
     rustLib: changed.some(touchesRustSource),
+    tracematchLib: changed.some(touchesTracematch),
     typescript: changed.filter(isTypeScript).sort(),
   };
 }
 
 /** Whether there is anything at all to run. */
 export function hasTargets(targets: MergeTargets): boolean {
-  return targets.rustTests.length > 0 || targets.rustLib || targets.typescript.length > 0;
+  return (
+    targets.rustTests.length > 0 ||
+    targets.rustLib ||
+    targets.tracematchLib ||
+    targets.typescript.length > 0
+  );
+}
+
+/** The shell commands those targets call for, one per line, in order. */
+export function mergeTestCommands(targets: MergeTargets): string[] {
+  const commands: string[] = [];
+
+  const cargo: string[] = [];
+  if (targets.rustLib) cargo.push('--lib');
+  for (const name of targets.rustTests) cargo.push(`--test ${name}`);
+  if (cargo.length > 0) {
+    commands.push(`cargo test --manifest-path ${CRATE}Cargo.toml -p veloqrs ${cargo.join(' ')}`);
+  }
+  if (targets.tracematchLib) {
+    commands.push(`cargo test --manifest-path ${TRACEMATCH}/Cargo.toml -p tracematch`);
+  }
+  if (targets.typescript.length > 0) {
+    commands.push(
+      `npx jest --config config/jest.config.js --findRelatedTests --passWithNoTests ${targets.typescript.join(' ')}`
+    );
+  }
+
+  return commands;
 }
