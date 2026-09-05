@@ -43,6 +43,9 @@ import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStor
 import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { startMemoryPressureListener } from '@/shared/app/memoryPressure';
+import { registerQueryCacheReclaimer } from '@/shared/app/memoryReclaimers';
+import { registerTileCacheReclaimer } from '@/features/maps/lib/mapMemoryReclaimer';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
@@ -107,6 +110,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setCrashScreen(routeParts.join('/') || 'root');
   }, [routeParts]);
+
+  useEffect(() => {
+    const reclaimers = [registerQueryCacheReclaimer(), registerTileCacheReclaimer()];
+    const stop = startMemoryPressureListener();
+    return () => {
+      stop();
+      for (const off of reclaimers) off();
+    };
+  }, []);
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
