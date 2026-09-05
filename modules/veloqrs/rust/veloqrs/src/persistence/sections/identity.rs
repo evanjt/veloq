@@ -1612,15 +1612,9 @@ mod tests {
         engine
     }
 
-    /// Scenario: a trimmed section keeps its ground through a detect, and the
-    /// registry learns which ground that is by reading the row. A cleared
-    /// cache is what the read has to survive.
-    ///
-    /// Expected behaviour: the ground comes back rebuilt from the triple. An
-    /// empty one would let the detector re-emit the corridor the user already
-    /// shaped, under a second id.
     /// Scenario: a marginal senior and a dominant junior both merely contained
     /// in one corridor, driven through the registry's own default hysteresis.
+    ///
     /// Expected behaviour: the short senior does not take the long corridor and
     /// the prior that described it is not tombstoned.
     #[test]
@@ -1668,6 +1662,13 @@ mod tests {
         );
     }
 
+    /// Scenario: a trimmed section keeps its ground through a detect, and the
+    /// registry learns which ground that is by reading the row. A cleared
+    /// cache is what the read has to survive.
+    ///
+    /// Expected behaviour: the ground comes back rebuilt from the triple. An
+    /// empty one would let the detector re-emit the corridor the user already
+    /// shaped, under a second id.
     #[test]
     fn a_durable_intent_ground_rebuilds_after_the_cache_is_cleared() {
         let dir = TempDir::new().expect("tempdir");
