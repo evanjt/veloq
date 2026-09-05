@@ -51,12 +51,24 @@ describe('type classification', () => {
     }
   });
 
-  it('classifies cycling activities', () => {
-    for (const type of ['Ride', 'VirtualRide'] as const) {
+  // The six the engine's fitness gain counts as cycling (`objects/fitness.rs`).
+  // `EBikeRide` is in its FTP list and not its gain list, and is not asserted
+  // either way until the taxonomy has one owner.
+  it('classifies every cycling type the engine counts', () => {
+    for (const type of [
+      'Ride',
+      'VirtualRide',
+      'MountainBikeRide',
+      'GravelRide',
+      'Handcycle',
+      'Velomobile',
+    ] as const) {
       expect(isCyclingActivity(type)).toBe(true);
     }
-    for (const type of ['Run', 'Swim', 'Walk'] as const) {
+    for (const type of ['Run', 'Swim', 'Walk', 'Rowing'] as const) {
       expect(isCyclingActivity(type)).toBe(false);
     }
+    expect(isCyclingActivity('Unicycle' as ActivityType)).toBe(false);
+    expect(isCyclingActivity('' as ActivityType)).toBe(false);
   });
 });
