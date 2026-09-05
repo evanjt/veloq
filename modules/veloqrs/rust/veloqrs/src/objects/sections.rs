@@ -743,6 +743,22 @@ impl SectionManager {
         })
     }
 
+    /// The sections a fix could be entering, nearest start first.
+    ///
+    /// Keyed on a coordinate rather than a section, so a live recording can
+    /// ask what is in front of it. `sport` matches the stored sport exactly.
+    fn get_near_point(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        sport_type: Option<String>,
+        radius_meters: f64,
+    ) -> Result<Vec<crate::FfiSectionNearPoint>, VeloqError> {
+        with_engine_read(|e| {
+            e.sections_near_point(latitude, longitude, sport_type.as_deref(), radius_meters)
+        })
+    }
+
     /// Everything the section detail screen can paint before its time streams
     /// have been fetched: the section, its neighbours and merge candidates,
     /// exclusions, bounds state, per-activity metrics and signatures, and the
