@@ -47,7 +47,16 @@ export function SectionsListHeader({
 
   // A pass reports itself; at rest the durable count is what is owed. A null
   // count is an engine that could not answer and must not read as finished.
-  const elevationLine = elevationLabel(elevationBackfill, t);
+  const elevationLine = !elevationBackfill
+    ? null
+    : elevationBackfill.isRunning
+      ? t('settings.elevationBackfillProgress', {
+          completed: elevationBackfill.completed,
+          total: elevationBackfill.total,
+        })
+      : elevationBackfill.remaining !== null && elevationBackfill.remaining > 0
+        ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
+        : null;
 
   return (
     <>
@@ -156,22 +165,6 @@ export function SectionsListHeader({
       )}
     </>
   );
-}
-
-/** What the row says, or null when there is nothing owed to say it about. */
-function elevationLabel(
-  state: ElevationBackfillState | undefined,
-  t: (key: string, vars?: Record<string, unknown>) => string
-): string | null {
-  if (!state) return null;
-  if (state.isRunning) {
-    return t('settings.elevationBackfillProgress', {
-      completed: state.completed,
-      total: state.total,
-    });
-  }
-  if (state.remaining === null || state.remaining <= 0) return null;
-  return t('settings.elevationBackfillOutstanding', { count: state.remaining });
 }
 
 const styles = StyleSheet.create({
