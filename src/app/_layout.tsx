@@ -26,8 +26,14 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { startMemoryPressureListener } from '@/shared/app/memoryPressure';
-import { registerQueryCacheReclaimer } from '@/shared/app/memoryReclaimers';
-import { registerTileCacheReclaimer } from '@/features/maps/lib/mapMemoryReclaimer';
+import {
+  registerImageCacheReclaimer,
+  registerQueryCacheReclaimer,
+} from '@/shared/app/memoryReclaimers';
+import {
+  registerMapSurfaceReclaimer,
+  registerTileCacheReclaimer,
+} from '@/features/maps/lib/mapMemoryReclaimer';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
@@ -94,7 +100,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [routeParts]);
 
   useEffect(() => {
-    const reclaimers = [registerQueryCacheReclaimer(), registerTileCacheReclaimer()];
+    const reclaimers = [
+      registerQueryCacheReclaimer(),
+      registerImageCacheReclaimer(),
+      registerTileCacheReclaimer(),
+      registerMapSurfaceReclaimer(),
+    ];
     const stop = startMemoryPressureListener();
     return () => {
       stop();

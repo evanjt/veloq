@@ -53,6 +53,8 @@ import {
   buildSetCameraScript,
   buildSetStyleScript,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type {
   MapCameraSpec,
   MapImageSpec,
@@ -490,6 +492,20 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     sentImagesRef.current = '';
     webViewRef.current?.reload();
   }, []);
+
+  // A surface the reclaimer releases holds no map until the reload, so the
+  // patch sender is silenced the same way a crash silences it.
+  useEffect(
+    () =>
+      registerReleasableSurface({
+        release: () => {
+          readyRef.current = false;
+          inject(buildReleaseMapScript());
+        },
+        rebuild: handleCrash,
+      }),
+    [inject, handleCrash]
+  );
 
   useEffect(() => {
     const pending = pendingRef.current;
