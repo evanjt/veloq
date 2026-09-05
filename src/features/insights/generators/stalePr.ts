@@ -95,130 +95,6 @@ function getMaxOpportunities(): number {
 }
 
 // ---------------------------------------------------------------------------
-// Detection logic
-// ---------------------------------------------------------------------------
-
-/** Check if a fitness metric has improved enough to flag opportunities */
-function getFitnessImprovement(
-  sportType: string | undefined,
-  ftpTrend: StalePRFtpTrend | null,
-  runPaceTrend: StalePRPaceTrend | null,
-  swimPaceTrend: StalePRPaceTrend | null
-): {
-  metric: 'power' | 'pace';
-  current: number;
-  previous: number;
-  gain: number;
-  unit: string;
-} | null {
-  const isRunning = sportType === 'Run' || sportType === 'VirtualRun' || sportType === 'TrailRun';
-  const isSwimming = sportType === 'Swim' || sportType === 'OpenWaterSwim';
-  const isCycling =
-    sportType === 'Ride' ||
-    sportType === 'VirtualRide' ||
-    sportType === 'MountainBikeRide' ||
-    sportType === 'GravelRide' ||
-    sportType === 'Handcycle' ||
-    sportType === 'Velomobile';
-  const paceTrend = isRunning ? runPaceTrend : isSwimming ? swimPaceTrend : null;
-
-  if ((isRunning || isSwimming) && paceTrend) {
-    const cur = paceTrend.latestPace;
-    const prev = paceTrend.previousPace;
-    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-    // Pace trends are stored as critical speed in m/s, so higher is better.
-    if (cur <= prev) return null;
-    const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < getMinFtpGainPercent()) return null;
-    return {
-      metric: 'pace',
-      current: cur,
-      previous: prev,
-      gain: Math.round(gainPercent * 10) / 10,
-      unit: isSwimming ? '/100m' : '/km',
-    };
-  }
-
-  if (isCycling && ftpTrend) {
-    const cur = ftpTrend.latestFtp;
-    const prev = ftpTrend.previousFtp;
-    if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-    if (cur <= prev) return null;
-    const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < getMinFtpGainPercent()) return null;
-    return {
-      metric: 'power',
-      current: cur,
-      previous: prev,
-      gain: Math.round(gainPercent * 10) / 10,
-      unit: 'W',
-    };
-  }
-
-  return null;
-}
-
-/**
- * Detect sections where a PR might be beatable due to fitness improvement.
- *
- * Sport-aware: uses FTP for cycling sections, pace trend for running sections.
- * Only flags sections that haven't been visited in 30+ days and where the
- * relevant fitness metric has improved by 3%+.
- */
-export function detectStalePROpportunities(input: StalePRInput): StalePROpportunity[] {
-  const { sections, ftpTrend, paceTrend, runPaceTrend, swimPaceTrend } = input;
-  const resolvedRunPaceTrend = runPaceTrend ?? paceTrend ?? null;
-
-  // No fitness data at all → nothing to flag
-  if (!ftpTrend && !resolvedRunPaceTrend && !swimPaceTrend) return [];
-
-  const opportunities: StalePROpportunity[] = [];
-
-  for (const section of sections) {
-    if (section.traversalCount === 0 || !Number.isFinite(section.bestTimeSecs)) continue;
-
-    // Fails closed. A section whose age is unknown cannot be shown to be stale,
-    // and suggesting a retest on one that was ridden this morning reads as broken.
-    if (
-      !Number.isFinite(section.daysSinceLast) ||
-      (section.daysSinceLast as number) < getStaleThresholdDays()
-    ) {
-      continue;
-    }
-
-    // Get sport-appropriate fitness improvement
-    const improvement = getFitnessImprovement(
-      section.sportType,
-      ftpTrend,
-      resolvedRunPaceTrend,
-      swimPaceTrend ?? null
-    );
-    if (!improvement) continue;
-
-    opportunities.push({
-      sectionId: section.sectionId,
-      sectionName: section.sectionName,
-      bestTimeSecs: section.bestTimeSecs,
-      daysSinceLast: section.daysSinceLast ?? 0,
-      traversalCount: section.traversalCount,
-      fitnessMetric: improvement.metric,
-      currentValue: improvement.current,
-      previousValue: improvement.previous,
-      gainPercent: improvement.gain,
-      unit: improvement.unit,
-    });
-  }
-
-  opportunities.sort((a, b) => {
-    const aSection = sections.find((s) => s.sectionId === a.sectionId);
-    const bSection = sections.find((s) => s.sectionId === b.sectionId);
-    return (bSection?.traversalCount ?? 0) - (aSection?.traversalCount ?? 0);
-  });
-
-  return opportunities.slice(0, getMaxOpportunities());
-}
-
-// ---------------------------------------------------------------------------
 // Insight formatting
 // ---------------------------------------------------------------------------
 
@@ -344,17 +220,16 @@ export function generateStalePRInsights(
   t: (key: string, params?: Record<string, string | number>) => string,
   now: number
 ): Insight[] {
-  // Primary path: Rust atomic on FitnessManager does the full filter+sort+cap
-  // from SQLite-resident FTP/pace trends and ranked-section metadata. TS never
-  // sees the raw candidates. Fallback to the pure-TS detector for jest (no
-  // engine) and for the pre-sync startup window.
+  // The Rust atomic on FitnessManager does the whole filter, sort and cap from
+  // SQLite-resident FTP and pace trends and ranked-section metadata, so TS
+  // never sees the raw candidates and never decides which ones qualify.
   const excludeSectionIds: string[] = [];
   for (const id of input.existingInsightIds) {
     const m = id.match(/^section_pr-(.+)$/);
     if (m) excludeSectionIds.push(m[1]);
   }
 
-  let filtered: StalePROpportunity[] | null = null;
+  let filtered: StalePROpportunity[] = [];
   try {
     const engine = getEngine();
     if (engine?.findStalePrOpportunities) {
@@ -378,19 +253,9 @@ export function generateStalePRInsights(
       }));
     }
   } catch {
-    filtered = null;
-  }
-
-  if (filtered === null) {
-    const opportunities = detectStalePROpportunities({
-      sections: input.sections,
-      ftpTrend: input.ftpTrend,
-      runPaceTrend: input.runPaceTrend,
-      swimPaceTrend: input.swimPaceTrend,
-    });
-    filtered = opportunities.filter(
-      (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
-    );
+    // The engine is the only opinion. One that cannot answer yet produces no
+    // card, rather than a second detector answering differently.
+    filtered = [];
   }
 
   if (filtered.length === 0) return [];
