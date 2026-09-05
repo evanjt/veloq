@@ -8,8 +8,8 @@
 //! on top by the rate-limit follow-up plan; this module ships the seams it
 //! plugs into.
 
-use once_cell::sync::Lazy;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 /// Upper bound on any exponential-backoff wait.
@@ -324,7 +324,7 @@ const MAX_DISPATCH_PER_SEC: u32 = 8;
 /// The shared process-wide governor. Held in an `Arc` so transports clone a
 /// handle to the same limiter (and tests can inject a fast local one for
 /// isolation).
-pub static GOVERNOR: Lazy<Arc<Governor>> = Lazy::new(|| {
+pub static GOVERNOR: LazyLock<Arc<Governor>> = LazyLock::new(|| {
     Arc::new(Governor::new(
         MAX_DISPATCH_PER_SEC,
         Box::new(YieldBackfillPolicy::new()),
