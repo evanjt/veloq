@@ -9,7 +9,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const COMMENT = /^\s*(\*|\/\/|\/\/\/|\/\/!|\/\*)/;
-const AUDIT_ID = /`(?:SB|B|F|X|U|D|C|R|S|Q|I)\d+`/;
+
+// Two forms, and deliberately no more. A backticked id anywhere, which is the
+// audit's own prose style, and an id opening a comment before a colon, which is
+// how three reached the tree without backticks.
+//
+// A bare id mid-sentence is left alone on purpose. `S22` is the phone the
+// measurements were taken on, and the insights engine documents its own rules
+// as `G1` to `G4`, `R5` to `R8` and `D9` to `D12`, which collide with two audit
+// keys by coincidence. Matching those would push someone to rename a real
+// vocabulary to satisfy a lint, which is worse than the gap.
+const KEY = '(?:SB|B|F|X|U|D|C|R|S|Q|I)\\d+';
+const AUDIT_ID = new RegExp('`' + KEY + '`');
+const LABELLED_ID = new RegExp('^\\s*(?:\/\/+!?|\\*|\/\\*+)\\s*' + KEY + '\\s*:');
 
 // `cwd` does not decide which repository git reads. The pre-commit hook exports
 // GIT_DIR and GIT_INDEX_FILE, and those win, so a guard pointed at a fixture
@@ -56,7 +68,8 @@ for (const file of sources()) {
     continue;
   }
   text.split('\n').forEach((line, i) => {
-    if (!COMMENT.test(line) || !AUDIT_ID.test(line)) return;
+    if (!COMMENT.test(line)) return;
+    if (!AUDIT_ID.test(line) && !LABELLED_ID.test(line)) return;
     failures.push(`${file}:${i + 1}  ${line.trim()}`);
   });
 }
