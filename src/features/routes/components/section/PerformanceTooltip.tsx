@@ -21,8 +21,8 @@ import {
   formatSpeed,
   formatDuration,
   formatPerformanceDelta,
+  formatShortDateWithYear,
 } from '@/shared/format/format';
-import { formatShortDateWithYear } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
