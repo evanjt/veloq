@@ -744,7 +744,7 @@ mod workout_trend_encoding_tests {
             best_pace: 1000.0 / best_time,
             avg_time: best_time,
             avg_pace: 1000.0 / best_time,
-            direction: "forward".to_string(),
+            direction: "same".to_string(),
             section_distance: 1000.0,
         }
     }

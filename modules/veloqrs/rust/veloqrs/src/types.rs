@@ -121,7 +121,7 @@ pub struct SectionLap {
     pub pace: f64,
     /// Distance in meters
     pub distance: f64,
-    /// Direction: "forward" or "backward"
+    /// Direction: "same", "reverse" or "partial"
     pub direction: String,
     /// Start index in the activity's GPS track
     #[serde(alias = "start_index")]
@@ -162,7 +162,7 @@ pub struct SectionPerformanceRecord {
     /// Average pace in m/s
     #[serde(alias = "avg_pace")]
     pub avg_pace: f64,
-    /// Primary direction: "forward" or "backward"
+    /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
     #[serde(alias = "section_distance")]
