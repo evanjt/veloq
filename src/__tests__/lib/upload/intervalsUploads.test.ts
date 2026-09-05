@@ -17,12 +17,15 @@ import {
 } from '@/features/recording/lib/upload/intervalsUploads';
 import type { ManualActivityData } from '@/types';
 
-jest.mock('veloqrs', () => ({
-  engine: {
-    uploadActivityFile: jest.fn(),
-    createManualActivity: jest.fn(),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../__shared__/veloqrsStub').withOverrides({
+    engine: {
+      uploadActivityFile: jest.fn(),
+      createManualActivity: jest.fn(),
+    },
+  })
+);
 
 const mockAuthState = { isDemoMode: false, athleteId: 'i12345' };
 

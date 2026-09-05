@@ -13,12 +13,15 @@ import type { PreviewResult, PreviewSection } from '../../../modules/veloqrs/src
 
 const capturedSources: Record<string, { data: GeoJSON.FeatureCollection }>[] = [];
 
-jest.mock('veloqrs', () => ({
-  decodeCoords: () => [
-    { longitude: 8.7, latitude: 47.5 },
-    { longitude: 8.71, latitude: 47.51 },
-  ],
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: () => [
+      { longitude: 8.7, latitude: 47.5 },
+      { longitude: 8.71, latitude: 47.51 },
+    ],
+  })
+);
 
 jest.mock('@/features/maps/components', () => {
   const { View } = require('react-native');
