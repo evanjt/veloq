@@ -636,10 +636,6 @@
     "recentAvg": "Recent avg",
     "earlierAvg": "Earlier avg",
     "peakWeek": "Peak week",
-    "periodWeek": "week",
-    "period4Weeks": "4 weeks",
-    "period3Months": "3 months",
-    "period6Months": "6 months",
     "disclaimer": "Volume calculations are approximations based on exercise data from your connected device.",
     "exercise": "exercise",
     "exercises": "exercises"
@@ -741,12 +737,7 @@
     "viewDetails": "View Details",
     "viewSectionDetails": "View section details",
     "zoomToActivity": "Zoom to activity",
-    "periodAll": "All",
-    "periodThisYear": "This year",
-    "periodSixMonths": "6 months",
-    "periodThreeMonths": "3 months",
-    "periodOneMonth": "1 month",
-    "periodOneWeek": "1 week"
+    "periodThisYear": "This year"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "{{count}} still to fetch",
     "statePaused": "Paused until the app is next opened"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "all": "All"
+    },
+    "long": {
+      "7d": "1 week",
+      "1m": "1 month",
+      "3m": "3 months",
+      "6m": "6 months",
+      "1y": "1 year",
+      "all": "All"
+    }
   }
 }

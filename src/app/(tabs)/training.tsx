@@ -221,7 +221,7 @@ export default function HealthScreen() {
                       timeRange === range.id && styles.timeRangeTextActive,
                     ]}
                   >
-                    {range.label}
+                    {t(range.labelKey as never)}
                   </Text>
                 </TouchableOpacity>
               ))}

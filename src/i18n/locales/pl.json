@@ -717,12 +717,7 @@
     "viewSectionDetails": "Zobacz szczegóły sekcji",
     "zoomToActivity": "Przybliż do aktywności",
     "colorByGradient": "Kolor wg nachylenia",
-    "periodAll": "Wszystko",
-    "periodThisYear": "W tym roku",
-    "periodSixMonths": "6 miesięcy",
-    "periodThreeMonths": "3 miesiące",
-    "periodOneMonth": "1 miesiąc",
-    "periodOneWeek": "1 tydzień"
+    "periodThisYear": "W tym roku"
   },
   "metrics": {
     "activityCount": "Aktywności",
@@ -1502,10 +1497,6 @@
     "recentAvg": "Ostatnia średnia",
     "earlierAvg": "Wcześniejsza średnia",
     "peakWeek": "Szczytowy tydzień",
-    "periodWeek": "tydzień",
-    "period4Weeks": "4 tygodnie",
-    "period3Months": "3 miesiące",
-    "period6Months": "6 miesięcy",
     "disclaimer": "Obliczenia objętości to przybliżenia oparte na danych treningowych z połączonego urządzenia.",
     "exercise": "ćwiczenie",
     "exercises": "ćwiczenia"
@@ -1613,5 +1604,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Pozostało {{count}} do pobrania",
     "statePaused": "Wstrzymane do następnego otwarcia aplikacji"
+  },
+  "period": {
+    "short": {
+      "7d": "1T",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1R",
+      "all": "Wszystko"
+    },
+    "long": {
+      "7d": "1 tydzień",
+      "1m": "1 miesiąc",
+      "3m": "3 miesiące",
+      "6m": "6 miesięcy",
+      "1y": "1 rok",
+      "all": "Wszystko"
+    }
   }
 }

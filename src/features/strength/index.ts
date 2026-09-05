@@ -18,6 +18,7 @@ export {
   useActivitiesForExercise,
 } from './hooks/useStrengthVolume';
 export { generateStrengthInsights } from './hooks/strengthInsights';
+export { STRENGTH_PERIODS } from './periods';
 
 export { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from './lib/exerciseMuscleMap';
 export { buildStrengthProgression, buildStrengthBalancePairs, BALANCE_PAIRS } from './lib/analysis';
