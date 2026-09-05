@@ -78,6 +78,7 @@ impl PersistentEngine {
 
         let mut exported: u32 = 0;
         let mut skipped: Vec<SkippedActivity> = Vec::new();
+        let trim = PrivacyTrim::from_settings(self);
         let mut total_bytes: u64 = 0;
 
         // Query all activities with GPS tracks in one pass
@@ -156,6 +157,20 @@ impl PersistentEngine {
                         .unwrap_or_else(|| "unknown".to_string())
                 })
                 .unwrap_or_else(|| "unknown".to_string());
+
+            // The exported copy alone is shortened. The stored track and every
+            // index into it are untouched.
+            let points = match trim.as_ref().map(|t| t.apply(&points)) {
+                Some(Some(trimmed)) => trimmed,
+                Some(None) => {
+                    skipped.push(SkippedActivity::new(
+                        &activity_id,
+                        "trimmed to fewer points than a track",
+                    ));
+                    continue;
+                }
+                None => points,
+            };
 
             // Generate GPX XML
             let gpx = generate_gpx(display_name, sport, date_str.as_deref(), &points);
@@ -544,5 +559,169 @@ impl PersistentEngine {
         });
 
         super::BackupHandle { receiver: rx }
+    }
+}
+
+/// Where the athlete lives, and how much of a track around it never leaves the
+/// device in an export.
+///
+/// A ride's first and last fix are the most repeated coordinates in a library,
+/// so an export handed to a coach or attached to a support thread carries the
+/// door. Trimming happens here and nowhere else: the stored track, the
+/// reference triple and every `start_index` are untouched, so the detector's
+/// output does not move and a section's geometry on the device is unchanged.
+#[derive(Debug, Clone, Copy)]
+pub struct PrivacyTrim {
+    pub home_lat: f64,
+    pub home_lng: f64,
+    /// Metres. Zero is off, which is exactly the behaviour before this existed.
+    pub radius_m: f64,
+}
+
+/// Fewer points than this is not a track, so the activity is named in the skip
+/// ledger rather than exported as a degenerate one.
+const MIN_EXPORTABLE_POINTS: usize = 2;
+
+impl PrivacyTrim {
+    /// The trim the athlete has configured, or none. Both halves are needed:
+    /// a radius with no home cannot trim anything, and a home with no radius
+    /// is not a request to.
+    pub fn from_settings(engine: &PersistentEngine) -> Option<Self> {
+        let read = |key: &str| {
+            engine
+                .get_setting(key)
+                .ok()
+                .flatten()
+                .and_then(|v| v.parse::<f64>().ok())
+        };
+        let radius_m = read(super::settings_keys::EXPORT_PRIVACY_RADIUS_M)?;
+        if radius_m <= 0.0 {
+            return None;
+        }
+        Some(Self {
+            home_lat: read(super::settings_keys::EXPORT_HOME_LAT)?,
+            home_lng: read(super::settings_keys::EXPORT_HOME_LNG)?,
+            radius_m,
+        })
+    }
+
+    /// The track as it should be exported, or `None` when trimming leaves too
+    /// little to be a track.
+    ///
+    /// Only the ends are trimmed. A loop that passes the door mid-ride keeps
+    /// those points, because removing them would cut the track in two and the
+    /// thing being protected is where the ride starts and stops.
+    pub fn apply(&self, points: &[GpsPoint]) -> Option<Vec<GpsPoint>> {
+        if self.radius_m <= 0.0 || points.is_empty() {
+            return Some(points.to_vec());
+        }
+
+        let inside = |p: &GpsPoint| {
+            super::haversine_distance_meters(p.latitude, p.longitude, self.home_lat, self.home_lng)
+                <= self.radius_m
+        };
+
+        let first = points.iter().position(|p| !inside(p))?;
+        let last = points.iter().rposition(|p| !inside(p))?;
+        let kept = &points[first..=last];
+        (kept.len() >= MIN_EXPORTABLE_POINTS).then(|| kept.to_vec())
+    }
+}
+
+#[cfg(test)]
+mod privacy_trim_tests {
+    use super::*;
+
+    const HOME_LAT: f64 = 46.2333;
+    const HOME_LNG: f64 = 7.36;
+
+    /// Roughly `metres` north of home.
+    fn north(metres: f64) -> GpsPoint {
+        GpsPoint {
+            latitude: HOME_LAT + metres / 111_320.0,
+            longitude: HOME_LNG,
+            elevation: None,
+        }
+    }
+
+    fn trim(radius_m: f64) -> PrivacyTrim {
+        PrivacyTrim {
+            home_lat: HOME_LAT,
+            home_lng: HOME_LNG,
+            radius_m,
+        }
+    }
+
+    /// Distance from home in metres, to the nearest ten, since the helper that
+    /// builds the fixture converts metres to degrees approximately.
+    fn distances(points: &[GpsPoint]) -> Vec<i64> {
+        points
+            .iter()
+            .map(|p| {
+                let m = super::super::haversine_distance_meters(
+                    p.latitude,
+                    p.longitude,
+                    HOME_LAT,
+                    HOME_LNG,
+                );
+                (m / 10.0).round() as i64 * 10
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_track_that_starts_and_ends_at_the_door_loses_both_ends() {
+        let track: Vec<GpsPoint> = [10.0, 60.0, 300.0, 900.0, 400.0, 50.0, 5.0]
+            .iter()
+            .map(|m| north(*m))
+            .collect();
+
+        let exported = trim(100.0).apply(&track).expect("the ride survives a trim");
+
+        assert_eq!(distances(&exported), vec![300, 900, 400]);
+    }
+
+    #[test]
+    fn a_track_that_never_approaches_home_is_untouched() {
+        let track: Vec<GpsPoint> = [800.0, 1200.0, 1500.0].iter().map(|m| north(*m)).collect();
+
+        assert_eq!(trim(100.0).apply(&track).unwrap(), track);
+    }
+
+    #[test]
+    fn a_radius_of_zero_is_exactly_the_old_behaviour() {
+        let track: Vec<GpsPoint> = [5.0, 10.0, 400.0].iter().map(|m| north(*m)).collect();
+
+        assert_eq!(trim(0.0).apply(&track).unwrap(), track);
+    }
+
+    #[test]
+    fn a_ride_entirely_inside_the_radius_is_not_exported() {
+        let track: Vec<GpsPoint> = [10.0, 40.0, 20.0].iter().map(|m| north(*m)).collect();
+
+        assert!(trim(100.0).apply(&track).is_none());
+    }
+
+    #[test]
+    fn a_trim_that_leaves_one_point_is_not_a_track() {
+        let track: Vec<GpsPoint> = [10.0, 500.0, 20.0].iter().map(|m| north(*m)).collect();
+
+        assert!(trim(100.0).apply(&track).is_none());
+    }
+
+    /// A loop that passes the door mid-ride keeps those points. Removing them
+    /// would cut the track in two, and what is protected is where it starts.
+    #[test]
+    fn a_pass_through_home_mid_ride_is_kept() {
+        let track: Vec<GpsPoint> = [900.0, 20.0, 800.0].iter().map(|m| north(*m)).collect();
+
+        let exported = trim(100.0).apply(&track).unwrap();
+
+        assert_eq!(distances(&exported), vec![900, 20, 800]);
+    }
+
+    #[test]
+    fn an_empty_track_stays_empty_rather_than_failing() {
+        assert_eq!(trim(100.0).apply(&[]).unwrap().len(), 0);
     }
 }
