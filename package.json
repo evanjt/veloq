@@ -50,6 +50,8 @@
     "maestro:pack:data": "maestro test .maestro/ --include-tags=pack-data --no-ansi",
     "maestro:pack:stress": "maestro test .maestro/ --include-tags=pack-stress --no-ansi",
     "ffi:generate": "npm --prefix modules/veloqrs run generate",
+    "config:unified": "npx tsx scripts/generate-unified-config.ts",
+    "config:unified:check": "npx tsx scripts/generate-unified-config.ts --check",
     "ffi:manifest": "npx tsx scripts/extract-ffi-exports.ts",
     "ffi:check": "npx tsx scripts/extract-ffi-exports.ts --check",
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
