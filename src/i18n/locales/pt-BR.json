@@ -183,6 +183,8 @@
     "accountChangeTitle": "Conta diferente detectada",
     "accountChangeMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Fazer login com uma conta diferente excluira permanentemente esses dados. Volte e faca login nessa conta para mante-los.",
     "accountChangeDemoMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Continuar no modo demo excluira permanentemente esses dados. Volte e faca login nessa conta primeiro para mante-los.",
+    "accountChangeUnknownMessage": "Este dispositivo tem uma biblioteca de outra conta. Fazer login com uma conta diferente a excluira permanentemente. Para manter, volte e faca login nessa conta.",
+    "accountChangeUnknownDemoMessage": "Este dispositivo tem uma biblioteca de outra conta. Continuar no modo demo a excluira permanentemente. Para manter, volte e faca login nessa conta primeiro.",
     "accountChangeContinue": "Continuar e excluir",
     "disconnectAndClearTitle": "Sair e excluir dados?",
     "disconnectAndClearMessage": "Isso faz logout E exclui todas as atividades, trilhas GPS, trechos e dados de rotas em cache neste dispositivo. Os dados serao ressincronizados do intervals.icu na proxima vez que voce fizer login. Esta acao nao pode ser desfeita.",

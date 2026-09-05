@@ -183,6 +183,8 @@
     "accountChangeTitle": "检测到不同账户",
     "accountChangeMessage": "此设备有另一个账户（{{cachedAthleteId}}）的缓存数据。使用不同账户登录将永久删除这些数据。如需保留，请返回并登录该账户。",
     "accountChangeDemoMessage": "此设备有另一个账户（{{cachedAthleteId}}）的缓存数据。继续进入演示模式将永久删除这些数据。如需保留，请先返回并登录该账户。",
+    "accountChangeUnknownMessage": "此设备有另一个账户的资料库。使用不同账户登录将永久删除这些数据。如需保留，请返回并登录该账户。",
+    "accountChangeUnknownDemoMessage": "此设备有另一个账户的资料库。继续进入演示模式将永久删除这些数据。如需保留，请先返回并登录该账户。",
     "accountChangeContinue": "继续并删除",
     "disconnectAndClearTitle": "退出登录并删除数据？",
     "disconnectAndClearMessage": "这将退出登录并删除此设备上所有缓存的活动、GPS 轨迹、路段和路线数据。下次登录时将从 intervals.icu 重新同步数据。此操作无法撤销。",

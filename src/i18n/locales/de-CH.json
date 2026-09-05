@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anderi Konto gfunde",
     "accountChangeMessage": "Uf dem Grät sind Date vunere andere Konto ({{cachedAthleteId}}). Wenn du dich mit enere andere Konto aamäldisch, werded die Date permanent glöscht. Gang zrugg und mäld dich bi dere Konto aa, wennd sie bhalte willsch.",
     "accountChangeDemoMessage": "Uf dem Grät sind Date vunere andere Konto ({{cachedAthleteId}}). Wennd zum Demo wächslisch, werded die Date permanent glöscht. Gang zrugg und mäld dich zersch bi dere Konto aa, wennd sie bhalte willsch.",
+    "accountChangeUnknownMessage": "Uf dem Grät isch es Bibliothek vunere andere Konto. Wenn du dich mit enere andere Konto aamäldisch, wird sie permanent glöscht. Gang zrugg und mäld dich bi dem Konto aa, wenn dus bhalte wotsch.",
+    "accountChangeUnknownDemoMessage": "Uf dem Grät isch es Bibliothek vunere andere Konto. Wennd zum Demo wächslisch, wird sie permanent glöscht. Gang zrugg und mäld dich zerscht bi dem Konto aa, wenn dus bhalte wotsch.",
     "accountChangeContinue": "Wiiterfahre und lösche",
     "disconnectAndClearTitle": "Usmälde und Date lösche?",
     "disconnectAndClearMessage": "Das mäldet dich ab UND löscht alli zwischegspicherete Aktivitäte, GPS-Spure, Abschnitt und Routedate uf dem Grät. D Date werded bi der nächschte Aamäldig wider vo intervals.icu synchronisiert. Das chan nöd rückgängig gmacht werde.",
