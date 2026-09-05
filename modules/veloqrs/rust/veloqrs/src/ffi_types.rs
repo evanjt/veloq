@@ -532,7 +532,7 @@ pub struct FfiSection {
     pub version: Option<u32>,
     pub updated_at: Option<String>,
     pub created_at: String,
-    // Route associations
+    /// Routes the section's activities are grouped into, from the junction join
     pub route_ids: Option<Vec<String>>,
     // Custom-specific fields (None for auto sections)
     pub source_activity_id: Option<String>,
@@ -1681,6 +1681,8 @@ pub struct FfiRouteDetailData {
     pub excluded_activity_ids: Vec<String>,
     /// Simplified GPS signatures for the route's activities
     pub map_signatures: Vec<FfiMapSignature>,
+    /// Visible sections the route's activities pass through
+    pub section_ids: Vec<String>,
 }
 
 // ============================================================================
