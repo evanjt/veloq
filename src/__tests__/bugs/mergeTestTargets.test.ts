@@ -10,7 +10,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { hasTargets, mergeTestTargets } from '../../../scripts/lib/mergeTestTargets';
+import {
+  hasTargets,
+  mergeTestCommands,
+  mergeTestTargets,
+} from '../../../scripts/lib/mergeTestTargets';
 
 const ROOT = join(__dirname, '../../..');
 const CRATE = 'modules/veloqrs/rust/veloqrs';
@@ -48,6 +52,32 @@ describe('which suites a merge runs', () => {
     ]);
   });
 
+  it('runs the tracematch suite when its pointer moves', () => {
+    const targets = mergeTestTargets(['modules/veloqrs/rust/tracematch']);
+
+    expect(targets.tracematchLib).toBe(true);
+    expect(targets.rustLib).toBe(false);
+  });
+
+  it('runs the tracematch suite for a path inside the submodule', () => {
+    const targets = mergeTestTargets([
+      'modules/veloqrs/rust/tracematch/src/sections/unified.rs',
+      'modules/veloqrs/rust/tracematch/tests/geolife_public_corpus.rs',
+    ]);
+
+    expect(targets.tracematchLib).toBe(true);
+  });
+
+  it('leaves tracematch alone for a merge that only moves the parent crate', () => {
+    const targets = mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]);
+
+    expect(targets.tracematchLib).toBe(false);
+  });
+
+  it('counts a tracematch pointer bump as something to run', () => {
+    expect(hasTargets(mergeTestTargets(['modules/veloqrs/rust/tracematch']))).toBe(true);
+  });
+
   it('has nothing to run for a merge of documents alone', () => {
     const targets = mergeTestTargets(['README.md', 'fastlane/metadata/en-AU/changelogs/29.txt']);
 
@@ -62,6 +92,31 @@ describe('which suites a merge runs', () => {
     ]);
 
     expect(targets.rustTests).toEqual(['cutover', 'section_history']);
+  });
+});
+
+describe('the commands a merge runs', () => {
+  it('runs the tracematch crate against its own manifest', () => {
+    const commands = mergeTestCommands(mergeTestTargets(['modules/veloqrs/rust/tracematch']));
+
+    expect(commands).toEqual([
+      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch',
+    ]);
+  });
+
+  it('runs both crates when a merge moves the pointer and the parent source', () => {
+    const commands = mergeTestCommands(
+      mergeTestTargets(['modules/veloqrs/rust/tracematch', `${CRATE}/src/persistence/wellness.rs`])
+    );
+
+    expect(commands).toEqual([
+      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --lib',
+      'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch',
+    ]);
+  });
+
+  it('has no commands for a merge of documents alone', () => {
+    expect(mergeTestCommands(mergeTestTargets(['README.md']))).toEqual([]);
   });
 });
 
