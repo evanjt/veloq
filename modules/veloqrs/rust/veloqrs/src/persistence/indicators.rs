@@ -419,34 +419,179 @@ impl PersistentEngine {
             return Ok(0);
         }
 
-        let mut update_stmt = self.db.prepare(
-            "UPDATE section_activities
-             SET lap_time = ?, lap_pace = ?
-             WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-        )?;
-
+        // One commit for the pass: each row on its own is its own fsync under
+        // the engine write lock, and a library has thousands of them.
+        let tx = self.db.unchecked_transaction()?;
         let mut updated = 0usize;
-        for (section_id, activity_id, start_idx, end_idx, distance) in &portions {
-            if let Some(times) = time_streams.get(activity_id) {
+        {
+            let mut update_stmt = tx.prepare(
+                "UPDATE section_activities
+                 SET lap_time = ?, lap_pace = ?
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+            )?;
+            for (section_id, activity_id, start_idx, end_idx, distance) in &portions {
+                let Some(times) = time_streams.get(activity_id) else {
+                    continue;
+                };
                 let si = *start_idx as usize;
                 let ei = *end_idx as usize;
-                if si < times.len() && ei < times.len() {
-                    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
-                    if lap_time > 0.0 {
-                        let lap_pace = distance / lap_time;
-                        update_stmt.execute(params![
-                            lap_time,
-                            lap_pace,
-                            section_id,
-                            activity_id,
-                            start_idx,
-                        ])?;
-                        updated += 1;
-                    }
+                if si >= times.len() || ei >= times.len() {
+                    continue;
                 }
+                let lap_time = (times[ei] as f64 - times[si] as f64).abs();
+                if lap_time <= 0.0 {
+                    continue;
+                }
+                let lap_pace = distance / lap_time;
+                update_stmt.execute(params![
+                    lap_time,
+                    lap_pace,
+                    section_id,
+                    activity_id,
+                    start_idx
+                ])?;
+                updated += 1;
             }
         }
+        tx.commit()?;
 
         Ok(updated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    use super::super::commit_counter;
+    use super::PersistentEngine;
+    use tracematch::GpsPoint;
+
+    /// One activity with a time stream, in `sections` sections, each portion
+    /// with no lap time yet.
+    fn engine_with_null_laps(sections: usize) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let coords: Vec<GpsPoint> = (0..8)
+            .map(|i| GpsPoint {
+                latitude: 46.2 + i as f64 * 0.001,
+                longitude: 7.3,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity("a1".to_string(), coords, "Ride".to_string())
+            .unwrap();
+        engine
+            .store_time_stream("a1", &[0, 10, 20, 30, 40, 50, 60, 70])
+            .unwrap();
+        for s in 0..sections {
+            let sid = format!("s{s}");
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, format!("Section {s}")],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters)
+                     VALUES (?, 'a1', 'same', 1, 5, 400.0)",
+                    params![sid],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    fn null_lap_times(engine: &PersistentEngine) -> i64 {
+        engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    /// Every lap was its own autocommit and its own fsync under the engine
+    /// write lock. The whole pass is one transaction.
+    #[test]
+    fn backfilling_many_laps_is_one_commit() {
+        let engine = engine_with_null_laps(12);
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_null_lap_times().unwrap(), 12);
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert_eq!(null_lap_times(&engine), 0);
+        let lap_time: f64 = engine
+            .db
+            .query_row(
+                "SELECT lap_time FROM section_activities WHERE section_id = 's3'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(lap_time, 40.0); // times[5] - times[1]
+    }
+
+    /// A second pass finds nothing and writes nothing.
+    #[test]
+    fn backfilling_nothing_commits_nothing() {
+        let engine = engine_with_null_laps(3);
+        engine.backfill_null_lap_times().unwrap();
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
+
+        assert_eq!(commit_counter::count(&commits), 0);
+    }
+
+    /// A portion whose activity has no stream stays NULL, and the pass still
+    /// commits once for the ones it could resolve.
+    #[test]
+    fn a_streamless_portion_stays_null_inside_the_one_commit() {
+        let mut engine = engine_with_null_laps(4);
+        engine
+            .add_activity(
+                "a2".to_string(),
+                vec![
+                    GpsPoint {
+                        latitude: 46.3,
+                        longitude: 7.4,
+                        elevation: None,
+                    },
+                    GpsPoint {
+                        latitude: 46.31,
+                        longitude: 7.41,
+                        elevation: None,
+                    },
+                ],
+                "Ride".to_string(),
+            )
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                    start_index, end_index, distance_meters)
+                 VALUES ('s0', 'a2', 'same', 1, 5, 400.0)",
+                [],
+            )
+            .unwrap();
+        let commits = commit_counter::watch(&engine);
+
+        assert_eq!(engine.backfill_null_lap_times().unwrap(), 4);
+
+        assert_eq!(commit_counter::count(&commits), 1);
+        assert_eq!(null_lap_times(&engine), 1);
     }
 }
