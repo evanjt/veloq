@@ -715,12 +715,7 @@
     "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit",
     "colorByGradient": "Kleur op stijging",
-    "periodAll": "Alles",
-    "periodThisYear": "Dit jaar",
-    "periodSixMonths": "6 maanden",
-    "periodThreeMonths": "3 maanden",
-    "periodOneMonth": "1 maand",
-    "periodOneWeek": "1 week"
+    "periodThisYear": "Dit jaar"
   },
   "metrics": {
     "activityCount": "Activiteiten",
@@ -1500,10 +1495,6 @@
     "recentAvg": "Recent gem.",
     "earlierAvg": "Eerder gem.",
     "peakWeek": "Piekweek",
-    "periodWeek": "week",
-    "period4Weeks": "4 weken",
-    "period3Months": "3 maanden",
-    "period6Months": "6 maanden",
     "disclaimer": "Volumeberekeningen zijn benaderingen op basis van trainingsgegevens van je verbonden apparaat.",
     "exercise": "oefening",
     "exercises": "oefeningen"
@@ -1611,5 +1602,23 @@
     "progressPercent": "{{percent}}%",
     "remaining": "Nog {{count}} op te halen",
     "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend"
+  },
+  "period": {
+    "short": {
+      "7d": "1W",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J",
+      "all": "Alles"
+    },
+    "long": {
+      "7d": "1 week",
+      "1m": "1 maand",
+      "3m": "3 maanden",
+      "6m": "6 maanden",
+      "1y": "1 jaar",
+      "all": "Alles"
+    }
   }
 }
