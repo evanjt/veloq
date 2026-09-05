@@ -527,6 +527,35 @@ export interface SportLoadInfo {
   dayCount?: number;
 }
 
+/** One of the server's fitted critical-power models for a curve window. */
+export interface PowerModel {
+  /** `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`. */
+  type: string;
+  criticalPower: number;
+  /** W prime, joules above critical power. */
+  wPrime: number;
+  ftp: number;
+  /** The three-parameter models' peak, absent on the two-parameter fit. */
+  pMax?: number;
+}
+
+/** An activity a curve point came from, as the body names it. */
+export interface CurveActivity {
+  id: string;
+  name: string;
+  distance: number;
+  movingTime: number;
+  trainingLoad: number;
+  weight: number;
+  startDateLocal: string;
+  race: boolean;
+}
+
+/**
+ * A power curve for one sport and window, as the body carries it. The body
+ * is stored whole in Rust, so what is not lifted here is not lost, only
+ * unread until a reader wants it.
+ */
 export interface PowerCurve {
   type: 'power';
   sport: string;
@@ -534,6 +563,17 @@ export interface PowerCurve {
   watts: number[]; // Best watts for each duration
   watts_per_kg?: number[]; // Best w/kg for each duration
   activity_ids?: string[]; // Activity IDs for each best
+  /** Activity ids for each per-kilogram best, which need not be the watts one. */
+  wkg_activity_ids?: string[];
+  /** The athlete's weight the per-kilogram series was divided by. */
+  weight?: number;
+  /** The server's fitted models, in the order it sent them. */
+  models?: PowerModel[];
+  /** Every activity a point came from, so a checkpoint has a date offline. */
+  activities?: Record<string, CurveActivity>;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
 }
 
 // Pace curve response (for running)
@@ -544,6 +584,8 @@ export interface PaceCurve {
   times: number[]; // Array of times in seconds to cover each distance
   pace: number[]; // Pace in m/s at each distance (distance/time)
   activity_ids?: string[];
+  /** Every activity a point came from. */
+  activities?: Record<string, CurveActivity>;
   // Critical Speed model data
   criticalSpeed?: number; // Critical speed from pace model (m/s) - use as threshold pace
   dPrime?: number; // D' (anaerobic distance capacity) in meters
