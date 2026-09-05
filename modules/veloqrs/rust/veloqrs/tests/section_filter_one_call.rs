@@ -107,7 +107,7 @@ fn seed(dir: &TempDir) {
             .expect("name the corridor");
         // The list reads the cached overlay and never refreshes it under the
         // read lock, so a fresh process shows generated names until something
-        // resolves it. That gap is `B290`, not this call's to close.
+        // resolves it. That gap is `B297`, not this one's to close.
         assert_eq!(engine.get_named_corridors().len(), 1);
     })
     .expect("engine");
