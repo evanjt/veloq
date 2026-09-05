@@ -56,7 +56,7 @@ fn seed(dir: &TempDir) -> PathBuf {
         db.execute(
             "INSERT INTO section_activities
                      (section_id, activity_id, start_index, end_index, distance_meters, lap_time)
-                 VALUES ('s1', ?, 0, 20, 900.0, NULL)",
+                 VALUES ('s1', ?, 0, 21, 900.0, NULL)",
             params![id],
         )
         .expect("insert portion");
