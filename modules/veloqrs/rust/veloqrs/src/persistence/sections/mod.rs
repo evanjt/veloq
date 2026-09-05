@@ -471,7 +471,7 @@ impl PersistentEngine {
 
         // Backfill any NULL lap_time/lap_pace from available time streams
         // Handles migration edge cases and activities synced after section detection
-        self.backfill_section_performance_cache();
+        let _ = self.backfill_section_performance_cache();
 
         self.refresh_superseded_ids();
 

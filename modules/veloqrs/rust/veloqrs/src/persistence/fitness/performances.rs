@@ -115,14 +115,22 @@ impl PersistentEngine {
         }
     }
 
-    /// Backfill NULL lap_time/lap_pace in section_activities from available time streams.
-    /// Called after sync when new time streams may have been loaded.
-    /// This fixes orphaned rows from migration or activities that were synced after section detection.
-    pub fn backfill_section_performance_cache(&mut self) {
+    /// Backfill NULL lap_time/lap_pace in section_activities from the time
+    /// streams the device holds. Returns how many portions were examined.
+    ///
+    /// Only a portion whose activity already has a stream is examined. A
+    /// portion without one cannot be resolved by this pass however often it
+    /// runs, and every launch calls this through `load_sections`, so the join
+    /// is what keeps a library's unstreamed portions from being reread for
+    /// the life of the install. `set_time_streams_flat` calls it again when a
+    /// stream lands, which is when the answer for those portions changes.
+    pub fn backfill_section_performance_cache(&mut self) -> usize {
         let null_portions: Vec<(String, String, u32, u32, f64)> = match self.db.prepare(
-            "SELECT section_id, activity_id, start_index, end_index, distance_meters
-             FROM section_activities
-             WHERE lap_time IS NULL AND excluded = 0",
+            "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+                    sa.distance_meters
+             FROM section_activities sa
+             JOIN time_streams ts ON ts.activity_id = sa.activity_id
+             WHERE sa.lap_time IS NULL AND sa.excluded = 0",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| {
@@ -137,11 +145,11 @@ impl PersistentEngine {
                 .ok()
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
                 .unwrap_or_default(),
-            Err(_) => return,
+            Err(_) => return 0,
         };
 
         if null_portions.is_empty() {
-            return;
+            return 0;
         }
 
         log::info!(
@@ -195,6 +203,7 @@ impl PersistentEngine {
                 null_portions.len()
             );
         }
+        null_portions.len()
     }
 
     /// Get section performances with accurate time calculations.
