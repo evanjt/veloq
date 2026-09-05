@@ -36,7 +36,6 @@ describe('the detection switch reaches the engine', () => {
         enabled: true,
         retentionDays: 0,
         autoCleanupEnabled: false,
-        heatmapEnabled: true,
       },
       isLoaded: true,
     });

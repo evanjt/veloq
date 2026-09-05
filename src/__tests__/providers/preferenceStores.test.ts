@@ -79,7 +79,6 @@ const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
   retentionDays: 0,
   autoCleanupEnabled: false,
-  heatmapEnabled: true,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -322,7 +321,7 @@ describe('RouteSettingsStore', () => {
       await initializeRouteSettings();
       expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
 
-      await useRouteSettings.getState().setHeatmapEnabled(false);
+      await useRouteSettings.getState().setAutoCleanupEnabled(true);
       const stored = JSON.parse((await AsyncStorage.getItem(ROUTE_SETTINGS_KEY))!);
       expect(stored).not.toHaveProperty('detectionStrictness');
     });
@@ -341,7 +340,6 @@ describe('RouteSettingsStore', () => {
           enabled: true,
           retentionDays: 90,
           autoCleanupEnabled: true,
-          heatmapEnabled: true,
         },
         isLoaded: true,
       });
@@ -391,7 +389,6 @@ describe('RouteSettingsStore', () => {
           enabled: false,
           retentionDays: 180,
           autoCleanupEnabled: false,
-          heatmapEnabled: true,
         },
         isLoaded: true,
       });

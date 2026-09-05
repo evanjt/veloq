@@ -9,6 +9,7 @@ import { type MapStyleType } from '@/features/maps/components';
 import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
+import { HeatmapRow } from './HeatmapRow';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
@@ -175,6 +176,9 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
         value={mapPreferences.defaultStyle}
         onValueChange={handleDefaultMapStyleChange}
       />
+
+      {/* The heatmap is something the map draws, so it lives here. */}
+      <HeatmapRow />
 
       {/* Per-activity overrides */}
       <View style={[styles.actionRow, styles.actionRowBorder]}>

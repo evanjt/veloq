@@ -74,6 +74,7 @@ const MIGRATED_KEYS = [
   'veloq-unit-preference',
   'veloq-hr-zones',
   'veloq-route-settings',
+  'veloq-heatmap-enabled',
   'dashboard_preferences',
   'dashboard_summary_card',
   'veloq-debug-mode',
