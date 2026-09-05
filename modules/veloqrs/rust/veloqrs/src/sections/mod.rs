@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use tracematch::GpsPoint;
 
+pub mod live;
+
 /// Section type discriminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
