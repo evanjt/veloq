@@ -50,7 +50,7 @@ export function getFilteredGroupSummaries(
 ): { totalCount: number; summaries: GroupSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getFilteredGroupSummaries', () =>
-    host.engine.routes().getFilteredSummaries(minActivities, sortKey)
+    host.engine.routes().getSummaries(minActivities, sortKey)
   );
 }
 

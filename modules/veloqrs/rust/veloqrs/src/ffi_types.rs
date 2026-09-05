@@ -482,6 +482,28 @@ impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
 // ============================================================================
 
 /// Unified section for FFI.
+/// Which sections a read wants. Every field is a narrowing, and an empty
+/// filter is every visible section.
+///
+/// One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
+/// and `get_for_activity` all returned the same list and only two of them
+/// applied the corridor-name overlay (`C31`).
+#[derive(Debug, Clone, Default, uniffi::Record)]
+pub struct FfiSectionFilter {
+    /// Only this sport's sections.
+    #[uniffi(default = None)]
+    pub sport_type: Option<String>,
+    /// Only sections visited at least this many times.
+    #[uniffi(default = None)]
+    pub min_visits: Option<u32>,
+    /// Only "auto" or only "custom" sections.
+    #[uniffi(default = None)]
+    pub section_type: Option<String>,
+    /// Only sections this activity passes through.
+    #[uniffi(default = None)]
+    pub activity_id: Option<String>,
+}
+
 /// Represents both auto-detected and custom sections with the same structure.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
