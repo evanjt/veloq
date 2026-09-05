@@ -9,7 +9,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 import { formatLocalDate } from '@/shared/format/format';
 
 export interface SyncProgress {
@@ -187,25 +187,17 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   const clearCache = useCallback(async () => {
-    // Destroy and re-init engine to get a clean state.
-    // DO NOT use engine.clear() - it corrupts sub-objects (strength() returns null).
+    // The engine's own clear: a positive predicate spares every section the
+    // athlete made, so nothing here needs a list of tables to keep. A rollback
+    // copy stands beside the database until it lands, and the re-cut that
+    // follows rebuilds the catalogue the clear removed.
     const engine = getEngine();
-    if (engine) {
-      const dbPath = getRouteDbPath();
-      engine.destroyEngine();
-      if (dbPath) {
-        const ok = engine.initWithPath(dbPath);
-        if (!ok) {
-          // Surface the failure banner and its retry, same as the root
-          // layout's init path, otherwise the app silently runs with a
-          // dead engine until restart.
-          const { useEngineStatus } = require('@/features/routes/stores/EngineStatusStore');
-          useEngineStatus.getState().setInitFailed(true);
-        } else if (isHeatmapEnabled()) {
-          // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
-          engine.enableHeatmapTiles();
-        }
-      }
+    const dbPath = getRouteDbPath();
+    if (engine && dbPath) {
+      await withDatabaseSnapshot(engine, dbPath, async () => {
+        engine.clearDerivedData();
+        engine.forceRedetectSections();
+      });
     }
 
     // Clear FileSystem caches (GPS tracks and bounds)
