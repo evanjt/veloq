@@ -103,7 +103,10 @@ impl PersistentEngine {
         }
     }
 
-    /// Get FTP trend: latest and previous FTP values with dates.
+    /// Latest and previous cycling FTP setting with their dates, over the
+    /// twenty newest cycling rows in `ftp_history`. Both values are the
+    /// athlete's configured setting, so an unedited setting yields no
+    /// previous value and an edit reads as a change in fitness.
     pub fn get_ftp_trend(&self) -> crate::FfiFtpTrend {
         let default = crate::FfiFtpTrend {
             latest_ftp: None,

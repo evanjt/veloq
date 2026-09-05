@@ -216,16 +216,20 @@ pub struct FfiPeriodStats {
     pub total_tss: f64,
 }
 
-/// FTP trend data.
+/// Cycling FTP trend, read from the athlete's configured FTP setting as it
+/// stood on each activity (`icu_ftp`), not from a modelled estimate. It moves
+/// only when the setting is edited. The per-activity estimate
+/// (`icu_pm_ftp_watts`) and the daily model estimate (`sportInfo.eftp` in
+/// `wellness.raw`) are separate series and are not read here.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiFtpTrend {
-    /// Most recent FTP value
+    /// Newest FTP setting on record
     pub latest_ftp: Option<u16>,
-    /// Date of most recent FTP (Unix timestamp seconds)
+    /// Activity start of the newest setting (Unix timestamp seconds)
     pub latest_date: Option<i64>,
-    /// Previous different FTP value
+    /// Newest setting that differs from `latest_ftp`
     pub previous_ftp: Option<u16>,
-    /// Date of previous FTP (Unix timestamp seconds)
+    /// Activity start of that earlier setting (Unix timestamp seconds)
     pub previous_date: Option<i64>,
 }
 

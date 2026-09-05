@@ -7,7 +7,9 @@ pub struct FitnessManager {
     pub(crate) _private: (),
 }
 
-/// Per-sport-category fitness improvement used by stale-PR detection.
+/// Per-sport-category fitness improvement used by stale-PR detection. The
+/// cycling input is the FTP setting, not an estimate, so a rise there is an
+/// edit on the website rather than a measurement.
 struct FitnessGain {
     metric: &'static str, // "power" | "pace"
     current: f64,
