@@ -1,4 +1,5 @@
 import React from 'react';
+import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -66,6 +67,15 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
+  // The chart below plots `eftpHistory`, so the header states a number only
+  // when that series has one. A row that offers a figure its own chart calls
+  // "no data" is worse than an empty row.
+  const headerFtp = curveHeaderValue({
+    value: currentFTP,
+    hasSeries: (eftpHistory?.length ?? 0) > 0,
+    isLoading: loadingActivities && !hasActivities,
+  });
+
   return (
     <>
       {/* Training Zones Section */}
@@ -125,10 +135,10 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             onToggle={onTrendsToggle}
             estimatedHeight={220}
             headerRight={
-              currentFTP ? (
+              headerFtp ? (
                 <View style={styles.headerValueRow}>
                   <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
-                    {currentFTP}w
+                    {headerFtp}w
                   </Text>
                   {ftpTrend && ftpTrend !== 'stable' && (
                     <MaterialCommunityIcons
