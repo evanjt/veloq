@@ -8,7 +8,7 @@ import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/feature
 import { useTheme } from '@/shared/app';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { formatPaceCompact } from '@/shared/format/format';
-import { TIME_RANGES } from '@/shared/app/constants';
+import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
@@ -97,7 +97,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                     <ZoneDistributionChart
                       data={powerZones}
                       type="power"
-                      periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                      periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
                     />
                   </View>
                 )}
@@ -105,7 +105,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <ZoneDistributionChart
                     data={hrZones}
                     type="hr"
-                    periodLabel={TIME_RANGES.find((r) => r.id === timeRange)?.label || '3M'}
+                    periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
                   />
                 </View>
               </>
