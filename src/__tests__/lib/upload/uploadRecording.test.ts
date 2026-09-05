@@ -38,9 +38,12 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   discardRecordingFit: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('veloqrs', () => ({
-  engine: { importSetsFromFit: jest.fn() },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../__shared__/veloqrsStub').withOverrides({
+    engine: { importSetsFromFit: jest.fn() },
+  })
+);
 
 const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;

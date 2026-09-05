@@ -14,18 +14,21 @@ type MockListener = (payload?: unknown) => void;
 
 const mockListeners = new Map<string, Set<MockListener>>();
 
-jest.mock('veloqrs', () => ({
-  engine: {
-    pollTileGeneration: jest.fn(() => 'idle'),
-    getHeatmapTileProgress: jest.fn(() => [0, 0]),
-    subscribe: jest.fn((event: string, callback: MockListener) => {
-      const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
-      forEvent.add(callback);
-      mockListeners.set(event, forEvent);
-      return () => forEvent.delete(callback);
-    }),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    engine: {
+      pollTileGeneration: jest.fn(() => 'idle'),
+      getHeatmapTileProgress: jest.fn(() => [0, 0]),
+      subscribe: jest.fn((event: string, callback: MockListener) => {
+        const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
+        forEvent.add(callback);
+        mockListeners.set(event, forEvent);
+        return () => forEvent.delete(callback);
+      }),
+    },
+  })
+);
 
 const poll = engine.pollTileGeneration as unknown as jest.Mock;
 const progress = engine.getHeatmapTileProgress as unknown as jest.Mock;

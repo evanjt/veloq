@@ -17,16 +17,19 @@ import { decodeCoords } from 'veloqrs';
 import type { ActivityMetrics, FfiMapSignature, Section as NativeSection } from 'veloqrs';
 import type { FrequentSection, Section } from '@/types';
 
-jest.mock('veloqrs', () => ({
-  decodeCoords: jest.fn(() => [
-    { latitude: -37.8, longitude: 144.9 },
-    { latitude: -37.81, longitude: 144.91 },
-  ]),
-  engine: {
-    extractSectionTrace: jest.fn(() => []),
-    getActivityPrSections: jest.fn(() => []),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: jest.fn(() => [
+      { latitude: -37.8, longitude: 144.9 },
+      { latitude: -37.81, longitude: 144.91 },
+    ]),
+    engine: {
+      extractSectionTrace: jest.fn(() => []),
+      getActivityPrSections: jest.fn(() => []),
+    },
+  })
+);
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 

@@ -11,6 +11,7 @@ import { SectionPerformanceSection } from '@/features/routes/components/section/
 import { RANGE_DAYS, type SectionTimeRange } from '@/features/routes/constants';
 import type { PerformanceDataPoint } from '@/types';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('react-native-iap', () => ({

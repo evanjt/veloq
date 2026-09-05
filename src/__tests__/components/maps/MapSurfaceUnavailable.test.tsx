@@ -18,6 +18,7 @@ import {
   MAP_SURFACE_UNAVAILABLE_TEST_ID,
 } from '@/features/maps/components/MapSurface';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({

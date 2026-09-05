@@ -20,11 +20,14 @@ const mockSubscribe = jest.fn((event: string, callback: MockListener) => {
   return () => forEvent.delete(callback);
 });
 
-jest.mock('veloqrs', () => ({
-  engine: {
-    subscribe: (event: string, callback: MockListener) => mockSubscribe(event, callback),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    engine: {
+      subscribe: (event: string, callback: MockListener) => mockSubscribe(event, callback),
+    },
+  })
+);
 
 /** Stands in for the announcement Rust makes off the JS thread. */
 function announce(activityIds: string[]) {
