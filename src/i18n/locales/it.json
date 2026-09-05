@@ -1039,6 +1039,7 @@
     "deleteSection": "Elimina sezione",
     "deleteSectionConfirm": "Sei sicuro di voler eliminare questa sezione? Questa azione non può essere annullata.",
     "detectionPaused": "Rilevamento in pausa mentre le tue sezioni vengono migrate",
+    "detectionPausedElevation": "Rilevamento in pausa durante il download dell'altitudine",
     "disabled": "Disattivata",
     "removeSection": "Rimuovi sezione",
     "removeSectionConfirm": "Questa sezione non apparirà nei dettagli dell'attività o negli insights. Puoi ripristinarla dall'elenco delle sezioni.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "Non è stato possibile aggiornare {{count}} tracciati delle attività. Verranno ritentati più tardi.",
     "elevationBackfillFailed": "Non è stato possibile eseguire l'aggiornamento dell'altitudine.",
     "elevationBackfillExplainer": "Il rilevamento sezioni migliorato parte quando tutti i tracciati hanno l'altitudine.",
+    "elevationBackfillOutstanding_one": "{{count}} traccia ha ancora bisogno dell'altitudine.",
+    "elevationBackfillOutstanding_other": "{{count}} tracce hanno ancora bisogno dell'altitudine.",
     "elevationBackfillWhy": "Perché serve",
     "elevationBackfillWhyTitle": "Perché viene aggiunta l'altitudine",
     "elevationBackfillWhyBody": "L'algoritmo delle sezioni migliorato e il rilevamento delle salite leggono un'altitudine che le versioni precedenti non scaricavano mai. Veloq la scarica una volta per le tue attività esistenti, poi rileva di nuovo le sezioni con il nuovo algoritmo.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Tratti che si spiegano",
       "sectionsBody": "I tratti sono ora tagliati da un unico rilevatore deterministico. Ognuno conserva una cronologia da leggere, ripristinare e bloccare.",
+      "elevationLine": "Veloq scarica l'altitudine una volta per le tue attività esistenti, poi rileva di nuovo le sezioni con il nuovo algoritmo.",
       "rowDeterministic": "Un solo abbinatore deterministico: le stesse uscite danno gli stessi tratti",
       "rowSameResult": "Aggiungere le uscite una alla volta o tutte insieme dà lo stesso risultato",
       "rowLedger": "Una cronologia mostra come è cambiato ogni tratto e cosa c'era intorno",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
       "diffUnchanged": "Tutti i {{sections}} tratti sono usciti immutati dalla nuova analisi.",
-      "recutFailed": "La nuova analisi non è arrivata in fondo. I tuoi tratti sono invariati e riparte al prossimo avvio."
+      "recutFailed": "La nuova analisi non è arrivata in fondo. I tuoi tratti sono invariati e riparte al prossimo avvio.",
+      "settingsReset": "Le impostazioni di rilevamento delle sezioni sono state riportate ai valori validati: {{changes}}. Anteprima modifiche sezioni e poi Mantieni ripristina quelle precedenti.",
+      "settingsResetChange": "{{label}} da {{from}} a {{to}}",
+      "settingsResetProximity": "prossimità",
+      "settingsResetMinLength": "lunghezza minima",
+      "settingsResetMaxLength": "sezione più lunga",
+      "settingsResetMinActivities": "visite minime",
+      "settingsResetDivergence": "divergenza"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Elimina nome",
     "deleteTitle": "Elimina nome",
     "deleteConfirm": "Eliminare \"{{name}}\"? Il tratto torna al suo nome generato."
+  },
+  "backgroundJobs": {
+    "title": "Attività in background",
+    "intro": "Operazioni lunghe che l'app esegue da sola. Proseguono quando esci da questa schermata.",
+    "openLink": "Attività in background",
+    "sync": "Sincronizzazione attività",
+    "detection": "Rilevamento sezioni",
+    "elevationBackfill": "Download del dislivello",
+    "cutover": "Ricostruzione sezioni",
+    "stateIdle": "Non in esecuzione",
+    "stateRunning": "In corso",
+    "stateComplete": "Completata",
+    "statePartial": "Completata, alcuni da riprovare",
+    "stateFailed": "Interrotta prima del termine",
+    "progressCount": "{{completed}} di {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Ne mancano {{count}} da scaricare"
   }
 }

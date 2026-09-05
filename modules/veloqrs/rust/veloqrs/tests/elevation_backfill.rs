@@ -1626,3 +1626,89 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     assert_eq!(queue_ids(), vec!["gone"]);
     drain_detection();
 }
+
+/// B252: the terminal cut was guarded on `fetched > 0`, a library-wide count of
+/// elevated tracks. A library where upstream has altitude for nothing drains
+/// its queue honestly and elevates nothing, so the cut never fired, and since
+/// `SB12` an owed cutover then refuses every detect for the rest of the
+/// session.
+#[test]
+fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1", "a2"]);
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path("/activity/a1/streams.json");
+        then.status(200).json_body(flat_streams(0.0));
+    });
+    server.mock(|when, then| {
+        when.path("/activity/a2/streams.json");
+        then.status(200).json_body(flat_streams(0.05));
+    });
+
+    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(outcome) = run else {
+        panic!("expected a finished pass, got {:?}", run);
+    };
+
+    assert_eq!(outcome.elevated, 0, "upstream had altitude for nothing");
+    assert_eq!(outcome.unavailable, 2);
+    assert_eq!(state_of("a1"), UNAVAILABLE);
+    assert_eq!(state_of("a2"), UNAVAILABLE);
+    assert!(queue_ids().is_empty(), "the queue drained honestly");
+    assert_eq!(
+        backfill_progress().phase,
+        BACKFILL_PHASE_COMPLETE,
+        "a drained queue is a complete conversion whatever upstream held"
+    );
+    assert_eq!(
+        outcome.detects_started, 1,
+        "the pass that drains the queue owes the re-cut, elevated or not"
+    );
+    drain_detection();
+}
+
+/// The clause `fetched > 0` was written for this, and it still has to hold: an
+/// earlier pass elevated tracks and died before its cut, and the pass that
+/// finishes the queue makes good on it.
+#[test]
+fn a_pass_finishing_an_earlier_pass_still_cuts() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1", "a2"]);
+
+    let server = MockServer::start();
+    let mut broken = server.mock(|when, then| {
+        when.path("/activity/a2/streams.json");
+        then.status(500);
+    });
+    server.mock(|when, then| {
+        when.path("/activity/a1/streams.json");
+        then.status(200).json_body(elevated_streams(0.0));
+    });
+
+    let first = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(first) = first else {
+        panic!("expected a finished pass");
+    };
+    assert_eq!(first.elevated, 1);
+    assert_eq!(first.detects_started, 0, "a partial pass must not cut");
+    drain_detection();
+
+    broken.delete();
+    server.mock(|when, then| {
+        when.path("/activity/a2/streams.json");
+        then.status(200).json_body(flat_streams(0.05));
+    });
+
+    let second = run_elevation_backfill(&fast_transport(server.base_url()));
+    let BackfillRun::Finished(second) = second else {
+        panic!("expected a finished pass");
+    };
+    assert!(queue_ids().is_empty());
+    assert_eq!(
+        second.detects_started, 1,
+        "the pass that drains makes good on the earlier one's cut"
+    );
+    drain_detection();
+}

@@ -32,6 +32,7 @@ import nativeModule, {
   type UniffiForeignFutureCompleteRustBuffer,
   type UniffiForeignFutureResultVoid,
   type UniffiForeignFutureCompleteVoid,
+  type UniffiVTableCallbackInterfaceEngineObserver,
 } from "./veloqrs-ffi";
 import {
   type FfiConverter,
@@ -39,6 +40,8 @@ import {
   type UniffiGcObject,
   type UniffiHandle,
   type UniffiObjectFactory,
+  type UniffiReferenceHolder,
+  type UniffiRustCallStatus,
   AbstractFfiConverterByteArray,
   FfiConverterArray,
   FfiConverterArrayBuffer,
@@ -50,6 +53,7 @@ import {
   FfiConverterInt8,
   FfiConverterMap,
   FfiConverterObject,
+  FfiConverterObjectWithCallbacks,
   FfiConverterOptional,
   FfiConverterUInt16,
   FfiConverterUInt32,
@@ -59,12 +63,14 @@ import {
   UniffiAbstractObject,
   UniffiError,
   UniffiInternalError,
+  UniffiResult,
   UniffiRustCaller,
   destructorGuardSymbol,
   pointerLiteralSymbol,
   uniffiCreateFfiConverterString,
   uniffiCreateRecord,
   uniffiRustCallAsync,
+  uniffiTraitInterfaceCall,
   uniffiTypeNameSymbol,
   variantOrdinalSymbol,
 } from "uniffi-bindgen-react-native";
@@ -10761,6 +10767,612 @@ const FfiConverterTypeDetectionManager = new FfiConverterObject(
   uniffiTypeDetectionManagerObjectFactory,
 );
 
+/**
+ * What Rust tells TypeScript when work finishes off the JavaScript thread.
+ *
+ * One method per event, each naming what landed rather than which query to
+ * refetch, so the routing stays on the TypeScript side.
+ */
+export interface EngineObserver {
+  /**
+   * A sync step completed. Carries no payload: the reader takes a status
+   * snapshot.
+   */
+  syncProgress(): void;
+  /**
+   * A sync reached a terminal state, successful or not.
+   */
+  syncSettled(): void;
+  /**
+   * An on-demand body landed in SQLite under `kind` for `activity_id`.
+   */
+  bodyStored(kind: string, activityId: string): void;
+  /**
+   * Time streams landed for these activities.
+   */
+  timeStreamsStored(activityIds: Array<string>): void;
+  /**
+   * A GPS track landed for this activity.
+   */
+  gpsTrackStored(activityId: string): void;
+  /**
+   * A FIT file finished parsing for this activity.
+   */
+  fitParsed(activityId: string): void;
+  /**
+   * A section detection run was applied to the catalogue.
+   */
+  detectionApplied(): void;
+  /**
+   * A heatmap tile pass finished.
+   */
+  tilesGenerated(): void;
+  /**
+   * The elevation backfill entered `phase`.
+   */
+  backfillPhase(phase: string): void;
+  /**
+   * The section cutover committed.
+   */
+  cutoverSettled(): void;
+  /**
+   * A preview detection run entered `phase`. Four per run, so the screen
+   * reads progress on a transition instead of on a timer.
+   */
+  previewPhase(phase: string): void;
+  /**
+   * A preview detection run finished.
+   */
+  previewFinished(): void;
+}
+
+/**
+ * What Rust tells TypeScript when work finishes off the JavaScript thread.
+ *
+ * One method per event, each naming what landed rather than which query to
+ * refetch, so the routing stays on the TypeScript side.
+ */
+export class EngineObserverImpl
+  extends UniffiAbstractObject
+  implements EngineObserver
+{
+  readonly [uniffiTypeNameSymbol] = "EngineObserverImpl";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  // No primary constructor declared for this class.
+  private constructor(pointer: UniffiHandle) {
+    super();
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeEngineObserverImplObjectFactory.bless(pointer);
+  }
+
+  /**
+   * A sync step completed. Carries no payload: the reader takes a status
+   * snapshot.
+   */
+  syncProgress(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_progress(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A sync reached a terminal state, successful or not.
+   */
+  syncSettled(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_sync_settled(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * An on-demand body landed in SQLite under `kind` for `activity_id`.
+   */
+  bodyStored(kind: string, activityId: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_body_stored(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(kind),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Time streams landed for these activities.
+   */
+  timeStreamsStored(activityIds: Array<string>): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_time_streams_stored(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterArrayString.lower(activityIds),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A GPS track landed for this activity.
+   */
+  gpsTrackStored(activityId: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_gps_track_stored(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A FIT file finished parsing for this activity.
+   */
+  fitParsed(activityId: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_fit_parsed(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A section detection run was applied to the catalogue.
+   */
+  detectionApplied(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_detection_applied(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A heatmap tile pass finished.
+   */
+  tilesGenerated(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_tiles_generated(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * The elevation backfill entered `phase`.
+   */
+  backfillPhase(phase: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_backfill_phase(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(phase),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * The section cutover committed.
+   */
+  cutoverSettled(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_cutover_settled(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A preview detection run entered `phase`. Four per run, so the screen
+   * reads progress on a transition instead of on a timer.
+   */
+  previewPhase(phase: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_phase(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(phase),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A preview detection run finished.
+   */
+  previewFinished(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_preview_finished(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeEngineObserverImplObjectFactory.pointer(this);
+      uniffiTypeEngineObserverImplObjectFactory.freePointer(pointer);
+      uniffiTypeEngineObserverImplObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is EngineObserverImpl {
+    return uniffiTypeEngineObserverImplObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeEngineObserverImplObjectFactory: UniffiObjectFactory<EngineObserver> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): EngineObserver {
+        const instance = Object.create(EngineObserverImpl.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "EngineObserverImpl";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_engineobserver_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: EngineObserver): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: EngineObserver): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_engineobserver(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_engineobserver(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is EngineObserver {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "EngineObserverImpl"
+        );
+      },
+    };
+  })();
+// FfiConverter for EngineObserver
+const FfiConverterTypeEngineObserver = new FfiConverterObjectWithCallbacks(
+  uniffiTypeEngineObserverImplObjectFactory,
+);
+
+// Add a vtavble for the callbacks that go in EngineObserver.
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+const uniffiCallbackInterfaceEngineObserver: {
+  vtable: UniffiVTableCallbackInterfaceEngineObserver;
+  register: () => void;
+} = {
+  // Create the VTable using a series of closures.
+  // ts automatically converts these into C callback functions.
+  vtable: {
+    syncProgress: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.syncProgress();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    syncSettled: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.syncSettled();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    bodyStored: (
+      uniffiHandle: bigint,
+      kind: Uint8Array,
+      activityId: Uint8Array,
+    ) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.bodyStored(
+          FfiConverterString.lift(kind),
+          FfiConverterString.lift(activityId),
+        );
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    timeStreamsStored: (uniffiHandle: bigint, activityIds: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.timeStreamsStored(
+          FfiConverterArrayString.lift(activityIds),
+        );
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    gpsTrackStored: (uniffiHandle: bigint, activityId: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.gpsTrackStored(FfiConverterString.lift(activityId));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    fitParsed: (uniffiHandle: bigint, activityId: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.fitParsed(FfiConverterString.lift(activityId));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    detectionApplied: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.detectionApplied();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    tilesGenerated: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.tilesGenerated();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    backfillPhase: (uniffiHandle: bigint, phase: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.backfillPhase(FfiConverterString.lift(phase));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    cutoverSettled: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.cutoverSettled();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    previewPhase: (uniffiHandle: bigint, phase: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.previewPhase(FfiConverterString.lift(phase));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    previewFinished: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.previewFinished();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
+    },
+    uniffiFree: (uniffiHandle: UniffiHandle): void => {
+      // EngineObserver: this will throw a stale handle error if the handle isn't found.
+      FfiConverterTypeEngineObserver.drop(uniffiHandle);
+    },
+    uniffiClone: (uniffiHandle: UniffiHandle): UniffiHandle => {
+      return FfiConverterTypeEngineObserver.clone(uniffiHandle);
+    },
+  },
+  register: () => {
+    nativeModule().ubrn_uniffi_veloqrs_fn_init_callback_vtable_engineobserver(
+      uniffiCallbackInterfaceEngineObserver.vtable,
+    );
+  },
+};
+
 export interface FitnessManagerLike {
   /**
    * HRV trend (label + averages + sparkline) over the trailing `days`
@@ -16125,6 +16737,11 @@ export interface VeloqEngineLike {
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
   setNameTranslations(routeWord: string, sectionWord: string): void;
+  /**
+   * Register the listener Rust calls when work finishes off the JavaScript
+   * thread. One per process; a second call replaces the first.
+   */
+  setObserver(observer: EngineObserver | undefined): void;
   settings(): SettingsManagerLike;
   /**
    * Start an atomic SQLite backup at the given path on a background thread.
@@ -16494,6 +17111,23 @@ export class VeloqEngine
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterString.lower(routeWord),
           FfiConverterString.lower(sectionWord),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Register the listener Rust calls when work finishes off the JavaScript
+   * thread. One per process; a second call replaces the first.
+   */
+  setObserver(observer: EngineObserver | undefined): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_set_observer(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterOptionalTypeEngineObserver.lower(observer),
           callStatus,
         );
       },
@@ -17062,6 +17696,11 @@ const FfiConverterArrayString = new FfiConverterArray(FfiConverterString);
 
 // FfiConverter for Array</*u32*/number>
 const FfiConverterArrayUInt32 = new FfiConverterArray(FfiConverterUInt32);
+
+// FfiConverter for EngineObserver | undefined
+const FfiConverterOptionalTypeEngineObserver = new FfiConverterOptional(
+  FfiConverterTypeEngineObserver,
+);
 
 // FfiConverter for Array<string> | undefined
 const FfiConverterOptionalArrayString = new FfiConverterOptional(
@@ -17664,6 +18303,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_observer() !==
+    43138
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_set_observer",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings() !==
     53803
   ) {
@@ -17785,7 +18432,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
-    7146
+    57928
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data",
@@ -17885,6 +18532,102 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_query_viewport",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress() !==
+    62184
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_sync_progress",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_settled() !==
+    19642
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_sync_settled",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_body_stored() !==
+    60472
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_body_stored",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored() !==
+    5378
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_time_streams_stored",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored() !==
+    43970
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_gps_track_stored",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_fit_parsed() !==
+    19682
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_fit_parsed",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_detection_applied() !==
+    17812
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_detection_applied",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_tiles_generated() !==
+    3208
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_tiles_generated",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_backfill_phase() !==
+    20625
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_backfill_phase",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_cutover_settled() !==
+    29940
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_cutover_settled",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_phase() !==
+    9863
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_preview_phase",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_finished() !==
+    29719
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_preview_finished",
     );
   }
   if (
@@ -19071,6 +19814,8 @@ function uniffiEnsureInitialized() {
       "uniffi_veloqrs_checksum_constructor_heatmapmanager_new",
     );
   }
+
+  uniffiCallbackInterfaceEngineObserver.register();
 }
 
 export default Object.freeze({
@@ -19085,6 +19830,7 @@ export default Object.freeze({
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
+    FfiConverterTypeEngineObserver,
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,

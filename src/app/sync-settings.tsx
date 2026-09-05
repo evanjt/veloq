@@ -6,7 +6,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { ActivitySyncRow, SyncRangePanel } from '@/features/settings/components';
+import {
+  ActivitySyncRow,
+  BackgroundJobsLink,
+  SyncRangePanel,
+} from '@/features/settings/components';
 
 export default function SyncSettingsScreen() {
   const { t } = useTranslation();
@@ -38,6 +42,8 @@ export default function SyncSettingsScreen() {
           <ActivitySyncRow />
 
           <SyncRangePanel />
+
+          <BackgroundJobsLink />
         </ScrollView>
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>

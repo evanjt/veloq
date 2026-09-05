@@ -1039,6 +1039,7 @@
     "deleteSection": "Supprimer la section",
     "deleteSectionConfirm": "Voulez-vous vraiment supprimer cette section ? Cette action est irréversible.",
     "detectionPaused": "Détection en pause pendant la migration de vos sections",
+    "detectionPausedElevation": "Détection en pause pendant le téléchargement de l'altitude",
     "disabled": "Désactivée",
     "removeSection": "Supprimer la section",
     "removeSectionConfirm": "Cette section n'apparaîtra plus dans les détails d'activité ni dans les insights. Vous pourrez la restaurer depuis la liste des sections.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} tracés d'activité n'ont pas pu être mis à jour. Ils seront réessayés plus tard.",
     "elevationBackfillFailed": "La mise à jour de l'altitude n'a pas pu s'exécuter.",
     "elevationBackfillExplainer": "La détection de sections améliorée démarre une fois que tous les tracés ont l'altitude.",
+    "elevationBackfillOutstanding_one": "{{count}} trace a encore besoin de l'altitude.",
+    "elevationBackfillOutstanding_other": "{{count}} traces ont encore besoin de l'altitude.",
     "elevationBackfillWhy": "Pourquoi c'est nécessaire",
     "elevationBackfillWhyTitle": "Pourquoi l'altitude est ajoutée",
     "elevationBackfillWhyBody": "L'algorithme de sections amélioré et la détection des montées lisent une altitude que les versions précédentes ne récupéraient jamais. Veloq la télécharge une seule fois pour tes activités existantes, puis détecte à nouveau les sections avec le nouvel algorithme.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Des tronçons qui s'expliquent",
       "sectionsBody": "Les tronçons sont désormais coupés par un seul détecteur déterministe. Chacun garde un historique à lire, rétablir et épingler.",
+      "elevationLine": "Veloq télécharge l'altitude une seule fois pour tes activités existantes, puis détecte à nouveau les sections avec le nouvel algorithme.",
       "rowDeterministic": "Un seul apparieur déterministe : les mêmes sorties donnent les mêmes tronçons",
       "rowSameResult": "Ajouter les sorties une à une ou d'un coup donne le même résultat",
       "rowLedger": "Un historique montre comment chaque tronçon a changé et ce qu'il y avait autour",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
       "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse.",
-      "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement."
+      "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement.",
+      "settingsReset": "Vos réglages de détection des sections ont été remis aux valeurs validées : {{changes}}. Prévisualiser les changements de sections puis Conserver rétablit les précédents.",
+      "settingsResetChange": "{{label}} de {{from}} à {{to}}",
+      "settingsResetProximity": "proximité",
+      "settingsResetMinLength": "longueur minimale",
+      "settingsResetMaxLength": "section la plus longue",
+      "settingsResetMinActivities": "visites minimales",
+      "settingsResetDivergence": "bifurcation"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Supprimer le nom",
     "deleteTitle": "Supprimer le nom",
     "deleteConfirm": "Supprimer \"{{name}}\" ? Le tronçon reprend son nom généré."
+  },
+  "backgroundJobs": {
+    "title": "Tâches en arrière-plan",
+    "intro": "Tâches longues que l'application exécute seule. Elles continuent quand vous quittez cet écran.",
+    "openLink": "Tâches en arrière-plan",
+    "sync": "Synchronisation des activités",
+    "detection": "Détection des sections",
+    "elevationBackfill": "Téléchargement du dénivelé",
+    "cutover": "Reconstruction des sections",
+    "stateIdle": "À l'arrêt",
+    "stateRunning": "En cours",
+    "stateComplete": "Terminée",
+    "statePartial": "Terminée, quelques reprises restantes",
+    "stateFailed": "Arrêtée prématurément",
+    "progressCount": "{{completed}} sur {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "{{count}} restantes à télécharger"
   }
 }

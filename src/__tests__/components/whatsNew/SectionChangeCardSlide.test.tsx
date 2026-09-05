@@ -71,6 +71,15 @@ describe('SectionChangeCardSlide', () => {
     expect(render(<SectionChangeCardSlide />).queryByTestId('change-card')).toBeNull();
   });
 
+  it('announces the one-time elevation download above the claims', () => {
+    (getEngine as jest.Mock).mockReturnValue({
+      getChangeCardSupport: () => ALL_BUT_DEVICE,
+    });
+    const { getByTestId, getByText } = render(<SectionChangeCardSlide />);
+    expect(getByTestId('change-card-elevation')).toBeTruthy();
+    expect(getByText('whatsNew.v040.elevationLine')).toBeTruthy();
+  });
+
   it('is registered as the 0.4.0 slide', () => {
     const since038 = getSlidesSince('0.3.8');
     expect(since038.some((s) => s.titleKey === 'whatsNew.v040.sectionsTitle')).toBe(true);
@@ -182,6 +191,60 @@ describe('SectionChangeCardSlide', () => {
       const { getByTestId } = render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-failed')).toBeTruthy();
       expect(getByTestId('change-card-row-ledger')).toBeTruthy();
+    });
+
+    const RESET = {
+      previous: {
+        proximityThreshold: 100,
+        minSectionLength: 50,
+        maxSectionLength: 200000,
+        minActivities: 3,
+        divergenceThreshold: 0.1,
+      },
+      current: {
+        proximityThreshold: 200,
+        minSectionLength: 150,
+        maxSectionLength: 200000,
+        minActivities: 2,
+        divergenceThreshold: 0.15,
+      },
+    };
+
+    it('names each setting the flip moved, and only those', () => {
+      engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: RESET });
+      const row = render(<SectionChangeCardSlide />).getByTestId('change-card-settings-reset');
+      expect(row).toHaveTextContent(/settingsReset/);
+      expect(row).toHaveTextContent(/settingsResetProximity/);
+      expect(row).toHaveTextContent(/from\\":\\"100 m\\",\\"to\\":\\"200 m/);
+      expect(row).toHaveTextContent(/settingsResetMinLength/);
+      expect(row).toHaveTextContent(/from\\":\\"50 m\\",\\"to\\":\\"150 m/);
+      expect(row).toHaveTextContent(/settingsResetMinActivities/);
+      expect(row).toHaveTextContent(/from\\":\\"3\\",\\"to\\":\\"2/);
+      expect(row).toHaveTextContent(/settingsResetDivergence/);
+      expect(row).toHaveTextContent(/from\\":\\"10%\\",\\"to\\":\\"15%/);
+      expect(row).not.toHaveTextContent(/settingsResetMaxLength/);
+    });
+
+    it('draws no reset row when the flip moved nothing', () => {
+      engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: null });
+      expect(
+        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+      ).toBeNull();
+      engineWith({ phase: 'complete', running: false }, { counts: COUNTS });
+      expect(
+        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+      ).toBeNull();
+    });
+
+    it('withholds the reset row while a run is in flight and after a failure', () => {
+      engineWith({ phase: 'detecting', running: true }, { counts: COUNTS, settingsReset: RESET });
+      expect(
+        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+      ).toBeNull();
+      engineWith({ phase: 'failed', running: false }, { counts: COUNTS, settingsReset: RESET });
+      expect(
+        render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
+      ).toBeNull();
     });
 
     it('reads draining and archiving as the one preparing line', () => {

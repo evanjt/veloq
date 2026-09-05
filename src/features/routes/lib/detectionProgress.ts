@@ -12,6 +12,7 @@ const PHASE_DISPLAY_NAMES: Record<string, string> = {
   postprocessing: 'Processing sections',
   saving: 'Saving sections',
   recomputing_indicators: 'Computing indicators',
+  diffing: 'Comparing catalogues',
   complete: 'Complete',
 };
 

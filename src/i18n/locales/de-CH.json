@@ -1039,6 +1039,7 @@
     "deleteSection": "Abschnitt lösche",
     "deleteSectionConfirm": "Wötsch de Abschnitt würklich lösche? Das chasch nöd rückgängig mache.",
     "detectionPaused": "Erkennig pausiert, während dini Abschnitt migriert werded",
+    "detectionPausedElevation": "Erkennig pausiert, während Höhedate glade werded",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entferne",
     "removeSectionConfirm": "De Abschnitt wird nöd meh i de Aktivitätsdetails oder Insights azeigt. Du chasch ihn us de Lischte widerherstelle.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} Aktivitätsspuren konnten nicht aktualisiert werden. Sie werden später erneut versucht.",
     "elevationBackfillFailed": "Die Höhenaktualisierung konnte nicht ausgeführt werden.",
     "elevationBackfillExplainer": "Die verbesserte Abschnittserkennung läuft, sobald alle Spuren Höhendaten haben.",
+    "elevationBackfillOutstanding_one": "{{count}} Aktivitätsspur bruucht na Höhedate.",
+    "elevationBackfillOutstanding_other": "{{count}} Aktivitätsspure bruuched na Höhedate.",
     "elevationBackfillWhy": "Warum das nötig ist",
     "elevationBackfillWhyTitle": "Warum Höhendaten hinzugefügt werden",
     "elevationBackfillWhyBody": "Der verbesserte Abschnittsalgorithmus und die Anstiegserkennung lesen Höhendaten, die frühere Versionen nie abgerufen haben. Veloq lädt sie einmal für deine vorhandenen Aktivitäten und erkennt die Abschnitte danach mit dem neuen Algorithmus erneut.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Abschnitte, die sich erklären",
       "sectionsBody": "Abschnitte werden jetzt von einem deterministischen Detektor geschnitten. Jeder hat einen Verlauf, den du lesen, zurücksetzen und anheften kannst.",
+      "elevationLine": "Veloq lädt Höhendaten einmal für deine vorhandenen Aktivitäten und erkennt die Abschnitte danach mit dem neuen Algorithmus erneut.",
       "rowDeterministic": "Ein deterministischer Matcher: gleiche Fahrten ergeben gleiche Abschnitte",
       "rowSameResult": "Fahrten einzeln oder auf einmal ergeben dasselbe Ergebnis",
       "rowLedger": "Ein Verlauf zeigt, wie sich jeder Abschnitt änderte und was dabei war",
@@ -1440,7 +1444,14 @@
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
-      "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut."
+      "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut.",
+      "settingsReset": "Deine Einstellungen zur Abschnittserkennung wurden auf die validierten Werte zurückgesetzt: {{changes}}. Abschnittsänderungen ansehen und dann Behalten stellt die vorherigen wieder her.",
+      "settingsResetChange": "{{label}} {{from}} auf {{to}}",
+      "settingsResetProximity": "Nähe",
+      "settingsResetMinLength": "Mindestlänge",
+      "settingsResetMaxLength": "längster Abschnitt",
+      "settingsResetMinActivities": "Mindestbesuche",
+      "settingsResetDivergence": "Abzweigung"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Namen löschen",
     "deleteTitle": "Namen löschen",
     "deleteConfirm": "\"{{name}}\" löschen? Der Abschnitt erhält wieder seinen generierten Namen."
+  },
+  "backgroundJobs": {
+    "title": "Hintergrundufgabe",
+    "intro": "Langi Ufgabe, wo d App vo sich us macht. Si laufed wiiter, au wenn du de Bildschirm verlaasch.",
+    "openLink": "Hintergrundufgabe",
+    "sync": "Aktivitäte synchronisiere",
+    "detection": "Abschnitt erkenne",
+    "elevationBackfill": "Höhedate lade",
+    "cutover": "Abschnitt neu ufbaue",
+    "stateIdle": "Laufd nöd",
+    "stateRunning": "Laufd",
+    "stateComplete": "Fertig",
+    "statePartial": "Fertig, es paar chömed nomal dra",
+    "stateFailed": "Z früeh gstoppt",
+    "progressCount": "{{completed}} vo {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "No {{count}} z lade"
   }
 }

@@ -21,7 +21,18 @@ jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
 }));
 
 function partialRun(failed: number): ElevationBackfillState {
-  return { phase: 'partial', completed: 10, total: 10 + failed, failed, isRunning: false };
+  return {
+    phase: 'partial',
+    completed: 10,
+    total: 10 + failed,
+    failed,
+    remaining: null,
+    isRunning: false,
+  };
+}
+
+function atRest(remaining: number | null): ElevationBackfillState {
+  return { phase: 'idle', completed: 0, total: 0, failed: 0, remaining, isRunning: false };
 }
 
 function statusText(): string {
@@ -162,5 +173,54 @@ describe('ElevationBackfillStatus explanation', () => {
       expect(explainer.trim().length).toBeGreaterThan(0);
       expect(body.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * The phase is `idle` on every launch that has not run a pass, so before
+ * `B247` the line was blank whatever the library still owed.
+ */
+describe('ElevationBackfillStatus at rest', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
+  });
+
+  beforeEach(async () => {
+    await changeLanguage('en-AU');
+  });
+
+  it('names what is still outstanding', () => {
+    mockUseElevationBackfill.mockReturnValue(atRest(12));
+    expect(statusText()).toBe('12 activity tracks still need elevation.');
+  });
+
+  it('reads as a singular for one track', () => {
+    mockUseElevationBackfill.mockReturnValue(atRest(1));
+    expect(statusText()).toBe('1 activity track still needs elevation.');
+  });
+
+  it('says nothing when nothing is outstanding', () => {
+    mockUseElevationBackfill.mockReturnValue(atRest(0));
+    const tree = render(<ElevationBackfillStatus />);
+    expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
+  });
+
+  it('says nothing rather than zero when the engine could not answer', () => {
+    mockUseElevationBackfill.mockReturnValue(atRest(null));
+    const tree = render(<ElevationBackfillStatus />);
+    expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
+  });
+
+  it('leaves a live pass reporting its own progress', () => {
+    mockUseElevationBackfill.mockReturnValue({
+      phase: 'fetching',
+      completed: 3,
+      total: 20,
+      failed: 0,
+      remaining: null,
+      isRunning: true,
+    });
+    const tree = render(<ElevationBackfillStatus />);
+    expect(tree.getByText('3 of 20 activities')).toBeTruthy();
   });
 });

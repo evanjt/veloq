@@ -1041,6 +1041,7 @@
     "deleteSection": "Usuń sekcję",
     "deleteSectionConfirm": "Czy na pewno chcesz usunąć tę sekcję? Tej operacji nie można cofnąć.",
     "detectionPaused": "Wykrywanie wstrzymane podczas migracji odcinków",
+    "detectionPausedElevation": "Wykrywanie wstrzymane podczas pobierania wysokości",
     "disabled": "Wyłączona",
     "removeSection": "Usuń sekcję",
     "removeSectionConfirm": "Ta sekcja nie będzie widoczna w szczegółach aktywności ani w statystykach. Możesz ją przywrócić z listy sekcji.",
@@ -1241,6 +1242,8 @@
     "elevationBackfillRetrying_other": "Nie udało się zaktualizować {{count}} śladów aktywności. Zostaną ponowione później.",
     "elevationBackfillFailed": "Nie udało się uruchomić aktualizacji wysokości.",
     "elevationBackfillExplainer": "Ulepszone wykrywanie sekcji uruchomi się, gdy wszystkie ślady będą miały wysokość.",
+    "elevationBackfillOutstanding_one": "{{count}} trasa nadal potrzebuje wysokości.",
+    "elevationBackfillOutstanding_other": "{{count}} tras nadal potrzebuje wysokości.",
     "elevationBackfillWhy": "Dlaczego to potrzebne",
     "elevationBackfillWhyTitle": "Dlaczego dodawana jest wysokość",
     "elevationBackfillWhyBody": "Ulepszony algorytm sekcji i wykrywanie podjazdów korzystają z wysokości, której wcześniejsze wersje nigdy nie pobierały. Veloq pobiera ją raz dla twoich istniejących aktywności, a potem wykrywa sekcje ponownie nowym algorytmem.",
@@ -1427,6 +1430,7 @@
     "v040": {
       "sectionsTitle": "Odcinki, które się tłumaczą",
       "sectionsBody": "Odcinki wycina teraz jeden deterministyczny detektor. Każdy ma historię, którą można przeczytać, przywrócić i przypiąć.",
+      "elevationLine": "Veloq pobiera wysokość raz dla twoich istniejących aktywności, a potem wykrywa sekcje ponownie nowym algorytmem.",
       "rowDeterministic": "Jeden deterministyczny dopasowywacz: te same przejazdy dają te same odcinki",
       "rowSameResult": "Dodawanie przejazdów pojedynczo lub naraz daje ten sam wynik",
       "rowLedger": "Historia pokazuje, jak zmieniał się każdy odcinek i co było w pobliżu",
@@ -1442,7 +1446,14 @@
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
       "diffUnchanged": "Wszystkie {{sections}} odcinków przeszło ponowną analizę bez zmian.",
-      "recutFailed": "Ponowna analiza nie dobiegła końca. Twoje odcinki są bez zmian, a analiza uruchomi się przy następnym starcie."
+      "recutFailed": "Ponowna analiza nie dobiegła końca. Twoje odcinki są bez zmian, a analiza uruchomi się przy następnym starcie.",
+      "settingsReset": "Ustawienia wykrywania odcinków przywrócono do zweryfikowanych wartości: {{changes}}. Podgląd zmian odcinków, a potem Zachowaj, przywraca poprzednie.",
+      "settingsResetChange": "{{label}} z {{from}} na {{to}}",
+      "settingsResetProximity": "bliskość",
+      "settingsResetMinLength": "minimalna długość",
+      "settingsResetMaxLength": "najdłuższy odcinek",
+      "settingsResetMinActivities": "minimalna liczba wizyt",
+      "settingsResetDivergence": "rozwidlenie"
     }
   },
   "strength": {
@@ -1568,5 +1579,22 @@
     "delete": "Usuń nazwę",
     "deleteTitle": "Usuń nazwę",
     "deleteConfirm": "Usunąć \"{{name}}\"? Odcinek wróci do nazwy wygenerowanej."
+  },
+  "backgroundJobs": {
+    "title": "Zadania w tle",
+    "intro": "Długie zadania, które aplikacja wykonuje sama. Trwają dalej po opuszczeniu tego ekranu.",
+    "openLink": "Zadania w tle",
+    "sync": "Synchronizacja aktywności",
+    "detection": "Wykrywanie odcinków",
+    "elevationBackfill": "Pobieranie przewyższeń",
+    "cutover": "Przebudowa odcinków",
+    "stateIdle": "Nie działa",
+    "stateRunning": "W toku",
+    "stateComplete": "Zakończone",
+    "statePartial": "Zakończone, część do ponowienia",
+    "stateFailed": "Zatrzymane przedwcześnie",
+    "progressCount": "{{completed}} z {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Pozostało {{count}} do pobrania"
   }
 }
