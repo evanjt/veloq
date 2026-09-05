@@ -247,7 +247,10 @@
     "grantCameraAccess": "授予相机权限",
     "fillAllFields": "请填写所有字段",
     "nextcloudSetup": "如使用 Nextcloud WebDAV",
-    "manualSetup": "或手动输入"
+    "manualSetup": "或手动输入",
+    "webdavHttpsRequired": "请使用 https:// 地址。普通的 http:// 服务器会以未加密的方式收到你的密码和整个数据库。",
+    "webdavInvalidUrl": "这不是有效的服务器地址",
+    "webdavPlainLan": "允许我自己网络中的未加密服务器"
   },
   "bestEffortsScreen": {
     "title": "最佳表现",

@@ -24,6 +24,7 @@ import {
   getWebdavConfig,
   setWebdavConfig,
   testWebdavConnection,
+  webdavUrlProblem,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, ink } from '@/theme';
@@ -101,6 +102,7 @@ export function BackupSection() {
   const [webdavUrl, setWebdavUrl] = useState('');
   const [webdavUser, setWebdavUser] = useState('');
   const [webdavPass, setWebdavPass] = useState('');
+  const [webdavPlainLan, setWebdavPlainLan] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export function BackupSection() {
       setWebdavUrl(config.url);
       setWebdavUser(config.username);
       setWebdavPass(config.password);
+      setWebdavPlainLan(config.plainLan);
     }
   }, []);
 
@@ -122,12 +125,45 @@ export function BackupSection() {
     setShowBackendPicker(false);
   }, []);
 
-  const handleSaveWebdav = useCallback(async () => {
-    if (!webdavUrl || !webdavUser || !webdavPass) return;
-    await setWebdavConfig(webdavUrl, webdavUser, webdavPass);
+  // Basic credentials and the raw database cross on every backup, so an
+  // address that would carry them in the clear is refused before it is stored.
+  const urlProblemText = useCallback(
+    (url: string, plainLan: boolean): string | null => {
+      const problem = webdavUrlProblem(url, plainLan);
+      if (problem === 'not-https') {
+        return t(
+          'backup.webdavHttpsRequired',
+          'Use an https:// address. A plain http:// server would receive your password and your whole database unencrypted.'
+        );
+      }
+      if (problem === 'invalid') {
+        return t('backup.webdavInvalidUrl', 'That is not a valid server address');
+      }
+      return null;
+    },
+    [t]
+  );
+
+  const handleSaveWebdav = useCallback(async (): Promise<boolean> => {
+    if (!webdavUrl || !webdavUser || !webdavPass) return false;
+    const refused = urlProblemText(webdavUrl, webdavPlainLan);
+    if (refused) {
+      setConnectionResult('error');
+      setConnectionError(refused);
+      return false;
+    }
+    await setWebdavConfig(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
     // Refresh the offer list since WebDAV is now configured
     getOfferableBackends().then(setOfferableBackends);
-  }, [webdavUrl, webdavUser, webdavPass]);
+    return true;
+  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText]);
+
+  const handleTogglePlainLan = useCallback((value: boolean) => {
+    setWebdavPlainLan(value);
+    setConnectionResult(null);
+    setConnectionError(null);
+  }, []);
+  const plainHttp = /^\s*http:/i.test(webdavUrl);
 
   const handleQrScanned = useCallback(
     (data: string) => {
@@ -162,13 +198,19 @@ export function BackupSection() {
       setWebdavUser(user);
       setWebdavPass(password);
       setShowQrScanner(false);
+      const refused = urlProblemText(webdavEndpoint, webdavPlainLan);
+      if (refused) {
+        setConnectionResult('error');
+        setConnectionError(refused);
+        return;
+      }
       setConnectionResult(null);
       // Auto-save config
-      setWebdavConfig(webdavEndpoint, user, password).then(() => {
+      setWebdavConfig(webdavEndpoint, user, password, webdavPlainLan).then(() => {
         getOfferableBackends().then(setOfferableBackends);
       });
     },
-    [t]
+    [t, urlProblemText, webdavPlainLan]
   );
 
   const handleTestConnection = useCallback(async () => {
@@ -180,7 +222,10 @@ export function BackupSection() {
     setTestingConnection(true);
     setConnectionResult(null);
     setConnectionError(null);
-    await handleSaveWebdav();
+    if (!(await handleSaveWebdav())) {
+      setTestingConnection(false);
+      return;
+    }
     const error = await testWebdavConnection();
     setTestingConnection(false);
     if (error) {
@@ -304,6 +349,19 @@ export function BackupSection() {
               autoCorrect={false}
               keyboardType="url"
             />
+            {plainHttp && (
+              <View style={styles.plainLanRow}>
+                <Text style={[styles.qrHint, styles.plainLanText, isDark && styles.textMuted]}>
+                  {t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
+                </Text>
+                <Switch
+                  value={webdavPlainLan}
+                  onValueChange={handleTogglePlainLan}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  testID="backup-webdav-plain-lan"
+                />
+              </View>
+            )}
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
               placeholder={t('backup.username')}
@@ -724,6 +782,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.primary,
   },
+  plainLanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  plainLanText: { flex: 1, marginBottom: 0 },
   qrHint: {
     fontSize: 12,
     color: colors.textSecondary,

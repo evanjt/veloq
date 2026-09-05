@@ -247,7 +247,10 @@
     "grantCameraAccess": "Cameratoegang verlenen",
     "fillAllFields": "Vul alle velden in",
     "nextcloudSetup": "Bij gebruik van Nextcloud WebDAV",
-    "manualSetup": "Of handmatig invoeren"
+    "manualSetup": "Of handmatig invoeren",
+    "webdavHttpsRequired": "Gebruik een https://-adres. Een gewone http://-server zou je wachtwoord en je hele database onversleuteld ontvangen.",
+    "webdavInvalidUrl": "Dat is geen geldig serveradres",
+    "webdavPlainLan": "Een onversleutelde server op mijn eigen netwerk toestaan"
   },
   "bestEffortsScreen": {
     "title": "Beste prestaties",
