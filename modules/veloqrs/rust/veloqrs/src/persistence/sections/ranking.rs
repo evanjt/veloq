@@ -549,6 +549,16 @@ impl PersistentEngine {
                     if !lap.pace.is_finite() || lap.pace <= 0.0 {
                         continue;
                     }
+                    // The scatter ranks by speed, and its rank 1 is the ring the
+                    // athlete reads as the fastest run. A fragment cannot hold it
+                    // any more than it can hold the record.
+                    if !crate::persistence::records::covers_enough_for_record(
+                        lap.coverage,
+                        lap.distance,
+                        record.section_distance,
+                    ) {
+                        continue;
+                    }
                     points.push(crate::FfiSectionChartPoint {
                         lap_id: lap.id.clone(),
                         activity_id: record.activity_id.clone(),
