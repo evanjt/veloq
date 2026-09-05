@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// App-level schema version for post-migration Rust hooks.
 /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
 /// Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 22;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 23;
 
 /// Marks the refusal to open a database a later build wrote, so the init
 /// failover can tell it apart from corruption and leave the file alone.
@@ -79,6 +79,8 @@ impl PersistentEngine {
     /// M19: section enrichment and ranking columns.
     /// M20: settled FIT verdict, replacing the has_sets bit a failure poisoned.
     /// M21: durable per-activity stream store, sized by the athlete.
+    /// M22: how much of its section a traversal covers, for the record rule.
+    /// M23: activity_matches indexed by activity, for the section-to-route join.
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
     /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
@@ -114,6 +116,7 @@ impl PersistentEngine {
             include_str!("../migrations/020_fit_status_failures.sql"),
             include_str!("../migrations/021_activity_streams.sql"),
             include_str!("../migrations/022_portion_coverage.sql"),
+            include_str!("../migrations/023_activity_matches_activity_index.sql"),
         ]
     }
 
