@@ -6,9 +6,7 @@
  * for O(1) lookup instead of loading all sections (~250-570ms → ~10-20ms).
  */
 
-import { useMemo, useState, useEffect, useRef } from 'react';
-import { getEngine } from '@/shared/native/engine';
-import { useEngineReady } from '@/shared/native/useEngineReady';
+import { useMemo } from 'react';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import type { Section as NativeSection } from 'veloqrs';
@@ -66,83 +64,11 @@ export interface PreComputedSectionMatches {
  */
 export function useSectionMatches(
   activityId: string | undefined,
-  preComputed?: PreComputedSectionMatches
+  bundle: PreComputedSectionMatches
 ): UseSectionMatchesResult {
-  const skipOwnFfiCall = preComputed !== undefined;
-  // Lightweight refresh trigger for section changes
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // Use a ref for the refresh function to avoid stale closures in the subscription.
-  // The subscription callback always calls the latest refresh via the ref.
-  const refreshRef = useRef(() => setRefreshTrigger((r) => r + 1));
-  refreshRef.current = () => setRefreshTrigger((r) => r + 1);
-
-  // Track whether we've successfully subscribed to the engine
-  const [subscribed, setSubscribed] = useState(false);
-  const [timedOut, setTimedOut] = useState(false);
-
-  // Hold unsubscribe function so cleanup works across retries
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-
-  // Subscribe to section changes.
-  // If the engine isn't available on first mount, polls until it becomes available,
-  // preventing a permanent miss when the engine initializes after the effect runs.
-  // Safety timeout: after 10s, mark as subscribed to prevent infinite loading.
-  const engine = useEngineReady();
-  useEffect(() => {
-    let cancelled = false;
-
-    // A caller supplying matches owns the subscription that refreshes them.
-    if (skipOwnFfiCall) {
-      setSubscribed(true);
-      return;
-    }
-
-    // Safety timeout: an engine that never opens must not leave the screen
-    // showing a loading state for ever.
-    if (!engine) {
-      const timeout = setTimeout(() => {
-        if (!cancelled) {
-          setSubscribed(true);
-          setTimedOut(true);
-        }
-      }, 10000);
-      return () => {
-        cancelled = true;
-        clearTimeout(timeout);
-      };
-    }
-
-    unsubscribeRef.current = engine.subscribe('sections', () => refreshRef.current());
-    if (!cancelled) {
-      setSubscribed(true);
-      // Data may already have been available before the subscription.
-      refreshRef.current();
-    }
-
-    return () => {
-      cancelled = true;
-      unsubscribeRef.current?.();
-    };
-  }, [skipOwnFfiCall, engine]); // refreshRef avoids stale closure
-
-  // Check if engine has any sections. Count-only: avoids the heavy
-  // getSectionSummaries() deserialization just to read totalCount.
-  const sectionCount = useMemo(() => {
-    if (preComputed) return preComputed.sectionCount;
-    try {
-      const engine = getEngine();
-      return engine?.getSectionCount() ?? 0;
-    } catch {
-      return 0;
-    }
-    // Keyed on the bundle's own field, not the wrapper literal the screen
-    // rebuilds every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger, preComputed?.sectionCount]);
-
+  const sectionCount = bundle.sectionCount;
   const isReady = sectionCount > 0;
-  const isLoading = !subscribed;
+  const isLoading = false;
 
   // Rust already filters out disabled/superseded sections in getSectionsForActivity
   const sections = useMemo(() => {
@@ -150,20 +76,7 @@ export function useSectionMatches(
       return [];
     }
 
-    let nativeSections: NativeSection[];
-    if (preComputed) {
-      nativeSections = preComputed.sections;
-    } else {
-      const engine = getEngine();
-      if (!engine) {
-        return [];
-      }
-      try {
-        nativeSections = engine.getSectionsForActivity(activityId);
-      } catch {
-        return [];
-      }
-    }
+    const nativeSections: NativeSection[] = bundle.sections;
 
     const matches: SectionMatch[] = [];
 
@@ -197,13 +110,13 @@ export function useSectionMatches(
     // Keyed on the bundle's own array, so a re-render that changes nothing
     // does not decode every matched polyline again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, refreshTrigger, preComputed?.sections]);
+  }, [activityId, bundle.sections]);
 
   return {
     sections,
     count: sections.length,
     isReady,
     isLoading,
-    timedOut,
+    timedOut: false,
   };
 }

@@ -1,15 +1,24 @@
-//! Section management: loading, queries, detection, save/apply, names.
+//! Section management: every read and write of a section on one tree.
+//!
+//! `queries` reads, `mutations` creates, renames, references and deletes,
+//! `editing` handles bounds, visibility and imports, and the rest is
+//! detection, identity, ranking, naming and history. All of it is
+//! `impl PersistentEngine`, so a question like "what happens on rename" is
+//! answered here and nowhere else.
 
 pub mod conditioning;
 pub(crate) mod detection;
+mod editing;
 pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
 mod merging;
+mod mutations;
 mod named;
 mod naming;
 pub(crate) mod preview;
+mod queries;
 mod ranking;
 pub(crate) mod track_pool;
 
@@ -35,6 +44,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
 
+use super::schema::{SECTION_SUMMARY_BULK_KEY, recount_section_summaries};
 use super::{PersistentEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
@@ -70,10 +80,14 @@ pub(super) use crate::persistence::haversine_distance_meters as haversine_distan
 
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
+/// `end_index` is the half-open end every writer of `section_activities` stores,
+/// so the last point of the traversal is `end_index - 1` and a portion running
+/// to the last point of its activity carries `end_index == point_count`.
+///
 /// Returns `(None, None)` when:
 /// - `times` is `None` (no stream available)
 /// - either index is out of bounds
-/// - the traversal spans zero (or negative) time
+/// - the traversal holds fewer than two points
 ///
 /// Shared by the detection-time populate path (`save_sections`), the manual
 /// insert path (`insert_section_activity`), and the lazy backfill path.
@@ -87,9 +101,12 @@ pub(super) fn compute_lap_time_from_stream(
         Some(t) => t,
         None => return (None, None),
     };
+    if end_index == 0 || end_index as usize > times.len() {
+        return (None, None);
+    }
     let si = start_index as usize;
-    let ei = end_index as usize;
-    if si >= times.len() || ei >= times.len() {
+    let ei = end_index as usize - 1;
+    if si >= times.len() || ei <= si {
         return (None, None);
     }
     let lap_time = (times[ei] as f64 - times[si] as f64).abs();
@@ -402,7 +419,6 @@ impl PersistentEngine {
                         representative_range,
                         activity_ids,
                         activity_portions: portions,
-                        route_ids: vec![],
                         visit_count,
                         distance_meters: row.get(5)?,
                         activity_traces: std::collections::HashMap::new(),
@@ -472,6 +488,7 @@ impl PersistentEngine {
         // Backfill any NULL lap_time/lap_pace from available time streams
         // Handles migration edge cases and activities synced after section detection
         let _ = self.backfill_section_performance_cache();
+        let _ = self.backfill_section_coverage();
 
         self.refresh_superseded_ids();
 
@@ -1001,7 +1018,6 @@ impl PersistentEngine {
             // FROM this field, so a blank here turns the next save into a
             // wipe of the section's traversals.
             activity_portions: self.get_section_portions(section_id),
-            route_ids: vec![], // Not stored in DB
             visit_count,
             distance_meters,
             activity_traces: std::collections::HashMap::new(), // Not stored in DB
@@ -1281,7 +1297,6 @@ impl PersistentEngine {
             representative_range: None,
             activity_ids: section.activity_ids,
             activity_portions: portions,
-            route_ids: section.route_ids.unwrap_or_default(),
             visit_count: section.visit_count,
             distance_meters: section.distance_meters,
             activity_traces: std::collections::HashMap::new(),
@@ -1792,6 +1807,14 @@ impl PersistentEngine {
         // Track next available number for each sport type (for sequential assignment)
         let mut sport_counters: HashMap<String, u32> = HashMap::new();
 
+        // The insert triggers recount a section's summary on every junction
+        // row, quadratic in the rows a section carries. Suspend them for the
+        // bulk write and recount the saved rows once below.
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
+            params![SECTION_SUMMARY_BULK_KEY],
+        )?;
+
         // Pre-fetch all time streams the upcoming portion loop will need.
         // Replaces a per-portion `SELECT times FROM time_streams WHERE
         // activity_id = ?` (~0.1-0.2 ms each, ~hundreds of portions per
@@ -2013,6 +2036,12 @@ impl PersistentEngine {
         drop(section_stmt);
         drop(junction_stmt);
 
+        recount_section_summaries(&tx, DERIVED_SECTION_PREDICATE)?;
+        tx.execute(
+            "DELETE FROM schema_info WHERE key = ?",
+            params![SECTION_SUMMARY_BULK_KEY],
+        )?;
+
         // Sections whose id survived the re-detect get their exclusions
         // back; a section that died has no rows and the updates are no-ops.
         reapply_auto_exclusions(&tx, &carried_exclusions)?;
@@ -2194,4 +2223,15 @@ mod tests {
         assert!(!engine.processed_clear_pending());
         assert_eq!(engine.processed_activity_ids.len(), 1);
     }
+}
+
+/// Every traversal of a section line by one activity, counted the way
+/// detection counts it, so an attached row and a detected row agree.
+pub(crate) fn compute_section_portions(
+    activity_id: &str,
+    track: &[tracematch::GpsPoint],
+    section_polyline: &[tracematch::GpsPoint],
+    config: &tracematch::SectionConfig,
+) -> Vec<tracematch::SectionPortion> {
+    tracematch::track_portions(activity_id, track, section_polyline, config)
 }

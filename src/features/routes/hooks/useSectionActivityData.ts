@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { calculateSpeed } from '@/shared/math';
 import type { ActivityMetrics, FfiMapSignature } from 'veloqrs';
 import type { Activity, ActivityType, FrequentSection, RoutePoint } from '@/types';
 
-/** Metrics and signatures a caller already read as part of a screen bundle. */
+/** Metrics and signatures the screen bundle already read. */
 export interface PreComputedSectionActivityData {
   activityMetrics: ActivityMetrics[];
   mapSignatures: FfiMapSignature[];
@@ -15,24 +14,18 @@ export interface PreComputedSectionActivityData {
 export function useSectionActivityData(
   section: FrequentSection | null,
   selectedSportType: string | undefined,
-  preComputed?: PreComputedSectionActivityData
+  bundle: PreComputedSectionActivityData
 ) {
   // Held as locals so each memo keys on the bundle's own array, not the
   // wrapper literal the screen rebuilds every render.
-  const bundledMetrics = preComputed?.activityMetrics;
-  const bundledSignatures = preComputed?.mapSignatures;
+  const bundledMetrics = bundle.activityMetrics;
+  const bundledSignatures = bundle.mapSignatures;
 
   // Get section activities from engine metrics (no API call needed).
   // Activities are already cached in the Rust engine's in-memory HashMap.
   const sectionActivitiesUnsorted = useMemo(() => {
     if (!section?.activityIds?.length) return [];
-    let metrics = bundledMetrics;
-    if (!metrics) {
-      const engine = getEngine();
-      if (!engine) return [];
-      metrics = engine.getActivityMetricsForIds(section.activityIds);
-    }
-    return metrics.map(
+    return bundledMetrics.map(
       (m): Activity => ({
         id: m.activityId,
         name: m.name,
@@ -53,14 +46,8 @@ export function useSectionActivityData(
   const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
     if (!section?.activityIds?.length) return undefined;
     try {
-      let sigs = bundledSignatures;
-      if (!sigs) {
-        const engine = getEngine();
-        if (!engine) return undefined;
-        sigs = engine.getMapSignaturesForIds(section.activityIds);
-      }
       const result: Record<string, RoutePoint[]> = {};
-      for (const sig of sigs) {
+      for (const sig of bundledSignatures) {
         const decoded = decodeCoords(sig.encodedCoords);
         if (decoded.length < 2) continue;
         const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));

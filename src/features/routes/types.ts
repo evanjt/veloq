@@ -246,6 +246,8 @@ export interface Section {
   avgGradePercent?: number;
   /** Steepest grade percent held over 300 m of the slice, absent when unknown */
   maxGradePercent?: number;
+  /** How near a straight line the slice runs, 0 to 1, absent when unknown */
+  straightness?: number;
   /** climb, descent, rolling, flat or loop, absent when nothing says */
   klass?: string;
   /** The detector read most of this ground as a lift rather than a ride */

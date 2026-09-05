@@ -285,7 +285,7 @@ impl PersistentEngine {
             .unwrap_or(0.0);
 
         fn is_reverse_dir(dir: &str) -> bool {
-            matches!(dir, "reverse" | "backward")
+            dir == "reverse"
         }
 
         // Each record has laps with per-direction data. Build per-activity, per-direction entries.

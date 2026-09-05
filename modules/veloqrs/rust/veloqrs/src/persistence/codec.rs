@@ -844,7 +844,6 @@ mod tests {
             representative_range: None,
             activity_ids: vec![],
             activity_portions: vec![],
-            route_ids: vec![],
             visit_count: 0,
             activity_traces: std::collections::HashMap::new(),
             confidence: 0.9,

@@ -1,54 +1,85 @@
 /**
- * Shared conversion functions for native section types to app section types.
+ * The engine's section records, in the shape the app draws.
+ *
+ * One builder per record and no more, each spreading rather than listing its
+ * fields, so an enrichment column reaches every screen the day the engine
+ * starts sending it. Listing is what left `straightness` on three engine
+ * records with no app field at all, and `isLift` off the sections list while
+ * the detail screen had it.
  */
 
-import { decodeCoords, type Section as NativeSection } from 'veloqrs';
+import {
+  decodeCoords,
+  type Section as NativeSection,
+  type SectionSummary as NativeSectionSummary,
+  type SectionWithPolyline,
+} from 'veloqrs';
 import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
-import type { FrequentSection } from '@/types';
+import type { FrequentSection, RoutePoint, SectionType } from '@/types';
+
+/** The engine sends coordinates encoded; every screen draws them decoded. */
+function decodePolyline(encoded: ArrayBuffer): RoutePoint[] {
+  return decodeCoords(encoded).map((p) => ({ lat: p.latitude, lng: p.longitude }));
+}
+
+/** "custom" or "auto", never the raw string the engine sent. */
+function sectionTypeOf(value: string | undefined): SectionType {
+  return value === 'custom' ? 'custom' : 'auto';
+}
 
 /**
- * Convert a native section to app section format.
+ * The full section record, from the in-memory catalogue or the database.
  *
- * Every section-returning export sends the same record, whether it came from
- * the in-memory catalogue (`getSectionsFiltered`,
- * `getSectionById`) or the database (`getSectionsForActivity`, `getByType`).
+ * Every section-returning export sends this one shape, whichever filter asked
+ * for it.
  */
 export function convertNativeSectionToApp(native: NativeSection): FrequentSection {
-  const polyline = decodeCoords(native.encodedPolyline).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-
   return {
-    id: native.id,
-    sectionType: native.sectionType === 'custom' ? 'custom' : 'auto',
-    sportType: native.sportType,
-    polyline,
+    ...native,
+    sectionType: sectionTypeOf(native.sectionType),
+    polyline: decodePolyline(native.encodedPolyline),
     representativeActivityId: native.representativeActivityId ?? '',
-    activityIds: native.activityIds,
     activityPortions: convertActivityPortions(native.activityPortions),
     routeIds: native.routeIds ?? [],
-    visitCount: native.visitCount,
-    distanceMeters: native.distanceMeters,
     name: native.name ?? undefined,
     confidence: native.confidence ?? 0,
     observationCount: native.observationCount ?? 0,
     averageSpread: native.averageSpread ?? 0,
     pointDensity: native.pointDensity ?? [],
-    stability: native.stability ?? undefined,
-    elevationGainM: native.elevationGainM ?? undefined,
-    elevationLossM: native.elevationLossM ?? undefined,
-    avgGradePercent: native.avgGradePercent ?? undefined,
-    maxGradePercent: native.maxGradePercent ?? undefined,
-    klass: native.klass ?? undefined,
-    isLift: native.isLift,
-    rankScore: native.rankScore ?? undefined,
-    sportRankScore: native.sportRankScore ?? undefined,
-    version: native.version ?? undefined,
-    updatedAt: native.updatedAt ?? undefined,
     createdAt: native.createdAt ?? '',
-    isUserDefined: native.isUserDefined,
-    disabled: native.disabled,
+    supersededBy: native.supersededBy ?? null,
+  };
+}
+
+/**
+ * The list record, which carries its own polyline so a row needs no call of
+ * its own. It has no `activityIds`: the list does not ask for them.
+ */
+export function convertSectionWithPolylineToApp(native: SectionWithPolyline): FrequentSection {
+  return {
+    ...native,
+    sectionType: native.id.startsWith('custom_') ? 'custom' : 'auto',
+    polyline: decodePolyline(native.encodedPolyline),
+    activityIds: [],
+    routeIds: [],
+    name: native.name ?? undefined,
+    scale: native.scale ?? undefined,
+    createdAt: new Date().toISOString(),
+    supersededBy: native.supersededBy ?? null,
+  };
+}
+
+/**
+ * The summary record, which carries no geometry at all. A caller that draws
+ * the line fetches it separately.
+ */
+export function convertSectionSummaryToApp(native: NativeSectionSummary): FrequentSection {
+  return {
+    ...native,
+    sectionType: sectionTypeOf(native.sectionType),
+    polyline: [],
+    activityIds: [],
+    name: native.name ?? undefined,
     supersededBy: native.supersededBy ?? null,
   };
 }

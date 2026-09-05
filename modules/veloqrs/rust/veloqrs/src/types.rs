@@ -121,7 +121,7 @@ pub struct SectionLap {
     pub pace: f64,
     /// Distance in meters
     pub distance: f64,
-    /// Direction: "forward" or "backward"
+    /// Direction: "same", "reverse" or "partial"
     pub direction: String,
     /// Start index in the activity's GPS track
     #[serde(alias = "start_index")]
@@ -132,6 +132,9 @@ pub struct SectionLap {
     /// Mean heart rate over the lap, when the activity carried a stream.
     #[serde(default, alias = "avg_hr")]
     pub avg_hr: Option<f64>,
+    /// Share of the section this lap spans, `None` until it is measured.
+    #[serde(default)]
+    pub coverage: Option<f64>,
 }
 
 /// Section performance record for an activity.
@@ -162,7 +165,7 @@ pub struct SectionPerformanceRecord {
     /// Average pace in m/s
     #[serde(alias = "avg_pace")]
     pub avg_pace: f64,
-    /// Primary direction: "forward" or "backward"
+    /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
     #[serde(alias = "section_distance")]

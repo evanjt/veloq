@@ -1,4 +1,4 @@
-//! Cutover: archive, commit, cold detect, diff, restore.
+//! Cutover: archive, commit, cold detect, diff, promote.
 //!
 //! Synthetic coordinates only. Run: `cargo test --test cutover -p veloqrs`
 
@@ -190,7 +190,7 @@ fn a_fresh_install_is_not_owed_a_cutover() {
 }
 
 /// A run that died after the switch retries against a catalogue that already
-/// says Unified. Re-archiving then would bury the snapshot the restore needs.
+/// says Unified. Re-archiving then would bury the snapshot the diff needs.
 #[test]
 fn a_resumed_run_reuses_its_archive_snapshot() {
     let _serial = serial();
@@ -586,7 +586,7 @@ fn refuse_the_archive(path: &std::path::Path) {
 /// SB12: any detect at all used to move the catalogue's detector marker, which
 /// retires the cutover. On the upgrade path that meant a sync-triggered detect
 /// could re-cut the pre-0.4.0 catalogue and stamp it Unified before anything
-/// had captured it, losing the migration and its revert with it.
+/// had captured it, losing the migration and its change card with it.
 #[test]
 fn detection_is_refused_while_a_cutover_is_owed() {
     let _serial = serial();

@@ -1,12 +1,12 @@
-//! Section types and operations.
+//! Section types.
 //!
-//! This module provides the API for all sections.
+//! The shapes a section crosses the crate in. Everything that reads or writes
+//! one lives in `persistence::sections`, which is the single tree for storage,
+//! detection, identity, editing and history.
 //! Sections are stored in a single table with a `section_type` discriminator (auto vs custom).
 
 use serde::{Deserialize, Serialize};
 use tracematch::GpsPoint;
-
-pub mod crud;
 
 /// Section type discriminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

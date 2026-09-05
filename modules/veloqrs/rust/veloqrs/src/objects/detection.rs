@@ -583,7 +583,6 @@ mod tests {
                 })
                 .collect(),
             activity_ids,
-            route_ids: Vec::new(),
             visit_count: 2,
             distance_meters: 1_000.0,
             activity_traces: std::collections::HashMap::new(),

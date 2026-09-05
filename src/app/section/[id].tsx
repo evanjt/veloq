@@ -31,7 +31,6 @@ import { RANGE_DAYS } from '@/features/routes/constants';
 import {
   useSectionDetailData,
   useSectionDetailPerformance,
-  NEARBY_RADIUS_METERS,
 } from '@/features/routes/hooks/useSectionDetailData';
 import { useSectionDataRefresh } from '@/features/routes/hooks/useSectionDataRefresh';
 import { useSectionUIState } from '@/features/routes/hooks/useSectionUIState';
@@ -101,12 +100,12 @@ export default function SectionDetailScreen() {
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Nearby sections and merge candidates
-  const { nearby } = useNearbySections(id, NEARBY_RADIUS_METERS, detail?.nearby);
+  const { nearby } = useNearbySections(detail?.nearby ?? []);
   const {
     candidates: mergeCandidates,
     merge: mergeSections,
     isMerging,
-  } = useMergeSections(id, detail?.mergeCandidates);
+  } = useMergeSections(detail?.mergeCandidates ?? []);
 
   const {
     highlightedActivityId,
@@ -198,7 +197,7 @@ export default function SectionDetailScreen() {
     toggleExpand,
     setTrimStart,
     setTrimEnd,
-  } = useSectionTrim(section, handleSectionRefresh, detail?.hasOriginalBounds);
+  } = useSectionTrim(section, handleSectionRefresh, detail?.hasOriginalBounds ?? false);
 
   // Section CRUD actions (rename, delete, toggle disable, exclude/include,
   // reference activity, rematch) - extracted into a hook for clarity.
@@ -244,10 +243,10 @@ export default function SectionDetailScreen() {
   // Memoised so a rename keystroke, which re-renders this screen, hands the
   // hook the same bundle wrapper rather than a fresh literal.
   const preComputedActivityData = useMemo(
-    () =>
-      detail
-        ? { activityMetrics: detail.activityMetrics, mapSignatures: detail.mapSignatures }
-        : undefined,
+    () => ({
+      activityMetrics: detail?.activityMetrics ?? [],
+      mapSignatures: detail?.mapSignatures ?? [],
+    }),
     [detail]
   );
 

@@ -115,6 +115,10 @@ name = "apply_sections_atomicity"
 required-features = ["synthetic"]
 
 [[test]]
+name = "apply_recounts_once"
+required-features = ["synthetic"]
+
+[[test]]
 name = "schema_indexes"
 required-features = ["synthetic"]
 

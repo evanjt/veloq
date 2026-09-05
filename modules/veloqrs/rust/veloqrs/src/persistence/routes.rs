@@ -1603,3 +1603,210 @@ impl PersistentEngine {
         Ok(())
     }
 }
+
+impl PersistentEngine {
+    /// The routes each section's activities are grouped into, from the
+    /// junction join, for a batch of sections in one statement. `DISTINCT`
+    /// because the junction is keyed per pass, and an exclusion on either
+    /// table keeps its row out. A section on no route is absent from the map.
+    pub fn route_ids_for_sections(&self, section_ids: &[String]) -> HashMap<String, Vec<String>> {
+        let mut out: HashMap<String, Vec<String>> = HashMap::new();
+        if section_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; section_ids.len()].join(", ");
+        let sql = format!(
+            "SELECT DISTINCT sa.section_id, am.route_id
+             FROM section_activities sa
+             JOIN activity_matches am ON am.activity_id = sa.activity_id
+             WHERE sa.section_id IN ({placeholders}) AND sa.excluded = 0 AND am.excluded = 0
+             ORDER BY sa.section_id, am.route_id"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let rows = stmt.query_map(rusqlite::params_from_iter(section_ids.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        if let Ok(rows) = rows {
+            for (section_id, route_id) in rows.filter_map(|r| r.ok()) {
+                out.entry(section_id).or_default().push(route_id);
+            }
+        }
+        out
+    }
+
+    /// The visible sections a route's activities pass through, from the same join.
+    pub fn section_ids_for_route(&self, route_id: &str) -> Vec<String> {
+        let sql = format!(
+            "SELECT DISTINCT sa.section_id
+             FROM activity_matches am
+             JOIN section_activities sa ON sa.activity_id = am.activity_id
+             JOIN sections s ON s.id = sa.section_id
+             WHERE am.route_id = ? AND am.excluded = 0 AND sa.excluded = 0 AND {}
+             ORDER BY sa.section_id",
+            Self::VISIBLE_FILTER
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return Vec::new();
+        };
+        stmt.query_map(params![route_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    use super::PersistentEngine;
+    use tracematch::GpsPoint;
+
+    /// Two sections over three activities, four routes, with one exclusion on
+    /// each side of the join: `a3`'s pass through `s2` and `a2`'s match on `r4`.
+    fn engine_with_routes_and_sections() -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(
+                    id.to_string(),
+                    vec![GpsPoint::new(46.2, 7.3), GpsPoint::new(46.21, 7.31)],
+                    "Ride".to_string(),
+                )
+                .unwrap();
+        }
+        for sid in ["s1", "s2"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES (?, 'auto', ?, 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                        46.2, 46.21, 7.3, 7.31)",
+                    params![sid, sid],
+                )
+                .unwrap();
+        }
+        for (sid, aid, excluded) in [
+            ("s1", "a1", 0),
+            ("s1", "a2", 0),
+            ("s2", "a2", 0),
+            ("s2", "a3", 1),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, excluded)
+                     VALUES (?, ?, 'same', 0, 2, 400.0, ?)",
+                    params![sid, aid, excluded],
+                )
+                .unwrap();
+        }
+        for (rid, aid, excluded) in [
+            ("r1", "a1", 0),
+            ("r2", "a1", 0),
+            ("r2", "a2", 0),
+            ("r3", "a3", 0),
+            ("r4", "a2", 1),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_matches (route_id, activity_id, match_percentage,
+                        direction, excluded)
+                     VALUES (?, ?, 100.0, 'same', ?)",
+                    params![rid, aid, excluded],
+                )
+                .unwrap();
+        }
+        // The rows above stand in for a saved regroup; a dirty flag would
+        // have `get_groups` rewrite them from the activities' empty signatures.
+        engine.groups_dirty = false;
+        engine
+    }
+
+    #[test]
+    fn a_section_read_carries_the_routes_its_activities_are_grouped_into() {
+        let engine = engine_with_routes_and_sections();
+
+        let s1 = engine.get_section("s1").unwrap();
+        assert_eq!(s1.route_ids, Some(vec!["r1".to_string(), "r2".to_string()]));
+
+        let s2 = engine.get_section("s2").unwrap();
+        assert_eq!(s2.route_ids, Some(vec!["r2".to_string()]));
+    }
+
+    #[test]
+    fn the_section_list_carries_route_ids_on_every_row() {
+        let engine = engine_with_routes_and_sections();
+
+        let mut sections = engine.get_sections_by_type(None);
+        sections.sort_by(|a, b| a.id.cmp(&b.id));
+
+        let routes: Vec<Option<Vec<String>>> = sections.into_iter().map(|s| s.route_ids).collect();
+        assert_eq!(
+            routes,
+            vec![
+                Some(vec!["r1".to_string(), "r2".to_string()]),
+                Some(vec!["r2".to_string()]),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_batch_read_names_each_section_once_per_route_and_honours_both_exclusions() {
+        let engine = engine_with_routes_and_sections();
+
+        let routes = engine.route_ids_for_sections(&["s1".to_string(), "s2".to_string()]);
+
+        assert_eq!(routes["s1"], vec!["r1", "r2"]);
+        assert_eq!(routes["s2"], vec!["r2"]);
+        assert!(engine.route_ids_for_sections(&[]).is_empty());
+    }
+
+    #[test]
+    fn a_route_read_names_the_visible_sections_its_activities_pass_through() {
+        let engine = engine_with_routes_and_sections();
+
+        assert_eq!(engine.section_ids_for_route("r2"), vec!["s1", "s2"]);
+        assert_eq!(engine.section_ids_for_route("r1"), vec!["s1"]);
+        assert!(
+            engine.section_ids_for_route("r3").is_empty(),
+            "a3's pass is excluded"
+        );
+        assert!(
+            engine.section_ids_for_route("r4").is_empty(),
+            "a2's match is excluded"
+        );
+        assert!(engine.section_ids_for_route("r9").is_empty());
+
+        engine
+            .db
+            .execute("UPDATE sections SET disabled = 1 WHERE id = 's2'", [])
+            .unwrap();
+        assert_eq!(engine.section_ids_for_route("r2"), vec!["s1"]);
+    }
+
+    #[test]
+    fn the_route_bundle_carries_its_section_list() {
+        let mut engine = engine_with_routes_and_sections();
+
+        let bundle = engine.route_detail_data("r2", None, 0);
+
+        assert_eq!(bundle.section_ids, vec!["s1", "s2"]);
+    }
+
+    #[test]
+    fn a_section_no_route_covers_carries_an_empty_list_not_none() {
+        let engine = engine_with_routes_and_sections();
+        engine
+            .db
+            .execute("DELETE FROM activity_matches", [])
+            .unwrap();
+
+        assert_eq!(engine.get_section("s1").unwrap().route_ids, Some(vec![]));
+    }
+}

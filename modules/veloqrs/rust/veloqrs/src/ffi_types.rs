@@ -485,9 +485,8 @@ impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
 /// Which sections a read wants. Every field is a narrowing, and an empty
 /// filter is every visible section.
 ///
-/// One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
-/// and `get_for_activity` all returned the same list and only two of them
-/// applied the corridor-name overlay (`C31`).
+/// One record rather than a call per narrowing: every read returns the same
+/// list, and the corridor-name overlay is applied once behind it.
 #[derive(Debug, Clone, Default, uniffi::Record)]
 pub struct FfiSectionFilter {
     /// Only this sport's sections.
@@ -533,7 +532,7 @@ pub struct FfiSection {
     pub version: Option<u32>,
     pub updated_at: Option<String>,
     pub created_at: String,
-    // Route associations
+    /// Routes the section's activities are grouped into, from the junction join
     pub route_ids: Option<Vec<String>>,
     // Custom-specific fields (None for auto sections)
     pub source_activity_id: Option<String>,
@@ -627,7 +626,7 @@ impl From<&tracematch::FrequentSection> for FfiSection {
             version: Some(s.version),
             updated_at: s.updated_at.clone(),
             created_at: s.created_at.clone().unwrap_or_default(),
-            route_ids: Some(s.route_ids.clone()),
+            route_ids: None,
             source_activity_id: None,
             start_index: None,
             end_index: None,
@@ -668,7 +667,7 @@ pub struct FfiSectionLap {
     pub pace: f64,
     /// Distance in meters
     pub distance: f64,
-    /// Direction: "forward" or "backward"
+    /// Direction: "same", "reverse" or "partial"
     pub direction: String,
     /// Start index in the activity's GPS track
     pub start_index: u32,
@@ -791,7 +790,7 @@ pub struct FfiSectionPerformanceRecord {
     pub avg_time: f64,
     /// Average pace in m/s
     pub avg_pace: f64,
-    /// Primary direction: "forward" or "backward"
+    /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
     pub section_distance: f64,
@@ -1682,6 +1681,8 @@ pub struct FfiRouteDetailData {
     pub excluded_activity_ids: Vec<String>,
     /// Simplified GPS signatures for the route's activities
     pub map_signatures: Vec<FfiMapSignature>,
+    /// Visible sections the route's activities pass through
+    pub section_ids: Vec<String>,
 }
 
 // ============================================================================
@@ -1795,10 +1796,11 @@ mod tests {
             time: 120.5,
             pace: 8.3,
             distance: 1000.0,
-            direction: "forward".to_string(),
+            direction: "same".to_string(),
             start_index: 17,
             end_index: 104,
             avg_hr: Some(142.0),
+            coverage: Some(1.0),
         }
     }
 
@@ -1883,7 +1885,7 @@ mod tests {
         assert_eq!(ffi.time, 120.5);
         assert_eq!(ffi.pace, 8.3);
         assert_eq!(ffi.distance, 1000.0);
-        assert_eq!(ffi.direction, "forward");
+        assert_eq!(ffi.direction, "same");
         // Swapped track indices would draw the lap backwards on the map.
         assert_eq!(ffi.start_index, 17);
         assert_eq!(ffi.end_index, 104);
@@ -1891,9 +1893,9 @@ mod tests {
 
     #[test]
     fn section_performance_record_carries_every_field() {
-        let ffi = FfiSectionPerformanceRecord::from(section_record("forward", 120.5));
-        assert_eq!(ffi.activity_id, "act_forward");
-        assert_eq!(ffi.activity_name, "forward effort");
+        let ffi = FfiSectionPerformanceRecord::from(section_record("same", 120.5));
+        assert_eq!(ffi.activity_id, "act_same");
+        assert_eq!(ffi.activity_name, "same effort");
         assert_eq!(ffi.activity_date, 1700000000);
         assert_eq!(ffi.lap_count, 1);
         // best_* against avg_*: a transposition would report the average as
@@ -1902,7 +1904,7 @@ mod tests {
         assert_eq!(ffi.avg_time, 124.5);
         assert_eq!(ffi.best_pace, 8.3);
         assert_eq!(ffi.avg_pace, 7.9);
-        assert_eq!(ffi.direction, "forward");
+        assert_eq!(ffi.direction, "same");
         assert_eq!(ffi.section_distance, 1000.0);
 
         assert_eq!(ffi.laps.len(), 1);
@@ -1976,11 +1978,11 @@ mod tests {
     fn section_performance_result_keeps_its_option_slots_distinct() {
         let result = crate::SectionPerformanceResult {
             records: vec![
-                section_record("forward", 120.5),
+                section_record("same", 120.5),
                 section_record("reverse", 131.0),
             ],
             best_record: Some(section_record("overall", 118.0)),
-            best_forward_record: Some(section_record("forward", 120.5)),
+            best_forward_record: Some(section_record("same", 120.5)),
             best_reverse_record: Some(section_record("reverse", 131.0)),
             forward_stats: Some(crate::DirectionStats {
                 avg_time: Some(300.0),
@@ -1998,7 +2000,7 @@ mod tests {
 
         let ffi = FfiSectionPerformanceResult::from(result);
         assert_eq!(ffi.records.len(), 2);
-        assert_eq!(ffi.records[0].direction, "forward");
+        assert_eq!(ffi.records[0].direction, "same");
         assert_eq!(ffi.records[1].direction, "reverse");
         // Crossing these three slots would show the wrong PR per direction.
         assert_eq!(ffi.best_record.as_ref().unwrap().best_time, 118.0);
@@ -2155,9 +2157,8 @@ mod tests {
                 start_index: 4,
                 end_index: 40,
                 distance_meters: 900.0,
-                direction: tracematch::Direction::Forward,
+                direction: tracematch::Direction::Same,
             }],
-            route_ids: vec!["route_9".to_string()],
             visit_count: 6,
             distance_meters: 950.0,
             activity_traces: std::collections::HashMap::new(),
@@ -2196,7 +2197,6 @@ mod tests {
             "the catalogue's non-optional id must not arrive as None"
         );
         assert_eq!(ffi.activity_ids, vec!["act_1", "act_2"]);
-        assert_eq!(ffi.route_ids, Some(vec!["route_9".to_string()]));
         assert_eq!(ffi.visit_count, 6);
         assert_eq!(ffi.confidence, Some(0.75));
         assert_eq!(ffi.observation_count, Some(8));

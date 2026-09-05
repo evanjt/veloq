@@ -43,10 +43,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use super::compute_section_portions;
 use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use crate::persistence::sections::geometry;
-use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
     SectionConfig, shares_ground,
@@ -250,7 +250,6 @@ impl Default for SectionIdentity {
 }
 
 impl PersistentEngine {
-    /// Every section id the database holds, whatever its state.
     /// Every id the database holds or has held: the live rows, the rows the
     /// view hides, and every id the ledger, the geometry versions, the pins or
     /// the cutover archive name. A content id retired by a merge or a delete
@@ -1468,7 +1467,6 @@ mod tests {
             representative_range: Some((0, 12)),
             activity_ids: vec!["a1".to_string()],
             activity_portions: vec![],
-            route_ids: vec![],
             visit_count: 3,
             activity_traces: HashMap::new(),
             confidence: 0.9,

@@ -524,42 +524,6 @@ impl SectionManager {
         })?
     }
 
-    fn extract_trace(
-        &self,
-        activity_id: String,
-        section_polyline_flat: Vec<f64>,
-    ) -> Result<Vec<u8>, VeloqError> {
-        with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
-                .chunks(2)
-                .filter(|c| c.len() == 2)
-                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
-                .collect();
-            if polyline.len() < 2 {
-                return vec![];
-            }
-            let track = match engine.get_gps_track(&activity_id) {
-                Some(t) => t,
-                None => return vec![],
-            };
-            if track.len() < 3 {
-                return vec![];
-            }
-            let mut track_map: std::collections::HashMap<&str, &[tracematch::GpsPoint]> =
-                std::collections::HashMap::new();
-            track_map.insert(activity_id.as_str(), track.as_slice());
-            let traces = tracematch::sections::extract_all_activity_traces(
-                std::slice::from_ref(&activity_id),
-                &polyline,
-                &track_map,
-            );
-            match traces.into_iter().next() {
-                Some((_, trace)) => crate::coords::encode(&trace),
-                None => vec![],
-            }
-        })
-    }
-
     fn trim(&self, section_id: String, start_index: u32, end_index: u32) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.trim_section(&section_id, start_index, end_index)
@@ -572,10 +536,6 @@ impl SectionManager {
             e.reset_section_bounds(&section_id)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
-    }
-
-    fn has_original_bounds(&self, section_id: String) -> Result<bool, VeloqError> {
-        with_engine(|e| e.has_original_bounds(&section_id))
     }
 
     fn get_extension_track(
@@ -742,25 +702,6 @@ impl SectionManager {
         })
     }
 
-    /// Get sections near a given section within a radius.
-    /// Returns summaries with polyline coordinates for map overlay rendering.
-    fn get_nearby_sections(
-        &self,
-        section_id: String,
-        radius_meters: f64,
-    ) -> Result<Vec<crate::FfiNearbySectionSummary>, VeloqError> {
-        with_engine(|engine| engine.get_nearby_sections(&section_id, radius_meters))
-    }
-
-    /// Find sections that are candidates for merging with the given section.
-    /// Candidates have >30% polyline overlap or centers within 300m with similar distances.
-    fn get_merge_candidates(
-        &self,
-        section_id: String,
-    ) -> Result<Vec<crate::FfiMergeCandidate>, VeloqError> {
-        with_engine(|engine| engine.get_merge_candidates(&section_id))
-    }
-
     /// Merge two sections. Moves all traversal history from secondary into primary.
     /// Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
     fn merge_sections(
@@ -775,37 +716,6 @@ impl SectionManager {
                     msg: format!("{}", e),
                 })
         })?
-    }
-
-    /// Get section encounters for an activity: one entry per (section, direction).
-    /// Canonical data unit for the sections tab in activity detail.
-    fn get_activity_section_encounters(
-        &self,
-        activity_id: String,
-    ) -> Result<Vec<crate::FfiSectionEncounter>, VeloqError> {
-        with_engine(|e| e.get_activity_section_encounters(&activity_id))
-    }
-
-    /// Given an activity and a list of section IDs, return the subset where
-    /// `activity_id` currently holds the best record. Collapses a per-section
-    /// N+1 `get_performances` loop into a single FFI round-trip.
-    fn get_activity_pr_sections(
-        &self,
-        activity_id: String,
-        section_ids: Vec<String>,
-    ) -> Result<Vec<String>, VeloqError> {
-        with_engine(|e| {
-            let sport = e.sport_of_activity(&activity_id);
-            section_ids
-                .into_iter()
-                .filter(|sid| {
-                    e.get_section_performances_filtered(sid, sport.as_deref())
-                        .best_record
-                        .as_ref()
-                        .is_some_and(|r| r.activity_id == activity_id)
-                })
-                .collect()
-        })
     }
 
     /// Home-screen "Sections for you" list. Composes ML ranking + performance

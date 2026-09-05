@@ -10,11 +10,54 @@ use super::{PersistentEngine, codec, sections};
 /// App-level schema version for post-migration Rust hooks.
 /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
 /// Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 21;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 23;
 
 /// Marks the refusal to open a database a later build wrote, so the init
 /// failover can tell it apart from corruption and leave the file alone.
 pub(crate) const FORWARD_SCHEMA_MARKER: &str = "database schema is newer than this build";
+
+/// `schema_info` key whose presence suspends the summary recount the
+/// `section_activities` insert triggers make. A bulk save sets it, writes its
+/// rows, recounts them once with [`recount_section_summaries`] and removes it,
+/// all inside one transaction, so a rollback takes the key with it.
+pub(crate) const SECTION_SUMMARY_BULK_KEY: &str = "section_summary_bulk";
+
+/// The `WHEN` clause that honours [`SECTION_SUMMARY_BULK_KEY`].
+const SUMMARY_TRIGGER_GUARD: &str =
+    "WHEN NOT EXISTS (SELECT 1 FROM schema_info WHERE key = 'section_summary_bulk')";
+
+/// Recount `visit_count`, `activity_count` and `sport_types` for every section
+/// `predicate` selects, the same aggregates the triggers keep row by row.
+pub(crate) fn recount_section_summaries(conn: &Connection, predicate: &str) -> SqlResult<usize> {
+    conn.execute(
+        &format!(
+            "UPDATE sections SET
+                 visit_count = (
+                     SELECT COUNT(*) FROM section_activities sa
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
+                 activity_count = (
+                     SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
+                 sport_types = (
+                     SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
+                     JOIN activities a ON a.id = sa.activity_id
+                     WHERE sa.section_id = sections.id AND sa.excluded = 0)
+             WHERE {predicate}"
+        ),
+        [],
+    )
+}
+
+/// Whether the named trigger exists and its body carries the bulk guard.
+fn trigger_has_guard(conn: &Connection, name: &str) -> bool {
+    conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        params![name],
+        |row| row.get::<_, String>(0),
+    )
+    .map(|sql| sql.contains(SECTION_SUMMARY_BULK_KEY))
+    .unwrap_or(false)
+}
 
 /// Whether an open failed because the file is ahead of this build.
 pub(crate) fn is_forward_schema_error(e: &rusqlite::Error) -> bool {
@@ -36,6 +79,8 @@ impl PersistentEngine {
     /// M19: section enrichment and ranking columns.
     /// M20: settled FIT verdict, replacing the has_sets bit a failure poisoned.
     /// M21: durable per-activity stream store, sized by the athlete.
+    /// M22: how much of its section a traversal covers, for the record rule.
+    /// M23: activity_matches indexed by activity, for the section-to-route join.
     /// The nullable `polyline_json` rebuild is a pragma-guarded hook, not a
     /// numbered migration, so the version stays one for one with the SQL.
     pub(super) fn migrations() -> Migrations<'static> {
@@ -70,6 +115,8 @@ impl PersistentEngine {
             include_str!("../migrations/019_enrichment.sql"),
             include_str!("../migrations/020_fit_status_failures.sql"),
             include_str!("../migrations/021_activity_streams.sql"),
+            include_str!("../migrations/022_portion_coverage.sql"),
+            include_str!("../migrations/023_activity_matches_activity_index.sql"),
         ]
     }
 
@@ -705,7 +752,8 @@ impl PersistentEngine {
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
     /// on that first add (a fresh column is all-zero), and the triggers use
-    /// CREATE ... IF NOT EXISTS. get_section_summaries then reads visit_count
+    /// CREATE ... IF NOT EXISTS, except the insert trigger, which is recreated
+    /// once when it predates the bulk guard. get_section_summaries then reads visit_count
     /// straight off the row instead of a per-open GROUP BY over the junction; the
     /// triggers keep it correct on every section_activities write,
     /// including the merge paths that reassign rows with UPDATE ... SET
@@ -742,9 +790,12 @@ impl PersistentEngine {
                 [],
             )?;
         }
-        conn.execute_batch(
+        if !trigger_has_guard(conn, "section_activities_visit_count_ai") {
+            conn.execute_batch("DROP TRIGGER IF EXISTS section_activities_visit_count_ai")?;
+        }
+        conn.execute_batch(&format!(
             "CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_ai
-             AFTER INSERT ON section_activities BEGIN
+             AFTER INSERT ON section_activities {SUMMARY_TRIGGER_GUARD} BEGIN
                  UPDATE sections SET visit_count = (
                      SELECT COUNT(*) FROM section_activities
                      WHERE section_id = NEW.section_id AND excluded = 0
@@ -774,8 +825,8 @@ impl PersistentEngine {
                      SELECT COUNT(*) FROM section_activities
                      WHERE section_id = OLD.section_id AND excluded = 0
                  ) WHERE id = OLD.section_id;
-             END;",
-        )?;
+             END;"
+        ))?;
         Ok(())
     }
 
@@ -802,19 +853,11 @@ impl PersistentEngine {
                 |row| row.get(0),
             )
             .unwrap_or(false);
-        if has_columns && has_trigger {
+        let has_guard = trigger_has_guard(conn, "section_activities_summary_ai");
+        if has_columns && has_trigger && has_guard {
             return Ok(());
         }
-        conn.execute_batch(
-            "UPDATE sections SET
-                 activity_count = (
-                     SELECT COUNT(DISTINCT activity_id) FROM section_activities sa
-                     WHERE sa.section_id = sections.id AND sa.excluded = 0),
-                 sport_types = (
-                     SELECT GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                     JOIN activities a ON a.id = sa.activity_id
-                     WHERE sa.section_id = sections.id AND sa.excluded = 0);",
-        )?;
+        recount_section_summaries(conn, "1")?;
         // One body, four firings: the recount for whichever section the row
         // touched, on insert, delete, exclusion flip and section move.
         let recount = |key: &str| {
@@ -836,7 +879,7 @@ impl PersistentEngine {
              DROP TRIGGER IF EXISTS section_activities_summary_au;
              DROP TRIGGER IF EXISTS section_activities_summary_amove;
              CREATE TRIGGER section_activities_summary_ai
-             AFTER INSERT ON section_activities BEGIN {new_} END;
+             AFTER INSERT ON section_activities {SUMMARY_TRIGGER_GUARD} BEGIN {new_} END;
              CREATE TRIGGER section_activities_summary_ad
              AFTER DELETE ON section_activities BEGIN {old} END;
              CREATE TRIGGER section_activities_summary_au

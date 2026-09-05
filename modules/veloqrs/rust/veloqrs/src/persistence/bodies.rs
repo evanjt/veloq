@@ -188,7 +188,21 @@ impl PersistentEngine {
             params![activity_id, types, raw],
         )?;
         match serde_json::from_str::<Vec<crate::net::types::StreamDto>>(raw) {
-            Ok(parsed) => self.write_activity_streams(activity_id, &parsed)?,
+            // A body carrying coordinates goes through the same mask the sync
+            // uses, or this writer stores the server's index space over rows
+            // the track addresses (`C6`). A body without them carries no mask
+            // to apply, and `storable_series` answers empty for one, so it is
+            // stored as it arrived.
+            Ok(parsed) => {
+                let masked;
+                let to_store = if parsed.iter().any(|s| s.kind == "latlng") {
+                    masked = crate::net::types::storable_series(&parsed);
+                    &masked
+                } else {
+                    &parsed
+                };
+                self.write_activity_streams(activity_id, to_store)?;
+            }
             Err(e) => log::warn!(
                 "veloqrs: [Streams] {} body for {} did not parse, caching it unstored: {}",
                 types,

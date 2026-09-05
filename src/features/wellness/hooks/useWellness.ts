@@ -27,7 +27,6 @@ function useWellnessInvalidation(): void {
 const TIME_RANGE_DAYS: Record<TimeRange, number> = {
   '7d': 7,
   '1m': 30,
-  '42d': 42,
   '3m': 90,
   '6m': 180,
   '1y': 365,
