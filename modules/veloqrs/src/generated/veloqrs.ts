@@ -6584,9 +6584,8 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
  * Which sections a read wants. Every field is a narrowing, and an empty
  * filter is every visible section.
  *
- * One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
- * and `get_for_activity` all returned the same list and only two of them
- * applied the corridor-name overlay (`C31`).
+ * One record rather than a call per narrowing: every read returns the same
+ * list, and the corridor-name overlay is applied once behind it.
  */
 export type FfiSectionFilter = {
   /**
@@ -6805,7 +6804,7 @@ export type FfiSectionLap = {
    */
   distance: /*f64*/ number;
   /**
-   * Direction: "forward" or "backward"
+   * Direction: "same", "reverse" or "partial"
    */
   direction: string;
   /**
@@ -7171,7 +7170,7 @@ export type FfiSectionPerformanceRecord = {
    */
   avgPace: /*f64*/ number;
   /**
-   * Primary direction: "forward" or "backward"
+   * Primary direction: "same" or "reverse"
    */
   direction: string;
   /**
@@ -9724,7 +9723,6 @@ export interface ActivityManagerLike {
     activityIds: Array<string>,
   ) /*throws*/ : FfiActivityHighlightsBundle;
   getIds() /*throws*/ : Array<string>;
-  getMetricsForIds(ids: Array<string>) /*throws*/ : Array<FfiActivityMetrics>;
   getMissingTimeStreams(activityIds: Array<string>) /*throws*/ : Array<string>;
   /**
    * A stream payload for an activity and series selection: the cached
@@ -9972,24 +9970,6 @@ export class ActivityManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_ids(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getMetricsForIds(ids: Array<string>): Array<FfiActivityMetrics> /*throws*/ {
-    return FfiConverterArrayTypeFfiActivityMetrics.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
-            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayString.lower(ids),
             callStatus,
           );
         },
@@ -12539,7 +12519,6 @@ export interface MapManagerLike {
     endDate: /*i64*/ bigint,
     sportTypes: Array<string>,
   ) /*throws*/ : FfiMapScreenData;
-  getSignaturesForIds(ids: Array<string>) /*throws*/ : Array<FfiMapSignature>;
   queryViewport(
     minLat: /*f64*/ number,
     maxLat: /*f64*/ number,
@@ -12608,24 +12587,6 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
             FfiConverterInt64.lower(startDate),
             FfiConverterInt64.lower(endDate),
             FfiConverterArrayString.lower(sportTypes),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  getSignaturesForIds(ids: Array<string>): Array<FfiMapSignature> /*throws*/ {
-    return FfiConverterArrayTypeFfiMapSignature.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
-            uniffiTypeMapManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayString.lower(ids),
             callStatus,
           );
         },
@@ -13264,26 +13225,6 @@ export interface SectionManagerLike {
     startIndex: /*u32*/ number,
     endIndex: /*u32*/ number,
   ) /*throws*/ : void;
-  extractTrace(
-    activityId: string,
-    sectionPolylineFlat: Array</*f64*/ number>,
-  ) /*throws*/ : ArrayBuffer;
-  /**
-   * Given an activity and a list of section IDs, return the subset where
-   * `activity_id` currently holds the best record. Collapses a per-section
-   * N+1 `get_performances` loop into a single FFI round-trip.
-   */
-  getActivityPrSections(
-    activityId: string,
-    sectionIds: Array<string>,
-  ) /*throws*/ : Array<string>;
-  /**
-   * Get section encounters for an activity: one entry per (section, direction).
-   * Canonical data unit for the sections tab in activity detail.
-   */
-  getActivitySectionEncounters(
-    activityId: string,
-  ) /*throws*/ : Array<FfiSectionEncounter>;
   getAllNames() /*throws*/ : Map<string, string>;
   /**
    * Get ALL section summaries including disabled/superseded (for restore UI).
@@ -13351,20 +13292,7 @@ export interface SectionManagerLike {
   ) /*throws*/ : Array<FfiSectionGeometryVersion>;
   getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
   getLineages() /*throws*/ : Array<FfiSectionLineage>;
-  /**
-   * Find sections that are candidates for merging with the given section.
-   * Candidates have >30% polyline overlap or centers within 300m with similar distances.
-   */
-  getMergeCandidates(sectionId: string) /*throws*/ : Array<FfiMergeCandidate>;
   getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
-  /**
-   * Get sections near a given section within a radius.
-   * Returns summaries with polyline coordinates for map overlay rendering.
-   */
-  getNearbySections(
-    sectionId: string,
-    radiusMeters: /*f64*/ number,
-  ) /*throws*/ : Array<FfiNearbySectionSummary>;
   getPerformances(
     sectionId: string,
     sportType: string | undefined,
@@ -13414,7 +13342,6 @@ export interface SectionManagerLike {
     sportType: string,
     limit: /*u32*/ number,
   ) /*throws*/ : Array<FfiWorkoutSection>;
-  hasOriginalBounds(sectionId: string) /*throws*/ : boolean;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
   includeLap(
     sectionId: string,
@@ -13681,79 +13608,6 @@ export class SectionManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
-    );
-  }
-
-  extractTrace(
-    activityId: string,
-    sectionPolylineFlat: Array</*f64*/ number>,
-  ): ArrayBuffer /*throws*/ {
-    return FfiConverterArrayBuffer.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(activityId),
-            FfiConverterArrayFloat64.lower(sectionPolylineFlat),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Given an activity and a list of section IDs, return the subset where
-   * `activity_id` currently holds the best record. Collapses a per-section
-   * N+1 `get_performances` loop into a single FFI round-trip.
-   */
-  getActivityPrSections(
-    activityId: string,
-    sectionIds: Array<string>,
-  ): Array<string> /*throws*/ {
-    return FfiConverterArrayString.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(activityId),
-            FfiConverterArrayString.lower(sectionIds),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Get section encounters for an activity: one entry per (section, direction).
-   * Canonical data unit for the sections tab in activity detail.
-   */
-  getActivitySectionEncounters(
-    activityId: string,
-  ): Array<FfiSectionEncounter> /*throws*/ {
-    return FfiConverterArrayTypeFfiSectionEncounter.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(activityId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
     );
   }
 
@@ -14116,28 +13970,6 @@ export class SectionManager
     );
   }
 
-  /**
-   * Find sections that are candidates for merging with the given section.
-   * Candidates have >30% polyline overlap or centers within 300m with similar distances.
-   */
-  getMergeCandidates(sectionId: string): Array<FfiMergeCandidate> /*throws*/ {
-    return FfiConverterArrayTypeFfiMergeCandidate.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(sectionId),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
   getNamedCorridors(): Array<FfiNamedCorridor> /*throws*/ {
     return FfiConverterArrayTypeFfiNamedCorridor.lift(
       uniffiCaller.rustCallWithError(
@@ -14147,32 +13979,6 @@ export class SectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Get sections near a given section within a radius.
-   * Returns summaries with polyline coordinates for map overlay rendering.
-   */
-  getNearbySections(
-    sectionId: string,
-    radiusMeters: /*f64*/ number,
-  ): Array<FfiNearbySectionSummary> /*throws*/ {
-    return FfiConverterArrayTypeFfiNearbySectionSummary.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(sectionId),
-            FfiConverterFloat64.lower(radiusMeters),
             callStatus,
           );
         },
@@ -14395,24 +14201,6 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sportType),
             FfiConverterUInt32.lower(limit),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  hasOriginalBounds(sectionId: string): boolean /*throws*/ {
-    return FfiConverterBool.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(sectionId),
             callStatus,
           );
         },
@@ -18009,14 +17797,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_metrics_for_ids() !==
-    26774
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_get_metrics_for_ids",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams() !==
     65355
   ) {
@@ -18593,14 +18373,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids() !==
-    17059
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport() !==
     44013
   ) {
@@ -18961,30 +18733,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace() !==
-    32855
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_extract_trace",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections() !==
-    62937
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters() !==
-    17472
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names() !==
     23962
   ) {
@@ -19121,27 +18869,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates() !==
-    4907
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors() !==
     6713
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections() !==
-    8280
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections",
     );
   }
   if (
@@ -19222,14 +18954,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds() !==
-    8769
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds",
     );
   }
   if (
