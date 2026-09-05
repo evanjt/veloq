@@ -230,21 +230,13 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       }
     }
 
-    // Snapshot the live DB so a failed restore can roll back. destroyEngine first
-    // so the snapshot is a clean, closed copy.
     const engine = getEngine();
-    if (engine) {
-      engine.destroyEngine();
-    }
-
     const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
     const backupPath = `${dbPath}.bak`;
-    if (liveExists) {
-      await FileSystem.copyAsync({
-        from: `file://${dbPath}`,
-        to: `file://${backupPath}`,
-      });
-    }
+    // Whether the rollback copy is a complete one. A snapshot that threw
+    // half-written must never be copied back over a live database that is
+    // still intact.
+    let snapshotTaken = false;
 
     // The engine quarantines an unopenable database (renames it aside and
     // starts fresh), so a corrupt restored file would otherwise read as a
@@ -264,6 +256,20 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     const quarantinedBefore = new Set(await listQuarantined());
 
     try {
+      // Both the close and the snapshot sit inside the guard: a copy that
+      // throws here has to return a result and leave the engine open, not
+      // escape past the caller's own error handling.
+      if (engine) {
+        engine.destroyEngine();
+      }
+      if (liveExists) {
+        await FileSystem.copyAsync({
+          from: `file://${dbPath}`,
+          to: `file://${backupPath}`,
+        });
+        snapshotTaken = true;
+      }
+
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
@@ -302,7 +308,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await startDetectorCutoverAfterUpdate().catch(() => false);
 
       // Restore succeeded - drop the rollback snapshot.
-      if (liveExists) {
+      if (snapshotTaken) {
         await FileSystem.deleteAsync(`file://${backupPath}`, {
           idempotent: true,
         });
@@ -324,7 +330,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       } catch {
         // Best-effort. Proceed with the rollback copy regardless.
       }
-      if (liveExists) {
+      if (snapshotTaken) {
         try {
           await FileSystem.copyAsync({
             from: `file://${backupPath}`,
