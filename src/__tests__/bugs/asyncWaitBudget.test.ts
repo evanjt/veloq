@@ -13,7 +13,7 @@
 
 import { getConfig } from '@testing-library/react-native/build/config';
 
-const jestConfig = require('../../../config/jest.config.js');
+import jestConfig from '../../../config/jest.config.js';
 
 /** What the library ships, and what proved too short here. */
 const LIBRARY_DEFAULT_MS = 1000;
