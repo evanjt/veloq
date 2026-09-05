@@ -30,9 +30,9 @@ use crate::{
     RouteSignature, SectionConfig, SectionEvidenceCache, SectionPerformanceResult,
 };
 use lru::LruCache;
-use once_cell::sync::Lazy;
 use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
+use std::sync::LazyLock;
 
 mod activities;
 pub use activities::{
@@ -86,8 +86,8 @@ impl Default for NameTranslations {
 }
 
 /// Global storage for name translations, set from TypeScript.
-pub(crate) static NAME_TRANSLATIONS: Lazy<RwLock<NameTranslations>> =
-    Lazy::new(|| RwLock::new(NameTranslations::default()));
+pub(crate) static NAME_TRANSLATIONS: LazyLock<RwLock<NameTranslations>> =
+    LazyLock::new(|| RwLock::new(NameTranslations::default()));
 
 /// Get the current route word for name generation.
 fn get_route_word() -> String {
@@ -1614,8 +1614,8 @@ pub struct PersistentEngineStats {
 /// for closures that do not dereference `self.db`; those closures take
 /// `&PersistentEngine` but must stay on pure-memory `&self` methods.
 
-pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentEngine>>> =
-    Lazy::new(|| RwLock::new(None));
+pub static PERSISTENT_ENGINE: LazyLock<RwLock<Option<PersistentEngine>>> =
+    LazyLock::new(|| RwLock::new(None));
 
 // SAFETY: see invariant above. All SQLite operations go through the write
 // lock, which provides exclusive `&mut` access; read-lock callers only touch
@@ -1966,15 +1966,16 @@ pub mod persistent_engine_ffi {
 
     /// Handle for tracking background section detection progress.
     /// Used by DetectionManager.
-    pub static SECTION_DETECTION_HANDLE: Lazy<Mutex<Option<SectionDetectionHandle>>> =
-        Lazy::new(|| Mutex::new(None));
+    pub static SECTION_DETECTION_HANDLE: LazyLock<Mutex<Option<SectionDetectionHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
 
     /// Handle for tracking background tile generation.
-    pub static TILE_GENERATION_HANDLE: Lazy<Mutex<Option<TileGenerationHandle>>> =
-        Lazy::new(|| Mutex::new(None));
+    pub static TILE_GENERATION_HANDLE: LazyLock<Mutex<Option<TileGenerationHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
 
     /// Handle for the running database backup, if any.
-    pub static BACKUP_HANDLE: Lazy<Mutex<Option<BackupHandle>>> = Lazy::new(|| Mutex::new(None));
+    pub static BACKUP_HANDLE: LazyLock<Mutex<Option<BackupHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
 }
 
 /// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
