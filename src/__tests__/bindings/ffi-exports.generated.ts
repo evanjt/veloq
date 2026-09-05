@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 233 methods inside `#[uniffi::export] impl` blocks across
+ * 232 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 251 exports (18 standalone + 233 methods)
+ * Total: 250 exports (18 standalone + 232 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -853,19 +853,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'FitnessManager',
   },
   {
-    name: 'get_activity_patterns_with_today',
-    camelName: 'getActivityPatternsWithToday',
-    file: 'objects/fitness.rs',
-    line: 228,
-    paramCount: 0,
-    returnType: 'Result<crate::FfiActivityPatternsBundle, VeloqError>',
-    object: 'FitnessManager',
-  },
-  {
     name: 'upsert_wellness',
     camelName: 'upsertWellness',
     file: 'objects/fitness.rs',
-    line: 242,
+    line: 228,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     object: 'FitnessManager',
@@ -874,7 +865,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_wellness_bodies',
     camelName: 'getWellnessBodies',
     file: 'objects/fitness.rs',
-    line: 274,
+    line: 260,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
     object: 'FitnessManager',
@@ -883,7 +874,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_wellness_sparklines',
     camelName: 'getWellnessSparklines',
     file: 'objects/fitness.rs',
-    line: 291,
+    line: 277,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiWellnessSparklines>, VeloqError>',
     object: 'FitnessManager',
@@ -892,7 +883,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_hrv_trend',
     camelName: 'computeHrvTrend',
     file: 'objects/fitness.rs',
-    line: 306,
+    line: 292,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiHrvTrend>, VeloqError>',
     object: 'FitnessManager',
@@ -901,7 +892,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'find_stale_pr_opportunities',
     camelName: 'findStalePrOpportunities',
     file: 'objects/fitness.rs',
-    line: 330,
+    line: 316,
     paramCount: 4,
     returnType: 'Result<Vec<crate::FfiStalePrOpportunity>, VeloqError>',
     object: 'FitnessManager',
@@ -910,7 +901,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_insights_data',
     camelName: 'getInsightsData',
     file: 'objects/fitness.rs',
-    line: 399,
+    line: 385,
     paramCount: 1,
     returnType: 'Result<crate::FfiInsightsData, VeloqError>',
     object: 'FitnessManager',
@@ -919,7 +910,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_startup_data',
     camelName: 'getStartupData',
     file: 'objects/fitness.rs',
-    line: 410,
+    line: 396,
     paramCount: 2,
     returnType: 'Result<crate::FfiStartupData, VeloqError>',
     object: 'FitnessManager',
@@ -928,7 +919,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_widget_snapshot',
     camelName: 'getWidgetSnapshot',
     file: 'objects/fitness.rs',
-    line: 429,
+    line: 415,
     paramCount: 5,
     returnType: 'Result<crate::FfiWidgetSnapshotData, VeloqError>',
     object: 'FitnessManager',
@@ -2269,7 +2260,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1974,
+    line: 1979,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2372,7 +2363,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getAvailableSportTypes',
   'getActivityHeatmap',
   'getSummaryCardData',
-  'getActivityPatternsWithToday',
   'upsertWellness',
   'getWellnessBodies',
   'getWellnessSparklines',
@@ -2630,7 +2620,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_available_sport_types: 'getAvailableSportTypes',
   get_activity_heatmap: 'getActivityHeatmap',
   get_summary_card_data: 'getSummaryCardData',
-  get_activity_patterns_with_today: 'getActivityPatternsWithToday',
   upsert_wellness: 'upsertWellness',
   get_wellness_bodies: 'getWellnessBodies',
   get_wellness_sparklines: 'getWellnessSparklines',
