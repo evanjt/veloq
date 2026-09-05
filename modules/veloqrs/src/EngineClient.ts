@@ -48,6 +48,7 @@ import type {
 } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
+import type { SettingPair } from './generated/veloqrs';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
@@ -883,6 +884,8 @@ class EngineClient implements DelegateHost {
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 
   setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
+
+  setSettings = (pairs: SettingPair[]): number => settingsDelegates.setSettings(this, pairs);
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 

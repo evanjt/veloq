@@ -6,6 +6,7 @@
  */
 
 import type { DelegateHost } from './host';
+import type { SettingPair } from '../generated/veloqrs';
 
 export function setNameTranslations(
   host: DelegateHost,
@@ -86,6 +87,22 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
     host.engine.settings().setSetting(key, value);
   } catch {
     // Settings write failed - non-critical
+  }
+}
+
+/**
+ * Write several settings in one transaction, skipping each pair whose value
+ * is already stored. Returns how many were written, or 0 when the engine is
+ * not up. One commit is two fsyncs on the calling thread, so a launch that
+ * changes several keys pays it once.
+ */
+export function setSettings(host: DelegateHost, pairs: SettingPair[]): number {
+  if (!host.ready || pairs.length === 0) return 0;
+  try {
+    return host.timed('setSettings', () => host.engine.settings().setSettings(pairs));
+  } catch {
+    // Settings write failed - non-critical
+    return 0;
   }
 }
 
