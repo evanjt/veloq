@@ -23,6 +23,7 @@ import { initializeRecordingPreferences } from '@/features/recording/stores/Reco
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initializeHeatmapPreference } from '@/features/maps/stores/HeatmapPreferenceStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -54,6 +55,7 @@ const STORE_INITIALISERS: readonly (readonly [string, () => Promise<unknown>])[]
   ['initializeHRZones', initializeHRZones],
   ['initializeUnitPreference', initializeUnitPreference],
   ['initializeRouteSettings', initializeRouteSettings],
+  ['initializeHeatmapPreference', initializeHeatmapPreference],
   ['initializeDashboardPreferences', initializeDashboardPreferences],
   ['initializeDebugStore', initializeDebugStore],
   ['migrateTileCacheSettings', migrateTileCacheSettings],
