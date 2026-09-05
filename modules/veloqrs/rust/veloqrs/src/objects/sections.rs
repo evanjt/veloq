@@ -796,16 +796,6 @@ impl SectionManager {
         })?
     }
 
-    /// Read pre-computed indicators for a batch of activity IDs.
-    /// Returns section PRs, route PRs, section trends, and route trends
-    /// from the materialised `activity_indicators` table.
-    fn get_activity_indicators(
-        &self,
-        activity_ids: Vec<String>,
-    ) -> Result<Vec<crate::FfiActivityIndicator>, VeloqError> {
-        with_engine(|e| e.get_activity_indicators(&activity_ids))
-    }
-
     /// Get section encounters for an activity: one entry per (section, direction).
     /// Canonical data unit for the sections tab in activity detail.
     fn get_activity_section_encounters(
