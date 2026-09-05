@@ -58,13 +58,7 @@ if (!installed && __DEV__) {
 export * from './generated/veloqrs';
 
 // Re-export conversions, types, and utilities
-export {
-  flatCoordsToPoints,
-  gpsPointsToRoutePoints,
-  routePointsToGpsPoints,
-  validateId,
-  validateName,
-} from './conversions';
+export { validateId, validateName } from './conversions';
 export { decodeCoords, type LatLng } from './coords';
 export type {
   RoutePoint,
