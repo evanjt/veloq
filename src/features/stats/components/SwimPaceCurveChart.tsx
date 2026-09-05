@@ -6,7 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  ChartCrosshair,
+  domainContains,
+  useChartColors,
+  useChartGestures,
+  yForValue,
+} from '@/shared/charts';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
@@ -225,21 +231,15 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
               return (
                 <>
                   {/* CSS line */}
-                  {cssPace && cssPace >= yDomain[0] && cssPace <= yDomain[1] && (
+                  {cssPace && domainContains(yDomain, cssPace) && (
                     <SkiaLine
                       p1={{
                         x: chartBounds.left,
-                        y:
-                          chartBounds.top +
-                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
+                        y: yForValue(cssPace, yDomain, chartBounds),
                       }}
                       p2={{
                         x: chartBounds.right,
-                        y:
-                          chartBounds.top +
-                          ((cssPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
+                        y: yForValue(cssPace, yDomain, chartBounds),
                       }}
                       color={CSS_LINE_COLOR}
                       strokeWidth={1}
