@@ -2,7 +2,8 @@
  * Batch-fetches section indicators (from materialized table) and route highlights
  * (computed inline) for a list of activity IDs.
  *
- * Section indicators: read from `activity_indicators` table via getActivityIndicators().
+ * Section indicators: read from the `activity_indicators` table through
+ * `getActivityHighlightsBundle`.
  * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
  *
  * NOTE: The feed badge counts here are derived from the materialized

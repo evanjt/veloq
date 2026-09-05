@@ -13284,14 +13284,6 @@ export interface SectionManagerLike {
     sectionPolylineFlat: Array</*f64*/ number>,
   ) /*throws*/ : ArrayBuffer;
   /**
-   * Read pre-computed indicators for a batch of activity IDs.
-   * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialised `activity_indicators` table.
-   */
-  getActivityIndicators(
-    activityIds: Array<string>,
-  ) /*throws*/ : Array<FfiActivityIndicator>;
-  /**
    * Given an activity and a list of section IDs, return the subset where
    * `activity_id` currently holds the best record. Collapses a per-section
    * N+1 `get_performances` loop into a single FFI round-trip.
@@ -13721,31 +13713,6 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterArrayFloat64.lower(sectionPolylineFlat),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Read pre-computed indicators for a batch of activity IDs.
-   * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialised `activity_indicators` table.
-   */
-  getActivityIndicators(
-    activityIds: Array<string>,
-  ): Array<FfiActivityIndicator> /*throws*/ {
-    return FfiConverterArrayTypeFfiActivityIndicator.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -19099,14 +19066,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_trace",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators() !==
-    55003
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators",
     );
   }
   if (

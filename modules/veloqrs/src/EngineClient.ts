@@ -75,7 +75,6 @@ import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type {
-  FfiActivityIndicator,
   FfiActivityRouteHighlight,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
@@ -447,8 +446,6 @@ class EngineClient implements DelegateHost {
 
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
-  getSections = (): FfiSection[] => sectionDelegates.getSections(this);
-
   getSectionsFiltered = (sportType?: string, minVisits?: number): FfiSection[] =>
     sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
 
@@ -466,9 +463,6 @@ class EngineClient implements DelegateHost {
     sortKey: sectionDelegates.SectionSortKey
   ): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
-
-  getGroupSummaries = (): { totalCount: number; summaries: GroupSummary[] } =>
-    routeDelegates.getGroupSummaries(this);
 
   getFilteredGroupSummaries = (
     minActivities: number,
@@ -652,9 +646,6 @@ class EngineClient implements DelegateHost {
 
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
-
-  getMissingTimeStreams = (activityIds: string[]): string[] =>
-    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
   getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
     activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
@@ -1144,10 +1135,6 @@ class EngineClient implements DelegateHost {
 
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
-
-  /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
-  getActivityIndicators = (activityIds: string[]): FfiActivityIndicator[] =>
-    sectionDelegates.getActivityIndicators(this, activityIds);
 
   /** Get section encounters for an activity: one entry per (section, direction). */
   getActivitySectionEncounters = (activityId: string): SectionEncounter[] =>
