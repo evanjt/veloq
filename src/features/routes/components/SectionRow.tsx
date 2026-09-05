@@ -1,10 +1,6 @@
 /**
- * Section row component.
- * Displays a frequently-traveled road section with polyline preview and stats.
- * Now shows activity traces overlaid on section for richer visualization.
- *
- * Supports both full sections (FrequentSection) and lightweight summaries (SectionSummary).
- * When using summaries, the polyline is lazy-loaded on-demand.
+ * Section row: a section's polyline preview, its stats, and any activity
+ * traces overlaid on it. A section without a polyline lazy-loads one.
  */
 
 import React, { memo, useCallback, useMemo, useId } from 'react';
@@ -31,8 +27,7 @@ import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activ
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
-import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
-import type { SectionSummary } from 'veloqrs';
+import type { ActivityType, Section } from '@/types';
 
 /** A single activity's trace through the section */
 export interface ActivityTrace {
@@ -41,39 +36,8 @@ export interface ActivityTrace {
   points: [number, number][];
 }
 
-/**
- * Section data that can be displayed in a row.
- * Supports both full FrequentSection and lightweight SectionSummary.
- */
-interface SectionRowData {
-  id: string;
-  name?: string;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  /** Number of activities (from activityCount or activityIds.length) */
-  activityCount: number;
-  /** Polyline (optional - will be lazy-loaded if not provided) */
-  polyline?: RoutePoint[];
-  /** Section type (auto, custom, potential) */
-  sectionType?: string;
-  /** All sport types present in this section's activities */
-  sportTypes?: string[];
-  /** Whether this section has been accepted/pinned by the user */
-  isUserDefined?: boolean;
-  /** Elevation gain in metres over the representative slice */
-  elevationGainM?: number;
-  /** Elevation loss in metres over the representative slice */
-  elevationLossM?: number;
-  /** Net grade percent over the representative slice */
-  avgGradePercent?: number;
-  /** climb, descent, rolling, flat or loop, absent when nothing says */
-  klass?: string;
-}
-
 interface SectionRowProps {
-  /** Section data - can be FrequentSection or SectionSummary */
-  section: FrequentSection | SectionSummary | SectionRowData;
+  section: Section;
   /** Optional pre-loaded activity traces for this section */
   activityTraces?: ActivityTrace[];
   /** Whether this section is disabled/hidden */
@@ -81,89 +45,6 @@ interface SectionRowProps {
   /** Distance from user's current location in meters */
   distanceFromUser?: number;
   onPress?: (id: string) => void;
-}
-
-/**
- * Normalize section data to a common format.
- * Handles both FrequentSection (with polyline, activityIds) and
- * SectionSummary (lightweight, no polyline).
- */
-function normalizeSectionData(
-  section: FrequentSection | SectionSummary | SectionRowData
-): SectionRowData {
-  // Check if it's a FrequentSection (has activityIds array)
-  if ('activityIds' in section && Array.isArray(section.activityIds)) {
-    // Use activityCount if available (preserved from SectionSummary), else count array
-    const activityCount =
-      'activityCount' in section && typeof section.activityCount === 'number'
-        ? section.activityCount
-        : section.activityIds.length;
-    return {
-      id: section.id,
-      name: section.name,
-      sportType: section.sportType,
-      distanceMeters: section.distanceMeters,
-      visitCount: section.visitCount,
-      activityCount,
-      polyline: section.polyline,
-      sectionType:
-        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes:
-        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
-      isUserDefined:
-        'isUserDefined' in section
-          ? (section as { isUserDefined: boolean }).isUserDefined
-          : undefined,
-      elevationGainM:
-        'elevationGainM' in section
-          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
-          : undefined,
-      elevationLossM:
-        'elevationLossM' in section
-          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
-          : undefined,
-      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
-      avgGradePercent:
-        'avgGradePercent' in section
-          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
-          : undefined,
-    };
-  }
-  // Check if it's a SectionSummary (has activityCount number)
-  if ('activityCount' in section && typeof section.activityCount === 'number') {
-    return {
-      id: section.id,
-      name: section.name,
-      sportType: section.sportType,
-      distanceMeters: section.distanceMeters,
-      visitCount: section.visitCount,
-      activityCount: section.activityCount,
-      polyline: undefined, // Will be lazy-loaded
-      sectionType:
-        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes:
-        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
-      isUserDefined:
-        'isUserDefined' in section
-          ? (section as { isUserDefined: boolean }).isUserDefined
-          : undefined,
-      elevationGainM:
-        'elevationGainM' in section
-          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
-          : undefined,
-      elevationLossM:
-        'elevationLossM' in section
-          ? ((section as { elevationLossM?: number }).elevationLossM ?? undefined)
-          : undefined,
-      klass: 'klass' in section ? ((section as { klass?: string }).klass ?? undefined) : undefined,
-      avgGradePercent:
-        'avgGradePercent' in section
-          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
-          : undefined,
-    };
-  }
-  // Already normalized
-  return section as SectionRowData;
 }
 
 // Activity trace colors - muted versions of the primary color
@@ -179,7 +60,7 @@ const PREVIEW_HEIGHT = 36;
 const PREVIEW_PADDING = 4;
 
 export const SectionRow = memo(function SectionRow({
-  section: rawSection,
+  section,
   activityTraces,
   isDisabled,
   distanceFromUser,
@@ -192,8 +73,6 @@ export const SectionRow = memo(function SectionRow({
   const uniqueId = useId();
   const gradientId = `sectionGradient-${uniqueId}`;
 
-  // Normalize section data to common format
-  const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
   const elevation = useMemo(() => sectionElevation(section), [section]);
 
   // Lazy-load polyline if not provided (e.g., when using SectionSummary)
