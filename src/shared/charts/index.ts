@@ -24,3 +24,29 @@ export { CHART_CONFIG } from './constants';
 
 export { finiteExtent } from './extent';
 export type { Extent } from './extent';
+
+export { ChartCanvas } from './ChartCanvas';
+export type { ChartCanvasProps, ChartFrame } from './ChartCanvas';
+
+export { CurveLine, CurveArea } from './CurvePaths';
+
+export { CurveChart } from './CurveChart';
+export type { CurveChartProps, PlacedLabel } from './CurveChart';
+
+export { ZoneHistogram } from './ZoneHistogram';
+export type { ZoneBand } from './ZoneHistogram';
+
+export {
+  chartBoundsFor,
+  dataExtent,
+  domainContains,
+  gridLineYs,
+  projectPoints,
+  scaleFor,
+  xForValue,
+  yForValue,
+} from './cartesian';
+export type { ChartPadding, Domain, ProjectedPoint } from './cartesian';
+
+export { curveLineSvg, curveAreaSvg } from './curvePath';
+export type { CurveKind } from './curvePath';
