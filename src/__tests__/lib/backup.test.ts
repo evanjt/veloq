@@ -8,6 +8,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 import { restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
 import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
@@ -28,6 +29,7 @@ const mockEngine = {
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),
+  getStats: jest.fn().mockReturnValue({ activityCount: 100, newestDate: 1_760_000_000 }),
 };
 
 const mockNativeModule = {
@@ -309,6 +311,11 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   }
 
   beforeEach(() => {
+    // The restore asks before it replaces a library that holds activities.
+    // These tests are the mechanics after that answer, so they accept it.
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
     mockNativeModule.validateBackupDatabase.mockReset();
     mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.destroyEngine.mockClear();
@@ -513,6 +520,9 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
   );
 
   beforeEach(() => {
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
     mockNativeModule.validateBackupDatabase.mockReset().mockImplementation(() => LIVE_META);
     mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.getActivityCount.mockReturnValue(100);

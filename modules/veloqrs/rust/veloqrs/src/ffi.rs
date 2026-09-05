@@ -91,7 +91,8 @@ pub struct ActivitySportMapping {
 }
 
 /// Validate a backup database file without touching the global engine.
-/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
+/// "activity_count", "newest_activity"}.
 #[uniffi::export]
 pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
@@ -123,10 +124,19 @@ pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqErro
         .query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
         .unwrap_or(0);
 
+    // What the athlete recognises the file by. Null for a backup whose
+    // activities carry no date, which reads as "unknown" rather than as new.
+    let newest_activity: Option<i64> = conn
+        .query_row("SELECT MAX(date) FROM activity_metrics", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(None);
+
     let metadata = serde_json::json!({
         "schema_version": schema_version,
         "athlete_id": athlete_id,
         "activity_count": activity_count,
+        "newest_activity": newest_activity,
     });
     Ok(metadata.to_string())
 }
