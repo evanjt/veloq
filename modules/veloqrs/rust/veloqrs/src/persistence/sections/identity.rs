@@ -43,10 +43,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use super::compute_section_portions;
 use crate::persistence::PersistentEngine;
 use crate::persistence::codec;
 use crate::persistence::sections::geometry;
-use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
     SectionConfig, shares_ground,

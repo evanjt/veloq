@@ -4,10 +4,10 @@
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use super::compute_section_portions;
 use crate::persistence::PersistentEngine;
 use crate::sections::assign_carried_exclusions;
+use crate::sections::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use rusqlite::{OptionalExtension, params};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};

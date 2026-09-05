@@ -430,19 +430,15 @@ impl PersistentEngine {
                  WHERE section_id = ? AND activity_id = ? AND start_index = ?",
             )?;
             for (section_id, activity_id, start_idx, end_idx, distance) in &portions {
-                let Some(times) = time_streams.get(activity_id) else {
+                let (lap_time, lap_pace) = super::sections::compute_lap_time_from_stream(
+                    time_streams.get(activity_id).map(Vec::as_slice),
+                    *start_idx,
+                    *end_idx,
+                    *distance,
+                );
+                let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) else {
                     continue;
                 };
-                let si = *start_idx as usize;
-                let ei = *end_idx as usize;
-                if si >= times.len() || ei >= times.len() {
-                    continue;
-                }
-                let lap_time = (times[ei] as f64 - times[si] as f64).abs();
-                if lap_time <= 0.0 {
-                    continue;
-                }
-                let lap_pace = distance / lap_time;
                 update_stmt.execute(params![
                     lap_time,
                     lap_pace,
@@ -540,7 +536,33 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(lap_time, 40.0); // times[5] - times[1]
+        assert_eq!(lap_time, 30.0); // times[4] - times[1], the end is half-open
+    }
+
+    /// A portion that runs to the last point of its activity carries the
+    /// stream's length as its half-open end, and gets a time like any other.
+    #[test]
+    fn a_portion_ending_on_the_last_point_gets_a_time() {
+        let engine = engine_with_null_laps(1);
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET end_index = 8 WHERE section_id = 's0'",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(engine.backfill_null_lap_times().unwrap(), 1);
+
+        let lap_time: f64 = engine
+            .db
+            .query_row(
+                "SELECT lap_time FROM section_activities WHERE section_id = 's0'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(lap_time, 60.0); // times[7] - times[1]
     }
 
     /// A second pass finds nothing and writes nothing.

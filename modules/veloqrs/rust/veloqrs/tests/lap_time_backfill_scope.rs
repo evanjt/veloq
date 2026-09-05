@@ -97,7 +97,9 @@ fn a_portion_whose_stream_has_landed_is_filled() {
     let times: Vec<u32> = (0..40).collect();
     engine.set_time_streams_flat(&["streamed".into()], &times, &[0]);
 
-    assert_eq!(lap_time(&db, "streamed"), Some(20.0));
+    // The portion runs 0..20 half-open, so it holds twenty points and spans
+    // nineteen seconds of a one-second-per-point stream.
+    assert_eq!(lap_time(&db, "streamed"), Some(19.0));
     assert_eq!(lap_time(&db, "bare"), None);
 }
 
@@ -115,7 +117,9 @@ fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
     .expect("store the stream");
 
     assert_eq!(engine.backfill_section_performance_cache(), 1);
-    assert_eq!(lap_time(&db, "streamed"), Some(20.0));
+    // The portion runs 0..20 half-open, so it holds twenty points and spans
+    // nineteen seconds of a one-second-per-point stream.
+    assert_eq!(lap_time(&db, "streamed"), Some(19.0));
     assert_eq!(lap_time(&db, "bare"), None);
 }
 
