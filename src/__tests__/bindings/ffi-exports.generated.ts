@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 219 methods inside `#[uniffi::export] impl` blocks across
+ * 220 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 237 exports (18 standalone + 219 methods)
+ * Total: 238 exports (18 standalone + 220 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -942,10 +942,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'FitnessManager',
   },
   {
+    name: 'get_week_load_shape',
+    camelName: 'getWeekLoadShape',
+    file: 'objects/fitness.rs',
+    line: 231,
+    paramCount: 2,
+    returnType: 'Result<Option<crate::FfiWeekLoadShape>, VeloqError>',
+    docs: "A week's load day by day, with how evenly it was spread, or none when the week has too few training days for the spread to mean anything.",
+    object: 'FitnessManager',
+  },
+  {
     name: 'upsert_wellness',
     camelName: 'upsertWellness',
     file: 'objects/fitness.rs',
-    line: 231,
+    line: 241,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'Sync a batch of wellness rows from the intervals.icu API into SQLite. Idempotent on `date`; call whenever the TS wellness query refreshes.',
@@ -955,7 +965,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_wellness_bodies',
     camelName: 'getWellnessBodies',
     file: 'objects/fitness.rs',
-    line: 263,
+    line: 273,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
     docs: 'Untyped wellness bodies over an inclusive date window, oldest first. The wellness screens read fields the typed row does not model, so they parse these rather than a reconstruction.',
@@ -965,7 +975,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_wellness_sparklines',
     camelName: 'getWellnessSparklines',
     file: 'objects/fitness.rs',
-    line: 280,
+    line: 290,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiWellnessSparklines>, VeloqError>',
     docs: 'Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing `days` window. Returns `None` until wellness has been synced at least once. Replaces the 5 parallel useMemo passes in `useSummaryCardData.ts` - TS is now a thin pass-through.',
@@ -975,7 +985,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_hrv_trend',
     camelName: 'computeHrvTrend',
     file: 'objects/fitness.rs',
-    line: 295,
+    line: 305,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiHrvTrend>, VeloqError>',
     docs: 'HRV trend (label + averages + sparkline) over the trailing `days` window. Returns `None` when there are <5 valid HRV days. TS maps the returned label to an i18n key and renders.',
@@ -985,7 +995,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'find_stale_pr_opportunities',
     camelName: 'findStalePrOpportunities',
     file: 'objects/fitness.rs',
-    line: 319,
+    line: 329,
     paramCount: 4,
     returnType: 'Result<Vec<crate::FfiStalePrOpportunity>, VeloqError>',
     docs: "Stale-PR opportunity detection. Pure pattern recognition: flags sections whose PR might be beatable because the user's threshold fitness (FTP for cycling, critical speed for run/swim) has improved by at least `min_gain_percent` since the PR was set, and the section hasn't been visited in `stale_threshold_days+` days. Sport-aware: cycling sections look at FTP, running at run pace, swimming at swim pace. `exclude_section_ids` is the set of section IDs already surfaced by other insights (e.g. recent section_pr cards) - we don't want to double-surface the same section in the same insights feed. Returns up to `max_opportunities` opportunities, sorted by traversal_count DESC (more-frequented sections first).",
@@ -995,7 +1005,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_insights_data',
     camelName: 'getInsightsData',
     file: 'objects/fitness.rs',
-    line: 388,
+    line: 398,
     paramCount: 1,
     returnType: 'Result<crate::FfiInsightsData, VeloqError>',
     docs: 'Batch insights data: combines period stats, trends, patterns, recent PRs and the section and strength tail. Reduces the Insights hook to a single round-trip.',
@@ -1005,7 +1015,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_startup_data',
     camelName: 'getStartupData',
     file: 'objects/fitness.rs',
-    line: 399,
+    line: 409,
     paramCount: 2,
     returnType: 'Result<crate::FfiStartupData, VeloqError>',
     docs: "The feed's first paint in a single engine lock: the summary card and the GPS preview tracks. `params` supplies the summary card's two week windows; the rest of the insights bundle is fetched by the insights tab when it opens, not here.",
@@ -1015,7 +1025,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_widget_snapshot',
     camelName: 'getWidgetSnapshot',
     file: 'objects/fitness.rs',
-    line: 418,
+    line: 428,
     paramCount: 5,
     returnType: 'Result<crate::FfiWidgetSnapshotData, VeloqError>',
     docs: 'Everything the home-screen widget snapshot is composed from: wellness sparklines, the summary card, and the latest activity with its record flag and GPS track. Replaces the six-call gather in the widget writer.',
@@ -2488,6 +2498,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getAvailableSportTypes',
   'getActivityHeatmap',
   'getSummaryCardData',
+  'getWeekLoadShape',
   'upsertWellness',
   'getWellnessBodies',
   'getWellnessSparklines',
@@ -2732,6 +2743,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_available_sport_types: 'getAvailableSportTypes',
   get_activity_heatmap: 'getActivityHeatmap',
   get_summary_card_data: 'getSummaryCardData',
+  get_week_load_shape: 'getWeekLoadShape',
   upsert_wellness: 'upsertWellness',
   get_wellness_bodies: 'getWellnessBodies',
   get_wellness_sparklines: 'getWellnessSparklines',

@@ -445,6 +445,12 @@ interface NativeModuleInterface {
     prevEnd: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_week_load_shape(
+    ptr: bigint,
+    startTs: bigint,
+    endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
     ptr: bigint,
     weekStarts: Uint8Array,
@@ -1624,6 +1630,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines(): number;
