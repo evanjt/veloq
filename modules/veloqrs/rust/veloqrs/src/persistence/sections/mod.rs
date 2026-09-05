@@ -70,10 +70,14 @@ pub(super) use crate::persistence::haversine_distance_meters as haversine_distan
 
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
+/// `end_index` is the half-open end every writer of `section_activities` stores,
+/// so the last point of the traversal is `end_index - 1` and a portion running
+/// to the last point of its activity carries `end_index == point_count`.
+///
 /// Returns `(None, None)` when:
 /// - `times` is `None` (no stream available)
 /// - either index is out of bounds
-/// - the traversal spans zero (or negative) time
+/// - the traversal holds fewer than two points
 ///
 /// Shared by the detection-time populate path (`save_sections`), the manual
 /// insert path (`insert_section_activity`), and the lazy backfill path.
@@ -87,9 +91,12 @@ pub(super) fn compute_lap_time_from_stream(
         Some(t) => t,
         None => return (None, None),
     };
+    if end_index == 0 || end_index as usize > times.len() {
+        return (None, None);
+    }
     let si = start_index as usize;
-    let ei = end_index as usize;
-    if si >= times.len() || ei >= times.len() {
+    let ei = end_index as usize - 1;
+    if si >= times.len() || ei <= si {
         return (None, None);
     }
     let lap_time = (times[ei] as f64 - times[si] as f64).abs();

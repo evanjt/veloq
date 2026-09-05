@@ -424,32 +424,24 @@ impl PersistentEngine {
                         let (lap_time, lap_pace) = match (portion.lap_time, portion.lap_pace) {
                             (Some(t), Some(p)) => (t, p),
                             _ => {
-                                // Fall back to calculation if cache miss
-                                // This handles migration edge case or corrupt data
-                                // Time stream should already be loaded by pre-loading step above
-                                if let Some(times) = self.time_streams.peek(activity_id) {
-                                    let start_idx = portion.start_index as usize;
-                                    let end_idx = portion.end_index as usize;
-
-                                    if start_idx < times.len() && end_idx < times.len() {
-                                        let lap_time =
-                                            (times[end_idx] as f64 - times[start_idx] as f64).abs();
-                                        if lap_time > 0.0 {
-                                            let lap_pace = portion.distance_meters / lap_time;
-                                            (lap_time, lap_pace)
-                                        } else {
-                                            return None;
-                                        }
-                                    } else {
-                                        return None;
-                                    }
-                                } else {
+                                // Cache miss: a row a migration or a corrupt write left
+                                // unpopulated. The pre-loading step above has the stream.
+                                let Some(times) = self.time_streams.peek(activity_id) else {
                                     log::debug!(
                                         "No time stream available for {}, lap {} - skipping",
                                         activity_id,
                                         i
                                     );
                                     return None;
+                                };
+                                match super::super::sections::compute_lap_time_from_stream(
+                                    Some(times.as_slice()),
+                                    portion.start_index,
+                                    portion.end_index,
+                                    portion.distance_meters,
+                                ) {
+                                    (Some(t), Some(p)) => (t, p),
+                                    _ => return None,
                                 }
                             }
                         };
