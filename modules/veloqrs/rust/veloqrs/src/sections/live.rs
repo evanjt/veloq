@@ -378,11 +378,7 @@ impl LiveSectionMatcher {
 /// Nearest vertex to `point` within a window either side of `reached`, with
 /// the perpendicular distance to the line there. Bounding the search is what
 /// keeps the per-fix cost independent of how long the section is.
-fn nearest_on_window(
-    candidate: &LiveCandidate,
-    point: &GpsPoint,
-    reached: usize,
-) -> (usize, f64) {
+fn nearest_on_window(candidate: &LiveCandidate, point: &GpsPoint, reached: usize) -> (usize, f64) {
     let anchor = candidate.cumulative[reached];
     let first = candidate
         .cumulative
@@ -669,7 +665,14 @@ mod tests {
     fn test_a_candidate_inserted_mid_ride_can_still_be_entered() {
         let first = line(-33.8, 151.2, 21, 10.0);
         let mut matcher = LiveSectionMatcher::new(vec![], LiveMatchConfig::default());
-        assert!(matcher.push(Fix { point: first[0], seconds: 0.0 }).is_empty());
+        assert!(
+            matcher
+                .push(Fix {
+                    point: first[0],
+                    seconds: 0.0
+                })
+                .is_empty()
+        );
 
         assert!(matcher.insert(LiveCandidate::new("late", first.clone()).unwrap()));
         let events = replay(&mut matcher, &first);

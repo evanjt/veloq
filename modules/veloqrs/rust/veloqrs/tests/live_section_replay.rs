@@ -303,7 +303,10 @@ fn live_matching_against_the_batch_catalogue() {
         "corpus {} activities, ingest {ingest_ms} ms, detect+apply {detect_ms} ms, catalogue {catalogue} sections",
         corpus.len()
     );
-    assert!(catalogue > 0, "the batch detector cut nothing to replay against");
+    assert!(
+        catalogue > 0,
+        "the batch detector cut nothing to replay against"
+    );
 
     let config = LiveMatchConfig::default();
     // The corpus infers a sport from the file name, so the filter can drop a
@@ -404,13 +407,16 @@ fn live_matching_against_the_batch_catalogue() {
                 }
             }
         }
-        totals.spurious += exited
-            .iter()
-            .filter(|id| !truth.contains_key(*id))
-            .count();
+        totals.spurious += exited.iter().filter(|id| !truth.contains_key(*id)).count();
     }
 
-    let rate = |n: usize, d: usize| if d == 0 { 0.0 } else { n as f64 * 100.0 / d as f64 };
+    let rate = |n: usize, d: usize| {
+        if d == 0 {
+            0.0
+        } else {
+            n as f64 * 100.0 / d as f64
+        }
+    };
     println!("--- live replay against the batch catalogue ---");
     println!("activities replayed   {}", totals.activities);
     println!("fixes                 {}", totals.fixes);
@@ -599,7 +605,11 @@ fn the_cost_of_both_index_shapes() {
                 .expect("prepare cells");
             let rows = stmt
                 .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?, row.get::<_, f64>(2)?))
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, f64>(1)?,
+                        row.get::<_, f64>(2)?,
+                    ))
                 })
                 .expect("query cells");
             rows.flatten().collect()
