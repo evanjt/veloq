@@ -1390,15 +1390,14 @@ fn graft_prior_members(
     }
 }
 
-/// Mint a fresh opaque real id, mirroring the custom-section scheme
-/// (`custom_<ts>__<rand>`) with a distinct `s_` prefix so registry and custom
-/// ids never alias. The monotonic `seq` keeps ids unique even when a single
-/// apply mints many sections in one millisecond.
-/// The id a section carries from birth: its sport and the global cell its
-/// heart sits in, so the same ground cut on another device mints the same
-/// id. A cell already taken (a neighbour on the same block, or a grave)
-/// gets the next free ordinal; a section with no line falls back to the
-/// clock, which never collides.
+/// The id a section carries from birth: `s_<sport>_<lat>_<lng>`, from the
+/// 100 m earth cell its heart sits in. A stable, readable name, unique within
+/// one library and reproducible for the same activity pool and config. It is
+/// not a cross-library key: two cuts of one corridor seldom put the heart in
+/// the same cell, and matching ground across cuts is
+/// [`tracematch::shares_ground`]'s job. A cell already taken (a neighbour on
+/// the same block, or a grave) gets the next free ordinal; a section with no
+/// line falls back to the clock, which never collides.
 pub fn content_id_for(
     polyline: &[GpsPoint],
     sport_type: &str,
