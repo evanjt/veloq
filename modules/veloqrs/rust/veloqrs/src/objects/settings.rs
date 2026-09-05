@@ -1,6 +1,13 @@
 use super::error::{VeloqError, with_engine};
 use std::sync::Arc;
 
+/// One key and the value to store under it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SettingPair {
+    pub key: String,
+    pub value: String,
+}
+
 #[derive(uniffi::Object)]
 pub struct SettingsManager {
     pub(crate) _private: (),
@@ -55,6 +62,20 @@ impl SettingsManager {
     fn set_setting(&self, key: String, value: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_setting(&key, &value)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    /// Set several user preferences in one transaction, skipping each pair
+    /// whose value is already stored. Returns how many were written.
+    fn set_settings(&self, pairs: Vec<SettingPair>) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            let owned: Vec<(String, String)> =
+                pairs.into_iter().map(|p| (p.key, p.value)).collect();
+            e.set_settings(&owned)
+                .map(|written| written as u32)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })

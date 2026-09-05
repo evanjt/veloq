@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 
 import LoginScreen from '@/app/login';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -93,10 +93,23 @@ beforeEach(async () => {
   await forgetCachedAthleteId();
 });
 
+/**
+ * The screen reads the cached athlete id before it can name anyone, so the
+ * notice arrives on the microtask that read resolves on. Flushing it is
+ * deterministic; polling for it with `waitFor` made the assertion a race
+ * against however busy the machine was.
+ */
+async function settle() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 async function showExpiry() {
   useAuthStore.setState({ sessionExpired: 'signed_out' });
   render(<LoginScreen />);
-  await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
+  await settle();
+  expect(screen.getByTestId('login-session-notice')).toBeTruthy();
 }
 
 describe('a signed-out session', () => {
@@ -152,7 +165,8 @@ describe('a signed-out session', () => {
 
     screen.unmount();
     render(<LoginScreen />);
-    await waitFor(() => expect(screen.queryByTestId('login-session-notice')).toBeNull());
+    await settle();
+    expect(screen.queryByTestId('login-session-notice')).toBeNull();
   });
 });
 
@@ -183,8 +197,9 @@ describe('a login failure', () => {
     act(() => reportLoginError?.('Invalid API key'));
 
     act(() => useAuthStore.setState({ sessionExpired: 'signed_out' }));
+    await settle();
 
-    await waitFor(() => expect(screen.getByTestId('login-session-notice')).toBeTruthy());
+    expect(screen.getByTestId('login-session-notice')).toBeTruthy();
     expect(screen.queryByTestId('login-error-text')).toBeNull();
   });
 });

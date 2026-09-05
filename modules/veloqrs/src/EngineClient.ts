@@ -12,7 +12,6 @@ import type {
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
-  FfiActivityPattern,
   FfiCallOutcome,
   FfiManualActivity,
   FfiExerciseActivities,
@@ -45,6 +44,7 @@ import type {
   FfiIndexActivitySummary,
   DownloadProgressResult,
   DerivedClear,
+  SettingPair,
 } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
@@ -74,7 +74,6 @@ import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type {
-  FfiActivityIndicator,
   FfiActivityRouteHighlight,
   FfiMergeCandidate,
   FfiNearbySectionSummary,
@@ -446,8 +445,6 @@ class EngineClient implements DelegateHost {
 
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
-  getSections = (): FfiSection[] => sectionDelegates.getSections(this);
-
   getSectionsFiltered = (sportType?: string, minVisits?: number): FfiSection[] =>
     sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
 
@@ -465,9 +462,6 @@ class EngineClient implements DelegateHost {
     sortKey: sectionDelegates.SectionSortKey
   ): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
-
-  getGroupSummaries = (): { totalCount: number; summaries: GroupSummary[] } =>
-    routeDelegates.getGroupSummaries(this);
 
   getFilteredGroupSummaries = (
     minActivities: number,
@@ -652,9 +646,6 @@ class EngineClient implements DelegateHost {
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
 
-  getMissingTimeStreams = (activityIds: string[]): string[] =>
-    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
-
   getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
     activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
@@ -786,15 +777,6 @@ class EngineClient implements DelegateHost {
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */
   pollTileGeneration = (): string => heatmapDelegates.pollTileGeneration(this);
 
-  // ==========================================================================
-  // Activity Pattern Detection (K-means clustering)
-  // ==========================================================================
-
-  getActivityPatternsWithToday = (): {
-    today: FfiActivityPattern | undefined;
-    all: FfiActivityPattern[];
-  } => fitnessDelegates.getActivityPatternsWithToday(this);
-
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
 
@@ -883,6 +865,8 @@ class EngineClient implements DelegateHost {
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 
   setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
+
+  setSettings = (pairs: SettingPair[]): number => settingsDelegates.setSettings(this, pairs);
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
@@ -1141,10 +1125,6 @@ class EngineClient implements DelegateHost {
 
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
-
-  /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
-  getActivityIndicators = (activityIds: string[]): FfiActivityIndicator[] =>
-    sectionDelegates.getActivityIndicators(this, activityIds);
 
   /** Get section encounters for an activity: one entry per (section, direction). */
   getActivitySectionEncounters = (activityId: string): SectionEncounter[] =>

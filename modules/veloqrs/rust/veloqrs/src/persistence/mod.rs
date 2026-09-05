@@ -105,10 +105,16 @@ fn get_section_word() -> String {
         .unwrap_or_else(|_| "Section".to_string())
 }
 
-/// Great-circle distance in metres, over geo's IUGG mean earth radius.
+/// Great-circle distance in metres, for callers holding loose coordinates
+/// rather than points. The formula is tracematch's, which is the one the
+/// detector cuts with.
 pub(crate) fn haversine_distance_meters(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
-    use geo::{Distance, Haversine, Point};
-    Haversine::distance(Point::new(lng1, lat1), Point::new(lng2, lat2))
+    let point = |latitude, longitude| crate::GpsPoint {
+        latitude,
+        longitude,
+        elevation: None,
+    };
+    tracematch::geo_utils::haversine_distance(&point(lat1, lng1), &point(lat2, lng2))
 }
 
 fn bounds_center_distance_meters(
@@ -1101,11 +1107,13 @@ impl PersistentEngine {
     /// Read-only access to the active `match_config.min_match_percentage`.
     /// Exposed so integration tests can verify persisted strictness without
     /// needing crate-private access to the whole `MatchConfig`.
+    #[doc(hidden)]
     pub fn match_config_min_match_percentage(&self) -> f64 {
         self.match_config.min_match_percentage
     }
 
     /// Read-only access to the active `match_config.endpoint_threshold`.
+    #[doc(hidden)]
     pub fn match_config_endpoint_threshold(&self) -> f64 {
         self.match_config.endpoint_threshold
     }
@@ -1117,12 +1125,15 @@ impl PersistentEngine {
         self.section_config.clone()
     }
 
+    #[doc(hidden)]
     pub fn section_config_proximity_threshold(&self) -> f64 {
         self.section_config.proximity_threshold
     }
+    #[doc(hidden)]
     pub fn section_config_min_section_length(&self) -> f64 {
         self.section_config.min_section_length
     }
+    #[doc(hidden)]
     pub fn section_config_min_activities(&self) -> u32 {
         self.section_config.min_activities
     }
@@ -2861,6 +2872,37 @@ mod haversine_parity_tests {
     fn uses_the_iugg_mean_radius() {
         let half_great_circle = haversine_distance_meters(0.0, 0.0, 0.0, 180.0);
         assert!((half_great_circle - 20_015_114.44).abs() < 0.5);
+    }
+
+    /// The crate holds one great-circle formula, tracematch's, and the helper
+    /// here is the lat/lng signature over it. Two bodies agreeing today is
+    /// what a parity test papers over; one body cannot drift at all.
+    #[test]
+    fn the_helper_is_tracematchs_formula_exactly() {
+        for &(lat1, lng1, lat2, lng2, _) in FIXTURES {
+            let point = |lat, lng| tracematch::GpsPoint {
+                latitude: lat,
+                longitude: lng,
+                elevation: None,
+            };
+            assert_eq!(
+                haversine_distance_meters(lat1, lng1, lat2, lng2),
+                tracematch::geo_utils::haversine_distance(&point(lat1, lng1), &point(lat2, lng2)),
+                "({lat1}, {lng1}) to ({lat2}, {lng2}) took a different formula"
+            );
+        }
+    }
+
+    /// `geo` reaches this crate through tracematch, which owns the formula.
+    /// A direct dependency is how a second copy gets written next time.
+    #[test]
+    fn veloqrs_does_not_depend_on_geo_directly() {
+        let manifest = include_str!("../../Cargo.toml");
+        let declared = manifest
+            .lines()
+            .map(str::trim)
+            .any(|line| line.starts_with("geo ") || line.starts_with("geo="));
+        assert!(!declared, "veloqrs/Cargo.toml still declares `geo`");
     }
 }
 

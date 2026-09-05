@@ -403,7 +403,11 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
 /**
  * Validate a backup database file without touching the global engine.
  * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
- * "activity_count", "newest_activity"}.
+ * "activity_count", "newest_activity", "supported_schema_version"}.
+ *
+ * The supported version is this build's own, not the file's. It is the only
+ * honest thing to compare a backup against: the live database is the other
+ * candidate and a fresh install cannot read one.
  */
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
@@ -1534,57 +1538,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterArrayTypeFfiPatternSection.allocationSize(
           value.commonSections,
         )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Bundled patterns payload for the home screen: today's pattern alongside
- * the full detected set, delivered in a single FFI call.
- */
-export type FfiActivityPatternsBundle = {
-  today?: FfiActivityPattern;
-  all: Array<FfiActivityPattern>;
-};
-
-/**
- * Generated factory for {@link FfiActivityPatternsBundle} record objects.
- */
-export const FfiActivityPatternsBundle = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityPatternsBundle,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivityPatternsBundle>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityPatternsBundle = (() => {
-  type TypeName = FfiActivityPatternsBundle;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        today: FfiConverterOptionalTypeFfiActivityPattern.read(from),
-        all: FfiConverterArrayTypeFfiActivityPattern.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterOptionalTypeFfiActivityPattern.write(value.today, into);
-      FfiConverterArrayTypeFfiActivityPattern.write(value.all, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(value.today) +
-        FfiConverterArrayTypeFfiActivityPattern.allocationSize(value.all)
       );
     }
   }
@@ -9174,6 +9127,54 @@ const FfiConverterTypeSectionSummary = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * One key and the value to store under it.
+ */
+export type SettingPair = {
+  key: string;
+  value: string;
+};
+
+/**
+ * Generated factory for {@link SettingPair} record objects.
+ */
+export const SettingPair = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<SettingPair, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<SettingPair>,
+  });
+})();
+
+const FfiConverterTypeSettingPair = (() => {
+  type TypeName = SettingPair;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        key: FfiConverterString.read(from),
+        value: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.key, into);
+      FfiConverterString.write(value.value, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.key) +
+        FfiConverterString.allocationSize(value.value)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 const stringConverter = {
   stringToBytes: (s: string) =>
     uniffiCaller.rustCall((status) =>
@@ -11484,11 +11485,6 @@ export interface FitnessManagerLike {
    * Get all activity IDs that have metrics stored (GPS and non-GPS).
    */
   getActivityMetricIds() /*throws*/ : Array<string>;
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday() /*throws*/ : FfiActivityPatternsBundle;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   /**
    * Calendar event bodies over an inclusive window, oldest first.
@@ -11721,27 +11717,6 @@ export class FitnessManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
-            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday(): FfiActivityPatternsBundle /*throws*/ {
-    return FfiConverterTypeFfiActivityPatternsBundle.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -13232,14 +13207,6 @@ export interface SectionManagerLike {
     sectionPolylineFlat: Array</*f64*/ number>,
   ) /*throws*/ : ArrayBuffer;
   /**
-   * Read pre-computed indicators for a batch of activity IDs.
-   * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialised `activity_indicators` table.
-   */
-  getActivityIndicators(
-    activityIds: Array<string>,
-  ) /*throws*/ : Array<FfiActivityIndicator>;
-  /**
    * Given an activity and a list of section IDs, return the subset where
    * `activity_id` currently holds the best record. Collapses a per-section
    * N+1 `get_performances` loop into a single FFI round-trip.
@@ -13669,31 +13636,6 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterArrayFloat64.lower(sectionPolylineFlat),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Read pre-computed indicators for a batch of activity IDs.
-   * Returns section PRs, route PRs, section trends, and route trends
-   * from the materialised `activity_indicators` table.
-   */
-  getActivityIndicators(
-    activityIds: Array<string>,
-  ): Array<FfiActivityIndicator> /*throws*/ {
-    return FfiConverterArrayTypeFfiActivityIndicator.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -15206,6 +15148,11 @@ export interface SettingsManagerLike {
    * Set a single user preference (upsert).
    */
   setSetting(key: string, value: string) /*throws*/ : void;
+  /**
+   * Set several user preferences in one transaction, skipping each pair
+   * whose value is already stored. Returns how many were written.
+   */
+  setSettings(pairs: Array<SettingPair>) /*throws*/ : /*u32*/ number;
   setSportSettings(json: string) /*throws*/ : void;
   /**
    * Set the stream retention window in days, then evict what now falls
@@ -15379,6 +15326,28 @@ export class SettingsManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Set several user preferences in one transaction, skipping each pair
+   * whose value is already stored. Returns how many were written.
+   */
+  setSettings(pairs: Array<SettingPair>): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayTypeSettingPair.lower(pairs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -17790,6 +17759,11 @@ const FfiConverterArrayTypeSectionSummary = new FfiConverterArray(
   FfiConverterTypeSectionSummary,
 );
 
+// FfiConverter for Array<SettingPair>
+const FfiConverterArrayTypeSettingPair = new FfiConverterArray(
+  FfiConverterTypeSettingPair,
+);
+
 // FfiConverter for Array<string>
 const FfiConverterArrayString = new FfiConverterArray(FfiConverterString);
 
@@ -17963,7 +17937,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    28613
+    53210
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
@@ -18490,14 +18464,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today() !==
-    11598
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types() !==
     18354
   ) {
@@ -19018,14 +18984,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators() !==
-    55003
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections() !==
     62937
   ) {
@@ -19498,6 +19456,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings() !==
+    34826
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_set_settings",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings() !==
     43262
   ) {
@@ -19954,7 +19920,6 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
-    FfiConverterTypeFfiActivityPatternsBundle,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
     FfiConverterTypeFfiBatchTrace,
@@ -20058,6 +20023,7 @@ export default Object.freeze({
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionPreview,
     FfiConverterTypeSectionSummary,
+    FfiConverterTypeSettingPair,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,
     FfiConverterTypeSyncManager,

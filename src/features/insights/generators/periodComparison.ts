@@ -8,15 +8,7 @@ import type {
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';
 import { insightIcon } from '@/theme';
-
-/** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
-export function formatDurationCompact(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0m';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
-  return `${m}m`;
-}
+import { formatDurationCompact } from '@/shared/format/format';
 
 export function generatePeriodComparisonInsights(
   currentPeriod: PeriodStats | null,

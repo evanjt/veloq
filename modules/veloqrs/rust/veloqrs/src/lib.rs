@@ -244,28 +244,45 @@ pub(crate) fn calendar_days_between(earlier: i64, later: i64) -> u32 {
 
 uniffi::setup_scaffolding!();
 
+/// Seven call sites reach for the logger and only the first one may set it.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+static LOGGING_INIT: std::sync::Once = std::sync::Once::new();
+
+/// Every level below this is compiled out of a release build by the `log`
+/// crate's own filter, so a hot path costs nothing to leave instrumented.
+/// A debug build keeps the running commentary.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn log_level() -> log::LevelFilter {
+    if cfg!(debug_assertions) {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Warn
+    }
+}
+
 /// Initialise logging for Android
 #[cfg(target_os = "android")]
 pub(crate) fn init_logging() {
     use android_logger::Config;
-    use log::LevelFilter;
 
-    android_logger::init_once(
-        Config::default()
-            .with_max_level(LevelFilter::Debug)
-            .with_tag("veloqrs"),
-    );
+    LOGGING_INIT.call_once(|| {
+        android_logger::init_once(
+            Config::default()
+                .with_max_level(log_level())
+                .with_tag("veloqrs"),
+        );
+    });
 }
 
 /// Initialise logging for iOS (Apple unified logging / os_log)
 #[cfg(target_os = "ios")]
 pub(crate) fn init_logging() {
-    use log::LevelFilter;
-
-    oslog::OsLogger::new("com.veloq.app.rust")
-        .level_filter(LevelFilter::Debug)
-        .init()
-        .ok(); // ok() ignores AlreadyInitialized error on repeated calls
+    LOGGING_INIT.call_once(|| {
+        oslog::OsLogger::new("com.veloq.app.rust")
+            .level_filter(log_level())
+            .init()
+            .ok();
+    });
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

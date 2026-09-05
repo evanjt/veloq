@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { decodeCoords } from 'veloqrs';
 
 export interface RouteSignature {
@@ -64,6 +65,7 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     }
   }, [enabled]);
 
+  const engine = useEngineReady();
   useEffect(() => {
     isMountedRef.current = true;
     if (!enabled) return;
@@ -71,38 +73,21 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
     let unsubscribe: (() => void) | null = null;
     let task: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
 
-    function trySubscribe(): boolean {
-      const engine = getEngine();
-      if (!engine) return false;
+    if (!engine) return;
 
-      // Defer loading until after navigation animations complete
-      task = InteractionManager.runAfterInteractions(() => {
-        buildSignatures();
-      });
+    // Defer loading until after navigation animations complete
+    task = InteractionManager.runAfterInteractions(() => {
+      buildSignatures();
+    });
 
-      // Subscribe to activity changes
-      unsubscribe = engine.subscribe('activities', buildSignatures);
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) clearInterval(interval);
-      }, 200);
-      return () => {
-        isMountedRef.current = false;
-        clearInterval(interval);
-        task?.cancel();
-        unsubscribe?.();
-      };
-    }
+    unsubscribe = engine.subscribe('activities', buildSignatures);
 
     return () => {
       isMountedRef.current = false;
       task?.cancel();
       unsubscribe?.();
     };
-  }, [buildSignatures, enabled]);
+  }, [buildSignatures, enabled, engine]);
 
   return signatures;
 }

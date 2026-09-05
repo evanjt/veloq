@@ -9,6 +9,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 import { formatLocalDate } from '@/shared/format/format';
 
@@ -97,6 +98,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [isSubscribed, setIsSubscribed] = useState(() => getEngine() !== null);
 
   // Track mount state to prevent setState after unmount
+  const engine = useEngineReady();
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -105,8 +107,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
   }, []);
 
-  // Subscribe to Rust engine activity changes - retry if engine not ready on mount
+  // Subscribe to Rust engine activity changes. `useEngineReady` re-renders on
+  // the ready nonce, so an engine that opens after this mounts arrives here as
+  // a dependency change rather than through a poll of its own.
   useEffect(() => {
+    if (!engine) return undefined;
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
@@ -131,38 +136,19 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
     };
 
-    function trySubscribe(): boolean {
-      const engine = getEngine();
-      if (!engine) return false;
+    updateFromEngine();
+    if (isMountedRef.current) setIsSubscribed(true);
 
+    unsubscribe = engine.subscribe('activities', () => {
+      if (!isMountedRef.current) return;
       updateFromEngine();
-      if (isMountedRef.current) setIsSubscribed(true);
-
-      unsubscribe = engine.subscribe('activities', () => {
-        if (!isMountedRef.current) return;
-        updateFromEngine();
-      });
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
+    });
 
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [engineGeneration]); // Re-subscribe when engine is destroyed and re-created
+  }, [engine, engineGeneration]); // Re-subscribe when engine is destroyed and re-created
 
   // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {

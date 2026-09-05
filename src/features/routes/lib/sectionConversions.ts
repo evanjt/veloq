@@ -10,7 +10,7 @@ import type { FrequentSection } from '@/types';
  * Convert a native section to app section format.
  *
  * Every section-returning export sends the same record, whether it came from
- * the in-memory catalogue (`getSections`, `getSectionsFiltered`,
+ * the in-memory catalogue (`getSectionsFiltered`,
  * `getSectionById`) or the database (`getSectionsForActivity`, `getByType`).
  */
 export function convertNativeSectionToApp(native: NativeSection): FrequentSection {

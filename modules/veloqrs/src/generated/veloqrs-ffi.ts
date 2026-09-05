@@ -403,10 +403,6 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
-    ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -830,11 +826,6 @@ interface NativeModuleInterface {
     sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-    ptr: bigint,
-    activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1158,6 +1149,11 @@ interface NativeModuleInterface {
     value: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+    ptr: bigint,
+    pairs: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
     ptr: bigint,
     json: Uint8Array,
@@ -1681,7 +1677,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(): number;
@@ -1747,7 +1742,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
@@ -1807,6 +1801,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days(): number;

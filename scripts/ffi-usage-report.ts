@@ -6,6 +6,7 @@
  *   npx tsx scripts/ffi-usage-report.ts
  *   npx tsx scripts/ffi-usage-report.ts --unused    # just the list
  *   npx tsx scripts/ffi-usage-report.ts --check     # exit 1 on an unlisted one
+ *   npx tsx scripts/ffi-usage-report.ts --client    # per EngineClient method
  *   npx tsx scripts/ffi-usage-report.ts --json
  *
  * What counts as a caller, and which exports are owned elsewhere, live in
@@ -17,6 +18,7 @@ import * as path from 'path';
 
 import {
   OWNED_ELSEWHERE,
+  clientMethodReach,
   type Reach,
   callIsAttributed,
   callsIn,
@@ -149,6 +151,33 @@ function report(): UsageInfo[] {
   }
 
   return [...usage.values()].sort((a, b) => b.usageCount - a.usageCount);
+}
+
+/**
+ * Which `EngineClient` methods no production code calls.
+ *
+ * The export report cannot answer this: a delegate renames as it forwards and
+ * two client methods can sit on one delegate, so an export reached under one
+ * name hides the method beside it that nothing calls (`D42`).
+ */
+function clientReport(): [string, number][] {
+  const classPath = path.join(REPO, 'modules/veloqrs/src/EngineClient.ts');
+  const classSource = fs.readFileSync(classPath, 'utf-8');
+  const files = callerFiles().map((file) => ({
+    file,
+    source: fs.readFileSync(path.join(REPO, file), 'utf-8'),
+  }));
+  return [...clientMethodReach(classSource, files)].sort((a, b) => a[1] - b[1]);
+}
+
+if (process.argv.includes('--client')) {
+  const rows = clientReport();
+  const unreached = rows.filter(([, count]) => count === 0);
+  console.log(`=== ENGINECLIENT METHODS (${rows.length}) ===\n`);
+  console.log(`Called from the app: ${rows.length - unreached.length}`);
+  console.log(`Called by nothing outside the engine layer: ${unreached.length}\n`);
+  for (const [method] of unreached) console.log(`  - ${method}`);
+  process.exit(0);
 }
 
 const usageReport = report();

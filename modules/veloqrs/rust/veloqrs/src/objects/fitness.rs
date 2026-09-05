@@ -223,20 +223,6 @@ impl FitnessManager {
         })
     }
 
-    /// Combined patterns query: today's pattern + full pattern set in one lock.
-    /// Collapses the two-call sequence in `useActivityPatterns`.
-    fn get_activity_patterns_with_today(
-        &self,
-    ) -> Result<crate::FfiActivityPatternsBundle, VeloqError> {
-        with_engine(|e| {
-            let all = e.activity_patterns();
-            crate::FfiActivityPatternsBundle {
-                today: crate::patterns::pattern_for_today(&all),
-                all,
-            }
-        })
-    }
-
     /// Sync a batch of wellness rows from the intervals.icu API into SQLite.
     /// Idempotent on `date`; call whenever the TS wellness query refreshes.
     fn upsert_wellness(&self, rows: Vec<crate::FfiWellnessRow>) -> Result<(), VeloqError> {

@@ -105,7 +105,7 @@ pub fn compute_activity_patterns(
             continue;
         }
 
-        log::info!(
+        log::trace!(
             "veloqrs: [Patterns] Sport '{}': {} activities -> k={} clusters",
             sport_type,
             indices.len(),
