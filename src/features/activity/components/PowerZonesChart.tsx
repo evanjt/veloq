@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing } from '@/theme';
+import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 import { POWER_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
@@ -43,9 +44,14 @@ export function PowerZonesChart({ activity }: PowerZonesChartProps) {
 
   if (!zoneData) return null;
 
-  const isCompact = zoneData.length > 5;
-  const barHeight = isCompact ? 14 : 16;
-  const rowPadding = isCompact ? 2 : 3;
+  const bands: ZoneBand[] = zoneData.map((zone) => ({
+    key: zone.id,
+    label: String(zone.id),
+    colour: zone.color,
+    percent: zone.percent,
+    primary: zone.formatted,
+    secondary: zone.wattRange,
+  }));
 
   return (
     <ChartErrorBoundary height={200} label="Power Zones">
@@ -60,71 +66,7 @@ export function PowerZonesChart({ activity }: PowerZonesChartProps) {
             </Text>
           )}
         </View>
-        <View style={styles.zonesContainer}>
-          {zoneData.map((zone) => (
-            <View key={zone.id} style={[styles.zoneRow, { paddingVertical: rowPadding }]}>
-              <Text
-                style={[
-                  styles.zoneNumber,
-                  isCompact && styles.zoneNumberCompact,
-                  { color: zone.color },
-                ]}
-              >
-                {zone.id}
-              </Text>
-
-              <Text
-                style={[
-                  styles.zonePercent,
-                  isCompact && styles.zonePercentCompact,
-                  isDark && styles.zonePercentDark,
-                ]}
-              >
-                {zone.percent > 0.5 ? `${Math.round(zone.percent)}%` : '-'}
-              </Text>
-
-              <View
-                style={[
-                  styles.barContainer,
-                  { height: barHeight, borderRadius: barHeight / 2 },
-                  isDark && styles.barContainerDark,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      width: `${Math.min(zone.percent, 100)}%`,
-                      backgroundColor: zone.color,
-                      borderRadius: barHeight / 2,
-                    },
-                  ]}
-                />
-              </View>
-
-              <View style={[styles.zoneStats, isCompact && styles.zoneStatsCompact]}>
-                <Text
-                  style={[
-                    styles.zoneTime,
-                    isCompact && styles.zoneTimeCompact,
-                    isDark && styles.zoneTimeDark,
-                  ]}
-                >
-                  {zone.percent > 0.5 ? zone.formatted : '-'}
-                </Text>
-                <Text
-                  style={[
-                    styles.zoneWatts,
-                    isCompact && styles.zoneWattsCompact,
-                    isDark && styles.zoneWattsDark,
-                  ]}
-                >
-                  {zone.wattRange}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        <ZoneHistogram bands={bands} />
       </View>
     </ChartErrorBoundary>
   );
@@ -153,81 +95,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   ftpLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  zonesContainer: {},
-  zoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  zoneNumber: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
-    width: 24,
-  },
-  zoneNumberCompact: {
-    fontSize: typography.label.fontSize,
-    width: 22,
-  },
-  zonePercent: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    width: 32,
-    textAlign: 'right',
-    color: colors.textPrimary,
-    marginRight: 6,
-  },
-  zonePercentCompact: {
-    fontSize: typography.micro.fontSize,
-    width: 28,
-    marginRight: spacing.xs,
-  },
-  zonePercentDark: {
-    color: colors.textOnDark,
-  },
-  barContainer: {
-    flex: 1,
-    height: 16,
-    backgroundColor: opacity.overlay.medium,
-    borderRadius: layout.borderRadiusSm,
-    overflow: 'hidden',
-  },
-  barContainerDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  bar: {
-    height: '100%',
-    borderRadius: layout.borderRadiusSm,
-  },
-  zoneStats: {
-    width: 75,
-    marginLeft: 6,
-    alignItems: 'flex-end',
-  },
-  zoneStatsCompact: {
-    width: 65,
-    marginLeft: spacing.xs,
-  },
-  zoneTime: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  zoneTimeCompact: {
-    fontSize: typography.micro.fontSize,
-  },
-  zoneTimeDark: {
-    color: colors.textOnDark,
-  },
-  zoneWatts: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  zoneWattsCompact: {
-    fontSize: typography.pillLabel.fontSize,
-  },
-  zoneWattsDark: {
     color: darkColors.textSecondary,
   },
 });
