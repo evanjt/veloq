@@ -7,7 +7,6 @@
  */
 
 import type {
-  FfiActivityPattern,
   FfiFtpTrend,
   FfiInsightsData,
   FfiInsightsParams,
@@ -144,21 +143,6 @@ export function getActivityHeatmap(
   return host.timed('getActivityHeatmap', () =>
     host.engine.fitness().getActivityHeatmap(startDate, endDate)
   );
-}
-
-/**
- * Combined patterns bundle: today's pattern + full pattern set in one call.
- * No screen calls it any more: the insights bundle already carries both.
- */
-export function getActivityPatternsWithToday(host: DelegateHost): {
-  today: FfiActivityPattern | undefined;
-  all: FfiActivityPattern[];
-} {
-  if (!host.ready) return { today: undefined, all: [] };
-  return host.timed('getActivityPatternsWithToday', () => {
-    const bundle = host.engine.fitness().getActivityPatternsWithToday();
-    return { today: bundle.today ?? undefined, all: bundle.all };
-  });
 }
 
 export interface WellnessRowInput {

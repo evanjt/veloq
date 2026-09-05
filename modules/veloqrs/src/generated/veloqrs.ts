@@ -403,7 +403,11 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
 /**
  * Validate a backup database file without touching the global engine.
  * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
- * "activity_count", "newest_activity"}.
+ * "activity_count", "newest_activity", "supported_schema_version"}.
+ *
+ * The supported version is this build's own, not the file's. It is the only
+ * honest thing to compare a backup against: the live database is the other
+ * candidate and a fresh install cannot read one.
  */
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
@@ -1534,57 +1538,6 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterArrayTypeFfiPatternSection.allocationSize(
           value.commonSections,
         )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Bundled patterns payload for the home screen: today's pattern alongside
- * the full detected set, delivered in a single FFI call.
- */
-export type FfiActivityPatternsBundle = {
-  today?: FfiActivityPattern;
-  all: Array<FfiActivityPattern>;
-};
-
-/**
- * Generated factory for {@link FfiActivityPatternsBundle} record objects.
- */
-export const FfiActivityPatternsBundle = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiActivityPatternsBundle,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiActivityPatternsBundle>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityPatternsBundle = (() => {
-  type TypeName = FfiActivityPatternsBundle;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    read(from: RustBuffer): TypeName {
-      return {
-        today: FfiConverterOptionalTypeFfiActivityPattern.read(from),
-        all: FfiConverterArrayTypeFfiActivityPattern.read(from),
-      };
-    }
-    write(value: TypeName, into: RustBuffer): void {
-      FfiConverterOptionalTypeFfiActivityPattern.write(value.today, into);
-      FfiConverterArrayTypeFfiActivityPattern.write(value.all, into);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(value.today) +
-        FfiConverterArrayTypeFfiActivityPattern.allocationSize(value.all)
       );
     }
   }
@@ -11484,11 +11437,6 @@ export interface FitnessManagerLike {
    * Get all activity IDs that have metrics stored (GPS and non-GPS).
    */
   getActivityMetricIds() /*throws*/ : Array<string>;
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday() /*throws*/ : FfiActivityPatternsBundle;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   /**
    * Calendar event bodies over an inclusive window, oldest first.
@@ -11721,27 +11669,6 @@ export class FitnessManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
-            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Combined patterns query: today's pattern + full pattern set in one lock.
-   * Collapses the two-call sequence in `useActivityPatterns`.
-   */
-  getActivityPatternsWithToday(): FfiActivityPatternsBundle /*throws*/ {
-    return FfiConverterTypeFfiActivityPatternsBundle.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -17963,7 +17890,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    28613
+    53210
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
@@ -18487,14 +18414,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today() !==
-    11598
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today",
     );
   }
   if (
@@ -19954,7 +19873,6 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
-    FfiConverterTypeFfiActivityPatternsBundle,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
     FfiConverterTypeFfiBatchTrace,
