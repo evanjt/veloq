@@ -59,6 +59,9 @@ module.exports = {
     "\\.[jt]sx?$": babelTransform,
   },
   setupFilesAfterEnv: ["<rootDir>/config/jest.setup.js"],
+  // A wait that gives up at four seconds needs a test budget above it, or Jest
+  // reports its own timeout instead of the library's, which names nothing.
+  testTimeout: 15000,
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",
     "!src/**/*.d.ts",
