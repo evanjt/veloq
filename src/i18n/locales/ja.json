@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "この設定を適用しますか？",
     "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
     "previewKeepRefusedTitle": "再解析が開始されませんでした",
-    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。"
+    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。",
+    "elevationBackfillPause": "ダウンロードを一時停止",
+    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1596,6 +1598,7 @@
     "stateFailed": "途中で停止しました",
     "progressCount": "{{total}} 件中 {{completed}} 件",
     "progressPercent": "{{percent}}%",
-    "remaining": "残り {{count}} 件を取得します"
+    "remaining": "残り {{count}} 件を取得します",
+    "statePaused": "次回アプリを開くまで一時停止"
   }
 }

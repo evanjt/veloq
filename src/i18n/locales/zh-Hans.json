@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "应用这些设置？",
     "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
     "previewKeepRefusedTitle": "未开始重新分析",
-    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。"
+    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。",
+    "elevationBackfillPause": "暂停下载",
+    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。"
   },
   "stats": {
     "activities": "活动",
@@ -1596,6 +1598,7 @@
     "stateFailed": "提前停止",
     "progressCount": "{{completed}} / {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "还有 {{count}} 项待获取"
+    "remaining": "还有 {{count}} 项待获取",
+    "statePaused": "已暂停，直到下次打开应用"
   }
 }

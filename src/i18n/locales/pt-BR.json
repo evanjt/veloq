@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "Aplicar estas configurações?",
     "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar.",
     "previewKeepRefusedTitle": "A nova análise não começou",
-    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes."
+    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes.",
+    "elevationBackfillPause": "Pausar download",
+    "elevationBackfillPaused": "Download de altitude pausado. Ele será retomado na próxima vez que você abrir o app. Para parar de vez a detecção de trechos, desative Correspondencia de rotas acima."
   },
   "stats": {
     "activities": "Atividades",
@@ -1596,6 +1598,7 @@
     "stateFailed": "Parou antes do fim",
     "progressCount": "{{completed}} de {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Faltam {{count}} para baixar"
+    "remaining": "Faltam {{count}} para baixar",
+    "statePaused": "Pausado até o app ser aberto de novo"
   }
 }

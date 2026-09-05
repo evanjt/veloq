@@ -352,6 +352,8 @@ class EngineClient implements DelegateHost {
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
 
+  pauseElevationBackfill = (): boolean => elevationDelegates.pauseElevationBackfill(this);
+
   getElevationBackfillProgress = (): ElevationBackfillProgress | null =>
     elevationDelegates.getElevationBackfillProgress(this);
 
