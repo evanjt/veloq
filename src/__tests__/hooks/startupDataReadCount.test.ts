@@ -17,7 +17,12 @@ import { useStartupData } from '@/features/home/hooks/useStartupData';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
-jest.mock('veloqrs', () => ({ decodeCoords: () => [] }));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: () => [],
+  })
+);
 
 jest.mock('@/features/insights/lib/insightsParams', () => ({
   buildInsightsParams: () => ({}),

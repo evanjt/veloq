@@ -15,9 +15,12 @@ import { getEngine } from '@/shared/native/engine';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section as NativeSection } from 'veloqrs';
 
-jest.mock('veloqrs', () => ({
-  decodeCoords: () => [],
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: () => [],
+  })
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

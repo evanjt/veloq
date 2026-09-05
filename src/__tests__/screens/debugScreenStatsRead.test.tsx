@@ -44,9 +44,12 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
 }));
 
 const mockGetStats = jest.fn(() => ({ activityCount: 1 }));
-jest.mock('veloqrs', () => ({
-  EngineClient: { getInstance: () => ({ getStats: mockGetStats }) },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    EngineClient: { getInstance: () => ({ getStats: mockGetStats }) },
+  })
+);
 
 describe('debug screen engine stats', () => {
   it('reads stats once per mount and once more per refresh', async () => {

@@ -13,18 +13,21 @@ type MockListener = (payload?: unknown) => void;
 
 const mockListeners = new Map<string, Set<MockListener>>();
 
-jest.mock('veloqrs', () => ({
-  engine: {
-    getActivitiesNeedingTimeStreams: jest.fn(() => [] as string[]),
-    syncTimeStreams: jest.fn(),
-    subscribe: jest.fn((event: string, callback: MockListener) => {
-      const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
-      forEvent.add(callback);
-      mockListeners.set(event, forEvent);
-      return () => forEvent.delete(callback);
-    }),
-  },
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    engine: {
+      getActivitiesNeedingTimeStreams: jest.fn(() => [] as string[]),
+      syncTimeStreams: jest.fn(),
+      subscribe: jest.fn((event: string, callback: MockListener) => {
+        const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
+        forEvent.add(callback);
+        mockListeners.set(event, forEvent);
+        return () => forEvent.delete(callback);
+      }),
+    },
+  })
+);
 
 const needing = engine.getActivitiesNeedingTimeStreams as unknown as jest.Mock;
 const syncTimeStreams = engine.syncTimeStreams as unknown as jest.Mock;
