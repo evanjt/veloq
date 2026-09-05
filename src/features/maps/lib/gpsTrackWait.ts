@@ -3,6 +3,7 @@
  */
 
 import { getEngine } from '@/shared/native/engine';
+import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 
 /** How long to wait for a single on-demand GPS download before giving up. */
 const GPS_WAIT_TIMEOUT_MS = 15_000;
@@ -26,19 +27,16 @@ export function waitForGpsTrack(activityId: string): Promise<[number, number][] 
   const stored = read();
   if (stored || !engine) return Promise.resolve(stored);
 
-  return new Promise((resolve) => {
-    let off: (() => void) | null = null;
-    const settle = (coords: [number, number][] | null) => {
-      clearTimeout(timer);
-      off?.();
-      off = null;
-      resolve(coords);
-    };
-    const timer = setTimeout(() => settle(null), GPS_WAIT_TIMEOUT_MS);
-    off = engine.subscribe('gpsTrackStored', (payload) => {
-      if ((payload as { activityId?: string } | undefined)?.activityId !== activityId) return;
-      const coords = read();
-      if (coords) settle(coords);
-    });
+  return awaitEngineAnnouncement<[number, number][] | null>({
+    channel: 'gpsTrackStored',
+    timeoutMs: GPS_WAIT_TIMEOUT_MS,
+    onDeadline: () => null,
+    subscribe: (channel, listener) => engine.subscribe(channel, listener),
+    read: (payload) => {
+      if ((payload as { activityId?: string } | undefined)?.activityId !== activityId) {
+        return undefined;
+      }
+      return read() ?? undefined;
+    },
   });
 }
