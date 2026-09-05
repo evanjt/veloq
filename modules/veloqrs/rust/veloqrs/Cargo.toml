@@ -110,6 +110,10 @@ name = "lock_contention"
 required-features = ["synthetic"]
 
 [[test]]
+name = "backfill_foreground_cost"
+required-features = ["synthetic"]
+
+[[test]]
 name = "apply_sections_atomicity"
 required-features = ["synthetic"]
 
