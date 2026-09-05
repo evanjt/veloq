@@ -247,7 +247,10 @@
     "grantCameraAccess": "Grant Camera Access",
     "fillAllFields": "Please fill in all fields",
     "nextcloudSetup": "If using Nextcloud WebDAV",
-    "manualSetup": "Or enter manually"
+    "manualSetup": "Or enter manually",
+    "webdavHttpsRequired": "Use an https:// address. A plain http:// server would receive your password and your whole database unencrypted.",
+    "webdavInvalidUrl": "That is not a valid server address",
+    "webdavPlainLan": "Allow an unencrypted server on my own network"
   },
   "cache": {
     "addingActivities": "Adding activities...",

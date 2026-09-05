@@ -247,7 +247,10 @@
     "grantCameraAccess": "Przyznaj dostęp do aparatu",
     "fillAllFields": "Wypełnij wszystkie pola",
     "nextcloudSetup": "Jeśli używasz Nextcloud WebDAV",
-    "manualSetup": "Lub wpisz ręcznie"
+    "manualSetup": "Lub wpisz ręcznie",
+    "webdavHttpsRequired": "Użyj adresu https://. Zwykły serwer http:// otrzymałby twoje hasło i całą bazę danych bez szyfrowania.",
+    "webdavInvalidUrl": "To nie jest prawidłowy adres serwera",
+    "webdavPlainLan": "Zezwól na nieszyfrowany serwer w mojej własnej sieci"
   },
   "bestEffortsScreen": {
     "title": "Najlepsze wysilki",

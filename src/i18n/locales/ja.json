@@ -247,7 +247,10 @@
     "grantCameraAccess": "カメラアクセスを許可",
     "fillAllFields": "すべてのフィールドを入力してください",
     "nextcloudSetup": "Nextcloud WebDAVの場合",
-    "manualSetup": "または手動で入力"
+    "manualSetup": "または手動で入力",
+    "webdavHttpsRequired": "https:// のアドレスを使ってください。http:// のサーバーにはパスワードとデータベース全体が暗号化されずに送られます。",
+    "webdavInvalidUrl": "有効なサーバーアドレスではありません",
+    "webdavPlainLan": "自分のネットワーク内の暗号化されていないサーバーを許可する"
   },
   "bestEffortsScreen": {
     "title": "ベストエフォート",
