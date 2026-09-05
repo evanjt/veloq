@@ -7,4 +7,4 @@ export {
   type FormZone,
 } from './fitness';
 
-export { formatEffortValue, formatEffortTime } from './bestEfforts';
+export { formatEffortValue } from './bestEfforts';

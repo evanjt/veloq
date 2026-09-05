@@ -2,11 +2,7 @@
  * Tests for time-axis helpers used by date-based charts.
  */
 
-import {
-  computeTimeAxisLabels,
-  axisLabelsNeedDay,
-  formatAxisDate,
-} from '@/features/stats/lib/timeAxis';
+import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats/lib/timeAxis';
 
 function dp(iso: string): { date: Date } {
   return { date: new Date(iso) };
@@ -78,25 +74,5 @@ describe('axisLabelsNeedDay', () => {
     for (const { labels, expected } of cases) {
       expect(axisLabelsNeedDay(labels)).toBe(expected);
     }
-  });
-});
-
-describe('formatAxisDate', () => {
-  it('formats date as "Mmm \'YY" when includeDay is false', () => {
-    const label = formatAxisDate(new Date('2024-01-15'), false);
-    expect(label).toMatch(/Jan '24/);
-    expect(label).not.toMatch(/15/);
-  });
-
-  it('formats date as "Mmm DD \'YY" when includeDay is true', () => {
-    const label = formatAxisDate(new Date('2024-01-15'), true);
-    expect(label).toMatch(/Jan 15 '24/);
-  });
-
-  it('handles year boundaries correctly', () => {
-    const dec = formatAxisDate(new Date('2023-12-31'), false);
-    const jan = formatAxisDate(new Date('2024-01-01'), false);
-    expect(dec).toContain("'23");
-    expect(jan).toContain("'24");
   });
 });
