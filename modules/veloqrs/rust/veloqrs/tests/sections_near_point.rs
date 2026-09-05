@@ -134,7 +134,10 @@ fn a_disabled_or_superseded_section_is_not_offered_to_a_recording() {
     let off = draw(&mut s, "Off", "Ride", eastward(1.0, 0.0, 20));
     let gone = draw(&mut s, "Gone", "Ride", eastward(2.0, 0.0, 20));
     s.raw
-        .execute("UPDATE sections SET disabled = 1 WHERE id = ?", params![off])
+        .execute(
+            "UPDATE sections SET disabled = 1 WHERE id = ?",
+            params![off],
+        )
         .expect("disable");
     s.raw
         .execute(
