@@ -151,7 +151,19 @@ export default function SectionDetailScreen() {
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
 
   // The ledger: stored versions, the pin, and every change with its context.
-  const ledger = useSectionLedger(id, sectionRefreshKey);
+  // The bundle carries the ledger flat, the hook takes it as one value.
+  const bundledLedger = useMemo(
+    () =>
+      detail
+        ? {
+            history: detail.history,
+            geometryVersions: detail.geometryVersions,
+            pinnedVersion: detail.pinnedVersion,
+          }
+        : undefined,
+    [detail]
+  );
+  const ledger = useSectionLedger(id, sectionRefreshKey, bundledLedger);
   const [shownVersion, setShownVersion] = useState<number | null>(null);
   const shadowTrack = useMemo<[number, number][] | undefined>(() => {
     if (shownVersion == null) return undefined;
@@ -314,7 +326,7 @@ export default function SectionDetailScreen() {
   }, [performanceRecords]);
 
   // Per-lap exclusion, keyed the way the junction rows are.
-  const laps = useSectionLaps(id, sectionRefreshKey);
+  const laps = useSectionLaps(id, sectionRefreshKey, detail?.excludedLaps);
   const partlyExcluded = useMemo(
     () => hasPartialExclusion(performanceRecords, laps.excludedLaps),
     [performanceRecords, laps.excludedLaps]
@@ -460,6 +472,7 @@ export default function SectionDetailScreen() {
           {/* Content below hero - hidden during trim */}
           {!isTrimming && (
             <SectionContentArea
+              efficiencyTrend={detail ? (detail.efficiencyTrend ?? null) : undefined}
               isDark={isDark}
               section={section}
               isSectionDisabled={isSectionDisabled}

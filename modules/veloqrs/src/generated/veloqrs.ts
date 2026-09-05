@@ -6354,6 +6354,26 @@ export type FfiSectionDetailData = {
    * Activities whose time streams still have to be fetched
    */
   missingTimeStreamIds: Array<string>;
+  /**
+   * The section's change ledger, oldest first
+   */
+  history: Array<FfiSectionHistoryEvent>;
+  /**
+   * Every stored geometry version, with the pinned one flagged
+   */
+  geometryVersions: Array<FfiSectionGeometryVersion>;
+  /**
+   * The pinned version, or `None` when the section follows the newest cut
+   */
+  pinnedVersion?: /*i64*/ bigint;
+  /**
+   * Laps the user excluded, keyed the way the junction rows are
+   */
+  excludedLaps: Array<FfiExcludedLap>;
+  /**
+   * Efficiency trend, or `None` with too few efforts to call one
+   */
+  efficiencyTrend?: FfiEfficiencyTrend;
 };
 
 /**
@@ -6388,6 +6408,12 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         activityMetrics: FfiConverterArrayTypeFfiActivityMetrics.read(from),
         mapSignatures: FfiConverterArrayTypeFfiMapSignature.read(from),
         missingTimeStreamIds: FfiConverterArrayString.read(from),
+        history: FfiConverterArrayTypeFfiSectionHistoryEvent.read(from),
+        geometryVersions:
+          FfiConverterArrayTypeFfiSectionGeometryVersion.read(from),
+        pinnedVersion: FfiConverterOptionalInt64.read(from),
+        excludedLaps: FfiConverterArrayTypeFfiExcludedLap.read(from),
+        efficiencyTrend: FfiConverterOptionalTypeFfiEfficiencyTrend.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6403,6 +6429,17 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
       );
       FfiConverterArrayTypeFfiMapSignature.write(value.mapSignatures, into);
       FfiConverterArrayString.write(value.missingTimeStreamIds, into);
+      FfiConverterArrayTypeFfiSectionHistoryEvent.write(value.history, into);
+      FfiConverterArrayTypeFfiSectionGeometryVersion.write(
+        value.geometryVersions,
+        into,
+      );
+      FfiConverterOptionalInt64.write(value.pinnedVersion, into);
+      FfiConverterArrayTypeFfiExcludedLap.write(value.excludedLaps, into);
+      FfiConverterOptionalTypeFfiEfficiencyTrend.write(
+        value.efficiencyTrend,
+        into,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6422,7 +6459,18 @@ const FfiConverterTypeFfiSectionDetailData = (() => {
         FfiConverterArrayTypeFfiMapSignature.allocationSize(
           value.mapSignatures,
         ) +
-        FfiConverterArrayString.allocationSize(value.missingTimeStreamIds)
+        FfiConverterArrayString.allocationSize(value.missingTimeStreamIds) +
+        FfiConverterArrayTypeFfiSectionHistoryEvent.allocationSize(
+          value.history,
+        ) +
+        FfiConverterArrayTypeFfiSectionGeometryVersion.allocationSize(
+          value.geometryVersions,
+        ) +
+        FfiConverterOptionalInt64.allocationSize(value.pinnedVersion) +
+        FfiConverterArrayTypeFfiExcludedLap.allocationSize(value.excludedLaps) +
+        FfiConverterOptionalTypeFfiEfficiencyTrend.allocationSize(
+          value.efficiencyTrend,
+        )
       );
     }
   }

@@ -41,34 +41,73 @@ const EMPTY: Pick<SectionLedger, 'history' | 'versions' | 'pinnedVersion'> = {
   pinnedVersion: null,
 };
 
-export function useSectionLedger(sectionId: string | undefined, refreshKey = 0): SectionLedger {
+/** The ledger as a screen bundle carries it, with the engine's 64-bit ids raw. */
+export interface BundledLedger {
+  history: readonly {
+    id: bigint | number;
+    at: string;
+    kind: string;
+    details?: string | null;
+    geometryVersion?: bigint | number | null;
+  }[];
+  geometryVersions: readonly {
+    version: bigint | number;
+    createdAt: string;
+    milestone: boolean;
+    pinned: boolean;
+  }[];
+  pinnedVersion?: bigint | number | null;
+}
+
+/**
+ * `bundled` lets a caller that already read the ledger as part of a screen
+ * bundle skip this hook's three FFI calls. A revert or an unpin bumps `tick`
+ * and the bundle behind it has not been re-read, so the hook goes back to the
+ * engine from then on.
+ */
+/** The three reads the bundle replaces, in the shape the bundle carries. */
+function readLedger(sectionId: string): BundledLedger | undefined {
+  const engine = getEngine();
+  if (!engine) return undefined;
+  return {
+    history: engine.getSectionHistory(sectionId),
+    geometryVersions: engine.getSectionGeometryVersions(sectionId),
+    pinnedVersion: engine.getPinnedSectionVersion(sectionId),
+  };
+}
+
+export function useSectionLedger(
+  sectionId: string | undefined,
+  refreshKey = 0,
+  bundled?: BundledLedger
+): SectionLedger {
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((k) => k + 1), []);
 
   const state = useMemo(() => {
-    const engine = getEngine();
-    if (!engine || !sectionId) return EMPTY;
-    const history: SectionHistoryEvent[] = engine.getSectionHistory(sectionId).map((e) => ({
+    const source =
+      bundled !== undefined && tick === 0 ? bundled : sectionId ? readLedger(sectionId) : undefined;
+    if (!source) return EMPTY;
+
+    const history: SectionHistoryEvent[] = source.history.map((e) => ({
       id: Number(e.id),
       at: e.at,
       kind: e.kind,
       details: e.details ?? undefined,
       geometryVersion: e.geometryVersion == null ? null : Number(e.geometryVersion),
     }));
-    const versions: SectionGeometryVersion[] = engine
-      .getSectionGeometryVersions(sectionId)
-      .map((v) => ({
-        version: Number(v.version),
-        createdAt: v.createdAt,
-        milestone: v.milestone,
-        pinned: v.pinned,
-      }));
+    const versions: SectionGeometryVersion[] = source.geometryVersions.map((v) => ({
+      version: Number(v.version),
+      createdAt: v.createdAt,
+      milestone: v.milestone,
+      pinned: v.pinned,
+    }));
     return {
       history: history.reverse(),
       versions: versions.reverse(),
-      pinnedVersion: engine.getPinnedSectionVersion(sectionId),
+      pinnedVersion: source.pinnedVersion == null ? null : Number(source.pinnedVersion),
     };
-  }, [sectionId, refreshKey, tick]);
+  }, [sectionId, refreshKey, tick, bundled]);
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {

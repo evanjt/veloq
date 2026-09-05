@@ -8,6 +8,7 @@ import type {
   Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
+  EfficiencyTrend,
 } from 'veloqrs';
 
 /** Map overlay radius the section detail screen has always used. */
@@ -17,7 +18,10 @@ export const NEARBY_RADIUS_METERS = 500;
  * The section detail reads that do not depend on time streams.
  *
  * The screen used to make nine reads here. The individual hooks still exist
- * for their other callers and take these fields as pre-computed input.
+ * for their other callers and take these fields as pre-computed input. The
+ * ledger, the excluded laps and the efficiency trend joined them once the
+ * count crept back to seven: all three are keyed on the section id alone, so
+ * there was never a reason for them to be their own lock acquisitions.
  */
 export interface SectionDetailBundle {
   activityCount: number;
@@ -29,6 +33,11 @@ export interface SectionDetailBundle {
   activityMetrics: ActivityMetrics[];
   mapSignatures: SectionDetailData['mapSignatures'];
   missingTimeStreamIds: string[];
+  history: SectionDetailData['history'];
+  geometryVersions: SectionDetailData['geometryVersions'];
+  pinnedVersion: SectionDetailData['pinnedVersion'];
+  excludedLaps: SectionDetailData['excludedLaps'];
+  efficiencyTrend: EfficiencyTrend | null;
 }
 
 function fetchSectionDetailData(sectionId: string): SectionDetailBundle | null {
@@ -49,6 +58,11 @@ function fetchSectionDetailData(sectionId: string): SectionDetailBundle | null {
       activityMetrics: result.activityMetrics,
       mapSignatures: result.mapSignatures,
       missingTimeStreamIds: result.missingTimeStreamIds,
+      history: result.history,
+      geometryVersions: result.geometryVersions,
+      pinnedVersion: result.pinnedVersion,
+      excludedLaps: result.excludedLaps,
+      efficiencyTrend: result.efficiencyTrend ?? null,
     };
   } catch {
     return null;

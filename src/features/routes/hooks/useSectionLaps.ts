@@ -18,15 +18,29 @@ export interface SectionLaps {
   includeLap: (activityId: string, startIndex: number) => void;
 }
 
-export function useSectionLaps(sectionId: string | undefined, refreshKey = 0): SectionLaps {
+/**
+ * `bundledLaps` lets a caller that already read them as part of a screen
+ * bundle skip this hook's own FFI call. An empty array is an answer, so only
+ * `undefined` falls back to reading.
+ */
+export function useSectionLaps(
+  sectionId: string | undefined,
+  refreshKey = 0,
+  bundledLaps?: readonly { activityId: string; startIndex: number }[]
+): SectionLaps {
   const [tick, setTick] = useState(0);
   const excludedLaps = useMemo(() => {
-    const engine = getEngine();
-    if (!engine || !sectionId) return new Set<string>();
-    return new Set(
-      engine.getExcludedSectionLaps(sectionId).map((l) => lapKey(l.activityId, l.startIndex))
-    );
-  }, [sectionId, refreshKey, tick]);
+    // An action bumps `tick`, and the bundle behind it has not been re-read,
+    // so the hook goes back to the engine once the user moves a lap.
+    const laps =
+      bundledLaps !== undefined && tick === 0
+        ? bundledLaps
+        : sectionId
+          ? getEngine()?.getExcludedSectionLaps(sectionId)
+          : undefined;
+    if (!laps) return new Set<string>();
+    return new Set(laps.map((l) => lapKey(l.activityId, l.startIndex)));
+  }, [sectionId, refreshKey, tick, bundledLaps]);
 
   const excludeLap = useCallback(
     (activityId: string, startIndex: number) => {
