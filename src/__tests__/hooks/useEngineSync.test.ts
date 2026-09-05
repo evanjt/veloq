@@ -17,7 +17,12 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncSettled } from '@/shared/app/useRetryTriggers';
 import { updateWidgetSnapshot } from '@/features/home/lib/widgetBridge';
-import type { SyncStatus } from 'veloqrs';
+import { SyncState, type SyncStatus } from 'veloqrs';
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -60,7 +65,7 @@ function engineWith(syncNow: jest.Mock) {
 }
 
 function settled(lastError?: string): SyncStatus {
-  return { state: 'idle', inFlight: 0, completed: 0, total: 0, lastError };
+  return { state: SyncState.Idle, inFlight: 0, completed: 0, total: 0, lastError };
 }
 
 describe('useEngineSync', () => {
@@ -114,7 +119,7 @@ describe('useEngineSync', () => {
     const { rerender } = renderHook(() => useEngineSync());
     expect(syncNow).toHaveBeenCalledTimes(1);
 
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     mockStatus = settled('connection reset');
     act(() => rerender(undefined));
@@ -132,7 +137,7 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     mockStatus = settled('timed out');
     act(() => rerender(undefined));
@@ -147,7 +152,7 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     mockStatus = settled();
     act(() => rerender(undefined));
@@ -167,7 +172,7 @@ describe('useEngineSync', () => {
     renderHook(() => useSyncSettled(settledListener));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     expect(settledListener).not.toHaveBeenCalled();
 
@@ -184,7 +189,7 @@ describe('useEngineSync', () => {
     renderHook(() => useSyncSettled(settledListener));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     mockStatus = settled('timed out');
     act(() => rerender(undefined));
@@ -197,9 +202,15 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
-    mockStatus = { state: 'authExpired', inFlight: 0, completed: 0, total: 0, lastError: '401' };
+    mockStatus = {
+      state: SyncState.AuthExpired,
+      inFlight: 0,
+      completed: 0,
+      total: 0,
+      lastError: '401',
+    };
     act(() => rerender(undefined));
 
     act(() => foregroundCallback?.());
@@ -214,7 +225,7 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     expect(mockUpdateWidgetSnapshot).not.toHaveBeenCalled();
 
@@ -231,7 +242,7 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 3, total: 9 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 3, total: 9 };
     act(() => rerender(undefined));
     mockStatus = settled('connection reset');
     act(() => rerender(undefined));
@@ -255,7 +266,7 @@ describe('useEngineSync', () => {
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = renderHook(() => useEngineSync());
-    mockStatus = { state: 'syncing', inFlight: 1, completed: 0, total: 1 };
+    mockStatus = { state: SyncState.Syncing, inFlight: 1, completed: 0, total: 1 };
     act(() => rerender(undefined));
     mockStatus = settled();
     act(() => rerender(undefined));

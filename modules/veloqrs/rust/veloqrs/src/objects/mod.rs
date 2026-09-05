@@ -20,6 +20,6 @@ pub use preview::SectionPreview;
 #[cfg(test)]
 pub(crate) use sync::test_credentials;
 pub use sync::{
-    FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SYNC_SERVICE, SyncManager, SyncState,
-    current_transport, park_auth_expired,
+    FfiCallKind, FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SYNC_SERVICE, SyncManager,
+    SyncState, current_transport, park_auth_expired,
 };
