@@ -261,6 +261,87 @@ mod tests {
         assert!(!engine.inside_stream_window(Some(edge - 1)));
     }
 
+    /// Scenario: the athlete opens an activity whose `latlng` carries a null
+    /// sample. The sync path masks those samples out before storing, so every
+    /// stored series shares the index space the track is stored in, and the
+    /// detail screen's `set_stream_body` writes over the same rows.
+    ///
+    /// Expected behaviour: both writers store the same thing. A row written by
+    /// the detail screen in the server's index space is offset from the track
+    /// by the number of dropped samples, and every lap slice over it is wrong
+    /// by that much, silently.
+    #[test]
+    fn the_detail_screen_stores_the_same_index_space_the_sync_does() {
+        let (_dir, engine) = engine();
+        let body = serde_json::json!([
+            {"type": "latlng",
+             "data": [46.1, null, 46.3],
+             "data2": [7.1, null, 7.3]},
+            {"type": "watts", "data": [100, 200, 300]},
+        ])
+        .to_string();
+
+        engine.set_stream_body("a1", "watts", &body).unwrap();
+
+        let stored: (Vec<u8>, i64) = engine
+            .db
+            .query_row(
+                "SELECT data, sample_count FROM activity_streams
+                 WHERE activity_id = 'a1' AND kind = 'watts'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("the detail screen stored a watts row");
+
+        let response: Vec<StreamDto> = serde_json::from_str(&body).unwrap();
+        engine
+            .store_activity_streams("a2", &crate::net::types::storable_series(&response))
+            .unwrap();
+        let synced: (Vec<u8>, i64) = engine
+            .db
+            .query_row(
+                "SELECT data, sample_count FROM activity_streams
+                 WHERE activity_id = 'a2' AND kind = 'watts'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("the sync stored a watts row");
+
+        assert_eq!(
+            stored.1, 2,
+            "the null coordinate must take its sample with it"
+        );
+        assert_eq!(
+            stored, synced,
+            "the two writers disagree about what is stored"
+        );
+    }
+
+    /// A series that does not fit the coordinates is not storable at all, and
+    /// a writer that trusts its caller stores it anyway.
+    #[test]
+    fn a_series_that_does_not_fit_the_coordinates_is_refused() {
+        let (_dir, engine) = engine();
+        let body = serde_json::json!([
+            {"type": "latlng", "data": [46.1, 46.2, 46.3], "data2": [7.1, 7.2, 7.3]},
+            {"type": "watts", "data": [100, 200]},
+        ])
+        .to_string();
+
+        engine.set_stream_body("a1", "watts", &body).unwrap();
+
+        let rows: i64 = engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM activity_streams
+                 WHERE activity_id = 'a1' AND kind = 'watts'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 0, "a misaligned series must not be stored");
+    }
+
     /// Scenario: an in-window activity is synced, so its response carried
     /// every series and the storing loop put the extra ones away.
     ///
