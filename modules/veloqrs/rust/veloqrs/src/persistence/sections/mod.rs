@@ -44,6 +44,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
 
+use super::schema::{SECTION_SUMMARY_BULK_KEY, recount_section_summaries};
 use super::{PersistentEngine, SectionSummary, codec, get_section_word};
 
 /// `schema_info` key naming the detection method that cut the stored catalogue.
@@ -1805,6 +1806,14 @@ impl PersistentEngine {
         // Track next available number for each sport type (for sequential assignment)
         let mut sport_counters: HashMap<String, u32> = HashMap::new();
 
+        // The insert triggers recount a section's summary on every junction
+        // row, quadratic in the rows a section carries. Suspend them for the
+        // bulk write and recount the saved rows once below.
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
+            params![SECTION_SUMMARY_BULK_KEY],
+        )?;
+
         // Pre-fetch all time streams the upcoming portion loop will need.
         // Replaces a per-portion `SELECT times FROM time_streams WHERE
         // activity_id = ?` (~0.1-0.2 ms each, ~hundreds of portions per
@@ -2025,6 +2034,12 @@ impl PersistentEngine {
         // Drop prepared statements before committing (they hold borrows on tx)
         drop(section_stmt);
         drop(junction_stmt);
+
+        recount_section_summaries(&tx, DERIVED_SECTION_PREDICATE)?;
+        tx.execute(
+            "DELETE FROM schema_info WHERE key = ?",
+            params![SECTION_SUMMARY_BULK_KEY],
+        )?;
 
         // Sections whose id survived the re-detect get their exclusions
         // back; a section that died has no rows and the updates are no-ops.
