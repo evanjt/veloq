@@ -4,9 +4,9 @@
 //! and the reference-activity extension track. All functions here are pure
 //! reads - they never mutate section state.
 
-use super::super::{Section, SectionSummary, SectionType};
-use crate::persistence::sections::geometry;
+use super::geometry;
 use crate::persistence::{PersistentEngine, codec};
+use crate::sections::{Section, SectionSummary, SectionType};
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::sections::{build_rtree, find_all_track_portions};
