@@ -2531,6 +2531,26 @@ pub struct FfiMergeCandidate {
     pub center_distance_meters: f64,
 }
 
+/// A section whose line starts within reach of one fix.
+///
+/// `start_distance_meters` is from the fix to the section's first point, not
+/// to its centre: a live recorder is asking what it is about to enter, and a
+/// long section's centre is nowhere near where it begins.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionNearPoint {
+    pub id: String,
+    pub name: Option<String>,
+    pub sport_type: String,
+    pub distance_meters: f64,
+    pub visit_count: u32,
+    pub start_distance_meters: f64,
+    /// Bearing of the section's opening metres, degrees clockwise from north.
+    /// `None` for a line whose first points coincide.
+    pub entry_bearing_degrees: Option<f64>,
+    /// Delta+varint encoded coordinates for map overlay
+    pub encoded_polyline: Vec<u8>,
+}
+
 /// Nearby section summary with distance info and polyline for map rendering.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiNearbySectionSummary {
