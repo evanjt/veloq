@@ -132,6 +132,9 @@ pub struct SectionLap {
     /// Mean heart rate over the lap, when the activity carried a stream.
     #[serde(default, alias = "avg_hr")]
     pub avg_hr: Option<f64>,
+    /// Share of the section this lap spans, `None` until it is measured.
+    #[serde(default)]
+    pub coverage: Option<f64>,
 }
 
 /// Section performance record for an activity.
