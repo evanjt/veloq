@@ -105,6 +105,11 @@ pub(super) fn compute_lap_time_from_stream(
 /// per-lap state, keyed by the excluded rows' own `start_index` values.
 type CarriedExclusions = Vec<(String, String, Option<Vec<u32>>)>;
 
+/// The rows a detection run owns. Custom, trimmed, accepted and disabled
+/// sections fall outside it, so every wipe that reuses it keeps them.
+pub(crate) const DERIVED_SECTION_PREDICATE: &str = "section_type = 'auto' \
+    AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0";
+
 fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclusions> {
     // The common save carries no exclusions at all; one early-exit probe
     // spares the correlated scan below on every detection apply.
@@ -1721,7 +1726,7 @@ impl PersistentEngine {
         // Deleting the section cascades its section_activities rows (FK ON DELETE
         // CASCADE), so this needs no separate junction delete.
         tx.execute(
-            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
+            &format!("DELETE FROM sections WHERE {DERIVED_SECTION_PREDICATE}"),
             [],
         )?;
 
