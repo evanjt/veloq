@@ -2371,15 +2371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polyline"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f19cbf429afe5a5186d4c6ca7b246b446b2d18919eefdddb521792d57c874f67"
-dependencies = [
- "geo-types",
-]
-
-[[package]]
 name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3748,7 +3739,6 @@ dependencies = [
  "lru",
  "once_cell",
  "oslog",
- "polyline",
  "postcard",
  "rayon",
  "reqwest",
