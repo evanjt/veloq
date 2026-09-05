@@ -146,6 +146,28 @@ export function formatDurationHuman(seconds: number): string {
 }
 
 /**
+ * Format duration where the space is tight: "1h30", "1h", "45m". Distinct
+ * from `formatDurationHuman`, which spaces its parts out.
+ */
+export function formatDurationCompact(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0m';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return minutes > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
+  return `${minutes}m`;
+}
+
+/**
+ * Duration for a row that renders nothing when there is no time. A missing or
+ * unusable value answers null rather than `formatDuration`'s "0:00", so the
+ * caller can leave the slot empty instead of showing a zero it does not mean.
+ */
+export function formatDurationOrNull(seconds: number | null): string | null {
+  if (seconds === null || !Number.isFinite(seconds)) return null;
+  return formatDuration(seconds);
+}
+
+/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.
@@ -424,6 +446,25 @@ export function formatShortDateWithWeekday(date: Date | string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+/**
+ * Short date carrying a two-digit year (e.g., "Jan 15 '24"). Charts and
+ * tooltips need it because their data spans years.
+ */
+export function formatShortDateWithYear(date: Date): string {
+  return `${formatShortDate(date)} '${date.getFullYear().toString().slice(-2)}`;
+}
+
+/**
+ * An axis tick: "Jan '24", or "Jan 15 '24" when the ticks are close enough
+ * together to need the day. Month before day whatever the locale, because the
+ * ticks have to read in one order across the axis.
+ */
+export function formatAxisDate(date: Date, includeDay: boolean): string {
+  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
+  const year = date.getFullYear().toString().slice(-2);
+  return includeDay ? `${month} ${date.getDate()} '${year}` : `${month} '${year}`;
 }
 
 /**

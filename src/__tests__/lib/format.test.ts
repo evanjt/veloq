@@ -8,8 +8,13 @@
  */
 
 import {
+  formatAxisDate,
   formatDistance,
   formatDuration,
+  formatDurationCompact,
+  formatDurationOrNull,
+  formatShortDate,
+  formatShortDateWithYear,
   formatDurationDelta,
   formatDurationHuman,
   formatPace,
@@ -442,5 +447,69 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
       (v: number) => formatDurationHuman(v),
     ];
     [TINY, SMALL, HUGE].forEach((v) => fns.forEach((fn) => expect(fn(v)).not.toMatch(/e[+-]\d/i)));
+  });
+});
+
+// The four formatters four features had each written for themselves, now
+// with one home. Related behaviour lives beside the rest of the hub.
+
+describe('formatDurationCompact', () => {
+  it.each([
+    [5400, '1h30', 'hours and minutes'],
+    [3600, '1h', 'hours only'],
+    [2700, '45m', 'minutes only'],
+    [3660, '1h01', 'minutes padded with leading zero'],
+    [0, '0m', 'zero'],
+    [-100, '0m', 'negative'],
+    [NaN, '0m', 'NaN'],
+    [Infinity, '0m', 'Infinity'],
+  ])('formats %p as %p (%s)', (seconds, expected) => {
+    expect(formatDurationCompact(seconds)).toBe(expected);
+  });
+});
+
+describe('formatDurationOrNull', () => {
+  it('formats a real duration the way formatDuration does', () => {
+    expect(formatDurationOrNull(3661)).toBe(formatDuration(3661));
+    expect(formatDurationOrNull(90)).toBe('1:30');
+  });
+
+  it('answers null for a missing or unusable time, so the row renders nothing', () => {
+    expect(formatDurationOrNull(null)).toBeNull();
+    expect(formatDurationOrNull(NaN)).toBeNull();
+    expect(formatDurationOrNull(Infinity)).toBeNull();
+  });
+
+  it('formats zero rather than dropping it', () => {
+    expect(formatDurationOrNull(0)).toBe('0:00');
+  });
+});
+
+describe('formatShortDateWithYear', () => {
+  it('appends the two-digit year to the short date', () => {
+    const date = new Date('2024-01-15T12:00:00Z');
+    expect(formatShortDateWithYear(date)).toBe(`${formatShortDate(date)} '24`);
+  });
+
+  it('carries the year across a boundary', () => {
+    expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00Z'))).toContain("'23");
+    expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00Z'))).toContain("'24");
+  });
+});
+
+describe('formatAxisDate', () => {
+  it('reads as month and year when the axis does not need the day', () => {
+    const label = formatAxisDate(new Date('2024-01-15T12:00:00Z'), false);
+    expect(label).toMatch(/Jan '24/);
+    expect(label).not.toMatch(/15/);
+  });
+
+  it('adds the day when the axis needs it', () => {
+    expect(formatAxisDate(new Date('2024-01-15T12:00:00Z'), true)).toMatch(/Jan 15 '24/);
+  });
+
+  it('carries the year across a boundary', () => {
+    expect(formatAxisDate(new Date('2023-12-31T12:00:00Z'), false)).toContain("'23");
+    expect(formatAxisDate(new Date('2024-01-01T12:00:00Z'), false)).toContain("'24");
   });
 });

@@ -14,13 +14,19 @@ import { bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts'
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
-import { formatDuration, formatPace, formatSpeed, formatSwimPace } from '@/shared/format/format';
+import {
+  formatAxisDate,
+  formatDuration,
+  formatPace,
+  formatSpeed,
+  formatSwimPace,
+} from '@/shared/format/format';
 import {
   splitAndPositionChartData,
   buildTrendWithBand,
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
-import { computeTimeAxisLabels, axisLabelsNeedDay, formatAxisDate } from '@/features/stats';
+import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {

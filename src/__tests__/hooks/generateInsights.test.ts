@@ -1,6 +1,5 @@
 import {
   generateInsights,
-  formatDurationCompact,
   getLastInsightOutcome,
   InsightInputData,
 } from '@/features/insights/lib/generateInsights';
@@ -783,25 +782,6 @@ describe('generateInsights', () => {
       const vol = result.find((i) => i.id === 'period_comparison-volume');
       expect(vol!.body).toContain('insights.loadBody');
     });
-  });
-});
-
-// ============================================================
-// formatDurationCompact
-// ============================================================
-
-describe('formatDurationCompact', () => {
-  it.each([
-    [5400, '1h30', 'hours and minutes'],
-    [3600, '1h', 'hours only'],
-    [2700, '45m', 'minutes only'],
-    [3660, '1h01', 'minutes padded with leading zero'],
-    [0, '0m', 'zero'],
-    [-100, '0m', 'negative'],
-    [NaN, '0m', 'NaN'],
-    [Infinity, '0m', 'Infinity'],
-  ])('formats %p as %p (%s)', (seconds, expected) => {
-    expect(formatDurationCompact(seconds)).toBe(expected);
   });
 });
 

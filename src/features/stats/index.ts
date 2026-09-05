@@ -41,6 +41,4 @@ export {
   resolveBandColour,
   computeTimeAxisLabels,
   axisLabelsNeedDay,
-  formatAxisDate,
-  formatShortDateWithYear,
 } from './lib';

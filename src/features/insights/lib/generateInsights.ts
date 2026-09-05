@@ -6,10 +6,7 @@ import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
-import {
-  generatePeriodComparisonInsights,
-  formatDurationCompact,
-} from '../generators/periodComparison';
+import { generatePeriodComparisonInsights } from '../generators/periodComparison';
 import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
 import { generateSectionTrendInsights } from '../generators/sectionTrend';
 import {
@@ -40,7 +37,6 @@ import {
 } from './rules';
 
 // Re-export for tests and consumers
-export { formatDurationCompact };
 
 /**
  * Insight pipeline: generate → hard gates (G1–G4) → score (R5–R8) → diversity
