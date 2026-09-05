@@ -2,7 +2,7 @@
  * Point conversions, validators, and shared types for the veloqrs module.
  */
 
-import type { FfiDetectionProgress, FfiGpsPoint } from "./generated/veloqrs";
+import type { FfiDetectionProgress } from "./generated/veloqrs";
 
 /**
  * Simple point type with lat/lng (used by app code).
@@ -106,40 +106,3 @@ export function validateId(id: string, fieldName: string): void {
   }
 }
 
-/**
- * Convert flat coordinate array to GpsPoint array.
- * @param flatCoords - Flat array [lat1, lng1, lat2, lng2, ...]
- * @returns Array of GpsPoint objects
- */
-export function flatCoordsToPoints(flatCoords: number[]): FfiGpsPoint[] {
-  const points: FfiGpsPoint[] = [];
-  for (let i = 0; i < flatCoords.length - 1; i += 2) {
-    points.push({
-      latitude: flatCoords[i],
-      longitude: flatCoords[i + 1],
-      elevation: undefined,
-    });
-  }
-  return points;
-}
-
-/**
- * Convert GpsPoint array to RoutePoint array (lat/lng format).
- */
-export function gpsPointsToRoutePoints(points: FfiGpsPoint[]): RoutePoint[] {
-  return points.map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-}
-
-/**
- * Convert RoutePoint array to GpsPoint array (latitude/longitude format).
- */
-export function routePointsToGpsPoints(points: RoutePoint[]): FfiGpsPoint[] {
-  return points.map((p) => ({
-    latitude: p.lat,
-    longitude: p.lng,
-    elevation: undefined,
-  }));
-}
