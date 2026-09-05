@@ -84,9 +84,8 @@ impl SettingsManager {
 
     /// Days of stream history the athlete keeps. Zero means keep everything.
     ///
-    /// Not the same knob as the activity `retentionDays` in
-    /// `RouteSettingsStore`, which deletes whole activities. This one only ever
-    /// evicts stored series.
+    /// This only ever evicts stored series: nothing deletes whole activities
+    /// by age.
     fn stream_retention_days(&self) -> Result<i64, VeloqError> {
         with_engine(|e| e.stream_retention_days().unwrap_or(0))
     }

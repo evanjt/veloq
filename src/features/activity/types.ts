@@ -12,6 +12,8 @@ export type ActivityType =
   | 'EBikeRide'
   | 'MountainBikeRide'
   | 'GravelRide'
+  | 'TrackRide'
+  | 'Cyclocross'
   | 'Velomobile'
   | 'Handcycle'
   // Running
@@ -190,6 +192,11 @@ export interface ActivityInterval {
   label?: string | null;
   start_index: number;
   end_index: number;
+  /** Elapsed seconds from the activity start. Index-free, so it survives the
+   * `latlng` reduction both stream readers apply, which `start_index` does
+   * not. */
+  start_time?: number;
+  end_time?: number;
   distance: number;
   moving_time: number;
   elapsed_time: number;

@@ -86,18 +86,18 @@ fn a_reference_activity_refuses_deletion() {
 }
 
 #[test]
-fn the_prune_keeps_reference_activities() {
+fn the_derived_clear_keeps_reference_activities() {
     let _g = serial();
     let dir = TempDir::new().unwrap();
     let section_id = seed(&dir.path().join("prune.db"));
 
-    let deleted = with_persistent_engine(|engine| engine.cleanup_old_activities(30))
+    let cleared = with_persistent_engine(|engine| engine.clear_derived())
         .expect("engine")
-        .expect("cleanup");
+        .expect("clear");
 
     assert_eq!(
-        deleted, 1,
-        "retention must take the plain activity and leave the reference"
+        cleared.activities_removed, 1,
+        "the clear must take the plain activity and leave the reference"
     );
     let referencing = with_persistent_engine(|engine| engine.sections_referencing_activity("rep"))
         .expect("engine");

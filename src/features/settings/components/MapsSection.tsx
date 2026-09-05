@@ -12,6 +12,7 @@ import { colors, darkColors, spacing, layout, typography, opacity } from '@/them
 import { HeatmapRow } from './HeatmapRow';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 type FilterLabelKey =
   | 'filters.cycling'
@@ -30,11 +31,11 @@ const MAP_ACTIVITY_GROUPS: {
   labelKey: FilterLabelKey;
   types: ActivityType[];
 }[] = [
-  { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
-  { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
+  { key: 'cycling', labelKey: 'filters.cycling', types: [...SPORT_FAMILIES.cycling] },
+  { key: 'running', labelKey: 'filters.running', types: [...SPORT_FAMILIES.running] },
   { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike'] },
   { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
+  { key: 'swimming', labelKey: 'filters.swimming', types: [...SPORT_FAMILIES.swimming] },
   {
     key: 'snow',
     labelKey: 'filters.snowSports',

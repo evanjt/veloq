@@ -1,13 +1,19 @@
 import type { ActivityType } from '@/types';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 export type SportCategory = 'cycling' | 'running' | 'walking';
 
+const RUNNING: readonly string[] = SPORT_FAMILIES.running;
+const WALKING: readonly string[] = SPORT_FAMILIES.walking;
+
+/**
+ * The family the teleport guard reads, from the engine's taxonomy. A sport
+ * the taxonomy does not name takes the cycling ceiling, the most generous,
+ * because a guard that is too strict drops real points.
+ */
 export function getSportCategory(activityType: ActivityType): SportCategory {
-  const lower = activityType.toLowerCase();
-  if (lower.includes('ride') || lower.includes('cycling') || lower.includes('bike'))
-    return 'cycling';
-  if (lower.includes('run') || lower.includes('treadmill')) return 'running';
-  if (lower.includes('walk') || lower.includes('hike')) return 'walking';
+  if (RUNNING.includes(activityType)) return 'running';
+  if (WALKING.includes(activityType)) return 'walking';
   return 'cycling';
 }
 

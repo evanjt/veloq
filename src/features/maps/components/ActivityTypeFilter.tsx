@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, activityTypeColors, typography, spacing, layout } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 // Activity type label keys for translation
 type ActivityLabelKey =
@@ -34,27 +35,19 @@ export const ACTIVITY_CATEGORIES: Record<
     color: colors.ride,
     icon: 'bike',
     labelKey: 'ride',
-    types: [
-      'Ride',
-      'VirtualRide',
-      'EBikeRide',
-      'MountainBikeRide',
-      'GravelRide',
-      'Velomobile',
-      'Handcycle',
-    ],
+    types: [...SPORT_FAMILIES.cycling],
   },
   Run: {
     color: colors.run,
     icon: 'run',
     labelKey: 'run',
-    types: ['Run', 'TrailRun', 'VirtualRun', 'Treadmill'],
+    types: [...SPORT_FAMILIES.running],
   },
   Swim: {
     color: colors.swim,
     icon: 'swim',
     labelKey: 'swim',
-    types: ['Swim', 'OpenWaterSwim'],
+    types: [...SPORT_FAMILIES.swimming],
   },
   Walk: {
     color: colors.walk,
