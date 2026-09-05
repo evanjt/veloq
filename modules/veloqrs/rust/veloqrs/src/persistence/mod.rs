@@ -2193,7 +2193,9 @@ mod tests {
                 .map(|aid| crate::SectionPortion {
                     activity_id: aid.clone(),
                     start_index: 0,
-                    end_index: 49,
+                    // Half-open, and the whole fifty-point track: the shape a
+                    // portion carries when the ride ends on the section.
+                    end_index: 50,
                     distance_meters: 5000.0,
                     direction: Direction::Same,
                 })
@@ -2793,7 +2795,7 @@ mod tests {
                 "lap_pace should be populated during save_sections for {}",
                 activity_id
             );
-            // Traversal indices 0..49 on a 1-second-cadence stream = 49s.
+            // Points 0 to 49 on a 1-second-cadence stream = 49s.
             assert!(
                 (lap_time.unwrap() - 49.0).abs() < 0.001,
                 "expected lap_time ≈ 49s for {}, got {:?}",
@@ -2823,7 +2825,7 @@ mod tests {
             (None, None)
         );
 
-        // Zero-duration traversal (start == end).
+        // Zero-duration traversal: `1..1` holds no points at all.
         let times: Vec<u32> = vec![10, 20, 30];
         assert_eq!(
             compute_lap_time_from_stream(Some(&times), 1, 1, 100.0),
@@ -2836,10 +2838,56 @@ mod tests {
             (None, None)
         );
 
-        // Happy path: indices 0..2 on [10, 20, 30] = 20s; 100m/20s = 5 m/s.
+        // `0..2` is the points at 0 and 1, so 10s; 100m/10s = 10 m/s.
         let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
-        assert_eq!(lap_time, Some(20.0));
-        assert_eq!(lap_pace, Some(5.0));
+        assert_eq!(lap_time, Some(10.0));
+        assert_eq!(lap_pace, Some(10.0));
+    }
+
+    /// `section_activities.end_index` is the half-open end every writer stores,
+    /// so a portion that runs to the last point of its activity carries
+    /// `end_index == point_count` and has to be timed, not dropped.
+    #[test]
+    fn lap_time_reads_the_half_open_end() {
+        use super::sections::compute_lap_time_from_stream;
+
+        let times: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        // Ends on the last point: `0..10` on a ten-point track.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32, 90.0),
+            (Some(9.0), Some(10.0))
+        );
+
+        // Ends one short of it, and is a second shorter for it.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 - 1, 90.0).0,
+            Some(8.0)
+        );
+
+        // A single-point portion spans no time.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 4, 5, 90.0),
+            (None, None)
+        );
+
+        // The placeholder row `create_section` writes, before a rescan fills it.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, 0, 0.0),
+            (None, None)
+        );
+
+        // One past the end of the track is not a lap, however long the stream is.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, times.len() as u32 + 1, 90.0),
+            (None, None)
+        );
+
+        // A start beyond the stream is not a lap either.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 20, 25, 90.0),
+            (None, None)
+        );
     }
 }
 
