@@ -15,24 +15,19 @@
  * records (camelCase).
  */
 
-import type { FfiCallOutcome, FfiManualActivity } from '../generated/veloqrs';
+import {
+  FfiCallKind,
+  type FfiCallOutcome,
+  type FfiManualActivity,
+  type FfiSyncStatus,
+} from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /** Auth scheme passed to `setSyncCredentials` (matches Rust `AuthKind::parse`). */
 export type SyncAuthMethod = 'oauth' | 'api_key';
 
-/** Mirror of the Rust `FfiSyncStatus` record. Replace with the generated
- *  `FfiSyncStatus` type once bindings are regenerated. `lastError` is optional
- *  because UniFFI maps `Option<String>` to `field?: T` (`string | undefined`),
- *  not `string | null`. Keep the mirror faithful so consumers don't test for
- *  `=== null`. */
-export interface SyncStatus {
-  state: 'idle' | 'syncing' | 'paused' | 'authExpired';
-  inFlight: number;
-  completed: number;
-  total: number;
-  lastError?: string;
-}
+/** The generated record. `state` is the `SyncState` enum, not a word. */
+export type SyncStatus = FfiSyncStatus;
 
 /** Set the credential once. Never passed per request. */
 export function setSyncCredentials(
@@ -150,7 +145,7 @@ export function syncTimeStreams(host: DelegateHost, activityIds: string[]): bool
  * has already happened.
  */
 function engineUnavailable(action: string): FfiCallOutcome {
-  return { kind: 'internal', message: `the engine is not ready to ${action}` };
+  return { kind: FfiCallKind.Internal, message: `the engine is not ready to ${action}` };
 }
 
 /**

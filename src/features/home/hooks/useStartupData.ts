@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, SyncState } from 'veloqrs';
 import type { PreviewTrack as PreviewTrackRecord, SummaryCardData } from 'veloqrs';
 import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
 import type { LatLng } from '@/shared/geo/polyline';
@@ -67,7 +67,7 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
 /** Whether the engine says a sync is running right now. */
 function syncInFlight(): boolean {
   try {
-    return getEngine()?.getSyncStatus()?.state === 'syncing';
+    return getEngine()?.getSyncStatus()?.state === SyncState.Syncing;
   } catch {
     return false;
   }

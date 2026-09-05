@@ -10,6 +10,14 @@ import { render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
 import type { Activity } from '@/types';
 
+// The binding registers a TurboModule at import time. A hook on this screen's
+// import path compares against one of its generated enums, so the stub is the
+// module here.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
+
 let mockMapStyle = 'light';
 let mockTerrain3DMode = 'never';
 const mockCached = new Set<string>();

@@ -16,6 +16,28 @@ jest.mock('veloqrs', () =>
  *     );
  */
 
+/**
+ * `FfiCallKind` as the generated binding declares it. The generated module
+ * cannot be imported here, so this is a copy, and `ffiEnumStub.test.ts` reads
+ * the generated source to hold it to the real one.
+ */
+export enum CallKind {
+  Ok = 1,
+  Unauthorized = 2,
+  RateLimited = 3,
+  Http = 4,
+  Network = 5,
+  Internal = 6,
+}
+
+/** `SyncState` as generated, held to the source by the same test. */
+export enum SyncState {
+  Idle = 1,
+  Syncing = 2,
+  Paused = 3,
+  AuthExpired = 4,
+}
+
 export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
 );
@@ -58,6 +80,8 @@ export const engine = {
  */
 export function withOverrides(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    CallKind,
+    SyncState,
     decodeCoords,
     createPreviewClientStub,
     startFetchAndStore,

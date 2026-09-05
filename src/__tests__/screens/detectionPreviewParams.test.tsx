@@ -4,6 +4,14 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import DetectionPreviewScreen from '@/app/detection-preview';
 
+// The binding registers a TurboModule at import time. A hook on this screen's
+// import path compares against one of its generated enums, so the stub is the
+// module here.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
+
 /**
  * Scenario: the detection preview is the only place the detector's sensitivity
  * can be changed.

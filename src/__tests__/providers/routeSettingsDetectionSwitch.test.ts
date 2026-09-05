@@ -34,7 +34,6 @@ describe('the detection switch reaches the engine', () => {
     useRouteSettings.setState({
       settings: {
         enabled: true,
-        retentionDays: 0,
         autoCleanupEnabled: false,
       },
       isLoaded: true,

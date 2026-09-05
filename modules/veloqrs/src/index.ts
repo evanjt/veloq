@@ -76,6 +76,7 @@ export type {
   FfiCallOutcome as CallOutcome,
   FfiManualActivity as ManualActivity,
 } from './generated/veloqrs';
+export { FfiCallKind as CallKind } from './generated/veloqrs';
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
