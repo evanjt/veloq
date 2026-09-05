@@ -234,7 +234,7 @@ class EngineClient implements DelegateHost {
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
       // in the native module.
-      if (this.pendingMetrics) {
+      if (this.pendingMetrics && this.pendingMetrics.length > 0) {
         this.timed('setActivityMetrics', () =>
           this.engine.activities().setMetrics(this.pendingMetrics!)
         );
@@ -619,10 +619,13 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
-  /** Queues metrics until init completes, then delegates to activities module. */
+  /** Holds metrics until init completes, then delegates to activities module. */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
     if (!this.initialized) {
-      this.pendingMetrics = metrics;
+      if (metrics.length === 0) return;
+      // Appended, not replaced: demo entry writes several batches into this
+      // window and each one is a different set of activities.
+      this.pendingMetrics = this.pendingMetrics ? this.pendingMetrics.concat(metrics) : metrics;
       return;
     }
     activityDelegates.setActivityMetricsReady(this, metrics);
