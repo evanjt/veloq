@@ -620,7 +620,7 @@ impl PersistentEngine {
         &mut self,
         apply_on: ApplyOn,
     ) -> SectionDetectionHandle {
-        // B258: the switch is the honest opt-out, so it holds every arm rather
+        // The switch is the honest opt-out, so it holds every arm rather
         // than only the screens that used to read it in TypeScript. First,
         // because a library that wants no detection wants no cutover detect
         // either, and the check is one settings row.
@@ -634,7 +634,7 @@ impl PersistentEngine {
             );
             return Self::refused_detection_handle(DETECTION_PHASE_SUSPENDED);
         }
-        // SB12: every apply stamps this build's detector on the catalogue, so
+        // Every apply stamps this build's detector on the catalogue, so
         // a detect that beats the cutover retires the migration over a
         // catalogue nothing has captured. Refuse until the cutover has run.
         // `..._unchecked` is how the cutover's own cold detect gets past.
