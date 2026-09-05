@@ -187,3 +187,162 @@ fn history_geometry_and_pin_survive_restart() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind, "recut");
 }
+
+// ============================================================================
+// An exact version is its own triple, so the ledger stores the line once
+// ============================================================================
+
+/// A 200-point activity the section versions below are sliced out of.
+fn ride() -> Vec<GpsPoint> {
+    let dec = |v: f64| -> f64 { format!("{v:.6}").parse().unwrap() };
+    (0..200)
+        .map(|i| GpsPoint {
+            latitude: dec(46.2 + f64::from(i) * 0.000_09),
+            longitude: dec(7.36 + f64::from(i) * 0.000_11),
+            elevation: Some(500.0 + f64::from(i)),
+        })
+        .collect()
+}
+
+/// The bytes the ledger is holding for one version.
+fn blob_len(dir: &tempfile::TempDir, sid: &str, version: i64) -> usize {
+    let conn = rusqlite::Connection::open(dir.path().join("lifecycle.db")).expect("open");
+    conn.query_row(
+        "SELECT LENGTH(blob) FROM section_geometry WHERE section_id = ?1 AND version = ?2",
+        rusqlite::params![sid, version],
+        |row| row.get::<_, i64>(0),
+    )
+    .expect("stored version") as usize
+}
+
+/// An engine holding one activity, with its stored track as the test reads it.
+fn engine_with_ride() -> (PersistentEngine, tempfile::TempDir, Vec<GpsPoint>) {
+    let (mut engine, dir) = fresh_engine();
+    engine
+        .add_activity("a1".to_string(), ride(), "Ride".to_string())
+        .expect("add_activity");
+    let stored = engine.get_gps_track("a1").expect("stored track");
+    (engine, dir, stored)
+}
+
+/// A version sliced whole from a stored stream is that slice, so the ledger
+/// keeps the triple and not a second copy of the line.
+#[test]
+fn an_exact_version_is_stored_as_its_reference_and_not_as_a_blob() {
+    let (mut engine, dir, stored) = engine_with_ride();
+    let line = stored[20..60].to_vec();
+
+    let version = engine
+        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60)))
+        .expect("record");
+
+    assert_eq!(
+        blob_len(&dir, SID, version),
+        0,
+        "an exact version must not hold a second copy of its line"
+    );
+    assert_eq!(
+        engine.section_geometry_polyline(SID, version).unwrap(),
+        line
+    );
+}
+
+/// An averaged line is no activity's slice, so it has nowhere else to live.
+#[test]
+fn a_consensus_version_keeps_its_blob() {
+    let (mut engine, dir) = fresh_engine();
+    let line = poly(3);
+
+    let version = engine
+        .record_section_geometry(SID, &line, false, None)
+        .expect("record");
+
+    assert!(blob_len(&dir, SID, version) > 0);
+    assert_eq!(
+        engine.section_geometry_polyline(SID, version).unwrap(),
+        line
+    );
+}
+
+/// A triple that does not reproduce the line is not a cache of it, whatever
+/// the caller believed. The blob stays, so the version still restores.
+#[test]
+fn a_triple_that_does_not_reproduce_the_line_keeps_its_blob() {
+    let (mut engine, dir, stored) = engine_with_ride();
+    let line = stored[20..60].to_vec();
+
+    let version = engine
+        .record_section_geometry(SID, &line, false, Some(("a1", 100, 140)))
+        .expect("record");
+
+    assert!(
+        blob_len(&dir, SID, version) > 0,
+        "a triple pointing somewhere else must not drop the line"
+    );
+    assert_eq!(
+        engine.section_geometry_polyline(SID, version).unwrap(),
+        line
+    );
+}
+
+/// A reference to a stream that is not stored cannot be re-sliced, so the line
+/// is kept as it was.
+#[test]
+fn a_reference_to_an_unstored_stream_keeps_its_blob() {
+    let (mut engine, dir) = fresh_engine();
+    let line = poly(4);
+
+    let version = engine
+        .record_section_geometry(SID, &line, false, Some(("never-stored", 0, 40)))
+        .expect("record");
+
+    assert!(blob_len(&dir, SID, version) > 0);
+    assert_eq!(
+        engine.section_geometry_polyline(SID, version).unwrap(),
+        line
+    );
+}
+
+/// A version whose stream has gone reads as unrestorable. A wrong line would
+/// be worse than no line: the ledger is what a revert trusts.
+#[test]
+fn an_exact_version_whose_stream_is_gone_is_unrestorable_rather_than_wrong() {
+    let (mut engine, dir, stored) = engine_with_ride();
+    let line = stored[20..60].to_vec();
+    let version = engine
+        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60)))
+        .expect("record");
+
+    let conn = rusqlite::Connection::open(dir.path().join("lifecycle.db")).expect("open");
+    conn.execute("DELETE FROM gps_tracks WHERE activity_id = 'a1'", [])
+        .expect("delete track");
+
+    let reopened = PersistentEngine::new(
+        dir.path()
+            .join("lifecycle.db")
+            .to_str()
+            .expect("utf-8 path"),
+    )
+    .expect("reopen");
+    assert!(
+        reopened.section_geometry_polyline(SID, version).is_none(),
+        "a version that cannot be re-sliced must not restore something else"
+    );
+}
+
+/// Retention counts an exact version like any other, so dropping the blob does
+/// not change which versions survive.
+#[test]
+fn dropping_the_blob_does_not_change_what_retention_keeps() {
+    let (mut engine, _dir, stored) = engine_with_ride();
+    for start in 0..8u32 {
+        let line = stored[start as usize..start as usize + 40].to_vec();
+        engine
+            .record_section_geometry(SID, &line, false, Some(("a1", start, start + 40)))
+            .expect("record");
+    }
+
+    assert_eq!(versions_of(&engine, SID), vec![1, 6, 7, 8]);
+    let line = stored[0..40].to_vec();
+    assert_eq!(engine.section_geometry_polyline(SID, 1).unwrap(), line);
+}
