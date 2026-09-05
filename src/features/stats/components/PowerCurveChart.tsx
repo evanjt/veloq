@@ -1,12 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
-import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { CurveChart, useChartColors } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
@@ -22,18 +19,16 @@ interface PowerCurveChartProps {
   ftp?: number | null;
 }
 
-// Chart colors
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+const X_LABELS = ['5s', '1m', '5m', '20m', '1h'];
+const formatWatts = (value: number) => `${Math.round(value)}w`;
 
 interface ChartPoint {
   x: number;
   y: number;
   secs: number;
   watts: number;
-  [key: string]: unknown;
 }
-
-const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
 
 export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
@@ -44,6 +39,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
+  const lineColor = color ?? chartColors.powerCurve;
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 
@@ -127,13 +124,14 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     };
   }, [curve, ftp]);
 
-  const {
-    gesture,
-    selectedPoint: tooltipData,
-    crosshairStyle,
-    syncBounds,
-    syncXCoords,
-  } = useChartGestures<ChartPoint>({ data: chartData });
+  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) setTooltipData(null);
+  }, []);
+  const referenceLine = useMemo(
+    () => (ftpValue ? { value: ftpValue, color: FTP_LINE_COLOR } : null),
+    [ftpValue]
+  );
 
   if (isLoading) {
     return (
@@ -174,7 +172,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('stats.time')}
             </Text>
-            <Text testID="power-curve-duration" style={[styles.valueNumber, { color }]}>
+            <Text testID="power-curve-duration" style={[styles.valueNumber, { color: lineColor }]}>
               {formatDurationHuman(displayData.secs)}
             </Text>
           </View>
@@ -182,118 +180,23 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.power')}
             </Text>
-            <Text testID="power-curve-watts" style={[styles.valueNumber, { color }]}>
+            <Text testID="power-curve-watts" style={[styles.valueNumber, { color: lineColor }]}>
               {Math.round(displayData.watts)}w
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Chart */}
-      <GestureDetector gesture={gesture}>
-        <View style={chartStyles.chartWrapper}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['y']}
-            domain={{ y: yDomain }}
-            padding={CHART_PADDING}
-          >
-            {({ points, chartBounds }) => {
-              syncBounds(chartBounds);
-              syncXCoords(points.y, (p) => p.x);
-
-              return (
-                <>
-                  {/* FTP horizontal line */}
-                  {ftpValue && ftpValue >= yDomain[0] && ftpValue <= yDomain[1] && (
-                    <SkiaLine
-                      p1={{
-                        x: chartBounds.left,
-                        y:
-                          chartBounds.top +
-                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
-                      }}
-                      p2={{
-                        x: chartBounds.right,
-                        y:
-                          chartBounds.top +
-                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
-                      }}
-                      color={FTP_LINE_COLOR}
-                      strokeWidth={1}
-                    >
-                      <DashPathEffect intervals={[6, 4]} />
-                    </SkiaLine>
-                  )}
-
-                  {/* Power curve line with casing */}
-                  <Line
-                    points={points.y}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
-                  <Line points={points.y} color={color} strokeWidth={1.5} curveType="natural" />
-                </>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Crosshair */}
-          <ChartCrosshair style={crosshairStyle} />
-
-          {/* X-axis labels */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              5s
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              1m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              5m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              20m
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              1h
-            </Text>
-          </View>
-
-          {/* Y-axis labels */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round(yDomain[1])}w
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round((yDomain[0] + yDomain[1]) / 2)}w
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round(yDomain[0])}w
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
+      <CurveChart
+        data={chartData}
+        yDomain={yDomain}
+        color={lineColor}
+        referenceLine={referenceLine}
+        xLabels={X_LABELS}
+        formatY={formatWatts}
+        onSelect={setTooltipData}
+        onInteractionChange={handleInteractionChange}
+      />
 
       {/* FTP Legend */}
       {ftpValue && (
@@ -355,22 +258,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    left: spacing.xs,
-    justifyContent: 'space-between',
   },
   legend: {
     flexDirection: 'row',
