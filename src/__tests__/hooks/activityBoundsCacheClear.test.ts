@@ -18,7 +18,21 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   initWithPath: jest.fn(() => true),
   enableHeatmapTiles: jest.fn(),
+  clearDerivedData: jest.fn(() => ({
+    sectionsRemoved: 0,
+    activitiesRemoved: 0,
+    activitiesKept: 0,
+  })),
+  forceRedetectSections: jest.fn(() => true),
+  startBackup: jest.fn(),
+  pollBackup: jest.fn(() => 'complete'),
 };
+
+jest.mock('expo-file-system/legacy', () => ({
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true }),
+}));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
@@ -53,6 +67,7 @@ describe('the cache panel count after a clear', () => {
     jest.clearAllMocks();
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
+    mockEngine.pollBackup.mockReturnValue('complete');
   });
 
   it('reports what the engine says once the clear has emptied it', async () => {
@@ -69,10 +84,9 @@ describe('the cache panel count after a clear', () => {
   });
 
   it('never shows a zero the engine did not report', async () => {
-    // The engine still holds everything: a re-init that reopened the same file
-    // deletes nothing, which is exactly what the button does today. Every
-    // rendered count is recorded, because a zero that is corrected on the next
-    // render is still a zero the user saw.
+    // A clear the engine refused leaves everything in place. Every rendered
+    // count is recorded, because a zero that is corrected on the next render
+    // is still a zero the user saw.
     setEngineCount(412);
     const seen: number[] = [];
     const { result } = renderHook(() => {

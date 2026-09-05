@@ -44,6 +44,7 @@ import type {
   FfiSectionConfig,
   FfiIndexActivitySummary,
   DownloadProgressResult,
+  DerivedClear,
 } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
@@ -261,6 +262,16 @@ class EngineClient implements DelegateHost {
     } catch (e) {
       console.warn('[EngineClient] Failed to clear routes and sections:', e);
     }
+  }
+
+  /**
+   * Empty what the engine can re-derive and keep what the athlete made: the
+   * detected catalogue and the activities no kept section references. Returns
+   * what went, or null when the engine is not open.
+   */
+  clearDerivedData(): DerivedClear | null {
+    if (!this.ready) return null;
+    return this.timed('clearDerivedData', () => this.engine.clearDerivedData());
   }
 
   /** Drop the Rust engine singleton without clearing data. Used before database restore. */
