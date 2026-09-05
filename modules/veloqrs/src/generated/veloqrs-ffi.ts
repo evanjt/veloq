@@ -82,11 +82,6 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
-    ptr: bigint,
-    ids: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
@@ -518,11 +513,6 @@ interface NativeModuleInterface {
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
-    ptr: bigint,
-    ids: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
     ptr: bigint,
     minLat: number,
@@ -816,23 +806,6 @@ interface NativeModuleInterface {
     endIndex: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
-    ptr: bigint,
-    activityId: Uint8Array,
-    sectionPolylineFlat: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
-    ptr: bigint,
-    activityId: Uint8Array,
-    sectionIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
-    ptr: bigint,
-    activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -921,19 +894,8 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
-    ptr: bigint,
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
     ptr: bigint,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
-    ptr: bigint,
-    sectionId: Uint8Array,
-    radiusMeters: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
@@ -989,11 +951,6 @@ interface NativeModuleInterface {
     limit: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
-    ptr: bigint,
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1596,7 +1553,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids(): number;
-  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_metrics_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove(): number;
@@ -1669,7 +1625,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
-  ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_settled(): number;
@@ -1715,9 +1670,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(): number;
@@ -1735,9 +1687,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_lineages(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version(): number;
@@ -1748,7 +1698,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity(): number;
