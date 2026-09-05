@@ -250,7 +250,6 @@ impl Default for SectionIdentity {
 }
 
 impl PersistentEngine {
-    /// Every section id the database holds, whatever its state.
     /// Every id the database holds or has held: the live rows, the rows the
     /// view hides, and every id the ledger, the geometry versions, the pins or
     /// the cutover archive name. A content id retired by a merge or a delete
