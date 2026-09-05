@@ -4,6 +4,7 @@
  */
 import { useMemo, useState, useEffect } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import type { ActivityBoundsItem } from '@/types';
 
 interface UseEngineMapActivitiesOptions {
@@ -41,46 +42,25 @@ export function useEngineMapActivities({
   // Bumped by the engine subscription; the count itself comes from the bundle.
   const [trigger, setTrigger] = useState(0);
 
-  // Subscribe to engine activity changes - retry if engine not ready on mount
+  // Subscribe to engine activity changes. An engine that opens after this
+  // mounts arrives as a dependency change through `useEngineReady`.
+  const engine = useEngineReady();
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !engine) return;
 
     let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
+    setTrigger((v) => v + 1);
 
-    function trySubscribe(): boolean {
-      const engine = getEngine();
-      if (!engine) return false;
-
-      if (!cancelled) {
-        setTrigger((v) => v + 1);
-      }
-
-      unsubscribe = engine.subscribe('activities', () => {
-        if (cancelled) return;
-        setTrigger((v) => v + 1);
-      });
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-        }
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
+    const unsubscribe = engine.subscribe('activities', () => {
+      if (cancelled) return;
+      setTrigger((v) => v + 1);
+    });
 
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [enabled]);
+  }, [enabled, engine]);
 
   // One call: engine total, sport types and the filtered activities.
   const { activities, availableTypes, activityCount } = useMemo(() => {

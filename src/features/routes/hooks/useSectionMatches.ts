@@ -8,6 +8,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 import type { Section as NativeSection } from 'veloqrs';
@@ -87,6 +88,7 @@ export function useSectionMatches(
   // If the engine isn't available on first mount, polls until it becomes available,
   // preventing a permanent miss when the engine initializes after the effect runs.
   // Safety timeout: after 10s, mark as subscribed to prevent infinite loading.
+  const engine = useEngineReady();
   useEffect(() => {
     let cancelled = false;
 
@@ -96,50 +98,33 @@ export function useSectionMatches(
       return;
     }
 
-    function trySubscribe() {
-      const engine = getEngine();
-      if (!engine) return false;
-
-      unsubscribeRef.current = engine.subscribe('sections', () => refreshRef.current());
-      if (!cancelled) {
-        setSubscribed(true);
-        // Trigger an initial refresh in case data was already available before subscription
-        refreshRef.current();
-      }
-      return true;
-    }
-
-    // Safety timeout: if engine never becomes available, stop showing loading
-    const timeout = setTimeout(() => {
-      if (!cancelled) {
-        setSubscribed(true);
-        setTimedOut(true);
-      }
-    }, 10000);
-
-    if (!trySubscribe()) {
-      // Engine not ready yet - poll until it becomes available
-      const interval = setInterval(() => {
-        if (trySubscribe()) {
-          clearInterval(interval);
-          clearTimeout(timeout);
+    // Safety timeout: an engine that never opens must not leave the screen
+    // showing a loading state for ever.
+    if (!engine) {
+      const timeout = setTimeout(() => {
+        if (!cancelled) {
+          setSubscribed(true);
+          setTimedOut(true);
         }
-      }, 200);
-
+      }, 10000);
       return () => {
         cancelled = true;
-        clearInterval(interval);
         clearTimeout(timeout);
-        unsubscribeRef.current?.();
       };
     }
 
-    clearTimeout(timeout);
+    unsubscribeRef.current = engine.subscribe('sections', () => refreshRef.current());
+    if (!cancelled) {
+      setSubscribed(true);
+      // Data may already have been available before the subscription.
+      refreshRef.current();
+    }
+
     return () => {
       cancelled = true;
       unsubscribeRef.current?.();
     };
-  }, [skipOwnFfiCall]); // refreshRef avoids stale closure
+  }, [skipOwnFfiCall, engine]); // refreshRef avoids stale closure
 
   // Check if engine has any sections. Count-only: avoids the heavy
   // getSectionSummaries() deserialization just to read totalCount.
