@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -306,41 +307,25 @@ export function useActivitiesForExercise(
  */
 export function useHasStrengthData(): boolean {
   const [engineVersion, setEngineVersion] = useState(0);
+  const engine = useEngineReady();
 
   useEffect(() => {
+    if (!engine) return undefined;
     let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
 
-    function trySubscribe(): boolean {
-      const engine = getEngine();
-      if (!engine) return false;
-
-      unsubscribe = engine.subscribe('activities', () => {
-        if (!cancelled) setEngineVersion((v) => v + 1);
-      });
+    // No bump on arrival: `engine` changing is itself a render, and the memo
+    // below reads it.
+    const unsubscribe = engine.subscribe('activities', () => {
       if (!cancelled) setEngineVersion((v) => v + 1);
-      return true;
-    }
-
-    if (!trySubscribe()) {
-      const interval = setInterval(() => {
-        if (trySubscribe()) clearInterval(interval);
-      }, 200);
-      return () => {
-        cancelled = true;
-        clearInterval(interval);
-        unsubscribe?.();
-      };
-    }
+    });
 
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, []);
+  }, [engine]);
 
   return useMemo(() => {
-    const engine = getEngine();
     if (!engine || typeof engine.hasStrengthData !== 'function') return false;
     // Seed demo fixtures before the first hasStrengthData check, otherwise
     // the Strength tab never appears (and useStrengthVolume - which also
@@ -351,5 +336,5 @@ export function useHasStrengthData(): boolean {
     } catch {
       return false;
     }
-  }, [engineVersion]);
+  }, [engine, engineVersion]);
 }

@@ -15,6 +15,7 @@ import { useSectionDetail, useSectionPolyline } from '@/features/routes/hooks/us
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useActivityCount } from '@/shared/native/useActivityCount';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useExcludedActivities } from '@/features/routes/hooks/useExcludedActivities';
 import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
@@ -205,46 +206,31 @@ describe('useEngineSubscription', () => {
     expect(getZoneDistribution).toHaveBeenCalledTimes(1);
   });
 
-  it('bumps the trigger when the engine only appears after the poll starts', () => {
-    jest.useFakeTimers();
+  it('bumps the trigger when the engine only appears after it mounted', () => {
     (getEngine as jest.Mock).mockReturnValue(null);
 
     const { result } = renderHook(() => useEngineSubscription(['activities']));
     expect(result.current).toBe(0);
 
-    act(() => {
-      jest.advanceTimersByTime(200);
-    });
-    expect(result.current).toBe(0);
-
     (getEngine as jest.Mock).mockReturnValue(engine);
-    act(() => {
-      jest.advanceTimersByTime(200);
-    });
+    act(() => useEngineStatus.getState().markEngineReady());
     expect(result.current).toBe(1);
 
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
+    // A second announcement of the same handle is not a second arrival.
+    act(() => useEngineStatus.getState().markEngineReady());
     expect(result.current).toBe(1);
-
-    jest.useRealTimers();
   });
 
   it('re-reads a memo whose engine arrived late', () => {
-    jest.useFakeTimers();
     (getEngine as jest.Mock).mockReturnValue(null);
 
     renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling' }));
     expect(getZoneDistribution).not.toHaveBeenCalled();
 
     (getEngine as jest.Mock).mockReturnValue(engine);
-    act(() => {
-      jest.advanceTimersByTime(200);
-    });
-    expect(getZoneDistribution).toHaveBeenCalledTimes(1);
+    act(() => useEngineStatus.getState().markEngineReady());
 
-    jest.useRealTimers();
+    expect(getZoneDistribution).toHaveBeenCalledTimes(1);
   });
 
   it('still bumps on every event after the first subscribe', () => {
