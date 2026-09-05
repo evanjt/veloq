@@ -1245,6 +1245,16 @@ export interface TranslationResource {
     activitiesCount: string;
     restDay: string;
     selectActivity: string;
+    weekShape: {
+      title: string;
+      /** Under the engine's four-day floor, which is half the weeks on a real account. */
+      quiet: string;
+      reading: {
+        lopsided: string;
+        mixed: string;
+        even: string;
+      };
+    };
   };
 
   formZones: {

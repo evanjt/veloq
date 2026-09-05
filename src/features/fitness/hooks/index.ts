@@ -8,3 +8,4 @@ export {
 export { useFitnessRefresh } from './useFitnessRefresh';
 export { useFitnessComputations } from './useFitnessComputations';
 export { useFitnessScreenData } from './useFitnessScreenData';
+export { useWeekLoadShape } from './useWeekLoadShape';
