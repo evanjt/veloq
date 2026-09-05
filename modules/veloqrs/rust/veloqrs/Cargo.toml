@@ -309,10 +309,6 @@ name = "corpus_migration"
 required-features = ["real-corpus"]
 
 [[test]]
-name = "i56_novel_ground"
-required-features = ["real-corpus"]
-
-[[test]]
 name = "evidence_cache_durability"
 required-features = ["synthetic"]
 

@@ -1352,7 +1352,8 @@
     "vsPrevious3Months": "vs vorige 3 maanden",
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
-    "year": "Jaar"
+    "year": "Jaar",
+    "atWeight": "bij {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerobe efficiëntie",
@@ -1389,7 +1390,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Sleep om te verkennen",

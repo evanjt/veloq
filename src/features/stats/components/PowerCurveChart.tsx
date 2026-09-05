@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -29,8 +29,19 @@ interface ChartPoint {
   x: number;
   y: number;
   secs: number;
+  /** The value in the unit on show: watts, or watts per kilogram. */
   watts: number;
   [key: string]: unknown;
+}
+
+/** Whether the body carried a per-kilogram series worth offering. */
+function hasPerKg(curve: { watts_per_kg?: number[] } | null | undefined): boolean {
+  return (curve?.watts_per_kg ?? []).some((v) => v > 0);
+}
+
+/** `260w` or `3.25 W/kg`, the way the header and the axis print a value. */
+function formatValue(value: number, perKg: boolean, unit: string): string {
+  return perKg ? `${value.toFixed(2)} ${unit}` : `${Math.round(value)}w`;
 }
 
 const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
@@ -47,12 +58,24 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 
+  // Per kilogram is the one comparison that survives a change of body weight.
+  // Offered only when the body carried the series, and never persisted: it is
+  // a way of reading this chart, not a setting.
+  const [perKgWanted, setPerKgWanted] = useState(false);
+  const perKgAvailable = hasPerKg(curve);
+  const perKg = perKgWanted && perKgAvailable;
+  const unit = t('units.wattsPerKg');
+
   // Process curve data for the line chart
   const { chartData, ftpValue, yDomain } = useMemo(() => {
-    if (!curve?.secs || !curve?.watts || curve.watts.length === 0) {
+    const series = perKg ? curve?.watts_per_kg : curve?.watts;
+    // The FTP line follows the unit: the athlete's watts over the weight the
+    // server divided the series by, or nothing when that weight is unknown.
+    const ftpShown = ftp == null ? null : perKg ? (curve?.weight ? ftp / curve.weight : null) : ftp;
+    if (!curve?.secs || !series || series.length === 0) {
       return {
         chartData: [],
-        ftpValue: ftp ?? null,
+        ftpValue: ftpShown,
         yDomain: [0, 400] as [number, number],
       };
     }
@@ -62,7 +85,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
     for (let i = 0; i < curve.secs.length; i++) {
       const secs = curve.secs[i];
-      const watts = curve.watts[i];
+      const watts = series[i];
       if (watts > 0 && secs > 0) {
         points.push({ secs, watts });
       }
@@ -71,7 +94,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     if (points.length === 0) {
       return {
         chartData: [],
-        ftpValue: ftp ?? null,
+        ftpValue: ftpShown,
         yDomain: [0, 400] as [number, number],
       };
     }
@@ -122,10 +145,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
     return {
       chartData: data,
-      ftpValue: ftp ?? null,
+      ftpValue: ftpShown,
       yDomain: [Math.max(0, minWatts - padding), maxWatts + padding] as [number, number],
     };
-  }, [curve, ftp]);
+  }, [curve, ftp, perKg]);
 
   const {
     gesture,
@@ -183,11 +206,38 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
               {t('activity.power')}
             </Text>
             <Text testID="power-curve-watts" style={[styles.valueNumber, { color }]}>
-              {Math.round(displayData.watts)}w
+              {formatValue(displayData.watts, perKg, unit)}
             </Text>
           </View>
         </View>
       </View>
+
+      {perKgAvailable && (
+        <View style={styles.unitToggle}>
+          <Pressable
+            testID="power-curve-unit-watts"
+            accessibilityRole="button"
+            accessibilityState={{ selected: !perKg }}
+            onPress={() => setPerKgWanted(false)}
+            style={[styles.unitPill, !perKg && styles.unitPillActive]}
+          >
+            <Text style={[styles.unitText, isDark && chartStyles.textDark, !perKg && { color }]}>
+              {t('units.watts')}
+            </Text>
+          </Pressable>
+          <Pressable
+            testID="power-curve-unit-per-kg"
+            accessibilityRole="button"
+            accessibilityState={{ selected: perKg }}
+            onPress={() => setPerKgWanted(true)}
+            style={[styles.unitPill, perKg && styles.unitPillActive]}
+          >
+            <Text style={[styles.unitText, isDark && chartStyles.textDark, perKg && { color }]}>
+              {unit}
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Chart */}
       <GestureDetector gesture={gesture}>
@@ -271,19 +321,20 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           {/* Y-axis labels */}
           <View style={styles.yAxisOverlay} pointerEvents="none">
             <Text
+              testID="power-curve-axis-top"
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {Math.round(yDomain[1])}w
+              {formatValue(yDomain[1], perKg, unit)}
             </Text>
             <Text
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {Math.round((yDomain[0] + yDomain[1]) / 2)}w
+              {formatValue((yDomain[0] + yDomain[1]) / 2, perKg, unit)}
             </Text>
             <Text
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {Math.round(yDomain[0])}w
+              {formatValue(yDomain[0], perKg, unit)}
             </Text>
           </View>
         </View>
@@ -293,8 +344,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
-            {t('statsScreen.ftpLabel', { value: ftpValue })}
+          <Text
+            testID="power-curve-ftp-legend"
+            style={[styles.legendText, isDark && chartStyles.textDark]}
+          >
+            {perKg
+              ? `${t('statsScreen.ftpLabel', { value: formatValue(ftpValue, true, unit) })} ${t('stats.atWeight', { kg: Math.round(curve.weight ?? 0) })}`
+              : t('statsScreen.ftpLabel', { value: ftpValue })}
           </Text>
         </View>
       )}
@@ -380,6 +436,25 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
+  unitToggle: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  unitPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  unitPillActive: {
+    backgroundColor: colors.primary + '20',
+  },
+  unitText: {
+    fontSize: typography.pillLabel.fontSize,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
 });
