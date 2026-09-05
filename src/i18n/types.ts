@@ -281,6 +281,8 @@ export interface TranslationResource {
     elevationBackfillWhy: string;
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
+    elevationBackfillPause: string;
+    elevationBackfillPaused: string;
     previewSections: string;
     cutoverRebuilding: string;
     cutoverFailed: string;
@@ -1557,6 +1559,7 @@ export interface TranslationResource {
     stateComplete: string;
     statePartial: string;
     stateFailed: string;
+    statePaused: string;
     progressCount: string;
     progressPercent: string;
     remaining: string;

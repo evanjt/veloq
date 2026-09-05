@@ -1277,7 +1277,9 @@
     "previewKeepTitle": "Anvend disse indstillinger?",
     "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
     "previewKeepRefusedTitle": "Genanalysen startede ikke",
-    "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik."
+    "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik.",
+    "elevationBackfillPause": "Sæt download på pause",
+    "elevationBackfillPaused": "Højdedownload sat på pause. Den genoptages, næste gang du åbner appen. Slå Rutematchning fra ovenfor for at stoppe sektionsdetektering helt."
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1585,6 +1587,7 @@
     "stateFailed": "Stoppet for tidligt",
     "progressCount": "{{completed}} af {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "{{count}} mangler at blive hentet"
+    "remaining": "{{count}} mangler at blive hentet",
+    "statePaused": "På pause, indtil appen åbnes igen"
   }
 }

@@ -646,6 +646,18 @@ pub fn start_elevation_backfill() -> bool {
     crate::net::elevation_backfill::start_elevation_backfill()
 }
 
+/// Pause the elevation backfill for the rest of this process.
+///
+/// The pass in flight ends at its next batch and reports `paused`, and no
+/// launch or resume attempt starts another until the app is reopened. Nothing
+/// is persisted, so a forgotten pause can never strand the migration. Returns
+/// whether a pass was running when the pause landed.
+#[uniffi::export]
+pub fn pause_elevation_backfill() -> bool {
+    init_logging();
+    crate::net::elevation_backfill::pause_elevation_backfill()
+}
+
 /// How many stored tracks the backfill still has to ask upstream about.
 /// Zero means the library has been fully asked, so the launch trigger can
 /// stop attempting runs for this install.
