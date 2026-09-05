@@ -128,16 +128,21 @@ impl SectionManager {
         })
     }
 
-    fn get_polyline(&self, section_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
+    /// The section's line, coordinate-encoded like every other track that
+    /// leaves the engine. It used to box a record per point and its one caller
+    /// unboxed them again, which is the cost the encoding exists to avoid.
+    fn get_polyline(&self, section_id: String) -> Result<Vec<u8>, VeloqError> {
         with_engine(|e| {
             let flat = e.get_section_polyline(&section_id);
-            flat.chunks(2)
-                .map(|c| crate::FfiGpsPoint {
+            let points: Vec<crate::GpsPoint> = flat
+                .chunks_exact(2)
+                .map(|c| crate::GpsPoint {
                     latitude: c[0],
                     longitude: c[1],
                     elevation: None,
                 })
-                .collect()
+                .collect();
+            crate::coords::encode(&points)
         })
     }
 

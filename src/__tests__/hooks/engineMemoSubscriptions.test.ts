@@ -21,6 +21,19 @@ import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionC
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+// `useEngine` decodes the section polyline, so it imports a value from the
+// binding rather than only types, and the real module registers a TurboModule.
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    // One point per blob, read straight off the bytes, so two different
+    // blobs decode to two different points and a re-read is visible.
+    decodeCoords: (buf: ArrayBuffer) => {
+      const bytes = new Uint8Array(buf);
+      return bytes.length >= 2 ? [{ latitude: bytes[0], longitude: bytes[1] }] : [];
+    },
+  })
+);
 
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: { oldest: string; newest: string }) => unknown) =>
@@ -35,7 +48,7 @@ const listeners = new Map<string, Set<() => void>>();
 
 const getZoneDistribution = jest.fn(() => [600, 300, 100, 0, 0]);
 const getSectionById = jest.fn((id: string) => ({ id, name: 'Church Hill' }));
-const getSectionPolyline = jest.fn(() => [{ latitude: 1, longitude: 2 }]);
+const getSectionPolyline = jest.fn(() => new Uint8Array([1, 2]).buffer);
 const getActivityCount = jest.fn(() => 12);
 const getExcludedRouteActivityIds = jest.fn(() => ['act-1']);
 const getExcludedRoutePerformances = jest.fn(() => ({
@@ -156,7 +169,7 @@ describe('useSectionPolyline', () => {
     const afterMount = getSectionPolyline.mock.calls.length;
     expect(result.current.polyline).toEqual([{ lat: 1, lng: 2 }]);
 
-    getSectionPolyline.mockReturnValue([{ latitude: 3, longitude: 4 }]);
+    getSectionPolyline.mockReturnValue(new Uint8Array([3, 4]).buffer);
     emit('sections');
 
     expect(getSectionPolyline.mock.calls.length).toBe(afterMount + 1);
