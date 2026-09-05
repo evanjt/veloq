@@ -8,6 +8,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import {
@@ -117,6 +118,26 @@ describe('the commands a merge runs', () => {
 
   it('has no commands for a merge of documents alone', () => {
     expect(mergeTestCommands(mergeTestTargets(['README.md']))).toEqual([]);
+  });
+
+  // The hook runs the line through `eval`, and every tab screen lives under
+  // `src/app/(tabs)/`, so an unquoted path is a merge that cannot land.
+  it.each([
+    'src/app/(tabs)/map.tsx',
+    'src/app/a space/screen.tsx',
+    "src/app/it's/screen.tsx",
+    'src/shared/app/period.ts',
+  ])('hands %s to jest as one word the shell accepts', (path) => {
+    const [command] = mergeTestCommands(mergeTestTargets([path]));
+
+    const words = execFileSync('sh', [
+      '-c',
+      `set -- ${command.replace(/^npx jest .*?--passWithNoTests /, '')}; printf '%s\\n' "$@"`,
+    ])
+      .toString()
+      .split('\n')
+      .filter(Boolean);
+    expect(words).toEqual([path]);
   });
 });
 
