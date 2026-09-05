@@ -23,6 +23,11 @@ const babelTransform = [
 const inWorktree = __dirname.includes(`${require("path").sep}.claude${require("path").sep}`);
 const worktreeIgnores = inWorktree ? [] : ["/.claude/worktrees/"];
 
+// Wall-clock assertions measure the machine as much as the code, and several
+// agents build on this one at once. `npm run test:perf` sets VELOQ_PERF and is
+// the only run that collects them.
+const perfIgnores = process.env.VELOQ_PERF === "1" ? [] : ["\\.perf\\.test\\."];
+
 module.exports = {
   preset: "jest-expo",
   testEnvironment: "node",
@@ -33,7 +38,12 @@ module.exports = {
   // module is installed. Its resolver strips the native extensions so a
   // component importing reanimated can be rendered under Jest.
   resolver: "react-native-worklets/jest/resolver",
-  testPathIgnorePatterns: ["/node_modules/", "/__tests__/e2e/", ...worktreeIgnores],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "/__tests__/e2e/",
+    ...perfIgnores,
+    ...worktreeIgnores,
+  ],
   modulePathIgnorePatterns: worktreeIgnores,
   moduleNameMapper: {
     "^@/theme$": "<rootDir>/src/__tests__/__mocks__/theme.js",
