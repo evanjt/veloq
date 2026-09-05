@@ -331,7 +331,51 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
     );
   });
 
-  it('refuses a forward-schema backup newer than the live DB', async () => {
+  it('refuses a backup stamped past what this build supports', async () => {
+    mockProbe(
+      JSON.stringify({
+        schema_version: '22',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('restores a backup older than this build, which migrations carry forward', async () => {
+    mockProbe(
+      JSON.stringify({
+        schema_version: '13',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses a forward backup on a fresh install, where the live database cannot be read', async () => {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) throw new Error('Cannot open backup: no such table');
+      return JSON.stringify({
+        schema_version: '22',
+        athlete_id: 'athlete-1',
+        activity_count: 50,
+        supported_schema_version: 21,
+      });
+    });
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the live database when an older binary reports no supported version', async () => {
     mockProbe(
       JSON.stringify({ schema_version: '13', athlete_id: 'athlete-1', activity_count: 50 })
     );
