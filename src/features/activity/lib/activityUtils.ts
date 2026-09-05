@@ -146,8 +146,18 @@ export function isRunningActivity(type: ActivityType): boolean {
  * @param type - Activity type to check
  * @returns True if activity is cycling-related
  */
+/** The six the engine's fitness gain counts as cycling (`objects/fitness.rs`). */
+const CYCLING_TYPES: readonly ActivityType[] = [
+  'Ride',
+  'VirtualRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'Handcycle',
+  'Velomobile',
+];
+
 export function isCyclingActivity(type: ActivityType): boolean {
-  return ['Ride', 'VirtualRide'].includes(type);
+  return CYCLING_TYPES.includes(type);
 }
 
 export function isSwimmingActivity(type: ActivityType): boolean {
