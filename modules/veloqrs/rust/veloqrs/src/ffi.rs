@@ -91,7 +91,12 @@ pub struct ActivitySportMapping {
 }
 
 /// Validate a backup database file without touching the global engine.
-/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
+/// "activity_count", "supported_schema_version"}.
+///
+/// The supported version is this build's own, not the file's. It is the only
+/// honest thing to compare a backup against: the live database is the other
+/// candidate and a fresh install cannot read one.
 #[uniffi::export]
 pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
@@ -127,6 +132,7 @@ pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqErro
         "schema_version": schema_version,
         "athlete_id": athlete_id,
         "activity_count": activity_count,
+        "supported_schema_version": crate::persistence::SUPPORTED_SCHEMA_VERSION,
     });
     Ok(metadata.to_string())
 }

@@ -88,7 +88,24 @@ const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
   activity_count: z.number(),
+  // Absent on a binary older than the field. The live database is then the
+  // only comparison left, which is what this replaced.
+  supported_schema_version: z.number().optional(),
 });
+
+/**
+ * The live database's schema version, for a binary too old to report its own.
+ * Null when the file cannot be read, which is every fresh install.
+ */
+function liveSchemaVersion(validateFn: (path: string) => string, dbPath: string): number | null {
+  const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
+  try {
+    const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
+    return Number(liveMeta.schema_version);
+  } catch {
+    return null;
+  }
+}
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
@@ -194,24 +211,21 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         };
       }
 
-      // Refuse a backup whose schema is newer than this build can open. We don't
-      // hardcode the current version: probe the live DB with the same fn and
-      // compare. If the live DB can't be read (fresh install), skip this guard -
-      // the activity-count check and the .bak rollback still protect the user.
-      const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
-      try {
-        const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
-        if (Number(backupMeta.schema_version) > Number(liveMeta.schema_version)) {
-          await cleanupTemp();
-          log.warn('Backup schema is newer than this app supports - refusing to restore');
-          return {
-            success: false,
-            activityCount: 0,
-            error: 'Backup is from a newer version of Veloq',
-          };
-        }
-      } catch {
-        // Live schema unreadable (e.g. fresh install) - forward-version guard skipped.
+      // Refuse a backup whose schema is newer than this build can open.
+      // Migrations only run upward, so such a file is missing every column the
+      // newer code added and fails at query time rather than at open. The
+      // comparison is against this build's own version, which a fresh install
+      // can answer and an unreadable live database cannot.
+      const supported =
+        backupMeta.supported_schema_version ?? liveSchemaVersion(validateFn, dbPath);
+      if (supported !== null && Number(backupMeta.schema_version) > supported) {
+        await cleanupTemp();
+        log.warn('Backup schema is newer than this app supports - refusing to restore');
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup is from a newer version of Veloq',
+        };
       }
 
       if (
