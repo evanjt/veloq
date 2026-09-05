@@ -5,7 +5,7 @@
  * The budget used to be a literal inside two WebView scripts over the same
  * three caches, so the interactive surfaces and the snapshot worker could
  * disagree about when to evict from a cache they share. It is one constant
- * here, interpolated into both pages at build time (`B123`, `Q23`).
+ * here, interpolated into both pages at build time.
  */
 
 /** The Cache API stores the map pages write to. */

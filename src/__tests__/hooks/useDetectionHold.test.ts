@@ -2,7 +2,7 @@
  * Scenario: the sections page explains why detection is not running. Two
  * things hold it: the elevation backfill, which suspends detection for the
  * whole of a pass and for as long as the queue is non-empty, and the detector
- * cutover, which the engine refuses to let a detect pre-empt (`SB12`).
+ * cutover, which the engine refuses to let a detect pre-empt.
  *
  * Expected behaviour: the page names which of the two, because the two end
  * differently. A cutover clears itself; a backfill waits on the network. The

@@ -182,7 +182,7 @@ export function RegionalMapView({
   }, [isMapFocused]);
   // Within a session `cameraOnBlur` carries the position across a tab switch.
   // Across a launch nothing did, so every cold start opened on the world view
-  // over a camera that had been saved on every settle since (`U27`).
+  // over a camera that had been saved on every settle since.
   const initialCamera = useInitialRegionalCamera(cameraOnBlur);
   const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
     settledCameraRef.current = { center, zoom };

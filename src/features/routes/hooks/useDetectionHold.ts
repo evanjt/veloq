@@ -26,7 +26,7 @@ function readCutoverHold(): boolean {
  * reason rather than a boolean. The elevation backfill suspends detection
  * wholesale for the length of a pass and stays owed while its queue is
  * non-empty, and it waits on the network. The detector cutover refuses every
- * detect until the migration has run (`SB12`), and it clears itself.
+ * detect until the migration has run, and it clears itself.
  *
  * The backfill answers first: it runs first and the cutover waits behind it,
  * so on the upgrade path, where both hold, the honest sentence is the one

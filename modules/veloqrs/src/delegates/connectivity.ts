@@ -2,8 +2,8 @@
  * The connectivity state TypeScript pushes into Rust.
  *
  * Nothing in the crate can see the network, so this is the whole of its
- * input. `Q65` put the network lifecycle in Rust on the condition that the
- * state come from the one place TypeScript already computes it, so there is
+ * input. The network lifecycle is Rust's on the condition that the state come
+ * from the one place TypeScript already computes it, so there is
  * one debounce and one edge rather than two.
  *
  * Unlike the rest of the delegates these do not guard on `host.ready`: the

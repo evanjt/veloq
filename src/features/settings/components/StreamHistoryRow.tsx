@@ -1,8 +1,8 @@
 /**
  * How much stream history the athlete keeps, and what it costs.
  *
- * `Q31` asked for the control, the readout, a 90 day default and a reset that
- * clears the excess. The engine owns all four: setting the window prunes on
+ * The control, the readout, a 90 day default and a reset that clears the
+ * excess. The engine owns all four: setting the window prunes on
  * the way in, so the size is re-read after every write rather than adjusted
  * here. Widening never shows a gap, the detail screen refetches a series the
  * store no longer holds.

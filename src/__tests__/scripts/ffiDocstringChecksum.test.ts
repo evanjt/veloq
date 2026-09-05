@@ -3,8 +3,8 @@
  * buffer carries the docstring. So a doc comment is part of the ABI: editing
  * one moves the checksum the generated bindings assert at startup, and a build
  * from unregenerated bindings refuses to start with an `ApiChecksumMismatch`.
- * `B272` did exactly that and every gate passed, because the manifest recorded
- * names, arity and return types and nothing else.
+ * A comment-only edit has already done exactly that with every gate passing,
+ * because the manifest recorded names, arity and return types and nothing else.
  *
  * Expected behaviour: the manifest records each export's docstring, and
  * `ffi:check` fails when one changes without a regeneration.

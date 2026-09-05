@@ -664,7 +664,7 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
     // queue turned out to hold. It used to also require the library to carry
     // some elevation, which excluded a library upstream has altitude for
     // nothing: the queue drains honestly, elevates nothing, and the cut never
-    // fired, leaving the cutover owed and detection refused (`B252`).
+    // fired, leaving the cutover owed and detection refused.
     // `terminal_cut` re-checks whether a cutover is owed and falls through to a
     // plain re-cut when it is not, so the drained queue is the whole condition.
     // The guard is still held here, so nothing else can claim the slot first.
@@ -1406,8 +1406,8 @@ mod tests {
         assert_eq!(engine.elevation_backfill_remaining().ok(), Some(0));
     }
 
-    /// Scenario: `Q65` put the network lifecycle in Rust, so a pass has to
-    /// react to the connectivity TypeScript pushes rather than spending its
+    /// Scenario: the network lifecycle is Rust's, so a pass has to react to
+    /// the connectivity TypeScript pushes rather than spending its
     /// whole queue discovering the network is gone one request at a time.
     ///
     /// Expected behaviour: the state is advisory. Never pushed means try, a

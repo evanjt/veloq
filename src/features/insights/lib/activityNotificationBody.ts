@@ -106,7 +106,7 @@ function getRouteHighlight(activityId: string): {
 /**
  * Roughly what an Android lock screen shows of a body before it collapses the
  * line. iOS is more generous, around four lines, but truncates mid-word with
- * no ellipsis, so one cap serves both (`B148`).
+ * no ellipsis, so one cap serves both.
  */
 export const NOTIFICATION_BODY_MAX = 60;
 
@@ -134,7 +134,7 @@ const MIN_PLACE_NAME = 6;
  * `MAX_PLACE_NAME` was sized against the English templates, and a translated
  * one is longer: "Faster than usual on X (2:34 off PR)" is 56 characters in
  * English and 72 in Portuguese, so the clause cleared the cap on its own with
- * no name left to give and the lock screen dropped the delta (`B153`). The
+ * no name left to give and the lock screen dropped the delta. The
  * delta is the finding, so the name yields to it, and the clause is only cut
  * outright when there is no name left to take.
  */
@@ -165,7 +165,7 @@ function trim(value: string, max: number): string {
  */
 function compose(detail: string, activityName: string): string {
   // No name means no activity to describe: the ingest failed and the only
-  // string available used to be the notification's own title (`B149`).
+  // string available used to be the notification's own title.
   if (!activityName) return detail;
   const room = NOTIFICATION_BODY_MAX - detail.length - SEPARATOR.length;
   if (room < MIN_NAME_TAIL) return detail;
@@ -175,7 +175,7 @@ function compose(detail: string, activityName: string): string {
 /**
  * Which rung of the ladder the body came from, and so which title goes with
  * it. Three is enough: the four PR rungs, the trend rung, and everything
- * below it, which is what the single hardcoded title used to cover (`B150`).
+ * below it, which is what the single hardcoded title used to cover.
  */
 export type ActivityNotificationTier = 'pr' | 'faster' | 'recorded';
 

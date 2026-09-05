@@ -297,8 +297,8 @@ export function pauseElevationBackfill(): boolean {
 /**
  * Tell the engine what TypeScript sees on the network.
  *
- * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
- * the network itself, so this is the whole of its connectivity input. Call it
+ * The network lifecycle is Rust's, and nothing in the crate can see the
+ * network itself, so this is the whole of its connectivity input. Call it
  * from the same place that calls `onlineManager.setOnline`, on every
  * transition and on foreground, so there is one debounce and one edge rather
  * than two.
@@ -460,7 +460,7 @@ export type ActivitySportMapping = {
   /**
    * Start of the activity, epoch seconds, or `None` when the caller does
    * not know it. It decides whether the sync downloads every series or only
-   * the three the track needs (`B140`), and the engine cannot supply it:
+   * the three the track needs, and the engine cannot supply it:
    * `activities.start_date` is filled by the metrics sync, which lands
    * after this one on a first run.
    */
@@ -6584,9 +6584,8 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
  * Which sections a read wants. Every field is a narrowing, and an empty
  * filter is every visible section.
  *
- * One record rather than four calls: `get_all`, `get_filtered`, `get_by_type`
- * and `get_for_activity` all returned the same list and only two of them
- * applied the corridor-name overlay (`C31`).
+ * One record rather than a call per narrowing: every read returns the same
+ * list, and the corridor-name overlay is applied once behind it.
  */
 export type FfiSectionFilter = {
   /**
@@ -6805,7 +6804,7 @@ export type FfiSectionLap = {
    */
   distance: /*f64*/ number;
   /**
-   * Direction: "forward" or "backward"
+   * Direction: "same", "reverse" or "partial"
    */
   direction: string;
   /**
@@ -7171,7 +7170,7 @@ export type FfiSectionPerformanceRecord = {
    */
   avgPace: /*f64*/ number;
   /**
-   * Primary direction: "forward" or "backward"
+   * Primary direction: "same" or "reverse"
    */
   direction: string;
   /**
@@ -17890,7 +17889,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
-    16099
+    23758
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_set_network_online",
