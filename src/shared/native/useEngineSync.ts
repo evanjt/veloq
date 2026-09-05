@@ -19,6 +19,7 @@
  * rows `seedDemoEngine` wrote.
  */
 import { useEffect, useRef, useState } from 'react';
+import { SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -56,7 +57,7 @@ export function useEngineSync(): void {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (state === 'syncing') {
+    if (state === SyncState.Syncing) {
       wasSyncingRef.current = true;
       return;
     }
@@ -64,7 +65,7 @@ export function useEngineSync(): void {
     wasSyncingRef.current = false;
     // An expired credential is not a network problem, so it stays latched and
     // waits for the re-auth rather than hammering a 401 on every foreground.
-    if (state === 'idle' && status?.lastError) startedRef.current = false;
+    if (state === SyncState.Idle && status?.lastError) startedRef.current = false;
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
     getEngine()?.triggerRefresh('activities');

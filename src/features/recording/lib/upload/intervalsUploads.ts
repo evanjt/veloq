@@ -8,7 +8,7 @@
  * turning a refused write into a throw the caller can classify.
  */
 
-import { engine, type CallOutcome, type ManualActivity } from 'veloqrs';
+import { CallKind, engine, type CallOutcome, type ManualActivity } from 'veloqrs';
 
 import { useAuthStore, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import type { ManualActivityData } from '@/types';
@@ -35,7 +35,7 @@ export class UploadFailure extends Error {
 
 /** The id of the activity the write created, when the server reported one. */
 function createdId(outcome: CallOutcome): string | undefined {
-  if (outcome.kind !== 'ok') throw new UploadFailure(outcome);
+  if (outcome.kind !== CallKind.Ok) throw new UploadFailure(outcome);
   return outcome.id;
 }
 

@@ -11,9 +11,15 @@
  */
 
 import React from 'react';
+import { SyncState } from 'veloqrs';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivitySyncRow } from '@/features/settings/components/ActivitySyncRow';
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../__shared__/veloqrsStub').withOverrides()
+);
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -24,7 +30,7 @@ jest.mock('react-i18next', () => ({
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
-let mockStatus: { state: string; completed: number; total: number } | null = null;
+let mockStatus: { state: SyncState; completed: number; total: number } | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncStatus: () => mockStatus,
 }));
@@ -47,14 +53,17 @@ describe('ActivitySyncRow', () => {
     expect(queryByTestId('sync-stop-button')).toBeNull();
   });
 
-  it.each(['idle', 'paused', 'authExpired'])('renders nothing while the state is %s', (state) => {
-    mockStatus = { state, completed: 0, total: 0 };
-    const { queryByTestId } = render(<ActivitySyncRow />);
-    expect(queryByTestId('sync-stop-button')).toBeNull();
-  });
+  it.each([SyncState.Idle, SyncState.Paused, SyncState.AuthExpired])(
+    'renders nothing while the state is %s',
+    (state) => {
+      mockStatus = { state, completed: 0, total: 0 };
+      const { queryByTestId } = render(<ActivitySyncRow />);
+      expect(queryByTestId('sync-stop-button')).toBeNull();
+    }
+  );
 
   it('offers a stop control while the sync runs', () => {
-    mockStatus = { state: 'syncing', completed: 3, total: 40 };
+    mockStatus = { state: SyncState.Syncing, completed: 3, total: 40 };
     const { getByTestId } = render(<ActivitySyncRow />);
     expect(getByTestId('sync-stop-button')).toBeTruthy();
     expect(getByTestId('sync-progress-label').props.children).toContain(
@@ -63,20 +72,20 @@ describe('ActivitySyncRow', () => {
   });
 
   it('names the sync without counts before the total is known', () => {
-    mockStatus = { state: 'syncing', completed: 0, total: 0 };
+    mockStatus = { state: SyncState.Syncing, completed: 0, total: 0 };
     const { getByTestId } = render(<ActivitySyncRow />);
     expect(getByTestId('sync-progress-label').props.children).toContain('settings.syncActivities');
   });
 
   it('cancels the engine sync when the stop control is pressed', () => {
-    mockStatus = { state: 'syncing', completed: 1, total: 9 };
+    mockStatus = { state: SyncState.Syncing, completed: 1, total: 9 };
     const { getByTestId } = render(<ActivitySyncRow />);
     fireEvent.press(getByTestId('sync-stop-button'));
     expect(cancelSync).toHaveBeenCalledTimes(1);
   });
 
   it('reads as stopping and refuses a second press until the engine settles', () => {
-    mockStatus = { state: 'syncing', completed: 1, total: 9 };
+    mockStatus = { state: SyncState.Syncing, completed: 1, total: 9 };
     const { getByTestId } = render(<ActivitySyncRow />);
     fireEvent.press(getByTestId('sync-stop-button'));
     fireEvent.press(getByTestId('sync-stop-button'));
@@ -85,14 +94,14 @@ describe('ActivitySyncRow', () => {
   });
 
   it('re-arms the stop control for the sync after the cancelled one settles', () => {
-    mockStatus = { state: 'syncing', completed: 1, total: 9 };
+    mockStatus = { state: SyncState.Syncing, completed: 1, total: 9 };
     const { getByTestId, rerender } = render(<ActivitySyncRow />);
     fireEvent.press(getByTestId('sync-stop-button'));
 
-    mockStatus = { state: 'idle', completed: 1, total: 9 };
+    mockStatus = { state: SyncState.Idle, completed: 1, total: 9 };
     rerender(<ActivitySyncRow />);
 
-    mockStatus = { state: 'syncing', completed: 0, total: 12 };
+    mockStatus = { state: SyncState.Syncing, completed: 0, total: 12 };
     rerender(<ActivitySyncRow />);
     expect(getByTestId('sync-stop-label').props.children).toBe('settings.syncStop');
 
@@ -102,7 +111,7 @@ describe('ActivitySyncRow', () => {
 
   it('survives a press with no engine handle', () => {
     mockEngine = null;
-    mockStatus = { state: 'syncing', completed: 1, total: 9 };
+    mockStatus = { state: SyncState.Syncing, completed: 1, total: 9 };
     const { getByTestId } = render(<ActivitySyncRow />);
     expect(() => fireEvent.press(getByTestId('sync-stop-button'))).not.toThrow();
   });

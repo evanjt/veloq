@@ -2223,12 +2223,9 @@ const FfiConverterTypeFfiCalendarYearSummary = (() => {
  * explicit here rather than inferred from an error message downstream.
  */
 export type FfiCallOutcome = {
+  kind: FfiCallKind;
   /**
-   * "ok", "unauthorized", "rateLimited", "http", "network" or "internal".
-   */
-  kind: string;
-  /**
-   * The id the call produced or confirmed, when `kind` is "ok".
+   * The id the call produced or confirmed, when `kind` is `Ok`.
    */
   id?: string;
   /**
@@ -2267,7 +2264,7 @@ const FfiConverterTypeFfiCallOutcome = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        kind: FfiConverterString.read(from),
+        kind: FfiConverterTypeFfiCallKind.read(from),
         id: FfiConverterOptionalString.read(from),
         status: FfiConverterOptionalUInt16.read(from),
         detail: FfiConverterOptionalString.read(from),
@@ -2275,7 +2272,7 @@ const FfiConverterTypeFfiCallOutcome = (() => {
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.kind, into);
+      FfiConverterTypeFfiCallKind.write(value.kind, into);
       FfiConverterOptionalString.write(value.id, into);
       FfiConverterOptionalUInt16.write(value.status, into);
       FfiConverterOptionalString.write(value.detail, into);
@@ -2283,7 +2280,7 @@ const FfiConverterTypeFfiCallOutcome = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterTypeFfiCallKind.allocationSize(value.kind) +
         FfiConverterOptionalString.allocationSize(value.id) +
         FfiConverterOptionalUInt16.allocationSize(value.status) +
         FfiConverterOptionalString.allocationSize(value.detail) +
@@ -3081,23 +3078,27 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
- * FTP trend data.
+ * Cycling FTP trend, read from the athlete's configured FTP setting as it
+ * stood on each activity (`icu_ftp`), not from a modelled estimate. It moves
+ * only when the setting is edited. The per-activity estimate
+ * (`icu_pm_ftp_watts`) and the daily model estimate (`sportInfo.eftp` in
+ * `wellness.raw`) are separate series and are not read here.
  */
 export type FfiFtpTrend = {
   /**
-   * Most recent FTP value
+   * Newest FTP setting on record
    */
   latestFtp?: /*u16*/ number;
   /**
-   * Date of most recent FTP (Unix timestamp seconds)
+   * Activity start of the newest setting (Unix timestamp seconds)
    */
   latestDate?: /*i64*/ bigint;
   /**
-   * Previous different FTP value
+   * Newest setting that differs from `latest_ftp`
    */
   previousFtp?: /*u16*/ number;
   /**
-   * Date of previous FTP (Unix timestamp seconds)
+   * Activity start of that earlier setting (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
 };
@@ -8164,7 +8165,7 @@ const FfiConverterTypeFfiSupersededEntry = (() => {
  * The status fields TypeScript reads / subscribes to.
  */
 export type FfiSyncStatus = {
-  state: string;
+  state: SyncState;
   inFlight: /*u32*/ number;
   completed: /*u32*/ number;
   total: /*u32*/ number;
@@ -8193,7 +8194,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        state: FfiConverterString.read(from),
+        state: FfiConverterTypeSyncState.read(from),
         inFlight: FfiConverterUInt32.read(from),
         completed: FfiConverterUInt32.read(from),
         total: FfiConverterUInt32.read(from),
@@ -8201,7 +8202,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterString.write(value.state, into);
+      FfiConverterTypeSyncState.write(value.state, into);
       FfiConverterUInt32.write(value.inFlight, into);
       FfiConverterUInt32.write(value.completed, into);
       FfiConverterUInt32.write(value.total, into);
@@ -8209,7 +8210,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterString.allocationSize(value.state) +
+        FfiConverterTypeSyncState.allocationSize(value.state) +
         FfiConverterUInt32.allocationSize(value.inFlight) +
         FfiConverterUInt32.allocationSize(value.completed) +
         FfiConverterUInt32.allocationSize(value.total) +
@@ -9288,6 +9289,138 @@ const stringConverter = {
     ),
 };
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
+
+/**
+ * How a call ended, as the kind the caller branches on.
+ *
+ * A closed set crossing as an enum rather than a word, so TypeScript compares
+ * against a generated member and not a string it spelt itself. The wire
+ * carries the variant's position, so the order here is the contract: append,
+ * never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiCallKind {
+  /**
+   * The server accepted the call.
+   */
+  Ok = 1,
+  /**
+   * The credential was refused, 401.
+   */
+  Unauthorized = 2,
+  /**
+   * The server asked for a pause, 429, and the retries ran out.
+   */
+  RateLimited = 3,
+  /**
+   * Any other status the server answered with.
+   */
+  Http = 4,
+  /**
+   * No response reached the server.
+   */
+  Network = 5,
+  /**
+   * A failure that never left the device: no credentials, an unreadable
+   * file, a body that would not serialize.
+   */
+  Internal = 6,
+}
+
+const FfiConverterTypeFfiCallKind = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiCallKind;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiCallKind.Ok;
+        case 2:
+          return FfiCallKind.Unauthorized;
+        case 3:
+          return FfiCallKind.RateLimited;
+        case 4:
+          return FfiCallKind.Http;
+        case 5:
+          return FfiCallKind.Network;
+        case 6:
+          return FfiCallKind.Internal;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiCallKind.Ok:
+          return ordinalConverter.write(1, into);
+        case FfiCallKind.Unauthorized:
+          return ordinalConverter.write(2, into);
+        case FfiCallKind.RateLimited:
+          return ordinalConverter.write(3, into);
+        case FfiCallKind.Http:
+          return ordinalConverter.write(4, into);
+        case FfiCallKind.Network:
+          return ordinalConverter.write(5, into);
+        case FfiCallKind.Internal:
+          return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The lifecycle state TypeScript renders.
+ *
+ * Crosses as an enum: the word was stringified here and spelt again in a
+ * TypeScript mirror, and every reader only ever branches on it. Wire order
+ * is declaration order, so append and never reorder.
+ */
+export enum SyncState {
+  Idle = 1,
+  Syncing = 2,
+  Paused = 3,
+  AuthExpired = 4,
+}
+
+const FfiConverterTypeSyncState = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = SyncState;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return SyncState.Idle;
+        case 2:
+          return SyncState.Syncing;
+        case 3:
+          return SyncState.Paused;
+        case 4:
+          return SyncState.AuthExpired;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case SyncState.Idle:
+          return ordinalConverter.write(1, into);
+        case SyncState.Syncing:
+          return ordinalConverter.write(2, into);
+        case SyncState.Paused:
+          return ordinalConverter.write(3, into);
+        case SyncState.AuthExpired:
+          return ordinalConverter.write(4, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
 
 // Error type: VeloqError
 
@@ -19618,6 +19751,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCalendarMonthSummary,
     FfiConverterTypeFfiCalendarSummary,
     FfiConverterTypeFfiCalendarYearSummary,
+    FfiConverterTypeFfiCallKind,
     FfiConverterTypeFfiCallOutcome,
     FfiConverterTypeFfiChangeCardSupport,
     FfiConverterTypeFfiDetectionProgress,
@@ -19717,6 +19851,7 @@ export default Object.freeze({
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,
     FfiConverterTypeSyncManager,
+    FfiConverterTypeSyncState,
     FfiConverterTypeVeloqEngine,
     FfiConverterTypeVeloqError,
   },
