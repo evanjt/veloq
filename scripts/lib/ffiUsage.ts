@@ -115,7 +115,9 @@ export function receiverOf(before: string): string {
  * receiver before the dot and drops the call entirely.
  */
 export function callsIn(text: string): Call[] {
-  const call = /\??\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+  // `engine.getCutoverProgress?.()` is a call, and reading the name alone as
+  // one is what let two live methods report as unreachable.
+  const call = /\??\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\??\.?\s*\(/g;
   const found: Call[] = [];
   for (const m of text.matchAll(call)) {
     const receiver = receiverOf(text.slice(0, m.index));
@@ -286,6 +288,7 @@ const NOT_A_CALLER = [
   'modules/veloqrs/src/generated/',
   'src/generated/',
   '__tests__',
+  '__mocks__',
   // Any generated module, wherever it sits. `maplibreRenderer.generated.ts` is
   // a megabyte of vendored renderer under `src/features/`, and every method
   // name in it read as a caller.
@@ -379,4 +382,52 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'reached through a dynamic property off the native module, so no static call exists to find',
   'SettingsManager.clearUserProfileCaches':
     'called through a cast to an inline optional-method type, deliberately, so there is no typed receiver to read',
+
+  // Their TypeScript wrappers went with `D42`, which found no caller for
+  // either. Both are `C31`'s to fold into the section and route list calls
+  // that remain, so they stay exported until it decides their shape.
+  'SectionManager.getAll': 'C31 owns which call returns a list of sections',
+  'RouteManager.getSummariesWithCount': 'C31 owns which call returns a list of routes',
 };
+
+/**
+ * Every method `EngineClient` declares, in source order.
+ *
+ * The class is the app's whole engine surface, and its methods do not share
+ * names with the Rust exports they reach: `getMissingTimeStreams` and
+ * `getActivitiesMissingTimeStreams` are two names on one delegate, and the
+ * export-name report counts them as one live export. Counting the class's own
+ * names is the only way a method nothing calls shows up (`I32`, `D42`).
+ */
+export function clientMethods(source: string): string[] {
+  const declaration = /^\s{2}([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\(/gm;
+  return [...withoutComments(source).matchAll(declaration)].map((m) => m[1]);
+}
+
+/** Source with comments blanked, so a name inside one is not read as a call. */
+function withoutComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\n]*/g, ' ');
+}
+
+/**
+ * How many production callers each client method has. A file the class itself
+ * is in, a delegate, a test and a mock are all not callers, which is the same
+ * rule the export report uses.
+ */
+export function clientMethodReach(
+  classSource: string,
+  files: { file: string; source: string }[]
+): Map<string, number> {
+  const reach = new Map<string, number>();
+  for (const method of clientMethods(classSource)) reach.set(method, 0);
+  for (const { file, source } of files) {
+    if (!isCallerFile(file) || isEngineLayerFile(file)) continue;
+    for (const { method } of callsIn(withoutComments(source))) {
+      const count = reach.get(method);
+      if (count !== undefined) reach.set(method, count + 1);
+    }
+  }
+  return reach;
+}

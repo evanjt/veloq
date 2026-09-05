@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 232 methods inside `#[uniffi::export] impl` blocks across
+ * 231 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 250 exports (18 standalone + 232 methods)
+ * Total: 249 exports (18 standalone + 231 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1912,20 +1912,10 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SectionManager',
   },
   {
-    name: 'get_activity_indicators',
-    camelName: 'getActivityIndicators',
-    file: 'objects/sections.rs',
-    line: 802,
-    paramCount: 1,
-    returnType: 'Result<Vec<crate::FfiActivityIndicator>, VeloqError>',
-    docs: 'Read pre-computed indicators for a batch of activity IDs. Returns section PRs, route PRs, section trends, and route trends from the materialised `activity_indicators` table.',
-    object: 'SectionManager',
-  },
-  {
     name: 'get_activity_section_encounters',
     camelName: 'getActivitySectionEncounters',
     file: 'objects/sections.rs',
-    line: 811,
+    line: 801,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionEncounter>, VeloqError>',
     docs: 'Get section encounters for an activity: one entry per (section, direction). Canonical data unit for the sections tab in activity detail.',
@@ -1935,7 +1925,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_activity_pr_sections',
     camelName: 'getActivityPrSections',
     file: 'objects/sections.rs',
-    line: 821,
+    line: 811,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
     docs: 'Given an activity and a list of section IDs, return the subset where `activity_id` currently holds the best record. Collapses a per-section N+1 `get_performances` loop into a single FFI round-trip.',
@@ -1945,7 +1935,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_workout_sections',
     camelName: 'getWorkoutSections',
     file: 'objects/sections.rs',
-    line: 843,
+    line: 833,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiWorkoutSection>, VeloqError>',
     docs: 'Home-screen "Sections for you" list. Composes ML ranking + performance lookups in one FFI round-trip instead of N+1 per-section `getPerformances` calls from TS.',
@@ -1955,7 +1945,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_chart_data',
     camelName: 'getChartData',
     file: 'objects/sections.rs',
-    line: 854,
+    line: 844,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionChartData, VeloqError>',
     docs: 'Pre-computed chart payload for the section-detail screen: per-lap points, speed ranks, best/avg/last stats - all in one FFI round-trip. Replaces the 3+ useMemo aggregations in `useSectionChartData`.',
@@ -1965,7 +1955,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/sections.rs',
-    line: 869,
+    line: 859,
     paramCount: 2,
     returnType: 'Result<crate::FfiSectionDetailData, VeloqError>',
     docs: 'Everything the section detail screen can paint before its time streams have been fetched: the section, its neighbours and merge candidates, exclusions, bounds state, per-activity metrics and signatures, and the activities whose streams are still missing.',
@@ -1975,7 +1965,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_performance',
     camelName: 'getDetailPerformance',
     file: 'objects/sections.rs',
-    line: 880,
+    line: 870,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionPerformanceData, VeloqError>',
     docs: 'The lap-time reads for the section detail screen: calendar summary, performance records and chart payload. Call once the streams reported by `get_detail_data` have landed.',
@@ -2715,7 +2705,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getNearbySections',
   'getMergeCandidates',
   'mergeSections',
-  'getActivityIndicators',
   'getActivitySectionEncounters',
   'getActivityPrSections',
   'getWorkoutSections',
@@ -2950,7 +2939,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_nearby_sections: 'getNearbySections',
   get_merge_candidates: 'getMergeCandidates',
   merge_sections: 'mergeSections',
-  get_activity_indicators: 'getActivityIndicators',
   get_activity_section_encounters: 'getActivitySectionEncounters',
   get_activity_pr_sections: 'getActivityPrSections',
   get_workout_sections: 'getWorkoutSections',

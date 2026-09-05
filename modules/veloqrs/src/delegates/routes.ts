@@ -36,14 +36,6 @@ export function getGroups(host: DelegateHost): FfiRouteGroup[] {
   return host.timed('getGroups', () => host.engine.routes().getAll());
 }
 
-export function getGroupSummaries(host: DelegateHost): {
-  totalCount: number;
-  summaries: GroupSummary[];
-} {
-  if (!host.ready) return { totalCount: 0, summaries: [] };
-  return host.timed('getGroupSummaries', () => host.engine.routes().getSummariesWithCount());
-}
-
 export type GroupSortKey = 'count' | 'name';
 
 /**

@@ -826,11 +826,6 @@ interface NativeModuleInterface {
     sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-    ptr: bigint,
-    activityIds: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1747,7 +1742,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all(): number;
