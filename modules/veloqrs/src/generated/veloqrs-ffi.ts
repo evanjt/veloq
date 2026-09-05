@@ -1158,6 +1158,11 @@ interface NativeModuleInterface {
     value: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_settings(
+    ptr: bigint,
+    pairs: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
     ptr: bigint,
     json: Uint8Array,
@@ -1807,6 +1812,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days(): number;
