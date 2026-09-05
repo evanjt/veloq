@@ -8401,6 +8401,72 @@ const FfiConverterTypeFfiTimestampRange = (() => {
 })();
 
 /**
+ * A week's load, day by day, with how evenly it was spread.
+ *
+ * The window sum says a week carried four hundred points and not whether that
+ * was one day or seven. Two weeks of the same total spread very differently:
+ * over one real account's 190 loaded weeks, those carrying 200 to 400 points
+ * ran from 0.45 to 1.92 on `evenness`.
+ */
+export type FfiWeekLoadShape = {
+  /**
+   * One entry per day of the window, gaps included as zero.
+   */
+  daily: Array</*f64*/ number>;
+  /**
+   * Days carrying any load at all.
+   */
+  trainingDays: /*u32*/ number;
+  /**
+   * Mean daily load over its standard deviation. Higher is more even.
+   */
+  evenness: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiWeekLoadShape} record objects.
+ */
+export const FfiWeekLoadShape = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWeekLoadShape, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWeekLoadShape>,
+  });
+})();
+
+const FfiConverterTypeFfiWeekLoadShape = (() => {
+  type TypeName = FfiWeekLoadShape;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        daily: FfiConverterArrayFloat64.read(from),
+        trainingDays: FfiConverterUInt32.read(from),
+        evenness: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayFloat64.write(value.daily, into);
+      FfiConverterUInt32.write(value.trainingDays, into);
+      FfiConverterFloat64.write(value.evenness, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayFloat64.allocationSize(value.daily) +
+        FfiConverterUInt32.allocationSize(value.trainingDays) +
+        FfiConverterFloat64.allocationSize(value.evenness)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One Monday-anchored week of training totals, derived from
  * `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
  * the screens read only these four numbers.
@@ -11932,6 +11998,14 @@ export interface FitnessManagerLike {
     prevEnd: /*i64*/ bigint,
   ) /*throws*/ : FfiSummaryCardData;
   /**
+   * A week's load day by day, with how evenly it was spread, or none when
+   * the week has too few training days for the spread to mean anything.
+   */
+  getWeekLoadShape(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ) /*throws*/ : FfiWeekLoadShape | undefined;
+  /**
    * Weekly training totals over a range, one entry per Monday-anchored
    * week that has activities. Derived from `activity_metrics` rather than
    * fetched, so there is no athlete-summary endpoint to keep in sync.
@@ -12307,6 +12381,32 @@ export class FitnessManager
             FfiConverterInt64.lower(currentEnd),
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A week's load day by day, with how evenly it was spread, or none when
+   * the week has too few training days for the spread to mean anything.
+   */
+  getWeekLoadShape(
+    startTs: /*i64*/ bigint,
+    endTs: /*i64*/ bigint,
+  ): FfiWeekLoadShape | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiWeekLoadShape.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_week_load_shape(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startTs),
+            FfiConverterInt64.lower(endTs),
             callStatus,
           );
         },
@@ -17656,6 +17756,11 @@ const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
 const FfiConverterOptionalTypeFfiStrengthInsightSeries =
   new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
 
+// FfiConverter for FfiWeekLoadShape | undefined
+const FfiConverterOptionalTypeFfiWeekLoadShape = new FfiConverterOptional(
+  FfiConverterTypeFfiWeekLoadShape,
+);
+
 // FfiConverter for FfiWellnessSparklines | undefined
 const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
   FfiConverterTypeFfiWellnessSparklines,
@@ -18736,6 +18841,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape() !==
+    23960
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_week_load_shape",
     );
   }
   if (
@@ -20141,6 +20254,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
+    FfiConverterTypeFfiWeekLoadShape,
     FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,

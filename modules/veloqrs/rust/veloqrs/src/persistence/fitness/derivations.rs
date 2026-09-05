@@ -73,6 +73,69 @@ impl PersistentEngine {
             })
     }
 
+    /// A window's load day by day, with how evenly it was spread, or `None`
+    /// when the week has no shape to report.
+    ///
+    /// Withheld below four training days on purpose. With six rest days the
+    /// mean over the deviation is `1/sqrt(6)` whatever the one day carried, so
+    /// every single-day week reads the same for loads an order of magnitude
+    /// apart, and the spread stays under half a point up to three days. A
+    /// constant dressed as a measurement is worse than no number.
+    pub fn get_week_load_shape(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Option<crate::FfiWeekLoadShape> {
+        const MIN_TRAINING_DAYS: usize = 4;
+        const DAY: i64 = 24 * 60 * 60;
+
+        if end_ts < start_ts {
+            return None;
+        }
+        let days = ((end_ts - start_ts) / DAY + 1) as usize;
+        let mut daily = vec![0.0f64; days];
+
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT date, COALESCE(SUM(training_load), 0)
+                 FROM activity_metrics WHERE date BETWEEN ?1 AND ?2
+                 GROUP BY date",
+            )
+            .ok()?;
+        let rows = stmt
+            .query_map(params![start_ts, end_ts], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
+            })
+            .ok()?;
+        for row in rows.flatten() {
+            let index = ((row.0 - start_ts) / DAY) as usize;
+            if index < daily.len() {
+                daily[index] += row.1;
+            }
+        }
+
+        let training_days = daily.iter().filter(|v| **v > 0.0).count();
+        if training_days < MIN_TRAINING_DAYS {
+            return None;
+        }
+        let mean = daily.iter().sum::<f64>() / daily.len() as f64;
+        if mean <= 0.0 {
+            return None;
+        }
+        let variance = daily.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / daily.len() as f64;
+        let sd = variance.sqrt();
+        if sd <= 0.0 {
+            return None;
+        }
+
+        Some(crate::FfiWeekLoadShape {
+            daily,
+            training_days: training_days as u32,
+            evenness: mean / sd,
+        })
+    }
+
     /// Get weekly comparison: current week + previous week + FTP trend.
     /// Bundles 3 FFI calls into 1 for 3x reduction in FFI overhead (30ms → 10ms).
     /// Aggregated zone distribution for a sport and its family, so a gravel

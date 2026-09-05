@@ -39,6 +39,7 @@ import type {
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
+  FfiWeekLoadShape,
   FfiWidgetSnapshotData,
   FfiRoutesScreenData,
   FfiSectionConfig,
@@ -728,6 +729,10 @@ class EngineClient implements DelegateHost {
 
   getZoneDistribution = (sportType: string, zoneType: string): number[] =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType);
+
+  /** How a week's load was spread, or `null` below the engine's four-day floor. */
+  getWeekLoadShape = (startTs: number, endTs: number): FfiWeekLoadShape | null =>
+    fitnessDelegates.getWeekLoadShape(this, startTs, endTs);
 
   savePaceSnapshot = (
     sportType: string,

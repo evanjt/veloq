@@ -407,7 +407,16 @@
     "formTSB": "Forma (TSB)",
     "noData": "Sin datos de forma física",
     "restDay": "Día de descanso",
-    "selectActivity": "Seleccionar actividad"
+    "selectActivity": "Seleccionar actividad",
+    "weekShape": {
+      "title": "La forma de esta semana",
+      "quiet": "Una semana más tranquila. No hay días de entrenamiento suficientes para leer una forma.",
+      "reading": {
+        "lopsided": "Tu carga se concentró en un par de días de {{days}} días de entrenamiento.",
+        "mixed": "Mezclada: algunos días mucho más duros que otros, en {{days}} días de entrenamiento.",
+        "even": "Repartida de forma bastante pareja en {{days}} días de entrenamiento."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1357,7 +1366,8 @@
     "vsPrevious3Months": "vs 3 meses anteriores",
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
-    "year": "Año"
+    "year": "Año",
+    "atWeight": "a {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Eficiencia aeróbica",
@@ -1394,7 +1404,8 @@
     "ft": "pies",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Arrastra para explorar",

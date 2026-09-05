@@ -380,6 +380,10 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'the read half of a setter the settings screen has, and its screen is unbuilt',
   validateBackupDatabase:
     'reached through a dynamic property off the native module, so no static call exists to find',
+  // The engine can answer what shape a week's load had; no screen asks yet,
+  // and the surface that would draw it is its own item.
+  'FitnessManager.getWeekLoadShape': 'the week-shape reading has no surface yet',
+
   'SettingsManager.clearUserProfileCaches':
     'called through a cast to an inline optional-method type, deliberately, so there is no typed receiver to read',
   'SectionManager.getNearPoint':
