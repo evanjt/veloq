@@ -276,7 +276,17 @@ class EngineClient implements DelegateHost {
     this.pendingMetrics = null;
   }
 
+  /**
+   * Wipe the engine and re-open it on the same database.
+   *
+   * Callers keep using the handle straight after this: the identity write that
+   * follows "Clear & Sync" is one, and it is a no-op on a closed handle. The
+   * re-open is what makes the wipe a wipe rather than a shutdown. A re-open
+   * that fails leaves the handle closed and reported closed, which is the same
+   * state a failed launch leaves.
+   */
   clear(): void {
+    const dbPath = this.dbPath;
     try {
       this.timed('clear', () => this.engine?.clear());
     } catch {
@@ -294,6 +304,7 @@ class EngineClient implements DelegateHost {
     this.dbPath = null;
     this.engine = null;
     this.pendingMetrics = null;
+    if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
