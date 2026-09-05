@@ -2,11 +2,9 @@
 //! requests pass through.
 //!
 //! This module owns the transport-agnostic *policy* seams - retry backoff,
-//! `Authorization` header formatting, and rate-limit-header parsing. They are
-//! pure functions so they can be unit-tested without a network. The richer
-//! policy (a live budget cell, priority lanes, a per-pool reserve) is layered
-//! on top by the rate-limit follow-up plan; this module ships the seams it
-//! plugs into.
+//! `Authorization` header formatting, and the one rate header the server
+//! sends. They are pure functions so they can be unit-tested without a
+//! network. Priority lanes are layered on top through `Policy`.
 
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -61,43 +59,20 @@ pub fn format_auth_header(method: AuthMethod<'_>) -> String {
     }
 }
 
-/// A snapshot of the rate-limit budget parsed from response headers. An unknown
-/// or malformed field is `None`.
+/// What a response says about rate: `Retry-After` on a 429, and nothing else.
+///
+/// intervals.icu sends no `X-RateLimit-*` pair. Measured 2026-09-05 against
+/// the live API: no budget header on any 200 or 429, and the 429 is issued at
+/// the Cloudflare edge with `Retry-After: 1` and an empty body. A malformed
+/// or absent value is `None`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct RateBudget {
-    pub limit_15m: Option<u32>,
-    pub limit_daily: Option<u32>,
-    pub remaining_15m: Option<u32>,
-    pub remaining_daily: Option<u32>,
     pub retry_after_secs: Option<u64>,
 }
 
-/// Parse intervals.icu rate-limit headers:
-/// `X-RateLimit-Limit: <15m>,<daily>`, `X-RateLimit-Remaining: <15m>,<daily>`,
-/// and `Retry-After: <seconds>`. Missing or malformed values become `None`.
-pub fn parse_rate_headers(
-    limit: Option<&str>,
-    remaining: Option<&str>,
-    retry_after: Option<&str>,
-) -> RateBudget {
-    fn pair(s: Option<&str>) -> (Option<u32>, Option<u32>) {
-        match s {
-            None => (None, None),
-            Some(s) => {
-                let mut it = s.split(',');
-                let a = it.next().and_then(|x| x.trim().parse().ok());
-                let b = it.next().and_then(|x| x.trim().parse().ok());
-                (a, b)
-            }
-        }
-    }
-    let (limit_15m, limit_daily) = pair(limit);
-    let (remaining_15m, remaining_daily) = pair(remaining);
+/// Parse `Retry-After: <seconds>`.
+pub fn parse_rate_headers(retry_after: Option<&str>) -> RateBudget {
     RateBudget {
-        limit_15m,
-        limit_daily,
-        remaining_15m,
-        remaining_daily,
         retry_after_secs: retry_after.and_then(|s| s.trim().parse().ok()),
     }
 }
@@ -129,20 +104,16 @@ pub trait Policy: Send + Sync {
     fn max_queue_ahead(&self, _lane: Lane) -> Option<Duration> {
         None
     }
-
-    /// Observe a response's parsed budget so the policy can adapt.
-    fn observe(&self, budget: &RateBudget);
 }
 
-/// The identity policy: no extra pacing, no yielding, no budget tracking. Used
-/// by tests that want the bare baseline pace.
+/// The identity policy: no extra pacing and no yielding. Used by tests that
+/// want the bare baseline pace.
 pub struct NoopPolicy;
 
 impl Policy for NoopPolicy {
     fn pace(&self, _lane: Lane) -> Duration {
         Duration::ZERO
     }
-    fn observe(&self, _budget: &RateBudget) {}
 }
 
 /// How far behind existing traffic a backfill request will queue before it
@@ -150,17 +121,6 @@ impl Policy for NoopPolicy {
 /// so a lone backfill runs at full speed and a backfill competing with a tapped
 /// screen steps aside within one request.
 const BACKFILL_MAX_QUEUE_AHEAD: Duration = Duration::from_millis(250);
-
-/// The same limit once the 15-minute budget is nearly spent. Backfill then only
-/// takes slots the app has left completely idle.
-const BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET: Duration = Duration::from_millis(10);
-
-/// Requests of the 15-minute pool held for interactive work. Below this, the
-/// backfill stops competing for the remainder.
-const INTERACTIVE_RESERVE_15M: u32 = 200;
-
-/// Sentinel for a budget no response has reported yet.
-const BUDGET_UNKNOWN: u32 = u32::MAX;
 
 /// The shipped policy: interactive work never waits, backfill work fills the
 /// gaps between it.
@@ -170,21 +130,12 @@ const BUDGET_UNKNOWN: u32 = u32::MAX;
 /// with the backfill. A queue limit costs the backfill request alone: it holds
 /// no slot while it waits, so an interactive request that arrives meanwhile
 /// takes the slot the backfill would have had.
-pub struct YieldBackfillPolicy {
-    remaining_15m: std::sync::atomic::AtomicU32,
-}
+#[derive(Default)]
+pub struct YieldBackfillPolicy;
 
 impl YieldBackfillPolicy {
     pub fn new() -> Self {
-        Self {
-            remaining_15m: std::sync::atomic::AtomicU32::new(BUDGET_UNKNOWN),
-        }
-    }
-}
-
-impl Default for YieldBackfillPolicy {
-    fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -196,36 +147,18 @@ impl Policy for YieldBackfillPolicy {
     fn max_queue_ahead(&self, lane: Lane) -> Option<Duration> {
         match lane {
             Lane::Interactive => None,
-            Lane::Backfill => {
-                let remaining = self
-                    .remaining_15m
-                    .load(std::sync::atomic::Ordering::Relaxed);
-                // An unknown budget is treated as healthy: the reserve is a
-                // refinement, and refusing to backfill until a header arrives
-                // would stall the first run indefinitely.
-                if remaining != BUDGET_UNKNOWN && remaining < INTERACTIVE_RESERVE_15M {
-                    Some(BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET)
-                } else {
-                    Some(BACKFILL_MAX_QUEUE_AHEAD)
-                }
-            }
-        }
-    }
-
-    fn observe(&self, budget: &RateBudget) {
-        if let Some(remaining) = budget.remaining_15m {
-            self.remaining_15m
-                .store(remaining, std::sync::atomic::Ordering::Relaxed);
+            Lane::Backfill => Some(BACKFILL_MAX_QUEUE_AHEAD),
         }
     }
 }
 
 /// The process-wide dispatch choke point. Every outbound intervals.icu request
 /// acquires a slot here first, so one shared limiter governs the whole process
-/// rather than per-call pacers that can collectively exceed the per-IP cap.
+/// rather than per-call pacers that can collectively exceed the edge's burst
+/// allowance.
 ///
-/// The baseline paces at a fixed `min_interval` (≤8 req/s, under the 10 req/s
-/// per-IP hard limit) plus whatever the `Policy` adds. Scheduling holds a brief
+/// The baseline paces at a fixed `min_interval` (8 req/s, a third of the
+/// measured sustained ceiling) plus whatever the `Policy` adds. Scheduling holds a brief
 /// non-async lock; the wait happens outside the lock so it never blocks others.
 pub struct Governor {
     min_interval: Duration,
@@ -308,17 +241,16 @@ impl Governor {
     pub fn yields(&self) -> u64 {
         self.yields.load(std::sync::atomic::Ordering::Relaxed)
     }
-
-    /// Feed a response's rate budget to the policy.
-    pub fn observe(&self, budget: &RateBudget) {
-        self.policy.observe(budget);
-    }
 }
 
 /// Longest a single request will park waiting for a busier lane to drain.
 const MAX_LANE_YIELD: Duration = Duration::from_secs(60);
 
-/// Largest sustained dispatch rate, under intervals.icu's 10 req/s per-IP cap.
+/// Largest sustained dispatch rate. Measured 2026-09-05 against the live API:
+/// paced runs up to 25 req/s pass clean, and refusals come from a Cloudflare
+/// burst allowance of about thirty requests in flight, answered with
+/// `Retry-After: 1`. Eight a second is a third of that ceiling, with room for
+/// the retry loop's worst case on top.
 const MAX_DISPATCH_PER_SEC: u32 = 8;
 
 /// The shared process-wide governor. Held in an `Arc` so transports clone a
@@ -335,7 +267,6 @@ pub static GOVERNOR: LazyLock<Arc<Governor>> = LazyLock::new(|| {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicU32, Ordering};
 
     #[test]
     fn retry_after_always_wins() {
@@ -387,25 +318,12 @@ mod tests {
     }
 
     #[test]
-    fn parses_well_formed_rate_headers() {
-        let b = parse_rate_headers(Some("2500,5000"), Some("2487,4988"), Some("370"));
-        assert_eq!(b.limit_15m, Some(2500));
-        assert_eq!(b.limit_daily, Some(5000));
-        assert_eq!(b.remaining_15m, Some(2487));
-        assert_eq!(b.remaining_daily, Some(4988));
-        assert_eq!(b.retry_after_secs, Some(370));
-    }
-
-    #[test]
-    fn tolerates_missing_and_malformed_headers() {
-        assert_eq!(parse_rate_headers(None, None, None), RateBudget::default());
-        // Whitespace + a single value (no daily) + garbage retry-after.
-        let b = parse_rate_headers(Some(" 2500 , 5000 "), Some("2487"), Some("soon"));
-        assert_eq!(b.limit_15m, Some(2500));
-        assert_eq!(b.limit_daily, Some(5000));
-        assert_eq!(b.remaining_15m, Some(2487));
-        assert_eq!(b.remaining_daily, None);
-        assert_eq!(b.retry_after_secs, None);
+    fn parses_retry_after_and_nothing_else() {
+        assert_eq!(parse_rate_headers(Some("370")).retry_after_secs, Some(370));
+        assert_eq!(parse_rate_headers(Some(" 1 ")).retry_after_secs, Some(1));
+        assert_eq!(parse_rate_headers(Some("soon")).retry_after_secs, None);
+        assert_eq!(parse_rate_headers(Some("")).retry_after_secs, None);
+        assert_eq!(parse_rate_headers(None), RateBudget::default());
     }
 
     #[test]
@@ -439,7 +357,6 @@ mod tests {
             fn pace(&self, _lane: Lane) -> Duration {
                 self.0
             }
-            fn observe(&self, _budget: &RateBudget) {}
         }
         crate::runtime::block_on(async {
             // Tiny base interval; the 200ms policy pace dominates the spacing.
@@ -553,55 +470,17 @@ mod tests {
         });
     }
 
+    // No response carries a budget, so there is one queue limit for the
+    // backfill lane and none for interactive work, whatever has been seen.
     #[test]
-    fn a_spent_budget_tightens_the_backfill_limit() {
+    fn the_backfill_limit_is_one_value_and_interactive_never_waits() {
         let policy = YieldBackfillPolicy::new();
         assert_eq!(
             policy.max_queue_ahead(Lane::Backfill),
-            Some(BACKFILL_MAX_QUEUE_AHEAD),
-            "an unreported budget is treated as healthy"
+            Some(BACKFILL_MAX_QUEUE_AHEAD)
         );
         assert_eq!(policy.max_queue_ahead(Lane::Interactive), None);
-
-        policy.observe(&RateBudget {
-            remaining_15m: Some(INTERACTIVE_RESERVE_15M - 1),
-            ..RateBudget::default()
-        });
-        assert_eq!(
-            policy.max_queue_ahead(Lane::Backfill),
-            Some(BACKFILL_MAX_QUEUE_AHEAD_LOW_BUDGET)
-        );
-        assert_eq!(
-            policy.max_queue_ahead(Lane::Interactive),
-            None,
-            "the reserve exists for interactive work, so it never limits it"
-        );
-
-        policy.observe(&RateBudget {
-            remaining_15m: Some(INTERACTIVE_RESERVE_15M * 10),
-            ..RateBudget::default()
-        });
-        assert_eq!(
-            policy.max_queue_ahead(Lane::Backfill),
-            Some(BACKFILL_MAX_QUEUE_AHEAD),
-            "a refilled pool restores the normal limit"
-        );
-    }
-
-    #[test]
-    fn observe_forwards_to_policy() {
-        struct Counting(Arc<AtomicU32>);
-        impl Policy for Counting {
-            fn pace(&self, _lane: Lane) -> Duration {
-                Duration::ZERO
-            }
-            fn observe(&self, _budget: &RateBudget) {
-                self.0.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-        let counter = Arc::new(AtomicU32::new(0));
-        let gov = Governor::new(8, Box::new(Counting(counter.clone())));
-        gov.observe(&RateBudget::default());
-        assert_eq!(counter.load(Ordering::Relaxed), 1);
+        assert_eq!(policy.pace(Lane::Backfill), Duration::ZERO);
+        assert_eq!(policy.pace(Lane::Interactive), Duration::ZERO);
     }
 }
