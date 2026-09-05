@@ -6,7 +6,11 @@
  * Encode coordinates in the same delta+zigzag-varint format as the Rust side,
  * so mock FFI data matches the real ArrayBuffer shape.
  */
-import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
+import {
+  convertNativeSectionToApp,
+  convertSectionSummaryToApp,
+  convertSectionWithPolylineToApp,
+} from '@/features/routes/lib/sectionConversions';
 
 function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
   const SCALE = 1e7;
@@ -330,5 +334,115 @@ describe('convertNativeSectionToApp', () => {
     expect(result.polyline).toHaveLength(2);
     expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
     expect(result.polyline[1]).toEqual({ lat: 3.0, lng: 4.0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// One builder per engine record, each spreading rather than listing, so an
+// enrichment column reaches every screen the day it lands. `straightness` is
+// the case in point: it has been on the engine's records with no app field
+// at all, which is what a listed builder does to the fourth column nobody
+// remembered to add.
+// ---------------------------------------------------------------------------
+
+describe('every builder carries the enrichment columns', () => {
+  const ENRICHMENT = {
+    elevationGainM: 120.5,
+    elevationLossM: 60.25,
+    avgGradePercent: 4.2,
+    maxGradePercent: 11.7,
+    straightness: 0.83,
+    klass: 'climb',
+    isLift: true,
+    rankScore: 0.91,
+    sportRankScore: 0.77,
+  };
+
+  it('off the full section record', () => {
+    const section = convertNativeSectionToApp(
+      makeCatalogueSection(ENRICHMENT) as unknown as Parameters<typeof convertNativeSectionToApp>[0]
+    );
+
+    expect(section).toMatchObject(ENRICHMENT);
+  });
+
+  it('off the list record, which had been dropping half of them', () => {
+    const section = convertSectionWithPolylineToApp({
+      id: 'section-3',
+      sportType: 'Ride',
+      visitCount: 3,
+      activityCount: 3,
+      distanceMeters: 900,
+      confidence: 0.7,
+      encodedPolyline: encodeCoords([{ latitude: 46.0, longitude: 7.0 }]),
+      sportTypes: ['Ride'],
+      isUserDefined: false,
+      disabled: false,
+      ...ENRICHMENT,
+    } as unknown as Parameters<typeof convertSectionWithPolylineToApp>[0]);
+
+    expect(section).toMatchObject(ENRICHMENT);
+  });
+
+  it('off the summary record, for the columns a summary carries', () => {
+    const section = convertSectionSummaryToApp({
+      id: 'section-4',
+      sectionType: 'auto',
+      sportType: 'Run',
+      distanceMeters: 400,
+      visitCount: 2,
+      activityCount: 2,
+      createdAt: '2026-01-01T00:00:00Z',
+      elevationGainM: ENRICHMENT.elevationGainM,
+      avgGradePercent: ENRICHMENT.avgGradePercent,
+      klass: ENRICHMENT.klass,
+      rankScore: ENRICHMENT.rankScore,
+    } as unknown as Parameters<typeof convertSectionSummaryToApp>[0]);
+
+    expect(section).toMatchObject({
+      elevationGainM: ENRICHMENT.elevationGainM,
+      avgGradePercent: ENRICHMENT.avgGradePercent,
+      klass: ENRICHMENT.klass,
+      rankScore: ENRICHMENT.rankScore,
+    });
+  });
+});
+
+describe('the list builder', () => {
+  const LIST_RECORD = {
+    id: 'section-5',
+    sportType: 'Ride',
+    visitCount: 4,
+    activityCount: 4,
+    distanceMeters: 1500,
+    confidence: 0.6,
+    encodedPolyline: encodeCoords([{ latitude: 46.0, longitude: 7.0 }]),
+    sportTypes: ['Ride'],
+    isUserDefined: true,
+    disabled: true,
+    supersededBy: 'custom_9',
+  };
+
+  function build(overrides: Record<string, unknown> = {}) {
+    return convertSectionWithPolylineToApp({
+      ...LIST_RECORD,
+      ...overrides,
+    } as unknown as Parameters<typeof convertSectionWithPolylineToApp>[0]);
+  }
+
+  it('reads the flags off the record rather than casting for them', () => {
+    expect(build()).toMatchObject({
+      isUserDefined: true,
+      disabled: true,
+      supersededBy: 'custom_9',
+    });
+  });
+
+  it('reports no superseding section as null, not as absent', () => {
+    expect(build({ supersededBy: undefined }).supersededBy).toBeNull();
+  });
+
+  it('decodes the polyline the row draws', () => {
+    expect(build().polyline).toEqual([{ lat: 46.0, lng: 7.0 }]);
   });
 });
