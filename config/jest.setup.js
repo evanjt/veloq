@@ -1,3 +1,14 @@
+// `waitFor` waits for a render that has not happened yet, and a second of
+// patience is a statement about the machine rather than about the code. Several
+// agents build on this one at once, and at a load average above twenty a render
+// that normally settles in milliseconds has missed the library's 1,000 ms
+// default twice, in unrelated suites, on trees whose diffs could not explain it.
+// Four seconds is still short enough that a wait which will never settle fails
+// inside the test timeout, with the library's message rather than Jest's.
+const { configure: configureTestingLibrary } = require("@testing-library/react-native");
+
+configureTestingLibrary({ asyncUtilTimeout: 4000 });
+
 // Jest setup file
 
 require("./jest.nativeMocks");
