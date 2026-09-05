@@ -8,14 +8,17 @@
  * pool swims alone.
  */
 
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
+
 export const FEED_GROUPS = ['Cycling', 'Running', 'Swimming', 'Other'] as const;
 
 export type FeedGroup = (typeof FEED_GROUPS)[number];
 
+/** The engine's families. A walk is Other here: the chip is for runs. */
 const CLAIMED: Record<Exclude<FeedGroup, 'Other'>, readonly string[]> = {
-  Cycling: ['Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'EBikeRide'],
-  Running: ['Run', 'VirtualRun', 'TrailRun'],
-  Swimming: ['Swim', 'OpenWaterSwim'],
+  Cycling: SPORT_FAMILIES.cycling,
+  Running: SPORT_FAMILIES.running,
+  Swimming: SPORT_FAMILIES.swimming,
 };
 
 /** The one chip an activity answers to. Never null: Other takes the rest. */

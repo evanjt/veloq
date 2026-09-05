@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { ChartCrosshair, domainContains, useChartGestures, yForValue } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
@@ -206,21 +206,15 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
               return (
                 <>
                   {/* FTP horizontal line */}
-                  {ftpValue && ftpValue >= yDomain[0] && ftpValue <= yDomain[1] && (
+                  {ftpValue && domainContains(yDomain, ftpValue) && (
                     <SkiaLine
                       p1={{
                         x: chartBounds.left,
-                        y:
-                          chartBounds.top +
-                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
+                        y: yForValue(ftpValue, yDomain, chartBounds),
                       }}
                       p2={{
                         x: chartBounds.right,
-                        y:
-                          chartBounds.top +
-                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
-                            (chartBounds.bottom - chartBounds.top),
+                        y: yForValue(ftpValue, yDomain, chartBounds),
                       }}
                       color={FTP_LINE_COLOR}
                       strokeWidth={1}

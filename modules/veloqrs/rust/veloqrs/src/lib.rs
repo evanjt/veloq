@@ -56,6 +56,9 @@ pub mod patterns;
 // The one three-way better/worse/same verdict every trend reads
 pub mod trend;
 
+/// The one sport taxonomy, three questions of an open sport string.
+pub mod sport;
+
 // FIT file parser for strength training exercise data
 pub mod fit;
 

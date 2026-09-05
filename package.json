@@ -52,6 +52,8 @@
     "ffi:generate": "npm --prefix modules/veloqrs run generate",
     "config:unified": "npx tsx scripts/generate-unified-config.ts",
     "config:unified:check": "npx tsx scripts/generate-unified-config.ts --check",
+    "config:sports": "npx tsx scripts/generate-sport-taxonomy.ts",
+    "config:sports:check": "npx tsx scripts/generate-sport-taxonomy.ts --check",
     "ffi:manifest": "npx tsx scripts/extract-ffi-exports.ts",
     "ffi:check": "npx tsx scripts/extract-ffi-exports.ts --check",
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
@@ -75,7 +77,7 @@
     "lint:render-engine-reads": "node scripts/lint-render-engine-reads.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids",
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {
