@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { isPaceSport, isCyclingActivity } from '@/features/activity/lib/activityUtils';
+import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
   formatDuration,
@@ -40,8 +41,12 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         : null;
     if (isDark && zoneColor && item.zone === 7) zoneColor = darkColors.zone7;
 
-    const typeLabel =
-      isWork && zoneColor ? `Z${item.zone}` : isWork ? 'Work' : isRecovery ? 'Rec' : item.type;
+    const typeLabel = intervalTypeLabel({
+      type: item.type,
+      zone: item.zone,
+      label: item.label,
+      zoneColoured: zoneColor != null,
+    });
 
     return (
       <View
