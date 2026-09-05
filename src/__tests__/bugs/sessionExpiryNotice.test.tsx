@@ -147,7 +147,7 @@ describe('a signed-out session', () => {
   });
 
   /// A 401 is all the app has. It cannot tell an expiry from another device
-  /// taking the credential, so it claims neither (`B143`).
+  /// taking the credential, so it claims neither.
   it('claims neither an expiry nor a revocation the server never signalled', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showExpiry();

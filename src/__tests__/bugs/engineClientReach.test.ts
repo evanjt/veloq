@@ -1,7 +1,7 @@
 /**
  * Scenario: `ffi:unused` counts callers per Rust export, so a client method
  * nothing calls is invisible whenever its export is reached by another name.
- * Five were found by hand under `I32` for exactly that reason.
+ * Five such methods were found by hand for exactly that reason.
  *
  * Expected behaviour: the same count is available per `EngineClient` method,
  * so the next one is found by running the report rather than by reading the

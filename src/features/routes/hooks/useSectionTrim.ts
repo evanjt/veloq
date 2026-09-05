@@ -143,13 +143,13 @@ interface UseSectionTrimResult {
 }
 
 /**
- * `preComputedHasOriginalBounds` lets a caller that already read the bounds
- * state as part of a screen bundle skip this hook's own FFI call.
+ * Whether the section can be reset comes from `getSectionDetailData`, which the
+ * screen reads before it mounts this hook.
  */
 export function useSectionTrim(
   section: FrequentSection | null,
   onRefresh: () => void,
-  preComputedHasOriginalBounds?: boolean
+  hasOriginalBoundsFromBundle: boolean
 ): UseSectionTrimResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -191,14 +191,7 @@ export function useSectionTrim(
     trimEnd,
   ]);
 
-  // Check if section has original bounds that can be restored
-  const canReset = useMemo(() => {
-    if (preComputedHasOriginalBounds !== undefined) return preComputedHasOriginalBounds;
-    if (!section?.id) return false;
-    const engine = getEngine();
-    if (!engine) return false;
-    return engine.hasOriginalBounds(section.id);
-  }, [section?.id, preComputedHasOriginalBounds]);
+  const canReset = hasOriginalBoundsFromBundle;
 
   const startTrim = useCallback(() => {
     if (!section?.polyline) return;

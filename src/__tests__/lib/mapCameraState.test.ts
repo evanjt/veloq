@@ -2,7 +2,7 @@
  * Scenario: a rider pans the global map, closes the app, and opens it again.
  *
  * Expected behaviour: the camera they left is what the map opens on. It was
- * being written on every settle and never read back (`U27`), so every launch
+ * being written on every settle and never read back, so every launch
  * started at the world view.
  *
  * The module caches the camera at module scope, so each test needs its own

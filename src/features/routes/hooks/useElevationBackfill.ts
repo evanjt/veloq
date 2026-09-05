@@ -8,7 +8,7 @@
  *
  * The phase is a process-global that starts at `idle` and only a pass moves,
  * so it cannot answer at rest and every launch without one read as nothing
- * (`B247`). At rest the answer comes from `getElevationBackfillRemaining`, a
+ *. At rest the answer comes from `getElevationBackfillRemaining`, a
  * count of stored tracks that have not been asked about yet, which is durable.
  */
 

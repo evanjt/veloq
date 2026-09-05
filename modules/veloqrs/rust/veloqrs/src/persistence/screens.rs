@@ -454,6 +454,7 @@ impl super::PersistentEngine {
             route_names: self.get_all_route_names(),
             excluded_activity_ids: self.get_excluded_route_activity_ids(group_id),
             map_signatures: self.get_map_signatures_for_ids(&activity_ids),
+            section_ids: self.section_ids_for_route(group_id),
             group,
         }
     }

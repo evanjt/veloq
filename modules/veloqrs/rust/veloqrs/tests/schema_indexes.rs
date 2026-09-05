@@ -90,3 +90,25 @@ fn activity_metrics_sport_date_query_uses_composite_index() {
         joined
     );
 }
+
+#[test]
+fn activity_matches_by_activity_uses_the_activity_index() {
+    let (_dir, conn) = open_engine_db();
+    let plan = explain(
+        &conn,
+        "SELECT DISTINCT route_id FROM activity_matches \
+         WHERE activity_id = 'act_1' AND excluded = 0",
+    );
+    let joined = plan.join(" | ");
+    println!("[schema_indexes] activity_matches plan: {}", joined);
+    assert!(
+        joined.contains("idx_activity_matches_activity"),
+        "expected plan to use idx_activity_matches_activity, got: {}",
+        joined
+    );
+    assert!(
+        !joined.contains("SCAN activity_matches"),
+        "expected SEARCH (index lookup), got SCAN: {}",
+        joined
+    );
+}

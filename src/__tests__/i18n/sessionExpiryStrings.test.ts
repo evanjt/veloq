@@ -5,7 +5,7 @@
  * the old "please sign in again" tail would say it twice.
  *
  * There is one event line because there is one signal, a 401, and it cannot
- * tell an expiry from another device taking the token (`B143`). A locale that
+ * tell an expiry from another device taking the token. A locale that
  * says either would be claiming something the server never said.
  */
 

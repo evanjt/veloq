@@ -2,9 +2,8 @@
  * Hook for section merge operations: finding candidates and executing merges.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineSubscription } from './useEngine';
 import type { MergeCandidate } from 'veloqrs';
 
 interface UseMergeSectionsResult {
@@ -17,23 +16,11 @@ interface UseMergeSectionsResult {
 }
 
 /**
- * `preComputed` lets a caller that already read the candidates as part of a
- * screen bundle skip this hook's own FFI call.
+ * The candidates come from `getSectionDetailData`, which the screen reads before
+ * it mounts this hook.
  */
-export function useMergeSections(
-  sectionId: string | undefined,
-  preComputed?: MergeCandidate[]
-): UseMergeSectionsResult {
-  const trigger = useEngineSubscription(['sections']);
+export function useMergeSections(candidates: MergeCandidate[]): UseMergeSectionsResult {
   const [isMerging, setIsMerging] = useState(false);
-
-  const candidates = useMemo(() => {
-    if (preComputed) return preComputed;
-    if (!sectionId) return [];
-    const engine = getEngine();
-    if (!engine) return [];
-    return engine.getMergeCandidates(sectionId);
-  }, [sectionId, trigger, preComputed]);
 
   const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
     const engine = getEngine();

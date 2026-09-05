@@ -3,8 +3,8 @@
  *
  * Expected behaviour: the engine hears about it. The switch used to live in
  * TypeScript alone, so Rust kept starting a conditioning detect at the end of
- * every stored batch and the screens merely looked away (`B258`). `Q61` leans
- * on this being the honest opt-out.
+ * every stored batch and the screens merely looked away. This switch is the
+ * honest opt-out, so it has to reach the engine.
  */
 
 import {
@@ -36,7 +36,6 @@ describe('the detection switch reaches the engine', () => {
         enabled: true,
         retentionDays: 0,
         autoCleanupEnabled: false,
-        heatmapEnabled: true,
       },
       isLoaded: true,
     });

@@ -6,7 +6,7 @@
  * Expected behaviour: it dismisses what it is replacing and leaves everything
  * else alone. Matching the FCM push by what it lacks swept the sticky sync
  * banner and every insight routed by section or route, because none of them
- * carry an `activityId` either (`B145`).
+ * carry an `activityId` either.
  */
 
 import { shouldDismissForActivity } from '@/features/insights/lib/traySweep';

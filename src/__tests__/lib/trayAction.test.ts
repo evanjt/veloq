@@ -2,7 +2,7 @@
  * Scenario: the background task has finished and has to decide what to do with
  * the tray. There are three outcomes and they were two, which is how a failed
  * ingest reposted a notification whose body was its own title over a generic
- * entry that was already correct (`B149`).
+ * entry that was already correct.
  */
 
 import { trayActionFor } from '@/features/insights/lib/traySweep';

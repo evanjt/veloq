@@ -8,7 +8,12 @@ set -e
 #
 # Not the full pre-commit battery: a merge has already had its branch gated,
 # and two minutes on every merge would be paid to re-run what the branch ran.
-# The ceiling is the one thing a merge can break that neither side did, since
-# it is a whole-tree total and each branch only ever counted its own files.
+# The ceiling is one thing a merge can break that neither side did, since it is
+# a whole-tree total and each branch only ever counted its own files. The other
+# is a suite: a reader changed on one side against a test written on the other
+# merges clean and fails after, twice now, both times in Rust. So the suites
+# the merge touched run here, and only those: this holds the build lock, so a
+# full run would serialise every other session behind it.
 ./scripts/check-commit-index.sh "$0"
 npm run lint
+./scripts/check-merge-tests.sh

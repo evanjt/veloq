@@ -182,8 +182,8 @@ describe('ElevationBackfillStatus explanation', () => {
 });
 
 /**
- * The phase is `idle` on every launch that has not run a pass, so before
- * `B247` the line was blank whatever the library still owed.
+ * The phase is `idle` on every launch that has not run a pass, so a line
+ * reading the phase alone is blank whatever the library still owes.
  */
 describe('ElevationBackfillStatus at rest', () => {
   beforeAll(async () => {

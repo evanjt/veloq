@@ -5,7 +5,7 @@
  * Expected behaviour: the replacement goes up before anything comes down. The
  * task can be killed at any point by an OEM battery policy or an expiring iOS
  * extension budget, and dismissing first left the athlete with an empty tray
- * and no record the activity arrived (`B147`).
+ * and no record the activity arrived.
  */
 
 import { replaceActivityTrayEntry, type TrayEntry } from '@/features/insights/lib/traySweep';

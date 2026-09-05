@@ -21,7 +21,7 @@ import {
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
 import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
-import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/maps/stores/HeatmapPreferenceStore';
 import {
   ActivityPopup,
   SectionPopup,
@@ -182,7 +182,7 @@ export function RegionalMapView({
   }, [isMapFocused]);
   // Within a session `cameraOnBlur` carries the position across a tab switch.
   // Across a launch nothing did, so every cold start opened on the world view
-  // over a camera that had been saved on every settle since (`U27`).
+  // over a camera that had been saved on every settle since.
   const initialCamera = useInitialRegionalCamera(cameraOnBlur);
   const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
     settledCameraRef.current = { center, zoom };
