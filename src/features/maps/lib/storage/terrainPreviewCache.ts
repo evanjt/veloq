@@ -25,7 +25,9 @@ const MAX_CACHED_PREVIEWS = 150;
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
 const TERRAIN_CACHE_VERSION = 6;
-const VERSION_KEY = 'terrain-preview-cache-version';
+/** The rendering version the cached previews on this device were drawn at. */
+export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
+const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
 
 /** Compound cache key. The drape and the flat basemap are two entries. */
 function cacheKey(activityId: string, style: string, is3D: boolean): string {

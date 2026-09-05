@@ -19,7 +19,9 @@ import Constants from 'expo-constants';
 
 import { getEngine } from '@/shared/native/engine';
 
-const VERSION_KEY = 'veloq-elevation-backfill-version';
+/** The app version whose backfill finished on this device. */
+export const ELEVATION_BACKFILL_STAMP_KEY = 'veloq-elevation-backfill-version';
+const VERSION_KEY = ELEVATION_BACKFILL_STAMP_KEY;
 
 /**
  * In-process guard against the two launch effects racing. It covers this
@@ -54,22 +56,6 @@ async function attempt(): Promise<boolean> {
     return engine.startElevationBackfill();
   } catch {
     return false;
-  }
-}
-
-/**
- * Forget that this app version finished the backfill.
- *
- * The stamp is a claim about one database, and a restore replaces it. Left
- * standing it declines every future launch of this app version, so no pass
- * runs, the outstanding count never reaches zero, the cutover can never start
- * and `SB12`'s refusal freezes the catalogue for good (`SB13`).
- */
-export async function clearElevationBackfillStamp(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(VERSION_KEY);
-  } catch {
-    // Best effort - a stamp that will not clear costs a launch, not the app
   }
 }
 

@@ -15,7 +15,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
-const FLAG_KEY = 'veloq-section-health-check-v1';
+/** Whether this device has spent its one-shot redetect on this database. */
+export const SECTION_HEALTH_CHECK_KEY = 'veloq-section-health-check-v1';
+const FLAG_KEY = SECTION_HEALTH_CHECK_KEY;
 
 export function useSectionHealthCheck(syncComplete: boolean): void {
   const ranRef = useRef(false);
