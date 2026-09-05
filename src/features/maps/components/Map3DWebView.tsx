@@ -19,6 +19,8 @@ import {
   resolveStyleExpression,
   TERRAIN_STYLE_OPTIONS,
 } from '@/features/maps/lib/htmlBuilders';
+import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import { registerReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import type { MapStyleType } from './mapStyles';
 import { TERRAIN_3D_CONFIG } from './mapStyles';
 
@@ -599,6 +601,20 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       mapReadyRef.current = false;
       webViewRef.current?.reload();
     }, []);
+
+    // A released page holds no map until the reload, so the layer updates are
+    // silenced the same way a crash silences them.
+    useEffect(
+      () =>
+        registerReleasableSurface({
+          release: () => {
+            mapReadyRef.current = false;
+            webViewRef.current?.injectJavaScript(buildReleaseMapScript());
+          },
+          rebuild: handleWebViewCrash,
+        }),
+      [handleWebViewCrash]
+    );
 
     // Calculate bounds from coordinates using utility
     // Coordinates are in [lng, lat] format, convert to {lat, lng} for utility
