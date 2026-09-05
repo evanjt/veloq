@@ -347,7 +347,6 @@ export interface TranslationResource {
     support: string;
     subscribe: string;
     version: string;
-    languageGroups: {};
     dialect: string;
     units: string;
     unitsAuto: string;
