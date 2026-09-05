@@ -2,7 +2,7 @@
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
 
-import { LogBox, Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
+import { LogBox, AppState, View, ActivityIndicator, Platform } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
 
@@ -67,6 +67,7 @@ import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQue
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { rememberCachedAthleteId, migrateSettingsToSqlite } from '@/shared/storage';
+import { promptAccountMismatch } from '@/features/auth/lib/accountChange';
 import {
   onAppBackground,
   onAppForeground,
@@ -148,11 +149,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             ) {
               if (__DEV__) {
                 log.log(
-                  `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
+                  `[Engine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId})`
                 );
               }
-              engine.clear();
-              success = engine.initWithPath(dbPath);
+              // A restored library is the athlete's only copy, so it is never
+              // wiped without being asked. An empty engine has nothing to ask
+              // about and takes the new identity as it stands.
+              if (engine.getActivityCount() > 0) {
+                void promptAccountMismatch({
+                  storedAthleteId: cachedAthleteId,
+                  credentialsAthleteId,
+                }).then((cleared) => {
+                  if (cleared) engine.initWithPath(dbPath);
+                });
+              } else {
+                engine.clear();
+                success = engine.initWithPath(dbPath);
+              }
             }
           }
           if (success) {
@@ -318,37 +331,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         backupAthleteId !== currentAthleteId &&
         engine?.getActivityCount()
       ) {
-        Alert.alert(
-          i18n.t('backup.differentAccount', {
-            defaultValue: 'Different Account',
-          }),
-          i18n.t('backup.differentAccountMessage', {
-            defaultValue:
-              'The restored data belongs to a different account. Clear data and sync fresh for this account?',
-          }),
-          [
-            {
-              text: i18n.t('common.cancel'),
-              style: 'cancel',
-              onPress: () => {
-                // Sign out - return to login
-                useAuthStore.getState().clearCredentials();
-              },
-            },
-            {
-              text: i18n.t('backup.clearAndSync', {
-                defaultValue: 'Clear & Sync',
-              }),
-              style: 'destructive',
-              onPress: async () => {
-                engine?.clear();
-                engine?.setSetting('__athlete_id', currentAthleteId);
-                await rememberCachedAthleteId(currentAthleteId);
-                router.replace('/' as Href);
-              },
-            },
-          ]
-        );
+        void promptAccountMismatch({
+          storedAthleteId: backupAthleteId,
+          credentialsAthleteId: currentAthleteId,
+        }).then((cleared) => {
+          if (cleared) router.replace('/' as Href);
+        });
         return;
       }
       // Update athlete ID for this account

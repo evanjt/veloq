@@ -183,6 +183,8 @@
     "accountChangeTitle": "Conta diferente detetada",
     "accountChangeMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Iniciar sessao com uma conta diferente eliminara permanentemente esses dados. Volte atras e inicie sessao nessa conta para os manter.",
     "accountChangeDemoMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Continuar para o modo demo eliminara permanentemente esses dados. Volte atras e inicie sessao nessa conta primeiro para os manter.",
+    "accountChangeUnknownMessage": "Este dispositivo tem uma biblioteca de outra conta. Iniciar sessao com uma conta diferente elimina-la-a permanentemente. Para a manter, volte atras e inicie sessao nessa conta.",
+    "accountChangeUnknownDemoMessage": "Este dispositivo tem uma biblioteca de outra conta. Continuar para o modo demo elimina-la-a permanentemente. Para a manter, volte atras e inicie sessao nessa conta primeiro.",
     "accountChangeContinue": "Continuar e eliminar",
     "disconnectAndClearTitle": "Terminar sessao e eliminar dados?",
     "disconnectAndClearMessage": "Isto termina a sua sessao E elimina todas as atividades, trilhos GPS, trocos e dados de percursos em cache neste dispositivo. Os dados serao ressincronizados a partir de intervals.icu na proxima vez que iniciar sessao. Esta acao nao pode ser desfeita.",

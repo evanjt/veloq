@@ -183,6 +183,8 @@
     "accountChangeTitle": "Ander account gedetecteerd",
     "accountChangeMessage": "Dit apparaat heeft gecachte gegevens van een ander account ({{cachedAthleteId}}). Inloggen met een ander account verwijdert deze gegevens permanent. Ga terug en log in op dat account om ze te behouden.",
     "accountChangeDemoMessage": "Dit apparaat heeft gecachte gegevens van een ander account ({{cachedAthleteId}}). Doorgaan naar demo-modus verwijdert deze gegevens permanent. Ga terug en log eerst in op dat account om ze te behouden.",
+    "accountChangeUnknownMessage": "Dit apparaat bevat een bibliotheek van een ander account. Inloggen met een ander account verwijdert deze permanent. Ga terug en log in op dat account om deze te behouden.",
+    "accountChangeUnknownDemoMessage": "Dit apparaat bevat een bibliotheek van een ander account. Doorgaan naar demo-modus verwijdert deze permanent. Ga terug en log eerst in op dat account om deze te behouden.",
     "accountChangeContinue": "Doorgaan en verwijderen",
     "disconnectAndClearTitle": "Uitloggen en gegevens verwijderen?",
     "disconnectAndClearMessage": "Dit logt je uit EN verwijdert alle gecachte activiteiten, GPS-tracks, secties en routegegevens op dit apparaat. De gegevens worden opnieuw gesynchroniseerd vanuit intervals.icu wanneer je weer inlogt. Dit kan niet ongedaan worden gemaakt.",
