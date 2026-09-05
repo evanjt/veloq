@@ -407,7 +407,16 @@
     "formTSB": "Forma (TSB)",
     "noData": "Brak dostępnych danych kondycji",
     "restDay": "Dzień odpoczynku",
-    "selectActivity": "Wybierz aktywność"
+    "selectActivity": "Wybierz aktywność",
+    "weekShape": {
+      "title": "Kształt tego tygodnia",
+      "quiet": "Spokojniejszy tydzień. Za mało dni z treningiem, aby odczytać kształt.",
+      "reading": {
+        "lopsided": "Twoje obciążenie skupiło się w kilku dniach z {{days}} dni treningowych.",
+        "mixed": "Mieszany: niektóre dni znacznie cięższe od innych, przez {{days}} dni treningowych.",
+        "even": "Rozłożone dość równomiernie przez {{days}} dni treningowych."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",

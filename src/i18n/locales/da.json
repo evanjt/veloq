@@ -407,7 +407,16 @@
     "formTSB": "Form-balance (TSB)",
     "noData": "Ingen fitnessdata tilgængelig",
     "restDay": "Hviledag",
-    "selectActivity": "Vælg aktivitet"
+    "selectActivity": "Vælg aktivitet",
+    "weekShape": {
+      "title": "Ugens form",
+      "quiet": "En roligere uge. Ikke nok dage med træning til at aflæse en form.",
+      "reading": {
+        "lopsided": "Din belastning lå i et par dage ud af {{days}} træningsdage.",
+        "mixed": "Blandet: nogle dage var meget hårdere end andre, over {{days}} træningsdage.",
+        "even": "Fordelt nogenlunde jævnt over {{days}} træningsdage."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",

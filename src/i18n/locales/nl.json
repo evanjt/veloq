@@ -407,7 +407,16 @@
     "formTSB": "Vorm (TSB)",
     "noData": "Geen fitheidsgegevens beschikbaar",
     "restDay": "Rustdag",
-    "selectActivity": "Activiteit selecteren"
+    "selectActivity": "Activiteit selecteren",
+    "weekShape": {
+      "title": "De vorm van deze week",
+      "quiet": "Een rustigere week. Te weinig trainingsdagen om een vorm af te lezen.",
+      "reading": {
+        "lopsided": "Je belasting lag in een paar dagen van {{days}} trainingsdagen.",
+        "mixed": "Gemengd: sommige dagen veel zwaarder dan andere, over {{days}} trainingsdagen.",
+        "even": "Redelijk gelijkmatig verdeeld over {{days}} trainingsdagen."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",

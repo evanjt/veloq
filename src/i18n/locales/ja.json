@@ -407,7 +407,16 @@
     "formTSB": "フォーム (TSB)",
     "noData": "フィットネスデータがありません",
     "restDay": "休息日",
-    "selectActivity": "アクティビティを選択"
+    "selectActivity": "アクティビティを選択",
+    "weekShape": {
+      "title": "今週のかたち",
+      "quiet": "静かな週でした。かたちを読み取れるほどのトレーニング日がありません。",
+      "reading": {
+        "lopsided": "負荷はトレーニング{{days}}日のうち数日に偏っていました。",
+        "mixed": "ばらつきあり。トレーニング{{days}}日のうち、特に重い日がありました。",
+        "even": "トレーニング{{days}}日にわたって、ほぼ均等に分かれていました。"
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",

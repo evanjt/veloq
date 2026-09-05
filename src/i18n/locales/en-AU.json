@@ -407,7 +407,16 @@
     "formTSB": "How fresh (TSB)",
     "noData": "No fitness data yet, mate",
     "restDay": "Rest day, legend",
-    "selectActivity": "Pick an activity"
+    "selectActivity": "Pick an activity",
+    "weekShape": {
+      "title": "This week's shape",
+      "quiet": "A quieter week. Not enough days with training on them to read a shape.",
+      "reading": {
+        "lopsided": "Your load sat in a couple of days across {{days}} days of training.",
+        "mixed": "A mix: some days much harder than others, over {{days}} days of training.",
+        "even": "Spread fairly evenly across {{days}} days of training."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",
