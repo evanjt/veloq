@@ -16,10 +16,11 @@ const path = require("path");
  */
 
 // Quick-Record stays compiled but out of the gallery until the record surface is
-// ready. This is the only gate: it drops the standalone receiver and writes the
-// bool the Dashboard widget's large layout reads, which carries a record button
-// over the same deep link. Flip to true to ship both.
-const INCLUDE_RECORD_WIDGET = false;
+// ready. The flag is shared with the iOS plugin so one edit moves both, and on
+// this side it drops the standalone receiver and writes the bool the Dashboard
+// widget's large layout reads, which carries a record button over the same deep
+// link.
+const { INCLUDE_RECORD_WIDGET } = require("./widgetFlags");
 
 // Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the flagged-off
 // Quick-Record button. Excluded receivers are actively removed so an incremental
