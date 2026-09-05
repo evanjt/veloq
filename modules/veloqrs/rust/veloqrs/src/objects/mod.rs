@@ -8,7 +8,7 @@ mod maps;
 pub mod observer;
 mod preview;
 mod routes;
-mod sections;
+pub mod sections;
 mod settings;
 pub mod strength;
 mod sync;

@@ -50,14 +50,14 @@ export function getSectionsFiltered(
   // FfiConverterOptional* accepts undefined for "absent" but throws on null -
   // forward optional args as-is, do NOT coalesce to null.
   return host.timed('getSectionsFiltered', () =>
-    host.engine.sections().getFiltered(sportType, minVisits)
+    host.engine.sections().getSections({ sportType, minVisits })
   );
 }
 
 export function getSectionsForActivity(host: DelegateHost, activityId: string): FfiSection[] {
   if (!host.ready) return [];
   return host.timed('getSectionsForActivity', () =>
-    host.engine.sections().getForActivity(activityId)
+    host.engine.sections().getSections({ activityId })
   );
 }
 
@@ -78,7 +78,7 @@ export function getSectionSummaries(
 ): { totalCount: number; summaries: SectionSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getSectionSummaries', () =>
-    host.engine.sections().getSummariesWithCount(sportType)
+    host.engine.sections().getSummaries({ sportType }, undefined)
   );
 }
 
@@ -106,7 +106,7 @@ export function getFilteredSectionSummaries(
 ): { totalCount: number; summaries: SectionSummary[] } {
   if (!host.ready) return { totalCount: 0, summaries: [] };
   return host.timed('getFilteredSectionSummaries', () =>
-    host.engine.sections().getFilteredSummaries(sportType, minVisits, sortKey)
+    host.engine.sections().getSummaries({ sportType, minVisits }, sortKey)
   );
 }
 
@@ -148,7 +148,9 @@ export function getSectionsByType(
   sectionType?: 'auto' | 'custom'
 ): FfiSection[] {
   if (!host.ready) return [];
-  return host.timed('getSectionsByType', () => host.engine.sections().getByType(sectionType));
+  return host.timed('getSectionsByType', () =>
+    host.engine.sections().getSections({ sectionType })
+  );
 }
 
 export function getSectionPerformances(
