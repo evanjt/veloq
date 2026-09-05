@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef } from 'react';
 
+import { SyncState } from 'veloqrs';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { useSyncStatus } from './useSyncStatus';
@@ -24,7 +25,7 @@ export function useSyncAuthExpiry(): void {
   const handledRef = useRef(false);
 
   useEffect(() => {
-    if (state !== 'authExpired') {
+    if (state !== SyncState.AuthExpired) {
       handledRef.current = false;
       return;
     }

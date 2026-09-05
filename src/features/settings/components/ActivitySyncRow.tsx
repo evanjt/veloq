@@ -10,6 +10,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
+import { SyncState } from 'veloqrs';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +24,7 @@ export function ActivitySyncRow() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const status = useSyncStatus();
-  const isSyncing = status?.state === 'syncing';
+  const isSyncing = status?.state === SyncState.Syncing;
   const [stopping, setStopping] = useState(false);
   const [wasSyncing, setWasSyncing] = useState(isSyncing);
 

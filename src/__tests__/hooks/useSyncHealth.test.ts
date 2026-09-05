@@ -13,7 +13,12 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { getEngine } from '@/shared/native/engine';
 import { LAST_SUCCESS_KEY, useSyncHealth } from '@/shared/native/useSyncHealth';
-import type { SyncStatus } from 'veloqrs';
+import { SyncState, type SyncStatus } from 'veloqrs';
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -92,9 +97,9 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle');
+    mockStatus = status(SyncState.Idle);
     rerender(undefined);
 
     expect(engine.setSetting).toHaveBeenCalledWith(LAST_SUCCESS_KEY, expect.any(String));
@@ -108,9 +113,9 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle', 'network unreachable');
+    mockStatus = status(SyncState.Idle, 'network unreachable');
     rerender(undefined);
 
     expect(engine.setSetting).not.toHaveBeenCalled();
@@ -124,15 +129,15 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle');
+    mockStatus = status(SyncState.Idle);
     rerender(undefined);
     const firstSuccess = result.current.lastSuccessAt;
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle', 'HTTP 503');
+    mockStatus = status(SyncState.Idle, 'HTTP 503');
     rerender(undefined);
 
     expect(result.current.lastError).toBe('HTTP 503');
@@ -146,15 +151,15 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle', 'HTTP 503');
+    mockStatus = status(SyncState.Idle, 'HTTP 503');
     rerender(undefined);
     expect(result.current.lastError).toBe('HTTP 503');
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle');
+    mockStatus = status(SyncState.Idle);
     rerender(undefined);
 
     expect(result.current.lastError).toBeNull();
@@ -167,9 +172,9 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('authExpired', '401');
+    mockStatus = status(SyncState.AuthExpired, '401');
     rerender(undefined);
 
     expect(engine.setSetting).not.toHaveBeenCalled();
@@ -183,7 +188,7 @@ describe('useSyncHealth', () => {
 
     const { rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('idle');
+    mockStatus = status(SyncState.Idle);
     rerender(undefined);
 
     expect(engine.setSetting).not.toHaveBeenCalled();
@@ -194,9 +199,9 @@ describe('useSyncHealth', () => {
 
     const { result, rerender } = renderHook(() => useSyncHealth());
 
-    mockStatus = status('syncing');
+    mockStatus = status(SyncState.Syncing);
     rerender(undefined);
-    mockStatus = status('idle');
+    mockStatus = status(SyncState.Idle);
     rerender(undefined);
 
     expect(result.current.lastSuccessAt).not.toBeNull();

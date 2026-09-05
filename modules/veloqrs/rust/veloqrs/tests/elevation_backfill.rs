@@ -89,7 +89,7 @@ fn live_session() {
     SYNC_SERVICE.finish(SyncState::Idle, None, false);
 }
 
-fn sync_state() -> String {
+fn sync_state() -> SyncState {
     SYNC_SERVICE.snapshot().state
 }
 
@@ -1328,7 +1328,8 @@ fn a_rejected_credential_parks_the_sync_service() {
 
     let status = SYNC_SERVICE.snapshot();
     assert_eq!(
-        status.state, "authExpired",
+        status.state,
+        SyncState::AuthExpired,
         "the 401 never reached the session-expiry path"
     );
     assert_eq!(status.last_error.as_deref(), Some("unauthorized"));
@@ -1350,7 +1351,7 @@ fn an_api_key_401_parks_the_service_too() {
 
     run_elevation_backfill(&fast_transport(server.base_url()));
 
-    assert_eq!(sync_state(), "authExpired");
+    assert_eq!(sync_state(), SyncState::AuthExpired);
 }
 
 /// A connection that is gone says nothing about the credential, so the pass
@@ -1371,7 +1372,7 @@ fn a_connectivity_failure_leaves_the_session_alone() {
 
     assert_eq!(
         sync_state(),
-        "idle",
+        SyncState::Idle,
         "a 5xx is not a rejected credential and must not sign the athlete out"
     );
 }
@@ -1392,7 +1393,7 @@ fn a_clean_pass_leaves_the_session_alone() {
     run_elevation_backfill(&fast_transport(server.base_url()));
     drain_detection();
 
-    assert_eq!(sync_state(), "idle");
+    assert_eq!(sync_state(), SyncState::Idle);
 }
 
 /// The second pass parks too. Nothing latches the first one, so a resume that
@@ -1411,11 +1412,15 @@ fn a_second_rejected_pass_parks_again() {
     });
 
     run_elevation_backfill(&fast_transport(server.base_url()));
-    assert_eq!(sync_state(), "authExpired");
+    assert_eq!(sync_state(), SyncState::AuthExpired);
 
     live_session();
     run_elevation_backfill(&fast_transport(server.base_url()));
-    assert_eq!(sync_state(), "authExpired", "the second pass fell silent");
+    assert_eq!(
+        sync_state(),
+        SyncState::AuthExpired,
+        "the second pass fell silent"
+    );
 }
 
 // ============================================================================
