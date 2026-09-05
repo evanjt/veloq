@@ -407,7 +407,16 @@
     "formTSB": "Form (TSB)",
     "noData": "Keine Fitnessdaten verfügbar",
     "restDay": "Ruhetag",
-    "selectActivity": "Aktivität auswählen"
+    "selectActivity": "Aktivität auswählen",
+    "weekShape": {
+      "title": "Form dieser Woche",
+      "quiet": "Eine ruhigere Woche. Zu wenige Trainingstage, um eine Form abzulesen.",
+      "reading": {
+        "lopsided": "Deine Belastung lag an ein paar Tagen von {{days}} Trainingstagen.",
+        "mixed": "Gemischt: manche Tage deutlich härter als andere, über {{days}} Trainingstage.",
+        "even": "Recht gleichmäßig über {{days}} Trainingstage verteilt."
+      }
+    }
   },
   "fitnessScreen": {
     "atl": "ATL",

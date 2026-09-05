@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -22,9 +22,11 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   FitnessHeaderStats,
+  WeekShapeCard,
 } from '@/features/fitness';
 import {
   useFitnessRefresh,
+  useWeekLoadShape,
   useFitnessComputations,
   useFitnessScreenData,
 } from '@/features/fitness/hooks';
@@ -134,6 +136,20 @@ export default function FitnessScreen() {
   // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
+  // The last seven days, midnight to midnight, which is the window the engine
+  // reads a shape over. Held in a memo so it does not move every render.
+  const { weekStartTs, weekEndTs } = useMemo(() => {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    return {
+      weekStartTs: Math.floor(start.getTime() / 1000),
+      weekEndTs: Math.floor(end.getTime() / 1000),
+    };
+  }, []);
+  const weekShape = useWeekLoadShape(weekStartTs, weekEndTs);
+
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
   const {
     ftpTrend,
@@ -225,6 +241,9 @@ export default function FitnessScreen() {
             isDark={isDark}
             rampRate={rampRate}
           />
+
+          {/* What shape the last seven days had, when the engine can read one */}
+          <WeekShapeCard shape={weekShape} />
 
           {/* Time range selector */}
           <TimeRangeSelector
