@@ -4,9 +4,15 @@
 //! cut by a build before this detector is archived, re-cut cold, and diffed,
 //! resumably, driven by a persisted token.
 //!
-//! Sequence: archive, commit token, cold detect, diff.
-//! Revert: restore the archive as pinned sections. There is no other detector
-//! to go back to, so the config stays as it is.
+//! Sequence: archive, commit token, cold detect, diff, promote.
+//!
+//! The archive is the diff's snapshot of the outgoing catalogue and nothing
+//! else: promotion trims its lines, and only its ids, names and counts stay,
+//! for the change card and the id-mint guard. A section's own history and
+//! revert live in the ledger (`section_history`, `section_geometry`,
+//! `section_pins`), so a revert pins a stored version and never reads the
+//! archive. There is no other detector to go back to, so the config stays as
+//! it is.
 
 use crate::persistence::sections::geometry;
 use crate::persistence::{
@@ -268,7 +274,7 @@ impl PersistentEngine {
 
     /// Whether there is a Corridor-era catalogue to migrate. A fresh install
     /// has none, and burning the one-shot token on an empty archive would
-    /// leave it with nothing to show and nothing to restore.
+    /// leave the change card with nothing to show.
     fn has_archivable_catalogue(&self) -> bool {
         self.db
             .query_row(
@@ -312,16 +318,15 @@ impl PersistentEngine {
     /// exactly the rows the coming detect destroys, no more.
     ///
     /// Members ride along because the wipe cascades `section_activities`
-    /// away. Bounds ride along because the restore needs them: the accepted
-    /// dedup in `write_catalogue` keys on `bounds_min_lat IS NOT NULL`, and
-    /// that dedup is the mechanism that stops a restored catalogue being
-    /// re-detected alongside itself.
+    /// away, and their ids feed the mint guard. The lines feed the diff and
+    /// are trimmed once it is stored; the bounds columns are 017's DDL and
+    /// have no reader.
     fn archive_current_catalogue(&self) -> rusqlite::Result<u32> {
         let tx = self.db.unchecked_transaction()?;
 
         // Write-once per token. A run that died after the switch and before
         // the diff may retry with a Unified catalogue already on disk, and
-        // re-archiving would bury the Corridor snapshot the restore needs.
+        // re-archiving would bury the Corridor snapshot the diff needs.
         let already: i64 = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM section_catalogue_archive WHERE token = ?)",
             params![CUTOVER_ID],
@@ -339,7 +344,7 @@ impl PersistentEngine {
 
         // Row by row rather than INSERT..SELECT, so each line is resolved the
         // way a read resolves it. The archive carries no reference triple of
-        // its own, so a copied-across empty blob is the restore target gone
+        // its own, so a copied-across empty blob is the diff's old line gone
         // and nothing in the archive can rebuild it.
         let mut stmt = tx.prepare(
             "SELECT id, name, sport_type, polyline_blob, polyline_json,
@@ -868,7 +873,7 @@ mod tests {
 
     /// Scenario: the cutover archives the outgoing catalogue after a clear.
     /// Expected behaviour: the archive holds a real line, rebuilt from the
-    /// triple. An empty one is the restore target gone, and no triple in the
+    /// triple. An empty one is the diff's old line gone, and no triple in the
     /// archive can undo it.
     #[test]
     fn the_archive_keeps_a_line_the_cache_no_longer_holds() {
