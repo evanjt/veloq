@@ -15,7 +15,7 @@ import {
   TRIM_UI_HIDDEN,
 } from '@/shared/app/memoryPressure';
 
-const mockTrimListeners: Array<(event: { level: number }) => void> = [];
+const mockTrimListeners: ((event: { level: number }) => void)[] = [];
 const mockTrimRemove = jest.fn();
 jest.mock('expo-modules-core', () => ({
   requireOptionalNativeModule: () => ({
@@ -99,7 +99,7 @@ describe('memory pressure reclaimers', () => {
 describe('memory pressure listener', () => {
   it("dispatches iOS's memory warning at the hardest level", () => {
     const { registerReclaimer, startMemoryPressureListener } = load();
-    const handlers: Array<() => void> = [];
+    const handlers: (() => void)[] = [];
     const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, handler) => {
       if (event === 'memoryWarning') handlers.push(handler as () => void);
       return { remove: jest.fn() } as never;
