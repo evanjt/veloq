@@ -57,6 +57,44 @@ impl ElevationStateCounts {
     }
 }
 
+/// An activity a section's stored geometry is cut from is not the engine's
+/// to remove. Retention and the derived-data clear both leave it alone.
+const REFERENCE_ACTIVITY_EXCLUSION: &str = "id NOT IN (SELECT representative_activity_id \
+    FROM sections WHERE representative_activity_id IS NOT NULL) \
+    AND id NOT IN (SELECT rep_activity_id FROM section_geometry \
+    WHERE rep_activity_id IS NOT NULL)";
+
+/// What a derived-data clear removed and what it kept.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DerivedClear {
+    pub sections_removed: u32,
+    pub activities_removed: u32,
+    pub activities_kept: u32,
+}
+
+/// Remove the detected catalogue and the route caches, keeping every
+/// section the athlete touched. Returns how many sections went.
+fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
+    use super::sections::DERIVED_SECTION_PREDICATE;
+    db.execute(
+        &format!(
+            "DELETE FROM section_activities
+             WHERE section_id IN (SELECT id FROM sections WHERE {DERIVED_SECTION_PREDICATE})"
+        ),
+        [],
+    )?;
+    let sections = db.execute(
+        &format!("DELETE FROM sections WHERE {DERIVED_SECTION_PREDICATE}"),
+        [],
+    )?;
+    db.execute_batch(
+        "DELETE FROM route_groups;
+         DELETE FROM activity_matches;
+         DELETE FROM overlap_cache;",
+    )?;
+    Ok(sections)
+}
+
 impl PersistentEngine {
     // ========================================================================
     // Loading
@@ -546,23 +584,7 @@ impl PersistentEngine {
     /// to free section memory without losing the underlying GPS data (needed
     /// for heatmap).
     pub fn clear_routes_and_sections(&mut self) -> SqlResult<()> {
-        self.db.execute_batch(
-            // Same predicate as the detection wipe in `write_catalogue`: a
-            // disabled section keeps its row and members so enable can restore
-            // it, and a trimmed or accepted one is a user decision.
-            "DELETE FROM section_activities
-                WHERE section_id IN (
-                    SELECT id FROM sections
-                    WHERE section_type = 'auto' AND original_polyline_json IS NULL
-                      AND is_user_defined = 0 AND disabled = 0
-                );
-             DELETE FROM sections
-                WHERE section_type = 'auto' AND original_polyline_json IS NULL
-                  AND is_user_defined = 0 AND disabled = 0;
-             DELETE FROM route_groups;
-             DELETE FROM activity_matches;
-             DELETE FROM overlap_cache;",
-        )?;
+        wipe_derived_catalogue(&self.db)?;
 
         self.groups.clear();
         self.load_sections()?;
@@ -620,11 +642,10 @@ impl PersistentEngine {
         // A reference activity is the geometry of the sections that point at
         // it, so retention leaves it alone and the returned count says so.
         let deleted = self.db.execute(
-            "DELETE FROM activities WHERE created_at < (strftime('%s', 'now') - ?)
-               AND id NOT IN (SELECT representative_activity_id FROM sections
-                              WHERE representative_activity_id IS NOT NULL)
-               AND id NOT IN (SELECT rep_activity_id FROM section_geometry
-                              WHERE rep_activity_id IS NOT NULL)",
+            &format!(
+                "DELETE FROM activities
+                 WHERE created_at < (strftime('%s', 'now') - ?) AND {REFERENCE_ACTIVITY_EXCLUSION}"
+            ),
             params![cutoff_seconds],
         )?;
 
@@ -649,6 +670,66 @@ impl PersistentEngine {
         }
 
         Ok(deleted as u32)
+    }
+
+    /// Empty what the engine can re-derive and keep what the athlete made.
+    ///
+    /// The catalogue side is the detection wipe's own predicate and the
+    /// activity side is the retention delete's reference exclusion, so a
+    /// hand-cut, trimmed or disabled section and the stream its geometry is
+    /// cut from survive by construction. The ledger, pins, intents, names,
+    /// identity registry and cutover archive are records and are not touched.
+    /// Every spared section comes back memberless until the next detect
+    /// re-matches it.
+    pub fn clear_derived(&mut self) -> SqlResult<DerivedClear> {
+        let tx = self.db.unchecked_transaction()?;
+        let sections_removed = wipe_derived_catalogue(&tx)?;
+        let removed_ids: Vec<String> = tx
+            .prepare(&format!(
+                "SELECT id FROM activities WHERE {REFERENCE_ACTIVITY_EXCLUSION}"
+            ))?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(Result::ok)
+            .collect();
+        let activities_removed = tx.execute(
+            &format!("DELETE FROM activities WHERE {REFERENCE_ACTIVITY_EXCLUSION}"),
+            [],
+        )?;
+        let activities_kept: u32 =
+            tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
+        tx.execute("DELETE FROM processed_activities", [])?;
+        tx.commit()?;
+
+        // A removed activity stays a phantom member of a carried section
+        // otherwise, and the next apply would re-insert its junction row
+        // against a foreign key that no longer resolves.
+        for id in &removed_ids {
+            self.section_identity_purge_activity(id);
+        }
+        self.processed_activity_ids.clear();
+        self.invalidate_evidence_cache();
+        self.signature_cache.clear();
+        self.consensus_cache.clear();
+        self.time_streams.clear();
+        self.groups.clear();
+        self.load_metadata()?;
+        self.load_sections()?;
+        self.groups_dirty = true;
+        self.sections_dirty = true;
+        self.invalidate_perf_cache();
+        self.mark_heatmap_dirty();
+
+        log::info!(
+            "[engine] Cleared derived data: {} sections, {} activities removed, {} kept",
+            sections_removed,
+            activities_removed,
+            activities_kept
+        );
+        Ok(DerivedClear {
+            sections_removed: sections_removed as u32,
+            activities_removed: activities_removed as u32,
+            activities_kept,
+        })
     }
 
     /// Force re-computation of route groups and sections.
