@@ -65,7 +65,6 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
 
 jest.mock('@/features/routes/lib/elevationBackfillTrigger', () => ({
   startElevationBackfillAfterUpdate: jest.fn().mockResolvedValue(false),
-  clearElevationBackfillStamp: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/features/routes/lib/cutoverTrigger', () => ({

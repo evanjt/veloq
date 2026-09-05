@@ -63,7 +63,16 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
 
 jest.mock('@/features/routes/lib/elevationBackfillTrigger', () => ({
   startElevationBackfillAfterUpdate: jest.fn().mockResolvedValue(false),
-  clearElevationBackfillStamp: jest.fn().mockResolvedValue(undefined),
+  ELEVATION_BACKFILL_STAMP_KEY: 'veloq-elevation-backfill-version',
+}));
+
+jest.mock('@/shared/storage/databaseStamps', () => ({
+  DATABASE_LOCAL_STAMPS: [
+    'veloq-elevation-backfill-version',
+    'veloq-section-health-check-v1',
+    'terrain-preview-cache-version',
+  ],
+  clearDatabaseStamps: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/features/routes/lib/cutoverTrigger', () => ({
@@ -456,9 +465,10 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
     activity_count: 100,
   });
 
-  const { clearElevationBackfillStamp, startElevationBackfillAfterUpdate } = jest.requireMock(
+  const { startElevationBackfillAfterUpdate } = jest.requireMock(
     '@/features/routes/lib/elevationBackfillTrigger'
   );
+  const { clearDatabaseStamps } = jest.requireMock('@/shared/storage/databaseStamps');
   const { startDetectorCutoverAfterUpdate } = jest.requireMock(
     '@/features/routes/lib/cutoverTrigger'
   );
@@ -471,16 +481,16 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
     (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
     (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
     (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
-    clearElevationBackfillStamp.mockClear();
+    clearDatabaseStamps.mockClear();
     startElevationBackfillAfterUpdate.mockClear();
     startDetectorCutoverAfterUpdate.mockClear();
   });
 
-  it('drops the elevation stamp, which described the replaced database', async () => {
+  it('drops every stamp that described the replaced database', async () => {
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
 
     expect(result.success).toBe(true);
-    expect(clearElevationBackfillStamp).toHaveBeenCalledTimes(1);
+    expect(clearDatabaseStamps).toHaveBeenCalledTimes(1);
   });
 
   it('starts a backfill pass on the restored database without a relaunch', async () => {
@@ -498,7 +508,7 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
   it('drops the stamp before it asks for a pass', async () => {
     await restoreDatabaseBackup('file:///in/backup.veloqdb');
 
-    expect(clearElevationBackfillStamp.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(clearDatabaseStamps.mock.invocationCallOrder[0]).toBeLessThan(
       startElevationBackfillAfterUpdate.mock.invocationCallOrder[0]
     );
   });
@@ -512,7 +522,7 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
 
     expect(result.success).toBe(false);
-    expect(clearElevationBackfillStamp).not.toHaveBeenCalled();
+    expect(clearDatabaseStamps).not.toHaveBeenCalled();
     expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
     expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
   });
@@ -523,25 +533,26 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
  * database, so the elevation stamp still describes the database in place.
  */
 describe('restoreBackup leaves the migration markers alone', () => {
-  const { clearElevationBackfillStamp, startElevationBackfillAfterUpdate } = jest.requireMock(
+  const { startElevationBackfillAfterUpdate } = jest.requireMock(
     '@/features/routes/lib/elevationBackfillTrigger'
   );
+  const { clearDatabaseStamps } = jest.requireMock('@/shared/storage/databaseStamps');
   const { startDetectorCutoverAfterUpdate } = jest.requireMock(
     '@/features/routes/lib/cutoverTrigger'
   );
 
   beforeEach(() => {
-    clearElevationBackfillStamp.mockClear();
+    clearDatabaseStamps.mockClear();
     startElevationBackfillAfterUpdate.mockClear();
     startDetectorCutoverAfterUpdate.mockClear();
   });
 
-  it('does not clear the stamp, because it replaces no database', async () => {
+  it('does not clear the stamps, because it replaces no database', async () => {
     await restoreBackup(
       JSON.stringify({ version: 2, sections: [], sectionNames: {}, routeNames: {} })
     );
 
-    expect(clearElevationBackfillStamp).not.toHaveBeenCalled();
+    expect(clearDatabaseStamps).not.toHaveBeenCalled();
     expect(startElevationBackfillAfterUpdate).not.toHaveBeenCalled();
     expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
   });

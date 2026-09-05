@@ -32,10 +32,8 @@ import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { queryClient } from '@/shared/query/QueryProvider';
 import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import {
-  clearElevationBackfillStamp,
-  startElevationBackfillAfterUpdate,
-} from '@/features/routes/lib/elevationBackfillTrigger';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
@@ -293,11 +291,10 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       queryClient.invalidateQueries();
 
       // The restored database is not the one the launch triggers ran against.
-      // The elevation stamp describes the database that has just been replaced,
-      // so it goes first, and then both triggers run here rather than waiting
-      // for a cold start: the engine-init effect does not re-run on a restore
-      // (`SB13`).
-      await clearElevationBackfillStamp();
+      // Every stamp that described the replaced database goes first, and then
+      // both triggers run here rather than waiting for a cold start: the
+      // engine-init effect does not re-run on a restore (`SB13`).
+      await clearDatabaseStamps();
       await startElevationBackfillAfterUpdate().catch(() => false);
       await startDetectorCutoverAfterUpdate().catch(() => false);
 
@@ -373,9 +370,10 @@ const LEGACY_BACKUP_VERSION = 2;
  * stale timestamp could suppress a needed re-registration for a day),
  * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
  * it onto another install would suppress that device's own backfill). A
- * `.veloqdb` restore clears that marker instead, because it replaces the very
- * database the marker described; the legacy JSON path below does not touch the
- * database, so it leaves the marker alone (`SB13`).
+ * `.veloqdb` restore clears those markers instead, because it replaces the very
+ * database they described, and the list of them is `DATABASE_LOCAL_STAMPS`; the
+ * legacy JSON path below does not touch the database, so it leaves them alone
+ * (`SB13`).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
