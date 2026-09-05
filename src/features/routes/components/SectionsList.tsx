@@ -21,6 +21,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
@@ -323,6 +324,7 @@ export const SectionsList = memo(function SectionsList({
   const { removeSection } = useCustomSections();
   const { rescan, isScanning } = useSectionRescan();
   const detectionHold = useDetectionHold();
+  const elevationBackfill = useElevationBackfill();
 
   const trueDisabledCount = disabledCount;
 
@@ -641,6 +643,7 @@ export const SectionsList = memo(function SectionsList({
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
           detectionHold={detectionHold}
+          elevationBackfill={elevationBackfill}
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
         />

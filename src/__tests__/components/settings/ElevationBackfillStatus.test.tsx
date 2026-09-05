@@ -15,6 +15,11 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
+const mockPauseElevationBackfill = jest.fn();
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ pauseElevationBackfill: mockPauseElevationBackfill }),
+}));
+
 const mockUseElevationBackfill = jest.fn();
 jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
   useElevationBackfill: () => mockUseElevationBackfill(),
@@ -222,5 +227,87 @@ describe('ElevationBackfillStatus at rest', () => {
     });
     const tree = render(<ElevationBackfillStatus />);
     expect(tree.getByText('3 of 20 activities')).toBeTruthy();
+  });
+});
+
+/**
+ * Scenario: the athlete wants the download to stop. The pause ends the run in
+ * flight and the line says plainly that it resumes when the app is reopened,
+ * and where the switch is for turning detection off altogether.
+ */
+describe('ElevationBackfillStatus pause', () => {
+  beforeAll(async () => {
+    await initializeI18n('en-AU');
+  });
+
+  beforeEach(async () => {
+    await changeLanguage('en-AU');
+    mockPauseElevationBackfill.mockReset();
+  });
+
+  function running(): ElevationBackfillState {
+    return {
+      phase: 'fetching',
+      completed: 3,
+      total: 10,
+      failed: 0,
+      remaining: null,
+      isRunning: true,
+    };
+  }
+
+  function paused(): ElevationBackfillState {
+    return { phase: 'paused', completed: 3, total: 10, failed: 0, remaining: 7, isRunning: false };
+  }
+
+  it('offers a pause while the download runs, and it reaches the engine', () => {
+    mockUseElevationBackfill.mockReturnValue(running());
+    const tree = render(<ElevationBackfillStatus />);
+
+    fireEvent.press(tree.getByTestId('elevation-backfill-pause'));
+
+    expect(mockPauseElevationBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a pause at rest with work outstanding, since the next pass is armed', () => {
+    mockUseElevationBackfill.mockReturnValue(atRest(12));
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-pause')).not.toBeNull();
+  });
+
+  it('says the download is paused, when it resumes, and where the switch is', () => {
+    mockUseElevationBackfill.mockReturnValue(paused());
+    const tree = render(<ElevationBackfillStatus />);
+
+    const text = tree.getByTestId('elevation-backfill-status').props.children as string;
+    expect(text).toContain('paused');
+    expect(text).toContain('next time you open');
+    expect(text).toContain('Route matching');
+    expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
+  });
+
+  it('offers no pause once every track has elevation', () => {
+    mockUseElevationBackfill.mockReturnValue({
+      phase: 'complete',
+      completed: 10,
+      total: 10,
+      failed: 0,
+      remaining: 0,
+      isRunning: false,
+    });
+    const tree = render(<ElevationBackfillStatus />);
+
+    expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
+  });
+
+  it('reads the paused line in every locale without a raw placeholder', async () => {
+    mockUseElevationBackfill.mockReturnValue(paused());
+    for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
+      await changeLanguage(locale);
+      const text = statusText();
+      expect(text).not.toContain('{{');
+      expect(text.length).toBeGreaterThan(0);
+    }
   });
 });

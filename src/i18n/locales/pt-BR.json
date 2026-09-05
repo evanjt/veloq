@@ -183,6 +183,8 @@
     "accountChangeTitle": "Conta diferente detectada",
     "accountChangeMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Fazer login com uma conta diferente excluira permanentemente esses dados. Volte e faca login nessa conta para mante-los.",
     "accountChangeDemoMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Continuar no modo demo excluira permanentemente esses dados. Volte e faca login nessa conta primeiro para mante-los.",
+    "accountChangeUnknownMessage": "Este dispositivo tem uma biblioteca de outra conta. Fazer login com uma conta diferente a excluira permanentemente. Para manter, volte e faca login nessa conta.",
+    "accountChangeUnknownDemoMessage": "Este dispositivo tem uma biblioteca de outra conta. Continuar no modo demo a excluira permanentemente. Para manter, volte e faca login nessa conta primeiro.",
     "accountChangeContinue": "Continuar e excluir",
     "disconnectAndClearTitle": "Sair e excluir dados?",
     "disconnectAndClearMessage": "Isso faz logout E exclui todas as atividades, trilhas GPS, trechos e dados de rotas em cache neste dispositivo. Os dados serao ressincronizados do intervals.icu na proxima vez que voce fizer login. Esta acao nao pode ser desfeita.",
@@ -198,6 +200,9 @@
     "exportError": "Falha ao exportar o backup.",
     "exporting": "Exportando...",
     "importBackup": "Importar backup",
+    "replaceLiveTitle": "Substituir a biblioteca deste dispositivo?",
+    "replaceLiveMessage": "Isto substituira a biblioteca deste dispositivo ({{liveCount}} atividades, mais recente {{liveDate}}) pelo backup ({{backupCount}} atividades, mais recente {{backupDate}}). Tudo o que estiver no dispositivo e nao no backup sera excluido e nao podera ser recuperado.",
+    "replaceLiveConfirm": "Substituir",
     "importError": "Falha ao importar o backup.",
     "importing": "Importando...",
     "namesRestored": "{{count}} nomes restaurados",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Permitir acesso à câmera",
     "fillAllFields": "Preencha todos os campos",
     "nextcloudSetup": "Se usar Nextcloud WebDAV",
-    "manualSetup": "Ou insira manualmente"
+    "manualSetup": "Ou insira manualmente",
+    "webdavHttpsRequired": "Use um endereço https://. Um servidor http:// receberia sua senha e todo o seu banco de dados sem criptografia.",
+    "webdavInvalidUrl": "Esse não é um endereço de servidor válido",
+    "webdavPlainLan": "Permitir um servidor sem criptografia na minha própria rede"
   },
   "bestEffortsScreen": {
     "title": "Melhores esforcos",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Aplicar estas configurações?",
     "previewKeepWarning": "Manter reanalisa toda a sua biblioteca. Trechos fora desta área também podem mudar.",
     "previewKeepRefusedTitle": "A nova análise não começou",
-    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes."
+    "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes.",
+    "elevationBackfillPause": "Pausar download",
+    "elevationBackfillPaused": "Download de altitude pausado. Ele será retomado na próxima vez que você abrir o app. Para parar de vez a detecção de trechos, desative Correspondencia de rotas acima."
   },
   "stats": {
     "activities": "Atividades",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Parou antes do fim",
     "progressCount": "{{completed}} de {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Faltam {{count}} para baixar"
+    "remaining": "Faltam {{count}} para baixar",
+    "statePaused": "Pausado até o app ser aberto de novo"
   }
 }

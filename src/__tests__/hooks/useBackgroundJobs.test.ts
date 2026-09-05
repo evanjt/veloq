@@ -212,6 +212,15 @@ describe('useBackgroundJobs', () => {
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('partial');
   });
 
+  it('reads a paused backfill as paused, not as idle with work waiting', () => {
+    state.backfill = { phase: 'paused', completed: 20, total: 40, failed: 0 };
+    state.remaining = 20;
+
+    const { result } = jobs();
+
+    expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('paused');
+  });
+
   it('reads a cutover mid-run as running whatever phase it holds', () => {
     state.cutover = { phase: 'archiving', running: true };
 

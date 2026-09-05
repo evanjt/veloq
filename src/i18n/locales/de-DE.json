@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anderes Konto erkannt",
     "accountChangeMessage": "Auf diesem Gerät sind zwischengespeicherte Daten eines anderen Kontos ({{cachedAthleteId}}). Die Anmeldung mit einem anderen Konto löscht diese Daten dauerhaft. Gehen Sie zurück und melden Sie sich stattdessen bei diesem Konto an, um die Daten zu behalten.",
     "accountChangeDemoMessage": "Auf diesem Gerät sind zwischengespeicherte Daten eines anderen Kontos ({{cachedAthleteId}}). Der Wechsel in den Demo-Modus löscht diese Daten dauerhaft. Gehen Sie zurück und melden Sie sich zuerst bei diesem Konto an, um die Daten zu behalten.",
+    "accountChangeUnknownMessage": "Auf diesem Gerät liegt eine Bibliothek eines anderen Kontos. Die Anmeldung mit einem anderen Konto löscht sie dauerhaft. Gehe zurück und melde dich mit diesem Konto an, um sie zu behalten.",
+    "accountChangeUnknownDemoMessage": "Auf diesem Gerät liegt eine Bibliothek eines anderen Kontos. Der Wechsel in den Demo-Modus löscht sie dauerhaft. Gehe zurück und melde dich zuerst mit diesem Konto an, um sie zu behalten.",
     "accountChangeContinue": "Fortfahren und löschen",
     "disconnectAndClearTitle": "Abmelden und Daten löschen?",
     "disconnectAndClearMessage": "Dies meldet Sie ab UND löscht alle zwischengespeicherten Aktivitäten, GPS-Spuren, Abschnitte und Routendaten auf diesem Gerät. Die Daten werden bei der nächsten Anmeldung erneut von intervals.icu synchronisiert. Dies kann nicht rückgängig gemacht werden.",
@@ -198,6 +200,9 @@
     "exportError": "Sicherung konnte nicht exportiert werden.",
     "exporting": "Exportieren...",
     "importBackup": "Sicherung importieren",
+    "replaceLiveTitle": "Bibliothek dieses Geräts ersetzen?",
+    "replaceLiveMessage": "Dies ersetzt die Bibliothek auf diesem Gerät ({{liveCount}} Aktivitäten, neueste {{liveDate}}) durch das Backup ({{backupCount}} Aktivitäten, neueste {{backupDate}}). Alles auf dem Gerät, was nicht im Backup ist, wird gelöscht und kann nicht wiederhergestellt werden.",
+    "replaceLiveConfirm": "Ersetzen",
     "importError": "Sicherung konnte nicht importiert werden.",
     "importing": "Importieren...",
     "namesRestored": "{{count}} Namen wiederhergestellt",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Kamerazugriff gewähren",
     "fillAllFields": "Bitte fülle alle Felder aus",
     "nextcloudSetup": "Bei Verwendung von Nextcloud WebDAV",
-    "manualSetup": "Oder manuell eingeben"
+    "manualSetup": "Oder manuell eingeben",
+    "webdavHttpsRequired": "Verwende eine https://-Adresse. Ein einfacher http://-Server würde dein Passwort und deine gesamte Datenbank unverschlüsselt erhalten.",
+    "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
+    "webdavPlainLan": "Unverschlüsselten Server in meinem eigenen Netzwerk erlauben"
   },
   "bestEffortsScreen": {
     "title": "Beste Leistungen",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Diese Einstellungen anwenden?",
     "previewKeepWarning": "Beim Behalten wird deine gesamte Bibliothek neu analysiert. Auch Abschnitte außerhalb dieses Gebiets können sich ändern.",
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
-    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
+    "elevationBackfillPause": "Download pausieren",
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennung ganz abzuschalten, schalte oben Routenabgleich aus."
   },
   "stats": {
     "activities": "Aktivitäten",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Vorzeitig gestoppt",
     "progressCount": "{{completed}} von {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "Noch {{count}} zu laden"
+    "remaining": "Noch {{count}} zu laden",
+    "statePaused": "Pausiert, bis die App wieder geöffnet wird"
   }
 }

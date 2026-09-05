@@ -54,9 +54,46 @@ fn stream(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
 /// longer indexes its stream describes some other line, and a plausible wrong
 /// line renders as real geometry, which is worse than none.
 pub(crate) fn rebuild(conn: &Connection, reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
+    let points = stream(conn, reference.0)?;
+    slice(&points, reference)
+}
+
+/// [`rebuild`] for a line recorded against a stream of `point_count` points.
+///
+/// A sync replaces a whole track under the same id, so a triple can index a
+/// stream that is not the one it was cut from. The count is the version's
+/// memory of that stream: a different count is a different line and an
+/// unknown count cannot be checked, and both are refused.
+pub(crate) fn rebuild_counted(
+    conn: &Connection,
+    reference: (&str, u32, u32),
+    point_count: Option<i64>,
+) -> Option<Vec<GpsPoint>> {
+    let points = stream(conn, reference.0)?;
+    match point_count {
+        Some(count) if count == points.len() as i64 => slice(&points, reference),
+        Some(count) => {
+            log::warn!(
+                "veloqrs: [geometry] stream of {} has {} points, the version was cut from {count}; \
+                 refusing to rebuild",
+                reference.0,
+                points.len()
+            );
+            None
+        }
+        None => {
+            log::warn!(
+                "veloqrs: [geometry] version cut from {} carries no point count; refusing to rebuild",
+                reference.0
+            );
+            None
+        }
+    }
+}
+
+fn slice(points: &[GpsPoint], reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
     let (activity_id, start, end) = reference;
     let (start, end) = (start as usize, end as usize);
-    let points = stream(conn, activity_id)?;
     if start >= end || end > points.len() {
         log::warn!(
             "veloqrs: [geometry] range {start}..{end} does not index the {}-point stream of \

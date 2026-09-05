@@ -22,10 +22,17 @@ const POLL_INTERVAL_MS = 500;
 /** The channel `EngineObserver.backfill_phase` lands on. */
 const PHASE_CHANNEL = 'backfillPhase';
 
-const PHASES: ElevationBackfillPhase[] = ['idle', 'fetching', 'complete', 'partial', 'failed'];
+const PHASES: ElevationBackfillPhase[] = [
+  'idle',
+  'fetching',
+  'complete',
+  'partial',
+  'failed',
+  'paused',
+];
 
 export interface ElevationBackfillState {
-  /** idle, fetching, or one of the three terminal states. */
+  /** idle, fetching, or one of the four terminal states. */
   phase: ElevationBackfillPhase;
   /** Activities the current or last run has finished with. */
   completed: number;

@@ -106,6 +106,7 @@ describe('useElevationBackfill', () => {
     ['complete', { completed: 40, total: 40 }],
     ['partial', { completed: 40, total: 40, failed: 3 }],
     ['failed', {}],
+    ['paused', { completed: 20, total: 40 }],
   ])('reports the %s terminal state as itself', (phase, over) => {
     mockGetEngine.mockReturnValue(engineReporting(() => progress(phase, over)));
 

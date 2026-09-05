@@ -183,6 +183,8 @@
     "accountChangeTitle": "Account diverso rilevato",
     "accountChangeMessage": "Questo dispositivo ha dati in cache di un altro account ({{cachedAthleteId}}). Accedere con un account diverso eliminerà permanentemente questi dati. Torna indietro e accedi a quell'account per conservarli.",
     "accountChangeDemoMessage": "Questo dispositivo ha dati in cache di un altro account ({{cachedAthleteId}}). Continuare in modalità demo eliminerà permanentemente questi dati. Torna indietro e accedi prima a quell'account per conservarli.",
+    "accountChangeUnknownMessage": "Questo dispositivo contiene una libreria di un altro account. Accedere con un account diverso la eliminerà permanentemente. Per conservarla, torna indietro e accedi con quell'account.",
+    "accountChangeUnknownDemoMessage": "Questo dispositivo contiene una libreria di un altro account. Continuare in modalità demo la eliminerà permanentemente. Per conservarla, torna indietro e accedi prima con quell'account.",
     "accountChangeContinue": "Continua ed elimina",
     "disconnectAndClearTitle": "Disconnettersi ed eliminare i dati?",
     "disconnectAndClearMessage": "Questo ti disconnette E elimina tutte le attività, tracce GPS, sezioni e dati dei percorsi in cache su questo dispositivo. I dati verranno risincronizzati da intervals.icu al prossimo accesso. Questa azione non può essere annullata.",
@@ -198,6 +200,9 @@
     "exportError": "Impossibile esportare il backup.",
     "exporting": "Esportazione...",
     "importBackup": "Importa backup",
+    "replaceLiveTitle": "Sostituire la libreria di questo dispositivo?",
+    "replaceLiveMessage": "Questo sostituirà la libreria su questo dispositivo ({{liveCount}} attività, la più recente {{liveDate}}) con il backup ({{backupCount}} attività, la più recente {{backupDate}}). Tutto ciò che è sul dispositivo e non nel backup viene eliminato e non può essere recuperato.",
+    "replaceLiveConfirm": "Sostituisci",
     "importError": "Impossibile importare il backup.",
     "importing": "Importazione...",
     "namesRestored": "{{count}} nomi ripristinati",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Concedi accesso fotocamera",
     "fillAllFields": "Compila tutti i campi",
     "nextcloudSetup": "Se usi Nextcloud WebDAV",
-    "manualSetup": "Oppure inserisci manualmente"
+    "manualSetup": "Oppure inserisci manualmente",
+    "webdavHttpsRequired": "Usa un indirizzo https://. Un server http:// riceverebbe la tua password e l'intero database in chiaro.",
+    "webdavInvalidUrl": "Non è un indirizzo server valido",
+    "webdavPlainLan": "Consenti un server non cifrato sulla mia rete"
   },
   "bestEffortsScreen": {
     "title": "Migliori sforzi",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Applicare queste impostazioni?",
     "previewKeepWarning": "Mantenendo, l'intera libreria viene rianalizzata. Anche le sezioni fuori da questa zona possono cambiare.",
     "previewKeepRefusedTitle": "La nuova analisi non è partita",
-    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento."
+    "previewKeepRefused": "Le tue impostazioni sono salvate. È in corso un'altra analisi, quindi il ricalcolo non è partito. Riprova tra un momento.",
+    "elevationBackfillPause": "Metti in pausa",
+    "elevationBackfillPaused": "Download dell'altitudine in pausa. Riprenderà alla prossima apertura dell'app. Per interrompere del tutto il rilevamento sezioni, disattiva Corrispondenza percorsi qui sopra."
   },
   "stats": {
     "activities": "Attività",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Interrotta prima del termine",
     "progressCount": "{{completed}} di {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Ne mancano {{count}} da scaricare"
+    "remaining": "Ne mancano {{count}} da scaricare",
+    "statePaused": "In pausa fino alla prossima apertura dell'app"
   }
 }

@@ -16,9 +16,10 @@ export {
   initWebdavConfig,
   setWebdavConfig,
   clearWebdavConfig,
+  webdavUrlProblem,
 } from './autoBackup';
 export { testWebdavConnection } from './backends';
 export { failureMessageKey, isBackupTransferError } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';
-export type { BackupFailure } from './autoBackup';
+export type { BackupFailure, WebdavConfig, WebdavUrlProblem } from './autoBackup';
 export type { BackupFailureKind } from './backends/errors';

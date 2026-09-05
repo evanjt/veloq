@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anderi Konto gfunde",
     "accountChangeMessage": "Uf dem Grät sind Date vunere andere Konto ({{cachedAthleteId}}). Wenn du dich mit enere andere Konto aamäldisch, werded die Date permanent glöscht. Gang zrugg und mäld dich bi dere Konto aa, wennd sie bhalte willsch.",
     "accountChangeDemoMessage": "Uf dem Grät sind Date vunere andere Konto ({{cachedAthleteId}}). Wennd zum Demo wächslisch, werded die Date permanent glöscht. Gang zrugg und mäld dich zersch bi dere Konto aa, wennd sie bhalte willsch.",
+    "accountChangeUnknownMessage": "Uf dem Grät isch es Bibliothek vunere andere Konto. Wenn du dich mit enere andere Konto aamäldisch, wird sie permanent glöscht. Gang zrugg und mäld dich bi dem Konto aa, wenn dus bhalte wotsch.",
+    "accountChangeUnknownDemoMessage": "Uf dem Grät isch es Bibliothek vunere andere Konto. Wennd zum Demo wächslisch, wird sie permanent glöscht. Gang zrugg und mäld dich zerscht bi dem Konto aa, wenn dus bhalte wotsch.",
     "accountChangeContinue": "Wiiterfahre und lösche",
     "disconnectAndClearTitle": "Usmälde und Date lösche?",
     "disconnectAndClearMessage": "Das mäldet dich ab UND löscht alli zwischegspicherete Aktivitäte, GPS-Spure, Abschnitt und Routedate uf dem Grät. D Date werded bi der nächschte Aamäldig wider vo intervals.icu synchronisiert. Das chan nöd rückgängig gmacht werde.",
@@ -198,6 +200,9 @@
     "exportError": "Sicherig exportiere hät nöd klappet.",
     "exporting": "Am Exportiere...",
     "importBackup": "Sicherig importiere",
+    "replaceLiveTitle": "S Bibliothek uf dem Grät ersetze?",
+    "replaceLiveMessage": "Das ersetzt s Bibliothek uf dem Grät ({{liveCount}} Aktivitäte, nöischti {{liveDate}}) dur s Backup ({{backupCount}} Aktivitäte, nöischti {{backupDate}}). Alles uf em Grät, wo nöd im Backup isch, wird glöscht und cha nöd zruggghollt werde.",
+    "replaceLiveConfirm": "Ersetze",
     "importError": "Sicherig importiere hät nöd klappet.",
     "importing": "Am Importiere...",
     "namesRestored": "{{count}} Name wiederhergestellt",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Kamerazuegriff gee",
     "fillAllFields": "Bitte füll alli Fälder us",
     "nextcloudSetup": "Wenn du Nextcloud WebDAV bruuchsch",
-    "manualSetup": "Oder manuell iigee"
+    "manualSetup": "Oder manuell iigee",
+    "webdavHttpsRequired": "Verwende eine https://-Adresse. Ein einfacher http://-Server würde dein Passwort und deine gesamte Datenbank unverschlüsselt erhalten.",
+    "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
+    "webdavPlainLan": "Unverschlüsselten Server in meinem eigenen Netzwerk erlauben"
   },
   "bestEffortsScreen": {
     "title": "Bescht Leischtige",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Die Iistellige aawände?",
     "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
-    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
+    "elevationBackfillPause": "Download pausieren",
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennig ganz abzuschalten, schalte oben Route-Matching aus."
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Z früeh gstoppt",
     "progressCount": "{{completed}} vo {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "No {{count}} z lade"
+    "remaining": "No {{count}} z lade",
+    "statePaused": "Pausiert, bis die App wieder geöffnet wird"
   }
 }

@@ -284,4 +284,6 @@ export {
   initWebdavConfig,
   setWebdavConfig,
   clearWebdavConfig,
+  webdavUrlProblem,
 } from './webdavConfig';
+export type { WebdavConfig, WebdavUrlProblem } from './webdavConfig';

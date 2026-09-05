@@ -277,6 +277,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1432,6 +1436,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_set_network_online(
     online: number,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1602,6 +1609,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_get_network_push(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_running(): number;
+  ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
@@ -1647,6 +1655,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection(): number;

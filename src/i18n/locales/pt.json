@@ -183,6 +183,8 @@
     "accountChangeTitle": "Conta diferente detetada",
     "accountChangeMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Iniciar sessao com uma conta diferente eliminara permanentemente esses dados. Volte atras e inicie sessao nessa conta para os manter.",
     "accountChangeDemoMessage": "Este dispositivo tem dados em cache de outra conta ({{cachedAthleteId}}). Continuar para o modo demo eliminara permanentemente esses dados. Volte atras e inicie sessao nessa conta primeiro para os manter.",
+    "accountChangeUnknownMessage": "Este dispositivo tem uma biblioteca de outra conta. Iniciar sessao com uma conta diferente elimina-la-a permanentemente. Para a manter, volte atras e inicie sessao nessa conta.",
+    "accountChangeUnknownDemoMessage": "Este dispositivo tem uma biblioteca de outra conta. Continuar para o modo demo elimina-la-a permanentemente. Para a manter, volte atras e inicie sessao nessa conta primeiro.",
     "accountChangeContinue": "Continuar e eliminar",
     "disconnectAndClearTitle": "Terminar sessao e eliminar dados?",
     "disconnectAndClearMessage": "Isto termina a sua sessao E elimina todas as atividades, trilhos GPS, trocos e dados de percursos em cache neste dispositivo. Os dados serao ressincronizados a partir de intervals.icu na proxima vez que iniciar sessao. Esta acao nao pode ser desfeita.",
@@ -198,6 +200,9 @@
     "exportError": "Falha ao exportar a copia de seguranca.",
     "exporting": "A exportar...",
     "importBackup": "Importar copia de seguranca",
+    "replaceLiveTitle": "Substituir a biblioteca deste dispositivo?",
+    "replaceLiveMessage": "Isto substituira a biblioteca deste dispositivo ({{liveCount}} atividades, mais recente {{liveDate}}) pela copia de seguranca ({{backupCount}} atividades, mais recente {{backupDate}}). Tudo o que estiver no dispositivo e nao na copia sera eliminado e nao podera ser recuperado.",
+    "replaceLiveConfirm": "Substituir",
     "importError": "Falha ao importar a copia de seguranca.",
     "importing": "A importar...",
     "namesRestored": "{{count}} nomes restaurados",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Conceder acesso à câmara",
     "fillAllFields": "Preencha todos os campos",
     "nextcloudSetup": "Se utilizar Nextcloud WebDAV",
-    "manualSetup": "Ou introduzir manualmente"
+    "manualSetup": "Ou introduzir manualmente",
+    "webdavHttpsRequired": "Use um endereço https://. Um servidor http:// receberia a sua palavra-passe e toda a base de dados sem cifra.",
+    "webdavInvalidUrl": "Esse não é um endereço de servidor válido",
+    "webdavPlainLan": "Permitir um servidor sem cifra na minha própria rede"
   },
   "bestEffortsScreen": {
     "title": "Melhores esforcos",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Aplicar estas definições?",
     "previewKeepWarning": "Manter volta a analisar toda a sua biblioteca. Os troços fora desta zona também podem mudar.",
     "previewKeepRefusedTitle": "A nova análise não começou",
-    "previewKeepRefused": "As tuas definições estão guardadas. Está a decorrer outra análise, por isso o recálculo não começou. Tenta novamente daqui a pouco."
+    "previewKeepRefused": "As tuas definições estão guardadas. Está a decorrer outra análise, por isso o recálculo não começou. Tenta novamente daqui a pouco.",
+    "elevationBackfillPause": "Pausar transferência",
+    "elevationBackfillPaused": "Transferência de altitude em pausa. Será retomada da próxima vez que abrir a app. Para parar de vez a deteção de troços, desligue Correspondencia de percursos acima."
   },
   "stats": {
     "activities": "Atividades",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Parou antes do fim",
     "progressCount": "{{completed}} de {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Faltam {{count}} para transferir"
+    "remaining": "Faltam {{count}} para transferir",
+    "statePaused": "Em pausa até a app ser aberta de novo"
   }
 }

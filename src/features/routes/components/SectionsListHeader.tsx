@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
 interface SectionsListHeaderProps {
   searchQuery: string;
@@ -23,6 +24,8 @@ interface SectionsListHeaderProps {
   isScanning: boolean;
   /** Why the engine is refusing to detect, or null when it is not. */
   detectionHold: DetectionHold;
+  /** The elevation download this page reports for the length of the migration. */
+  elevationBackfill?: ElevationBackfillState;
   onAcceptAll: () => void;
   onRescan: () => void;
 }
@@ -35,11 +38,25 @@ export function SectionsListHeader({
   acceptAllResult,
   isScanning,
   detectionHold,
+  elevationBackfill,
   onAcceptAll,
   onRescan,
 }: SectionsListHeaderProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+
+  // A pass reports itself; at rest the durable count is what is owed. A null
+  // count is an engine that could not answer and must not read as finished.
+  const elevationLine = !elevationBackfill
+    ? null
+    : elevationBackfill.isRunning
+      ? t('settings.elevationBackfillProgress', {
+          completed: elevationBackfill.completed,
+          total: elevationBackfill.total,
+        })
+      : elevationBackfill.remaining !== null && elevationBackfill.remaining > 0
+        ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
+        : null;
 
   return (
     <>
@@ -122,6 +139,16 @@ export function SectionsListHeader({
           </TouchableOpacity>
         </View>
       </View>
+      {elevationLine !== null && (
+        <View style={styles.pausedRow} testID="elevation-backfill-row">
+          <MaterialCommunityIcons
+            name="elevation-rise"
+            size={13}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{elevationLine}</Text>
+        </View>
+      )}
       {detectionHold !== null && (
         <View style={styles.pausedRow} testID="detection-paused">
           <MaterialCommunityIcons

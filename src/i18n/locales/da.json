@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anden konto registreret",
     "accountChangeMessage": "Denne enhed har cachedata for en anden konto ({{cachedAthleteId}}). At logge ind med en anden konto vil permanent slette disse data. Gå tilbage og log ind på den konto i stedet for at beholde dem.",
     "accountChangeDemoMessage": "Denne enhed har cachedata for en anden konto ({{cachedAthleteId}}). Fortsætter du til demotilstand, slettes disse data permanent. Gå tilbage og log ind på den konto først for at beholde dem.",
+    "accountChangeUnknownMessage": "Denne enhed har et bibliotek fra en anden konto. At logge ind med en anden konto vil permanent slette det. Gå tilbage og log ind på den konto for at beholde det.",
+    "accountChangeUnknownDemoMessage": "Denne enhed har et bibliotek fra en anden konto. Fortsætter du til demotilstand, slettes det permanent. Gå tilbage og log ind på den konto først for at beholde det.",
     "accountChangeContinue": "Fortsæt og slet",
     "disconnectAndClearTitle": "Log ud og slet data?",
     "disconnectAndClearMessage": "Dette logger dig ud OG sletter alle cachelagrede aktiviteter, GPS-spor, sektioner og rutedata på denne enhed. Data synkroniseres igen fra intervals.icu næste gang du logger ind. Dette kan ikke fortrydes.",
@@ -198,6 +200,9 @@
     "exportError": "Kunne ikke eksportere sikkerhedskopi.",
     "exporting": "Eksporterer...",
     "importBackup": "Importer sikkerhedskopi",
+    "replaceLiveTitle": "Erstat dette apparats bibliotek?",
+    "replaceLiveMessage": "Dette erstatter biblioteket på denne enhed ({{liveCount}} aktiviteter, nyeste {{liveDate}}) med sikkerhedskopien ({{backupCount}} aktiviteter, nyeste {{backupDate}}). Alt på enheden, som ikke er i sikkerhedskopien, slettes og kan ikke gendannes.",
+    "replaceLiveConfirm": "Erstat",
     "importError": "Kunne ikke importere sikkerhedskopi.",
     "importing": "Importerer...",
     "namesRestored": "{{count}} navne gendannet",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Giv kameraadgang",
     "fillAllFields": "Udfyld venligst alle felter",
     "nextcloudSetup": "Hvis du bruger Nextcloud WebDAV",
-    "manualSetup": "Eller indtast manuelt"
+    "manualSetup": "Eller indtast manuelt",
+    "webdavHttpsRequired": "Brug en https://-adresse. En almindelig http://-server ville modtage din adgangskode og hele din database ukrypteret.",
+    "webdavInvalidUrl": "Det er ikke en gyldig serveradresse",
+    "webdavPlainLan": "Tillad en ukrypteret server på mit eget netværk"
   },
   "bestEffortsScreen": {
     "title": "Bedste indsatser",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Anvend disse indstillinger?",
     "previewKeepWarning": "At beholde genanalyserer hele dit bibliotek. Sektioner uden for dette område kan også ændre sig.",
     "previewKeepRefusedTitle": "Genanalysen startede ikke",
-    "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik."
+    "previewKeepRefused": "Dine indstillinger er gemt. En anden analyse kører, så genberegningen er ikke startet. Prøv Behold igen om et øjeblik.",
+    "elevationBackfillPause": "Sæt download på pause",
+    "elevationBackfillPaused": "Højdedownload sat på pause. Den genoptages, næste gang du åbner appen. Slå Rutematchning fra ovenfor for at stoppe sektionsdetektering helt."
   },
   "stats": {
     "activities": "Aktiviteter",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Stoppet for tidligt",
     "progressCount": "{{completed}} af {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "{{count}} mangler at blive hentet"
+    "remaining": "{{count}} mangler at blive hentet",
+    "statePaused": "På pause, indtil appen åbnes igen"
   }
 }

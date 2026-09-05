@@ -183,6 +183,8 @@
     "accountChangeTitle": "检测到不同账户",
     "accountChangeMessage": "此设备有另一个账户（{{cachedAthleteId}}）的缓存数据。使用不同账户登录将永久删除这些数据。如需保留，请返回并登录该账户。",
     "accountChangeDemoMessage": "此设备有另一个账户（{{cachedAthleteId}}）的缓存数据。继续进入演示模式将永久删除这些数据。如需保留，请先返回并登录该账户。",
+    "accountChangeUnknownMessage": "此设备有另一个账户的资料库。使用不同账户登录将永久删除这些数据。如需保留，请返回并登录该账户。",
+    "accountChangeUnknownDemoMessage": "此设备有另一个账户的资料库。继续进入演示模式将永久删除这些数据。如需保留，请先返回并登录该账户。",
     "accountChangeContinue": "继续并删除",
     "disconnectAndClearTitle": "退出登录并删除数据？",
     "disconnectAndClearMessage": "这将退出登录并删除此设备上所有缓存的活动、GPS 轨迹、路段和路线数据。下次登录时将从 intervals.icu 重新同步数据。此操作无法撤销。",
@@ -198,6 +200,9 @@
     "exportError": "导出备份失败。",
     "exporting": "正在导出...",
     "importBackup": "导入备份",
+    "replaceLiveTitle": "替换此设备上的资料库？",
+    "replaceLiveMessage": "这将用备份（{{backupCount}} 项活动，最新 {{backupDate}}）替换此设备上的资料库（{{liveCount}} 项活动，最新 {{liveDate}}）。设备上不在备份中的数据将被删除且无法恢复。",
+    "replaceLiveConfirm": "替换",
     "importError": "导入备份失败。",
     "importing": "正在导入...",
     "namesRestored": "已恢复 {{count}} 个名称",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "授予相机权限",
     "fillAllFields": "请填写所有字段",
     "nextcloudSetup": "如使用 Nextcloud WebDAV",
-    "manualSetup": "或手动输入"
+    "manualSetup": "或手动输入",
+    "webdavHttpsRequired": "请使用 https:// 地址。普通的 http:// 服务器会以未加密的方式收到你的密码和整个数据库。",
+    "webdavInvalidUrl": "这不是有效的服务器地址",
+    "webdavPlainLan": "允许我自己网络中的未加密服务器"
   },
   "bestEffortsScreen": {
     "title": "最佳表现",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "应用这些设置？",
     "previewKeepWarning": "保留后将重新分析整个资料库，该区域之外的路段也可能变化。",
     "previewKeepRefusedTitle": "未开始重新分析",
-    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。"
+    "previewKeepRefused": "设置已保存。另一项分析正在进行，因此尚未开始重新计算。请稍后再试一次。",
+    "elevationBackfillPause": "暂停下载",
+    "elevationBackfillPaused": "海拔下载已暂停。下次打开应用时会继续。要完全停止路段检测，请关闭上方的“路线匹配”。"
   },
   "stats": {
     "activities": "活动",
@@ -1593,6 +1603,7 @@
     "stateFailed": "提前停止",
     "progressCount": "{{completed}} / {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "还有 {{count}} 项待获取"
+    "remaining": "还有 {{count}} 项待获取",
+    "statePaused": "已暂停，直到下次打开应用"
   }
 }

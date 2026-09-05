@@ -6,6 +6,8 @@
  * - .veloq:   Legacy JSON backup (custom sections, names, preferences only)
  */
 
+import { Alert } from 'react-native';
+import { i18n } from '@/i18n';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getRouteDbPath, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -32,13 +34,12 @@ import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { queryClient } from '@/shared/query/QueryProvider';
 import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import {
-  clearElevationBackfillStamp,
-  startElevationBackfillAfterUpdate,
-} from '@/features/routes/lib/elevationBackfillTrigger';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
+import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
 const log = debug.create('Backup');
 
@@ -87,7 +88,77 @@ const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
   activity_count: z.number(),
+  // Absent on a binary older than the field. The live database is then the
+  // only comparison left, which is what this replaced.
+  supported_schema_version: z.number().optional(),
+  // Older binaries answer without it, and an undated backup reads as unknown.
+  newest_activity: z.number().nullable().optional(),
 });
+
+/**
+ * The live database's schema version, for a binary too old to report its own.
+ * Null when the file cannot be read, which is every fresh install.
+ */
+function liveSchemaVersion(validateFn: (path: string) => string, dbPath: string): number | null {
+  const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
+  try {
+    const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
+    return Number(liveMeta.schema_version);
+  } catch {
+    return null;
+  }
+}
+
+interface DatabaseReplacementArgs {
+  backupActivityCount: number | null;
+  backupNewestActivity: number | null;
+  liveActivityCount: number;
+  liveNewestActivity: number | null;
+}
+
+/** Epoch seconds as a local date, or a dash when the side has no date. */
+function describeDate(epochSeconds: number | null): string {
+  if (epochSeconds == null) return '\u2014';
+  return new Date(epochSeconds * 1000).toLocaleDateString();
+}
+
+/**
+ * Ask before a picked file replaces a library that is still on the device.
+ * Resolves whether the athlete accepted. The counts and dates are both sides
+ * of the trade, because an older snapshot of the same account is the one
+ * mis-pick nothing else here can catch.
+ */
+function confirmDatabaseReplacement(args: DatabaseReplacementArgs): Promise<boolean> {
+  const t = i18n.t.bind(i18n);
+  const body = t('backup.replaceLiveMessage', {
+    backupCount: args.backupActivityCount ?? '?',
+    backupDate: describeDate(args.backupNewestActivity),
+    liveCount: args.liveActivityCount,
+    liveDate: describeDate(args.liveNewestActivity),
+    defaultValue:
+      'This will replace the library on this device ({{liveCount}} activities, newest {{liveDate}}) with the backup ({{backupCount}} activities, newest {{backupDate}}). Anything on the device that is not in the backup is deleted and cannot be recovered.',
+  });
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('backup.replaceLiveTitle', { defaultValue: 'Replace this device\u2019s library?' }),
+      body,
+      [
+        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: t('backup.replaceLiveConfirm', { defaultValue: 'Replace' }),
+          style: 'destructive',
+          onPress: () => resolve(true),
+        },
+      ]
+    );
+  });
+}
+
+/** Engine dates arrive as bigint over the FFI, and as null when there are none. */
+function toEpochSeconds(value: number | bigint | null | undefined): number | null {
+  return value == null ? null : Number(value);
+}
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
@@ -155,6 +226,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     const currentAthleteId = useAuthStore.getState().athleteId;
     let backupAthleteId: string | null = null;
+    let backupMeta: z.infer<typeof BackupValidationSchema> | null = null;
 
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +238,6 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // binary). If it exists and rejects or throws, refuse - never overwrite the
     // live DB on a bad backup.
     if (validateFn) {
-      let backupMeta: z.infer<typeof BackupValidationSchema>;
       try {
         backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
       } catch (e) {
@@ -193,24 +264,21 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         };
       }
 
-      // Refuse a backup whose schema is newer than this build can open. We don't
-      // hardcode the current version: probe the live DB with the same fn and
-      // compare. If the live DB can't be read (fresh install), skip this guard -
-      // the activity-count check and the .bak rollback still protect the user.
-      const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
-      try {
-        const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
-        if (Number(backupMeta.schema_version) > Number(liveMeta.schema_version)) {
-          await cleanupTemp();
-          log.warn('Backup schema is newer than this app supports - refusing to restore');
-          return {
-            success: false,
-            activityCount: 0,
-            error: 'Backup is from a newer version of Veloq',
-          };
-        }
-      } catch {
-        // Live schema unreadable (e.g. fresh install) - forward-version guard skipped.
+      // Refuse a backup whose schema is newer than this build can open.
+      // Migrations only run upward, so such a file is missing every column the
+      // newer code added and fails at query time rather than at open. The
+      // comparison is against this build's own version, which a fresh install
+      // can answer and an unreadable live database cannot.
+      const supported =
+        backupMeta.supported_schema_version ?? liveSchemaVersion(validateFn, dbPath);
+      if (supported !== null && Number(backupMeta.schema_version) > supported) {
+        await cleanupTemp();
+        log.warn('Backup schema is newer than this app supports - refusing to restore');
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup is from a newer version of Veloq',
+        };
       }
 
       if (
@@ -229,21 +297,34 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       }
     }
 
-    // Snapshot the live DB so a failed restore can roll back. destroyEngine first
-    // so the snapshot is a clean, closed copy.
     const engine = getEngine();
-    if (engine) {
-      engine.destroyEngine();
+
+    // The live library is about to go, and the rollback copy is deleted on
+    // success, so this is the last point anything can be kept. A device with
+    // nothing on it has nothing to trade and is not asked.
+    if ((engine?.getActivityCount() ?? 0) > 0) {
+      const accepted = await confirmDatabaseReplacement({
+        backupActivityCount: backupMeta?.activity_count ?? null,
+        backupNewestActivity: backupMeta?.newest_activity ?? null,
+        liveActivityCount: engine?.getActivityCount() ?? 0,
+        liveNewestActivity: toEpochSeconds(engine?.getStats()?.newestDate),
+      });
+      if (!accepted) {
+        await cleanupTemp();
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Restore cancelled',
+        };
+      }
     }
 
     const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
     const backupPath = `${dbPath}.bak`;
-    if (liveExists) {
-      await FileSystem.copyAsync({
-        from: `file://${dbPath}`,
-        to: `file://${backupPath}`,
-      });
-    }
+    // Whether the rollback copy is a complete one. A snapshot that threw
+    // half-written must never be copied back over a live database that is
+    // still intact.
+    let snapshotTaken = false;
 
     // The engine quarantines an unopenable database (renames it aside and
     // starts fresh), so a corrupt restored file would otherwise read as a
@@ -263,6 +344,20 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     const quarantinedBefore = new Set(await listQuarantined());
 
     try {
+      // Both the close and the snapshot sit inside the guard: a copy that
+      // throws here has to return a result and leave the engine open, not
+      // escape past the caller's own error handling.
+      if (engine) {
+        engine.destroyEngine();
+      }
+      if (liveExists) {
+        await FileSystem.copyAsync({
+          from: `file://${dbPath}`,
+          to: `file://${backupPath}`,
+        });
+        snapshotTaken = true;
+      }
+
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
@@ -278,22 +373,29 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       const restoredEngine = getEngine();
       const activityCount = restoredEngine?.getActivityCount() ?? 0;
 
+      // Whose library is now on the device. A restore from the login screen
+      // has no credentials to read it from, and without the stamp every
+      // identity check answers "nothing cached" for a full database.
+      if (backupAthleteId) {
+        restoredEngine?.setSetting('__athlete_id', backupAthleteId);
+        await rememberCachedAthleteId(backupAthleteId);
+      }
+
       // Wake query-on-demand hooks so mounted screens re-query the restored data
       // instead of showing the pre-restore engine state until the next sync.
       restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
       queryClient.invalidateQueries();
 
       // The restored database is not the one the launch triggers ran against.
-      // The elevation stamp describes the database that has just been replaced,
-      // so it goes first, and then both triggers run here rather than waiting
-      // for a cold start: the engine-init effect does not re-run on a restore
-      // (`SB13`).
-      await clearElevationBackfillStamp();
+      // Every stamp that described the replaced database goes first, and then
+      // both triggers run here rather than waiting for a cold start: the
+      // engine-init effect does not re-run on a restore (`SB13`).
+      await clearDatabaseStamps();
       await startElevationBackfillAfterUpdate().catch(() => false);
       await startDetectorCutoverAfterUpdate().catch(() => false);
 
       // Restore succeeded - drop the rollback snapshot.
-      if (liveExists) {
+      if (snapshotTaken) {
         await FileSystem.deleteAsync(`file://${backupPath}`, {
           idempotent: true,
         });
@@ -315,7 +417,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       } catch {
         // Best-effort. Proceed with the rollback copy regardless.
       }
-      if (liveExists) {
+      if (snapshotTaken) {
         try {
           await FileSystem.copyAsync({
             from: `file://${backupPath}`,
@@ -364,9 +466,10 @@ const LEGACY_BACKUP_VERSION = 2;
  * stale timestamp could suppress a needed re-registration for a day),
  * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
  * it onto another install would suppress that device's own backfill). A
- * `.veloqdb` restore clears that marker instead, because it replaces the very
- * database the marker described; the legacy JSON path below does not touch the
- * database, so it leaves the marker alone (`SB13`).
+ * `.veloqdb` restore clears those markers instead, because it replaces the very
+ * database they described, and the list of them is `DATABASE_LOCAL_STAMPS`; the
+ * legacy JSON path below does not touch the database, so it leaves them alone
+ * (`SB13`).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',

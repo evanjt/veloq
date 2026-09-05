@@ -11,7 +11,7 @@
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
-import { DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
+import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror } from '@/shared/storage';
 
@@ -59,15 +59,25 @@ export type AccountChangeAction = 'keep' | 'wipe' | 'confirm-then-wipe';
  */
 export function accountChangeAction(
   cachedAthleteId: string | null,
-  incomingAthleteId: string
+  incomingAthleteId: string,
+  storedActivityCount = 0
 ): AccountChangeAction {
-  if (!cachedAthleteId || cachedAthleteId === incomingAthleteId) return 'keep';
+  if (cachedAthleteId === incomingAthleteId) return 'keep';
+  // A restore from the login screen leaves a full library nothing has named,
+  // so the count is the only evidence there is anything to lose.
+  if (!cachedAthleteId) return storedActivityCount > 0 ? 'confirm-then-wipe' : 'keep';
   if (cachedAthleteId === DEMO_ATHLETE_ID) return 'wipe';
   return 'confirm-then-wipe';
 }
 
+/**
+ * Stands in for the athlete of a library the device cannot name, which is
+ * what a restore from the login screen leaves until the sign-in stamps it.
+ */
+export const UNNAMED_LIBRARY = '__unnamed__';
+
 interface ConfirmAccountChangeArgs {
-  /** Identifier of the account currently cached on this device. */
+  /** Identifier of the account currently cached, or `UNNAMED_LIBRARY`. */
   cachedAthleteId: string;
   /** What we're switching to: another real account, or demo mode. */
   incomingKind: AccountChangeKind;
@@ -90,17 +100,27 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
     defaultValue: 'Different account detected',
   });
   const body =
-    incomingKind === 'demo'
-      ? t('alerts.accountChangeDemoMessage', {
-          cachedAthleteId,
-          defaultValue:
-            'This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.',
-        })
-      : t('alerts.accountChangeMessage', {
-          cachedAthleteId,
-          defaultValue:
-            'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
-        });
+    cachedAthleteId === UNNAMED_LIBRARY
+      ? incomingKind === 'demo'
+        ? t('alerts.accountChangeUnknownDemoMessage', {
+            defaultValue:
+              'This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.',
+          })
+        : t('alerts.accountChangeUnknownMessage', {
+            defaultValue:
+              'This device holds a library from another account. Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
+          })
+      : incomingKind === 'demo'
+        ? t('alerts.accountChangeDemoMessage', {
+            cachedAthleteId,
+            defaultValue:
+              'This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.',
+          })
+        : t('alerts.accountChangeMessage', {
+            cachedAthleteId,
+            defaultValue:
+              'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
+          });
   const continueLabel = t('alerts.accountChangeContinue', {
     defaultValue: 'Continue and delete',
   });
@@ -111,5 +131,57 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
       { text: cancelLabel, style: 'cancel', onPress: () => resolve(false) },
       { text: continueLabel, style: 'destructive', onPress: () => resolve(true) },
     ]);
+  });
+}
+
+interface PromptAccountMismatchArgs {
+  /** Whose data the engine holds, read from `__athlete_id`. */
+  storedAthleteId: string;
+  /** Who is signing in. */
+  credentialsAthleteId: string;
+}
+
+/**
+ * The engine holds one athlete's library and another has signed in. Ask,
+ * then clear on acceptance and hand the engine its new identity; on refusal
+ * sign out, which returns the athlete to the login screen with the library
+ * intact. Resolves whether the library was cleared.
+ */
+export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<boolean> {
+  const { storedAthleteId, credentialsAthleteId } = args;
+  const t = i18n.t.bind(i18n);
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      t('backup.differentAccount', { defaultValue: 'Different Account' }),
+      t('backup.differentAccountMessage', {
+        cachedAthleteId: storedAthleteId,
+        defaultValue:
+          'The restored data belongs to a different account. Clear data and sync fresh for this account?',
+      }),
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => {
+            useAuthStore.getState().clearCredentials();
+            resolve(false);
+          },
+        },
+        {
+          text: t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const engine = getEngine();
+              engine?.clear();
+              engine?.setSetting('__athlete_id', credentialsAthleteId);
+              await rememberCachedAthleteId(credentialsAthleteId);
+              resolve(true);
+            })();
+          },
+        },
+      ]
+    );
   });
 }

@@ -24,6 +24,8 @@ export {
 export {
   accountChangeAction,
   confirmAccountChange,
+  promptAccountMismatch,
+  UNNAMED_LIBRARY,
   getCachedAthleteId,
   type AccountChangeKind,
 } from './lib/accountChange';

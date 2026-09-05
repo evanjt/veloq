@@ -183,6 +183,8 @@
     "accountChangeTitle": "Different account detected",
     "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
     "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeUnknownMessage": "This device holds a library from another account. Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeUnknownDemoMessage": "This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.",
     "accountChangeContinue": "Continue and delete",
     "disconnectAndClearTitle": "Sign out and delete data?",
     "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
@@ -198,6 +200,9 @@
     "exportError": "Failed to export backup.",
     "exporting": "Exporting...",
     "importBackup": "Import Backup",
+    "replaceLiveTitle": "Replace this device’s library?",
+    "replaceLiveMessage": "This will replace the library on this device ({{liveCount}} activities, newest {{liveDate}}) with the backup ({{backupCount}} activities, newest {{backupDate}}). Anything on the device that is not in the backup is deleted and cannot be recovered.",
+    "replaceLiveConfirm": "Replace",
     "importError": "Failed to import backup.",
     "importing": "Importing...",
     "namesRestored": "{{count}} names restored",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Grant Camera Access",
     "fillAllFields": "Please fill in all fields",
     "nextcloudSetup": "If using Nextcloud WebDAV",
-    "manualSetup": "Or enter manually"
+    "manualSetup": "Or enter manually",
+    "webdavHttpsRequired": "Use an https:// address. A plain http:// server would receive your password and your whole database unencrypted.",
+    "webdavInvalidUrl": "That is not a valid server address",
+    "webdavPlainLan": "Allow an unencrypted server on my own network"
   },
   "cache": {
     "addingActivities": "Adding activities...",
@@ -1303,7 +1311,9 @@
     "previewKeepTitle": "Apply these settings?",
     "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too.",
     "previewKeepRefusedTitle": "Re-analysis did not start",
-    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment."
+    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment.",
+    "elevationBackfillPause": "Pause download",
+    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route Matching above."
   },
   "stats": {
     "activities": "Activities",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Stopped early",
     "progressCount": "{{completed}} of {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "{{count}} still to fetch"
+    "remaining": "{{count}} still to fetch",
+    "statePaused": "Paused until the app is next opened"
   }
 }

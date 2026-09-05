@@ -1,7 +1,9 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
 use crate::persistence::persistent_engine_ffi::BACKUP_HANDLE;
-use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll};
+use crate::persistence::{
+    DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
+};
 use log::info;
 use std::sync::Arc;
 
@@ -70,6 +72,16 @@ impl VeloqEngine {
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })
+        })?
+    }
+
+    /// Empty what the engine can re-derive and keep what the athlete made:
+    /// the clear-cache button's database half.
+    fn clear_derived_data(&self) -> Result<DerivedClear, VeloqError> {
+        with_engine(|e| {
+            e.clear_derived().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
         })?
     }
 

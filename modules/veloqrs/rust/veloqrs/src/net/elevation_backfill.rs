@@ -48,6 +48,11 @@
 //! itself, not a bare re-cut. The launch trigger declines while this queue is
 //! non-empty, so the drained pass is the only thing left holding the
 //! migration. See [`terminal_cut`].
+//!
+//! The athlete can pause the download. The pause lives for the process and
+//! nowhere else: the pass in flight ends at its next batch boundary, no start
+//! in this process is accepted, and the next launch begins unpaused with no
+//! code to clear it, so a forgotten pause can never strand the migration.
 
 use crate::governor::Lane;
 use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
@@ -206,6 +211,47 @@ pub const BACKFILL_PHASE_PARTIAL: &str = "partial";
 /// The pass could not proceed at all: no credential, a rejected credential, or
 /// an unreadable queue.
 pub const BACKFILL_PHASE_FAILED: &str = "failed";
+/// The athlete paused the download. Nothing runs until the app is reopened.
+pub const BACKFILL_PHASE_PAUSED: &str = "paused";
+
+// ============================================================================
+// Pause
+// ============================================================================
+
+/// Whether the athlete has paused the download in this process.
+static PAUSED: AtomicBool = AtomicBool::new(false);
+
+/// Stop the download for the rest of this process.
+///
+/// The pass in flight ends at its next batch boundary and reports
+/// [`BACKFILL_PHASE_PAUSED`] itself; with no pass in flight the phase is set
+/// here so the page reads paused at once. Returns whether a pass was running.
+pub fn pause_elevation_backfill() -> bool {
+    PAUSED.store(true, Ordering::SeqCst);
+    let running = BACKFILL.running.load(Ordering::SeqCst);
+    if !running {
+        set_phase(BACKFILL_PHASE_PAUSED);
+    }
+    log::info!("[Elevation] backfill paused until the next launch");
+    running
+}
+
+/// Whether the download is paused in this process.
+pub fn elevation_backfill_paused() -> bool {
+    PAUSED.load(Ordering::SeqCst)
+}
+
+/// Lift the pause, which in production only a new process does.
+#[cfg(test)]
+pub(crate) fn reset_pause() {
+    PAUSED.store(false, Ordering::SeqCst);
+}
+
+/// [`reset_pause`] for the integration tests, which share the process.
+#[doc(hidden)]
+pub fn reset_elevation_backfill_pause() {
+    PAUSED.store(false, Ordering::SeqCst);
+}
 
 // ============================================================================
 // Observable state
@@ -586,6 +632,13 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
             queue.len() as u32 - outcome.elevated - outcome.unavailable,
             queue.len()
         ),
+        // The rows are untouched here too. Nothing asks again until the next
+        // launch, by design, and the phase says so.
+        Some(Stopped::Paused) => log::info!(
+            "[Elevation] backfill stopped: paused, {} of {} tracks still to ask",
+            queue.len() as u32 - outcome.elevated - outcome.unavailable,
+            queue.len()
+        ),
         None => {}
     }
 
@@ -599,7 +652,9 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
     // The terminal phase lands before the guard releases, so there is no
     // window in which the phase still reads "fetching" while detection has
     // already resumed.
-    set_phase(if drained {
+    set_phase(if matches!(stopped, Some(Stopped::Paused)) {
+        BACKFILL_PHASE_PAUSED
+    } else if drained {
         BACKFILL_PHASE_COMPLETE
     } else {
         BACKFILL_PHASE_PARTIAL
@@ -637,6 +692,8 @@ enum Stopped {
     /// TypeScript says the network is gone, so the rest of the queue would
     /// only be spent discovering that one request at a time.
     Offline,
+    /// The athlete paused the download.
+    Paused,
 }
 
 /// Whether this failure says the connection is gone rather than answering for
@@ -755,6 +812,14 @@ fn drain_queue_with(
             return Walk {
                 outcome,
                 stopped: Some(Stopped::Offline),
+                refused,
+                unasked: queue[chunk * BATCH..].to_vec(),
+            };
+        }
+        if elevation_backfill_paused() {
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Paused),
                 refused,
                 unasked: queue[chunk * BATCH..].to_vec(),
             };
@@ -1107,6 +1172,10 @@ fn start_pass() -> bool {
     let Some(slot) = RunGuard::claim() else {
         return false;
     };
+    if elevation_backfill_paused() {
+        log::info!("[Elevation] backfill deferred: paused");
+        return false;
+    }
     // The state TypeScript pushes is advisory, so this only declines on a
     // fresh offline. Unset or stale falls through and the pass runs, which is
     // exactly what happened before there was a state to read.
@@ -1663,6 +1732,82 @@ mod tests {
             assert_eq!(attempts, 0);
             assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
             connectivity::reset();
+        }
+    }
+    /// Scenario: the athlete pauses the download from Settings. The pass in
+    /// flight ends at its next batch boundary, and nothing starts another in
+    /// this process: not the launch trigger, not the ladder.
+    mod paused {
+        use super::*;
+        use crate::net::connectivity;
+
+        fn queue(n: usize) -> Vec<(String, String)> {
+            (0..n)
+                .map(|i| (format!("p{}", i), "Ride".to_string()))
+                .collect()
+        }
+
+        fn answer(ids: &[String]) -> Vec<(String, Fetched)> {
+            ids.iter()
+                .map(|id| (id.clone(), Fetched::NoAltitude))
+                .collect()
+        }
+
+        #[test]
+        fn a_pause_between_batches_ends_the_walk_with_no_further_fetches() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            reset_pause();
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                pause_elevation_backfill();
+                answer(ids)
+            });
+
+            assert_eq!(
+                asked, BATCH,
+                "the batch in flight finishes, the next never starts"
+            );
+            assert!(matches!(walk.stopped, Some(Stopped::Paused)));
+            assert_eq!(walk.unasked.len(), 2 * BATCH, "the rest is still owed");
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_pause_with_no_pass_in_flight_reads_as_paused_at_once() {
+            let _serial = serial_global_state();
+            reset_pause();
+            set_phase(BACKFILL_PHASE_PARTIAL);
+
+            assert!(!pause_elevation_backfill(), "nothing was running to stop");
+            assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
+            assert!(elevation_backfill_paused());
+
+            reset_pause();
+        }
+
+        #[test]
+        fn a_paused_start_attempts_nothing_even_with_work_outstanding() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            connectivity::reset();
+            reset_pause();
+            assert!(
+                matches!(
+                    with_persistent_engine(|engine| engine.elevation_backfill_remaining()),
+                    Some(Ok(n)) if n > 0
+                ),
+                "the fixture has to hold work, or the refusal proves nothing"
+            );
+
+            pause_elevation_backfill();
+            assert!(!start_pass(), "a paused install starts no pass");
+            assert!(!pass_running(), "and holds no slot");
+
+            reset_pause();
         }
     }
 }

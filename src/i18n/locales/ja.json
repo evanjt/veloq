@@ -183,6 +183,8 @@
     "accountChangeTitle": "別のアカウントが検出されました",
     "accountChangeMessage": "このデバイスには別のアカウント（{{cachedAthleteId}}）のキャッシュデータがあります。別のアカウントでサインインすると、そのデータは完全に削除されます。データを保持するには、戻ってそのアカウントでサインインしてください。",
     "accountChangeDemoMessage": "このデバイスには別のアカウント（{{cachedAthleteId}}）のキャッシュデータがあります。デモモードに進むと、そのデータは完全に削除されます。データを保持するには、戻って先にそのアカウントでサインインしてください。",
+    "accountChangeUnknownMessage": "このデバイスには別のアカウントのライブラリがあります。別のアカウントでサインインすると、完全に削除されます。保持するには、戻ってそのアカウントでサインインしてください。",
+    "accountChangeUnknownDemoMessage": "このデバイスには別のアカウントのライブラリがあります。デモモードに進むと、完全に削除されます。保持するには、戻って先にそのアカウントでサインインしてください。",
     "accountChangeContinue": "続行して削除",
     "disconnectAndClearTitle": "サインアウトしてデータを削除しますか？",
     "disconnectAndClearMessage": "サインアウトし、このデバイス上のすべてのキャッシュされたアクティビティ、GPSトラック、セクション、ルートデータを削除します。次回サインイン時にintervals.icuから再同期されます。この操作は元に戻せません。",
@@ -198,6 +200,9 @@
     "exportError": "バックアップのエクスポートに失敗しました。",
     "exporting": "エクスポート中...",
     "importBackup": "バックアップをインポート",
+    "replaceLiveTitle": "このデバイスのライブラリを置き換えますか？",
+    "replaceLiveMessage": "このデバイスのライブラリ（{{liveCount}}件、最新 {{liveDate}}）をバックアップ（{{backupCount}}件、最新 {{backupDate}}）で置き換えます。バックアップに含まれていないデータは削除され、復元できません。",
+    "replaceLiveConfirm": "置き換える",
     "importError": "バックアップのインポートに失敗しました。",
     "importing": "インポート中...",
     "namesRestored": "{{count}}件の名前を復元しました",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "カメラアクセスを許可",
     "fillAllFields": "すべてのフィールドを入力してください",
     "nextcloudSetup": "Nextcloud WebDAVの場合",
-    "manualSetup": "または手動で入力"
+    "manualSetup": "または手動で入力",
+    "webdavHttpsRequired": "https:// のアドレスを使ってください。http:// のサーバーにはパスワードとデータベース全体が暗号化されずに送られます。",
+    "webdavInvalidUrl": "有効なサーバーアドレスではありません",
+    "webdavPlainLan": "自分のネットワーク内の暗号化されていないサーバーを許可する"
   },
   "bestEffortsScreen": {
     "title": "ベストエフォート",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "この設定を適用しますか？",
     "previewKeepWarning": "適用するとライブラリ全体が再分析されます。このエリア外のセクションも変わる可能性があります。",
     "previewKeepRefusedTitle": "再解析が開始されませんでした",
-    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。"
+    "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。",
+    "elevationBackfillPause": "ダウンロードを一時停止",
+    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。"
   },
   "stats": {
     "activities": "アクティビティ",
@@ -1593,6 +1603,7 @@
     "stateFailed": "途中で停止しました",
     "progressCount": "{{total}} 件中 {{completed}} 件",
     "progressPercent": "{{percent}}%",
-    "remaining": "残り {{count}} 件を取得します"
+    "remaining": "残り {{count}} 件を取得します",
+    "statePaused": "次回アプリを開くまで一時停止"
   }
 }

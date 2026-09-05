@@ -67,6 +67,8 @@ function useDetail(job: BackgroundJob): string {
       return t('backgroundJobs.statePartial');
     case 'failed':
       return t('backgroundJobs.stateFailed');
+    case 'paused':
+      return t('backgroundJobs.statePaused');
     default:
       return t('backgroundJobs.stateIdle');
   }

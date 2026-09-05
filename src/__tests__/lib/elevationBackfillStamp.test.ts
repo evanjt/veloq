@@ -9,10 +9,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import {
-  clearElevationBackfillStamp,
-  startElevationBackfillAfterUpdate,
-} from '@/features/routes/lib/elevationBackfillTrigger';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { clearDatabaseStamps } from '@/shared/storage/databaseStamps';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -45,7 +43,7 @@ describe('elevation backfill stamp', () => {
 
   it('asks again once the stamp is cleared, on the same version', async () => {
     await AsyncStorage.setItem(VERSION_KEY, '0.4.0');
-    await clearElevationBackfillStamp();
+    await clearDatabaseStamps();
 
     await expect(startElevationBackfillAfterUpdate()).resolves.toBe(true);
     expect(engine.startElevationBackfill).toHaveBeenCalledTimes(1);
@@ -53,13 +51,13 @@ describe('elevation backfill stamp', () => {
 
   it('leaves nothing behind to read', async () => {
     await AsyncStorage.setItem(VERSION_KEY, '0.4.0');
-    await clearElevationBackfillStamp();
+    await clearDatabaseStamps();
 
     await expect(AsyncStorage.getItem(VERSION_KEY)).resolves.toBeNull();
   });
 
   it('is safe to clear when no stamp was written', async () => {
-    await expect(clearElevationBackfillStamp()).resolves.toBeUndefined();
+    await expect(clearDatabaseStamps()).resolves.toBeUndefined();
     await expect(AsyncStorage.getItem(VERSION_KEY)).resolves.toBeNull();
   });
 });

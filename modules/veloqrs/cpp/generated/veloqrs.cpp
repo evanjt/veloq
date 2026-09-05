@@ -268,6 +268,8 @@ RustBuffer uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_veloqengine_clear(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_veloqengine_destroy(
@@ -867,6 +869,8 @@ int8_t
 uniffi_veloqrs_fn_func_is_cutover_pending(RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_is_cutover_running(RustCallStatus *uniffi_out_err);
+int8_t
+uniffi_veloqrs_fn_func_pause_elevation_backfill(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_set_network_online(int8_t online,
                                                RustCallStatus *uniffi_out_err);
 int8_t
@@ -1010,6 +1014,7 @@ uint16_t uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining();
 uint16_t uniffi_veloqrs_checksum_func_get_network_push();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_pending();
 uint16_t uniffi_veloqrs_checksum_func_is_cutover_running();
+uint16_t uniffi_veloqrs_checksum_func_pause_elevation_backfill();
 uint16_t uniffi_veloqrs_checksum_func_set_network_online();
 uint16_t uniffi_veloqrs_checksum_func_start_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_start_elevation_backfill();
@@ -1058,6 +1063,7 @@ uint16_t uniffi_veloqrs_checksum_method_veloqengine_activities();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_destroy();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_detection();
@@ -5112,6 +5118,19 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7884,6 +7903,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_is_cutover_running(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_set_network_online"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8600,6 +8630,18 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_pause_elevation_backfill(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_func_set_network_online"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9143,6 +9185,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_clear_derived_data"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data(
+                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_"
         "sections"] = jsi::Function::createFromHostFunction(
@@ -12908,6 +12962,21 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
 
   return jsi::Value::undefined();
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -16542,6 +16611,17 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_is_cutover_running(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_pause_elevation_backfill(&status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_set_network_online(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -17244,6 +17324,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_pause_elevation_backfill(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_pause_elevation_backfill();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_set_network_online(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -17610,6 +17698,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_veloqengine_clear();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

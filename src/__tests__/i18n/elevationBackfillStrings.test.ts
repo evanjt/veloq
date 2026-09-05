@@ -1,6 +1,7 @@
 /**
- * The elevation backfill status line ships eleven strings: seven of status, and
- * four that say why the download is happening and what waits on it. Every
+ * The elevation backfill status line ships thirteen strings: seven of status,
+ * four that say why the download is happening and what waits on it, and two
+ * for the pause control and the paused state. Every
  * locale needs a real translation with the interpolation placeholders intact,
  * otherwise the line reads as English or renders a raw `{{count}}`. The retry
  * line counts activity tracks, so it is pluralised rather than one sentence for
@@ -24,6 +25,8 @@ const KEYS = [
   'elevationBackfillWhy',
   'elevationBackfillWhyTitle',
   'elevationBackfillWhyBody',
+  'elevationBackfillPause',
+  'elevationBackfillPaused',
 ] as const;
 
 const PLACEHOLDERS: Record<string, string[]> = {

@@ -183,6 +183,8 @@
     "accountChangeTitle": "Compte différent détecté",
     "accountChangeMessage": "Cet appareil contient des données en cache d'un autre compte ({{cachedAthleteId}}). Se connecter avec un autre compte supprimera définitivement ces données. Revenez en arrière et connectez-vous à ce compte pour les conserver.",
     "accountChangeDemoMessage": "Cet appareil contient des données en cache d'un autre compte ({{cachedAthleteId}}). Passer en mode démo supprimera définitivement ces données. Revenez en arrière et connectez-vous d'abord à ce compte pour les conserver.",
+    "accountChangeUnknownMessage": "Cet appareil contient une bibliothèque d'un autre compte. Se connecter avec un autre compte la supprimera définitivement. Pour la conserver, revenez en arrière et connectez-vous à ce compte.",
+    "accountChangeUnknownDemoMessage": "Cet appareil contient une bibliothèque d'un autre compte. Passer en mode démo la supprimera définitivement. Pour la conserver, revenez en arrière et connectez-vous d'abord à ce compte.",
     "accountChangeContinue": "Continuer et supprimer",
     "disconnectAndClearTitle": "Se déconnecter et supprimer les données ?",
     "disconnectAndClearMessage": "Cela vous déconnecte ET supprime toutes les activités, traces GPS, sections et données de parcours en cache sur cet appareil. Les données seront resynchronisées depuis intervals.icu lors de votre prochaine connexion. Cette action est irréversible.",
@@ -198,6 +200,9 @@
     "exportError": "Échec de l'exportation de la sauvegarde.",
     "exporting": "Exportation...",
     "importBackup": "Importer la sauvegarde",
+    "replaceLiveTitle": "Remplacer la bibliothèque de cet appareil ?",
+    "replaceLiveMessage": "Cela remplacera la bibliothèque de cet appareil ({{liveCount}} activités, la plus récente {{liveDate}}) par la sauvegarde ({{backupCount}} activités, la plus récente {{backupDate}}). Tout ce qui se trouve sur l'appareil et pas dans la sauvegarde sera supprimé et ne pourra pas être récupéré.",
+    "replaceLiveConfirm": "Remplacer",
     "importError": "Échec de l'importation de la sauvegarde.",
     "importing": "Importation...",
     "namesRestored": "{{count}} noms restaurés",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Autoriser la caméra",
     "fillAllFields": "Veuillez remplir tous les champs",
     "nextcloudSetup": "Pour WebDAV Nextcloud",
-    "manualSetup": "Ou saisir manuellement"
+    "manualSetup": "Ou saisir manuellement",
+    "webdavHttpsRequired": "Utilisez une adresse https://. Un serveur http:// recevrait votre mot de passe et toute votre base de données en clair.",
+    "webdavInvalidUrl": "Ce n'est pas une adresse de serveur valide",
+    "webdavPlainLan": "Autoriser un serveur non chiffré sur mon propre réseau"
   },
   "bestEffortsScreen": {
     "title": "Meilleurs efforts",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Appliquer ces réglages ?",
     "previewKeepWarning": "Conserver relance l'analyse de toute votre bibliothèque. Les sections hors de cette zone peuvent aussi changer.",
     "previewKeepRefusedTitle": "La nouvelle analyse n'a pas démarré",
-    "previewKeepRefused": "Vos réglages sont enregistrés. Une autre analyse est en cours, le recalcul n'a donc pas démarré. Réessayez dans un instant."
+    "previewKeepRefused": "Vos réglages sont enregistrés. Une autre analyse est en cours, le recalcul n'a donc pas démarré. Réessayez dans un instant.",
+    "elevationBackfillPause": "Mettre en pause",
+    "elevationBackfillPaused": "Téléchargement de l'altitude en pause. Il reprendra à la prochaine ouverture de l'app. Pour arrêter complètement la détection de sections, désactivez Correspondance de parcours ci-dessus."
   },
   "stats": {
     "activities": "Activités",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Arrêtée prématurément",
     "progressCount": "{{completed}} sur {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "{{count}} restantes à télécharger"
+    "remaining": "{{count}} restantes à télécharger",
+    "statePaused": "En pause jusqu'à la prochaine ouverture de l'app"
   }
 }

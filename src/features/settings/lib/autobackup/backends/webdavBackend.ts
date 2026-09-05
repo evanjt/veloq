@@ -8,13 +8,25 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
-import { getWebdavConfig } from '../webdavConfig';
+import {
+  getWebdavConfig,
+  webdavConfigProblem,
+  webdavUrlProblemMessage,
+  type WebdavConfig,
+} from '../webdavConfig';
 import { transferFailure, transportFailure } from './errors';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('WebdavBackend');
 
 const REMOTE_DIR = 'Veloq';
+
+/** The stored config, or the reason nothing may be sent to it. */
+function requireConfig(): WebdavConfig {
+  const problem = webdavConfigProblem();
+  if (problem) throw new Error(webdavUrlProblemMessage(problem));
+  return getWebdavConfig() as WebdavConfig;
+}
 
 /** A fetch that reports a dropped connection as transient rather than as a server verdict. */
 async function request(operation: string, url: string, init: RequestInit): Promise<Response> {
@@ -97,8 +109,9 @@ async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>)
 
 /** Test connection to the WebDAV server. Returns null on success, error message on failure. */
 export async function testWebdavConnection(): Promise<string | null> {
-  const config = getWebdavConfig();
-  if (!config) return 'No WebDAV server configured';
+  const problem = webdavConfigProblem();
+  if (problem) return webdavUrlProblemMessage(problem);
+  const config = getWebdavConfig() as WebdavConfig;
 
   try {
     const headers = authHeaders(config.username, config.password);
@@ -123,12 +136,11 @@ export const webdavBackend: BackupBackend = {
   name: 'WebDAV',
 
   async isAvailable(): Promise<boolean> {
-    return getWebdavConfig() !== null;
+    return webdavConfigProblem() === null;
   },
 
   async listBackups(): Promise<BackupEntry[]> {
-    const config = getWebdavConfig();
-    if (!config) return [];
+    const config = requireConfig();
 
     const headers = authHeaders(config.username, config.password);
     const dirUrl = joinUrl(config.url, REMOTE_DIR);
@@ -175,8 +187,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
-    const config = getWebdavConfig();
-    if (!config) throw new Error('No WebDAV server configured');
+    const config = requireConfig();
 
     const headers = authHeaders(config.username, config.password);
     await ensureRemoteDir(config.url, headers);
@@ -215,8 +226,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const config = getWebdavConfig();
-    if (!config) throw new Error('No WebDAV server configured');
+    const config = requireConfig();
 
     const headers = authHeaders(config.username, config.password);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);
@@ -233,8 +243,8 @@ export const webdavBackend: BackupBackend = {
   },
 
   async delete(backupId: string): Promise<void> {
-    const config = getWebdavConfig();
-    if (!config) return;
+    if (webdavConfigProblem()) return;
+    const config = getWebdavConfig() as WebdavConfig;
 
     const headers = authHeaders(config.username, config.password);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);

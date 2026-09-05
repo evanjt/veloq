@@ -364,3 +364,113 @@ fn quarantine_salvages_user_sections_and_intents() {
         "the detector's own cache still starts over"
     );
 }
+
+/// Scenario: a backup or a synced file written by a later build carries a
+/// schema this build has never seen. Migrations only run upward, so the extra
+/// columns are simply missing and every query that names one fails.
+///
+/// Expected behaviour: the open is refused, naming both versions, and the file
+/// is left exactly where it is. Quarantining it would move a healthy database
+/// aside for the crime of being newer than the app.
+#[test]
+fn a_forward_schema_is_refused_and_left_in_place() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    {
+        let mut engine = PersistentEngine::new(&db_str).unwrap();
+        engine
+            .add_activity(
+                "a1".to_string(),
+                vec![
+                    GpsPoint::new(46.2330, 7.3600),
+                    GpsPoint::new(46.2340, 7.3610),
+                    GpsPoint::new(46.2350, 7.3620),
+                ],
+                "Ride".to_string(),
+            )
+            .unwrap();
+    }
+
+    let supported = veloqrs::persistence::SUPPORTED_SCHEMA_VERSION;
+    {
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
+            rusqlite::params![(supported + 1).to_string()],
+        )
+        .unwrap();
+    }
+
+    let message = match PersistentEngine::new(&db_str) {
+        Ok(_) => panic!("a forward schema must not open"),
+        Err(e) => e.to_string(),
+    };
+    assert!(
+        message.contains(&(supported + 1).to_string()) && message.contains(&supported.to_string()),
+        "the refusal must name both versions: {message}"
+    );
+
+    assert!(
+        !persistent_engine_init(db_str.clone()),
+        "a forward database must report failure rather than open"
+    );
+    assert!(
+        quarantine_files(tmp.path()).is_empty(),
+        "a newer database is healthy and must not be quarantined: {:?}",
+        quarantine_files(tmp.path())
+    );
+    assert_eq!(
+        activity_count(&db_path),
+        1,
+        "the newer database must be left untouched"
+    );
+
+    // Back on a version this build knows, the same file opens.
+    {
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
+            rusqlite::params![supported.to_string()],
+        )
+        .unwrap();
+    }
+    assert!(persistent_engine_init(db_str.clone()));
+    assert_eq!(activity_count(&db_path), 1);
+}
+
+/// The version the probe reports is the one a fresh database is stamped with,
+/// or the restore guard compares a backup against a number that means nothing.
+#[test]
+fn the_probe_reports_the_version_a_fresh_database_gets() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    PersistentEngine::new(&db_str).unwrap();
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let stamped: i32 = conn
+        .query_row(
+            "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'schema_version'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stamped, veloqrs::persistence::SUPPORTED_SCHEMA_VERSION);
+
+    let probed: serde_json::Value =
+        serde_json::from_str(&veloqrs::ffi::validate_backup_database(db_str).unwrap()).unwrap();
+    assert_eq!(
+        probed["supported_schema_version"].as_i64(),
+        Some(i64::from(stamped)),
+        "the probe must report this build's version, not the file's"
+    );
+    assert_eq!(
+        probed["schema_version"].as_str(),
+        Some(stamped.to_string().as_str())
+    );
+}

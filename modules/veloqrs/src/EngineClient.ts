@@ -44,6 +44,7 @@ import type {
   FfiSectionConfig,
   FfiIndexActivitySummary,
   DownloadProgressResult,
+  DerivedClear,
 } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
@@ -263,6 +264,16 @@ class EngineClient implements DelegateHost {
     }
   }
 
+  /**
+   * Empty what the engine can re-derive and keep what the athlete made: the
+   * detected catalogue and the activities no kept section references. Returns
+   * what went, or null when the engine is not open.
+   */
+  clearDerivedData(): DerivedClear | null {
+    if (!this.ready) return null;
+    return this.timed('clearDerivedData', () => this.engine.clearDerivedData());
+  }
+
   /** Drop the Rust engine singleton without clearing data. Used before database restore. */
   destroyEngine(): void {
     try {
@@ -276,7 +287,17 @@ class EngineClient implements DelegateHost {
     this.pendingMetrics = null;
   }
 
+  /**
+   * Wipe the engine and re-open it on the same database.
+   *
+   * Callers keep using the handle straight after this: the identity write that
+   * follows "Clear & Sync" is one, and it is a no-op on a closed handle. The
+   * re-open is what makes the wipe a wipe rather than a shutdown. A re-open
+   * that fails leaves the handle closed and reported closed, which is the same
+   * state a failed launch leaves.
+   */
   clear(): void {
+    const dbPath = this.dbPath;
     try {
       this.timed('clear', () => this.engine?.clear());
     } catch {
@@ -294,6 +315,7 @@ class EngineClient implements DelegateHost {
     this.dbPath = null;
     this.engine = null;
     this.pendingMetrics = null;
+    if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
@@ -351,6 +373,8 @@ class EngineClient implements DelegateHost {
   getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
+
+  pauseElevationBackfill = (): boolean => elevationDelegates.pauseElevationBackfill(this);
 
   getElevationBackfillProgress = (): ElevationBackfillProgress | null =>
     elevationDelegates.getElevationBackfillProgress(this);

@@ -183,6 +183,8 @@
     "accountChangeTitle": "Ander account gedetecteerd",
     "accountChangeMessage": "Dit apparaat heeft gecachte gegevens van een ander account ({{cachedAthleteId}}). Inloggen met een ander account verwijdert deze gegevens permanent. Ga terug en log in op dat account om ze te behouden.",
     "accountChangeDemoMessage": "Dit apparaat heeft gecachte gegevens van een ander account ({{cachedAthleteId}}). Doorgaan naar demo-modus verwijdert deze gegevens permanent. Ga terug en log eerst in op dat account om ze te behouden.",
+    "accountChangeUnknownMessage": "Dit apparaat bevat een bibliotheek van een ander account. Inloggen met een ander account verwijdert deze permanent. Ga terug en log in op dat account om deze te behouden.",
+    "accountChangeUnknownDemoMessage": "Dit apparaat bevat een bibliotheek van een ander account. Doorgaan naar demo-modus verwijdert deze permanent. Ga terug en log eerst in op dat account om deze te behouden.",
     "accountChangeContinue": "Doorgaan en verwijderen",
     "disconnectAndClearTitle": "Uitloggen en gegevens verwijderen?",
     "disconnectAndClearMessage": "Dit logt je uit EN verwijdert alle gecachte activiteiten, GPS-tracks, secties en routegegevens op dit apparaat. De gegevens worden opnieuw gesynchroniseerd vanuit intervals.icu wanneer je weer inlogt. Dit kan niet ongedaan worden gemaakt.",
@@ -198,6 +200,9 @@
     "exportError": "Back-up exporteren mislukt.",
     "exporting": "Exporteren...",
     "importBackup": "Back-up importeren",
+    "replaceLiveTitle": "Bibliotheek van dit apparaat vervangen?",
+    "replaceLiveMessage": "Dit vervangt de bibliotheek op dit apparaat ({{liveCount}} activiteiten, nieuwste {{liveDate}}) door de back-up ({{backupCount}} activiteiten, nieuwste {{backupDate}}). Alles op het apparaat dat niet in de back-up staat wordt verwijderd en kan niet worden hersteld.",
+    "replaceLiveConfirm": "Vervangen",
     "importError": "Back-up importeren mislukt.",
     "importing": "Importeren...",
     "namesRestored": "{{count}} namen hersteld",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Cameratoegang verlenen",
     "fillAllFields": "Vul alle velden in",
     "nextcloudSetup": "Bij gebruik van Nextcloud WebDAV",
-    "manualSetup": "Of handmatig invoeren"
+    "manualSetup": "Of handmatig invoeren",
+    "webdavHttpsRequired": "Gebruik een https://-adres. Een gewone http://-server zou je wachtwoord en je hele database onversleuteld ontvangen.",
+    "webdavInvalidUrl": "Dat is geen geldig serveradres",
+    "webdavPlainLan": "Een onversleutelde server op mijn eigen netwerk toestaan"
   },
   "bestEffortsScreen": {
     "title": "Beste prestaties",
@@ -1277,7 +1285,9 @@
     "previewKeepTitle": "Deze instellingen toepassen?",
     "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
     "previewKeepRefusedTitle": "Heranalyse is niet gestart",
-    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw."
+    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw.",
+    "elevationBackfillPause": "Download pauzeren",
+    "elevationBackfillPaused": "Hoogtedownload gepauzeerd. Deze gaat verder wanneer je de app opnieuw opent. Zet Route-matching hierboven uit om sectiedetectie helemaal te stoppen."
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1593,6 +1603,7 @@
     "stateFailed": "Voortijdig gestopt",
     "progressCount": "{{completed}} van {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Nog {{count}} op te halen"
+    "remaining": "Nog {{count}} op te halen",
+    "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend"
   }
 }

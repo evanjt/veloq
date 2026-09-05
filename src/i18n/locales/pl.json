@@ -183,6 +183,8 @@
     "accountChangeTitle": "Wykryto inne konto",
     "accountChangeMessage": "To urządzenie ma dane z pamięci podręcznej innego konta ({{cachedAthleteId}}). Logowanie na inne konto trwale usunie te dane. Wróć i zaloguj się na tamto konto, aby je zachować.",
     "accountChangeDemoMessage": "To urządzenie ma dane z pamięci podręcznej innego konta ({{cachedAthleteId}}). Przejście do trybu demo trwale usunie te dane. Wróć i najpierw zaloguj się na tamto konto, aby je zachować.",
+    "accountChangeUnknownMessage": "To urządzenie zawiera bibliotekę innego konta. Logowanie na inne konto trwale ją usunie. Aby ją zachować, wróć i zaloguj się na tamto konto.",
+    "accountChangeUnknownDemoMessage": "To urządzenie zawiera bibliotekę innego konta. Przejście do trybu demo trwale ją usunie. Aby ją zachować, wróć i najpierw zaloguj się na tamto konto.",
     "accountChangeContinue": "Kontynuuj i usuń",
     "disconnectAndClearTitle": "Wylogować się i usunąć dane?",
     "disconnectAndClearMessage": "To wylogowuje Cię I usuwa wszystkie zapisane aktywności, ślady GPS, odcinki i dane tras z tego urządzenia. Dane zostaną ponownie zsynchronizowane z intervals.icu przy następnym logowaniu. Tej operacji nie można cofnąć.",
@@ -198,6 +200,9 @@
     "exportError": "Nie udało się wyeksportować kopii zapasowej.",
     "exporting": "Eksportowanie...",
     "importBackup": "Importuj kopię zapasową",
+    "replaceLiveTitle": "Zastąpić bibliotekę na tym urządzeniu?",
+    "replaceLiveMessage": "Spowoduje to zastąpienie biblioteki na tym urządzeniu ({{liveCount}} aktywności, najnowsza {{liveDate}}) kopią zapasową ({{backupCount}} aktywności, najnowsza {{backupDate}}). Wszystko, czego nie ma w kopii, zostanie usunięte i nie będzie można tego odzyskać.",
+    "replaceLiveConfirm": "Zastąp",
     "importError": "Nie udało się zaimportować kopii zapasowej.",
     "importing": "Importowanie...",
     "namesRestored": "{{count}} nazw przywróconych",
@@ -247,7 +252,10 @@
     "grantCameraAccess": "Przyznaj dostęp do aparatu",
     "fillAllFields": "Wypełnij wszystkie pola",
     "nextcloudSetup": "Jeśli używasz Nextcloud WebDAV",
-    "manualSetup": "Lub wpisz ręcznie"
+    "manualSetup": "Lub wpisz ręcznie",
+    "webdavHttpsRequired": "Użyj adresu https://. Zwykły serwer http:// otrzymałby twoje hasło i całą bazę danych bez szyfrowania.",
+    "webdavInvalidUrl": "To nie jest prawidłowy adres serwera",
+    "webdavPlainLan": "Zezwól na nieszyfrowany serwer w mojej własnej sieci"
   },
   "bestEffortsScreen": {
     "title": "Najlepsze wysilki",
@@ -1279,7 +1287,9 @@
     "previewKeepTitle": "Zastosować te ustawienia?",
     "previewKeepWarning": "Zachowanie ponownie przeanalizuje całą bibliotekę. Sekcje poza tym obszarem także mogą się zmienić.",
     "previewKeepRefusedTitle": "Ponowna analiza nie ruszyła",
-    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę."
+    "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę.",
+    "elevationBackfillPause": "Wstrzymaj pobieranie",
+    "elevationBackfillPaused": "Pobieranie wysokości wstrzymane. Zostanie wznowione przy następnym otwarciu aplikacji. Aby całkowicie wyłączyć wykrywanie sekcji, wyłącz powyżej Dopasowywanie tras."
   },
   "stats": {
     "activities": "Aktywności",
@@ -1595,6 +1605,7 @@
     "stateFailed": "Zatrzymane przedwcześnie",
     "progressCount": "{{completed}} z {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Pozostało {{count}} do pobrania"
+    "remaining": "Pozostało {{count}} do pobrania",
+    "statePaused": "Wstrzymane do następnego otwarcia aplikacji"
   }
 }

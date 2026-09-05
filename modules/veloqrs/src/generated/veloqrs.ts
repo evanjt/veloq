@@ -275,6 +275,26 @@ export function isCutoverRunning(): boolean {
   );
 }
 /**
+ * Pause the elevation backfill for the rest of this process.
+ *
+ * The pass in flight ends at its next batch and reports `paused`, and no
+ * launch or resume attempt starts another until the app is reopened. Nothing
+ * is persisted, so a forgotten pause can never strand the migration. Returns
+ * whether a pass was running when the pause landed.
+ */
+export function pauseElevationBackfill(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Tell the engine what TypeScript sees on the network.
  *
  * `Q65` put the network lifecycle in Rust, and nothing in the crate can see
@@ -382,7 +402,8 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
 }
 /**
  * Validate a backup database file without touching the global engine.
- * Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+ * Opens the file read-only and returns JSON: {"schema_version", "athlete_id",
+ * "activity_count", "newest_activity"}.
  */
 export function validateBackupDatabase(path: string): string /*throws*/ {
   return FfiConverterString.lift(
@@ -635,6 +656,58 @@ const FfiConverterTypeCutoverProgress = (() => {
       return (
         FfiConverterString.allocationSize(value.phase) +
         FfiConverterBool.allocationSize(value.running)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a derived-data clear removed and what it kept.
+ */
+export type DerivedClear = {
+  sectionsRemoved: /*u32*/ number;
+  activitiesRemoved: /*u32*/ number;
+  activitiesKept: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link DerivedClear} record objects.
+ */
+export const DerivedClear = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DerivedClear, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DerivedClear>,
+  });
+})();
+
+const FfiConverterTypeDerivedClear = (() => {
+  type TypeName = DerivedClear;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionsRemoved: FfiConverterUInt32.read(from),
+        activitiesRemoved: FfiConverterUInt32.read(from),
+        activitiesKept: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.sectionsRemoved, into);
+      FfiConverterUInt32.write(value.activitiesRemoved, into);
+      FfiConverterUInt32.write(value.activitiesKept, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.sectionsRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesKept)
       );
     }
   }
@@ -16701,6 +16774,11 @@ export interface VeloqEngineLike {
   bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   clear() /*throws*/ : void;
   /**
+   * Empty what the engine can re-derive and keep what the athlete made:
+   * the clear-cache button's database half.
+   */
+  clearDerivedData() /*throws*/ : DerivedClear;
+  /**
    * Clear only route/section data, keeping GPS tracks and activities.
    * Used when route matching is toggled off.
    */
@@ -16855,6 +16933,27 @@ export class VeloqEngine
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Empty what the engine can re-derive and keep what the athlete made:
+   * the clear-cache button's database half.
+   */
+  clearDerivedData(): DerivedClear /*throws*/ {
+    return FfiConverterTypeDerivedClear.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_derived_data(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -17815,6 +17914,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
+    42876
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
     16099
   ) {
@@ -17856,7 +17963,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    1802
+    28613
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
@@ -18172,6 +18279,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_clear",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data() !==
+    20909
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_clear_derived_data",
     );
   }
   if (
@@ -19827,6 +19942,7 @@ export default Object.freeze({
     FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
+    FfiConverterTypeDerivedClear,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
