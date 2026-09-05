@@ -42,33 +42,39 @@ impl PersistentEngine {
 
     /// Get weekly comparison: current week + previous week + FTP trend.
     /// Bundles 3 FFI calls into 1 for 3x reduction in FFI overhead (30ms → 10ms).
-    /// Get aggregated zone distribution for a sport type and zone type.
+    /// Aggregated zone distribution for a sport and its family, so a gravel
+    /// ride's seconds reach the chart the athlete filtered to cycling.
     /// zone_type: "power" | "hr"
     pub fn get_zone_distribution(&self, sport_type: &str, zone_type: &str) -> Vec<f64> {
+        let family = crate::sport::sql_list(&crate::sport::family_of(sport_type));
         // Use cached zone columns for 40-100x speedup (was 50-200ms, now 2-5ms)
         let query = if zone_type == "power" {
-            "SELECT
-                COALESCE(SUM(power_z1), 0),
-                COALESCE(SUM(power_z2), 0),
-                COALESCE(SUM(power_z3), 0),
-                COALESCE(SUM(power_z4), 0),
-                COALESCE(SUM(power_z5), 0),
-                COALESCE(SUM(power_z6), 0),
-                COALESCE(SUM(power_z7), 0)
-             FROM activity_metrics WHERE sport_type = ?"
+            format!(
+                "SELECT
+                    COALESCE(SUM(power_z1), 0),
+                    COALESCE(SUM(power_z2), 0),
+                    COALESCE(SUM(power_z3), 0),
+                    COALESCE(SUM(power_z4), 0),
+                    COALESCE(SUM(power_z5), 0),
+                    COALESCE(SUM(power_z6), 0),
+                    COALESCE(SUM(power_z7), 0)
+                 FROM activity_metrics WHERE sport_type IN ({family})"
+            )
         } else if zone_type == "hr" {
-            "SELECT
-                COALESCE(SUM(hr_z1), 0),
-                COALESCE(SUM(hr_z2), 0),
-                COALESCE(SUM(hr_z3), 0),
-                COALESCE(SUM(hr_z4), 0),
-                COALESCE(SUM(hr_z5), 0)
-             FROM activity_metrics WHERE sport_type = ?"
+            format!(
+                "SELECT
+                    COALESCE(SUM(hr_z1), 0),
+                    COALESCE(SUM(hr_z2), 0),
+                    COALESCE(SUM(hr_z3), 0),
+                    COALESCE(SUM(hr_z4), 0),
+                    COALESCE(SUM(hr_z5), 0)
+                 FROM activity_metrics WHERE sport_type IN ({family})"
+            )
         } else {
             return Vec::new();
         };
 
-        match self.db.query_row(query, params![sport_type], |row| {
+        match self.db.query_row(&query, [], |row| {
             if zone_type == "power" {
                 Ok(vec![
                     row.get(0)?,
@@ -115,13 +121,15 @@ impl PersistentEngine {
             previous_date: None,
         };
 
-        // Filter to cycling sports only - running/other FTP values are distinct metrics
-        let mut stmt = match self.db.prepare(
+        // Cycling only: a running or swimming FTP is a different number.
+        let query = format!(
             "SELECT ftp, date FROM ftp_history
-             WHERE sport_type IN ('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'TrackRide', 'Cyclocross', 'Handcycle', 'Velomobile', 'EBikeRide')
+             WHERE sport_type IN ({})
              ORDER BY date DESC
              LIMIT 20",
-        ) {
+            crate::sport::sql_list(crate::sport::CYCLING)
+        );
+        let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(_) => return default,
         };
@@ -166,7 +174,8 @@ impl PersistentEngine {
         );
     }
 
-    /// Get pace trend: latest and previous distinct critical speed values with dates.
+    /// Pace trend for a sport and its family: latest and previous distinct
+    /// critical speed values with dates.
     pub fn get_pace_trend(&self, sport_type: &str) -> crate::FfiPaceTrend {
         let default = crate::FfiPaceTrend {
             latest_pace: None,
@@ -175,20 +184,20 @@ impl PersistentEngine {
             previous_date: None,
         };
 
-        let mut stmt = match self.db.prepare(
+        let query = format!(
             "SELECT critical_speed, date FROM pace_history
-             WHERE sport_type = ?
+             WHERE sport_type IN ({})
              ORDER BY date DESC
              LIMIT 20",
-        ) {
+            crate::sport::sql_list(&crate::sport::family_of(sport_type))
+        );
+        let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(_) => return default,
         };
 
         let rows: Vec<(f64, i64)> = stmt
-            .query_map(rusqlite::params![sport_type], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            })
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
             .ok()
             .map(|iter| iter.flatten().collect())
             .unwrap_or_default();
@@ -988,4 +997,112 @@ fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
     let slope = (n * sum_xy - sum_x * sum_y) / denom;
     let intercept = (sum_y - slope * sum_x) / n;
     (slope, intercept)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::PersistentEngine;
+    use crate::ActivityMetrics;
+
+    fn metric(id: &str, sport: &str, ftp: Option<u16>) -> ActivityMetrics {
+        ActivityMetrics {
+            activity_id: id.to_string(),
+            name: sport.to_string(),
+            date: 1_700_000_000,
+            distance: 40_000.0,
+            moving_time: 3_600,
+            elapsed_time: 3_700,
+            elevation_gain: 400.0,
+            avg_hr: Some(140),
+            avg_power: Some(200),
+            sport_type: sport.to_string(),
+            training_load: None,
+            ftp,
+            power_zone_times: Some(vec![10, 20, 30, 40, 50, 60, 70]),
+            hr_zone_times: Some(vec![11, 22, 33, 44, 55]),
+        }
+    }
+
+    fn engine_with(metrics: Vec<ActivityMetrics>) -> PersistentEngine {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine.set_activity_metrics(metrics).unwrap();
+        engine
+    }
+
+    // Scenario: the zone chart asked for `Ride` and the aggregate matched the
+    // string exactly, so a gravel or e-bike ride's zone seconds never reached
+    // the chart the athlete filtered to cycling.
+    #[test]
+    fn zone_distribution_sums_every_sport_in_the_family() {
+        let engine = engine_with(vec![
+            metric("a1", "Ride", None),
+            metric("a2", "GravelRide", None),
+            metric("a3", "EBikeRide", None),
+            metric("a4", "Run", None),
+        ]);
+
+        assert_eq!(
+            engine.get_zone_distribution("Ride", "power"),
+            vec![30.0, 60.0, 90.0, 120.0, 150.0, 180.0, 210.0]
+        );
+        assert_eq!(
+            engine.get_zone_distribution("Run", "hr"),
+            vec![11.0, 22.0, 33.0, 44.0, 55.0]
+        );
+    }
+
+    #[test]
+    fn zone_distribution_of_an_unknown_sport_is_its_own_rows() {
+        let engine = engine_with(vec![
+            metric("a1", "Ride", None),
+            metric("a2", "Unicycle", None),
+        ]);
+
+        assert_eq!(
+            engine.get_zone_distribution("Unicycle", "hr"),
+            vec![11.0, 22.0, 33.0, 44.0, 55.0]
+        );
+        assert_eq!(
+            engine
+                .get_zone_distribution("Pogo", "hr")
+                .iter()
+                .sum::<f64>(),
+            0.0
+        );
+        assert!(engine.get_zone_distribution("Ride", "cadence").is_empty());
+    }
+
+    #[test]
+    fn ftp_trend_reads_every_cycling_sport_and_no_other() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut older = metric("a1", "TrackRide", Some(240));
+        older.date = 1_700_000_000;
+        let mut newer = metric("a2", "EBikeRide", Some(260));
+        newer.date = 1_700_100_000;
+        let mut run = metric("a3", "Run", Some(300));
+        run.date = 1_700_200_000;
+        engine
+            .set_activity_metrics(vec![older, newer, run])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend();
+        assert_eq!(trend.latest_ftp, Some(260));
+        assert_eq!(trend.previous_ftp, Some(240));
+    }
+
+    // The pace trend was keyed on `Run` alone, so a snapshot saved for a trail
+    // run was invisible to the running trend.
+    #[test]
+    fn pace_trend_reads_every_sport_in_the_family() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("TrailRun", 3.0, None, None, 1_700_000_000);
+        engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_100_000);
+        engine.save_pace_snapshot("Swim", 1.2, None, None, 1_700_200_000);
+
+        let trend = engine.get_pace_trend("Run");
+        assert_eq!(trend.latest_pace, Some(3.5));
+        assert_eq!(trend.previous_pace, Some(3.0));
+        assert_eq!(engine.get_pace_trend("Swim").latest_pace, Some(1.2));
+        assert!(engine.get_pace_trend("Pogo").latest_pace.is_none());
+    }
 }

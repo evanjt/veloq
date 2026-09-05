@@ -14,6 +14,7 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/features/routes/hooks/useEngine';
+import { trendArrow, trendOfMetric, type TrendMetric } from '@/shared/format/trend';
 
 /**
  * Supporting metric for SummaryCard display
@@ -166,13 +167,8 @@ export function useSummaryCardData(
     const getTrend = (
       current: number | null,
       prev: number | null,
-      threshold = 1
-    ): '↑' | '↓' | '' => {
-      if (current === null || prev === null) return '';
-      const diff = current - prev;
-      if (Math.abs(diff) < threshold) return '';
-      return diff > 0 ? '↑' : '↓';
-    };
+      metric: TrendMetric
+    ): '↑' | '↓' | '' => trendArrow(trendOfMetric(metric, current, prev));
 
     // Use precomputed data from getStartupData if available
     let cardData = precomputedCardData;
@@ -230,20 +226,20 @@ export function useSummaryCardData(
 
     return {
       weekHours,
-      weekHoursTrend: getTrend(weekHours, prevWeekHours, 0.5),
+      weekHoursTrend: getTrend(weekHours, prevWeekHours, 'weekHours'),
       weekCount,
-      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 1),
+      weekCountTrend: getTrend(weekCount, cardData.prevWeek.count, 'weekCount'),
       ftp: latestFtp,
-      ftpTrend: getTrend(latestFtp, prevFtp, 2),
+      ftpTrend: getTrend(latestFtp, prevFtp, 'ftp'),
       thresholdPaceTrend: getTrend(
         runPaceTrend.latestPace ?? null,
         runPaceTrend.previousPace ?? null,
-        0.05
+        'thresholdPace'
       ),
       cssTrend: getTrend(
         swimPaceTrend.latestPace ?? null,
         swimPaceTrend.previousPace ?? null,
-        0.05
+        'css'
       ),
     };
   }, [precomputedCardData, awaitPrecomputed, engineTrigger]);
