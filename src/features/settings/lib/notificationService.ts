@@ -191,7 +191,7 @@ const handledResponseIds = new Set<string>();
  * normalisation the background task uses. Reading `data.activityId` directly
  * was the bug: iOS wraps the object as a JSON string and Android FCM data
  * messages arrive under `body`, so the direct read was `undefined` and the tap
- * went nowhere (`B144`).
+ * went nowhere.
  *
  * Exported so the four shapes can be tested against it.
  */

@@ -51,7 +51,7 @@ const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: n
 };
 
 // The configuration the detector is validated at, generated from
-// `SectionConfig::default()` so the two cannot drift apart (`C37`).
+// `SectionConfig::default()` so the two cannot drift apart.
 export { UNIFIED_CONFIG } from './unifiedConfig.generated';
 
 /**

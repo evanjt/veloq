@@ -14,7 +14,7 @@ const DISMISS_AFTER_MS = 6000;
 /**
  * Says why a 3D view dropped back to the flat map. The renderer ships in the
  * app but the DEM tiles do not, so an offline 3D open used to leave a flat map
- * that read as broken 3D (`B131`).
+ * that read as broken 3D.
  *
  * It clears itself, because the athlete cannot act on it while offline and a
  * pill that has to be dismissed is worse than the silence it replaced.

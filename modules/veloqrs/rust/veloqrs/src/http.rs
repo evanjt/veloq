@@ -95,7 +95,7 @@ pub struct ActivityMapResult {
     pub body_bytes: u32,
     /// The series the durable store holds, masked into the track's index
     /// space. Empty unless the fetch was widened, which only happens for an
-    /// activity inside the retention window (`B140`).
+    /// activity inside the retention window.
     pub streams: Vec<StreamDto>,
     pub success: bool,
     pub error: Option<String>,
@@ -167,7 +167,7 @@ impl ActivityFetcher {
     /// Fetch map data for multiple activities in parallel
     /// `wide_ids` names the activities inside the stream retention window.
     /// Those download every series the app can use; the rest stay on the three
-    /// the track needs (`B140`).
+    /// the track needs.
     pub async fn fetch_activity_maps(
         &self,
         activity_ids: Vec<String>,
@@ -704,8 +704,8 @@ mod tests {
         assert_eq!(seen.load(Ordering::Relaxed), 3);
     }
 
-    /// Scenario: an activity inside the retention window is synced. The store
-    /// `B132` built has nothing to fill it until the bulk pass widens (`B140`).
+    /// Scenario: an activity inside the retention window is synced, and the
+    /// durable stream store has nothing to fill it until the bulk pass widens.
     ///
     /// Expected behaviour: the request asks for every series the app can use,
     /// and the extra ones come back on the result so the storing loop can put

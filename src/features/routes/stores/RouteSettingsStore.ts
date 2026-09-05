@@ -113,7 +113,7 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
       if (engine) {
         // The engine starts a conditioning detect at the end of every stored
         // batch and used to know nothing about this switch, so with it off it
-        // kept cutting the catalogue while the screens looked away (`B258`).
+        // kept cutting the catalogue while the screens looked away.
         // Written before the refresh below, so nothing can start a detect in
         // the window between the two.
         engine.setSetting?.(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
