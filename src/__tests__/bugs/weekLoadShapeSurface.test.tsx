@@ -1,6 +1,6 @@
 /**
- * Scenario: `get_week_load_shape` landed with `B328` and reached no delegate,
- * so the engine could say what shape a week had and no screen asked. The
+ * Scenario: `get_week_load_shape` reached no delegate, so the engine could say
+ * what shape a week had and no screen asked. The
  * reading separates weeks the total cannot: of 190 loaded weeks, those
  * carrying 200 to 400 points ran from 0.45 to 1.92.
  *
@@ -12,7 +12,6 @@
 
 import { render, screen } from '@testing-library/react-native';
 
-
 import { WeekShapeCard } from '@/features/fitness/components/WeekShapeCard';
 import { describeWeekShape } from '@/features/fitness/lib/weekShape';
 
@@ -21,7 +20,6 @@ jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({})
 );
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-
 
 describe('what the reading is called in words', () => {
   it('calls an even week even and a lopsided week lopsided', () => {

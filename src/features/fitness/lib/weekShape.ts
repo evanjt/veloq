@@ -6,7 +6,8 @@
  * shows is which of three readings it falls in. The word for this is not
  * "monotony", and none of these are jargon.
  *
- * The bands come from `I55`'s 190 loaded weeks: weeks carrying 200 to 400
+ * The bands come from 190 loaded weeks measured on a real library: weeks
+ * carrying 200 to 400
  * points ran from 0.45 to 1.92, so the range the reading has to separate is
  * roughly a half to two, and the thirds below split it where the weeks
  * actually fall rather than at round numbers.
