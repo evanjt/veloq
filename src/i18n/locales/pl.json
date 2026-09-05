@@ -183,6 +183,8 @@
     "accountChangeTitle": "Wykryto inne konto",
     "accountChangeMessage": "To urządzenie ma dane z pamięci podręcznej innego konta ({{cachedAthleteId}}). Logowanie na inne konto trwale usunie te dane. Wróć i zaloguj się na tamto konto, aby je zachować.",
     "accountChangeDemoMessage": "To urządzenie ma dane z pamięci podręcznej innego konta ({{cachedAthleteId}}). Przejście do trybu demo trwale usunie te dane. Wróć i najpierw zaloguj się na tamto konto, aby je zachować.",
+    "accountChangeUnknownMessage": "To urządzenie zawiera bibliotekę innego konta. Logowanie na inne konto trwale ją usunie. Aby ją zachować, wróć i zaloguj się na tamto konto.",
+    "accountChangeUnknownDemoMessage": "To urządzenie zawiera bibliotekę innego konta. Przejście do trybu demo trwale ją usunie. Aby ją zachować, wróć i najpierw zaloguj się na tamto konto.",
     "accountChangeContinue": "Kontynuuj i usuń",
     "disconnectAndClearTitle": "Wylogować się i usunąć dane?",
     "disconnectAndClearMessage": "To wylogowuje Cię I usuwa wszystkie zapisane aktywności, ślady GPS, odcinki i dane tras z tego urządzenia. Dane zostaną ponownie zsynchronizowane z intervals.icu przy następnym logowaniu. Tej operacji nie można cofnąć.",

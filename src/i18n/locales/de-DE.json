@@ -183,6 +183,8 @@
     "accountChangeTitle": "Anderes Konto erkannt",
     "accountChangeMessage": "Auf diesem Gerät sind zwischengespeicherte Daten eines anderen Kontos ({{cachedAthleteId}}). Die Anmeldung mit einem anderen Konto löscht diese Daten dauerhaft. Gehen Sie zurück und melden Sie sich stattdessen bei diesem Konto an, um die Daten zu behalten.",
     "accountChangeDemoMessage": "Auf diesem Gerät sind zwischengespeicherte Daten eines anderen Kontos ({{cachedAthleteId}}). Der Wechsel in den Demo-Modus löscht diese Daten dauerhaft. Gehen Sie zurück und melden Sie sich zuerst bei diesem Konto an, um die Daten zu behalten.",
+    "accountChangeUnknownMessage": "Auf diesem Gerät liegt eine Bibliothek eines anderen Kontos. Die Anmeldung mit einem anderen Konto löscht sie dauerhaft. Gehe zurück und melde dich mit diesem Konto an, um sie zu behalten.",
+    "accountChangeUnknownDemoMessage": "Auf diesem Gerät liegt eine Bibliothek eines anderen Kontos. Der Wechsel in den Demo-Modus löscht sie dauerhaft. Gehe zurück und melde dich zuerst mit diesem Konto an, um sie zu behalten.",
     "accountChangeContinue": "Fortfahren und löschen",
     "disconnectAndClearTitle": "Abmelden und Daten löschen?",
     "disconnectAndClearMessage": "Dies meldet Sie ab UND löscht alle zwischengespeicherten Aktivitäten, GPS-Spuren, Abschnitte und Routendaten auf diesem Gerät. Die Daten werden bei der nächsten Anmeldung erneut von intervals.icu synchronisiert. Dies kann nicht rückgängig gemacht werden.",

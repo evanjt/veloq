@@ -27,6 +27,7 @@ const mockEngine = {
   getActivityCount: jest.fn().mockReturnValue(100),
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
+  setSetting: jest.fn(),
 };
 
 const mockNativeModule = {

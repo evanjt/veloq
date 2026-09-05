@@ -39,6 +39,7 @@ import {
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
+import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
 const log = debug.create('Backup');
 
@@ -277,6 +278,14 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
       const restoredEngine = getEngine();
       const activityCount = restoredEngine?.getActivityCount() ?? 0;
+
+      // Whose library is now on the device. A restore from the login screen
+      // has no credentials to read it from, and without the stamp every
+      // identity check answers "nothing cached" for a full database.
+      if (backupAthleteId) {
+        restoredEngine?.setSetting('__athlete_id', backupAthleteId);
+        await rememberCachedAthleteId(backupAthleteId);
+      }
 
       // Wake query-on-demand hooks so mounted screens re-query the restored data
       // instead of showing the pre-restore engine state until the next sync.
