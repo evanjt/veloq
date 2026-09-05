@@ -142,11 +142,23 @@ pub(super) fn record_geometry_on(
         params![section_id],
         |row| row.get(0),
     )?;
+    // The stream's count at the moment of the cut, so a later re-slice can
+    // tell the same stream from one a sync replaced under the same id.
+    let point_count: Option<i64> = match reference {
+        Some((activity_id, _, _)) => conn
+            .query_row(
+                "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
+                params![activity_id],
+                |row| row.get(0),
+            )
+            .optional()?,
+        None => None,
+    };
     conn.execute(
         "INSERT INTO section_geometry
              (section_id, version, encoding, blob, milestone,
-              rep_activity_id, rep_start_index, rep_end_index, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              rep_activity_id, rep_start_index, rep_end_index, source, point_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             section_id,
             version,
@@ -161,6 +173,7 @@ pub(super) fn record_geometry_on(
             } else {
                 SOURCE_CONSENSUS
             },
+            point_count,
         ],
     )?;
     // Newest-N is by surviving version rank, not version arithmetic:
@@ -726,10 +739,18 @@ impl PersistentEngine {
         section_id: &str,
         version: i64,
     ) -> Option<(Vec<GpsPoint>, Option<(String, u32, u32)>)> {
-        let row: (i64, Vec<u8>, Option<String>, Option<u32>, Option<u32>) = self
+        let row: (
+            i64,
+            Vec<u8>,
+            Option<String>,
+            Option<u32>,
+            Option<u32>,
+            Option<i64>,
+        ) = self
             .db
             .query_row(
-                "SELECT encoding, blob, rep_activity_id, rep_start_index, rep_end_index
+                "SELECT encoding, blob, rep_activity_id, rep_start_index, rep_end_index,
+                        point_count
                  FROM section_geometry WHERE section_id = ? AND version = ?",
                 params![section_id, version],
                 |row| {
@@ -739,6 +760,7 @@ impl PersistentEngine {
                         row.get(2)?,
                         row.get(3)?,
                         row.get(4)?,
+                        row.get(5)?,
                     ))
                 },
             )
@@ -754,13 +776,15 @@ impl PersistentEngine {
         };
         // The version blob is a cache of its own triple, exactly as the live
         // row's is. A version that no longer decodes is still a revert target
-        // while its triple indexes a stored stream.
+        // while its triple indexes the stream it was cut from, which the
+        // stored point count vouches for.
         let polyline = codec::decode_polyline(&row.1)
             .filter(|points| !points.is_empty())
             .or_else(|| {
-                geometry::rebuild(
+                geometry::rebuild_counted(
                     &self.db,
                     reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e))?,
+                    row.5,
                 )
             })?;
         Some((polyline, reference))
@@ -1039,18 +1063,22 @@ impl PersistentEngine {
              VALUES (?, ?, ?, ?, ?)",
             5,
         );
-        let geometry = salvage_rows(
-            &src,
-            &self.db,
-            "SELECT section_id, version, created_at, encoding, blob, milestone,
-                    rep_activity_id, rep_start_index, rep_end_index, source
-             FROM section_geometry ORDER BY section_id, version",
-            "INSERT OR IGNORE INTO section_geometry
-                 (section_id, version, created_at, encoding, blob, milestone,
-                  rep_activity_id, rep_start_index, rep_end_index, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            10,
-        );
+        // Guarded on the source's own shape: an older file may lack a column,
+        // and one missing name would fail the whole statement.
+        let geometry_columns = shared_columns(&src, &self.db, "section_geometry");
+        let geometry = if geometry_columns.is_empty() {
+            0
+        } else {
+            let names = geometry_columns.join(", ");
+            let marks = vec!["?"; geometry_columns.len()].join(", ");
+            salvage_rows(
+                &src,
+                &self.db,
+                &format!("SELECT {names} FROM section_geometry ORDER BY section_id, version"),
+                &format!("INSERT OR IGNORE INTO section_geometry ({names}) VALUES ({marks})"),
+                geometry_columns.len(),
+            )
+        };
         let pins = salvage_rows(
             &src,
             &self.db,
