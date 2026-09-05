@@ -3,7 +3,7 @@
  *
  * A map without the sprite and the glyphs is an unlabelled abstract, so a fresh
  * install with no radio had no icons and no place names at any zoom. These are
- * byte-identical for every install, so they are bundled once (`Q67`).
+ * byte-identical for every install, so they are bundled once.
  *
  * Only the Latin ranges are here. Every range of the three stacks is 104 MB,
  * which is CJK, so anything outside the set below stays on the network and

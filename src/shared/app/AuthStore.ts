@@ -53,7 +53,7 @@ export function pushCredentialsToEngine(): void {
  * Why the session ended. There is one reason because there is one signal: a
  * 401. intervals.icu issues one live token per athlete per app, so a second
  * device signing in takes this one's credential, and that 401 is
- * indistinguishable from an expiry or a revocation at the server (`B143`).
+ * indistinguishable from an expiry or a revocation at the server.
  * Claiming any of the three would be telling the athlete something the server
  * never said.
  */

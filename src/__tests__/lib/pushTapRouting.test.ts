@@ -7,7 +7,7 @@
  *
  * Expected behaviour: the tap path reads all four, the same normalisation the
  * background task already uses, so a wrapped payload is not a dead tap
- * (`B144`). Both entry points feed one function, so the cold-start and live
+ *. Both entry points feed one function, so the cold-start and live
  * paths cannot disagree.
  */
 

@@ -5,8 +5,8 @@ import SyncSettingsScreen from '@/app/sync-settings';
 
 /**
  * Scenario: sync settings carries one job's own row, and the jobs area is
- * where all four live. `Q72` asked that a screen already carrying a job point
- * at that area rather than being the only place the work is visible.
+ * where all four live. A screen already carrying a job points at that area
+ * rather than being the only place the work is visible.
  *
  * Expected behaviour: the screen keeps its own sync row and offers the way in,
  * and the link says nothing about the job's state, which the row above it

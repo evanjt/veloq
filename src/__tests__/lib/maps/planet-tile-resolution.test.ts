@@ -179,9 +179,9 @@ describe('the snapshot worker holds the same vector contract', () => {
 
 /**
  * Scenario: the vector protocol is registered by two pages over one cache.
- * Expected behaviour: there is one copy of it. `B117` was a defect in the
- * contract, and fixing it meant editing both handlers, which is the argument
- * for the snippet being shared rather than duplicated.
+ * Expected behaviour: there is one copy of it. A defect in the contract had
+ * to be fixed in both handlers, which is the argument for the snippet being
+ * shared rather than duplicated.
  */
 describe('one vector protocol, two pages', () => {
   it('is the same text in the interactive surfaces and in the worker', () => {

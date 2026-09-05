@@ -1,7 +1,7 @@
 /**
  * Scenario: the detector cutover starts on its own at launch and re-cuts the
- * whole catalogue. `Q29` asked for a subtle line in the detection settings so
- * it is not the only thing the athlete never sees happening.
+ * whole catalogue, and wants a subtle line in the detection settings so it is
+ * not the only thing the athlete never sees happening.
  *
  * Expected behaviour: the line is there while a run holds the slot and gone
  * when it settles, a failed run reads as failed rather than as finished, and a

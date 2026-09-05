@@ -1,8 +1,8 @@
 //! The one connectivity fact Rust has, pushed over the FFI from TypeScript.
 //!
-//! Nothing in this crate can see the network. `Q65` put the network lifecycle
-//! in Rust anyway, on the condition that TypeScript push the state it already
-//! computes, so there is one debounce and one edge rather than two: the push
+//! Nothing in this crate can see the network. The lifecycle is Rust's anyway,
+//! on the condition that TypeScript push the state it already computes, so
+//! there is one debounce and one edge rather than two: the push
 //! comes from the same place that calls `onlineManager.setOnline`
 //! (`src/shared/app/NetworkContext.tsx`).
 //!
