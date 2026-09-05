@@ -1646,6 +1646,16 @@ pub struct FfiSectionDetailData {
     pub map_signatures: Vec<FfiMapSignature>,
     /// Activities whose time streams still have to be fetched
     pub missing_time_stream_ids: Vec<String>,
+    /// The section's change ledger, oldest first
+    pub history: Vec<FfiSectionHistoryEvent>,
+    /// Every stored geometry version, with the pinned one flagged
+    pub geometry_versions: Vec<FfiSectionGeometryVersion>,
+    /// The pinned version, or `None` when the section follows the newest cut
+    pub pinned_version: Option<i64>,
+    /// Laps the user excluded, keyed the way the junction rows are
+    pub excluded_laps: Vec<FfiExcludedLap>,
+    /// Efficiency trend, or `None` with too few efforts to call one
+    pub efficiency_trend: Option<FfiEfficiencyTrend>,
 }
 
 /// The section detail reads that need lap times.

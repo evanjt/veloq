@@ -960,6 +960,78 @@ fn section_detail_matches_the_calls_it_replaces() {
     assert_eq!(bundled_metric_ids, activity_ids);
 }
 
+/// The ledger, the excluded laps and the efficiency trend are keyed on the
+/// section id alone, so a visit paid five more lock acquisitions for reads the
+/// first bundle was already positioned to make.
+#[test]
+fn section_detail_carries_the_ledger_the_laps_and_the_trend() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_data("auto1", 500.0);
+
+    assert_eq!(
+        bundle.history.len(),
+        s.engine.section_history("auto1").len()
+    );
+    assert_eq!(
+        bundle.geometry_versions.len(),
+        s.engine.section_geometry_versions("auto1").len()
+    );
+    assert_eq!(
+        bundle.pinned_version,
+        s.engine.pinned_section_version("auto1")
+    );
+    assert_eq!(
+        bundle.excluded_laps.len(),
+        s.engine.get_excluded_section_laps("auto1").len()
+    );
+    assert_eq!(
+        bundle.efficiency_trend.is_some(),
+        s.engine.get_section_efficiency_trend("auto1").is_some()
+    );
+}
+
+/// A pinned version has to read as pinned in the bundle, which is the one
+/// field `get_geometry_versions` computed rather than read.
+#[test]
+fn a_pinned_version_reads_as_pinned_in_the_bundle() {
+    let mut s = populated();
+    let Some(version) = s
+        .engine
+        .section_geometry_versions("auto1")
+        .first()
+        .map(|v| v.version)
+    else {
+        return;
+    };
+    s.engine.pin_section_geometry("auto1", version).unwrap();
+
+    let bundle = s.engine.section_detail_data("auto1", 500.0);
+
+    assert_eq!(bundle.pinned_version, Some(version));
+    let pinned: Vec<i64> = bundle
+        .geometry_versions
+        .iter()
+        .filter(|v| v.pinned)
+        .map(|v| v.version)
+        .collect();
+    assert_eq!(pinned, vec![version]);
+}
+
+/// An unknown id returns the empty bundle rather than failing, the way the
+/// separate reads did.
+#[test]
+fn section_detail_for_an_unknown_id_carries_no_ledger() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_data("no-such-section", 500.0);
+
+    assert!(bundle.section.is_none());
+    assert!(bundle.history.is_empty());
+    assert!(bundle.geometry_versions.is_empty());
+    assert_eq!(bundle.pinned_version, None);
+    assert!(bundle.excluded_laps.is_empty());
+    assert!(bundle.efficiency_trend.is_none());
+}
+
 #[test]
 fn section_detail_reports_the_streams_the_caller_must_fetch() {
     let mut s = populated();
