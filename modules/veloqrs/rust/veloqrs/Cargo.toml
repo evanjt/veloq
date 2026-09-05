@@ -269,6 +269,10 @@ name = "exclusion_durability"
 required-features = ["synthetic"]
 
 [[test]]
+name = "hot_path_logging"
+required-features = ["synthetic"]
+
+[[test]]
 name = "custom_section_survives_clear"
 required-features = ["synthetic"]
 
