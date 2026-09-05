@@ -21,10 +21,11 @@ import { useCutoverSummary } from '@/features/routes/hooks/useCutoverSummary';
 export type BackgroundJobId = 'sync' | 'detection' | 'elevationBackfill' | 'cutover';
 
 /**
- * `partial` is the elevation backfill's own terminal state: the pass finished
- * but left activities a later run retries. No other job can reach it.
+ * `partial` and `paused` are the elevation backfill's own terminal states: a
+ * pass that finished but left activities a later run retries, and one the
+ * athlete stopped until the app is next opened. No other job can reach them.
  */
-export type BackgroundJobState = 'idle' | 'running' | 'complete' | 'partial' | 'failed';
+export type BackgroundJobState = 'idle' | 'running' | 'complete' | 'partial' | 'failed' | 'paused';
 
 export interface BackgroundJob {
   id: BackgroundJobId;
@@ -173,6 +174,8 @@ function backfillState(phase: string): BackgroundJobState {
       return 'partial';
     case 'failed':
       return 'failed';
+    case 'paused':
+      return 'paused';
     default:
       return 'idle';
   }

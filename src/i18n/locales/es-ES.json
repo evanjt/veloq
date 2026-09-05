@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "¿Aplicar estos ajustes?",
     "previewKeepWarning": "Conservar vuelve a analizar toda tu biblioteca. Las secciones fuera de esta zona también pueden cambiar.",
     "previewKeepRefusedTitle": "El nuevo análisis no se inició",
-    "previewKeepRefused": "Tus ajustes están guardados. Hay otro análisis en curso, así que el recálculo no ha empezado. Vuelve a pulsar Conservar en un momento."
+    "previewKeepRefused": "Tus ajustes están guardados. Hay otro análisis en curso, así que el recálculo no ha empezado. Vuelve a pulsar Conservar en un momento.",
+    "elevationBackfillPause": "Pausar descarga",
+    "elevationBackfillPaused": "Descarga de altitud en pausa. Se reanudará la próxima vez que abras la app. Para detener por completo la detección de secciones, desactiva Coincidencia de rutas arriba."
   },
   "stats": {
     "activities": "Actividades",
@@ -1596,6 +1598,7 @@
     "stateFailed": "Se detuvo antes de tiempo",
     "progressCount": "{{completed}} de {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Faltan {{count}} por descargar"
+    "remaining": "Faltan {{count}} por descargar",
+    "statePaused": "En pausa hasta que vuelvas a abrir la app"
   }
 }

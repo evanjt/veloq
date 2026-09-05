@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "Deze instellingen toepassen?",
     "previewKeepWarning": "Bij behouden wordt je hele bibliotheek opnieuw geanalyseerd. Ook secties buiten dit gebied kunnen veranderen.",
     "previewKeepRefusedTitle": "Heranalyse is niet gestart",
-    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw."
+    "previewKeepRefused": "Je instellingen zijn opgeslagen. Er loopt al een analyse, dus de herberekening is niet gestart. Probeer het zo meteen opnieuw.",
+    "elevationBackfillPause": "Download pauzeren",
+    "elevationBackfillPaused": "Hoogtedownload gepauzeerd. Deze gaat verder wanneer je de app opnieuw opent. Zet Route-matching hierboven uit om sectiedetectie helemaal te stoppen."
   },
   "stats": {
     "activities": "Activiteiten",
@@ -1596,6 +1598,7 @@
     "stateFailed": "Voortijdig gestopt",
     "progressCount": "{{completed}} van {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "Nog {{count}} op te halen"
+    "remaining": "Nog {{count}} op te halen",
+    "statePaused": "Gepauzeerd tot de app opnieuw wordt geopend"
   }
 }

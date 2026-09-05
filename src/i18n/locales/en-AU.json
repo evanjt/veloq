@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "Apply these settings?",
     "previewKeepWarning": "Keeping re-analyses your whole library. Sections outside this area can change too.",
     "previewKeepRefusedTitle": "Re-analysis did not start",
-    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment."
+    "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment.",
+    "elevationBackfillPause": "Pause download",
+    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route matching above."
   },
   "stats": {
     "activities": "Activities",
@@ -1596,6 +1598,7 @@
     "stateFailed": "Stopped early",
     "progressCount": "{{completed}} of {{total}}",
     "progressPercent": "{{percent}}%",
-    "remaining": "{{count}} still to grab"
+    "remaining": "{{count}} still to grab",
+    "statePaused": "Paused until the app is next opened"
   }
 }

@@ -1280,7 +1280,9 @@
     "previewKeepTitle": "Die Iistellige aawände?",
     "previewKeepWarning": "Bim Bhalte wird di ganz Bibliothek neu analysiert. Au Abschnitt usserhalb vo dem Gebiet chönd sich ändere.",
     "previewKeepRefusedTitle": "Neuauswertung nicht gestartet",
-    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal."
+    "previewKeepRefused": "Deine Einstellungen sind gespeichert. Eine andere Auswertung läuft, daher wurde die Neuberechnung nicht gestartet. Versuche es gleich noch einmal.",
+    "elevationBackfillPause": "Download pausieren",
+    "elevationBackfillPaused": "Höhendaten-Download pausiert. Er wird beim nächsten Öffnen der App fortgesetzt. Um die Abschnittserkennig ganz abzuschalten, schalte oben Route-Matching aus."
   },
   "stats": {
     "activities": "Aktivitäte",
@@ -1596,6 +1598,7 @@
     "stateFailed": "Z früeh gstoppt",
     "progressCount": "{{completed}} vo {{total}}",
     "progressPercent": "{{percent}} %",
-    "remaining": "No {{count}} z lade"
+    "remaining": "No {{count}} z lade",
+    "statePaused": "Pausiert, bis die App wieder geöffnet wird"
   }
 }

@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 17 standalone `#[uniffi::export]` functions plus
+ * 18 standalone `#[uniffi::export]` functions plus
  * 232 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 249 exports (17 standalone + 232 methods)
+ * Total: 250 exports (18 standalone + 232 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -89,10 +89,18 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     returnType: 'bool',
   },
   {
+    name: 'pause_elevation_backfill',
+    camelName: 'pauseElevationBackfill',
+    file: 'ffi.rs',
+    line: 656,
+    paramCount: 0,
+    returnType: 'bool',
+  },
+  {
     name: 'get_elevation_backfill_remaining',
     camelName: 'getElevationBackfillRemaining',
     file: 'ffi.rs',
-    line: 658,
+    line: 670,
     paramCount: 0,
     returnType: 'Result<u32, crate::VeloqError>',
   },
@@ -100,7 +108,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_elevation_backfill_progress',
     camelName: 'getElevationBackfillProgress',
     file: 'ffi.rs',
-    line: 668,
+    line: 680,
     paramCount: 0,
     returnType: 'ElevationBackfillProgress',
   },
@@ -108,7 +116,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'is_cutover_pending',
     camelName: 'isCutoverPending',
     file: 'ffi.rs',
-    line: 681,
+    line: 693,
     paramCount: 0,
     returnType: 'bool',
   },
@@ -116,7 +124,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'is_cutover_running',
     camelName: 'isCutoverRunning',
     file: 'ffi.rs',
-    line: 687,
+    line: 699,
     paramCount: 0,
     returnType: 'bool',
   },
@@ -124,7 +132,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start_detector_cutover',
     camelName: 'startDetectorCutover',
     file: 'ffi.rs',
-    line: 706,
+    line: 718,
     paramCount: 0,
     returnType: 'bool',
   },
@@ -132,7 +140,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_progress',
     camelName: 'getCutoverProgress',
     file: 'ffi.rs',
-    line: 712,
+    line: 724,
     paramCount: 0,
     returnType: 'CutoverProgress',
   },
@@ -140,7 +148,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_change_card_support',
     camelName: 'getChangeCardSupport',
     file: 'ffi.rs',
-    line: 721,
+    line: 733,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
   },
@@ -148,7 +156,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_diff',
     camelName: 'getCutoverDiff',
     file: 'ffi.rs',
-    line: 745,
+    line: 757,
     paramCount: 0,
     returnType: 'Option<String>',
   },
@@ -156,7 +164,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'detect_sections_standalone',
     camelName: 'detectSectionsStandalone',
     file: 'ffi.rs',
-    line: 759,
+    line: 771,
     paramCount: 3,
     returnType: 'Result<String, crate::VeloqError>',
   },
@@ -2269,6 +2277,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'setNetworkOnline',
   'getNetworkPush',
   'startElevationBackfill',
+  'pauseElevationBackfill',
   'getElevationBackfillRemaining',
   'getElevationBackfillProgress',
   'isCutoverPending',
@@ -2528,6 +2537,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   set_network_online: 'setNetworkOnline',
   get_network_push: 'getNetworkPush',
   start_elevation_backfill: 'startElevationBackfill',
+  pause_elevation_backfill: 'pauseElevationBackfill',
   get_elevation_backfill_remaining: 'getElevationBackfillRemaining',
   get_elevation_backfill_progress: 'getElevationBackfillProgress',
   is_cutover_pending: 'isCutoverPending',

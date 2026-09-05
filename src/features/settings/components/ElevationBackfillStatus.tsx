@@ -1,9 +1,10 @@
 /**
  * Status line for the elevation backfill.
  *
- * The backfill starts on its own after an update, so this is a read-only
- * surface. The queue length is only known once a run has started, so the line
- * reports a count rather than a bar, and each terminal state reads distinctly.
+ * The backfill starts on its own after an update. The one control here is a
+ * pause, which ends the run in flight and holds until the app is next opened.
+ * The queue length is only known once a run has started, so the line reports
+ * a count rather than a bar, and each terminal state reads distinctly.
  *
  * Nothing else tells the user why the download is happening: the detector flip
  * is held behind the queue draining, and that gate is silent. So the line also
@@ -24,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { getEngine } from '@/shared/native/engine';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
 
@@ -45,6 +47,10 @@ export function ElevationBackfillStatus() {
   // that could not answer, which must not read as a finished backfill.
   const outstandingAtRest = phase === 'idle' && remaining !== null && remaining > 0;
   if (phase === 'idle' && !outstandingAtRest) return null;
+
+  // A pass is either running or armed to run again, so both states can be
+  // paused. Once every track has elevation there is nothing left to stop.
+  const pausable = phase === 'fetching' || phase === 'partial' || outstandingAtRest;
 
   const status = outstandingAtRest ? (
     <Text
@@ -72,6 +78,13 @@ export function ElevationBackfillStatus() {
     >
       {t('settings.elevationBackfillFailed')}
     </Text>
+  ) : phase === 'paused' ? (
+    <Text
+      style={[styles.line, styles.centred, { color: textSecondary }]}
+      testID="elevation-backfill-status"
+    >
+      {t('settings.elevationBackfillPaused')}
+    </Text>
   ) : (
     <Text
       style={[styles.line, styles.centred, { color: textSecondary }]}
@@ -89,7 +102,20 @@ export function ElevationBackfillStatus() {
     <View>
       {status}
 
-      {phase !== 'complete' && (
+      {pausable && (
+        <Pressable
+          style={styles.pauseRow}
+          onPress={() => getEngine()?.pauseElevationBackfill()}
+          testID="elevation-backfill-pause"
+        >
+          <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
+          <Text style={[styles.pauseText, { color: colors.primary }]}>
+            {t('settings.elevationBackfillPause')}
+          </Text>
+        </Pressable>
+      )}
+
+      {phase !== 'complete' && phase !== 'paused' && (
         <Text
           style={[styles.line, styles.centred, { color: textMuted }]}
           testID="elevation-backfill-explainer"
@@ -164,6 +190,18 @@ const styles = StyleSheet.create({
   centred: {
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  pauseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  pauseText: {
+    ...typography.body,
+    fontWeight: '500',
   },
   whyRow: {
     flexDirection: 'row',
