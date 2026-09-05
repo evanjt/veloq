@@ -43,6 +43,53 @@ export interface ActivityRouteHighlight {
 }
 
 /**
+ * Content-addressed identity for the highlight objects.
+ *
+ * `ActivityCard`'s comparator compares both highlight props by identity, and
+ * the engine announces sections, groups and activities separately, five times
+ * during launch alone. Each announcement rebuilds this hook's result, so
+ * without this every highlighted card re-renders with nothing new to draw.
+ * Keying on the rendered fields means equal content is literally the same
+ * object, with no render-phase state to keep in step.
+ */
+const sectionIdentity = new Map<string, { key: string; value: ActivitySectionHighlight[] }>();
+const routeIdentity = new Map<string, { key: string; value: ActivityRouteHighlight }>();
+
+function sectionsKey(highlights: ActivitySectionHighlight[]): string {
+  return highlights
+    .map((h) => `${h.sectionId}|${h.direction}|${h.sectionName}|${h.lapTime}|${h.isPr}|${h.trend}`)
+    .join(';');
+}
+
+function routeKey(highlight: ActivityRouteHighlight): string {
+  const { routeId, routeName, isPr, trend, timeDeltaSeconds } = highlight;
+  return `${routeId}|${routeName}|${isPr}|${trend}|${timeDeltaSeconds}`;
+}
+
+/** The stored object when the content matches, otherwise `value`, now stored. */
+function carry<T>(
+  cache: Map<string, { key: string; value: T }>,
+  id: string,
+  value: T,
+  key: string
+): T {
+  const held = cache.get(id);
+  if (held && held.key === key) return held.value;
+  cache.set(id, { key, value });
+  return value;
+}
+
+/** The cache follows the batch, so a feed that scrolls does not grow it. */
+function prune(ids: string[]): void {
+  const live = new Set(ids);
+  for (const cache of [sectionIdentity, routeIdentity]) {
+    for (const id of cache.keys()) {
+      if (!live.has(id)) cache.delete(id);
+    }
+  }
+}
+
+/**
  * Returns maps of activity ID → section/route highlights for a batch of activities.
  * Re-queries when section data changes (engine subscription).
  */
@@ -139,6 +186,13 @@ export function useActivitySectionHighlights(
         }
       }
 
+      prune(activityIds);
+      for (const [id, highlights] of sectionMap) {
+        sectionMap.set(id, carry(sectionIdentity, id, highlights, sectionsKey(highlights)));
+      }
+      for (const [id, highlight] of routeMap) {
+        routeMap.set(id, carry(routeIdentity, id, highlight, routeKey(highlight)));
+      }
       return { sections: sectionMap, routes: routeMap };
     } catch (e) {
       if (__DEV__) {
