@@ -1288,7 +1288,12 @@
     "previewKeepRefusedTitle": "A nova análise não começou",
     "previewKeepRefused": "Suas configurações foram salvas. Outra análise está em andamento, então o recálculo não começou. Tente novamente em instantes.",
     "elevationBackfillPause": "Pausar download",
-    "elevationBackfillPaused": "Download de altitude pausado. Ele será retomado na próxima vez que você abrir o app. Para parar de vez a detecção de trechos, desative Correspondencia de rotas acima."
+    "elevationBackfillPaused": "Download de altitude pausado. Ele será retomado na próxima vez que você abrir o app. Para parar de vez a detecção de trechos, desative Correspondencia de rotas acima.",
+    "exportPrivacyTitle": "Deixar sua casa fora das exportações",
+    "exportPrivacyDescription": "Corta o início e o fim de cada percurso a 100 m de casa. Apenas a cópia exportada é encurtada.",
+    "exportPrivacySuggested": "A maioria dos seus treinos começa perto do mesmo lugar, {{count}} deles.",
+    "exportPrivacyConfirm": "Usar como casa",
+    "exportPrivacyNoSuggestion": "Ainda não há treinos suficientes para descobrir onde fica sua casa."
   },
   "stats": {
     "activities": "Atividades",

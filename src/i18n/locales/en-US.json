@@ -1310,7 +1310,12 @@
     "previewKeepRefusedTitle": "Re-analysis did not start",
     "previewKeepRefused": "Your settings are saved. Another analysis is running, so the re-cut has not started. Try Keep again in a moment.",
     "elevationBackfillPause": "Pause download",
-    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route Matching above."
+    "elevationBackfillPaused": "Elevation download paused. It will resume the next time you open the app. To stop section detection altogether, turn off Route Matching above.",
+    "exportPrivacyTitle": "Leave home out of exports",
+    "exportPrivacyDescription": "Trims the start and end of each track within 100 m of home. Only the exported copy is shortened.",
+    "exportPrivacySuggested": "Most of your rides start near one place, {{count}} of them.",
+    "exportPrivacyConfirm": "Use it as home",
+    "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is."
   },
   "stats": {
     "activities": "Activities",

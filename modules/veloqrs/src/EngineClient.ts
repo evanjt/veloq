@@ -9,6 +9,7 @@
  */
 
 import type {
+  SuggestedHome,
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
@@ -851,6 +852,9 @@ class EngineClient implements DelegateHost {
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
+
+  /** The export privacy row's suggested home, or null when there is no guess. */
+  suggestExportHome = (): SuggestedHome | null => settingsDelegates.suggestExportHome(this);
 
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 

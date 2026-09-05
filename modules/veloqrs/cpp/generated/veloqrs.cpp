@@ -693,6 +693,8 @@ int64_t uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int64_t uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_strengthmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_strengthmanager(
@@ -1185,6 +1187,7 @@ uint16_t
 uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes();
+uint16_t uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home();
 uint16_t
 uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets();
 uint16_t
@@ -7021,6 +7024,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "settingsmanager_suggest_export_home"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_strengthmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10706,6 +10721,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_"
+        "home"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "settingsmanager_suggest_export_home"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_"
@@ -15193,6 +15220,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
 
   return uniffi_jsi::Bridging<int64_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_strengthmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18313,6 +18355,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

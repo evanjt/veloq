@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 219 methods inside `#[uniffi::export] impl` blocks across
+ * 220 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 237 exports (18 standalone + 219 methods)
+ * Total: 238 exports (18 standalone + 220 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1912,10 +1912,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SettingsManager',
   },
   {
+    name: 'suggest_export_home',
+    camelName: 'suggestExportHome',
+    file: 'objects/settings.rs',
+    line: 55,
+    paramCount: 0,
+    returnType: 'Result<Option<crate::persistence::SuggestedHome>, VeloqError>',
+    docs: "Where the athlete's rides start and finish most often, for the export privacy row to offer. A guess: the trim stays off until it is confirmed or replaced, and a library with too little to cluster answers none.",
+    object: 'SettingsManager',
+  },
+  {
     name: 'get_setting',
     camelName: 'getSetting',
     file: 'objects/settings.rs',
-    line: 53,
+    line: 60,
     paramCount: 1,
     returnType: 'Result<Option<String>, VeloqError>',
     docs: 'Get a single user preference by key.',
@@ -1925,7 +1935,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_setting',
     camelName: 'setSetting',
     file: 'objects/settings.rs',
-    line: 62,
+    line: 69,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: 'Set a single user preference (upsert).',
@@ -1935,7 +1945,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_settings',
     camelName: 'setSettings',
     file: 'objects/settings.rs',
-    line: 73,
+    line: 80,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Set several user preferences in one transaction, skipping each pair whose value is already stored. Returns how many were written.',
@@ -1945,7 +1955,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'stream_retention_days',
     camelName: 'streamRetentionDays',
     file: 'objects/settings.rs',
-    line: 89,
+    line: 96,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
     docs: 'Days of stream history the athlete keeps. Zero means keep everything. This only ever evicts stored series: nothing deletes whole activities by age.',
@@ -1955,7 +1965,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_stream_retention_days',
     camelName: 'setStreamRetentionDays',
     file: 'objects/settings.rs',
-    line: 95,
+    line: 102,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'Set the stream retention window in days, then evict what now falls outside it. Zero keeps everything.',
@@ -1965,7 +1975,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'stream_store_bytes',
     camelName: 'streamStoreBytes',
     file: 'objects/settings.rs',
-    line: 105,
+    line: 112,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
     docs: 'Bytes the stream store holds, for the cache readout.',
@@ -1975,7 +1985,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'delete_setting',
     camelName: 'deleteSetting',
     file: 'objects/settings.rs',
-    line: 114,
+    line: 121,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'Delete a single user preference.',
@@ -2385,7 +2395,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1986,
+    line: 1987,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2585,6 +2595,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getSportSettings',
   'setSportSettings',
   'clearUserProfileCaches',
+  'suggestExportHome',
   'getSetting',
   'setSetting',
   'setSettings',
@@ -2807,6 +2818,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_sport_settings: 'getSportSettings',
   set_sport_settings: 'setSportSettings',
   clear_user_profile_caches: 'clearUserProfileCaches',
+  suggest_export_home: 'suggestExportHome',
   get_setting: 'getSetting',
   set_setting: 'setSetting',
   set_settings: 'setSettings',

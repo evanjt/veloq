@@ -1288,7 +1288,12 @@
     "previewKeepRefusedTitle": "再解析が開始されませんでした",
     "previewKeepRefused": "設定は保存されました。別の解析が実行中のため、再計算は開始されていません。少し待ってからもう一度お試しください。",
     "elevationBackfillPause": "ダウンロードを一時停止",
-    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。"
+    "elevationBackfillPaused": "標高のダウンロードを一時停止しました。次回アプリを開いたときに再開します。セクション検出を完全に止めるには、上の「ルートマッチング」をオフにしてください。",
+    "exportPrivacyTitle": "エクスポートから自宅を除く",
+    "exportPrivacyDescription": "自宅から100m以内の軌跡の始点と終点を切り取ります。短くなるのはエクスポートしたコピーだけです。",
+    "exportPrivacySuggested": "あなたのライドの多くは同じ場所から始まっています（{{count}}件）。",
+    "exportPrivacyConfirm": "ここを自宅にする",
+    "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。"
   },
   "stats": {
     "activities": "アクティビティ",

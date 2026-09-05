@@ -6,7 +6,7 @@
  */
 
 import type { DelegateHost } from './host';
-import type { SettingPair } from '../generated/veloqrs';
+import type { SettingPair, SuggestedHome as FfiSuggestedHome } from '../generated/veloqrs';
 
 export function setNameTranslations(
   host: DelegateHost,
@@ -69,6 +69,21 @@ export function clearUserProfileCaches(host: DelegateHost): void {
     });
   } catch {
     // Best-effort - failures here just leave stale rows that engine.clear() would catch later.
+  }
+}
+
+/**
+ * Where the athlete's rides start and finish most often, for the export
+ * privacy row to offer. A guess, so the trim stays off until it is confirmed
+ * or replaced, and a library with too little to cluster answers null.
+ */
+export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
+  } catch (e) {
+    console.error('[Engine] suggestExportHome threw:', e);
+    return null;
   }
 }
 

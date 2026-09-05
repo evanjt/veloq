@@ -1112,6 +1112,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_strengthmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1734,6 +1738,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
