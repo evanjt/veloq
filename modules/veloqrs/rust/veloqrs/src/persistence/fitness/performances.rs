@@ -590,7 +590,7 @@ impl PersistentEngine {
                     continue;
                 }
 
-                let is_rev = lap.direction == "reverse" || lap.direction == "backward";
+                let is_rev = lap.direction == "reverse";
                 if is_rev {
                     rev_times.push(lap.time);
                     rev_last_date = Some(
@@ -974,19 +974,17 @@ impl PersistentEngine {
             .min_by_key(|p| p.moving_time)
             .cloned();
 
-        // Find best forward (direction is "same" or "forward")
+        // Find best forward
         let best_forward = performances
             .iter()
-            .filter(|p| (p.direction == "same" || p.direction == "forward") && p.moving_time > 0)
+            .filter(|p| p.direction == "same" && p.moving_time > 0)
             .min_by_key(|p| p.moving_time)
             .cloned();
 
         // Find best reverse
         let best_reverse = performances
             .iter()
-            .filter(|p| {
-                (p.direction == "reverse" || p.direction == "backward") && p.moving_time > 0
-            })
+            .filter(|p| p.direction == "reverse" && p.moving_time > 0)
             .min_by_key(|p| p.moving_time)
             .cloned();
 
@@ -1003,7 +1001,7 @@ impl PersistentEngine {
         // Compute forward direction stats
         let forward_perfs: Vec<_> = performances
             .iter()
-            .filter(|p| p.direction == "same" || p.direction == "forward")
+            .filter(|p| p.direction == "same")
             .collect();
         let forward_stats = if forward_perfs.is_empty() {
             None
@@ -1036,7 +1034,7 @@ impl PersistentEngine {
         // Compute reverse direction stats
         let reverse_perfs: Vec<_> = performances
             .iter()
-            .filter(|p| p.direction == "reverse" || p.direction == "backward")
+            .filter(|p| p.direction == "reverse")
             .collect();
         let reverse_stats = if reverse_perfs.is_empty() {
             None
