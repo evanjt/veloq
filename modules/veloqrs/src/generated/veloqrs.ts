@@ -3081,23 +3081,27 @@ const FfiConverterTypeFfiExerciseSummary = (() => {
 })();
 
 /**
- * FTP trend data.
+ * Cycling FTP trend, read from the athlete's configured FTP setting as it
+ * stood on each activity (`icu_ftp`), not from a modelled estimate. It moves
+ * only when the setting is edited. The per-activity estimate
+ * (`icu_pm_ftp_watts`) and the daily model estimate (`sportInfo.eftp` in
+ * `wellness.raw`) are separate series and are not read here.
  */
 export type FfiFtpTrend = {
   /**
-   * Most recent FTP value
+   * Newest FTP setting on record
    */
   latestFtp?: /*u16*/ number;
   /**
-   * Date of most recent FTP (Unix timestamp seconds)
+   * Activity start of the newest setting (Unix timestamp seconds)
    */
   latestDate?: /*i64*/ bigint;
   /**
-   * Previous different FTP value
+   * Newest setting that differs from `latest_ftp`
    */
   previousFtp?: /*u16*/ number;
   /**
-   * Date of previous FTP (Unix timestamp seconds)
+   * Activity start of that earlier setting (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
 };
@@ -14955,9 +14959,8 @@ export interface SettingsManagerLike {
   /**
    * Days of stream history the athlete keeps. Zero means keep everything.
    *
-   * Not the same knob as the activity `retentionDays` in
-   * `RouteSettingsStore`, which deletes whole activities. This one only ever
-   * evicts stored series.
+   * This only ever evicts stored series: nothing deletes whole activities
+   * by age.
    */
   streamRetentionDays() /*throws*/ : /*i64*/ bigint;
   /**
@@ -15183,9 +15186,8 @@ export class SettingsManager
   /**
    * Days of stream history the athlete keeps. Zero means keep everything.
    *
-   * Not the same knob as the activity `retentionDays` in
-   * `RouteSettingsStore`, which deletes whole activities. This one only ever
-   * evicts stored series.
+   * This only ever evicts stored series: nothing deletes whole activities
+   * by age.
    */
   streamRetentionDays(): /*i64*/ bigint /*throws*/ {
     return FfiConverterInt64.lift(
@@ -19170,7 +19172,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days() !==
-    25279
+    12066
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days",

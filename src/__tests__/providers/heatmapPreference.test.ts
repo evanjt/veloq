@@ -37,7 +37,7 @@ describe('the heatmap preference', () => {
   it('adopts the value the routes store persisted, so a choice is not lost', async () => {
     await AsyncStorage.setItem(
       ROUTE_SETTINGS_KEY,
-      JSON.stringify({ enabled: true, retentionDays: 0, heatmapEnabled: false })
+      JSON.stringify({ enabled: true, heatmapEnabled: false })
     );
 
     await initializeHeatmapPreference();

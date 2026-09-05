@@ -58,7 +58,7 @@ impl ElevationStateCounts {
 }
 
 /// An activity a section's stored geometry is cut from is not the engine's
-/// to remove. Retention and the derived-data clear both leave it alone.
+/// to remove, so the derived-data clear leaves it alone.
 const REFERENCE_ACTIVITY_EXCLUSION: &str = "id NOT IN (SELECT representative_activity_id \
     FROM sections WHERE representative_activity_id IS NOT NULL) \
     AND id NOT IN (SELECT rep_activity_id FROM section_geometry \
@@ -596,80 +596,6 @@ impl PersistentEngine {
 
         log::info!("[engine] Cleared routes and sections (GPS tracks preserved)");
         Ok(())
-    }
-
-    /// Remove activities older than the specified retention period.
-    ///
-    /// This cleans up old activities and their associated data (GPS tracks, signatures)
-    /// to prevent unbounded database growth. Cascade deletes handle related data automatically.
-    ///
-    /// # Arguments
-    /// * `retention_days` - Number of days to retain activities (0 = keep all, 30-365 for cleanup)
-    ///
-    /// # Returns
-    /// * `Ok(deleted_count)` - Number of activities deleted
-    /// * `Err(...)` - Database error
-    ///
-    /// # Side Effects
-    /// * Marks groups and sections as dirty for re-computation
-    /// * Reloads metadata from database
-    ///
-    /// # Example
-    /// ```no_run
-    /// # use veloqrs::persistence::PersistentEngine;
-    /// # let mut engine: PersistentEngine = unsafe { std::mem::zeroed() };
-    /// // Delete activities older than 90 days
-    /// let deleted = engine.cleanup_old_activities(90).unwrap();
-    /// println!("Deleted {} old activities", deleted);
-    ///
-    /// // Keep all activities (retention_days = 0)
-    /// let deleted = engine.cleanup_old_activities(0).unwrap();
-    /// assert_eq!(deleted, 0);
-    /// ```
-    pub fn cleanup_old_activities(&mut self, retention_days: u32) -> SqlResult<u32> {
-        // If retention_days is 0, keep all activities
-        if retention_days == 0 {
-            log::info!(
-                "veloqrs: [PersistentEngine] Cleanup skipped: retention period is 0 (keep all)"
-            );
-            return Ok(0);
-        }
-
-        // Calculate cutoff timestamp (current time - retention period)
-        let cutoff_seconds = retention_days as i64 * 24 * 60 * 60;
-
-        // Delete old activities (cascade will handle signatures, GPS tracks, matches)
-        // A reference activity is the geometry of the sections that point at
-        // it, so retention leaves it alone and the returned count says so.
-        let deleted = self.db.execute(
-            &format!(
-                "DELETE FROM activities
-                 WHERE created_at < (strftime('%s', 'now') - ?) AND {REFERENCE_ACTIVITY_EXCLUSION}"
-            ),
-            params![cutoff_seconds],
-        )?;
-
-        // If any activities were deleted, reload metadata and mark for re-computation
-        if deleted > 0 {
-            // Clear affected caches
-            self.signature_cache.clear();
-            self.consensus_cache.clear();
-
-            // Reload metadata from database
-            self.load_metadata()?;
-
-            // Mark groups and sections as dirty since activities changed
-            self.groups_dirty = true;
-            self.sections_dirty = true;
-
-            log::info!(
-                "veloqrs: [PersistentEngine] Cleaned up {} activities older than {} days",
-                deleted,
-                retention_days
-            );
-        }
-
-        Ok(deleted as u32)
     }
 
     /// Empty what the engine can re-derive and keep what the athlete made.
