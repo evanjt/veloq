@@ -45,6 +45,7 @@ import type {
   FfiIndexActivitySummary,
   DownloadProgressResult,
   DerivedClear,
+  SettingPair,
 } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
@@ -883,6 +884,8 @@ class EngineClient implements DelegateHost {
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 
   setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
+
+  setSettings = (pairs: SettingPair[]): number => settingsDelegates.setSettings(this, pairs);
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
