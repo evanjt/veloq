@@ -3,9 +3,6 @@ import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line } from 'victory-native';
-import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import {
   colors,
@@ -16,7 +13,7 @@ import {
   chartStyles,
   switchTrackOff,
 } from '@/theme';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
+import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
 import {
@@ -36,13 +33,13 @@ interface PaceCurveChartProps {
 
 const CS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
-// Standard distance markers for x-axis (in meters)
-const X_AXIS_MARKERS = [
-  { meters: 400, label: '400m' },
-  { meters: 1000, label: '1km' },
-  { meters: 5000, label: '5km' },
-  { meters: 10000, label: '10km' },
-  { meters: 21097.5, label: '21km' },
+// Standard distance markers for the log x axis
+const X_LABELS: PlacedLabel[] = [
+  { value: Math.log10(400), label: '400m' },
+  { value: Math.log10(1000), label: '1km' },
+  { value: Math.log10(5000), label: '5km' },
+  { value: Math.log10(10000), label: '10km' },
+  { value: Math.log10(21097.5), label: '21km' },
 ];
 
 interface ChartPoint {
@@ -52,10 +49,7 @@ interface ChartPoint {
   time: number; // time in seconds to cover this distance
   paceSecsPerKm: number;
   activityId?: string; // Activity that achieved this best effort
-  [key: string]: unknown;
 }
-
-const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
 
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
@@ -87,11 +81,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
   const [persistedTooltip, setPersistedTooltip] = useState<ChartPoint | null>(null);
-  // Track actual chart bounds from Victory Native for accurate axis label positioning
-  const [actualChartBounds, setActualChartBounds] = useState({
-    left: 0,
-    right: 0,
-  });
 
   const lastPointRef = useRef<ChartPoint | null>(null);
 
@@ -192,27 +181,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     };
   }, [curve]);
 
-  // Calculate x-axis label positions based on actual chart bounds from Victory Native
-  const xAxisLabelPositions = useMemo(() => {
-    const chartAreaWidth = actualChartBounds.right - actualChartBounds.left;
-    if (chartAreaWidth <= 0 || chartData.length === 0) return [];
-
-    const [xMin, xMax] = xDomain;
-    const xRange = xMax - xMin;
-
-    return X_AXIS_MARKERS.map((marker) => {
-      const logDist = Math.log10(marker.meters);
-      const ratio = (logDist - xMin) / xRange;
-      // Only show if within the data range
-      if (ratio < -0.05 || ratio > 1.05) return null;
-      return {
-        label: marker.label,
-        // Position relative to chart bounds, not wrapper width
-        position: actualChartBounds.left + ratio * chartAreaWidth,
-      };
-    }).filter(Boolean) as { label: string; position: number }[];
-  }, [actualChartBounds, xDomain, chartData.length]);
-
   const handleSelect = useCallback((point: ChartPoint) => {
     lastPointRef.current = point;
     setTooltipData(point);
@@ -229,12 +197,10 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     setTooltipData(null);
   }, []);
 
-  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<ChartPoint>({
-    data: chartData,
-    onSelect: handleSelect,
-    onInteractionChange: handleInteractionChange,
-    crosshairMode: 'finger',
-  });
+  const referenceLine = useMemo(
+    () => (criticalSpeedPace ? { value: criticalSpeedPace, color: CS_LINE_COLOR } : null),
+    [criticalSpeedPace]
+  );
 
   // Display data - either selected point, persisted point, or latest (longest distance)
   const displayData = tooltipData || persistedTooltip || chartData[chartData.length - 1];
@@ -341,118 +307,18 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         </TouchableOpacity>
       )}
 
-      {/* Chart */}
-      <GestureDetector gesture={gesture}>
-        <View style={chartStyles.chartWrapper}>
-          <CartesianChart
-            data={chartData}
-            xKey="x"
-            yKeys={['y']}
-            domain={{ x: xDomain, y: yDomain }}
-            padding={CHART_PADDING}
-          >
-            {({ points, chartBounds }) => {
-              syncBounds(chartBounds);
-              syncXCoords(points.y, (p) => p.x);
-              // The x-axis labels are laid out in React, so the bounds have to
-              // reach state too. Deferred to keep it out of the render pass.
-              if (
-                chartBounds.left !== actualChartBounds.left ||
-                chartBounds.right !== actualChartBounds.right
-              ) {
-                queueMicrotask(() => {
-                  setActualChartBounds({
-                    left: chartBounds.left,
-                    right: chartBounds.right,
-                  });
-                });
-              }
-
-              return (
-                <>
-                  {/* Critical Speed line */}
-                  {criticalSpeedPace &&
-                    criticalSpeedPace >= yDomain[0] &&
-                    criticalSpeedPace <= yDomain[1] && (
-                      <SkiaLine
-                        p1={{
-                          x: chartBounds.left,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        p2={{
-                          x: chartBounds.right,
-                          y:
-                            chartBounds.top +
-                            ((criticalSpeedPace - yDomain[0]) / (yDomain[1] - yDomain[0])) *
-                              (chartBounds.bottom - chartBounds.top),
-                        }}
-                        color={CS_LINE_COLOR}
-                        strokeWidth={1}
-                      >
-                        <DashPathEffect intervals={[6, 4]} />
-                      </SkiaLine>
-                    )}
-
-                  {/* Pace curve with casing */}
-                  <Line
-                    points={points.y}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
-                    strokeWidth={2.5}
-                    curveType="natural"
-                  />
-                  <Line
-                    points={points.y}
-                    color={chartColors.paceCurve}
-                    strokeWidth={1.5}
-                    curveType="natural"
-                  />
-                </>
-              );
-            }}
-          </CartesianChart>
-
-          {/* Crosshair */}
-          <ChartCrosshair style={crosshairStyle} />
-
-          {/* X-axis labels - positioned based on log scale */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            {xAxisLabelPositions.map((item, idx) => (
-              <Text
-                key={idx}
-                style={[
-                  chartStyles.axisLabelCompact,
-                  isDark && chartStyles.axisLabelCompactDark,
-                  { position: 'absolute', left: item.position - 15 },
-                ]}
-              >
-                {item.label}
-              </Text>
-            ))}
-          </View>
-
-          {/* Y-axis labels - note: axis is inverted so top is fastest (yDomain[1]), bottom is slowest (yDomain[0]) */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm(yDomain[1])}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm((yDomain[0] + yDomain[1]) / 2)}
-            </Text>
-            <Text
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {formatPaceFromSecsPerKm(yDomain[0])}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
+      <CurveChart
+        data={chartData}
+        xDomain={xDomain}
+        yDomain={yDomain}
+        color={chartColors.paceCurve}
+        referenceLine={referenceLine}
+        xLabels={X_LABELS}
+        formatY={formatPaceFromSecsPerKm}
+        crosshairMode="finger"
+        onSelect={handleSelect}
+        onInteractionChange={handleInteractionChange}
+      />
 
       {/* Model info */}
       <View style={styles.footer}>
@@ -559,20 +425,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: spacing.md,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    left: spacing.xs,
-    justifyContent: 'space-between',
   },
   footer: {
     marginTop: spacing.xs,
