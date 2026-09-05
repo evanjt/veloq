@@ -1352,7 +1352,8 @@
     "vsPrevious3Months": "vs forrige 3 måneder",
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
-    "year": "År"
+    "year": "År",
+    "atWeight": "ved {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "Aerob effektivitet",
@@ -1389,7 +1390,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "Træk for at udforske",
