@@ -1,15 +1,24 @@
-//! Section management: loading, queries, detection, save/apply, names.
+//! Section management: every read and write of a section on one tree.
+//!
+//! `queries` reads, `mutations` creates, renames, references and deletes,
+//! `editing` handles bounds, visibility and imports, and the rest is
+//! detection, identity, ranking, naming and history. All of it is
+//! `impl PersistentEngine`, so a question like "what happens on rename" is
+//! answered here and nowhere else.
 
 pub mod conditioning;
 pub(crate) mod detection;
+mod editing;
 pub(crate) mod geometry;
 pub(super) mod history;
 mod identity;
 mod interest;
 mod merging;
+mod mutations;
 mod named;
 mod naming;
 pub(crate) mod preview;
+mod queries;
 mod ranking;
 pub(crate) mod track_pool;
 
@@ -2194,4 +2203,15 @@ mod tests {
         assert!(!engine.processed_clear_pending());
         assert_eq!(engine.processed_activity_ids.len(), 1);
     }
+}
+
+/// Every traversal of a section line by one activity, counted the way
+/// detection counts it, so an attached row and a detected row agree.
+pub(crate) fn compute_section_portions(
+    activity_id: &str,
+    track: &[tracematch::GpsPoint],
+    section_polyline: &[tracematch::GpsPoint],
+    config: &tracematch::SectionConfig,
+) -> Vec<tracematch::SectionPortion> {
+    tracematch::track_portions(activity_id, track, section_polyline, config)
 }
