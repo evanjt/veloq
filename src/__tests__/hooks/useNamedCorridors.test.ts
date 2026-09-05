@@ -11,9 +11,12 @@ import { getEngine } from '@/shared/native/engine';
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 // Real decoder, native binding stubbed out: the footprint bytes are the point.
-jest.mock('veloqrs', () => ({
-  decodeCoords: jest.requireActual('../../../modules/veloqrs/src/coords').decodeCoords,
-}));
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    decodeCoords: jest.requireActual('../../../modules/veloqrs/src/coords').decodeCoords,
+  })
+);
 
 function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
   const bytes: number[] = [];

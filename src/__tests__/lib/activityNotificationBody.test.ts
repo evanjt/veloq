@@ -12,7 +12,12 @@ const mockEngine = {
   getPerformancesBatch: jest.fn(),
 };
 
-jest.mock('veloqrs', () => ({ engine: mockEngine }), { virtual: true });
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides({
+    engine: mockEngine,
+  })
+);
 
 const t = (key: string, params?: Record<string, string | number>) =>
   params ? `${key}(${Object.values(params).join(',')})` : key;
