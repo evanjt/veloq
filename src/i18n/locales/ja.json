@@ -1039,6 +1039,7 @@
     "deleteSection": "セクションを削除",
     "deleteSectionConfirm": "このセクションを削除してもよろしいですか？この操作は元に戻せません。",
     "detectionPaused": "セクションの移行中は検出を一時停止しています",
+    "detectionPausedElevation": "標高のダウンロード中は検出を一時停止しています",
     "disabled": "無効",
     "removeSection": "セクションを削除",
     "removeSectionConfirm": "このセクションはアクティビティ詳細やインサイトに表示されなくなります。セクションリストから復元できます。",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} 件のアクティビティの軌跡を更新できませんでした。後で再試行します。",
     "elevationBackfillFailed": "標高の更新を実行できませんでした。",
     "elevationBackfillExplainer": "すべての軌跡に標高がそろうと、改良されたセクション検出が実行されます。",
+    "elevationBackfillOutstanding_one": "{{count}} 件のアクティビティトラックに標高が必要です。",
+    "elevationBackfillOutstanding_other": "{{count}} 件のアクティビティトラックに標高が必要です。",
     "elevationBackfillWhy": "なぜ必要か",
     "elevationBackfillWhyTitle": "標高を追加する理由",
     "elevationBackfillWhyBody": "改良されたセクションアルゴリズムと登坂検出は、以前のバージョンが取得していなかった標高を使います。Veloq は既存のアクティビティについて一度だけ標高を取得し、その後で新しいアルゴリズムによりセクションを検出し直します。",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "自らを説明する区間",
       "sectionsBody": "区間は単一の決定論的な検出器で切り出されるようになりました。各区間には読める・戻せる・固定できる履歴があります。",
+      "elevationLine": "Veloq は既存のアクティビティについて一度だけ標高を取得し、その後で新しいアルゴリズムによりセクションを検出し直します。",
       "rowDeterministic": "決定論的なマッチャー：同じ活動なら同じ区間になります",
       "rowSameResult": "活動を1件ずつ追加しても一括でも結果は同じです",
       "rowLedger": "履歴で各区間の変化とその前後の活動がわかります",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
       "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。",
-      "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。"
+      "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。",
+      "settingsReset": "セクション検出の設定は検証済みの値にリセットされました: {{changes}}。セクション変更のプレビューから「保持」を選ぶと以前の値に戻せます。",
+      "settingsResetChange": "{{label}} {{from}} から {{to}}",
+      "settingsResetProximity": "近接距離",
+      "settingsResetMinLength": "最小長さ",
+      "settingsResetMaxLength": "最長セクション",
+      "settingsResetMinActivities": "最小訪問回数",
+      "settingsResetDivergence": "分岐"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "名前を削除",
     "deleteTitle": "名前を削除",
     "deleteConfirm": "「{{name}}」を削除しますか？区間は自動生成の名前に戻ります。"
+  },
+  "backgroundJobs": {
+    "title": "バックグラウンド処理",
+    "intro": "アプリが自動で実行する長い処理です。この画面を離れても続きます。",
+    "openLink": "バックグラウンド処理",
+    "sync": "アクティビティの同期",
+    "detection": "セクション検出",
+    "elevationBackfill": "標高データの取得",
+    "cutover": "セクションの再構築",
+    "stateIdle": "停止中",
+    "stateRunning": "実行中",
+    "stateComplete": "完了",
+    "statePartial": "完了、一部は再試行します",
+    "stateFailed": "途中で停止しました",
+    "progressCount": "{{total}} 件中 {{completed}} 件",
+    "progressPercent": "{{percent}}%",
+    "remaining": "残り {{count}} 件を取得します"
   }
 }

@@ -1039,6 +1039,7 @@
     "deleteSection": "Eliminar sección",
     "deleteSectionConfirm": "¿Estás seguro de que quieres eliminar esta sección? Esta acción no se puede deshacer.",
     "detectionPaused": "Detección en pausa mientras se migran tus secciones",
+    "detectionPausedElevation": "Detección en pausa mientras se descarga la elevación",
     "disabled": "Desactivada",
     "removeSection": "Eliminar sección",
     "removeSectionConfirm": "Esta sección no aparecerá en los detalles de actividad ni en las estadísticas. Puedes restaurarla desde la lista de secciones.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "No se pudieron actualizar {{count}} recorridos de actividad. Se reintentarán más tarde.",
     "elevationBackfillFailed": "No se pudo ejecutar la actualización de altitud.",
     "elevationBackfillExplainer": "La detección de secciones mejorada se ejecuta cuando todos los recorridos tienen altitud.",
+    "elevationBackfillOutstanding_one": "{{count}} recorrido todavía necesita elevación.",
+    "elevationBackfillOutstanding_other": "{{count}} recorridos todavía necesitan elevación.",
     "elevationBackfillWhy": "Por qué hace falta",
     "elevationBackfillWhyTitle": "Por qué se añade la altitud",
     "elevationBackfillWhyBody": "El algoritmo de secciones mejorado y la detección de subidas leen una altitud que las versiones anteriores nunca descargaban. Veloq la descarga una vez para tus actividades existentes y después vuelve a detectar las secciones con el nuevo algoritmo.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Tramos que se explican",
       "sectionsBody": "Los tramos ahora los corta un único detector determinista. Cada uno guarda un historial que puedes leer, restaurar y fijar.",
+      "elevationLine": "Veloq descarga la altitud una vez para tus actividades existentes y después vuelve a detectar las secciones con el nuevo algoritmo.",
       "rowDeterministic": "Un solo emparejador determinista: las mismas salidas dan los mismos tramos",
       "rowSameResult": "Añadir salidas una a una o todas a la vez da el mismo resultado",
       "rowLedger": "Un historial muestra cómo cambió cada tramo y qué había alrededor",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
       "diffUnchanged": "Los {{sections}} tramos salieron del nuevo análisis sin cambios.",
-      "recutFailed": "El nuevo análisis no terminó. Tus tramos siguen igual y se ejecuta de nuevo al abrir la app."
+      "recutFailed": "El nuevo análisis no terminó. Tus tramos siguen igual y se ejecuta de nuevo al abrir la app.",
+      "settingsReset": "Tus ajustes de detección de tramos se restablecieron a los valores validados: {{changes}}. Previsualizar cambios de tramos y luego Conservar recupera los anteriores.",
+      "settingsResetChange": "{{label}} de {{from}} a {{to}}",
+      "settingsResetProximity": "proximidad",
+      "settingsResetMinLength": "longitud mínima",
+      "settingsResetMaxLength": "tramo más largo",
+      "settingsResetMinActivities": "visitas mínimas",
+      "settingsResetDivergence": "divergencia"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Eliminar nombre",
     "deleteTitle": "Eliminar nombre",
     "deleteConfirm": "¿Eliminar \"{{name}}\"? El tramo volverá a su nombre generado."
+  },
+  "backgroundJobs": {
+    "title": "Tareas en segundo plano",
+    "intro": "Tareas largas que la aplicación ejecuta sola. Continúan cuando sales de esta pantalla.",
+    "openLink": "Tareas en segundo plano",
+    "sync": "Sincronización de actividades",
+    "detection": "Detección de tramos",
+    "elevationBackfill": "Descarga de altimetría",
+    "cutover": "Reconstrucción de tramos",
+    "stateIdle": "Detenida",
+    "stateRunning": "En curso",
+    "stateComplete": "Finalizada",
+    "statePartial": "Finalizada, quedan reintentos",
+    "stateFailed": "Se detuvo antes de tiempo",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltan {{count}} por descargar"
   }
 }

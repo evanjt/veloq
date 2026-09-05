@@ -7,9 +7,10 @@
  * the engine's state machine: idle, running, complete, cancelled, error. The
  * result is taken from the client exactly once.
  *
- * The percent the run button draws advances per loaded track, so progress is
- * read on a cadence rather than announced: an event per track would cost a
- * blocking call into JavaScript for every activity in the pool.
+ * Progress is read when the engine announces a phase, four times a run. A
+ * per-track event is not an option: the loader increments once per activity
+ * and the observer binding blocks the calling Rust thread until JavaScript
+ * returns, so a few hundred activities would be a few hundred blocking calls.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,8 +21,6 @@ import type {
   PreviewPollStatus,
   PreviewResult,
 } from '../../../../modules/veloqrs/src/delegates/preview';
-
-const PROGRESS_MS = 500;
 
 export interface PreviewProgress {
   phase: string;
@@ -47,17 +46,12 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   const [progress, setProgress] = useState<PreviewProgress | null>(null);
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [suspended, setSuspended] = useState(false);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const unsubscribeRef = useRef<(() => void)[]>([]);
   const runningRef = useRef(false);
 
   const stopRun = useCallback(() => {
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-      progressRef.current = null;
-    }
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
+    unsubscribeRef.current.forEach((off) => off());
+    unsubscribeRef.current = [];
     runningRef.current = false;
   }, []);
 
@@ -78,19 +72,17 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
     setProgress(null);
   }, [client, stopRun]);
 
-  const watchProgress = useCallback(() => {
-    if (!client) return;
-    progressRef.current = setInterval(() => {
-      const p = client.getPreviewProgress();
-      if (!p) return;
-      setProgress({
-        phase: p.phase,
-        displayName: getPhaseDisplayName(p.phase),
-        completed: p.completed,
-        total: p.total,
-        percent: p.percent,
-      });
-    }, PROGRESS_MS);
+  const readProgress = useCallback(() => {
+    if (!client || !runningRef.current) return;
+    const p = client.getPreviewProgress();
+    if (!p) return;
+    setProgress({
+      phase: p.phase,
+      displayName: getPhaseDisplayName(p.phase),
+      completed: p.completed,
+      total: p.total,
+      percent: p.percent,
+    });
   }, [client]);
 
   const start = useCallback(
@@ -112,11 +104,13 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       }
       setStatus('running');
       runningRef.current = true;
-      unsubscribeRef.current = client.subscribe('previewFinished', settle);
-      watchProgress();
+      unsubscribeRef.current = [
+        client.subscribe('previewFinished', settle),
+        client.subscribe('previewPhase', readProgress),
+      ];
       return true;
     },
-    [client, settle, watchProgress]
+    [client, settle, readProgress]
   );
 
   const cancel = useCallback(() => {

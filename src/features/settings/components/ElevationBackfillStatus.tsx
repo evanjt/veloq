@@ -30,7 +30,7 @@ import { colors, darkColors, spacing, typography, layout, shadows } from '@/them
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { phase, completed, total, failed } = useElevationBackfill();
+  const { phase, completed, total, failed, remaining } = useElevationBackfill();
   const [showWhy, setShowWhy] = useState(false);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -39,40 +39,51 @@ export function ElevationBackfillStatus() {
   const surface = isDark ? darkColors.surface : colors.surface;
   const danger = isDark ? darkColors.error : colors.error;
 
-  if (phase === 'idle') return null;
+  // The phase is a process-global that starts at `idle`, so at rest it says
+  // nothing about the library. The outstanding count is the durable fact:
+  // a positive count is work owed, zero is nothing owed, and null is an engine
+  // that could not answer, which must not read as a finished backfill.
+  const outstandingAtRest = phase === 'idle' && remaining !== null && remaining > 0;
+  if (phase === 'idle' && !outstandingAtRest) return null;
 
-  const status =
-    phase === 'fetching' ? (
-      <View style={styles.runningRow} testID="elevation-backfill-status">
-        <ActivityIndicator size="small" color={textSecondary} />
-        <View style={styles.runningText}>
-          <Text style={[styles.line, { color: textSecondary }]}>
-            {t('settings.elevationBackfillRunning')}
-          </Text>
-          <Text style={[styles.line, { color: textSecondary }]}>
-            {t('settings.elevationBackfillProgress', { completed, total })}
-          </Text>
-        </View>
+  const status = outstandingAtRest ? (
+    <Text
+      style={[styles.line, styles.centred, { color: textSecondary }]}
+      testID="elevation-backfill-status"
+    >
+      {t('settings.elevationBackfillOutstanding', { count: remaining ?? 0 })}
+    </Text>
+  ) : phase === 'fetching' ? (
+    <View style={styles.runningRow} testID="elevation-backfill-status">
+      <ActivityIndicator size="small" color={textSecondary} />
+      <View style={styles.runningText}>
+        <Text style={[styles.line, { color: textSecondary }]}>
+          {t('settings.elevationBackfillRunning')}
+        </Text>
+        <Text style={[styles.line, { color: textSecondary }]}>
+          {t('settings.elevationBackfillProgress', { completed, total })}
+        </Text>
       </View>
-    ) : phase === 'failed' ? (
-      <Text
-        style={[styles.line, styles.centred, { color: danger }]}
-        testID="elevation-backfill-status"
-      >
-        {t('settings.elevationBackfillFailed')}
-      </Text>
-    ) : (
-      <Text
-        style={[styles.line, styles.centred, { color: textSecondary }]}
-        testID="elevation-backfill-status"
-      >
-        {phase === 'complete'
-          ? t('settings.elevationBackfillComplete')
-          : failed > 0
-            ? t('settings.elevationBackfillRetrying', { count: failed })
-            : t('settings.elevationBackfillPartial')}
-      </Text>
-    );
+    </View>
+  ) : phase === 'failed' ? (
+    <Text
+      style={[styles.line, styles.centred, { color: danger }]}
+      testID="elevation-backfill-status"
+    >
+      {t('settings.elevationBackfillFailed')}
+    </Text>
+  ) : (
+    <Text
+      style={[styles.line, styles.centred, { color: textSecondary }]}
+      testID="elevation-backfill-status"
+    >
+      {phase === 'complete'
+        ? t('settings.elevationBackfillComplete')
+        : failed > 0
+          ? t('settings.elevationBackfillRetrying', { count: failed })
+          : t('settings.elevationBackfillPartial')}
+    </Text>
+  );
 
   return (
     <View>

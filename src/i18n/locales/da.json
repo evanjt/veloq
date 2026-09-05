@@ -1039,6 +1039,7 @@
     "deleteSection": "Slet sektion",
     "deleteSectionConfirm": "Er du sikker på, at du vil slette denne sektion? Denne handling kan ikke fortrydes.",
     "detectionPaused": "Registrering sat på pause, mens dine sektioner migreres",
+    "detectionPausedElevation": "Registrering sat på pause, mens højde hentes",
     "disabled": "Deaktiveret",
     "removeSection": "Fjern sektion",
     "removeSectionConfirm": "Denne sektion vises ikke i aktivitetsdetaljer eller indsigter. Du kan gendanne den fra sektionslisten.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} aktivitetsspor kunne ikke opdateres. De forsøges igen senere.",
     "elevationBackfillFailed": "Højdeopdateringen kunne ikke køre.",
     "elevationBackfillExplainer": "Forbedret sektionsdetektering kører, når alle spor har højde.",
+    "elevationBackfillOutstanding_one": "{{count}} aktivitetsspor mangler stadig højde.",
+    "elevationBackfillOutstanding_other": "{{count}} aktivitetsspor mangler stadig højde.",
     "elevationBackfillWhy": "Hvorfor er det nødvendigt",
     "elevationBackfillWhyTitle": "Hvorfor højde bliver tilføjet",
     "elevationBackfillWhyBody": "Den forbedrede sektionsalgoritme og stigningsdetektering læser højde, som tidligere versioner aldrig hentede. Veloq henter den én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Strækninger, der forklarer sig selv",
       "sectionsBody": "Strækninger skæres nu af én deterministisk detektor. Hver har en historik, du kan læse, gendanne og fastgøre.",
+      "elevationLine": "Veloq henter højde én gang for dine eksisterende aktiviteter og detekterer derefter sektioner igen med den nye algoritme.",
       "rowDeterministic": "Én deterministisk matcher: samme ture giver samme strækninger",
       "rowSameResult": "Én tur ad gangen eller alle på én gang giver samme resultat",
       "rowLedger": "En historik viser, hvordan hver strækning ændrede sig, og hvad der var omkring",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
       "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
       "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen.",
-      "recutFailed": "Analysen blev ikke færdig. Dine strækninger er uændrede, og den kører igen ved næste start."
+      "recutFailed": "Analysen blev ikke færdig. Dine strækninger er uændrede, og den kører igen ved næste start.",
+      "settingsReset": "Dine indstillinger for sektionsdetektion blev nulstillet til de validerede værdier: {{changes}}. Forhåndsvis sektionsændringer og tryk Behold for at få de tidligere tilbage.",
+      "settingsResetChange": "{{label}} {{from}} til {{to}}",
+      "settingsResetProximity": "nærhed",
+      "settingsResetMinLength": "minimumslængde",
+      "settingsResetMaxLength": "længste sektion",
+      "settingsResetMinActivities": "minimum besøg",
+      "settingsResetDivergence": "afvigelse"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Slet navn",
     "deleteTitle": "Slet navn",
     "deleteConfirm": "Slet \"{{name}}\"? Strækningen får sit genererede navn tilbage."
+  },
+  "backgroundJobs": {
+    "title": "Baggrundsopgaver",
+    "intro": "Lange opgaver, som appen kører af sig selv. De fortsætter, når du forlader denne skærm.",
+    "openLink": "Baggrundsopgaver",
+    "sync": "Synkronisering af aktiviteter",
+    "detection": "Registrering af sektioner",
+    "elevationBackfill": "Hentning af højdedata",
+    "cutover": "Genopbygning af sektioner",
+    "stateIdle": "Kører ikke",
+    "stateRunning": "Kører",
+    "stateComplete": "Færdig",
+    "statePartial": "Færdig, nogle skal forsøges igen",
+    "stateFailed": "Stoppet for tidligt",
+    "progressCount": "{{completed}} af {{total}}",
+    "progressPercent": "{{percent}} %",
+    "remaining": "{{count}} mangler at blive hentet"
   }
 }

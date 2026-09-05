@@ -1,4 +1,6 @@
 export { ActivitySyncRow } from './ActivitySyncRow';
+export { BackgroundJobsLink } from './BackgroundJobsLink';
+export { BackgroundJobsPanel } from './BackgroundJobsPanel';
 export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';

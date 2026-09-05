@@ -1039,6 +1039,7 @@
     "deleteSection": "Excluir seção",
     "deleteSectionConfirm": "Tem certeza de que deseja excluir esta seção? Esta ação não pode ser desfeita.",
     "detectionPaused": "Detecção pausada enquanto suas seções são migradas",
+    "detectionPausedElevation": "Detecção pausada enquanto a elevação é baixada",
     "disabled": "Desativada",
     "removeSection": "Remover seção",
     "removeSectionConfirm": "Esta seção não aparecerá nos detalhes da atividade nem nos insights. Você pode restaurá-la a partir da lista de seções.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "Não foi possível atualizar {{count}} trajetos das atividades. Serão tentados novamente mais tarde.",
     "elevationBackfillFailed": "Não foi possível executar a atualização de altitude.",
     "elevationBackfillExplainer": "A detecção de trechos aprimorada roda quando todos os trajetos tiverem altitude.",
+    "elevationBackfillOutstanding_one": "{{count}} percurso ainda precisa de elevação.",
+    "elevationBackfillOutstanding_other": "{{count}} percursos ainda precisam de elevação.",
     "elevationBackfillWhy": "Por que isso é necessário",
     "elevationBackfillWhyTitle": "Por que a altitude está sendo adicionada",
     "elevationBackfillWhyBody": "O algoritmo de trechos aprimorado e a detecção de subidas leem uma altitude que as versões anteriores nunca baixavam. O Veloq baixa essa altitude uma vez para as suas atividades existentes e depois detecta os trechos de novo com o novo algoritmo.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Trechos que se explicam",
       "sectionsBody": "Os trechos agora são cortados por um único detector determinístico. Cada um guarda um histórico que você pode ler, restaurar e fixar.",
+      "elevationLine": "O Veloq baixa a altitude uma vez para as suas atividades existentes e depois detecta os trechos de novo com o novo algoritmo.",
       "rowDeterministic": "Um só pareador determinístico: as mesmas pedaladas dão os mesmos trechos",
       "rowSameResult": "Adicionar atividades uma por uma ou todas de uma vez dá o mesmo resultado",
       "rowLedger": "Um histórico mostra como cada trecho mudou e o que estava por perto",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} trechos viraram {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
       "diffUnchanged": "Todos os {{sections}} trechos saíram da nova análise sem mudanças.",
-      "recutFailed": "A nova análise não terminou. Seus trechos continuam iguais e ela roda de novo na próxima abertura."
+      "recutFailed": "A nova análise não terminou. Seus trechos continuam iguais e ela roda de novo na próxima abertura.",
+      "settingsReset": "As configurações de detecção de trechos foram redefinidas para os valores validados: {{changes}}. Visualizar mudanças de trechos e depois Manter restaura as anteriores.",
+      "settingsResetChange": "{{label}} de {{from}} para {{to}}",
+      "settingsResetProximity": "proximidade",
+      "settingsResetMinLength": "comprimento mínimo",
+      "settingsResetMaxLength": "trecho mais longo",
+      "settingsResetMinActivities": "visitas mínimas",
+      "settingsResetDivergence": "divergência"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Excluir nome",
     "deleteTitle": "Excluir nome",
     "deleteConfirm": "Excluir \"{{name}}\"? O trecho volta ao nome gerado."
+  },
+  "backgroundJobs": {
+    "title": "Tarefas em segundo plano",
+    "intro": "Tarefas longas que o aplicativo executa sozinho. Continuam quando você sai desta tela.",
+    "openLink": "Tarefas em segundo plano",
+    "sync": "Sincronização de atividades",
+    "detection": "Detecção de trechos",
+    "elevationBackfill": "Download de altimetria",
+    "cutover": "Reconstrução de trechos",
+    "stateIdle": "Parada",
+    "stateRunning": "Em andamento",
+    "stateComplete": "Concluída",
+    "statePartial": "Concluída, faltam novas tentativas",
+    "stateFailed": "Parou antes do fim",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltam {{count}} para baixar"
   }
 }

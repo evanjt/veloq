@@ -1,9 +1,9 @@
 /**
  * Scenario: the preview screen drives one sandboxed detection run. The hook
- * must merge only the five staged sliders over the live config, refresh
- * progress on a 500 ms cadence, settle on the engine's finish event rather
- * than on a status poll, take the result exactly once, and read a refused
- * start as suspension rather than failure.
+ * must merge only the five staged sliders over the live config, read progress
+ * when the engine announces a phase rather than on a timer, settle on the
+ * engine's finish event rather than on a status poll, take the result exactly
+ * once, and read a refused start as suspension rather than failure.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -43,6 +43,8 @@ const RESULT: PreviewResult = {
 
 /** The `previewFinished` callbacks the hook has registered on the client. */
 let finishListeners: Set<() => void>;
+/** The `previewPhase` callbacks the hook has registered on the client. */
+let phaseListeners: Set<() => void>;
 /** How many registrations the hook has detached. */
 let detaches: number;
 
@@ -52,14 +54,26 @@ function fireFinished() {
   });
 }
 
+function firePhase() {
+  act(() => {
+    [...phaseListeners].forEach((cb) => cb());
+  });
+}
+
 function makeClient(over: Partial<PreviewClient> = {}) {
   return {
     subscribe: jest.fn((event: string, cb: () => void) => {
-      if (event !== 'previewFinished') return () => {};
-      finishListeners.add(cb);
+      const listeners =
+        event === 'previewFinished'
+          ? finishListeners
+          : event === 'previewPhase'
+            ? phaseListeners
+            : null;
+      if (!listeners) return () => {};
+      listeners.add(cb);
       return () => {
         detaches += 1;
-        finishListeners.delete(cb);
+        listeners.delete(cb);
       };
     }),
     getPreviewCentres: jest.fn(() => []),
@@ -79,6 +93,7 @@ function makeClient(over: Partial<PreviewClient> = {}) {
 describe('usePreviewDetect', () => {
   beforeEach(() => {
     finishListeners = new Set();
+    phaseListeners = new Set();
     detaches = 0;
     jest.useFakeTimers();
   });
@@ -102,7 +117,7 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('running');
   });
 
-  it('reads progress on a 500 ms cadence and surfaces a display name', () => {
+  it('reads progress when a phase is announced and surfaces a display name', () => {
     const client = makeClient({
       getPreviewProgress: jest.fn(() => ({
         phase: 'loading',
@@ -116,16 +131,10 @@ describe('usePreviewDetect', () => {
     act(() => {
       result.current.start(10, 20, PARAMS);
     });
+    expect(client.subscribe).toHaveBeenCalledWith('previewPhase', expect.any(Function));
     expect(client.getPreviewProgress).not.toHaveBeenCalled();
 
-    act(() => {
-      jest.advanceTimersByTime(499);
-    });
-    expect(client.getPreviewProgress).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
+    firePhase();
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
     expect(result.current.progress).toMatchObject({
       phase: 'loading',
@@ -134,9 +143,61 @@ describe('usePreviewDetect', () => {
       total: 12,
       percent: 25,
     });
+
+    firePhase();
+    expect(client.getPreviewProgress).toHaveBeenCalledTimes(2);
   });
 
-  it('reads nothing but progress between the start and the finish event', () => {
+  it('arms no timer, so a long run costs one read per announced phase', () => {
+    const client = makeClient({
+      getPreviewProgress: jest.fn(() => ({
+        phase: 'analyzing',
+        completed: 0,
+        total: 40,
+        percent: 5,
+      })),
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    act(() => {
+      jest.advanceTimersByTime(600000);
+    });
+
+    expect(client.getPreviewProgress).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('stops reading phases once the run settles', () => {
+    const client = makeClient({
+      pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
+      takePreviewResult: jest.fn(() => RESULT),
+      getPreviewProgress: jest.fn(() => ({
+        phase: 'loading',
+        completed: 1,
+        total: 4,
+        percent: 1,
+      })),
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    firePhase();
+    expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
+
+    fireFinished();
+    expect(result.current.status).toBe('complete');
+    expect(phaseListeners.size).toBe(0);
+
+    firePhase();
+    expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads nothing at all between the start and the finish event', () => {
     const client = makeClient();
     const { result } = renderHook(() => usePreviewDetect(client));
 
@@ -175,7 +236,7 @@ describe('usePreviewDetect', () => {
 
     expect(result.current.status).toBe('complete');
     expect(poll).toHaveBeenCalledTimes(2);
-    expect(detaches).toBe(1);
+    expect(detaches).toBe(2);
   });
 
   it('subscribes afresh for a second run', () => {
@@ -194,10 +255,11 @@ describe('usePreviewDetect', () => {
     });
     fireFinished();
 
-    expect(client.subscribe).toHaveBeenCalledTimes(2);
+    expect(client.subscribe).toHaveBeenCalledTimes(4);
     expect(client.takePreviewResult).toHaveBeenCalledTimes(2);
     expect(finishListeners.size).toBe(0);
-    expect(detaches).toBe(2);
+    expect(phaseListeners.size).toBe(0);
+    expect(detaches).toBe(4);
   });
 
   it('takes the result exactly once on the finish event and stops', () => {
@@ -224,7 +286,7 @@ describe('usePreviewDetect', () => {
     expect(client.pollPreviewDetect).toHaveBeenCalledTimes(1);
     expect(client.takePreviewResult).toHaveBeenCalledTimes(1);
     expect(client.getPreviewProgress).not.toHaveBeenCalled();
-    expect(detaches).toBe(1);
+    expect(detaches).toBe(2);
   });
 
   it('reads a refused start as suspension, not failure', () => {
@@ -310,7 +372,7 @@ describe('usePreviewDetect', () => {
     });
     expect(client.pollPreviewDetect).not.toHaveBeenCalled();
     expect(result.current.status).toBe('cancelled');
-    expect(detaches).toBe(1);
+    expect(detaches).toBe(2);
   });
 
   it('fails the start when no live config exists', () => {
@@ -337,7 +399,7 @@ describe('usePreviewDetect', () => {
     unmount();
 
     expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
-    expect(detaches).toBe(1);
+    expect(detaches).toBe(2);
     fireFinished();
     act(() => {
       jest.advanceTimersByTime(2000);

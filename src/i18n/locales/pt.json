@@ -1039,6 +1039,7 @@
     "deleteSection": "Eliminar troço",
     "deleteSectionConfirm": "Tem a certeza de que pretende eliminar este troço? Esta ação não pode ser anulada.",
     "detectionPaused": "Deteção em pausa enquanto as suas secções são migradas",
+    "detectionPausedElevation": "Deteção em pausa enquanto a elevação é transferida",
     "disabled": "Desativada",
     "removeSection": "Remover secção",
     "removeSectionConfirm": "Esta secção não aparecerá nos detalhes da atividade nem nos insights. Pode restaurá-la a partir da lista de secções.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "Não foi possível atualizar {{count}} percursos das atividades. Serão tentados novamente mais tarde.",
     "elevationBackfillFailed": "Não foi possível executar a atualização de altitude.",
     "elevationBackfillExplainer": "A deteção de troços melhorada corre assim que todos os percursos tiverem altitude.",
+    "elevationBackfillOutstanding_one": "{{count}} percurso ainda precisa de elevação.",
+    "elevationBackfillOutstanding_other": "{{count}} percursos ainda precisam de elevação.",
     "elevationBackfillWhy": "Porque é necessário",
     "elevationBackfillWhyTitle": "Porque está a ser adicionada altitude",
     "elevationBackfillWhyBody": "O algoritmo de troços melhorado e a deteção de subidas leem uma altitude que as versões anteriores nunca descarregavam. O Veloq descarrega-a uma vez para as tuas atividades existentes e depois deteta os troços de novo com o novo algoritmo.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Troços que se explicam",
       "sectionsBody": "Os troços passam a ser cortados por um único detetor determinístico. Cada um guarda um histórico que pode ler, repor e fixar.",
+      "elevationLine": "O Veloq descarrega a altitude uma vez para as tuas atividades existentes e depois deteta os troços de novo com o novo algoritmo.",
       "rowDeterministic": "Um só emparelhador determinístico: as mesmas saídas dão os mesmos troços",
       "rowSameResult": "Adicionar saídas uma a uma ou todas de uma vez dá o mesmo resultado",
       "rowLedger": "Um histórico mostra como cada troço mudou e o que esteve por perto",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
       "diffUnchanged": "Os {{sections}} troços saíram da nova análise sem alterações.",
-      "recutFailed": "A nova análise não terminou. Os teus troços continuam iguais e volta a correr no próximo arranque."
+      "recutFailed": "A nova análise não terminou. Os teus troços continuam iguais e volta a correr no próximo arranque.",
+      "settingsReset": "As definições de deteção de secções foram repostas nos valores validados: {{changes}}. Pré-visualizar alterações de secções e depois Manter repõe as anteriores.",
+      "settingsResetChange": "{{label}} de {{from}} para {{to}}",
+      "settingsResetProximity": "proximidade",
+      "settingsResetMinLength": "comprimento mínimo",
+      "settingsResetMaxLength": "secção mais longa",
+      "settingsResetMinActivities": "visitas mínimas",
+      "settingsResetDivergence": "divergência"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Eliminar nome",
     "deleteTitle": "Eliminar nome",
     "deleteConfirm": "Eliminar \"{{name}}\"? O troço volta ao nome gerado."
+  },
+  "backgroundJobs": {
+    "title": "Tarefas em segundo plano",
+    "intro": "Tarefas longas que a aplicação executa sozinha. Continuam quando sais deste ecrã.",
+    "openLink": "Tarefas em segundo plano",
+    "sync": "Sincronização de atividades",
+    "detection": "Deteção de secções",
+    "elevationBackfill": "Transferência de altimetria",
+    "cutover": "Reconstrução de secções",
+    "stateIdle": "Parada",
+    "stateRunning": "A decorrer",
+    "stateComplete": "Concluída",
+    "statePartial": "Concluída, faltam repetições",
+    "stateFailed": "Parou antes do fim",
+    "progressCount": "{{completed}} de {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Faltam {{count}} para transferir"
   }
 }

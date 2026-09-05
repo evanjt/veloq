@@ -5,6 +5,11 @@
  * starts a run. Rust announces each phase it enters, so an idle library costs
  * one read at mount and nothing after it. The count inside a run has no event
  * of its own, so a live run is polled and only a live run is.
+ *
+ * The phase is a process-global that starts at `idle` and only a pass moves,
+ * so it cannot answer at rest and every launch without one read as nothing
+ * (`B247`). At rest the answer comes from `getElevationBackfillRemaining`, a
+ * count of stored tracks that have not been asked about yet, which is durable.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -28,6 +33,12 @@ export interface ElevationBackfillState {
   total: number;
   /** Activities whose fetch failed, so a later run retries them. */
   failed: number;
+  /**
+   * Stored tracks still owed a fetch, read only at rest. Null while a pass is
+   * running, which reports its own progress, and null when the engine cannot
+   * answer, which must never read as a finished backfill.
+   */
+  remaining: number | null;
   isRunning: boolean;
 }
 
@@ -36,6 +47,7 @@ const IDLE: ElevationBackfillState = {
   completed: 0,
   total: 0,
   failed: 0,
+  remaining: null,
   isRunning: false,
 };
 
@@ -52,12 +64,15 @@ function read(): ElevationBackfillState {
   const progress = engine.getElevationBackfillProgress();
   if (!progress) return IDLE;
   const phase = narrowPhase(progress.phase);
+  const isRunning = phase === 'fetching';
   return {
     phase,
     completed: progress.completed,
     total: progress.total,
     failed: progress.failed,
-    isRunning: phase === 'fetching',
+    // One COUNT, and only when there is no pass to report instead.
+    remaining: isRunning ? null : (engine.getElevationBackfillRemaining?.() ?? null),
+    isRunning,
   };
 }
 
@@ -66,7 +81,8 @@ function same(a: ElevationBackfillState, b: ElevationBackfillState): boolean {
     a.phase === b.phase &&
     a.completed === b.completed &&
     a.total === b.total &&
-    a.failed === b.failed
+    a.failed === b.failed &&
+    a.remaining === b.remaining
   );
 }
 

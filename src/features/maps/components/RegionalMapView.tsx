@@ -41,9 +41,7 @@ import {
   REGIONAL_INTERACTIVE_LAYERS,
 } from './regional/regionalMapLayerSpecs';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
-
-/** World view until the camera hook fits the activities it finds. */
-const WORLD_CAMERA = { center: [0, 0] as [number, number], zoom: 2 };
+import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 
 // Stable no-op function reference for disabled callbacks.
 // Inline `() => {}` creates a new reference every render, which destabilises
@@ -182,6 +180,10 @@ export function RegionalMapView({
   useEffect(() => {
     if (!isMapFocused) setCameraOnBlur(settledCameraRef.current);
   }, [isMapFocused]);
+  // Within a session `cameraOnBlur` carries the position across a tab switch.
+  // Across a launch nothing did, so every cold start opened on the world view
+  // over a camera that had been saved on every settle since (`U27`).
+  const initialCamera = useInitialRegionalCamera(cameraOnBlur);
   const handleCameraSettled = useCallback((center: [number, number], zoom: number) => {
     settledCameraRef.current = { center, zoom };
     if (mapStyleRef.current === 'satellite') {
@@ -496,7 +498,7 @@ export function RegionalMapView({
           mapStyle={mapStyle}
           // Rebuilt on every return to the tab, so it opens where the user
           // left it rather than back out at the world view.
-          initialCamera={cameraOnBlur ?? WORLD_CAMERA}
+          initialCamera={initialCamera}
           sources={sources}
           layers={layers}
           interactiveLayers={REGIONAL_INTERACTIVE_LAYERS}

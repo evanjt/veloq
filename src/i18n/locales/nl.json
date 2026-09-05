@@ -1039,6 +1039,7 @@
     "deleteSection": "Sectie verwijderen",
     "deleteSectionConfirm": "Weet je zeker dat je deze sectie wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
     "detectionPaused": "Detectie gepauzeerd terwijl je secties worden gemigreerd",
+    "detectionPausedElevation": "Detectie gepauzeerd terwijl hoogte wordt gedownload",
     "disabled": "Uitgeschakeld",
     "removeSection": "Sectie verwijderen",
     "removeSectionConfirm": "Deze sectie verschijnt niet meer in activiteitsdetails of inzichten. Je kunt hem herstellen vanuit de sectielijst.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} activiteitensporen konden niet worden bijgewerkt. Ze worden later opnieuw geprobeerd.",
     "elevationBackfillFailed": "De hoogte-update kon niet worden uitgevoerd.",
     "elevationBackfillExplainer": "De verbeterde sectiedetectie draait zodra alle sporen hoogte hebben.",
+    "elevationBackfillOutstanding_one": "{{count}} activiteitsspoor heeft nog hoogte nodig.",
+    "elevationBackfillOutstanding_other": "{{count}} activiteitssporen hebben nog hoogte nodig.",
     "elevationBackfillWhy": "Waarom dit nodig is",
     "elevationBackfillWhyTitle": "Waarom hoogte wordt toegevoegd",
     "elevationBackfillWhyBody": "Het verbeterde sectie-algoritme en de klimdetectie lezen hoogte die eerdere versies nooit ophaalden. Veloq haalt die één keer op voor je bestaande activiteiten en detecteert de secties daarna opnieuw met het nieuwe algoritme.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Stukken die zichzelf uitleggen",
       "sectionsBody": "Stukken worden nu gesneden door één deterministische detector. Elk heeft een geschiedenis die je kunt lezen, terugzetten en vastzetten.",
+      "elevationLine": "Veloq haalt hoogte één keer op voor je bestaande activiteiten en detecteert de secties daarna opnieuw met het nieuwe algoritme.",
       "rowDeterministic": "Eén deterministische matcher: dezelfde ritten geven dezelfde stukken",
       "rowSameResult": "Ritten één voor één of allemaal tegelijk toevoegen geeft hetzelfde resultaat",
       "rowLedger": "Een geschiedenis toont hoe elk stuk veranderde en wat erbij was",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
       "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
-      "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw."
+      "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw.",
+      "settingsReset": "Je instellingen voor sectiedetectie zijn teruggezet naar de gevalideerde waarden: {{changes}}. Sectiewijzigingen bekijken en dan Behouden zet de vorige terug.",
+      "settingsResetChange": "{{label}} {{from}} naar {{to}}",
+      "settingsResetProximity": "nabijheid",
+      "settingsResetMinLength": "minimale lengte",
+      "settingsResetMaxLength": "langste sectie",
+      "settingsResetMinActivities": "minimale bezoeken",
+      "settingsResetDivergence": "afsplitsing"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Naam verwijderen",
     "deleteTitle": "Naam verwijderen",
     "deleteConfirm": "\"{{name}}\" verwijderen? Het stuk krijgt zijn gegenereerde naam terug."
+  },
+  "backgroundJobs": {
+    "title": "Achtergrondtaken",
+    "intro": "Lange taken die de app zelf uitvoert. Ze gaan door als je dit scherm verlaat.",
+    "openLink": "Achtergrondtaken",
+    "sync": "Activiteiten synchroniseren",
+    "detection": "Sectiedetectie",
+    "elevationBackfill": "Hoogtegegevens downloaden",
+    "cutover": "Secties opnieuw opbouwen",
+    "stateIdle": "Draait niet",
+    "stateRunning": "Bezig",
+    "stateComplete": "Klaar",
+    "statePartial": "Klaar, enkele opnieuw te proberen",
+    "stateFailed": "Voortijdig gestopt",
+    "progressCount": "{{completed}} van {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "Nog {{count}} op te halen"
   }
 }

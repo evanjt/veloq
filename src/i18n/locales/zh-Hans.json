@@ -1039,6 +1039,7 @@
     "deleteSection": "删除路段",
     "deleteSectionConfirm": "确定要删除此路段吗？此操作无法撤销。",
     "detectionPaused": "路段迁移期间已暂停检测",
+    "detectionPausedElevation": "海拔数据下载期间已暂停检测",
     "disabled": "已禁用",
     "removeSection": "移除路段",
     "removeSectionConfirm": "此路段将不再显示在活动详情或洞察中。您可以从路段列表中恢复它。",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} 条活动轨迹更新失败，稍后将重试。",
     "elevationBackfillFailed": "无法运行海拔更新。",
     "elevationBackfillExplainer": "所有轨迹都具备海拔后，改进的路段检测才会运行。",
+    "elevationBackfillOutstanding_one": "{{count}} 条活动轨迹仍需要海拔数据。",
+    "elevationBackfillOutstanding_other": "{{count}} 条活动轨迹仍需要海拔数据。",
     "elevationBackfillWhy": "为什么需要",
     "elevationBackfillWhyTitle": "为什么要添加海拔",
     "elevationBackfillWhyBody": "改进的路段算法和爬升检测需要读取海拔，而旧版本从未获取过这些数据。Veloq 会为你已有的活动获取一次海拔，然后用新算法重新检测路段。",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "能自我说明的路段",
       "sectionsBody": "路段现在由单一的确定性检测器切分。每个路段都保留可查看、可恢复、可固定的历史。",
+      "elevationLine": "Veloq 会为你已有的活动获取一次海拔，然后用新算法重新检测路段。",
       "rowDeterministic": "单一确定性匹配器：相同的骑行得到相同的路段",
       "rowSameResult": "逐条添加或一次添加所有活动，结果相同",
       "rowLedger": "历史显示每个路段如何变化以及前后的活动",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
       "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
-      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。"
+      "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。",
+      "settingsReset": "路段检测设置已重置为经过验证的值：{{changes}}。在预览路段变化中选择保留可恢复之前的值。",
+      "settingsResetChange": "{{label}} {{from}} 改为 {{to}}",
+      "settingsResetProximity": "邻近距离",
+      "settingsResetMinLength": "最短长度",
+      "settingsResetMaxLength": "最长路段",
+      "settingsResetMinActivities": "最少访问次数",
+      "settingsResetDivergence": "分岔"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "删除名字",
     "deleteTitle": "删除名字",
     "deleteConfirm": "删除“{{name}}”？该路段将恢复自动生成的名称。"
+  },
+  "backgroundJobs": {
+    "title": "后台任务",
+    "intro": "应用自行运行的长时间任务。离开此页面后仍会继续。",
+    "openLink": "后台任务",
+    "sync": "活动同步",
+    "detection": "路段检测",
+    "elevationBackfill": "海拔数据下载",
+    "cutover": "路段重建",
+    "stateIdle": "未运行",
+    "stateRunning": "进行中",
+    "stateComplete": "已完成",
+    "statePartial": "已完成，部分将重试",
+    "stateFailed": "提前停止",
+    "progressCount": "{{completed}} / {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "还有 {{count}} 项待获取"
   }
 }

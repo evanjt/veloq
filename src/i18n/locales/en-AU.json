@@ -1039,6 +1039,7 @@
     "deleteSection": "Delete Section",
     "deleteSectionConfirm": "You sure you want to chuck this section? Can't undo this one.",
     "detectionPaused": "Detection paused while your sections migrate",
+    "detectionPausedElevation": "Detection paused while elevation downloads",
     "disabled": "Disabled",
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",
@@ -1239,6 +1240,8 @@
     "elevationBackfillRetrying_other": "{{count}} activity tracks could not be updated. They will be retried later.",
     "elevationBackfillFailed": "The elevation update could not run.",
     "elevationBackfillExplainer": "Improved section detection runs once every track has elevation.",
+    "elevationBackfillOutstanding_one": "{{count}} activity track still needs elevation.",
+    "elevationBackfillOutstanding_other": "{{count}} activity tracks still need elevation.",
     "elevationBackfillWhy": "Why this is needed",
     "elevationBackfillWhyTitle": "Why elevation is being added",
     "elevationBackfillWhyBody": "The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.",
@@ -1425,6 +1428,7 @@
     "v040": {
       "sectionsTitle": "Sections that explain themselves",
       "sectionsBody": "Sections are now cut by one deterministic detector. Each one keeps a history you can read, revert and pin.",
+      "elevationLine": "Veloq downloads elevation once for your existing activities, then detects sections again with the new algorithm.",
       "rowDeterministic": "One deterministic matcher: the same rides give the same sections",
       "rowSameResult": "Adding rides one at a time or all at once gives the same result",
       "rowLedger": "A ledger shows how each section changed and what was around it",
@@ -1440,7 +1444,14 @@
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
       "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged.",
-      "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch."
+      "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch.",
+      "settingsReset": "Your section detection settings were reset to the validated values: {{changes}}. Preview section changes, then Keep, puts the earlier ones back.",
+      "settingsResetChange": "{{label}} {{from}} to {{to}}",
+      "settingsResetProximity": "proximity",
+      "settingsResetMinLength": "minimum length",
+      "settingsResetMaxLength": "longest section",
+      "settingsResetMinActivities": "minimum visits",
+      "settingsResetDivergence": "divergence"
     }
   },
   "strength": {
@@ -1566,5 +1577,22 @@
     "delete": "Delete name",
     "deleteTitle": "Delete name",
     "deleteConfirm": "Delete \"{{name}}\"? The section goes back to its generated name."
+  },
+  "backgroundJobs": {
+    "title": "Background Jobs",
+    "intro": "Long jobs the app runs by itself. They keep chugging along after you leave this screen.",
+    "openLink": "Background jobs",
+    "sync": "Activity sync",
+    "detection": "Section detection",
+    "elevationBackfill": "Elevation download",
+    "cutover": "Section rebuild",
+    "stateIdle": "Not running",
+    "stateRunning": "Running",
+    "stateComplete": "All done",
+    "statePartial": "Done, a few to have another crack at",
+    "stateFailed": "Stopped early",
+    "progressCount": "{{completed}} of {{total}}",
+    "progressPercent": "{{percent}}%",
+    "remaining": "{{count}} still to grab"
   }
 }
