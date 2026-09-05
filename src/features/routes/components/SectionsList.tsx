@@ -41,7 +41,8 @@ import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
 import type { FrequentSection } from '@/types';
-import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
+import { type SectionWithPolyline } from 'veloqrs';
+import { convertSectionWithPolylineToApp } from '@/features/routes/lib/sectionConversions';
 import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 
 const log = debug.create('SectionsList');
@@ -83,56 +84,6 @@ type HiddenFilters = {
 };
 
 export type { SectionsSortOption };
-
-/**
- * Convert batch SectionWithPolyline to FrequentSection for useSections.
- * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
- */
-function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
-  const polyline = decodeCoords(s.encodedPolyline).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
-  const center = s.bounds
-    ? computeCenter({
-        minLat: s.bounds.minLat,
-        maxLat: s.bounds.maxLat,
-        minLng: s.bounds.minLng,
-        maxLng: s.bounds.maxLng,
-      })
-    : undefined;
-  const section: FrequentSection = {
-    id: s.id,
-    sectionType: s.id.startsWith('custom_') ? 'custom' : 'auto',
-    sportType: s.sportType,
-    polyline,
-    activityIds: [],
-    routeIds: [],
-    visitCount: s.visitCount,
-    distanceMeters: s.distanceMeters,
-    confidence: s.confidence,
-    scale: s.scale ?? undefined,
-    name: s.name ?? undefined,
-    createdAt: new Date().toISOString(),
-    sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
-    elevationGainM: s.elevationGainM ?? undefined,
-    elevationLossM: s.elevationLossM ?? undefined,
-    avgGradePercent: s.avgGradePercent ?? undefined,
-    maxGradePercent: s.maxGradePercent ?? undefined,
-    klass: s.klass ?? undefined,
-    rankScore: s.rankScore ?? undefined,
-    sportRankScore: s.sportRankScore ?? undefined,
-    center,
-    isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
-    disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
-    supersededBy: ((s as Record<string, unknown>).supersededBy as string | null) ?? null,
-  };
-  // Generate display name using same logic as useFrequentSections
-  if (!section.name) {
-    section.name = generateSectionName(section);
-  }
-  return section;
-}
 
 function SectionRowSkeleton() {
   return (
@@ -296,10 +247,24 @@ export const SectionsList = memo(function SectionsList({
   });
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Convert batch sections to FrequentSection[] for preloading into useSections
+  // The list record already carries its polyline, so a row needs no call of
+  // its own. The centre is the list's proximity sort and the name fallback is
+  // its label: both are the screen's, not the record's.
   const preloadedEngineSections = useMemo(() => {
     if (!batchSections) return undefined;
-    return batchSections.map(batchSectionToFrequentSection);
+    return batchSections.map((record) => {
+      const section = convertSectionWithPolylineToApp(record);
+      section.center = record.bounds
+        ? computeCenter({
+            minLat: record.bounds.minLat,
+            maxLat: record.bounds.maxLat,
+            minLng: record.bounds.minLng,
+            maxLng: record.bounds.maxLng,
+          })
+        : undefined;
+      if (!section.name) section.name = generateSectionName(section);
+      return section;
+    });
   }, [batchSections]);
 
   // Only call hook if data not pre-fetched from parent
