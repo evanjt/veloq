@@ -56,7 +56,6 @@ lru = "0.18"
 rayon = "1.10"
 image = { version = "0.25", default-features = false, features = ["png"] }
 rstar = "0.12"
-geo = "0.29"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
