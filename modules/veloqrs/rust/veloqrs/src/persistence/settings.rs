@@ -55,7 +55,16 @@ impl PersistentEngine {
     }
 
     /// Set a single setting (upsert).
+    ///
+    /// An unchanged value is not written. The journal is kept in rollback mode
+    /// and `synchronous` is SQLite's default, so a commit is two fsyncs and
+    /// costs about 20 ms on a mid-range phone, paid on the thread that asked.
+    /// Most writes come from a store persisting on launch what it just read,
+    /// and the read that proves it is under a millisecond.
     pub fn set_setting(&self, key: &str, value: &str) -> SqlResult<()> {
+        if self.get_setting(key)?.as_deref() == Some(value) {
+            return Ok(());
+        }
         self.db.execute(
             "INSERT INTO settings (key, value, updated_at)
              VALUES (?, ?, strftime('%s', 'now'))
