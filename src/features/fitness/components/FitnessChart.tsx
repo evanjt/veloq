@@ -3,7 +3,6 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CartesianChart, Line, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
@@ -12,7 +11,14 @@ import { calculateTSB } from '@/features/fitness/lib/fitness';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  ChartCanvas,
+  ChartCrosshair,
+  CurveArea,
+  CurveLine,
+  useChartColors,
+  useChartGestures,
+} from '@/shared/charts';
 import type { WellnessData } from '@/types';
 
 interface FitnessChartProps {
@@ -35,10 +41,14 @@ interface ChartDataPoint {
   fatigue: number;
   form: number;
   load: number;
-  [key: string]: string | number;
 }
 
-const CHART_PADDING = { left: 0, right: 0, top: 8, bottom: 20 } as const;
+const CHART_PADDING = { top: 8, bottom: 20 } as const;
+const SERIES = {
+  fitness: (d: ChartDataPoint) => d.fitness,
+  fatigue: (d: ChartDataPoint) => d.fatigue,
+};
+const xOf = (d: ChartDataPoint) => d.x;
 
 export const FitnessChart = React.memo(function FitnessChart({
   data,
@@ -183,6 +193,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   // Get current (latest) values
   const currentData = chartData[chartData.length - 1];
   const displayData = tooltipData || currentData;
+  const yDomain: [number, number] = [0, maxFitness * 1.1];
 
   return (
     <ChartErrorBoundary height={height} label="Fitness Chart">
@@ -225,69 +236,58 @@ export const FitnessChart = React.memo(function FitnessChart({
         {/* Chart */}
         <GestureDetector gesture={gesture}>
           <View style={chartStyles.chartWrapper}>
-            <CartesianChart
+            <ChartCanvas
               data={chartData}
-              xKey="x"
-              yKeys={['fitness', 'fatigue']}
-              domain={{ y: [0, maxFitness * 1.1] }}
+              x={xOf}
+              series={SERIES}
+              yDomain={yDomain}
               padding={CHART_PADDING}
+              grid={5}
             >
-              {({ points, chartBounds }) => {
-                syncBounds(chartBounds);
+              {({ points, bounds }) => {
+                syncBounds(bounds);
                 syncXCoords(points.fitness, (p) => p.x);
-
                 return (
                   <>
-                    {/* Fitness area fill with gradient */}
-                    {visibleLines.fitness && (
-                      <Area points={points.fitness} y0={chartBounds.bottom} curveType="natural">
-                        <LinearGradient
-                          start={vec(0, chartBounds.top)}
-                          end={vec(0, chartBounds.bottom)}
-                          colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
-                        />
-                      </Area>
-                    )}
-
-                    {/* Fitness line (CTL) with casing */}
                     {visibleLines.fitness && (
                       <>
-                        <Line
+                        <CurveArea points={points.fitness} y0={bounds.bottom}>
+                          <LinearGradient
+                            start={vec(0, bounds.top)}
+                            end={vec(0, bounds.bottom)}
+                            colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
+                          />
+                        </CurveArea>
+                        <CurveLine
                           points={points.fitness}
-                          color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                          color={chartColors.casing}
                           strokeWidth={2.5}
-                          curveType="natural"
                         />
-                        <Line
+                        <CurveLine
                           points={points.fitness}
                           color={chartColors.fitness}
                           strokeWidth={1.5}
-                          curveType="natural"
                         />
                       </>
                     )}
-
-                    {/* Fatigue line (ATL) with casing */}
                     {visibleLines.fatigue && (
                       <>
-                        <Line
+                        <CurveLine
                           points={points.fatigue}
-                          color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                          color={chartColors.casing}
                           strokeWidth={2}
-                          curveType="natural"
                         />
-                        <Line
+                        <CurveLine
                           points={points.fatigue}
                           color={chartColors.fatigue}
                           strokeWidth={1}
-                          curveType="natural"
                         />
                       </>
                     )}
                   </>
                 );
               }}
-            </CartesianChart>
+            </ChartCanvas>
 
             {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
             <ChartCrosshair style={crosshairStyle} topOffset={8} />
