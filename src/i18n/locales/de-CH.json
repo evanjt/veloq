@@ -714,7 +714,13 @@
     "viewDetails": "Details luege",
     "viewSectionDetails": "Abschnittsdetails aazeige",
     "zoomToActivity": "Uf Aktivität zoome",
-    "colorByGradient": "Nach Gfälli färbe"
+    "colorByGradient": "Nach Gfälli färbe",
+    "periodAll": "Alle",
+    "periodThisYear": "Dieses Jahr",
+    "periodSixMonths": "6 Monate",
+    "periodThreeMonths": "3 Monate",
+    "periodOneMonth": "1 Monat",
+    "periodOneWeek": "1 Woche"
   },
   "metrics": {
     "activityCount": "Aktivitäten",

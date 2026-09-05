@@ -13,6 +13,7 @@ import {
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
+import { PERIOD_OPTIONS, getPeriodStart, type PeriodKey } from '@/features/maps/lib/mapPeriod';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -25,35 +26,10 @@ import {
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
 // that make Android MapLibre snap the camera back.
-const ALL_TIME_START = new Date('2000-01-01');
 const ALL_TIME_END = new Date('2099-12-31');
 const ALL_TYPES = new Set<string>();
 
-type PeriodKey = 'all' | 'year' | '6m' | '3m' | '1m' | '1w';
 type DistanceKey = 'all' | 'xshort' | 'short' | 'medium' | 'long';
-
-// Pre-compute period start dates (stable references, computed once)
-function getPeriodStart(period: PeriodKey): Date {
-  if (period === 'all') return ALL_TIME_START;
-  const d = new Date();
-  if (period === 'year') {
-    d.setMonth(0, 1);
-    d.setHours(0, 0, 0, 0);
-  } else if (period === '6m') d.setMonth(d.getMonth() - 6);
-  else if (period === '3m') d.setMonth(d.getMonth() - 3);
-  else if (period === '1m') d.setMonth(d.getMonth() - 1);
-  else if (period === '1w') d.setDate(d.getDate() - 7);
-  return d;
-}
-
-const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'year', label: 'This year' },
-  { key: '6m', label: '6 mo' },
-  { key: '3m', label: '3 mo' },
-  { key: '1m', label: '1 mo' },
-  { key: '1w', label: '1 wk' },
-];
 
 // Distance thresholds in meters (metric) and labels for both systems
 function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: string }[] {
@@ -272,7 +248,7 @@ export default function MapScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chipRow}
           >
-            {PERIOD_OPTIONS.map(({ key, label }) => (
+            {PERIOD_OPTIONS.map(({ key, labelKey }) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setPeriod(key)}
@@ -295,7 +271,7 @@ export default function MapScreen() {
                         : styles.chipTextInactive,
                   ]}
                 >
-                  {label}
+                  {t(labelKey as never)}
                 </Text>
               </TouchableOpacity>
             ))}

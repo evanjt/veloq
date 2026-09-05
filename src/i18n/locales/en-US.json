@@ -740,7 +740,13 @@
     "toggleStyle": "Toggle map style",
     "viewDetails": "View Details",
     "viewSectionDetails": "View section details",
-    "zoomToActivity": "Zoom to activity"
+    "zoomToActivity": "Zoom to activity",
+    "periodAll": "All",
+    "periodThisYear": "This year",
+    "periodSixMonths": "6 months",
+    "periodThreeMonths": "3 months",
+    "periodOneMonth": "1 month",
+    "periodOneWeek": "1 week"
   },
   "metrics": {
     "activityCount": "Activities",
