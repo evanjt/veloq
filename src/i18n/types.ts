@@ -1438,6 +1438,12 @@ export interface TranslationResource {
   };
 
   maps: {
+    periodAll: string;
+    periodThisYear: string;
+    periodSixMonths: string;
+    periodThreeMonths: string;
+    periodOneMonth: string;
+    periodOneWeek: string;
     closeMap: string;
     toggleStyle: string;
     enable3D: string;
