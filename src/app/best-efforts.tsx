@@ -8,8 +8,8 @@ import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@
 import { useActivities } from '@/features/activity/hooks';
 import { useSeasonBests } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import { formatLocalDate } from '@/shared/format/format';
-import { formatEffortValue, formatEffortTime } from '@/features/fitness/lib';
+import { formatDurationOrNull, formatLocalDate } from '@/shared/format/format';
+import { formatEffortValue } from '@/features/fitness/lib';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, layout, spacing, typography, opacity } from '@/theme';
 
@@ -70,7 +70,7 @@ function SportSection({ sport, days, activityMap, isDark }: SportSectionProps) {
       ) : (
         efforts.map((effort, index) => {
           const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
-          const timeStr = formatEffortTime(effort.time);
+          const timeStr = formatDurationOrNull(effort.time);
           const isLast = index === efforts.length - 1;
 
           const rowBody = (

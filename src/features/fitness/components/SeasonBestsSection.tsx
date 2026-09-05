@@ -6,8 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivities } from '@/features/activity/hooks';
 import { useTheme } from '@/shared/app';
-import { formatLocalDate } from '@/shared/format/format';
-import { formatEffortValue, formatEffortTime } from '../lib/bestEfforts';
+import { formatDurationOrNull, formatLocalDate } from '@/shared/format/format';
+import { formatEffortValue } from '../lib/bestEfforts';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { type BestEffort } from '@/features/stats';
@@ -65,7 +65,7 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
     <View>
       {efforts.map((effort, index) => {
         const activityName = effort.activityId ? activityMap.get(effort.activityId) : undefined;
-        const timeStr = formatEffortTime(effort.time);
+        const timeStr = formatDurationOrNull(effort.time);
 
         return (
           <View
