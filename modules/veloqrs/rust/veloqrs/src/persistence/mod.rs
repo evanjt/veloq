@@ -1101,11 +1101,13 @@ impl PersistentEngine {
     /// Read-only access to the active `match_config.min_match_percentage`.
     /// Exposed so integration tests can verify persisted strictness without
     /// needing crate-private access to the whole `MatchConfig`.
+    #[doc(hidden)]
     pub fn match_config_min_match_percentage(&self) -> f64 {
         self.match_config.min_match_percentage
     }
 
     /// Read-only access to the active `match_config.endpoint_threshold`.
+    #[doc(hidden)]
     pub fn match_config_endpoint_threshold(&self) -> f64 {
         self.match_config.endpoint_threshold
     }
@@ -1117,12 +1119,15 @@ impl PersistentEngine {
         self.section_config.clone()
     }
 
+    #[doc(hidden)]
     pub fn section_config_proximity_threshold(&self) -> f64 {
         self.section_config.proximity_threshold
     }
+    #[doc(hidden)]
     pub fn section_config_min_section_length(&self) -> f64 {
         self.section_config.min_section_length
     }
+    #[doc(hidden)]
     pub fn section_config_min_activities(&self) -> u32 {
         self.section_config.min_activities
     }
