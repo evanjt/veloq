@@ -1361,7 +1361,8 @@
     "vsPrevious3Months": "vs 前3ヶ月",
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
-    "year": "年"
+    "year": "年",
+    "atWeight": "{{kg}} kg 時"
   },
   "statsScreen": {
     "decoupling": "有酸素効率",
@@ -1398,7 +1399,8 @@
     "ft": "ft",
     "kcal": "kcal",
     "m": "m",
-    "watts": "W"
+    "watts": "W",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "ドラッグして探索",

@@ -1361,7 +1361,8 @@
     "vsPrevious3Months": "vs 前 3 个月",
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
-    "year": "年"
+    "year": "年",
+    "atWeight": "按 {{kg}} kg"
   },
   "statsScreen": {
     "decoupling": "有氧效率",
@@ -1398,7 +1399,8 @@
     "ft": "英尺",
     "kcal": "千卡",
     "m": "米",
-    "watts": "瓦"
+    "watts": "瓦",
+    "wattsPerKg": "W/kg"
   },
   "wellness": {
     "dragToExplore": "拖动探索",
