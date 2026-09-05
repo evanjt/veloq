@@ -714,7 +714,13 @@
     "viewDetails": "Details bekijken",
     "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit",
-    "colorByGradient": "Kleur op stijging"
+    "colorByGradient": "Kleur op stijging",
+    "periodAll": "Alles",
+    "periodThisYear": "Dit jaar",
+    "periodSixMonths": "6 maanden",
+    "periodThreeMonths": "3 maanden",
+    "periodOneMonth": "1 maand",
+    "periodOneWeek": "1 week"
   },
   "metrics": {
     "activityCount": "Activiteiten",
