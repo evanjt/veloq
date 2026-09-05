@@ -139,8 +139,16 @@ pub(crate) struct SectionLifecycleEvent {
 /// through its serde default. Version 3 reshaped the hysteresis debounce
 /// record (the streak ledger holds both directions' streaks in place of
 /// one kind + one streak), which rmp encodes positionally, so a v2 blob
-/// reseeds rather than misreading a kind byte as a streak.
-pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 4;
+/// reseeds rather than misreading a kind byte as a streak. Version 5 names the
+/// fields: the payload carries [`FrequentSection`], which skips
+/// `elevation_gain_m` and `avg_grade_percent` when they are None, so a
+/// positional encoding wrote a short array for every section in a library that
+/// pre-dates the elevation backfill and the blob could never be read back.
+///
+/// Bump on any serialisation-breaking change to [`SectionIdentity`] **or to any
+/// type it reaches**, tracematch's included: the encoding is one graph and a
+/// field added three types down moves everything after it.
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 5;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -361,7 +369,7 @@ impl PersistentEngine {
     /// reseeds rather than misparsing. rmp-encoded, not postcard: the payload
     /// carries GpsPoint composites (see the version-constant note).
     pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
-        codec::serialize_gps_composite(&self.identity)
+        codec::serialize_named(&self.identity)
             .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
             .ok()
     }
@@ -1427,6 +1435,139 @@ mod tests {
     use super::*;
     use crate::persistence::codec;
     use tempfile::TempDir;
+
+    /// A section with no elevation, which is every section in a library that
+    /// pre-dates the 0.4.0 elevation backfill.
+    fn section_without_elevation() -> FrequentSection {
+        FrequentSection {
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            ..sample_registry_section()
+        }
+    }
+
+    fn sample_registry_section() -> FrequentSection {
+        FrequentSection {
+            id: "s_1700000000000__ab12cd".to_string(),
+            name: Some("The Wall".to_string()),
+            sport_type: "Ride".to_string(),
+            distance_meters: 1200.0,
+            point_density: vec![2, 2],
+            polyline: vec![
+                GpsPoint::with_elevation(46.0, 7.0, 500.0),
+                GpsPoint::with_elevation(46.001, 7.0, 510.0),
+            ],
+            representative_activity_id: "a1".to_string(),
+            representative_range: Some((0, 12)),
+            activity_ids: vec!["a1".to_string()],
+            activity_portions: vec![],
+            route_ids: vec![],
+            visit_count: 3,
+            activity_traces: HashMap::new(),
+            confidence: 0.9,
+            observation_count: 3,
+            average_spread: 4.0,
+            scale: None,
+            is_user_defined: false,
+            stability: 1.0,
+            elevation_gain_m: Some(12.0),
+            avg_grade_percent: Some(1.5),
+            version: 7,
+            updated_at: None,
+            created_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// An engine whose in-memory registry holds one row, so the blob it writes
+    /// is the one the launch restore reads.
+    fn engine_holding(dir: &TempDir, section: FrequentSection) -> PersistentEngine {
+        let path = dir.path().join("identity.db");
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine.identity.rows.insert(
+            "s_1".to_string(),
+            IdentityRow {
+                real_id: section.id.clone(),
+                section,
+            },
+        );
+        engine
+    }
+
+    /// Write the registry the way a catalogue save does, then read it the way
+    /// the next launch does.
+    fn round_trip(engine: &mut PersistentEngine) -> bool {
+        engine.section_identity_persist();
+        engine.identity = SectionIdentity::default();
+        engine.section_identity_restore()
+    }
+
+    /// Scenario: the persisted registry carries `FrequentSection`s, and that
+    /// type skips `elevation_gain_m` and `avg_grade_percent` when they are
+    /// None. Every section in a library that pre-dates the elevation backfill
+    /// has both.
+    /// Expected behaviour: the blob reads back. A positional encoding writes a
+    /// short array for such a section and every field after it decodes as the
+    /// wrong type, which is a registry that can never be restored. The launch
+    /// reseeds and re-persists through the same encoder, so the failure repeats
+    /// on every launch rather than costing one.
+    #[test]
+    fn a_registry_holding_a_section_without_elevation_reads_back() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_holding(&dir, section_without_elevation());
+
+        assert!(
+            round_trip(&mut engine),
+            "a registry has to survive its own encoding"
+        );
+
+        let row = engine.identity.rows.get("s_1").expect("the row");
+        assert_eq!(row.section.elevation_gain_m, None);
+        assert_eq!(row.section.version, 7);
+        assert_eq!(row.section.name.as_deref(), Some("The Wall"));
+    }
+
+    #[test]
+    fn a_registry_holding_an_elevated_section_reads_back() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_holding(&dir, sample_registry_section());
+
+        assert!(round_trip(&mut engine));
+
+        let row = engine.identity.rows.get("s_1").expect("the row");
+        assert_eq!(row.section.elevation_gain_m, Some(12.0));
+        assert_eq!(row.section.version, 7);
+    }
+
+    /// The tag is the only thing standing between a blob written by an older
+    /// build and a misparse, so a blob carrying any other version reseeds.
+    #[test]
+    fn a_blob_from_an_older_version_is_refused() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_holding(&dir, sample_registry_section());
+        let body = codec::serialize_named(&engine.identity).expect("encode");
+
+        for stale in 0..SECTION_IDENTITY_BLOB_VERSION {
+            let tagged = codec::tag_blob(stale, body.clone());
+            assert!(
+                codec::untag_blob(SECTION_IDENTITY_BLOB_VERSION, &tagged).is_none(),
+                "version {stale} must not read as the current one"
+            );
+        }
+    }
+
+    /// What the version byte is now standing in front of: the encoding this
+    /// replaced could not read its own output for such a section.
+    #[test]
+    fn the_positional_encoding_could_not_read_its_own_output() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_holding(&dir, section_without_elevation());
+        let positional = codec::serialize_gps_composite(&engine.identity).expect("encode");
+
+        assert!(codec::deserialize_gps_composite::<SectionIdentity>(&positional).is_err());
+    }
 
     fn track() -> Vec<GpsPoint> {
         (0..40)

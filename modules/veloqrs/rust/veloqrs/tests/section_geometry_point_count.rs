@@ -156,16 +156,30 @@ fn a_quantisation_only_rewrite_still_restores() {
     assert_eq!(restored.len(), 12);
 }
 
+/// A consensus version is averaged across activities and belongs to none, so
+/// it keeps its blob and has no triple to check a count against. The stored
+/// line is the record and a track that moved underneath cannot reach it.
 #[test]
-fn a_blob_that_still_decodes_needs_no_count() {
-    let (_dir, path, version) = library();
+fn a_version_that_carries_its_own_line_needs_no_count() {
+    let (_dir, path, _) = library();
+    let averaged = track(12, 0.5);
+    let version = {
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+        engine
+            .record_section_geometry("s_averaged", &averaged, false, None)
+            .expect("record an averaged version")
+    };
     {
         let conn = open(&path);
         replace_track(&conn, &track(POINTS + 5, 0.0));
     }
 
-    let restored = restore(&path, version).expect("the cached line is the record");
-    assert_eq!(restored, track(POINTS, 0.0)[0..12].to_vec());
+    let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let restored = engine
+        .section_geometry_polyline("s_averaged", version)
+        .expect("the stored line is the record");
+    assert_eq!(restored.len(), averaged.len());
+    assert_eq!(stored_count(&open(&path), "s_averaged"), None);
 }
 
 /// Scenario: a database written before the column existed opens on this build.
