@@ -8,11 +8,10 @@ import { SectionPerformanceSection } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
 import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
-import type { EfficiencyTrend } from 'veloqrs';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
-import type { MergeCandidate } from 'veloqrs';
+import type { EfficiencyTrend, MergeCandidate } from 'veloqrs';
 import type { DirectionStats, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import { styles } from './SectionDetail.styles';
 
