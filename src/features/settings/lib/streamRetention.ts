@@ -5,8 +5,9 @@
  * the set of values the row cycles through and the rule for reading a
  * value the engine hands back, so the policy stays in one place.
  *
- * Not the activity `retentionDays` in `RouteSettingsStore`. That one deletes
- * whole activities and nothing here may write it.
+ * This is the only retention the app has. Nothing deletes whole activities by
+ * age: the only paths that remove one are the sign-out wipe and the
+ * derived-data clear.
  */
 
 /** What the engine falls back to when the athlete has never chosen. */

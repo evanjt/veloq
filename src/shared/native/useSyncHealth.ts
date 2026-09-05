@@ -9,6 +9,7 @@
  * error yet and no memory of the last time data arrived.
  */
 import { useEffect, useRef, useState } from 'react';
+import { SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 
@@ -41,7 +42,7 @@ export function useSyncHealth(): SyncHealth {
   }, [engineReadyNonce]);
 
   useEffect(() => {
-    if (state === 'syncing') {
+    if (state === SyncState.Syncing) {
       wasSyncingRef.current = true;
       return;
     }
@@ -49,7 +50,7 @@ export function useSyncHealth(): SyncHealth {
     wasSyncingRef.current = false;
     // `authExpired` and `paused` are not arrivals, and neither is an idle run
     // that carried an error, so none of them may move the success time.
-    if (state !== 'idle' || lastError) return;
+    if (state !== SyncState.Idle || lastError) return;
     const at = new Date().toISOString();
     getEngine()?.setSetting(LAST_SUCCESS_KEY, at);
     setLastSuccessAt(at);

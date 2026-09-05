@@ -20,7 +20,7 @@ import {
   markRecordingPermissionBlocked,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
-import { engine } from 'veloqrs';
+import { CallKind, engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
@@ -76,7 +76,7 @@ const STRENGTH_ENTRY: RecordingLibraryEntry = {
  * The engine reports a refused write as an outcome carried on the thrown
  * error, so the queue branches on a status rather than on a message.
  */
-function refused(kind: string, status?: number, detail?: string, message?: string) {
+function refused(kind: CallKind, status?: number, detail?: string, message?: string) {
   return Object.assign(new Error(message ?? `HTTP ${status ?? '?'}: ${detail ?? ''}`), {
     outcome: { kind, status, detail, message: message ?? `HTTP ${status ?? '?'}: ${detail ?? ''}` },
   });
@@ -131,7 +131,7 @@ describe('uploadRecording', () => {
   });
 
   it('routes a 403 to the permission upgrade path', async () => {
-    mockUpload.mockRejectedValue(refused('http', 403, 'write scope required'));
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 403, 'write scope required'));
 
     const result = await uploadRecording(ENTRY);
 
@@ -143,7 +143,7 @@ describe('uploadRecording', () => {
 
   it('queues a network failure for a later attempt', async () => {
     mockUpload.mockRejectedValue(
-      refused('network', undefined, undefined, 'transport error: connection reset')
+      refused(CallKind.Network, undefined, undefined, 'transport error: connection reset')
     );
 
     const result = await uploadRecording(ENTRY);
@@ -159,7 +159,7 @@ describe('uploadRecording', () => {
   });
 
   it('surfaces the server message on a hard rejection', async () => {
-    mockUpload.mockRejectedValue(refused('http', 400, 'Corrupt FIT file'));
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 400, 'Corrupt FIT file'));
 
     const result = await uploadRecording(ENTRY);
 
@@ -173,7 +173,7 @@ describe('uploadRecording', () => {
     const terminal = [400, 401, 404, 409, 413, 422];
 
     it.each(retriable)('keeps %s retriable', async (status) => {
-      mockUpload.mockRejectedValue(refused('http', status, 'try again'));
+      mockUpload.mockRejectedValue(refused(CallKind.Http, status, 'try again'));
 
       const result = await uploadRecording(ENTRY);
 
@@ -182,7 +182,7 @@ describe('uploadRecording', () => {
     });
 
     it.each(terminal)('treats %s as a rejection', async (status) => {
-      mockUpload.mockRejectedValue(refused('http', status, 'no'));
+      mockUpload.mockRejectedValue(refused(CallKind.Http, status, 'no'));
 
       const result = await uploadRecording(ENTRY);
 
@@ -192,7 +192,9 @@ describe('uploadRecording', () => {
   });
 
   it('treats a rejected credential as terminal, not as something to retry', async () => {
-    mockUpload.mockRejectedValue(refused('unauthorized', 401, undefined, 'unauthorized (401)'));
+    mockUpload.mockRejectedValue(
+      refused(CallKind.Unauthorized, 401, undefined, 'unauthorized (401)')
+    );
 
     const result = await uploadRecording(ENTRY);
 
@@ -201,7 +203,7 @@ describe('uploadRecording', () => {
 
   it('keeps a rate-limited upload retriable', async () => {
     mockUpload.mockRejectedValue(
-      refused('rateLimited', 429, undefined, 'rate limited (429) after retries')
+      refused(CallKind.RateLimited, 429, undefined, 'rate limited (429) after retries')
     );
 
     const result = await uploadRecording(ENTRY);
@@ -211,7 +213,7 @@ describe('uploadRecording', () => {
 
   it('keeps a local engine failure retriable rather than calling it offline', async () => {
     mockUpload.mockRejectedValue(
-      refused('internal', undefined, undefined, 'the engine is not ready to upload')
+      refused(CallKind.Internal, undefined, undefined, 'the engine is not ready to upload')
     );
 
     const result = await uploadRecording(ENTRY);
@@ -232,7 +234,7 @@ describe('uploadRecording', () => {
   });
 
   it('falls back to the raw error message when the body carries no detail', async () => {
-    mockUpload.mockRejectedValue(refused('http', 422, undefined, 'HTTP 422: '));
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 422, undefined, 'HTTP 422: '));
 
     const result = await uploadRecording(ENTRY);
 
@@ -241,7 +243,7 @@ describe('uploadRecording', () => {
   });
 
   it('marks the entry uploading before every attempt', async () => {
-    mockUpload.mockRejectedValue(refused('http', 500, 'boom'));
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 500, 'boom'));
 
     await uploadRecording(ENTRY);
 
@@ -295,7 +297,7 @@ describe('strength sets from a recorded session', () => {
   });
 
   it('does not import for a failed upload', async () => {
-    mockUpload.mockRejectedValue(refused('http', 500, 'server error'));
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 500, 'server error'));
 
     await uploadRecording(STRENGTH_ENTRY);
 

@@ -23,7 +23,6 @@ interface RouteSettings {
   /** Whether route matching feature is enabled */
   enabled: boolean;
   /** Number of days to retain activities before cleanup (default: 0 = keep all) */
-  retentionDays: number;
   /** Whether automatic cleanup is enabled (default: false) */
   autoCleanupEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
@@ -31,7 +30,6 @@ interface RouteSettings {
 
 const DEFAULT_SETTINGS: RouteSettings = {
   enabled: true, // Enabled by default - efficient Rust implementation
-  retentionDays: 0, // 0 = keep all activities forever
   autoCleanupEnabled: false, // Don't auto-delete by default
 };
 
@@ -43,8 +41,6 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   const obj = value as Record<string, unknown>;
   // enabled is optional in partial, so just check it's boolean if present
   if ('enabled' in obj && typeof obj.enabled !== 'boolean') return false;
-  // retentionDays must be a number if present (0 means keep all)
-  if ('retentionDays' in obj && typeof obj.retentionDays !== 'number') return false;
   // autoCleanupEnabled must be boolean if present
   if ('autoCleanupEnabled' in obj && typeof obj.autoCleanupEnabled !== 'boolean') return false;
   return true;
@@ -55,7 +51,6 @@ function isRouteSettings(value: unknown): value is RouteSettings {
 function pickSettings(parsed: Partial<RouteSettings>): RouteSettings {
   return {
     enabled: parsed.enabled ?? DEFAULT_SETTINGS.enabled,
-    retentionDays: parsed.retentionDays ?? DEFAULT_SETTINGS.retentionDays,
     autoCleanupEnabled: parsed.autoCleanupEnabled ?? DEFAULT_SETTINGS.autoCleanupEnabled,
   };
 }
@@ -67,7 +62,6 @@ interface RouteSettingsState {
   // Actions
   initialize: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
-  setRetentionDays: (days: number) => Promise<void>;
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
 }
 
@@ -126,25 +120,6 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
     } catch {
       // Engine might not be available yet
     }
-  },
-
-  setRetentionDays: async (days: number) => {
-    // Validate retention days (0 = keep all, 30-365 for cleanup)
-    const validatedDays = days === 0 ? 0 : Math.max(30, Math.min(365, days));
-
-    // Use functional update to ensure we read the latest state (fixes race condition)
-    set((state) => {
-      const newSettings = { ...state.settings, retentionDays: validatedDays };
-      // Persist asynchronously - errors logged but don't block state update
-      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
-        log.error('Failed to save retention days:', error);
-      });
-      return { settings: newSettings };
-    });
-
-    log.log(
-      `Retention period set to ${validatedDays === 0 ? 'keep all' : `${validatedDays} days`}`
-    );
   },
 
   setAutoCleanupEnabled: async (enabled: boolean) => {
