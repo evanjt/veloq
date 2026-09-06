@@ -50,6 +50,8 @@ mod indicators;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
 pub(crate) mod records;
+pub mod recordings;
+pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
 mod route_identity;
 mod routes;
 mod schema;

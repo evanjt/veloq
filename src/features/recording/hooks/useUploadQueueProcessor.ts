@@ -6,6 +6,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import {
   nextPendingUpload,
   migrateLegacyUploadQueue,
+  adoptAsyncStorageIndex,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { debug } from '@/shared/debug/debug';
@@ -26,9 +27,11 @@ export function useUploadQueueProcessor() {
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
 
-  // One-off adoption of the pre-library pending_uploads queue
+  // One-off adoption of the pre-library pending_uploads queue, then of the
+  // AsyncStorage index it writes into. Order matters: the queue migration adds
+  // entries the adoption has to see.
   useEffect(() => {
-    migrateLegacyUploadQueue();
+    void migrateLegacyUploadQueue().then(adoptAsyncStorageIndex);
   }, []);
 
   const processQueue = useCallback(async () => {

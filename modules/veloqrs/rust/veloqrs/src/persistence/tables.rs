@@ -20,8 +20,13 @@
 //!   it costs time, never information.
 //! - `Record` is athlete work that exists nowhere else. Losing it is data loss
 //!   and it is exactly what a backup carries.
-//! - `Meta` is the store's own version and configuration, which is why it is
-//!   the only class that survives a logout.
+//! - `Meta` is the store's own version and configuration.
+//! - `Device` is what this handset holds and no account does: rows naming
+//!   files on its own filesystem. It is the athlete's own, like `Record`, but
+//!   a sign-out does not take it, because the files it names stay on the disk
+//!   either way and the ride they hold has reached no server.
+//!
+//! `Meta` and `Device` are the two classes that survive a logout.
 
 /// What a table holds, and therefore who may delete it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +39,10 @@ pub enum TableClass {
     Record,
     /// The store's own version and configuration.
     Meta,
+    /// This handset's own, naming files on its own filesystem. Survives a
+    /// logout: the files stay on disk regardless, and a recording that has
+    /// not reached intervals.icu exists nowhere else.
+    Device,
 }
 
 /// One table's declaration.
@@ -71,7 +80,7 @@ const fn mixed(
     }
 }
 
-use TableClass::{Derived, Meta, Mirror, Record};
+use TableClass::{Derived, Device, Meta, Mirror, Record};
 
 /// Every table in the schema, in the order `sqlite_master` lists them.
 static TABLES: &[Table] = &[
@@ -172,6 +181,11 @@ static TABLES: &[Table] = &[
         "route_groups",
         Derived,
         "grouping output, re-cut by every detect",
+    ),
+    t(
+        "recordings",
+        Device,
+        "rides this handset recorded, naming FIT files on its own disk",
     ),
     t("route_names", Record, "names the athlete typed"),
     t("schema_info", Meta, "the schema version"),

@@ -19,6 +19,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(80),
+  clearRecordings: jest.fn(),
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),

@@ -26,6 +26,7 @@ const mockEngine = {
   setRouteName: jest.fn(),
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(100),
+  clearRecordings: jest.fn(),
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),
@@ -594,6 +595,19 @@ describe('restoreDatabaseBackup re-arms the migration', () => {
 
     expect(result.success).toBe(true);
     expect(clearDatabaseStamps).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The backup is a whole-file copy, so the recording index rides along in it.
+   * The FIT files it names do not: they are on the device that made it.
+   */
+  it('drops the recording rows, whose FIT files did not come with the file', async () => {
+    mockEngine.clearRecordings.mockClear();
+
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+
+    expect(result.success).toBe(true);
+    expect(mockEngine.clearRecordings).toHaveBeenCalledTimes(1);
   });
 
   it('starts a backfill pass on the restored database without a relaunch', async () => {

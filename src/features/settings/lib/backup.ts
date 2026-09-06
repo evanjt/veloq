@@ -424,6 +424,12 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
       queryClient.invalidateQueries();
 
+      // The recording index came with the file, but the FIT files it points at
+      // did not: they are on the device that made the backup. A restored row is
+      // a library entry whose ride cannot be opened or uploaded, so the table
+      // goes the way the AsyncStorage index was left out of the JSON backup.
+      restoredEngine?.clearRecordings();
+
       // The restored database is not the one the launch triggers ran against.
       // Every stamp that described the replaced database goes first, and then
       // both triggers run here rather than waiting for a cold start: the
@@ -500,8 +506,10 @@ const LEGACY_BACKUP_VERSION = 2;
  *
  * Deliberately excluded (cache or device state, re-derivable, wrong to restore
  * onto another install): 'veloq-query-cache', 'veloq-pending-terrain-snapshots',
- * 'terrain-preview-cache-version', 'veloq-recording-library' (points at local
- * FIT files that are not in the backup), 'veloq-section-health-check-v1',
+ * 'terrain-preview-cache-version', 'veloq-recording-library' (the pre-table
+ * index, points at local FIT files that are not in the backup, and the
+ * `recordings` table that replaced it is dropped on a `.veloqdb` restore for
+ * the same reason), 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
  * stale timestamp could suppress a needed re-registration for a day),
  * 'veloq-elevation-backfill-version' (device-local completion marker; restoring

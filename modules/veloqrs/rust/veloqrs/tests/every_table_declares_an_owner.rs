@@ -74,10 +74,10 @@ fn no_table_is_declared_twice() {
     );
 }
 
-/// The logout delete keeps exactly what the declaration calls `Meta`. Without
-/// this the survivor list is a second, quieter declaration.
+/// The logout delete keeps exactly what the declaration calls `Meta` or
+/// `Device`. Without this the survivor list is a second, quieter declaration.
 #[test]
-fn only_meta_tables_survive_the_logout_delete() {
+fn only_meta_and_device_tables_survive_the_logout_delete() {
     let (_dir, present) = schema_tables();
     let path_dir = TempDir::new().expect("tempdir");
     let path = path_dir.path().join("clear.db");
@@ -95,9 +95,8 @@ fn only_meta_tables_survive_the_logout_delete() {
         let class = veloqrs::persistence::tables::class_of(name)
             .unwrap_or_else(|| panic!("{name} declares no owner"));
         if count > 0 {
-            assert_eq!(
-                class,
-                TableClass::Meta,
+            assert!(
+                class == TableClass::Meta || class == TableClass::Device,
                 "{name} has rows after clear(), so it is not derived, mirror or record"
             );
         }
@@ -134,6 +133,7 @@ fn every_class_is_used_and_the_record_set_is_named() {
         TableClass::Record,
         TableClass::Derived,
         TableClass::Meta,
+        TableClass::Device,
     ] {
         assert!(
             declared_tables().iter().any(|t| t.class == class),
