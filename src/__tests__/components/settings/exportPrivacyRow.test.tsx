@@ -10,12 +10,25 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import { ExportPrivacyRow } from '@/features/settings/components/ExportPrivacyRow';
 import { getEngine } from '@/shared/native/engine';
+import type { HomeRadiusMapProps } from '@/features/maps';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+// The map is the maps feature's, tested there. Here the row is asked what it
+// told the map to draw and what it did when the pin moved.
+const mapProps: HomeRadiusMapProps[] = [];
+jest.mock('@/features/maps', () => {
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    HomeRadiusMap: (props: HomeRadiusMapProps) => {
+      mapProps.push(props);
+      return <View testID={props.testID} />;
+    },
+  };
+});
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 // The interpolated values are the point of the count line, so the stub keeps
 // them and drops only the fallback string.
@@ -60,7 +73,12 @@ function engineWith(over: Record<string, unknown> = {}) {
   return { engine, settings };
 }
 
-afterEach(() => jest.clearAllMocks());
+afterEach(() => {
+  jest.clearAllMocks();
+  mapProps.length = 0;
+});
+
+const lastMap = () => mapProps[mapProps.length - 1];
 
 describe('the export privacy row', () => {
   it('offers the home the engine guessed', async () => {
@@ -179,5 +197,69 @@ describe('the export privacy row', () => {
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
     expect(tree.queryByTestId('export-privacy-count')).toBeNull();
+  });
+
+  it('draws the suggested home on a map before it is confirmed', async () => {
+    engineWith();
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
+    expect(lastMap().home).toEqual([HOME.longitude, HOME.latitude]);
+    // Off draws what turning it on would cover, not a circle of nothing.
+    expect(lastMap().radiusM).toBe(100);
+  });
+
+  it('draws the circle at the radius the row is set to', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '500');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
+    expect(lastMap().radiusM).toBe(500);
+
+    fireEvent.press(tree.getByTestId('export-privacy-radius-250'));
+    await waitFor(() => expect(lastMap().radiusM).toBe(250));
+  });
+
+  it('writes both settings when the pin is moved, and draws it there', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
+
+    act(() => lastMap().onMove([7.3612, 46.2341]));
+
+    await waitFor(() => expect(Number(settings.get('__export_home_lng'))).toBeCloseTo(7.3612, 4));
+    expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(46.2341, 4);
+    expect(lastMap().home).toEqual([7.3612, 46.2341]);
+    // The radius is untouched: moving the home is not turning the trim off.
+    expect(settings.get('__export_privacy_radius_m')).toBe('100');
+  });
+
+  it('takes a moved pin as the confirmed home, so the switch can then turn on', async () => {
+    const { settings } = engineWith();
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-map')).toBeTruthy());
+
+    act(() => lastMap().onMove([7.3612, 46.2341]));
+    fireEvent(tree.getByTestId('export-privacy-switch'), 'valueChange', true);
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
+    expect(Number(settings.get('__export_home_lat'))).toBeCloseTo(46.2341, 4);
+    expect(tree.queryByTestId('export-privacy-confirm')).toBeNull();
+  });
+
+  it('draws no map when there is nothing to suggest, rather than one at zero', async () => {
+    engineWith({ suggestExportHome: jest.fn(() => null) });
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());
+    expect(tree.queryByTestId('export-privacy-map')).toBeNull();
+    expect(mapProps).toHaveLength(0);
   });
 });

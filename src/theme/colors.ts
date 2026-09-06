@@ -183,6 +183,9 @@ export const mapLayerColors = {
   nearbyEnd: 'rgba(239,68,68,0.6)',
   /** Live recording position dot. */
   userLocation: '#2196F3',
+  /** The export privacy home and the radius trimmed around it. */
+  homeRadius: '#0D9488',
+  homeRadiusFill: 'rgba(13,148,136,0.18)',
 } as const;
 
 // =============================================================================
