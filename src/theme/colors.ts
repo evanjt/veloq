@@ -418,6 +418,29 @@ export const statusBadge = {
   neutralStrong: { bg: '#64748B26', text: '#475569' },
 } as const;
 
+// Verdict ladder: the one palette a good, caution or bad judgement is drawn
+// from. Each rung is text or an icon, so every token clears 4.5:1 against its
+// surface, white in light and surface #18181B in dark. The three polarity
+// rungs run monotone in luminance and hold at least 1.4:1 between adjacent
+// steps, measured 1.41:1 light and 1.53:1 dark. That is consistency, not
+// greyscale readability: no five colours inside the readable band reach the
+// 3:1 a verdict would need to be legible without hue. Neutral is grey so it
+// can never read as a polarity, and record is gold and off the chain. The
+// record light tone darkens brand.goldDark, which is only 2.87:1 on white.
+export const verdict = {
+  negative: { light: '#7F1D1D', dark: '#EF4444' },
+  caution: { light: '#92400E', dark: '#F59E0B' },
+  positive: { light: '#15803D', dark: '#86EFAC' },
+  neutral: { light: '#52525B', dark: '#A1A1AA' },
+  record: { light: '#8A7224', dark: brand.goldLight },
+} as const;
+
+export type VerdictRung = keyof typeof verdict;
+
+export function verdictColor(rung: VerdictRung, isDark: boolean): string {
+  return isDark ? verdict[rung].dark : verdict[rung].light;
+}
+
 // Sync-warning banner palette (root layout): amber surfaces with deep amber
 // text, one set per mode.
 export const amberBanner = {
