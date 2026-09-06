@@ -108,7 +108,6 @@ module.exports = {
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/index.ts',
-    '!src/app/**',
     '!src/components/**',
     '!src/i18n/**',
     '!src/data/**',
@@ -122,14 +121,16 @@ module.exports = {
     '!src/features/**/types.ts',
     '!src/features/**/constants.ts',
   ],
-  // Ratchet policy: thresholds sit just below current measured coverage so the
-  // gate is real and enforced. Raise them as coverage climbs; never lower them.
+  // Ratchet policy: thresholds sit a point below what the suite measures on a
+  // quiet box, so the gate is real. Raise them as coverage climbs; never lower
+  // them. The screens under src/app count: 40 files at a quarter covered are
+  // the largest gap in the tree and the number has to be able to show it.
   coverageThreshold: {
     global: {
-      branches: 31,
-      functions: 30,
-      lines: 32,
-      statements: 32,
+      branches: 49,
+      functions: 54,
+      lines: 57,
+      statements: 56,
     },
   },
 };
