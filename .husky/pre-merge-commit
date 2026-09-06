@@ -20,7 +20,17 @@ set -e
 # saw them, and the merge back was the only chokepoint left. They are 15 s for
 # all fifteen against the tens of seconds this hook already spends, and they
 # run before the suites so a violation fails on the cheap check.
+# The fourth thing, and the same shape as the third. `pre-commit` gates the
+# staged Rust it is handed, but a worktree runs no hooks until `npm run
+# prepare`, so the branch commits a merge carries were never offered to it. The
+# staged-file gate cannot stand in here either: a merge stages nothing of its
+# own, so it would find no files and pass. The crate is the question at a merge.
+# rustfmt only parses, so this is seconds against the tens this hook already
+# spends, which matters because it holds the build lock. Scoped to veloqrs
+# because that is what this repository's Rust CI builds; tracematch is a
+# submodule and gates itself.
 ./scripts/check-commit-index.sh "$0"
 npm run lint
 npm run audit
+(cd modules/veloqrs/rust && cargo fmt -p veloqrs -- --check)
 ./scripts/check-merge-tests.sh
