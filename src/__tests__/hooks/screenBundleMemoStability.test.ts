@@ -24,10 +24,6 @@ jest.mock('veloqrs', () =>
       { latitude: -37.8, longitude: 144.9 },
       { latitude: -37.81, longitude: 144.91 },
     ]),
-    engine: {
-      extractSectionTrace: jest.fn(() => []),
-      getActivityPrSections: jest.fn(() => []),
-    },
   })
 );
 
