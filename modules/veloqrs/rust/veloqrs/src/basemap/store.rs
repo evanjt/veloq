@@ -74,14 +74,25 @@ impl TileStore {
 
     /// The tile's bytes, or `None` when the store does not hold it. A hit
     /// moves the tile to the back of the eviction queue.
+    ///
+    /// The lock is dropped for the read, the way `put` drops it for the write.
+    /// One mutex covers every source, and a map pan asks for dozens of tiles at
+    /// once on as many threads, so holding it across the file read made every
+    /// one of them queue behind the slowest.
     pub fn get(&self, source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
         let key = tile_key(z, x, y);
-        let mut sources = self.lock();
-        let index = self.index_for(&mut sources, source);
-        let ext = index.sidecar.entries.get(&key)?.ext.clone();
+        let ext = {
+            let mut sources = self.lock();
+            let index = self.index_for(&mut sources, source);
+            index.sidecar.entries.get(&key)?.ext.clone()
+        };
 
         let path = self.tile_path(source, z, x, y, &ext);
-        match std::fs::read(&path) {
+        let read = std::fs::read(&path);
+
+        let mut sources = self.lock();
+        let index = self.index_for(&mut sources, source);
+        match read {
             Ok(bytes) => {
                 let stamp = index.sidecar.clock + 1;
                 index.sidecar.clock = stamp;
@@ -103,8 +114,20 @@ impl TileStore {
             Err(_) => {
                 // The index outlived the file. Forget it rather than answer
                 // with a tile that is not there, and stop counting its bytes.
-                index.sidecar.entries.remove(&key);
-                index.dirty = true;
+                //
+                // Only if it is still the same file: a `put` that landed while
+                // the lock was down may have re-stored this key under another
+                // extension, and forgetting that entry would strand the tile it
+                // just wrote.
+                let replaced = index
+                    .sidecar
+                    .entries
+                    .get(&key)
+                    .is_some_and(|entry| entry.ext != ext);
+                if !replaced {
+                    index.sidecar.entries.remove(&key);
+                    index.dirty = true;
+                }
                 None
             }
         }
