@@ -11,8 +11,7 @@
 //! existing group structure and threads `existing_reps` through. These tests pin
 //! what that has to deliver: a deterministic byte-stable catalogue, an opaque id
 //! that survives a resync, and a chosen representative, custom name, and
-//! membership that survive with it. The in-memory custom name was the last red
-//! and the re-hydrate on recompute has since landed, so every gate here runs.
+//! membership that survive with it. Every gate runs in the default lane.
 //!
 //! Method-agnostic persistence behaviour, run on the fast Control arm.
 //!
