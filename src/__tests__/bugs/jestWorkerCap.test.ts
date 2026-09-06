@@ -12,7 +12,9 @@
  * workers passes every test in the suite right up until the machine dies.
  */
 
+import { readFileSync } from 'node:fs';
 import { cpus } from 'node:os';
+import { resolve } from 'node:path';
 
 import jestConfig from '../../../config/jest.config.js';
 
@@ -33,10 +35,7 @@ describe('how many workers a run takes', () => {
   });
 
   it('lets an idle machine have its cores back without editing the config', () => {
-    const config = String(require('node:fs').readFileSync(
-      require('node:path').resolve(__dirname, '../../../config/jest.config.js'),
-      'utf8'
-    ));
+    const config = readFileSync(resolve(__dirname, '../../../config/jest.config.js'), 'utf8');
 
     expect(config).toContain('JEST_WORKERS');
   });
