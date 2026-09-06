@@ -39,7 +39,7 @@ export function useUserLocation(): {
   }, []);
 
   useEffect(() => {
-    if (cachedLocation) return;
+    if (cachedLocation) return undefined;
 
     let cancelled = false;
 

@@ -16,7 +16,7 @@ export function useEngineChannel(event: string, queryKey: QueryKey): void {
 
   useEffect(() => {
     const engine = getEngine();
-    if (!engine) return;
+    if (!engine) return undefined;
     return engine.subscribe(event, () => {
       queryClient.invalidateQueries({ queryKey });
     });

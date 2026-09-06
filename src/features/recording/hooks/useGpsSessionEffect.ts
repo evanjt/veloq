@@ -39,7 +39,7 @@ export function useGpsSessionEffect({
   // missing FIRST fix; this covers the signal dropping later (tunnel, canyon,
   // indoors). Cleared automatically by useGpsWarningClearEffect on regain.
   useEffect(() => {
-    if (!gpsSessionActive) return;
+    if (!gpsSessionActive) return undefined;
     const interval = setInterval(() => {
       const last = useRecordingLiveStore.getState().lastFixAt;
       if (last != null && Date.now() - last > GPS_WARNING_MS) {
@@ -50,7 +50,7 @@ export function useGpsSessionEffect({
   }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!gpsSessionActive) return;
+    if (!gpsSessionActive) return undefined;
     let cancelled = false;
     let gpsWarningTimer: ReturnType<typeof setTimeout> | null = null;
     let gpsAlertTimer: ReturnType<typeof setTimeout> | null = null;
