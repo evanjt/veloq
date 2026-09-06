@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePowerCurve, usePaceCurve } from '@/features/stats/hooks';
+import { usePowerCurve, usePaceCurve } from '@/features/stats';
 import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
