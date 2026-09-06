@@ -13,7 +13,12 @@
 import {
   writeProvisionalActivity,
   recordProvisionalUpload,
+  reconcileProvisionalUploads,
 } from '@/features/recording/lib/storage/provisionalActivity';
+import {
+  listRecordings,
+  markRecordingReconciled,
+} from '@/features/recording/lib/storage/recordingLibrary';
 import { engine } from 'veloqrs';
 import type { RecordingLibraryEntry, RecordingStreams } from '@/types';
 
@@ -31,6 +36,13 @@ jest.mock('veloqrs', () =>
   })
 );
 
+jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
+  listRecordings: jest.fn(async () => []),
+  markRecordingReconciled: jest.fn(async () => null),
+}));
+
+const mockList = listRecordings as jest.Mock;
+const mockMarkReconciled = markRecordingReconciled as jest.Mock;
 const mint = engine.mintLocalActivityId as unknown as jest.Mock;
 const addActivities = engine.addActivities as unknown as jest.Mock;
 const upsertBodies = engine.upsertActivityBodies as unknown as jest.Mock;
@@ -70,6 +82,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   (engine as unknown as { ready: boolean }).ready = true;
   mint.mockReturnValue('local-deadbeef');
+  recordUpload.mockReturnValue(true);
+  mockList.mockResolvedValue([]);
 });
 
 describe('writeProvisionalActivity', () => {
@@ -153,31 +167,92 @@ describe('writeProvisionalActivity', () => {
 });
 
 describe('recordProvisionalUpload', () => {
-  it('writes the id the server gave the ride onto the provisional row', () => {
-    recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242');
+  it('writes the id the server gave the ride onto the provisional row', async () => {
+    await recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242');
 
     expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i4242');
+    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
   });
 
-  it('does nothing for a recording that never got a provisional row', () => {
-    recordProvisionalUpload(ENTRY, 'i4242');
+  it('does nothing for a recording that never got a provisional row', async () => {
+    await recordProvisionalUpload(ENTRY, 'i4242');
+
+    expect(recordUpload).not.toHaveBeenCalled();
+    expect(mockMarkReconciled).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the upload came back without an id', async () => {
+    await recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, undefined);
 
     expect(recordUpload).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the upload came back without an id', () => {
-    recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, undefined);
-
-    expect(recordUpload).not.toHaveBeenCalled();
-  });
-
-  it('swallows an engine failure, since the upload has already landed', () => {
+  it('leaves the entry unreconciled when the engine refuses the write', async () => {
     recordUpload.mockImplementationOnce(() => {
       throw new Error('engine closed');
     });
 
-    expect(() =>
+    await expect(
       recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
-    ).not.toThrow();
+    ).resolves.toBe(false);
+    expect(mockMarkReconciled).not.toHaveBeenCalled();
+  });
+
+  it('counts a row that already carries the id as reconciled', async () => {
+    recordUpload.mockReturnValueOnce(false);
+
+    await expect(
+      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
+    ).resolves.toBe(true);
+    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
+  });
+});
+
+describe('reconcileProvisionalUploads', () => {
+  const UPLOADED = {
+    ...ENTRY,
+    uploadStatus: 'uploaded' as const,
+    engineActivityId: 'local-deadbeef',
+    intervalsActivityId: 'i4242',
+  };
+
+  it('replays the write for an upload that landed but never reached the row', async () => {
+    mockList.mockResolvedValue([UPLOADED]);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
+    expect(recordUpload).toHaveBeenCalledWith('local-deadbeef', 'i4242');
+  });
+
+  it('skips an entry already reconciled, so an old library costs nothing', async () => {
+    mockList.mockResolvedValue([{ ...UPLOADED, engineReconciled: true }]);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
+    expect(recordUpload).not.toHaveBeenCalled();
+  });
+
+  it('skips an entry with only one of the two ids', async () => {
+    mockList.mockResolvedValue([
+      { ...UPLOADED, intervalsActivityId: undefined },
+      { ...UPLOADED, id: 'rec-2', engineActivityId: undefined },
+    ]);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
+    expect(recordUpload).not.toHaveBeenCalled();
+  });
+
+  it('carries on past an entry the engine refuses', async () => {
+    recordUpload.mockImplementationOnce(() => {
+      throw new Error('engine closed');
+    });
+    mockList.mockResolvedValue([UPLOADED, { ...UPLOADED, id: 'rec-2' }]);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
+    expect(recordUpload).toHaveBeenCalledTimes(2);
+  });
+
+  it('answers zero on an empty library', async () => {
+    mockList.mockResolvedValue([]);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
   });
 });

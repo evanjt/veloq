@@ -14,6 +14,7 @@ import {
   getRecording,
   readRecordingFit,
   readRecordingStreams,
+  discardRecordingStreams,
   markRecordingUploaded,
   markRecordingUploadFailed,
   markRecordingRejected,
@@ -272,6 +273,32 @@ describe('saveRecording', () => {
 
     const streams = await readRecordingStreams(entry);
     expect(streams?.latlng).toHaveLength(2);
+  });
+
+  it('drops the streams sidecar and the path that named it', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+
+    const after = await getRecording(entry.id);
+    expect(after).not.toBeNull();
+    expect(after?.streamsPath).toBeUndefined();
+    expect(await readRecordingStreams({ ...entry, streamsPath: undefined })).toBeNull();
+  });
+
+  it('leaves the FIT and the entry standing when the sidecar goes', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+
+    const after = await getRecording(entry.id);
+    expect(after).not.toBeNull();
+    expect(await readRecordingFit(entry)).not.toBeNull();
+  });
+
+  it('is a no-op for a recording that has no sidecar', async () => {
+    const entry = await saveOne();
+    await discardRecordingStreams(entry.id);
+    await expect(discardRecordingStreams(entry.id)).resolves.toBeUndefined();
+    await expect(discardRecordingStreams('never-saved')).resolves.toBeUndefined();
   });
 
   it('respects localOnly status for auto-upload off', async () => {

@@ -10,6 +10,7 @@ import {
   markRecordingRejected,
   markRecordingPermissionBlocked,
   discardRecordingFit,
+  discardRecordingStreams,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
@@ -95,13 +96,20 @@ export async function uploadRecording(
     });
     await markRecordingUploaded(entry.id, activityId);
     // The provisional row keeps its key and gains the server's id.
-    recordProvisionalUpload(entry, activityId);
+    await recordProvisionalUpload(entry, activityId);
     // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
-    // A finished upload stays finished even if the file cannot be removed.
+    // A finished upload stays finished even if the files cannot be removed.
     await discardRecordingFit(entry.id).catch((err: unknown) => {
       log.warn(`Could not discard FIT for ${entry.id}: ${String(err)}`);
     });
+    // Only once the engine holds the track: without a row the sidecar is the
+    // app's only copy of it until the activity syncs back down.
+    if (entry.engineActivityId) {
+      await discardRecordingStreams(entry.id).catch((err: unknown) => {
+        log.warn(`Could not discard streams for ${entry.id}: ${String(err)}`);
+      });
+    }
     return { outcome: 'uploaded' };
   } catch (uploadErr) {
     const err = classifyUploadError(uploadErr);
