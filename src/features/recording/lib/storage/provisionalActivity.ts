@@ -10,6 +10,10 @@ import { engine } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity';
 import { debug } from '@/shared/debug/debug';
 import { epochMsToStartDateLocal, startDateLocalToEpochSeconds } from '@/shared/time/startDate';
+import {
+  listRecordings,
+  markRecordingReconciled,
+} from '@/features/recording/lib/storage/recordingLibrary';
 import type { Activity, RecordingLibraryEntry, RecordingStreams } from '@/types';
 
 const log = debug.create('Recording');
@@ -74,17 +78,38 @@ export async function writeProvisionalActivity(
 }
 
 /**
- * Write the id intervals.icu gave the ride onto its provisional row. Without
- * it the next sync stores the ride again under the server's own key.
+ * Write the id intervals.icu gave the ride onto its provisional row, and mark
+ * the entry reconciled when the engine took it. Without it the next sync
+ * stores the ride again under the server's own key.
  */
-export function recordProvisionalUpload(
+export async function recordProvisionalUpload(
   entry: RecordingLibraryEntry,
   intervalsActivityId: string | undefined
-): void {
-  if (!entry.engineActivityId || !intervalsActivityId) return;
+): Promise<boolean> {
+  if (!entry.engineActivityId || !intervalsActivityId) return false;
   try {
+    // False means the row already carries an id or has gone, both settled.
     engine.recordActivityUpload(entry.engineActivityId, intervalsActivityId);
   } catch (err) {
     log.warn(`Could not record the upload of ${entry.id}: ${String(err)}`);
+    return false;
   }
+  await markRecordingReconciled(entry.id);
+  return true;
+}
+
+/**
+ * Replay the write for every landed upload whose row never took it, and answer
+ * how many were reconciled. An engine closed at the moment of the upload is
+ * the case this exists for.
+ */
+export async function reconcileProvisionalUploads(): Promise<number> {
+  const owed = (await listRecordings()).filter(
+    (entry) => entry.engineActivityId && entry.intervalsActivityId && !entry.engineReconciled
+  );
+  let reconciled = 0;
+  for (const entry of owed) {
+    if (await recordProvisionalUpload(entry, entry.intervalsActivityId)) reconciled += 1;
+  }
+  return reconciled;
 }

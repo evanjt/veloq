@@ -95,7 +95,7 @@ export async function uploadRecording(
     });
     await markRecordingUploaded(entry.id, activityId);
     // The provisional row keeps its key and gains the server's id.
-    recordProvisionalUpload(entry, activityId);
+    await recordProvisionalUpload(entry, activityId);
     // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
     // A finished upload stays finished even if the file cannot be removed.
