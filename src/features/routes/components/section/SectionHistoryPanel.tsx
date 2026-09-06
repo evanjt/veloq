@@ -90,6 +90,7 @@ export function SectionHistoryPanel({
       case 'superseded':
       case 'pr_rebased':
       case 'baseline':
+      case 'reference_reanchored':
       case 'algorithm_changed':
         return t(`sectionHistory.kind_${e.kind}` as never);
       default:

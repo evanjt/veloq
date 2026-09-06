@@ -148,6 +148,7 @@ pub async fn fetch_activity_history_summary(
     Ok(ActivityHistorySummary {
         oldest: oldest_activity_date(&acts),
         counts_by_year: activity_counts_by_year(&acts),
+        ids: acts.iter().map(|a| a.id.clone()).collect(),
     })
 }
 

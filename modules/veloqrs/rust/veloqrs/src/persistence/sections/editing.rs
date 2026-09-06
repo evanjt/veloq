@@ -647,4 +647,118 @@ impl PersistentEngine {
         self.refresh_superseded_ids();
         Ok(())
     }
+
+    /// Move a section's reference to another member, because the activity its
+    /// line was sliced from has left intervals.icu.
+    ///
+    /// A section's line is a triple into one stored stream, so an anchor whose
+    /// activity is about to be deleted leaves geometry that cannot be read.
+    /// The replacement is a lookup rather than a match: `section_activities`
+    /// already holds every member's own start and end, so the new line is that
+    /// member's own slice of its own track. Among the members the section
+    /// counts, the one whose pass is closest in length wins, with the activity
+    /// id as a total tie-break so the choice is deterministic.
+    ///
+    /// **Call this before the delete.** `section_activities` cascades on
+    /// `activities(id)`, so removing the activity first takes the candidate
+    /// list with it.
+    ///
+    /// Returns the activity the section now points at, or `None` when no other
+    /// member can carry it, in which case nothing is touched and the caller
+    /// protects the row.
+    pub fn reanchor_section_reference(
+        &mut self,
+        section_id: &str,
+        vanished_activity_id: &str,
+    ) -> rusqlite::Result<Option<String>> {
+        let anchored_here = self
+            .section_anchor(section_id)
+            .is_some_and(|(activity_id, _, _)| activity_id == vanished_activity_id);
+        if !anchored_here {
+            return Ok(None);
+        }
+
+        let section_distance: f64 = self
+            .db
+            .query_row(
+                "SELECT distance_meters FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
+
+        let candidate: Option<(String, u32, u32)> = self
+            .db
+            .query_row(
+                "SELECT activity_id, start_index, end_index
+                 FROM section_activities
+                 WHERE section_id = ? AND activity_id <> ? AND excluded = 0
+                 ORDER BY abs(COALESCE(distance_meters, 0) - ?) ASC, activity_id ASC
+                 LIMIT 1",
+                params![section_id, vanished_activity_id, section_distance],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+        let Some((new_id, start, end)) = candidate else {
+            return Ok(None);
+        };
+
+        let Some(track) = self.get_gps_track(&new_id) else {
+            return Ok(None);
+        };
+        let (lo, hi) = (start as usize, end as usize);
+        if hi >= track.len() || lo > hi {
+            return Ok(None);
+        }
+        let polyline = track[lo..=hi].to_vec();
+
+        let version = self.record_section_geometry(
+            section_id,
+            &polyline,
+            true,
+            Some((new_id.as_str(), start, end)),
+        )?;
+
+        let bounds = tracematch::geo_utils::compute_bounds(&polyline);
+        let blob = crate::persistence::codec::serialize_track_points(&polyline);
+        let distance = calculate_route_distance(&polyline);
+        self.db.execute(
+            "UPDATE sections SET
+                 polyline_json = ?, polyline_blob = ?, distance_meters = ?,
+                 updated_at = ?, source_activity_id = ?, start_index = ?, end_index = ?,
+                 bounds_min_lat = ?, bounds_max_lat = ?, bounds_min_lng = ?, bounds_max_lng = ?
+             WHERE id = ?",
+            params![
+                crate::persistence::codec::NO_POLYLINE_JSON,
+                blob,
+                distance,
+                chrono::Utc::now().to_rfc3339(),
+                new_id,
+                start,
+                end,
+                bounds.min_lat,
+                bounds.max_lat,
+                bounds.min_lng,
+                bounds.max_lng,
+                section_id
+            ],
+        )?;
+
+        let details = serde_json::json!({
+            "from": vanished_activity_id,
+            "to": new_id,
+            "cause": super::history::REANCHOR_CAUSE_ACTIVITY_REMOVED,
+        })
+        .to_string();
+        super::history::append_history_on(
+            &self.db,
+            section_id,
+            super::history::KIND_REFERENCE_REANCHORED,
+            Some(&details),
+            Some(version),
+            None,
+        )?;
+
+        Ok(Some(new_id))
+    }
 }

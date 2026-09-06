@@ -1592,7 +1592,8 @@
     "kind_reverted": "Przywrócono wersję {{version}}",
     "kind_pr_rebased": "Rekord przeliczony na bieżący zakres",
     "kind_baseline": "Zapisany z wcześniejszej wersji aplikacji",
-    "kind_algorithm_changed": "Przeanalizowany ponownie przez nowszy detektor"
+    "kind_algorithm_changed": "Przeanalizowany ponownie przez nowszy detektor",
+    "kind_reference_reanchored": "Narysowana ponownie na podstawie innej aktywności, pierwotna zniknęła z intervals.icu"
   },
   "namedCorridors": {
     "title": "Nadane nazwy",

@@ -10,6 +10,9 @@ export interface EventDetails {
   prTo?: number;
   siblings: number;
   version?: number;
+  /** The activity a re-anchor moved the line off, and the one it moved to. */
+  reanchoredFrom?: string;
+  reanchoredTo?: string;
 }
 
 /** The ledger writes SQLite datetimes in UTC without a zone marker. */
@@ -33,6 +36,8 @@ export function parseEventDetails(details: string | undefined): EventDetails {
       prTo: num(d.to_time),
       siblings: list(d.siblings).length,
       version: num(d.version),
+      reanchoredFrom: typeof d.from === 'string' ? d.from : undefined,
+      reanchoredTo: typeof d.to === 'string' ? d.to : undefined,
     };
   } catch {
     return empty;

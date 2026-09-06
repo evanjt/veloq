@@ -1590,7 +1590,8 @@
     "kind_reverted": "Auf Version {{version}} zurückgesetzt",
     "kind_pr_rebased": "Rekord auf die aktuelle Ausdehnung bezogen",
     "kind_baseline": "Aus einer früheren App-Version übernommen",
-    "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert"
+    "kind_algorithm_changed": "Von einem neueren Detektor neu analysiert",
+    "kind_reference_reanchored": "Neu gezeichnet aus einer anderen Fahrt, die ursprüngliche gibt es auf intervals.icu nicht mehr"
   },
   "namedCorridors": {
     "title": "Von dir vergebene Namen",
