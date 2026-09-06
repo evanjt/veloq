@@ -1,6 +1,7 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
+import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 
@@ -22,7 +23,6 @@ export type SatelliteSourceId =
 // Base styles the surfaces load. Liberty is embedded locally rather than
 // fetched, so a cold map does not wait on a style request and the CDN cannot
 // serve a build with fonts removed from under us.
-import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
 
 export const MAP_STYLE_URLS = {
   light: LIBERTY_STYLE,
