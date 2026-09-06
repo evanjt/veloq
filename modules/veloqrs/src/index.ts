@@ -162,3 +162,20 @@ export function getDownloadProgress(): DownloadProgressResult {
 }
 
 export const engine = EngineClient.getInstance();
+
+/**
+ * The Rust-owned basemap tile store.
+ *
+ * Not on `EngineClient`: a tile read must not queue behind the engine lock,
+ * and the store answers from the filesystem without needing the library open.
+ */
+let _basemap: InstanceType<typeof import('./generated/veloqrs').BasemapManager> | null = null;
+
+export function basemapStore() {
+  if (!_basemap) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const gen = require('./generated/veloqrs');
+    _basemap = new gen.BasemapManager();
+  }
+  return _basemap!;
+}

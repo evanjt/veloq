@@ -167,6 +167,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_or_fetch_tile(
+    ptr: bigint,
+    source: Uint8Array,
+    z: number,
+    x: number,
+    y: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
     ptr: bigint,
     source: Uint8Array,
@@ -194,6 +202,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
     ptr: bigint,
     path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_source_template(
+    ptr: bigint,
+    source: Uint8Array,
+    urlTemplate: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_clone_detectionmanager(
@@ -1591,10 +1605,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_evict_to(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;

@@ -22,6 +22,8 @@ export type SatelliteSourceId =
 // Base styles the surfaces load. Liberty is embedded locally rather than
 // fetched, so a cold map does not wait on a style request and the CDN cannot
 // serve a build with fonts removed from under us.
+import { NATIVE_TILE_TRANSPORT, nativeTileUrl } from '@/features/maps/lib/tileTransport';
+
 export const MAP_STYLE_URLS = {
   light: LIBERTY_STYLE,
 } as const;
@@ -489,13 +491,26 @@ export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: 
   return attributions.join(' | ');
 }
 
-/** Rewrite raster source tile URLs from https:// to cached-satellite:// */
+/**
+ * Point every satellite raster at whichever tile transport is in force.
+ *
+ * The native transport hands each source's upstream template to Rust once and
+ * asks for an intercepted URL, so the store answers a hit and fills a miss
+ * without the page knowing which happened. A source Rust will not take stays
+ * on `cached-satellite://` rather than drawing nothing.
+ */
 export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): CombinedSatelliteMapStyle {
   const rewritten: CombinedSatelliteMapStyle = JSON.parse(JSON.stringify(style));
-  for (const source of Object.values(rewritten.sources)) {
-    if (source.type === 'raster' && source.tiles) {
-      source.tiles = source.tiles.map((url) => url.replace(/^https:\/\//, 'cached-satellite://'));
+  for (const [key, source] of Object.entries(rewritten.sources)) {
+    if (source.type !== 'raster' || !source.tiles) continue;
+    if (NATIVE_TILE_TRANSPORT) {
+      const native = nativeTileUrl(key, source.tiles[0]);
+      if (native) {
+        source.tiles = [native];
+        continue;
+      }
     }
+    source.tiles = source.tiles.map((url) => url.replace(/^https:\/\//, 'cached-satellite://'));
   }
   return rewritten;
 }
