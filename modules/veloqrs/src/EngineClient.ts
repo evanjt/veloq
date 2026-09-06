@@ -146,6 +146,19 @@ interface EngineObserverBinding {
   previewFinished(): void;
 }
 
+/** One write held from before the engine opened, kept with its timing label. */
+interface PendingWrite {
+  name: string;
+  run: () => void;
+}
+
+/**
+ * How many pre-init writes the client holds. Demo entry issues about twenty
+ * and a cold start a handful, so this is generous. A launch that never opens
+ * the engine must not grow the queue without bound.
+ */
+const MAX_PENDING_WRITES = 256;
+
 class EngineClient implements DelegateHost {
   private static instance: EngineClient;
   private listeners: Map<string, Set<EngineListener>> = new Map();
@@ -153,7 +166,7 @@ class EngineClient implements DelegateHost {
   private notifyScheduled = false;
   private initialized = false;
   private dbPath: string | null = null;
-  private pendingMetrics: FfiActivityMetrics[] | null = null;
+  private pendingWrites: PendingWrite[] = [];
 
   // Cached domain object handles (created once via VeloqEngine factory)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,6 +177,22 @@ class EngineClient implements DelegateHost {
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
   get ready(): boolean {
     return this.engine !== null;
+  }
+
+  /**
+   * Run a write now, or hold it until the engine opens.
+   *
+   * The oldest write goes when the queue is full: a cold start that never
+   * opens the engine must not grow this without bound, and the newest write
+   * to a key is the one the athlete meant.
+   */
+  write(name: string, run: () => void): void {
+    if (this.ready) {
+      this.timed(name, run);
+      return;
+    }
+    if (this.pendingWrites.length >= MAX_PENDING_WRITES) this.pendingWrites.shift();
+    this.pendingWrites.push({ name, run });
   }
 
   timed<T>(name: string, fn: () => T): T {
@@ -236,15 +265,30 @@ class EngineClient implements DelegateHost {
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
       // in the native module.
-      if (this.pendingMetrics && this.pendingMetrics.length > 0) {
-        this.timed('setActivityMetrics', () =>
-          this.engine.activities().setMetrics(this.pendingMetrics!)
-        );
-        this.pendingMetrics = null;
-        this.notify('activities');
-      }
+      this.replayPendingWrites();
     }
     return result;
+  }
+
+  /**
+   * Send what was written before the engine opened, oldest first.
+   *
+   * Drained into a local and the field reset first, so a write that reaches
+   * back into the client during replay queues behind rather than re-running
+   * what is already going out. Each write is isolated: one that throws must
+   * not take the rest of the queue with it.
+   */
+  private replayPendingWrites(): void {
+    if (this.pendingWrites.length === 0) return;
+    const held = this.pendingWrites;
+    this.pendingWrites = [];
+    for (const { name, run } of held) {
+      try {
+        this.timed(name, run);
+      } catch (e) {
+        console.warn(`[EngineClient] Held write ${name} failed on replay:`, e);
+      }
+    }
   }
 
   isInitialized(): boolean {
@@ -282,7 +326,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
-    this.pendingMetrics = null;
+    this.pendingWrites = [];
   }
 
   /**
@@ -312,7 +356,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
-    this.pendingMetrics = null;
+    this.pendingWrites = [];
     if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
@@ -623,17 +667,8 @@ class EngineClient implements DelegateHost {
   ): FfiSectionPerformanceData | undefined =>
     sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
-  /** Holds metrics until init completes, then delegates to activities module. */
-  setActivityMetrics(metrics: FfiActivityMetrics[]): void {
-    if (!this.initialized) {
-      if (metrics.length === 0) return;
-      // Appended, not replaced: demo entry writes several batches into this
-      // window and each one is a different set of activities.
-      this.pendingMetrics = this.pendingMetrics ? this.pendingMetrics.concat(metrics) : metrics;
-      return;
-    }
-    activityDelegates.setActivityMetricsReady(this, metrics);
-  }
+  setActivityMetrics = (metrics: FfiActivityMetrics[]): void =>
+    activityDelegates.setActivityMetrics(this, metrics);
 
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);

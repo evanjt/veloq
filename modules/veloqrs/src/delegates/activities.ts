@@ -24,11 +24,10 @@ export async function addActivities(
   offsets: number[],
   sportTypes: string[]
 ): Promise<void> {
-  if (!host.ready) return;
-  host.timed('addActivities', () =>
-    host.engine.activities().add(activityIds, allCoords, offsets, sportTypes)
-  );
-  host.notifyAll('activities', 'groups');
+  host.write('addActivities', () => {
+    host.engine.activities().add(activityIds, allCoords, offsets, sportTypes);
+    host.notifyAll('activities', 'groups');
+  });
 }
 
 export function getActivityIds(host: DelegateHost): string[] {
@@ -53,9 +52,13 @@ export function getGpsTrack(host: DelegateHost, activityId: string): FfiGpsPoint
  * facade since it touches private class state. This delegate only handles
  * the fully-initialized case.
  */
-export function setActivityMetricsReady(host: DelegateHost, metrics: FfiActivityMetrics[]): void {
-  host.timed('setActivityMetrics', () => host.engine.activities().setMetrics(metrics));
-  host.notify('activities');
+/** Store a batch of computed metrics. Held until the engine opens. */
+export function setActivityMetrics(host: DelegateHost, metrics: FfiActivityMetrics[]): void {
+  if (metrics.length === 0) return;
+  host.write('setActivityMetrics', () => {
+    host.engine.activities().setMetrics(metrics);
+    host.notify('activities');
+  });
 }
 
 export function setTimeStreams(
@@ -225,8 +228,7 @@ export interface CalendarEventBodyInput {
 
 /** Store an activity's interval payload directly, for demo seeding. */
 export function setIntervalBody(host: DelegateHost, activityId: string, raw: string): void {
-  if (!host.ready) return;
-  host.timed('setIntervalBody', () => host.engine.activities().setIntervalBody(activityId, raw));
+  host.write('setIntervalBody', () => host.engine.activities().setIntervalBody(activityId, raw));
 }
 
 /** Store a curve payload directly, for demo seeding. */
@@ -238,9 +240,9 @@ export function setCurveBody(
   gap: boolean,
   raw: string
 ): void {
-  if (!host.ready) return;
-  host.timed('setCurveBody', () =>
-    host.engine.activities().setCurveBody(kind, sport, BigInt(days), gap, raw)
+  const window = BigInt(days);
+  host.write('setCurveBody', () =>
+    host.engine.activities().setCurveBody(kind, sport, window, gap, raw)
   );
 }
 
@@ -251,12 +253,10 @@ export function replaceCalendarEvents(
   newestTs: number,
   rows: CalendarEventBodyInput[]
 ): void {
-  if (!host.ready) return;
-  host.timed('replaceCalendarEvents', () =>
-    host.engine.activities().replaceCalendarEvents(
-      BigInt(oldestTs),
-      BigInt(newestTs),
-      rows.map((r) => ({ eventId: r.eventId, date: BigInt(r.date), raw: r.raw }))
-    )
+  const oldest = BigInt(oldestTs);
+  const newest = BigInt(newestTs);
+  const events = rows.map((r) => ({ eventId: r.eventId, date: BigInt(r.date), raw: r.raw }));
+  host.write('replaceCalendarEvents', () =>
+    host.engine.activities().replaceCalendarEvents(oldest, newest, events)
   );
 }
