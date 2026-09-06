@@ -10,6 +10,63 @@ use super::codec;
 use super::codec::{TrackRead, TrackWalk};
 use super::{ActivityBoundsEntry, ActivityMetadata, PersistentEngine};
 
+/// The prefix every device-minted activity key carries. intervals.icu ids are
+/// `i` and digits and the seeded corpora use `demo-`, so this namespace is
+/// ours alone and the three can share `activities.id` without meeting.
+pub const LOCAL_KEY_PREFIX: &str = "local-";
+
+/// Whether a key was minted here rather than handed down by intervals.icu.
+/// The ingest writes `intervals_id` from the key for every server-sourced
+/// activity, which is true by construction and is what the `024` backfill
+/// rests on; this is the one case where it is not.
+pub fn is_local_activity_key(activity_id: &str) -> bool {
+    activity_id.starts_with(LOCAL_KEY_PREFIX)
+}
+
+/// A key for a ride the device recorded and no server has named.
+///
+/// `activities.id` holds both these and intervals.icu's own ids, so the two
+/// spaces must never meet. An intervals.icu id is `i` and digits; this is
+/// `local-` and hex, so no server id can be minted here and no key can be
+/// mistaken for one upstream. The `demo-` prefixes the seeded corpora use are
+/// likewise out of reach.
+///
+/// Uniqueness is the clock at nanosecond resolution, a process-lifetime
+/// counter so two saves inside one tick differ, and a per-process random seed
+/// so two devices restoring into one library cannot collide. They are mixed
+/// rather than concatenated, so the key carries no timestamp a reader could
+/// come to depend on. The mixer is `splitmix64`: this wants distinctness, not
+/// secrecy, and a hash dependency for a row key is not worth carrying.
+pub fn mint_local_activity_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn mix(mut z: u64) -> u64 {
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    static SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+    let seed = *SEED.get_or_init(|| {
+        use std::hash::{BuildHasher, Hasher};
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u64(u64::from(std::process::id()));
+        h.finish()
+    });
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let tick = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+    let hi = mix(seed ^ nanos.rotate_left(17) ^ tick);
+    let lo = mix(hi ^ seed.rotate_left(41) ^ nanos);
+    format!("local-{hi:016x}{lo:016x}")
+}
+
 /// The stored zone series, or `None` when the column is empty or unreadable.
 /// A row whose JSON no longer parses is worth loading without its zones.
 fn zone_times(stored: Option<String>) -> Option<Vec<u32>> {
@@ -740,10 +797,12 @@ impl PersistentEngine {
         // (date, name, distance) survive.
         //
         // `intervals_id` is the server's own id, kept beside the key rather
-        // than as it. Every activity that reaches this path came from
-        // intervals.icu, so the key is that id and the column records it; a
-        // row minted on the device would carry NULL until an upload answers.
+        // than as it. An activity that came from intervals.icu is keyed by
+        // that id, so the column records it and the `024` backfill is true by
+        // construction. A row the device minted carries NULL until an upload
+        // answers, which is what makes it a ride nothing upstream has named.
         // `COALESCE` so a re-ingest never overwrites one already recorded.
+        let intervals_id = (!is_local_activity_key(&id)).then(|| id.clone());
         self.db.execute(
             "INSERT INTO activities
                  (id, intervals_id, sport_type, min_lat, max_lat, min_lng, max_lng)
@@ -755,7 +814,7 @@ impl PersistentEngine {
                  min_lng = excluded.min_lng, max_lng = excluded.max_lng",
             params![
                 id,
-                id,
+                intervals_id,
                 sport_type,
                 bounds.min_lat,
                 bounds.max_lat,
@@ -1075,6 +1134,24 @@ impl PersistentEngine {
             Ok(rows) => rows.flatten().collect(),
             Err(_) => Vec::new(),
         }
+    }
+
+    /// Record the id intervals.icu gave a ride the device keyed itself, after
+    /// the upload has landed. Returns whether anything was written.
+    ///
+    /// One `UPDATE`, and it is the only writer of the column outside ingest.
+    /// It writes only where the column is still NULL, so a retried upload that
+    /// lands twice, or an answer arriving after a sync has already matched the
+    /// ride, leaves the first id standing rather than repointing the row at a
+    /// second one. A key nothing stores is not a failure either: the recording
+    /// can be deleted between the upload starting and the server answering.
+    pub fn record_upload(&mut self, activity_id: &str, intervals_id: &str) -> SqlResult<bool> {
+        let changed = self.db.execute(
+            "UPDATE activities SET intervals_id = ?
+             WHERE id = ? AND intervals_id IS NULL",
+            params![intervals_id, activity_id],
+        )?;
+        Ok(changed > 0)
     }
 
     /// The intervals.icu id for a stored activity, or None for one the server
