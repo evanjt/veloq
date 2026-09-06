@@ -367,6 +367,31 @@ export function discardRecordingFit(id: string): Promise<void> {
   });
 }
 
+/**
+ * Drop the streams sidecar once the engine holds the ride's track. It is the
+ * last file that grows with every recording, and the detail view reads the
+ * engine first. The path is cleared with it, so nothing looks for the file.
+ *
+ * Best effort by design, the same as the FIT: a delete that throws must not
+ * turn a finished upload into a retry.
+ */
+export function discardRecordingStreams(id: string): Promise<void> {
+  return withLibraryLock(async () => {
+    const entries = await loadIndex();
+    const idx = entries.findIndex((e) => e.id === id);
+    if (idx < 0 || !entries[idx].streamsPath) return;
+    const path = entries[idx].streamsPath;
+    entries[idx] = { ...entries[idx], streamsPath: undefined };
+    await saveIndex(entries);
+    try {
+      await FileSystem.deleteAsync(path, { idempotent: true });
+      log.log(`Discarded streams sidecar for uploaded recording ${id}`);
+    } catch {
+      // The index no longer names it, and the user's own delete gets the file.
+    }
+  });
+}
+
 // ─── Deletion (user-initiated only) ──────────────────────────────────────────
 
 export function deleteRecording(id: string): Promise<void> {

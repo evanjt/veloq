@@ -21,12 +21,10 @@ import { formatDistance, formatDuration, formatElevation } from '@/shared/format
 import { recordingActions } from '@/features/recording/lib/recordingActions';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
-import {
-  getRecording,
-  readRecordingStreams,
-} from '@/features/recording/lib/storage/recordingLibrary';
+import { getRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import { readRecordingTrack } from '@/features/recording';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
-import type { RecordingLibraryEntry, RecordingStreams } from '@/types';
+import type { RecordingLibraryEntry } from '@/types';
 
 export default function RecordingDetailScreen() {
   const { t } = useTranslation();
@@ -37,7 +35,7 @@ export default function RecordingDetailScreen() {
   const { uploadNow, remove, uploadingId } = useRecordingLibrary();
 
   const [entry, setEntry] = useState<RecordingLibraryEntry | null>(null);
-  const [streams, setStreams] = useState<RecordingStreams | null>(null);
+  const [coordinates, setCoordinates] = useState<[number, number][]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -45,7 +43,7 @@ export default function RecordingDetailScreen() {
     const found = await getRecording(id);
     setEntry(found);
     if (found) {
-      setStreams(await readRecordingStreams(found));
+      setCoordinates(await readRecordingTrack(found));
     }
     setLoading(false);
   }, [id]);
@@ -121,7 +119,6 @@ export default function RecordingDetailScreen() {
   }
 
   const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId);
-  const coordinates = streams?.latlng ?? [];
 
   const stats: { label: string; value: string }[] = [
     {
