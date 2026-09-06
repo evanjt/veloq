@@ -91,6 +91,10 @@ name = "persistence_stress"
 required-features = ["synthetic"]
 
 [[test]]
+name = "harness_bound"
+required-features = ["synthetic"]
+
+[[test]]
 name = "named_corridors"
 required-features = ["synthetic"]
 
