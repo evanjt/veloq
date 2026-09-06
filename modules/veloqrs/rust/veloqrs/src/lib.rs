@@ -19,7 +19,8 @@ pub use ffi_types::*;
 pub mod persistence;
 pub use persistence::{
     CacheUpdate, ExportPrivacyPreview, FitOutcome, GroupSummary, PERSISTENT_ENGINE,
-    PersistentEngine, PersistentEngineStats, SectionDetectionHandle, with_persistent_engine,
+    PersistentEngine, PersistentEngineStats, SectionDetectionHandle, mint_local_activity_id,
+    with_persistent_engine,
 };
 
 // Shared process-wide async runtime for all outbound network work
