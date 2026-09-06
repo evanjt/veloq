@@ -9,7 +9,11 @@ import { createManualActivity } from '@/features/recording/lib/upload/intervalsU
 import { debug } from '@/shared/debug/debug';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
-import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import {
+  attachEngineActivity,
+  saveRecording,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
@@ -184,6 +188,14 @@ export function useReviewSave({
           return;
         }
         savedEntryRef.current = entry;
+        // The ride reaches the feed, the heatmap and the week from here.
+        const engineActivityId = await writeProvisionalActivity(entry, trimmedStreams);
+        if (engineActivityId) {
+          savedEntryRef.current = (await attachEngineActivity(entry.id, engineActivityId)) ?? {
+            ...entry,
+            engineActivityId,
+          };
+        }
         // The recording is durable now - the crash backup has done its job
         await clearRecordingBackup();
       }

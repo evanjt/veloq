@@ -143,6 +143,10 @@ impl VeloqEngine {
         Arc::new(super::tiles::HeatmapManager { _private: () })
     }
 
+    fn recordings(&self) -> Arc<super::recordings::RecordingManager> {
+        Arc::new(super::recordings::RecordingManager { _private: () })
+    }
+
     fn sync(&self) -> Arc<super::sync::SyncManager> {
         Arc::new(super::sync::SyncManager { _private: () })
     }

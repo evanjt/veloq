@@ -3,15 +3,23 @@
 //! activity foreign key. So the list of tables cannot be maintained by hand
 //! against a schema that keeps growing. This drives it from `sqlite_master`.
 //!
-//! `settings` and `schema_info` survive on purpose. Every other table empties.
+//! What survives is not a list here. It is `TableClass::Meta` and
+//! `TableClass::Device` in `persistence::tables`, so a table added next year
+//! says whether it survives a logout in the same place it says whether a
+//! backup carries it.
 
 use std::collections::HashMap;
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::tables::{TableClass, tables_of};
 
-const SURVIVORS: [&str; 2] = ["settings", "schema_info"];
+fn survivors() -> Vec<&'static str> {
+    tables_of(TableClass::Meta)
+        .chain(tables_of(TableClass::Device))
+        .collect()
+}
 
 fn tables(conn: &Connection) -> Vec<String> {
     let mut stmt = conn
@@ -25,9 +33,10 @@ fn tables(conn: &Connection) -> Vec<String> {
         .expect("query")
         .map(|r| r.expect("name"))
         .collect();
+    let survivors = survivors();
     names
         .into_iter()
-        .filter(|n| !SURVIVORS.contains(&n.as_str()))
+        .filter(|n| !survivors.contains(&n.as_str()))
         .collect()
 }
 
@@ -142,7 +151,7 @@ fn clear_wipes_every_table() {
 
     let tables = tables(&conn);
     assert!(tables.len() > 20, "schema looks unmigrated: {tables:?}");
-    for table in tables.iter().map(String::as_str).chain(SURVIVORS) {
+    for table in tables.iter().map(String::as_str).chain(survivors()) {
         seed(&conn, table);
         assert!(count(&conn, table) > 0, "{table} was not seeded");
     }
@@ -154,10 +163,32 @@ fn clear_wipes_every_table() {
         survived.is_empty(),
         "clear() left rows behind, so the next athlete inherits them: {survived:?}"
     );
-    for table in SURVIVORS {
+    for table in survivors() {
         assert!(
             count(&conn, table) > 0,
             "{table} is meant to survive clear()"
         );
     }
+}
+
+/// A sign-out keeps every recording on the device and only stops the
+/// auto-upload, which the app does by demoting them to `localOnly`. The index
+/// used to sit outside the database, so the move into it must not quietly
+/// start destroying rides that have reached no server.
+#[test]
+fn a_logout_keeps_the_recordings_whose_fit_files_stay_on_disk() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+
+    let conn = Connection::open(&path).expect("second connection");
+    seed(&conn, "recordings");
+    assert!(count(&conn, "recordings") > 0, "recordings was not seeded");
+
+    engine.clear().expect("clear");
+
+    assert!(
+        count(&conn, "recordings") > 0,
+        "clear() destroyed a recording the athlete still has the FIT file for"
+    );
 }

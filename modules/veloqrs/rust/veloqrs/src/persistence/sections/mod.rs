@@ -1849,7 +1849,7 @@ impl PersistentEngine {
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
         let mut junction_stmt = tx
-            .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
+            .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")?;
 
         // Persist only the auto (non-user-defined) catalogue. Custom and accepted
         // sections are durable rows the wipe above spares and are managed by their
@@ -1921,6 +1921,52 @@ impl PersistentEngine {
                     }) {
                         for row in rows.flatten() {
                             map.insert(row.0, row.1);
+                        }
+                    }
+                }
+                map
+            }
+        };
+
+        // The effort each lap was ridden at comes from the same slice as its
+        // clock, and `OR REPLACE` rewrites the whole row, so the apply computes
+        // it here rather than leaving it to the lazy pass: the pass would then
+        // redo the whole library after every detect, and the column would be
+        // empty in between. One batched read for the same reason the time
+        // streams take one.
+        let db_hr_series: HashMap<String, Vec<Option<f64>>> = {
+            let mut needed: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for section in &sorted_sections {
+                for portion in &section.activity_portions {
+                    needed.insert(portion.activity_id.as_str());
+                }
+            }
+            if needed.is_empty() {
+                HashMap::new()
+            } else {
+                let mut map: HashMap<String, Vec<Option<f64>>> =
+                    HashMap::with_capacity(needed.len());
+                let placeholders = std::iter::repeat("?")
+                    .take(needed.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "SELECT activity_id, data FROM activity_streams WHERE kind = 'heartrate' AND activity_id IN ({})",
+                    placeholders
+                );
+                let ids: Vec<&str> = needed.iter().copied().collect();
+                let params_vec: Vec<&dyn rusqlite::ToSql> =
+                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                if let Ok(mut stmt) = tx.prepare(&sql)
+                    && let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
+                        let id: String = row.get(0)?;
+                        let bytes: Vec<u8> = row.get(1)?;
+                        Ok((id, bytes))
+                    })
+                {
+                    for (id, bytes) in rows.flatten() {
+                        if let Some(series) = codec::decode_series(&bytes) {
+                            map.insert(id, series);
                         }
                     }
                 }
@@ -2084,6 +2130,11 @@ impl PersistentEngine {
                     portion.end_index,
                     portion.distance_meters,
                 );
+                let avg_hr = mean_over_traversal(
+                    db_hr_series.get(&portion.activity_id).map(Vec::as_slice),
+                    portion.start_index,
+                    portion.end_index,
+                );
 
                 junction_stmt.execute(params![
                     section.id,
@@ -2094,6 +2145,7 @@ impl PersistentEngine {
                     portion.distance_meters,
                     lap_time,
                     lap_pace,
+                    avg_hr,
                 ])?;
             }
         }

@@ -59,6 +59,7 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15"
+jni = "0.21"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2"
@@ -349,3 +350,7 @@ required-features = ["synthetic"]
 [[test]]
 name = "group_sport_icons_before_metrics"
 required-features = ["synthetic"]
+
+[[test]]
+name = "every_table_declares_an_owner"
+path = "tests/every_table_declares_an_owner.rs"

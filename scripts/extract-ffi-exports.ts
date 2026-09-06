@@ -13,6 +13,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { findCppKeywordParams } from './lib/cppKeywords';
 
 const RUST_SRC_DIR = path.resolve(__dirname, '../modules/veloqrs/rust/veloqrs/src');
 
@@ -262,6 +263,19 @@ function extractAllFfiExports(): FfiExport[] {
 const exports = extractAllFfiExports();
 const outputJson = process.argv.includes('--json');
 const checkMode = process.argv.includes('--check');
+
+// Refused before anything else reads the surface. The C++ codegen copies an
+// argument name verbatim, so a keyword here compiles in Rust, type checks in
+// TypeScript and then fails inside CMake on the only platform that builds C++.
+{
+  const offenders = findCppKeywordParams(exports);
+  if (offenders.length > 0) {
+    console.error('ERROR: an FFI argument is named after a C++ keyword!');
+    offenders.forEach((o) => console.error('  ' + o));
+    console.error('Rename the argument in Rust, then run: npm run ffi:manifest');
+    process.exit(1);
+  }
+}
 
 if (outputJson) {
   console.log(JSON.stringify(exports, null, 2));

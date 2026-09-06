@@ -69,6 +69,7 @@ import type {
   PreviewSection,
 } from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
+import * as recordingDelegates from './delegates/recordings';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
 import * as sectionDelegates from './delegates/sections';
@@ -167,6 +168,8 @@ class EngineClient implements DelegateHost {
   private notifyScheduled = false;
   private initialized = false;
   private dbPath: string | null = null;
+  /** The generated binding installs its vtables once per process. */
+  private bindingInitialised = false;
   private pendingWrites: PendingWrite[] = [];
 
   // Cached domain object handles (created once via VeloqEngine factory)
@@ -258,10 +261,20 @@ class EngineClient implements DelegateHost {
       // Registered here and not in create(): before this point there is no
       // engine to announce anything, and a failed init must leave Rust with no
       // handle into a listener map nobody is reading.
-      try {
-        this.engine.setObserver(this.observer());
-      } catch (e) {
-        console.warn('[EngineClient] Engine refused the observer:', e);
+      //
+      // The binding's own initialise runs first. It ends by installing the
+      // EngineObserver vtable, and nothing else calls it, so without this
+      // `setObserver` hands Rust a handle into a vtable cell that was never
+      // set and every notify panics inside uniffi rather than reaching a
+      // channel. The observer is withheld if it throws: a handle Rust cannot
+      // call through is worse than none, since the polling fallback still
+      // works and a panic per event does not.
+      if (this.ensureBindingInitialised()) {
+        try {
+          this.engine.setObserver(this.observer());
+        } catch (e) {
+          console.warn('[EngineClient] Engine refused the observer:', e);
+        }
       }
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
@@ -269,6 +282,24 @@ class EngineClient implements DelegateHost {
       this.replayPendingWrites();
     }
     return result;
+  }
+
+  /**
+   * Install the generated binding's vtables, once per process.
+   *
+   * It also verifies every FFI checksum, so a Rust library out of step with
+   * the bindings throws here instead of returning nonsense later.
+   */
+  private ensureBindingInitialised(): boolean {
+    if (this.bindingInitialised) return true;
+    try {
+      gen().default.initialize();
+      this.bindingInitialised = true;
+      return true;
+    } catch (e) {
+      console.warn('[EngineClient] Binding init failed, observer withheld:', e);
+      return false;
+    }
   }
 
   /**
@@ -369,6 +400,11 @@ class EngineClient implements DelegateHost {
     sportTypes: string[]
   ): Promise<void> =>
     activityDelegates.addActivities(this, activityIds, allCoords, offsets, sportTypes);
+
+  mintLocalActivityId = (): string => activityDelegates.mintLocalActivityId(this);
+
+  recordActivityUpload = (activityId: string, intervalsId: string): boolean =>
+    activityDelegates.recordActivityUpload(this, activityId, intervalsId);
 
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 
@@ -808,6 +844,71 @@ class EngineClient implements DelegateHost {
 
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */
   pollTileGeneration = (): string => heatmapDelegates.pollTileGeneration(this);
+
+  // ==========================================================================
+  // Recording index (what this device has recorded, and its upload state)
+  // ==========================================================================
+
+  /** Add a recording. False means a row with that id was already there. */
+  addRecording = (entry: recordingDelegates.RecordingEntry): boolean =>
+    recordingDelegates.addRecording(this, entry);
+
+  /** Every recording, newest first. */
+  listRecordings = (): recordingDelegates.RecordingEntry[] =>
+    recordingDelegates.listRecordings(this);
+
+  getRecording = (id: string): recordingDelegates.RecordingEntry | null =>
+    recordingDelegates.getRecording(this, id);
+
+  attachRecordingEngineActivity = (id: string, engineActivityId: string): void =>
+    recordingDelegates.attachRecordingEngineActivity(this, id, engineActivityId);
+
+  /** The engine row has taken the id intervals.icu gave the upload. */
+  markRecordingReconciled = (id: string): void =>
+    recordingDelegates.markRecordingReconciled(this, id);
+
+  /** Forget the streams sidecar, once the engine holds the ride's track. */
+  clearRecordingStreamsPath = (id: string): void =>
+    recordingDelegates.clearRecordingStreamsPath(this, id);
+
+  markRecordingUploading = (id: string): void =>
+    recordingDelegates.markRecordingUploading(this, id);
+
+  markRecordingUploaded = (id: string, intervalsActivityId?: string): void =>
+    recordingDelegates.markRecordingUploaded(this, id, intervalsActivityId);
+
+  /** A retriable failure. Answers the attempt count the entry now stands at. */
+  markRecordingUploadFailed = (id: string, error: string, nowMs: number): number =>
+    recordingDelegates.markRecordingUploadFailed(this, id, error, nowMs);
+
+  markRecordingRejected = (id: string, error: string, nowMs: number): void =>
+    recordingDelegates.markRecordingRejected(this, id, error, nowMs);
+
+  markRecordingPermissionBlocked = (id: string, nowMs: number): void =>
+    recordingDelegates.markRecordingPermissionBlocked(this, id, nowMs);
+
+  requeueRecording = (id: string): void => recordingDelegates.requeueRecording(this, id);
+
+  clearRecordingPermissionBlocked = (): void =>
+    recordingDelegates.clearRecordingPermissionBlocked(this);
+
+  demoteRecordingsToLocalOnly = (): void => recordingDelegates.demoteRecordingsToLocalOnly(this);
+
+  /** The next recording due an automatic upload, respecting the backoff. */
+  nextPendingRecording = (nowMs: number): recordingDelegates.RecordingEntry | null =>
+    recordingDelegates.nextPendingRecording(this, nowMs);
+
+  /** Remove a recording, answering the row so its files can be deleted too. */
+  deleteRecording = (id: string): recordingDelegates.RecordingEntry | null =>
+    recordingDelegates.deleteRecording(this, id);
+
+  unuploadedRecordingCount = (): number => recordingDelegates.unuploadedRecordingCount(this);
+
+  permissionBlockedRecordingCount = (): number =>
+    recordingDelegates.permissionBlockedRecordingCount(this);
+
+  /** Drop every recording row, which a `.veloqdb` restore leaves stale. */
+  clearRecordings = (): void => recordingDelegates.clearRecordings(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);

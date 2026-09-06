@@ -78,3 +78,16 @@ export function localWallClockToEpochSeconds(date: Date): number {
     ) / 1000
   );
 }
+
+/**
+ * A recorded start instant as the zoneless wall clock intervals.icu sends.
+ * The components are read locally and the offset dropped.
+ */
+export function epochMsToStartDateLocal(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}

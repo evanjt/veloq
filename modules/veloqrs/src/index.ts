@@ -10,6 +10,7 @@ import NativeVeloqrs from './NativeVeloqrs';
 
 // Import generated functions for top-level aliases
 import {
+  BasemapManager,
   getDownloadProgress as ffiGetDownloadProgress,
   type DownloadProgressResult,
   type FfiActivityMetrics,
@@ -162,3 +163,18 @@ export function getDownloadProgress(): DownloadProgressResult {
 }
 
 export const engine = EngineClient.getInstance();
+
+/**
+ * The Rust-owned basemap tile store.
+ *
+ * Not on `EngineClient`: a tile read must not queue behind the engine lock,
+ * and the store answers from the filesystem without needing the library open.
+ */
+let _basemap: BasemapManager | null = null;
+
+export function basemapStore(): BasemapManager {
+  if (!_basemap) {
+    _basemap = new BasemapManager();
+  }
+  return _basemap;
+}

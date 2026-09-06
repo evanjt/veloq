@@ -59,6 +59,15 @@ jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => mockEngineOpen,
 }));
 
+jest.mock('expo-file-system/legacy', () => ({
+  documentDirectory: 'file:///data/documents/',
+}));
+
+jest.mock('veloqrs', () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../__shared__/veloqrsStub').withOverrides()
+);
+
 const secureGet = SecureStore.getItemAsync as jest.Mock;
 
 function keychain(values: Record<string, string>): void {
@@ -178,6 +187,17 @@ describe('initializeApp', () => {
 
     const names = mark.mock.calls.map(([name]) => name).filter((n) => n.startsWith('launch:'));
     expect(names).toEqual(['launch:auth', 'launch:engine', 'launch:stores']);
+  });
+
+  it('hands the basemap tile store its directory under documents', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+
+    await initializeApp();
+
+    const basemap = jest.requireMock('veloqrs').basemapStore();
+    expect(basemap.setPath).toHaveBeenCalledWith(expect.stringMatching(/basemap-tiles$/));
+    const [path] = basemap.setPath.mock.calls[0] as [string];
+    expect(path.startsWith('file://')).toBe(false);
   });
 
   it('still resolves, with the first message, when an initialiser rejects', async () => {

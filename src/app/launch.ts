@@ -15,6 +15,10 @@ import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { initializeSupportStore } from '@/shared/app/SupportStore';
 import { initializeTheme } from '@/shared/app/ThemeProvider';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import * as FileSystem from 'expo-file-system/legacy';
+
+import { basemapStore } from 'veloqrs';
+
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { initializeI18n } from '@/i18n';
 
@@ -39,6 +43,25 @@ function openEngine(): void {
   engine.initWithPath(dbPath);
 }
 
+/**
+ * Hand the basemap tile store its directory.
+ *
+ * The documents directory, not the cache: a basemap tile is fetched from a
+ * third party and cannot be redrawn from local data, so a purge costs the
+ * athlete the offline map. Independent of the engine, which the store never
+ * needs.
+ */
+function openBasemapStore(): void {
+  const docDir = FileSystem.documentDirectory;
+  if (!docDir) return;
+  const plain = docDir.startsWith('file://') ? docDir.slice(7) : docDir;
+  try {
+    basemapStore().setPath(`${plain}basemap-tiles`);
+  } catch (reason) {
+    console.warn('[launch] basemap tile store stayed closed:', errorMessage(reason));
+  }
+}
+
 function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason ?? 'Unknown startup error');
 }
@@ -52,6 +75,7 @@ export async function initializeApp(): Promise<string | null> {
   await useAuthStore.getState().initialize();
   markLaunch('engine');
   openEngine();
+  openBasemapStore();
   markLaunch('stores');
   const results = await Promise.allSettled([
     initializeLanguage().then(initializeI18n),
