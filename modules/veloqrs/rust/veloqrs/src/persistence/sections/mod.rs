@@ -746,8 +746,16 @@ impl PersistentEngine {
     /// Distinct activities crossing the drawn line, the population the DB view
     /// counts from junction rows. `activity_ids` holds cluster contributors,
     /// which the render trim can differ from, so flooring on it would hide a
-    /// section the summaries show. Falls back when no portions exist, matching
-    /// the detector's own guard on the drawn set.
+    /// section the summaries show.
+    ///
+    /// The empty-portions fallback covers one window and one only: a section
+    /// still in memory from a fold, where the contributors are known and the
+    /// junction rows are not written yet. It cannot fire for a section that
+    /// came off disk, because `load_sections` derives `activity_ids` from the
+    /// portions, so a row with no portions loads with neither and the fallback
+    /// returns the same zero. [`outings_in_sport`](Self::outings_in_sport) and
+    /// [`covers_sport`](Self::covers_sport) carry the same tolerance for the
+    /// same window.
     fn outings(s: &FrequentSection) -> u32 {
         if s.activity_portions.is_empty() {
             return s.activity_ids.len() as u32;
@@ -761,7 +769,8 @@ impl PersistentEngine {
 
     /// Whether a sport traverses this section. Ground is neutral: the section's
     /// own `sport_type` is only the dominant label of its traversals.
-    /// Counts the same population as `outings`.
+    /// Counts the same population as `outings`, and its fallback covers the
+    /// same in-memory window.
     pub(crate) fn covers_sport(&self, s: &FrequentSection, sport: &str) -> bool {
         if s.sport_type == sport {
             return true;
@@ -829,7 +838,8 @@ impl PersistentEngine {
             .collect()
     }
 
-    /// [`outings`](Self::outings) restricted to one sport's traversals.
+    /// [`outings`](Self::outings) restricted to one sport's traversals, with
+    /// the same in-memory fallback.
     pub(crate) fn outings_in_sport(&self, s: &FrequentSection, sport: &str) -> u32 {
         let matches = |id: &String| self.sport_of(id) == Some(sport);
         if s.activity_portions.is_empty() {
@@ -2141,6 +2151,72 @@ impl PersistentEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A section as a fold hands it over: contributors known, junction rows
+    /// not written yet.
+    fn in_memory_section(contributors: &[&str]) -> FrequentSection {
+        FrequentSection {
+            id: "s1".to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline: Vec::new(),
+            distance_meters: 1000.0,
+            visit_count: contributors.len() as u32,
+            created_at: None,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: contributors.iter().map(|s| (*s).to_string()).collect(),
+            activity_portions: Vec::new(),
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: Vec::new(),
+            scale: None,
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// The tolerance the three gates carry, and the only window it covers.
+    /// Once the row is on disk `load_sections` derives `activity_ids` from the
+    /// portions, so both are empty and the fallback answers the same zero it
+    /// would without them.
+    #[test]
+    fn a_fold_section_with_no_portions_counts_its_contributors() {
+        let section = in_memory_section(&["r1", "r2"]);
+        assert_eq!(PersistentEngine::outings(&section), 2);
+    }
+
+    #[test]
+    fn a_fold_section_with_neither_counts_nothing() {
+        let section = in_memory_section(&[]);
+        assert_eq!(PersistentEngine::outings(&section), 0);
+    }
+
+    #[test]
+    fn portions_win_over_contributors_wherever_both_are_present() {
+        let mut section = in_memory_section(&["r1", "r2", "r3"]);
+        section.activity_portions = vec![tracematch::sections::SectionPortion {
+            activity_id: "r1".to_string(),
+            direction: Default::default(),
+            start_index: 0,
+            end_index: 10,
+            distance_meters: 100.0,
+        }];
+        assert_eq!(
+            PersistentEngine::outings(&section),
+            1,
+            "the drawn line is the population, not the cluster"
+        );
+    }
 
     #[test]
     fn name_number_reads_current_and_legacy_patterns() {
