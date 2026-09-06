@@ -218,3 +218,112 @@ impl SectionPreview {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, seeded_global_engine, serial_global_state};
+
+    // Another test poisons this lock on purpose, and the object does not
+    // recover from poison, so the fixture clears it to test the object alone.
+    fn clear_slot() {
+        SECTION_PREVIEW_HANDLE.clear_poison();
+        SECTION_DETECTION_HANDLE.clear_poison();
+        *SECTION_PREVIEW_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    #[test]
+    fn an_empty_library_has_no_centres_and_nothing_to_preview() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("preview.db");
+        clear_slot();
+        let preview = SectionPreview::new();
+
+        assert!(preview.centres(5).unwrap().is_empty());
+        assert!(preview.current(46.2, 7.35).unwrap().is_none());
+        assert!(
+            !preview
+                .start(46.2, 7.35, crate::FfiSectionConfig::default())
+                .unwrap()
+        );
+        assert_eq!(preview.poll().unwrap(), "idle");
+        assert!(preview.get_progress().unwrap().is_none());
+        assert!(preview.take_result().unwrap().is_none());
+        preview.cancel().unwrap();
+    }
+
+    #[test]
+    fn a_library_with_no_sections_ranks_its_activity_bins() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_slot();
+        let preview = SectionPreview::new();
+
+        let centres = preview.centres(3).unwrap();
+        assert!(!centres.is_empty());
+        assert!(centres.len() <= 3);
+        assert!(
+            centres
+                .iter()
+                .all(|c| c.source == "activities" && c.section_count == 0)
+        );
+        assert!(
+            centres
+                .windows(2)
+                .all(|w| w[0].visit_total >= w[1].visit_total)
+        );
+
+        let first = &centres[0];
+        assert!(preview.current(first.lat, first.lng).unwrap().is_some());
+        assert!(preview.current(0.0, 0.0).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_preview_runs_to_a_payload_that_is_taken_once() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_slot();
+        let preview = SectionPreview::new();
+        let first = preview.centres(1).unwrap().remove(0);
+
+        assert!(
+            preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap()
+        );
+        assert!(
+            !preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap()
+                || preview.poll().unwrap() != "running",
+            "a second start while one runs is refused"
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while preview.poll().unwrap() == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "preview never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        assert_eq!(preview.poll().unwrap(), "complete");
+        assert!(
+            preview.get_progress().unwrap().is_some(),
+            "the slot holds the run until taken"
+        );
+
+        let payload = preview.take_result().unwrap().expect("one payload");
+        let json: serde_json::Value = serde_json::from_str(&payload).expect("a JSON payload");
+        assert_eq!(json["pool"]["activities"], 6, "{payload}");
+        assert_eq!(json["pool"]["unreadable"], 0);
+        assert!(json["sections"].is_array());
+        assert_eq!(
+            json["counts"]["proposed"],
+            json["sections"].as_array().unwrap().len()
+        );
+        assert!(preview.take_result().unwrap().is_none(), "taken once");
+        assert_eq!(preview.poll().unwrap(), "idle");
+    }
+}
