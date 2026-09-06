@@ -5,7 +5,13 @@
  */
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, type ViewStyle } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  type ViewStyle,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
@@ -35,8 +41,8 @@ import type {
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 32;
+/** Horizontal room the chart leaves at the window edge. */
+const CHART_INSET = 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const MINI_HEIGHT = 56;
@@ -114,6 +120,9 @@ export function SectionScatterChart({
     setSelectedPoint(null);
   }, [chartData]);
 
+  const { width: windowWidth } = useWindowDimensions();
+  const chartWidth = windowWidth - CHART_INSET;
+
   const formatSpeedValue = useCallback(
     (speed: number) =>
       isSwimming ? formatSwimPace(speed) : showPace ? formatPace(speed) : formatSpeed(speed),
@@ -165,15 +174,15 @@ export function SectionScatterChart({
   // Points carry a normalised x, so turn them into pixels once for the scrub
   // to snap against.
   const pointXCoords = useMemo(() => {
-    const contentWidth = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+    const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
     return allPoints.map((point) => effectivePadding.left + point.x * contentWidth);
-  }, [allPoints, effectivePadding]);
+  }, [allPoints, effectivePadding, chartWidth]);
 
   // Taps match on 2D distance so an outlier high above the trend is reachable.
   const resolveTapIndex = useCallback(
     (x: number, y: number) => {
       if (allPoints.length === 0) return -1;
-      const contentWidth = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+      const contentWidth = chartWidth - effectivePadding.left - effectivePadding.right;
       const contentHeight = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
       const normalisedX = Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth));
       const normalisedY = Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight));
@@ -193,7 +202,7 @@ export function SectionScatterChart({
       }
       return closestIdx;
     },
-    [allPoints, effectivePadding, effectiveHeight, minSpeed, maxSpeed]
+    [allPoints, effectivePadding, effectiveHeight, minSpeed, maxSpeed, chartWidth]
   );
 
   const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
@@ -208,9 +217,9 @@ export function SectionScatterChart({
   });
 
   useEffect(() => {
-    syncBounds({ left: 0, right: CHART_WIDTH, top: 0, bottom: effectiveHeight });
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: effectiveHeight });
     syncXCoords(pointXCoords, (value) => value);
-  }, [syncBounds, syncXCoords, pointXCoords, effectiveHeight]);
+  }, [syncBounds, syncXCoords, pointXCoords, effectiveHeight, chartWidth]);
 
   if (chartData.length < 1) return null;
 
@@ -250,7 +259,7 @@ export function SectionScatterChart({
       )}
 
       {/* Chart */}
-      <View style={[styles.chartWrapper, { height: effectiveHeight }]}>
+      <View style={{ width: chartWidth, height: effectiveHeight }}>
         <View style={StyleSheet.absoluteFill}>
           <ChartCanvas
             data={allPoints}
@@ -538,9 +547,6 @@ const styles = StyleSheet.create({
   },
   eyeToggle: {
     padding: 4,
-  },
-  chartWrapper: {
-    width: CHART_WIDTH,
   },
   tapTarget: {
     ...StyleSheet.absoluteFill,

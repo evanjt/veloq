@@ -12,7 +12,13 @@ import { useRouteDetailData } from '@/features/routes/hooks/useRouteDetailData';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { DetailHero, HeroNameRow, HeroStatsRow, ScreenErrorBoundary } from '@/shared/ui';
+import {
+  DetailHero,
+  HeroNameRow,
+  HeroStatsRow,
+  ScreenErrorBoundary,
+  useHeroMapHeight,
+} from '@/shared/ui';
 
 import {
   DataRangeFooter,
@@ -22,7 +28,6 @@ import {
   RouteDetailChart,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
-  MAP_HEIGHT,
 } from '@/features/routes';
 import {
   useRouteHighlight,
@@ -59,6 +64,7 @@ export default function RouteDetailScreen() {
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
+  const mapHeight = useHeroMapHeight();
 
   // One engine call covering the route, its ranking list, every attempt, the
   // consensus polyline, names, exclusions and signatures.
@@ -194,7 +200,7 @@ export default function RouteDetailScreen() {
         >
           {/* Hero Map Section */}
           <DetailHero
-            height={MAP_HEIGHT}
+            height={mapHeight}
             insetTop={insets.top}
             onBack={() => router.back()}
             overlay={

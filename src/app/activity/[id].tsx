@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
+import { View, ScrollView, StyleSheet, InteractionManager } from 'react-native';
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -7,6 +7,7 @@ import {
   ChartSkeleton,
   ComponentErrorBoundary,
   ErrorStatePreset,
+  useHeroMapHeight,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -54,9 +55,6 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42);
-
 export default function ActivityDetailScreen() {
   // Performance timing
   const perfEndRef = useRef<(() => void) | null>(null);
@@ -71,6 +69,7 @@ export default function ActivityDetailScreen() {
   const isMetric = useMetricSystem();
   const debugEnabled = useDebugStore((s) => s.enabled);
   const insets = useSafeAreaInsets();
+  const mapHeight = useHeroMapHeight();
 
   const { data: activity, isLoading, error, refetch } = useActivity(id || '');
   const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
@@ -577,7 +576,7 @@ export default function ActivityDetailScreen() {
           isMetric={isMetric}
           debugEnabled={debugEnabled}
           insetTop={insets.top}
-          mapHeight={MAP_HEIGHT}
+          mapHeight={mapHeight}
           highlightIndex={highlightIndex}
           sectionCreationMode={sectionCreationMode}
           sectionCreationState={sectionCreationState}
