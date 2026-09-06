@@ -109,7 +109,6 @@ export function useSectionMatches(
     return matches;
     // Keyed on the bundle's own array, so a re-render that changes nothing
     // does not decode every matched polyline again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, bundle.sections]);
 
   return {
