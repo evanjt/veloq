@@ -567,7 +567,10 @@ mod tests {
 
         assert!(engine.stored_stream_kinds("old").unwrap().is_empty());
         assert_eq!(
-            engine.read_stream_body("old", "heartrate").unwrap().as_deref(),
+            engine
+                .read_stream_body("old", "heartrate")
+                .unwrap()
+                .as_deref(),
             Some(body)
         );
     }
@@ -580,10 +583,17 @@ mod tests {
         activity_aged(&engine, "recent", 10);
 
         engine
-            .set_stream_body("recent", "heartrate", r#"[{"type":"heartrate","data":[140.0]}]"#)
+            .set_stream_body(
+                "recent",
+                "heartrate",
+                r#"[{"type":"heartrate","data":[140.0]}]"#,
+            )
             .unwrap();
 
-        assert_eq!(engine.stored_stream_kinds("recent").unwrap(), vec!["heartrate"]);
+        assert_eq!(
+            engine.stored_stream_kinds("recent").unwrap(),
+            vec!["heartrate"]
+        );
     }
 
     #[test]
