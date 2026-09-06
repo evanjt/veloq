@@ -412,10 +412,6 @@ impl PersistentEngine {
         self.sections_dirty = true;
 
         if let Some(tiles_path) = self.heatmap_tiles_path.clone() {
-            // The heatmap regenerates from the dirty flag regardless; set it under
-            // the lock (cheap, in-memory).
-            self.mark_heatmap_dirty();
-
             // Tile invalidation deletes PNGs on disk - slow filesystem I/O. Run it
             // on a detached thread so it does not happen while the engine write
             // lock is held (that would convoy every foreground read). The sweep
@@ -438,6 +434,10 @@ impl PersistentEngine {
                         config.max_zoom,
                     );
                 }
+                // Marked after the sweep, never before. A mark set first can be
+                // cleared by a generation run that finishes between the mark and
+                // the delete, and nothing then redraws the ground the sweep took.
+                crate::persistence::tiles::mark_tiles_dirty(&tiles_path);
                 if total_deleted > 0 {
                     log::info!(
                         "[heatmap] Invalidated {} tiles for {} new activities",
