@@ -76,3 +76,30 @@ export function hasPartialExclusion(
     return out > 0 && out < r.laps.length;
   });
 }
+
+/**
+ * Heart rate is written per lap only where a stream covered the traversal, and
+ * on the private corpus that is 209 of 6,587 laps. An average over the covered
+ * laps alone is honest only if it says how many it had, so the coverage travels
+ * with the number rather than being recomputed at the chip. It sits beside
+ * `hasPartialExclusion` because it is the same shape of question: one answer
+ * over every lap the records hold.
+ */
+export interface SectionHeartRate {
+  bpm: number;
+  /** Laps the mean was taken over. */
+  laps: number;
+  /** Laps there were, covered or not. */
+  ofLaps: number;
+}
+
+export function sectionHeartRate(records: SectionPerformanceRecord[]): SectionHeartRate | null {
+  const all = records.flatMap((r) => r.laps);
+  const values = all.filter((l) => l.avgHr != null && l.avgHr > 0).map((l) => l.avgHr as number);
+  if (values.length === 0) return null;
+  return {
+    bpm: values.reduce((a, b) => a + b, 0) / values.length,
+    laps: values.length,
+    ofLaps: all.length,
+  };
+}

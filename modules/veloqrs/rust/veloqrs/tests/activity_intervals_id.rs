@@ -122,3 +122,96 @@ fn a_re_ingest_leaves_a_recorded_server_id_alone() {
 
     assert_eq!(engine.intervals_id("local-abc").as_deref(), Some("i77"));
 }
+
+/// Scenario: a ride recorded with no signal. Nothing upstream has named it,
+/// so the device has to name it itself, and the name must be one the server
+/// can never hand out.
+#[test]
+fn a_minted_key_cannot_be_mistaken_for_a_server_id() {
+    let a = veloqrs::mint_local_activity_id();
+    let b = veloqrs::mint_local_activity_id();
+
+    assert_ne!(a, b, "two rides recorded in the same second are two rides");
+    for key in [&a, &b] {
+        assert!(
+            key.starts_with("local-"),
+            "a minted key must be recognisable as ours: {key}"
+        );
+        assert!(
+            !key[1..].chars().all(|c| c.is_ascii_digit()),
+            "an intervals.icu id is `i` and digits, so a key must not be: {key}"
+        );
+        assert!(
+            !key.starts_with("demo-"),
+            "the demo corpora own that prefix: {key}"
+        );
+    }
+}
+
+/// The row is a real activity the moment it is stored, and it is upstream of
+/// nothing: no URL names it, and a sync that lists the server's activities
+/// must not think the device already holds it under that id.
+#[test]
+fn a_row_under_a_minted_key_claims_no_server_id() {
+    let key = veloqrs::mint_local_activity_id();
+    let (_dir, engine) = engine_with(&[key.as_str()]);
+
+    assert_eq!(
+        engine.intervals_id(&key),
+        None,
+        "nothing upstream has named this ride yet"
+    );
+    assert_eq!(engine.activity_id_for_intervals_id(&key), None);
+    assert!(engine.intervals_ids(&[key.clone()]).is_empty());
+}
+
+/// The upload's answer, which is the whole point of the column. One write,
+/// and every resolver that could not see the row now can.
+#[test]
+fn a_successful_upload_records_the_id_the_server_gave_it() {
+    let key = veloqrs::mint_local_activity_id();
+    let (_dir, mut engine) = engine_with(&[key.as_str()]);
+
+    assert!(
+        engine.record_upload(&key, "i4242").expect("record"),
+        "the row had no id, so the answer is recorded"
+    );
+
+    assert_eq!(engine.intervals_id(&key).as_deref(), Some("i4242"));
+    assert_eq!(
+        engine.activity_id_for_intervals_id("i4242").as_deref(),
+        Some(key.as_str()),
+        "the sync now matches the server's record onto the row the device keyed"
+    );
+}
+
+/// A retried upload that lands twice, or an answer arriving after the sync
+/// has already matched the ride, must not repoint the row.
+#[test]
+fn a_second_answer_leaves_the_first_one_standing() {
+    let key = veloqrs::mint_local_activity_id();
+    let (_dir, mut engine) = engine_with(&[key.as_str()]);
+    engine.record_upload(&key, "i4242").expect("first answer");
+
+    assert!(
+        !engine.record_upload(&key, "i9999").expect("second answer"),
+        "the row already names its ride upstream, so nothing is written"
+    );
+    assert_eq!(engine.intervals_id(&key).as_deref(), Some("i4242"));
+    assert_eq!(engine.activity_id_for_intervals_id("i9999"), None);
+}
+
+/// A key nothing stored is not an error, it is a no-op: the recording could
+/// have been deleted between the upload starting and the server answering.
+#[test]
+fn an_answer_for_a_row_that_is_gone_writes_nothing() {
+    let (_dir, mut engine) = engine_with(&["i1"]);
+
+    assert!(
+        !engine
+            .record_upload("local-vanished", "i5")
+            .expect("no row is not a failure"),
+        "there is nothing to record the answer on"
+    );
+    assert_eq!(engine.activity_id_for_intervals_id("i5"), None);
+}

@@ -14,8 +14,16 @@ import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
+import type { SectionHeartRate } from '@/features/routes/hooks/useSectionLaps';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
+
+// Coverage rides on the chip whenever the mean is not over every lap, so a
+// number taken from three traversals of a hundred cannot read as the whole.
+function heartRateChip(hr: SectionHeartRate, label: string): string {
+  const value = `${label} ${Math.round(hr.bpm)}`;
+  return hr.laps < hr.ofLaps ? `${value} (${hr.laps}/${hr.ofLaps})` : value;
+}
 
 export interface SectionHeaderProps {
   section: FrequentSection;
@@ -24,8 +32,8 @@ export interface SectionHeaderProps {
   activityColor: string;
   iconName: MaterialIconName;
   activityCount: number;
-  /** Mean heart rate across the included laps, when any carried one. */
-  avgHr?: number | null;
+  /** Mean heart rate across the laps that carried one, with its coverage. */
+  avgHr?: SectionHeartRate | null;
   mapReady: boolean;
   isTrimming: boolean;
   isExpandMode: boolean;
@@ -124,9 +132,7 @@ export function SectionHeader({
             stats={[
               formatDistance(section.distanceMeters, isMetric),
               `${activityCount} ${t('sections.traversals')}`,
-              ...(avgHr != null && avgHr > 0
-                ? [`${t('sections.avgHr')} ${Math.round(avgHr)}`]
-                : []),
+              ...(avgHr != null ? [heartRateChip(avgHr, t('sections.avgHr'))] : []),
               ...(elevation
                 ? [
                     elevation.direction === 'loss'

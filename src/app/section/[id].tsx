@@ -42,7 +42,11 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
 import { useSectionLedger } from '@/features/routes/hooks/useSectionLedger';
-import { useSectionLaps, hasPartialExclusion } from '@/features/routes/hooks/useSectionLaps';
+import {
+  useSectionLaps,
+  hasPartialExclusion,
+  sectionHeartRate,
+} from '@/features/routes/hooks/useSectionLaps';
 import {
   DataRangeFooter,
   DetailFallback,
@@ -318,13 +322,9 @@ export default function SectionDetailScreen() {
   const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
   // Heart rate over the laps that carried a stream, excluded laps left out.
-  const avgHr = useMemo(() => {
-    const values = performanceRecords.flatMap((r) =>
-      r.laps.filter((l) => l.avgHr != null && l.avgHr > 0).map((l) => l.avgHr as number)
-    );
-    if (values.length === 0) return null;
-    return values.reduce((a, b) => a + b, 0) / values.length;
-  }, [performanceRecords]);
+  // The coverage travels with it: on the corpus only 3.2 per cent of laps carry
+  // one, so a bare mean would read as the whole section.
+  const avgHr = useMemo(() => sectionHeartRate(performanceRecords), [performanceRecords]);
 
   // Per-lap exclusion, keyed the way the junction rows are.
   const laps = useSectionLaps(id, sectionRefreshKey, detail?.excludedLaps);

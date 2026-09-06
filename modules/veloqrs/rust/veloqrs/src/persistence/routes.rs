@@ -424,6 +424,61 @@ impl PersistentEngine {
     // Route Groups
     // ========================================================================
 
+    /// How tightly rides group into routes, and the two settings rows behind
+    /// it, in one place.
+    ///
+    /// The grouping is recomputed only when `groups_dirty` is set, and until
+    /// this existed that flag was set by the activity ingestion paths alone.
+    /// So the rule could change and the groups it made would stand until an
+    /// unrelated import happened to dirty them. Guarded on equality for the
+    /// same reason `set_section_config` is: re-sending the value already held
+    /// is not a reason to regroup a whole library.
+    pub fn set_match_strictness(&mut self, min_match_pct: f64, endpoint_threshold: f64) {
+        if self.match_config.min_match_percentage == min_match_pct
+            && self.match_config.endpoint_threshold == endpoint_threshold
+        {
+            return;
+        }
+        self.match_config.min_match_percentage = min_match_pct;
+        self.match_config.endpoint_threshold = endpoint_threshold;
+        // Logged rather than propagated, like the detector config's own
+        // persist: the in-memory rule has already changed, and the loader
+        // falls back to the default when a key is absent.
+        for (key, value) in [
+            (
+                crate::persistence::settings_keys::MATCH_MIN_MATCH_PCT,
+                min_match_pct,
+            ),
+            (
+                crate::persistence::settings_keys::MATCH_ENDPOINT_THRESHOLD,
+                endpoint_threshold,
+            ),
+        ] {
+            if let Err(e) = self.set_setting(key, &value.to_string()) {
+                log::warn!(
+                    "veloqrs: [set_match_strictness] persist {} failed: {}",
+                    key,
+                    e
+                );
+            }
+        }
+        self.groups_dirty = true;
+    }
+
+    /// The strictness in force, as `(min_match_percentage, endpoint_threshold)`.
+    pub fn match_strictness(&self) -> (f64, f64) {
+        (
+            self.match_config.min_match_percentage,
+            self.match_config.endpoint_threshold,
+        )
+    }
+
+    /// Whether the grouping is waiting to be recomputed.
+    #[doc(hidden)]
+    pub fn groups_are_dirty(&self) -> bool {
+        self.groups_dirty
+    }
+
     /// Get route groups, recomputing if dirty.
     pub fn get_groups(&mut self) -> &[RouteGroup] {
         if self.groups_dirty {
@@ -886,10 +941,18 @@ impl PersistentEngine {
 
             let route_word = get_route_word();
 
-            // Collect which numbers are already taken for each sport type (from user-renamed routes)
-            // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
-            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+            // Which numbers are already spoken for. Names are not per sport, so
+            // one set, and the old "Run Route 1" shape still counts against it
+            // until the loader's migration has rewritten those rows.
+            let mut taken_numbers: std::collections::HashSet<u32> =
+                std::collections::HashSet::new();
             for name in existing_names.values() {
+                let prefix = format!("{} ", route_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
                 for sport in [
                     "Ride",
                     "Run",
@@ -899,13 +962,10 @@ impl PersistentEngine {
                     "VirtualRide",
                     "VirtualRun",
                 ] {
-                    let prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            taken_numbers
-                                .entry(sport.to_string())
-                                .or_default()
-                                .insert(num);
+                    let old_prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&old_prefix) {
+                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                            taken_numbers.insert(num);
                         }
                     }
                 }
@@ -935,8 +995,8 @@ impl PersistentEngine {
                     .then_with(|| a.group_id.cmp(&b.group_id))
             });
 
-            // Track next available number for each sport type (for sequential assignment)
-            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            // Track the next available number. Numbering is global, not per sport.
+            let mut counter: u32 = 0;
 
             for group in sorted_groups {
                 let activity_ids_json = serde_json::to_string(&group.activity_ids)
@@ -957,20 +1017,17 @@ impl PersistentEngine {
 
                 // Generate unique name if route doesn't already have one
                 if !existing_names.contains_key(&group.group_id) {
-                    let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
-                    let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
-
                     // Find next available number (skip taken numbers)
                     loop {
-                        *counter += 1;
-                        if !taken.contains(counter) {
+                        counter += 1;
+                        if !taken_numbers.contains(&counter) {
                             break;
                         }
                     }
 
-                    let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
+                    let new_name = format!("{} {}", route_word, counter);
                     name_stmt.execute(params![group.group_id, new_name])?;
-                    taken.insert(*counter); // Mark this number as taken
+                    taken_numbers.insert(counter); // Mark this number as taken
                 }
             }
 
@@ -1155,14 +1212,18 @@ impl PersistentEngine {
             })
             .unwrap_or_default();
 
-        // Populate sport_types from activity_metrics lookup
+        // Every sport that has traversed the ground, from the same authority a
+        // section reads: `sport_of` prefers `activity_metadata`, written on
+        // ingest, and falls back to `activity_metrics`, which fills only once
+        // metrics load. Reading metrics alone left a route's sport icons empty
+        // on a cold start while the section list beside it had them.
         let results: Vec<GroupSummary> = raw_results
             .into_iter()
             .map(|(mut summary, activity_ids)| {
                 let mut types: std::collections::HashSet<String> = std::collections::HashSet::new();
                 for id in &activity_ids {
-                    if let Some(m) = self.activity_metrics.get(id) {
-                        types.insert(m.sport_type.clone());
+                    if let Some(sport) = self.sport_of(id) {
+                        types.insert(sport.to_string());
                     }
                 }
                 let mut sport_types: Vec<String> = types.into_iter().collect();

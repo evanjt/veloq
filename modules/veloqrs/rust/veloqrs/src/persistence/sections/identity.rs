@@ -599,11 +599,15 @@ impl PersistentEngine {
         // `plan_identity` on the batch geometry it is re-cutting TO (its
         // pending target), not its frozen footprint: the FOLD-level fix the
         // [`MERGE_MUTUAL_FLOOR`] note points at. Two residual exposures, each
-        // re-checked against the pure layer on 2026-08-31. STILL OPEN: the
-        // FIRST divergent step competes on the held footprint, because a target
-        // is only written after the plan it would have fed, and a
+        // re-checked against the pure layer on 2026-08-31. CLOSED 2026-09-06:
+        // the FIRST divergent step used to compete on the held footprint,
+        // because a target is only written after the plan it would have fed.
+        // The step now plans twice and competes a materially re-cutting prior
+        // on the candidate the first pass matched it to. STILL OPEN: a
         // dissolve-pending prior with no re-cut behind it carries no target at
-        // all, so it competes on its stale ground. ACCEPTED: a marginal
+        // all, and seeding cannot reach it either, since it has no matched
+        // candidate to seed from and its held footprint is the only geometry
+        // it has, so it competes on its stale ground. ACCEPTED: a marginal
         // one-sided senior capture needs no debounce, the merge floor is its
         // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]). The
         // streaks are NOT an exposure. Since the two-streak ledger, a re-cut

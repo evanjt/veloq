@@ -4,8 +4,12 @@
  * The control, the readout, a 90 day default and a reset that clears the
  * excess. The engine owns all four: setting the window prunes on
  * the way in, so the size is re-read after every write rather than adjusted
- * here. Widening never shows a gap, the detail screen refetches a series the
- * store no longer holds.
+ * here.
+ *
+ * Narrowing does not cost the athlete a chart. A series outside the window is
+ * refetched when they open the activity and drawn off the cached body, it is
+ * simply never kept. What it does cost is anything computed from the durable
+ * store, which is why an old lap has no heart rate on it.
  *
  * The row is a cycle, not a slider, because the tile cache limit two rows above
  * it is already one and two controls of the same kind should not read

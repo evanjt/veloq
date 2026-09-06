@@ -382,8 +382,12 @@ impl PersistentEngine {
                 "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
                         sa.distance_meters, sa.lap_time, sa.avg_hr
                  FROM section_activities sa
+                 -- A traversal beginning at the activity's first point is a
+                 -- lap like any other. The row to skip is the one the schema
+                 -- defaults leave behind, `(0, 0)`, and the half-open end
+                 -- already refuses it: a start-index floor refused every lap
+                 -- that began at 0 along with it.
                  WHERE (sa.lap_time IS NULL OR sa.avg_hr IS NULL)
-                   AND sa.start_index > 0
                    AND sa.end_index > sa.start_index",
             )?
             .query_map([], |row| {
@@ -604,6 +608,57 @@ mod tests {
             )
             .unwrap();
         assert_eq!(lap_time, 60.0); // times[7] - times[1]
+    }
+
+    /// The first ride of the morning starts on the section, so its traversal
+    /// begins at index 0 of its activity. That is a lap like any other, and
+    /// the pass that fills the clock and the effort must see it. The row the
+    /// default columns leave behind is `(0, 0)`, and the half-open end already
+    /// refuses that one.
+    #[test]
+    fn a_portion_starting_at_the_first_point_is_filled() {
+        let engine = engine_with_null_laps(1);
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET start_index = 0, end_index = 5
+                 WHERE section_id = 's0'",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(
+            engine.backfill_null_lap_times().unwrap(),
+            1,
+            "a lap beginning at the activity's first point is still a lap"
+        );
+
+        let lap_time: f64 = engine
+            .db
+            .query_row(
+                "SELECT lap_time FROM section_activities WHERE section_id = 's0'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(lap_time, 40.0); // times[4] - times[0]
+    }
+
+    /// The row the schema defaults leave behind is not a traversal, and it
+    /// stays out on its own terms rather than on the start index's.
+    #[test]
+    fn the_default_zero_row_is_still_refused() {
+        let engine = engine_with_null_laps(1);
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET start_index = 0, end_index = 0
+                 WHERE section_id = 's0'",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
     }
 
     /// A second pass finds nothing and writes nothing.
