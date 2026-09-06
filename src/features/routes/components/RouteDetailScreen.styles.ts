@@ -1,10 +1,7 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-export const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // Canonical detail hero map height
 
 export const styles = StyleSheet.create({
   container: {

@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
+import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog';
@@ -32,7 +33,7 @@ function getEngine() {
 }
 
 function getMemoryStats(): { heapMB: string; allocMB: string; gcCount: number } | null {
-  const stats = (global as any).HermesInternal?.getInstrumentedStats?.();
+  const stats = hermesStats();
   if (!stats) return null;
   return {
     heapMB: (stats['js_heapSize'] / 1024 / 1024).toFixed(1),
@@ -48,7 +49,7 @@ function formatDate(ts: number | bigint | null | undefined): string {
 
 interface CollapsibleSectionProps {
   title: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   isDark: boolean;
   defaultOpen?: boolean;
   testID?: string;
@@ -76,7 +77,7 @@ function CollapsibleSection({
         activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons

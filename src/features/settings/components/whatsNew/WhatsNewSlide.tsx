@@ -1,11 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface WhatsNewSlideProps {
   icon: string;
@@ -16,9 +14,10 @@ interface WhatsNewSlideProps {
 
 export function WhatsNewSlide({ icon, title, body, children }: WhatsNewSlideProps) {
   const { isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
 
   return (
-    <View style={[styles.container, { width: SCREEN_WIDTH - spacing.xl * 2 }]}>
+    <View style={[styles.container, { width: windowWidth - spacing.xl * 2 }]}>
       <MaterialCommunityIcons
         name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
         size={40}

@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Todavía no hay salidas suficientes para deducir dónde está tu casa.",
     "exportPrivacyCount": "Acorta {{touched}} de {{total}} salidas a {{radius}} m. No se borra nada.",
     "exportPrivacyNothingTrimmed": "No se recorta nada. Las exportaciones llevan el track completo.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Toca el mapa para mover tu casa."
   },
   "stats": {
     "activities": "Actividades",

@@ -11,6 +11,7 @@ import {
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -26,7 +27,7 @@ interface LicenseEntry {
 
 interface LicenseSection {
   title: string;
-  titleKey?: string;
+  titleKey?: ParseKeys;
   description?: string;
   entries: LicenseEntry[];
 }
@@ -344,7 +345,7 @@ function CollapsibleSection({ section, isDark, testID }: CollapsibleSectionProps
       <TouchableOpacity style={styles.sectionHeader} onPress={toggleExpanded} activeOpacity={0.7}>
         <View style={styles.sectionTitleRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-            {section.titleKey ? t(section.titleKey as any) : section.title}
+            {section.titleKey ? t(section.titleKey) : section.title}
           </Text>
           <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
             {section.entries.length}

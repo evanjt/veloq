@@ -204,3 +204,73 @@ impl RouteManager {
         })?
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn an_empty_library_answers_every_read_with_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("routes.db");
+        let routes = RouteManager::new();
+
+        assert!(routes.get_all().unwrap().is_empty());
+        assert!(routes.get_by_id("g1".into()).unwrap().is_none());
+        let summaries = routes.get_summaries(Some(2), Some("count".into())).unwrap();
+        assert_eq!(summaries.total_count, 0);
+        assert!(summaries.summaries.is_empty());
+        assert!(routes.get_consensus_route("g1".into()).unwrap().is_empty());
+        assert!(routes.get_all_names().unwrap().is_empty());
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_name_and_an_exclusion_are_stored_against_the_route_id() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("routes.db");
+        let routes = RouteManager::new();
+
+        routes.set_name("g1".into(), "Home loop".into()).unwrap();
+        let names = routes.get_all_names().unwrap();
+        assert_eq!(names.get("g1").map(String::as_str), Some("Home loop"));
+
+        // An exclusion is a flag on a match, so an activity the route never
+        // matched cannot be excluded from it.
+        routes.exclude_activity("g1".into(), "a1".into()).unwrap();
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
+
+        crate::with_persistent_engine(|e| {
+            e.db.execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction) \
+                 VALUES ('g1', 'a1', 0.9, 'same')",
+                [],
+            )
+            .unwrap();
+        })
+        .unwrap();
+        routes.exclude_activity("g1".into(), "a1".into()).unwrap();
+        assert_eq!(
+            routes.get_excluded_activities("g1".into()).unwrap(),
+            vec!["a1"]
+        );
+        routes.include_activity("g1".into(), "a1".into()).unwrap();
+        assert!(
+            routes
+                .get_excluded_activities("g1".into())
+                .unwrap()
+                .is_empty()
+        );
+    }
+}

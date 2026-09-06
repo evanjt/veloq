@@ -46,19 +46,14 @@ const SWIMMING_CHECKPOINTS = [
   { meters: 1500, label: '1500m' },
 ];
 
-function sportToApiType(sport: PrimarySport): string {
-  switch (sport) {
-    case 'Cycling':
-      return 'Ride';
-    case 'Running':
-      return 'Run';
-    case 'Swimming':
-      return 'Swim';
-  }
-}
+const API_TYPE: Record<PrimarySport, string> = {
+  Cycling: 'Ride',
+  Running: 'Run',
+  Swimming: 'Swim',
+};
 
 export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeasonBestsResult {
-  const apiSport = sportToApiType(sport);
+  const apiSport = API_TYPE[sport];
 
   const { data: powerCurve, isLoading: loadingPower } = usePowerCurve({
     sport: apiSport,

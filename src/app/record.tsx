@@ -229,7 +229,7 @@ export default function RecordScreen() {
     engine?.syncCalendarEvents(today, today);
     setTodayEvents(readCalendarEvents(today, today));
 
-    if (!engine) return;
+    if (!engine) return undefined;
     return engine.subscribe('activities', () => {
       setTodayEvents(readCalendarEvents(today, today));
     });

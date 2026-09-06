@@ -4,23 +4,18 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TextInput, Dimensions } from 'react-native';
+import { View, StyleSheet, TextInput } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
-import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui';
+import { DetailHero, HeroNameRow, HeroStatsRow, useHeroMapHeight } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT_NORMAL = Math.round(SCREEN_HEIGHT * 0.42);
-const MAP_HEIGHT_EDIT = Math.round(SCREEN_HEIGHT * 0.6);
-export { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT };
 
 export interface SectionHeaderProps {
   section: FrequentSection;
@@ -69,7 +64,7 @@ export function SectionHeader({
   activityCount,
   avgHr = null,
   mapReady,
-  mapHeight = MAP_HEIGHT_NORMAL,
+  mapHeight: mapHeightProp,
   isTrimming,
   isExpandMode,
   trimStart,
@@ -91,6 +86,8 @@ export function SectionHeader({
   onCancelEdit,
   onEditNameChange,
 }: SectionHeaderProps) {
+  const heroHeight = useHeroMapHeight();
+  const mapHeight = mapHeightProp ?? heroHeight;
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const elevation = sectionElevation(section);

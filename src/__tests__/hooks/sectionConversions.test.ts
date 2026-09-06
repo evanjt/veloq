@@ -11,6 +11,7 @@ import {
   convertSectionSummaryToApp,
   convertSectionWithPolylineToApp,
 } from '@/features/routes/lib/sectionConversions';
+import type { Section as NativeSection } from 'veloqrs';
 
 function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
   const SCALE = 1e7;
@@ -114,7 +115,7 @@ jest.mock('veloqrs', () =>
 );
 
 jest.mock('@/shared/ffi/ffiConversions', () => ({
-  convertActivityPortions: (portions: any[]) =>
+  convertActivityPortions: (portions: { direction: string }[]) =>
     portions.map((p) => ({
       ...p,
       direction: p.direction === 'reverse' ? 'reverse' : 'same',
@@ -126,7 +127,7 @@ jest.mock('@/shared/ffi/ffiConversions', () => ({
 // (getSections, getSectionById) and the database (getSectionsForActivity).
 // ---------------------------------------------------------------------------
 
-function makeCatalogueSection(overrides: Record<string, unknown> = {}) {
+function makeCatalogueSection(overrides: Record<string, unknown> = {}): NativeSection {
   return {
     id: 'section-1',
     sectionType: 'auto',
@@ -154,10 +155,10 @@ function makeCatalogueSection(overrides: Record<string, unknown> = {}) {
     disabled: false,
     supersededBy: null,
     ...overrides,
-  };
+  } as unknown as NativeSection;
 }
 
-function makeDatabaseSection(overrides: Record<string, unknown> = {}) {
+function makeDatabaseSection(overrides: Record<string, unknown> = {}): NativeSection {
   return {
     id: 'section-2',
     sectionType: 'custom',
@@ -179,7 +180,7 @@ function makeDatabaseSection(overrides: Record<string, unknown> = {}) {
     disabled: false,
     supersededBy: null,
     ...overrides,
-  };
+  } as unknown as NativeSection;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +190,7 @@ function makeDatabaseSection(overrides: Record<string, unknown> = {}) {
 describe('convertNativeSectionToApp', () => {
   it('converts a full catalogue section with all fields', () => {
     const native = makeCatalogueSection();
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.id).toBe('section-1');
     expect(result.sectionType).toBe('auto');
@@ -213,14 +214,14 @@ describe('convertNativeSectionToApp', () => {
 
   it('carries the elevation loss the engine recorded', () => {
     const native = makeCatalogueSection({ elevationGainM: 12, elevationLossM: 640 });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.elevationGainM).toBe(12);
     expect(result.elevationLossM).toBe(640);
   });
 
   it('leaves elevationLossM undefined when the engine has none', () => {
-    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+    const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.elevationLossM).toBeUndefined();
   });
@@ -232,7 +233,7 @@ describe('convertNativeSectionToApp', () => {
         { activityId: 'a2', direction: 'reverse', startIndex: 3, endIndex: 8 },
       ],
     });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.activityPortions).toHaveLength(2);
     expect(result.activityPortions![0].direction).toBe('same');
@@ -240,62 +241,62 @@ describe('convertNativeSectionToApp', () => {
   });
 
   it('gives a database section an empty portion list, never a missing one', () => {
-    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+    const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.activityPortions).toEqual([]);
   });
 
   it('defaults routeIds to an empty array when the producer has none', () => {
-    const result = convertNativeSectionToApp(makeDatabaseSection() as any);
+    const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.routeIds).toEqual([]);
   });
 
   it('converts a database section with sectionType "custom"', () => {
     const native = makeDatabaseSection({ sectionType: 'custom' });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.sectionType).toBe('custom');
   });
 
   it('defaults sectionType to "auto" for any non-"custom" value', () => {
     const native = makeDatabaseSection({ sectionType: 'something_else' });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.sectionType).toBe('auto');
   });
 
   it('uses empty string for representativeActivityId when null', () => {
     const native = makeCatalogueSection({ representativeActivityId: null });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.representativeActivityId).toBe('');
   });
 
   it('defaults confidence to 0 when null', () => {
     const native = makeDatabaseSection();
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.confidence).toBe(0);
   });
 
   it('defaults pointDensity to empty array when null', () => {
     const native = makeDatabaseSection();
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.pointDensity).toEqual([]);
   });
 
   it('returns empty string for createdAt when input has no createdAt (bug fix)', () => {
     const native = makeDatabaseSection();
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.createdAt).toBe('');
   });
 
   it('preserves name as undefined when null', () => {
     const native = makeCatalogueSection({ name: null });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.name).toBeUndefined();
   });
@@ -308,7 +309,7 @@ describe('convertNativeSectionToApp', () => {
         { latitude: 5.0, longitude: 6.0 },
       ]),
     });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.polyline).toHaveLength(3);
     expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
@@ -329,7 +330,7 @@ describe('convertNativeSectionToApp', () => {
     withElevation.set(suffix, base.length);
 
     const native = makeCatalogueSection({ encodedPolyline: withElevation.buffer });
-    const result = convertNativeSectionToApp(native as any);
+    const result = convertNativeSectionToApp(native);
 
     expect(result.polyline).toHaveLength(2);
     expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
@@ -359,9 +360,7 @@ describe('every builder carries the enrichment columns', () => {
   };
 
   it('off the full section record', () => {
-    const section = convertNativeSectionToApp(
-      makeCatalogueSection(ENRICHMENT) as unknown as Parameters<typeof convertNativeSectionToApp>[0]
-    );
+    const section = convertNativeSectionToApp(makeCatalogueSection(ENRICHMENT));
 
     expect(section).toMatchObject(ENRICHMENT);
   });

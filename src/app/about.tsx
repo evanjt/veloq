@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -18,7 +18,7 @@ const VELOQ_URLS = {
 };
 
 interface LinkRowProps {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   url: string;
   isDark: boolean;
@@ -40,7 +40,7 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
       activeOpacity={0.7}
       testID={testID}
     >
-      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
     </TouchableOpacity>
@@ -48,16 +48,16 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
 }
 
 interface NavRowProps {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  route: string;
+  route: Href;
   isDark: boolean;
   testID?: string;
 }
 
 function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
   const handlePress = () => {
-    router.push(route as any);
+    router.push(route);
   };
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -70,7 +70,7 @@ function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
       activeOpacity={0.7}
       testID={testID}
     >
-      <MaterialCommunityIcons name={icon as any} size={22} color={colors.primary} />
+      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
     </TouchableOpacity>

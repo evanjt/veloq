@@ -20,9 +20,10 @@ const yaml = require('js-yaml') as { load: (source: string) => unknown };
 
 type Step = {
   name?: string;
+  uses?: string;
   run?: string;
   env?: Record<string, string>;
-  with?: { script?: string };
+  with?: { script?: string; name?: string; 'retention-days'?: number };
 };
 type Job = { needs?: string | string[]; if?: string; steps?: Step[] };
 
@@ -104,5 +105,35 @@ describe('store rejection regression flow', () => {
     const gateTags = gateSource.match(/--include-tags=(tier[\d,tier]*)/)?.[1].split(',') ?? [];
     expect(gateTags.length).toBeGreaterThan(0);
     expect(tags.some((tag) => gateTags.includes(tag))).toBe(true);
+  });
+});
+
+describe('flake evidence', () => {
+  // Promotion out of the flaky lane needs 95 per cent over at least 20 runs,
+  // and the gate runs about once a day, so the reports have to outlive the
+  // window with room for a quiet fortnight. The debug bundle beside them is
+  // two hundred megabytes and is not evidence, so it keeps a short life.
+  const PROMOTION_WINDOW_RUNS = 20;
+  const MIN_REPORT_RETENTION_DAYS = PROMOTION_WINDOW_RUNS * 2;
+  const MAX_DEBUG_RETENTION_DAYS = 7;
+
+  const uploads = Object.values(gate.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .filter((step) => step.uses?.startsWith('actions/upload-artifact'))
+    .map((step) => ({ name: step.with?.name ?? '', retention: step.with?.['retention-days'] }));
+  const reports = uploads.filter((u) => u.name.endsWith('-report'));
+  const debugBundles = uploads.filter((u) => u.name.endsWith('-debug'));
+
+  it('uploads a report for the gate and for the map suite', () => {
+    expect(reports.map((r) => r.name).sort()).toEqual(['e2e-gate-report', 'e2e-map-report']);
+  });
+
+  it.each(reports)('$name outlives the promotion window', ({ retention }) => {
+    expect(retention).toBeGreaterThanOrEqual(MIN_REPORT_RETENTION_DAYS);
+  });
+
+  it.each(debugBundles)('$name stays short-lived, it is not evidence', ({ retention }) => {
+    expect(retention).toBeDefined();
+    expect(retention).toBeLessThanOrEqual(MAX_DEBUG_RETENTION_DAYS);
   });
 });

@@ -68,12 +68,12 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
   const engine = useEngineReady();
   useEffect(() => {
     isMountedRef.current = true;
-    if (!enabled) return;
+    if (!enabled) return undefined;
 
     let unsubscribe: (() => void) | null = null;
     let task: ReturnType<typeof InteractionManager.runAfterInteractions> | null = null;
 
-    if (!engine) return;
+    if (!engine) return undefined;
 
     // Defer loading until after navigation animations complete
     task = InteractionManager.runAfterInteractions(() => {

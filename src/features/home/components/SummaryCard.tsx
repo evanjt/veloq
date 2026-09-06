@@ -4,8 +4,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Dimensions,
   InteractionManager,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -96,6 +96,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   showSparklineLabels = false,
   supportingMetrics,
 }: SummaryCardProps) {
+  const { width: windowWidth } = useWindowDimensions();
   if (__DEV__) {
     const start = performance.now();
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -161,7 +162,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentRhr = scrubValues?.rhr ?? rhrData?.[hrvLastIdx] ?? null;
 
   // Compute explicit sparkline width (screen minus card margins and padding)
-  const sparklineWidth = Dimensions.get('window').width - layout.screenPadding * 2 - spacing.md * 2;
+  const sparklineWidth = windowWidth - layout.screenPadding * 2 - spacing.md * 2;
 
   return (
     <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>

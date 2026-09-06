@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er.",
     "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
     "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Tryk på kortet for at flytte hjemmet."
   },
   "stats": {
     "activities": "Aktiviteter",

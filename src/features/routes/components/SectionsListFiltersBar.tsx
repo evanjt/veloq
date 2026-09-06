@@ -18,7 +18,11 @@ interface SectionsListFiltersBarProps {
   regularSectionsCount: number;
   sortOption: SectionsSortOption;
   onSortChange: (next: SectionsSortOption) => void;
-  sortChips: { key: SectionsSortOption; label: string; icon: string }[];
+  sortChips: {
+    key: SectionsSortOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[];
   customCount: number;
   hiddenFilters: HiddenFilters;
   onFilterPress: (filterType: keyof HiddenFilters) => void;
@@ -59,7 +63,7 @@ export function SectionsListFiltersBar({
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name={chip.icon as any}
+                name={chip.icon}
                 size={13}
                 color={
                   isActive

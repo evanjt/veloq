@@ -35,7 +35,7 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
 
   useEffect(() => {
     const engine = getEngine();
-    if (!engine) return;
+    if (!engine) return undefined;
     return engine.subscribe('sections', reload);
   }, [reload]);
 

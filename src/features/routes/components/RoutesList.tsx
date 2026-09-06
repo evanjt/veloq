@@ -251,7 +251,11 @@ export const RoutesList = memo(function RoutesList({
     return [] as DiscoveredRouteInfo[];
   }, []);
 
-  const sortChips: { key: RoutesSortOption; label: string; icon: string }[] = useMemo(
+  const sortChips: {
+    key: RoutesSortOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[] = useMemo(
     () => [
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
       {
@@ -455,7 +459,7 @@ export const RoutesList = memo(function RoutesList({
                     activeOpacity={0.7}
                   >
                     <MaterialCommunityIcons
-                      name={chip.icon as any}
+                      name={chip.icon}
                       size={13}
                       color={
                         isActive

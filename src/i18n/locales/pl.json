@@ -1306,7 +1306,8 @@
     "exportPrivacyNoSuggestion": "Za mało przejazdów, aby ustalić, gdzie jest dom.",
     "exportPrivacyCount": "Skraca {{touched}} z {{total}} przejazdów przy {{radius}} m. Nic nie jest usuwane.",
     "exportPrivacyNothingTrimmed": "Nic nie jest skracane. Eksporty zawierają pełny ślad.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Dotknij mapy, aby przesunąć dom."
   },
   "stats": {
     "activities": "Aktywności",
