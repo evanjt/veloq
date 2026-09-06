@@ -5,10 +5,14 @@
  * The three distance captions all read through `formatDistance`, so the ceiling
  * reads as kilometres rather than as 200000 metres and the panel has one
  * spacing rule instead of a per-caption one.
+ *
+ * The card scrolls, and it is the only thing on the screen that does. A run
+ * disables the sliders one by one rather than the card, or the rows below the
+ * fold would be unreachable exactly when the diff strip squeezes the column.
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
 import { formatDistance } from '@/shared/format/format';
@@ -32,10 +36,11 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
     onChange({ ...params, [key]: value });
 
   return (
-    <View
+    <ScrollView
       style={[styles.card, { backgroundColor: surface, borderColor: border }]}
+      contentContainerStyle={styles.cardContent}
       testID="preview-param-panel"
-      pointerEvents={disabled ? 'none' : 'auto'}
+      pointerEvents="box-none"
     >
       <ParamRow
         label={t('settings.sectionProximity', {
@@ -47,6 +52,7 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         step={25}
         onChange={set('proximityThreshold')}
         isDark={isDark}
+        disabled={disabled}
       />
       <ParamRow
         label={t('settings.sectionMinLength', {
@@ -58,6 +64,7 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         step={50}
         onChange={set('minSectionLength')}
         isDark={isDark}
+        disabled={disabled}
       />
       <ParamRow
         label={t('settings.sectionMaxLength', {
@@ -69,6 +76,7 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         step={1000}
         onChange={set('maxSectionLength')}
         isDark={isDark}
+        disabled={disabled}
       />
       <ParamRow
         label={t('settings.sectionMinActivities', { count: params.minActivities })}
@@ -78,6 +86,7 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         step={1}
         onChange={set('minActivities')}
         isDark={isDark}
+        disabled={disabled}
       />
       <ParamRow
         label={t('settings.sectionSameTraffic', {
@@ -89,8 +98,9 @@ export function PreviewParamPanel({ params, onChange, disabled }: PreviewParamPa
         step={0.05}
         onChange={set('divergenceThreshold')}
         isDark={isDark}
+        disabled={disabled}
       />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -102,6 +112,7 @@ function ParamRow({
   step,
   onChange,
   isDark,
+  disabled,
 }: {
   label: string;
   value: number;
@@ -110,6 +121,7 @@ function ParamRow({
   step: number;
   onChange: (v: number) => void;
   isDark: boolean;
+  disabled?: boolean;
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
   const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
@@ -118,6 +130,7 @@ function ParamRow({
       <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
       <Slider
         style={styles.slider}
+        disabled={disabled}
         value={value}
         minimumValue={min}
         maximumValue={max}
@@ -131,21 +144,26 @@ function ParamRow({
   );
 }
 
-// Five rows sit under the map and nothing scrolls, so the card takes whatever
-// the fixed chrome leaves and the rows divide it evenly rather than each
-// claiming a height the screen may not have. A short phone gets thin sliders,
-// which is worse than a tall phone and much better than a Keep button pushed
-// off the bottom.
+// The card takes whatever the fixed chrome leaves, and `flexGrow: 1` on the
+// content lets the five rows divide that up on a tall screen. A short one
+// cannot give each row its tap target, so the card scrolls instead of drawing
+// the captions over the sliders. The padding and the gap belong on the content
+// container: on the ScrollView itself they do not apply.
+const PARAM_ROW_MIN_HEIGHT = layout.minTapTarget;
+
 const styles = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  cardContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
   },
-  paramRow: { flex: 1, justifyContent: 'center' },
+  paramRow: { flex: 1, justifyContent: 'center', minHeight: PARAM_ROW_MIN_HEIGHT },
   paramLabel: {
     ...typography.caption,
   },

@@ -122,8 +122,7 @@ export function useRoutePerformances(
   const routeGroup = useMemo((): RouteGroup | null => {
     if (!engineGroup) return null;
     // Use customName if set, otherwise generate name matching useRouteGroups convention
-    const sportType = engineGroup.sportType || 'Ride';
-    const defaultName = `${sportType} Route ${groupIndex}`;
+    const defaultName = `Route ${groupIndex}`;
     return {
       id: engineGroup.groupId,
       name: engineGroup.customName || defaultName,

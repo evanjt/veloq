@@ -6,12 +6,13 @@
  * sandboxed detect against that catalogue, and only Keep writes the config and
  * re-analyses the library.
  *
- * Nothing here scrolls vertically. Tuning a slider you cannot see the map for
- * defeats the screen, so the map and the controls share one fixed column and
- * the panel is sized to fit rather than to scroll. That is what the intro
- * paragraph, the picker label and the standalone Preview button cost, and why
- * they are gone: once a run has produced a result, Preview joins Discard and
- * Keep in the one decision row.
+ * The column itself does not scroll. Tuning a slider you cannot see the map for
+ * defeats the screen, so the map and the controls share one fixed column. That
+ * is what the intro paragraph, the picker label and the standalone Preview
+ * button cost, and why they are gone: once a run has produced a result, Preview
+ * joins Discard and Keep in the one decision row. The slider card is the one
+ * thing that scrolls, and only on a screen too short to give its five rows a
+ * tap target each.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
