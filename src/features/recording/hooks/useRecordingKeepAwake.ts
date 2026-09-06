@@ -10,7 +10,7 @@ export function useRecordingKeepAwake() {
   const keepAwakeEnabled = useRecordingPreferences((s) => s.keepAwakeEnabled);
 
   useEffect(() => {
-    if (!keepAwakeEnabled) return;
+    if (!keepAwakeEnabled) return undefined;
     activateKeepAwakeAsync(TAG).catch(() => {});
     return () => {
       deactivateKeepAwake(TAG).catch(() => {});

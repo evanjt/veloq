@@ -141,7 +141,7 @@ export function useStartupData(previewActivityIds: string[]): {
     if (syncInFlight()) {
       if (readThisSync.current) {
         held.current = true;
-        return;
+        return undefined;
       }
       readThisSync.current = true;
     } else {
@@ -163,12 +163,12 @@ export function useStartupData(previewActivityIds: string[]): {
   useEffect(() => {
     if (!settleSeen.current) {
       settleSeen.current = true;
-      return;
+      return undefined;
     }
     readThisSync.current = false;
     // A settle with nothing held back has nothing new to report: the last read
     // already saw whatever the sync landed.
-    if (!held.current) return;
+    if (!held.current) return undefined;
     held.current = false;
 
     let cancelled = false;

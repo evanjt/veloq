@@ -377,7 +377,7 @@ export const SectionsList = memo(function SectionsList({
   // Handle accepting all auto sections
   const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
   useEffect(() => {
-    if (acceptAllResult === null) return;
+    if (acceptAllResult === null) return undefined;
     const timer = setTimeout(() => setAcceptAllResult(null), 3000);
     return () => clearTimeout(timer);
   }, [acceptAllResult]);
