@@ -399,7 +399,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                         y={y}
                         width={mark.width}
                         height={segmentHeight}
-                        color={segment.color}
+                        color={getActivityColor(segment.type)}
                       />
                     );
                   });
