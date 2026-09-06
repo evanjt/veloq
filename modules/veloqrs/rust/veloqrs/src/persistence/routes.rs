@@ -1210,14 +1210,18 @@ impl PersistentEngine {
             })
             .unwrap_or_default();
 
-        // Populate sport_types from activity_metrics lookup
+        // Every sport that has traversed the ground, from the same authority a
+        // section reads: `sport_of` prefers `activity_metadata`, written on
+        // ingest, and falls back to `activity_metrics`, which fills only once
+        // metrics load. Reading metrics alone left a route's sport icons empty
+        // on a cold start while the section list beside it had them.
         let results: Vec<GroupSummary> = raw_results
             .into_iter()
             .map(|(mut summary, activity_ids)| {
                 let mut types: std::collections::HashSet<String> = std::collections::HashSet::new();
                 for id in &activity_ids {
-                    if let Some(m) = self.activity_metrics.get(id) {
-                        types.insert(m.sport_type.clone());
+                    if let Some(sport) = self.sport_of(id) {
+                        types.insert(sport.to_string());
                     }
                 }
                 let mut sport_types: Vec<String> = types.into_iter().collect();
