@@ -5601,6 +5601,64 @@ const FfiConverterTypeFfiRouteGroup = (() => {
 })();
 
 /**
+ * One proposed route group at a previewed strictness.
+ */
+export type FfiRouteGroupPreview = {
+  /**
+   * The grouping's own key for this group. It is NOT a stable route id: the
+   * preview never runs the identity remap that assigns one, so this joins
+   * rows within one payload and must never be persisted or matched against
+   * a route id the app holds.
+   */
+  key: string;
+  /**
+   * Member activity ids, sorted.
+   */
+  activityIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiRouteGroupPreview} record objects.
+ */
+export const FfiRouteGroupPreview = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRouteGroupPreview,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteGroupPreview>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteGroupPreview = (() => {
+  type TypeName = FfiRouteGroupPreview;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        key: FfiConverterString.read(from),
+        activityIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.key, into);
+      FfiConverterArrayString.write(value.activityIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.key) +
+        FfiConverterArrayString.allocationSize(value.activityIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Route performance for FFI.
  * Performance data for a single activity on a route.
  */
@@ -14066,6 +14124,248 @@ const FfiConverterTypeRecordingManager = new FfiConverterObject(
   uniffiTypeRecordingManagerObjectFactory,
 );
 
+/**
+ * What the grouping knob would do, before it is applied.
+ *
+ * The grouping functions are pure and this runs them off the engine lock over
+ * the cached signatures. Nothing is written, and the engine's own groups,
+ * match info and route identities are untouched.
+ */
+export interface RouteGroupingPreviewLike {
+  /**
+   * Cooperative. The grouping itself is one tracematch call and cannot be
+   * interrupted, so a cancel that arrives inside it discards the result
+   * rather than shortening the run.
+   */
+  cancel() /*throws*/ : void;
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll() /*throws*/ : string;
+  /**
+   * Group the whole library at this strictness. Only the two knobs the
+   * control exposes cross the boundary; the rest of the match config is the
+   * engine's live one. Returns false when a preview is already running or
+   * the library has no signatures to group.
+   */
+  start(
+    minMatchPercentage: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ) /*throws*/ : boolean;
+  /**
+   * The one payload, once. None while running or after taken.
+   */
+  takeResult() /*throws*/ : Array<FfiRouteGroupPreview> | undefined;
+}
+/**
+ * @deprecated Use `RouteGroupingPreviewLike` instead.
+ */
+export type RouteGroupingPreviewInterface = RouteGroupingPreviewLike;
+
+/**
+ * What the grouping knob would do, before it is applied.
+ *
+ * The grouping functions are pure and this runs them off the engine lock over
+ * the cached signatures. Nothing is written, and the engine's own groups,
+ * match info and route identities are untouched.
+ */
+export class RouteGroupingPreview
+  extends UniffiAbstractObject
+  implements RouteGroupingPreviewLike
+{
+  readonly [uniffiTypeNameSymbol] = "RouteGroupingPreview";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeRouteGroupingPreviewObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Cooperative. The grouping itself is one tracematch call and cannot be
+   * interrupted, so a cancel that arrives inside it discards the result
+   * rather than shortening the run.
+   */
+  cancel(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_cancel(
+          uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * "idle" | "running" | "complete" | "cancelled" | "error"
+   */
+  poll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_poll(
+            uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Group the whole library at this strictness. Only the two knobs the
+   * control exposes cross the boundary; the rest of the match config is the
+   * engine's live one. Returns false when a preview is already running or
+   * the library has no signatures to group.
+   */
+  start(
+    minMatchPercentage: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_start(
+            uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(minMatchPercentage),
+            FfiConverterFloat64.lower(endpointThreshold),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The one payload, once. None while running or after taken.
+   */
+  takeResult(): Array<FfiRouteGroupPreview> | undefined /*throws*/ {
+    return FfiConverterOptionalArrayTypeFfiRouteGroupPreview.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routegroupingpreview_take_result(
+            uniffiTypeRouteGroupingPreviewObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeRouteGroupingPreviewObjectFactory.pointer(this);
+      uniffiTypeRouteGroupingPreviewObjectFactory.freePointer(pointer);
+      uniffiTypeRouteGroupingPreviewObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is RouteGroupingPreview {
+    return uniffiTypeRouteGroupingPreviewObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeRouteGroupingPreviewObjectFactory: UniffiObjectFactory<RouteGroupingPreviewLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): RouteGroupingPreviewLike {
+        const instance = Object.create(RouteGroupingPreview.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "RouteGroupingPreview";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_routegroupingpreview_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: RouteGroupingPreviewLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: RouteGroupingPreviewLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_routegroupingpreview(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is RouteGroupingPreviewLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "RouteGroupingPreview"
+        );
+      },
+    };
+  })();
+// FfiConverter for RouteGroupingPreviewLike
+const FfiConverterTypeRouteGroupingPreview = new FfiConverterObject(
+  uniffiTypeRouteGroupingPreviewObjectFactory,
+);
+
 export interface RouteManagerLike {
   excludeActivity(routeId: string, activityId: string) /*throws*/ : void;
   /**
@@ -18945,6 +19245,11 @@ const FfiConverterArrayTypeFfiRouteGroup = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroup,
 );
 
+// FfiConverter for Array<FfiRouteGroupPreview>
+const FfiConverterArrayTypeFfiRouteGroupPreview = new FfiConverterArray(
+  FfiConverterTypeFfiRouteGroupPreview,
+);
+
 // FfiConverter for Array<FfiRoutePerformance>
 const FfiConverterArrayTypeFfiRoutePerformance = new FfiConverterArray(
   FfiConverterTypeFfiRoutePerformance,
@@ -19084,6 +19389,10 @@ const FfiConverterArrayUInt32 = new FfiConverterArray(FfiConverterUInt32);
 const FfiConverterOptionalTypeEngineObserver = new FfiConverterOptional(
   FfiConverterTypeEngineObserver,
 );
+
+// FfiConverter for Array<FfiRouteGroupPreview> | undefined
+const FfiConverterOptionalArrayTypeFfiRouteGroupPreview =
+  new FfiConverterOptional(FfiConverterArrayTypeFfiRouteGroupPreview);
 
 // FfiConverter for Array<string> | undefined
 const FfiConverterOptionalArrayString = new FfiConverterOptional(
@@ -20051,6 +20360,38 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_engineobserver_preview_finished",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel() !==
+    35444
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routegroupingpreview_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_poll() !==
+    34564
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routegroupingpreview_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_start() !==
+    58618
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routegroupingpreview_start",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_take_result() !==
+    17568
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routegroupingpreview_take_result",
     );
   }
   if (
@@ -21270,6 +21611,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new() !==
+    36096
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_routegroupingpreview_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_sectionpreview_new() !==
     51441
   ) {
@@ -21413,6 +21762,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRetiredSection,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,
+    FfiConverterTypeFfiRouteGroupPreview,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
     FfiConverterTypeFfiRouteSignature,
@@ -21464,6 +21814,7 @@ export default Object.freeze({
     FfiConverterTypeNetworkPush,
     FfiConverterTypePersistentEngineStats,
     FfiConverterTypeRecordingManager,
+    FfiConverterTypeRouteGroupingPreview,
     FfiConverterTypeRouteManager,
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionPreview,

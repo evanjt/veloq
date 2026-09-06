@@ -52,6 +52,7 @@ pub mod lock_trace;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
+pub mod route_grouping_preview;
 mod route_identity;
 mod routes;
 mod schema;
