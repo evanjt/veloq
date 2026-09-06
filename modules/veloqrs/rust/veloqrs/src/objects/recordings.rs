@@ -50,7 +50,10 @@ impl RecordingManager {
         id: String,
         engine_activity_id: String,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_engine_activity(&id, &engine_activity_id).map_err(db))?
+        with_engine(|e| {
+            e.set_recording_engine_activity(&id, &engine_activity_id)
+                .map_err(db)
+        })?
     }
 
     fn mark_uploading(&self, id: String) -> Result<(), VeloqError> {
@@ -62,7 +65,10 @@ impl RecordingManager {
         id: String,
         intervals_activity_id: Option<String>,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_recording_uploaded(&id, intervals_activity_id.as_deref()).map_err(db))?
+        with_engine(|e| {
+            e.set_recording_uploaded(&id, intervals_activity_id.as_deref())
+                .map_err(db)
+        })?
     }
 
     /// A retriable failure. Returns the attempt count it now stands at, so the
@@ -73,7 +79,10 @@ impl RecordingManager {
         error: String,
         now_ms: i64,
     ) -> Result<u32, VeloqError> {
-        with_engine(|e| e.set_recording_upload_failed(&id, &error, now_ms).map_err(db))?
+        with_engine(|e| {
+            e.set_recording_upload_failed(&id, &error, now_ms)
+                .map_err(db)
+        })?
     }
 
     /// A server-side rejection automatic retries cannot fix.
