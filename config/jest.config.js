@@ -44,19 +44,26 @@ const cacheDirectory = require('path').join(__dirname, '..', '.jest-cache');
 // against rustc's 1.8 GB. The suspicion that the Rust builds fill the box was
 // wrong by an order of magnitude.
 //
-// The cap is not free and the number is a trade, measured on this box against
-// a warm cache: 31 workers is 43.0 s at 769% CPU, 8 is 45.3 s at 438%, and 4 is
-// 51.2 s at 389%. Eight looks like the better buy on time alone, and it is not,
-// because the workers are not the flat 200 MB the OOM dump averaged to. Sampled
-// mid-run at 8 workers they span 106 MB to 2.0 GB and the run peaks around
-// 5.7 GB, so six sessions at eight workers is 34 GB against 31 GB of RAM with
-// 25 GB already spoken for. Four halves that and fits.
+// The cap is not a trade, which took three attempts to establish. Measured
+// warm and repeated, on a quiet machine: 4 workers 34.2, 35.9 and 37.5 s, and
+// 31 workers 41.3, 42.6 and 41.0 s. Fewer workers is faster, and 8 sits between
+// at 37.4 s. The suite is 358 mostly sub-second suites, so 31 workers spends
+// more on process startup and contention than it wins back in parallelism.
 //
-// The 8 s a single run pays is worth it because the machine is shared, and
-// because Jest is the pre-commit hook's critical path but only just: the four
-// gates beside it are lint at 33.6 s, audit at 20.3 s and tsc at 3.1 s, all
-// running concurrently with it and with each other. The alternative to the 8 s
-// is not a faster run, it is a dead session, which costs the work in flight.
+// An earlier pass measured the reverse, 4 at 51.2 s against 31 at 43.0 s, and
+// was wrong because another session was saturating the machine at the time: a
+// run that takes more workers takes a larger share of a contended box. That is
+// worth knowing when reading any timing in this repo, but it is not the case to
+// tune for.
+//
+// Memory settles it either way. Workers are not the flat 200 MB the OOM task
+// dump averaged to. Sampled mid-run at 8 workers they span 106 MB to 2.0 GB and
+// the run peaks near 5.7 GB, so six sessions at eight workers is 34 GB against
+// 31 GB of RAM with much of it already spoken for. Four halves that and fits.
+//
+// The Rust side has the same shape and is not fixed here: cargo defaults to one
+// job per thread and two concurrent builds put rust-lld at 9.2 GB and rustc at
+// 6.3 GB, which killed this session's own background tasks.
 //
 // An interactive run on an otherwise idle machine can have the cores back with
 // JEST_WORKERS, which is also how CI passes its own number.
