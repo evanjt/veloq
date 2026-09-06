@@ -18,7 +18,7 @@
 //! Persistence-layer + detector behaviour, run on both arms. Snapshots read the
 //! user-visible DB view.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_determinism -- --include-ignored`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_determinism`
 
 mod lifecycle_support;
 

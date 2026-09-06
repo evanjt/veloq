@@ -14,16 +14,18 @@
 //! - reset_section_bounds is the complete reset: it restores the original
 //!   geometry, clears the backup, and leaves the row deletable so the resync
 //!   wipe-rebuild proceeds.
-//! - recalculate_section_polyline keeps the remnant on real corridor, but is
-//!   still non-idempotent (gated `#[ignore]`).
-//! - reset_section_reference clears the backup but does not restore the replaced
-//!   geometry, so it is still a half-reset (gated `#[ignore]`).
-//! - Geometry edits still do not invalidate the performance cache, so
-//!   get_section_performances serves pre-edit laps until an unrelated event
-//!   clears it (gated `#[ignore]`).
+//! - recalculate_section_polyline keeps the remnant on real corridor, and is
+//!   idempotent.
+//! - reset_section_reference restores the replaced geometry as well as clearing
+//!   the backup, so it is a complete reset.
+//! - A geometry edit invalidates the performance cache, so
+//!   get_section_performances does not serve pre-edit laps.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits_geometry \
-//!       -- --include-ignored`
+//! The last three were defects when this file was written and each was gated
+//! `#[ignore]` until it was fixed. Nothing here is ignored now, so the whole
+//! suite runs in the default lane and no `--include-ignored` is needed.
+//!
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits_geometry`
 
 mod lifecycle_support;
 
@@ -186,8 +188,8 @@ fn reset_bounds_restores_the_original_geometry() {
 }
 
 /// recalculate_section_polyline rebuilds a section's consensus from its traces.
-/// It is a weighted average, so the extent can move (idempotence is gated
-/// `#[ignore]` below), but whatever survives must still lie on real corridor:
+/// It is a weighted average, so the extent can move, but whatever survives must
+/// still lie on real corridor:
 /// nearly every point within tolerance of ONE contributing activity's track. A
 /// red here is a recalculated section drawn across ground nobody travelled.
 #[test]
