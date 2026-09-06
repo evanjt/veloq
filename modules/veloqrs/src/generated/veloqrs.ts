@@ -10820,6 +10820,16 @@ export interface BasemapManagerLike {
    */
   getCacheSize(): /*u64*/ bigint;
   /**
+   * One tile's bytes, from the store if it is there and from the tile host
+   * if it is not. Blocks until the tile is in hand.
+   */
+  getOrFetchTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+  ): ArrayBuffer | undefined;
+  /**
    * Bytes held for one source.
    */
   getSourceSize(source: string): /*u64*/ bigint;
@@ -10851,6 +10861,12 @@ export interface BasemapManagerLike {
    * engine init from JS, the way `setTilesPath` hands over the heatmap path.
    */
   setPath(path: string): void;
+  /**
+   * Where one source's tiles come from, as a `{z}/{x}/{y}` template.
+   * Handed over at style load: the vector snapshot path and the per-country
+   * satellite choice are both decided in the page, not compiled in.
+   */
+  setSourceTemplate(source: string, urlTemplate: string): void;
 }
 /**
  * @deprecated Use `BasemapManagerLike` instead.
@@ -10972,6 +10988,33 @@ export class BasemapManager
   }
 
   /**
+   * One tile's bytes, from the store if it is there and from the tile host
+   * if it is not. Blocks until the tile is in hand.
+   */
+  getOrFetchTile(
+    source: string,
+    z: /*u8*/ number,
+    x: /*u32*/ number,
+    y: /*u32*/ number,
+  ): ArrayBuffer | undefined {
+    return FfiConverterOptionalArrayBuffer.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_or_fetch_tile(
+            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(source),
+            FfiConverterUInt8.lower(z),
+            FfiConverterUInt32.lower(x),
+            FfiConverterUInt32.lower(y),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Bytes held for one source.
    */
   getSourceSize(source: string): /*u64*/ bigint {
@@ -11060,6 +11103,25 @@ export class BasemapManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
           uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Where one source's tiles come from, as a `{z}/{x}/{y}` template.
+   * Handed over at style load: the vector snapshot path and the per-country
+   * satellite choice are both decided in the page, not compiled in.
+   */
+  setSourceTemplate(source: string, urlTemplate: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_source_template(
+          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(source),
+          FfiConverterString.lower(urlTemplate),
           callStatus,
         );
       },
@@ -18627,6 +18689,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile() !==
+    44444
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size() !==
     24800
   ) {
@@ -18656,6 +18726,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_set_path",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template() !==
+    38954
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_basemapmanager_set_source_template",
     );
   }
   if (

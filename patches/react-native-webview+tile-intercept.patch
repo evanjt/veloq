@@ -1,0 +1,94 @@
+--- /tmp/claude-1000/-home-evan-projects-personal-intervals/21ea97df-eb22-4dc8-ad46-82d0bdcc5ccd/scratchpad/RNCWebViewClient.java.orig	2026-09-06 20:25:08.258179420 +0200
++++ node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java	2026-09-06 21:02:22.356958126 +0200
+@@ -38,6 +38,91 @@
+ import java.util.concurrent.atomic.AtomicReference;
+ 
+ public class RNCWebViewClient extends WebViewClient {
++
++  // --- veloq tile interception (measurement build) ---
++  // Serves basemap tiles straight out of the Rust-owned store, and lets Rust
++  // fetch and keep the tile when the store does not have it. Reflection rather
++  // than an import: this Gradle module has no dependency on the veloqrs module,
++  // but both classes land in the same APK and the same classloader.
++  private static final String VELOQ_TILE_PATH = "/veloq-tile/";
++  private static volatile java.lang.reflect.Method veloqTileMethod;
++  private static volatile boolean veloqTileMethodResolved = false;
++
++  private static java.lang.reflect.Method veloqTileMethod() {
++    if (!veloqTileMethodResolved) {
++      synchronized (RNCWebViewClient.class) {
++        if (!veloqTileMethodResolved) {
++          try {
++            Class<?> bridge = Class.forName("com.veloq.TileBridge");
++            veloqTileMethod = bridge.getMethod(
++                "getOrFetch", String.class, int.class, int.class, int.class);
++          } catch (Throwable t) {
++            Log.w("VeloqTile", "no TileBridge on the classpath", t);
++            veloqTileMethod = null;
++          }
++          veloqTileMethodResolved = true;
++        }
++      }
++    }
++    return veloqTileMethod;
++  }
++
++  private static String veloqMimeFor(String source) {
++    if (source.startsWith("vector")) return "application/x-protobuf";
++    if (source.startsWith("terrain")) return "image/png";
++    return "image/jpeg";
++  }
++
++  private static WebResourceResponse veloqEmpty(int status, String reason,
++                                                java.util.Map<String, String> headers) {
++    return new WebResourceResponse("image/jpeg", null, status, reason, headers,
++        new java.io.ByteArrayInputStream(new byte[0]));
++  }
++
++  @Override
++  public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
++    String url = request.getUrl().toString();
++    int at = url.indexOf(VELOQ_TILE_PATH);
++    if (at < 0) {
++      return super.shouldInterceptRequest(view, request);
++    }
++
++    java.util.Map<String, String> headers = new java.util.HashMap<>();
++    headers.put("Access-Control-Allow-Origin", "*");
++    headers.put("Cache-Control", "no-store");
++
++    try {
++      String rest = url.substring(at + VELOQ_TILE_PATH.length());
++      int q = rest.indexOf('?');
++      if (q >= 0) rest = rest.substring(0, q);
++      // <source>/<z>/<x>/<y>[.ext]
++      String[] parts = rest.split("/");
++      if (parts.length != 4) return veloqEmpty(400, "Bad Tile Path", headers);
++      String source = parts[0];
++      int dot = parts[3].indexOf('.');
++      if (dot >= 0) parts[3] = parts[3].substring(0, dot);
++      int z = Integer.parseInt(parts[1]);
++      int x = Integer.parseInt(parts[2]);
++      int y = Integer.parseInt(parts[3]);
++
++      java.lang.reflect.Method m = veloqTileMethod();
++      if (m == null) return veloqEmpty(503, "No Tile Bridge", headers);
++
++      long t0 = SystemClock.elapsedRealtimeNanos();
++      byte[] bytes = (byte[]) m.invoke(null, source, z, x, y);
++      long us = (SystemClock.elapsedRealtimeNanos() - t0) / 1000L;
++      Log.i("VeloqTile", "VTILE " + source + " " + z + "/" + x + "/" + y
++          + " us=" + us + " bytes=" + (bytes == null ? -1 : bytes.length));
++
++      if (bytes == null || bytes.length == 0) return veloqEmpty(404, "No Tile", headers);
++      return new WebResourceResponse(veloqMimeFor(source), null, 200, "OK", headers,
++          new java.io.ByteArrayInputStream(bytes));
++    } catch (Throwable t) {
++      Log.w("VeloqTile", "tile intercept failed for " + url, t);
++      return veloqEmpty(500, "Tile Error", headers);
++    }
++  }
++  // --- end veloq tile interception ---
+     private static String TAG = "RNCWebViewClient";
+     protected static final int SHOULD_OVERRIDE_URL_LOADING_TIMEOUT = 250;
+ 
