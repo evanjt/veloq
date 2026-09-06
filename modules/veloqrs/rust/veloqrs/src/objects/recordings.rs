@@ -56,6 +56,17 @@ impl RecordingManager {
         })?
     }
 
+    /// The engine row has taken the id intervals.icu gave the upload, so the
+    /// reconcile sweep can stop replaying this one.
+    fn mark_reconciled(&self, id: String) -> Result<(), VeloqError> {
+        with_engine(|e| e.set_recording_reconciled(&id).map_err(db))?
+    }
+
+    /// Forget the streams sidecar, once the engine holds the ride's track.
+    fn clear_streams_path(&self, id: String) -> Result<(), VeloqError> {
+        with_engine(|e| e.clear_recording_streams_path(&id).map_err(db))?
+    }
+
     fn mark_uploading(&self, id: String) -> Result<(), VeloqError> {
         with_engine(|e| e.set_recording_uploading(&id).map_err(db))?
     }

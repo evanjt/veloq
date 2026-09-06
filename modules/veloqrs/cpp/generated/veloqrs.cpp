@@ -475,6 +475,8 @@ uint32_t uniffi_veloqrs_fn_method_recordingmanager_clear_permission_blocked(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+    /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
     /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_recordingmanager_demote_pending_to_local_only(
@@ -486,6 +488,8 @@ RustBuffer uniffi_veloqrs_fn_method_recordingmanager_list_recordings(
 void uniffi_veloqrs_fn_method_recordingmanager_mark_permission_blocked(
     /*handle*/ uint64_t ptr, RustBuffer id, int64_t now_ms,
     RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+    /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_recordingmanager_mark_rejected(
     /*handle*/ uint64_t ptr, RustBuffer id, RustBuffer error, int64_t now_ms,
     RustCallStatus *uniffi_out_err);
@@ -1172,6 +1176,7 @@ uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity();
 uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings();
+uint16_t uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_delete_recording();
 uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only();
@@ -1179,6 +1184,7 @@ uint16_t uniffi_veloqrs_checksum_method_recordingmanager_get_recording();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_list_recordings();
 uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked();
+uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded();
@@ -6191,6 +6197,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "recordingmanager_clear_streams_path"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_delete_recording"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6254,6 +6272,19 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_permission_blocked(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rejected"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10282,6 +10313,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_"
+        "path"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "recordingmanager_clear_streams_path"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_"
         "recording"] = jsi::Function::createFromHostFunction(
       rt,
@@ -10341,6 +10384,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_"
+        "reconciled"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "recordingmanager_mark_reconciled"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected"] =
@@ -14728,6 +14783,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -14801,6 +14872,22 @@ jsi::Value NativeVeloqrs::
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -18951,6 +19038,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -18991,6 +19087,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

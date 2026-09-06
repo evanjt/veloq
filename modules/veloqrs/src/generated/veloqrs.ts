@@ -5251,6 +5251,12 @@ export type FfiRecordingEntry = {
    * The engine key the recording was written under at save time.
    */
   engineActivityId?: string;
+  /**
+   * Whether the engine row has taken the id intervals.icu gave the upload.
+   * False on a ride uploaded while the engine was closed, which is the case
+   * the reconcile sweep exists to replay.
+   */
+  engineReconciled: boolean;
 };
 
 /**
@@ -5293,6 +5299,7 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
         lastError: FfiConverterOptionalString.read(from),
         intervalsActivityId: FfiConverterOptionalString.read(from),
         engineActivityId: FfiConverterOptionalString.read(from),
+        engineReconciled: FfiConverterBool.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5314,6 +5321,7 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
       FfiConverterOptionalString.write(value.lastError, into);
       FfiConverterOptionalString.write(value.intervalsActivityId, into);
       FfiConverterOptionalString.write(value.engineActivityId, into);
+      FfiConverterBool.write(value.engineReconciled, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -5334,7 +5342,8 @@ const FfiConverterTypeFfiRecordingEntry = (() => {
         FfiConverterOptionalInt64.allocationSize(value.lastAttemptAt) +
         FfiConverterOptionalString.allocationSize(value.lastError) +
         FfiConverterOptionalString.allocationSize(value.intervalsActivityId) +
-        FfiConverterOptionalString.allocationSize(value.engineActivityId)
+        FfiConverterOptionalString.allocationSize(value.engineActivityId) +
+        FfiConverterBool.allocationSize(value.engineReconciled)
       );
     }
   }
@@ -13480,6 +13489,10 @@ export interface RecordingManagerLike {
    */
   clearRecordings() /*throws*/ : /*u32*/ number;
   /**
+   * Forget the streams sidecar, once the engine holds the ride's track.
+   */
+  clearStreamsPath(id: string) /*throws*/ : void;
+  /**
    * Remove one recording, handing back the row so the caller can delete the
    * files it names.
    */
@@ -13495,6 +13508,11 @@ export interface RecordingManagerLike {
    */
   listRecordings() /*throws*/ : Array<FfiRecordingEntry>;
   markPermissionBlocked(id: string, nowMs: /*i64*/ bigint) /*throws*/ : void;
+  /**
+   * The engine row has taken the id intervals.icu gave the upload, so the
+   * reconcile sweep can stop replaying this one.
+   */
+  markReconciled(id: string) /*throws*/ : void;
   /**
    * A server-side rejection automatic retries cannot fix.
    */
@@ -13657,6 +13675,25 @@ export class RecordingManager
   }
 
   /**
+   * Forget the streams sidecar, once the engine holds the ride's track.
+   */
+  clearStreamsPath(id: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
    * Remove one recording, handing back the row so the caller can delete the
    * files it names.
    */
@@ -13747,6 +13784,26 @@ export class RecordingManager
           uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(id),
           FfiConverterInt64.lower(nowMs),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * The engine row has taken the id intervals.icu gave the upload, so the
+   * reconcile sweep can stop replaying this one.
+   */
+  markReconciled(id: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
           callStatus,
         );
       },
@@ -20085,6 +20142,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path() !==
+    21267
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording() !==
     11870
   ) {
@@ -20122,6 +20187,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled() !==
+    63233
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled",
     );
   }
   if (
