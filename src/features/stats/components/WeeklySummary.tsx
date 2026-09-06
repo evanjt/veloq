@@ -8,6 +8,7 @@ import {
 } from '@/features/fitness/hooks';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
+import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { formatDistance, getMonday, getSunday, formatDurationHuman } from '@/shared/format/format';
@@ -26,112 +27,88 @@ interface WeeklySummaryProps {
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
+const RANGE_LABEL_KEYS: Record<TimeRange, { current: ParseKeys; previous: ParseKeys }> = {
+  week: { current: 'stats.thisWeek', previous: 'stats.vsLastWeek' },
+  month: { current: 'stats.thisMonth', previous: 'stats.vsLastMonth' },
+  '3m': { current: 'stats.last3Months', previous: 'stats.vsPrevious3Months' },
+  '6m': { current: 'stats.last6Months', previous: 'stats.vsPrevious6Months' },
+  year: { current: 'stats.thisYear', previous: 'stats.vsLastYear' },
+};
+
+const RANGE_BUTTON_KEYS: Record<TimeRange, ParseKeys> = {
+  week: 'stats.week',
+  month: 'stats.month',
+  '3m': 'stats.threeMonths',
+  '6m': 'stats.sixMonths',
+  year: 'stats.year',
+};
+
 function getTimeRangeLabel(
   range: TimeRange,
-  t: (key: string) => any,
+  t: TFunction,
   weekNumber?: number,
   weekRange?: string
 ): { current: string; previous: string } {
-  switch (range) {
-    case 'week':
-      if (weekNumber && weekRange) {
-        return {
-          current: `${t('stats.thisWeek')}: #${weekNumber} (${weekRange})`,
-          previous: t('stats.vsLastWeek') as string,
-        };
-      }
-      return {
-        current: t('stats.thisWeek') as string,
-        previous: t('stats.vsLastWeek') as string,
-      };
-    case 'month':
-      return {
-        current: t('stats.thisMonth') as string,
-        previous: t('stats.vsLastMonth') as string,
-      };
-    case '3m':
-      return {
-        current: t('stats.last3Months') as string,
-        previous: t('stats.vsPrevious3Months') as string,
-      };
-    case '6m':
-      return {
-        current: t('stats.last6Months') as string,
-        previous: t('stats.vsPrevious6Months') as string,
-      };
-    case 'year':
-      return {
-        current: t('stats.thisYear') as string,
-        previous: t('stats.vsLastYear') as string,
-      };
-  }
+  const keys = RANGE_LABEL_KEYS[range];
+  const current =
+    range === 'week' && weekNumber && weekRange
+      ? `${t(keys.current)}: #${weekNumber} (${weekRange})`
+      : t(keys.current);
+  return { current, previous: t(keys.previous) };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getTimeRangeButtonLabel(range: TimeRange, t: (key: string) => any): string {
-  switch (range) {
-    case 'week':
-      return t('stats.week') as string;
-    case 'month':
-      return t('stats.month') as string;
-    case '3m':
-      return t('stats.threeMonths') as string;
-    case '6m':
-      return t('stats.sixMonths') as string;
-    case 'year':
-      return t('stats.year') as string;
-  }
+function getTimeRangeButtonLabel(range: TimeRange, t: TFunction): string {
+  return t(RANGE_BUTTON_KEYS[range]);
 }
 
-function getDateRanges(range: TimeRange): {
+interface DateRanges {
   currentStart: Date;
   currentEnd: Date;
   previousStart: Date;
   previousEnd: Date;
-} {
+}
+
+const DATE_RANGES: Record<TimeRange, (now: Date, today: Date) => DateRanges> = {
+  // Calendar week (Monday-Sunday) - matches intervals.icu
+  week: (_now, today) => {
+    const currentStart = getMonday(today);
+    const currentEnd = getSunday(today);
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 7);
+    const previousEnd = new Date(currentStart);
+    previousEnd.setDate(previousEnd.getDate() - 1);
+    return { currentStart, currentEnd, previousStart, previousEnd };
+  },
+  month: (now, today) => ({
+    currentStart: new Date(now.getFullYear(), now.getMonth(), 1),
+    currentEnd: today,
+    previousStart: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+    previousEnd: new Date(now.getFullYear(), now.getMonth(), 0),
+  }),
+  '3m': (now, today) => ({
+    currentStart: new Date(now.getFullYear(), now.getMonth() - 2, 1),
+    currentEnd: today,
+    previousStart: new Date(now.getFullYear(), now.getMonth() - 5, 1),
+    previousEnd: new Date(now.getFullYear(), now.getMonth() - 2, 0),
+  }),
+  '6m': (now, today) => ({
+    currentStart: new Date(now.getFullYear(), now.getMonth() - 5, 1),
+    currentEnd: today,
+    previousStart: new Date(now.getFullYear(), now.getMonth() - 11, 1),
+    previousEnd: new Date(now.getFullYear(), now.getMonth() - 5, 0),
+  }),
+  year: (now, today) => ({
+    currentStart: new Date(now.getFullYear(), 0, 1),
+    currentEnd: today,
+    previousStart: new Date(now.getFullYear() - 1, 0, 1),
+    previousEnd: new Date(now.getFullYear() - 1, 11, 31),
+  }),
+};
+
+function getDateRanges(range: TimeRange): DateRanges {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  switch (range) {
-    case 'week': {
-      // Calendar week (Monday-Sunday) - matches intervals.icu
-      const currentStart = getMonday(today);
-      const currentEnd = getSunday(today);
-      const previousStart = new Date(currentStart);
-      previousStart.setDate(previousStart.getDate() - 7);
-      const previousEnd = new Date(currentStart);
-      previousEnd.setDate(previousEnd.getDate() - 1);
-      return { currentStart, currentEnd, previousStart, previousEnd };
-    }
-    case 'month': {
-      const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const currentEnd = today;
-      const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const previousEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { currentStart, currentEnd, previousStart, previousEnd };
-    }
-    case '3m': {
-      const currentStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      const currentEnd = today;
-      const previousStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      const previousEnd = new Date(now.getFullYear(), now.getMonth() - 2, 0);
-      return { currentStart, currentEnd, previousStart, previousEnd };
-    }
-    case '6m': {
-      const currentStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      const currentEnd = today;
-      const previousStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-      const previousEnd = new Date(now.getFullYear(), now.getMonth() - 5, 0);
-      return { currentStart, currentEnd, previousStart, previousEnd };
-    }
-    case 'year': {
-      const currentStart = new Date(now.getFullYear(), 0, 1);
-      const currentEnd = today;
-      const previousStart = new Date(now.getFullYear() - 1, 0, 1);
-      const previousEnd = new Date(now.getFullYear() - 1, 11, 31);
-      return { currentStart, currentEnd, previousStart, previousEnd };
-    }
-  }
+  return DATE_RANGES[range](now, today);
 }
 
 // Compute period stats from the activity array (JS iteration).
@@ -238,7 +215,7 @@ export function WeeklySummary({
           distance: previous?.distance ?? 0,
           tss: Math.round(previous?.training_load ?? 0),
         },
-        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
       };
     }
 
@@ -247,7 +224,7 @@ export function WeeklySummary({
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
       };
     }
 
@@ -262,7 +239,7 @@ export function WeeklySummary({
 
     return {
       ...stats,
-      labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+      labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
     };
   }, [activities, timeRange, summaryData, t]);
 
@@ -298,7 +275,7 @@ export function WeeklySummary({
                     timeRange === rangeId && styles.timeRangeTextActive,
                   ]}
                 >
-                  {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
+                  {getTimeRangeButtonLabel(rangeId, t)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -337,7 +314,7 @@ export function WeeklySummary({
                   timeRange === rangeId && styles.timeRangeTextActive,
                 ]}
               >
-                {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
+                {getTimeRangeButtonLabel(rangeId, t)}
               </Text>
             </TouchableOpacity>
           ))}

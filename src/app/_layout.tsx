@@ -313,7 +313,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) return undefined;
 
     const inLoginScreen = routeParts.includes('login' as never);
 
@@ -342,7 +342,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         }).then((cleared) => {
           if (cleared) router.replace('/' as Href);
         });
-        return;
+        return undefined;
       }
       // Update athlete ID for this account
       if (currentAthleteId && engine) {
@@ -352,6 +352,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // Authenticated but on login screen - redirect to main app
       router.replace('/' as Href);
     }
+    return undefined;
   }, [isAuthenticated, isLoading, routeParts, router]);
 
   if (isLoading) {

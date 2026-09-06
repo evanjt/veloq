@@ -64,9 +64,9 @@ export function useEngineBody(
   }, [enabled, present, keyId]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return undefined;
     const engine = getEngine();
-    if (!engine) return;
+    if (!engine) return undefined;
     const invalidate = () => queryClient.invalidateQueries({ queryKey });
     const unsubscribes = CHANNELS.map((channel) => engine.subscribe(channel, invalidate));
 

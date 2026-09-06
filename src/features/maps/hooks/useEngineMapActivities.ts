@@ -46,7 +46,7 @@ export function useEngineMapActivities({
   // mounts arrives as a dependency change through `useEngineReady`.
   const engine = useEngineReady();
   useEffect(() => {
-    if (!enabled || !engine) return;
+    if (!enabled || !engine) return undefined;
 
     let cancelled = false;
     setTrigger((v) => v + 1);

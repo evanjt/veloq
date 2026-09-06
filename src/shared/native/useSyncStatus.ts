@@ -18,7 +18,7 @@ export function useSyncStatus(): SyncStatus | null {
 
   useEffect(() => {
     const engine = getEngine();
-    if (!engine) return;
+    if (!engine) return undefined;
 
     const read = () => setStatus(engine.getSyncStatus());
     read();

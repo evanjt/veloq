@@ -383,7 +383,7 @@ export function useRouteDataSync(
   // Listen for engine reset (cache clear) and force a resync
   useEffect(() => {
     const nativeModule = getNativeModule();
-    if (!nativeModule) return;
+    if (!nativeModule) return undefined;
 
     const unsubscribe = nativeModule.engine.subscribe('syncReset', () => {
       // Reset GLOBAL syncing state so next sync can proceed
@@ -402,7 +402,7 @@ export function useRouteDataSync(
   // Use InteractionManager to avoid blocking navigation animations
   useEffect(() => {
     if (!enabled || !activities || activities.length === 0) {
-      return;
+      return undefined;
     }
 
     // Defer heavy processing until after navigation/animations complete
