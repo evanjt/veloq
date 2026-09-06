@@ -127,6 +127,60 @@ module.exports = [
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
+    // The native binding and the native-only libraries, pulled in from inside a
+    // function so a missing or failed module is caught where it is used rather
+    // than thrown at import. A static import would take the whole screen down
+    // on a build where the module is absent, which is what `getNativeModule`
+    // and every `try` around these exists to prevent. `DevSettings` is
+    // dev-only and AsyncStorage is deferred so a sign-out path does not pull
+    // storage into every bundle that touches it.
+    files: [
+      'src/shared/native/engine.ts',
+      'src/shared/storage/gpsStorage.ts',
+      'src/shared/ui/GlobalErrorBoundary.tsx',
+      'src/app/debug.tsx',
+      'src/features/insights/lib/activityNotificationBody.ts',
+      'src/features/routes/stores/RouteSettingsStore.ts',
+      'src/features/sensors/lib/sensorManager.ts',
+      'src/features/settings/components/DetectionIllustration.tsx',
+      'src/features/settings/lib/autobackup/backends/icloudBackend.ts',
+      'src/features/settings/stores/DebugStore.ts',
+    ],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // The store ring and the What's New slides. Each of these reaches a module
+    // that reaches back, and the lazy call is what keeps the cycle out of the
+    // module graph. `importCycles.test.ts` is what holds that, and it passes
+    // because of these, not despite them.
+    files: [
+      'src/app/_layout.tsx',
+      'src/shared/app/AuthStore.ts',
+      'src/features/recording/lib/backgroundLocation.ts',
+      'src/features/settings/components/whatsNew/slides.ts',
+      'src/features/settings/stores/NotificationPreferencesStore.ts',
+    ],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // Demo fixtures. A live-mode session must never pay for them, and a static
+    // import puts them in the bundle whether or not demo mode is ever entered.
+    files: [
+      'src/shared/app/seedDemoEngine.ts',
+      'src/features/activity/lib/engineStreams.ts',
+      'src/features/routes/hooks/useGpsDataFetcher.ts',
+    ],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // The headless background task. It runs with no React tree and no app
+    // start behind it, so every module it needs is pulled in at the point of
+    // use: an import at module scope would load the binding, i18n and the
+    // widget bridge on every wake, including the wakes that do nothing.
+    files: ['src/features/insights/backgroundInsightTask.ts'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     // i18next's default export is the singleton instance, and `use`,
     // `changeLanguage` and the rest are that instance's methods as well as
     // named exports bound to it. Calling them on the instance is the library's
