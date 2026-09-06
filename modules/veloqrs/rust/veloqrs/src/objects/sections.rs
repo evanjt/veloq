@@ -75,10 +75,21 @@ impl SectionManager {
         })
     }
 
+    // The catalogue record carries no type, visibility or source slice, so
+    // those come from the row itself. A doc comment here would go into the
+    // UniFFI metadata buffer and move the checksum the bindings assert.
     fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiSection>, VeloqError> {
         with_engine(|e| {
-            e.get_section_by_id(&section_id)
-                .map(crate::FfiSection::from)
+            let mut section = crate::FfiSection::from(e.get_section_by_id(&section_id)?);
+            if let Some(row) = e.section_row_identity(&section_id) {
+                section.section_type = row.section_type;
+                section.disabled = row.disabled;
+                section.superseded_by = row.superseded_by;
+                section.source_activity_id = row.source_activity_id;
+                section.start_index = row.start_index;
+                section.end_index = row.end_index;
+            }
+            Some(section)
         })
     }
 
@@ -979,6 +990,46 @@ mod tests {
         sections.delete(id.clone()).unwrap();
         assert_eq!(sections.get_count().unwrap(), 0);
         assert!(sections.get_by_id(id).unwrap().is_none());
+    }
+
+    /// The catalogue record a by-id read is built from carries no type, no
+    /// visibility and no source slice, so a custom section read back said it
+    /// was auto and a disabled one said it was visible.
+    #[test]
+    fn a_section_read_by_id_carries_its_type_slice_and_visibility() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+        let id = sections
+            .create(
+                "Ride".into(),
+                line(0.0),
+                0.0,
+                None,
+                Some("a0".into()),
+                Some(0),
+                Some(11),
+            )
+            .unwrap();
+
+        let section = sections.get_by_id(id.clone()).unwrap().expect("created");
+        assert_eq!(section.section_type, "custom");
+        assert_eq!(section.source_activity_id.as_deref(), Some("a0"));
+        assert_eq!(
+            (section.start_index, section.end_index),
+            (Some(0), Some(11))
+        );
+        assert!(!section.disabled);
+        assert_eq!(section.superseded_by, None);
+
+        sections.disable(id.clone()).unwrap();
+        assert!(
+            sections
+                .get_by_id(id)
+                .unwrap()
+                .expect("still readable")
+                .disabled
+        );
     }
 
     #[test]
