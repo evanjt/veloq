@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 222 methods inside `#[uniffi::export] impl` blocks across
+ * 224 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 240 exports (18 standalone + 222 methods)
+ * Total: 242 exports (18 standalone + 224 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -402,10 +402,30 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'BasemapManager',
   },
   {
+    name: 'set_source_template',
+    camelName: 'setSourceTemplate',
+    file: 'objects/basemap.rs',
+    line: 38,
+    paramCount: 2,
+    returnType: 'void',
+    docs: "Where one source's tiles come from, as a `{z}/{x}/{y}` template. Handed over at style load: the vector snapshot path and the per-country satellite choice are both decided in the page, not compiled in.",
+    object: 'BasemapManager',
+  },
+  {
+    name: 'get_or_fetch_tile',
+    camelName: 'getOrFetchTile',
+    file: 'objects/basemap.rs',
+    line: 44,
+    paramCount: 4,
+    returnType: 'Option<Vec<u8>>',
+    docs: "One tile's bytes, from the store if it is there and from the tile host if it is not. Blocks until the tile is in hand.",
+    object: 'BasemapManager',
+  },
+  {
     name: 'put_tile',
     camelName: 'putTile',
     file: 'objects/basemap.rs',
-    line: 37,
+    line: 50,
     paramCount: 7,
     returnType: 'Result<(), VeloqError>',
     docs: 'Store one tile. `pinned` marks the pre-seeded offline base, which eviction takes last.',
@@ -415,7 +435,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cache_size',
     camelName: 'getCacheSize',
     file: 'objects/basemap.rs',
-    line: 53,
+    line: 66,
     paramCount: 0,
     returnType: 'u64',
     docs: 'Total bytes across every source, answered without a WebView.',
@@ -425,7 +445,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_source_size',
     camelName: 'getSourceSize',
     file: 'objects/basemap.rs',
-    line: 58,
+    line: 71,
     paramCount: 1,
     returnType: 'u64',
     docs: 'Bytes held for one source.',
@@ -435,7 +455,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_tiles',
     camelName: 'clearTiles',
     file: 'objects/basemap.rs',
-    line: 63,
+    line: 76,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every basemap tile, pinned pre-seed included.',
@@ -445,7 +465,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_source_tiles',
     camelName: 'clearSourceTiles',
     file: 'objects/basemap.rs',
-    line: 68,
+    line: 81,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every tile of one source.',
@@ -455,7 +475,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'evict_to',
     camelName: 'evictTo',
     file: 'objects/basemap.rs',
-    line: 74,
+    line: 87,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Bring one source under a byte budget, least recently read first and the pinned pre-seed last.',
@@ -2464,6 +2484,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'new',
   'setPath',
   'getTile',
+  'setSourceTemplate',
+  'getOrFetchTile',
   'putTile',
   'getCacheSize',
   'getSourceSize',
@@ -2713,6 +2735,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_detail_data: 'getDetailData',
   set_path: 'setPath',
   get_tile: 'getTile',
+  set_source_template: 'setSourceTemplate',
+  get_or_fetch_tile: 'getOrFetchTile',
   put_tile: 'putTile',
   get_cache_size: 'getCacheSize',
   get_source_size: 'getSourceSize',
