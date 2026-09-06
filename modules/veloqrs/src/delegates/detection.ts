@@ -42,8 +42,7 @@ export function getSectionDetectionProgress(host: DelegateHost): SectionDetectio
 
 
 export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
-  if (!host.ready) return;
-  host.timed('setSectionConfig', () => host.engine.detection().setConfig(config));
+  host.write('setSectionConfig', () => host.engine.detection().setConfig(config));
 }
 
 export function getSectionConfig(host: DelegateHost): FfiSectionConfig | null {
@@ -56,8 +55,7 @@ export function setMatchStrictness(
   minMatchPct: number,
   endpointThreshold: number
 ): void {
-  if (!host.ready) return;
-  host.timed('setMatchStrictness', () =>
+  host.write('setMatchStrictness', () =>
     host.engine.detection().setMatchStrictness(minMatchPct, endpointThreshold)
   );
 }

@@ -3,6 +3,8 @@
  *
  * Wraps SQLite-backed user preferences, athlete profile, sport settings, and
  * name translations. All writes are best-effort - failures log but don't throw.
+ * Writes go through `host.write`, so one made before the engine opened is
+ * replayed rather than dropped.
  */
 
 import type { DelegateHost } from './host';
@@ -13,17 +15,17 @@ export function setNameTranslations(
   routeWord: string,
   sectionWord: string
 ): void {
-  if (!host.ready) return;
-  host.timed('setNameTranslations', () => host.engine.setNameTranslations(routeWord, sectionWord));
+  host.write('setNameTranslations', () => host.engine.setNameTranslations(routeWord, sectionWord));
 }
 
 export function setAthleteProfile(host: DelegateHost, json: string): void {
-  if (!host.ready) return;
-  try {
-    host.timed('setAthleteProfile', () => host.engine.settings().setAthleteProfile(json));
-  } catch {
-    // Settings write failed - non-critical
-  }
+  host.write('setAthleteProfile', () => {
+    try {
+      host.engine.settings().setAthleteProfile(json);
+    } catch {
+      // Settings write failed - non-critical
+    }
+  });
 }
 
 export function getAthleteProfile(host: DelegateHost): string {
@@ -36,12 +38,13 @@ export function getAthleteProfile(host: DelegateHost): string {
 }
 
 export function setSportSettings(host: DelegateHost, json: string): void {
-  if (!host.ready) return;
-  try {
-    host.timed('setSportSettings', () => host.engine.settings().setSportSettings(json));
-  } catch {
-    // Settings write failed - non-critical
-  }
+  host.write('setSportSettings', () => {
+    try {
+      host.engine.settings().setSportSettings(json);
+    } catch {
+      // Settings write failed - non-critical
+    }
+  });
 }
 
 export function getSportSettings(host: DelegateHost): string {
@@ -54,22 +57,21 @@ export function getSportSettings(host: DelegateHost): string {
 }
 
 export function clearUserProfileCaches(host: DelegateHost): void {
-  if (!host.ready) return;
-  try {
-    // Cast to bypass stale generated bindings - the regenerated SettingsManager
-    // (after `npm run clean:rust && npx expo run:android`) has this method, but
-    // tsc would fail against the pre-rebuild .d.ts. Method binding via UniFFI
-    // resolves at runtime, and the catch below absorbs the case where Rust
-    // hasn't been rebuilt yet.
-    const settings = host.engine.settings() as unknown as {
-      clearUserProfileCaches?: () => void;
-    };
-    host.timed('clearUserProfileCaches', () => {
+  host.write('clearUserProfileCaches', () => {
+    try {
+      // Cast to bypass stale generated bindings - the regenerated SettingsManager
+      // (after `npm run clean:rust && npx expo run:android`) has this method, but
+      // tsc would fail against the pre-rebuild .d.ts. Method binding via UniFFI
+      // resolves at runtime, and the catch below absorbs the case where Rust
+      // hasn't been rebuilt yet.
+      const settings = host.engine.settings() as unknown as {
+        clearUserProfileCaches?: () => void;
+      };
       settings.clearUserProfileCaches?.();
-    });
-  } catch {
-    // Best-effort - failures here just leave stale rows that engine.clear() would catch later.
-  }
+    } catch {
+      // Best-effort - failures here just leave stale rows that engine.clear() would catch later.
+    }
+  });
 }
 
 export function getSetting(host: DelegateHost, key: string): string | undefined {
@@ -82,12 +84,13 @@ export function getSetting(host: DelegateHost, key: string): string | undefined 
 }
 
 export function setSetting(host: DelegateHost, key: string, value: string): void {
-  if (!host.ready) return;
-  try {
-    host.engine.settings().setSetting(key, value);
-  } catch {
-    // Settings write failed - non-critical
-  }
+  host.write('setSetting', () => {
+    try {
+      host.engine.settings().setSetting(key, value);
+    } catch {
+      // Settings write failed - non-critical
+    }
+  });
 }
 
 /**
@@ -121,13 +124,15 @@ export function streamRetentionDays(host: DelegateHost): number | undefined {
 
 /** Set the window and evict what now falls outside it. */
 export function setStreamRetentionDays(host: DelegateHost, days: number): void {
-  if (!host.ready) return;
-  try {
-    host.engine.settings().setStreamRetentionDays(BigInt(Math.trunc(days)));
-  } catch {
-    // A failed write leaves the previous window in force, which is the safe
-    // side: nothing is evicted that the athlete did not ask to evict.
-  }
+  const window = BigInt(Math.trunc(days));
+  host.write('setStreamRetentionDays', () => {
+    try {
+      host.engine.settings().setStreamRetentionDays(window);
+    } catch {
+      // A failed write leaves the previous window in force, which is the safe
+      // side: nothing is evicted that the athlete did not ask to evict.
+    }
+  });
 }
 
 /** Bytes the stream store holds, for the cache readout. */
@@ -141,10 +146,11 @@ export function streamStoreBytes(host: DelegateHost): number {
 }
 
 export function deleteSetting(host: DelegateHost, key: string): void {
-  if (!host.ready) return;
-  try {
-    host.engine.settings().deleteSetting(key);
-  } catch {
-    // Settings delete failed - non-critical
-  }
+  host.write('deleteSetting', () => {
+    try {
+      host.engine.settings().deleteSetting(key);
+    } catch {
+      // Settings delete failed - non-critical
+    }
+  });
 }

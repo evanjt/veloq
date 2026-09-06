@@ -36,7 +36,7 @@ function closedClient() {
   (client as any).initialized = false;
   (client as any).dbPath = null;
   (client as any).engine = null;
-  (client as any).pendingMetrics = null;
+  (client as any).pendingWrites = [];
   /* eslint-enable @typescript-eslint/no-explicit-any */
   return client;
 }
@@ -55,12 +55,12 @@ describe('metrics written before the engine opens', () => {
 
     expect(client.initWithPath(DB)).toBe(true);
 
-    expect(mockActivities.setMetrics).toHaveBeenCalledTimes(1);
-    expect(mockActivities.setMetrics.mock.calls[0][0]).toEqual([
-      metric('a'),
-      metric('b'),
-      metric('c'),
-    ]);
+    // One call per batch, in order. `set_activity_metrics_extended` is
+    // INSERT OR REPLACE per row, so a batch per call stores what one
+    // concatenated call would.
+    expect(mockActivities.setMetrics).toHaveBeenCalledTimes(2);
+    expect(mockActivities.setMetrics.mock.calls[0][0]).toEqual([metric('a'), metric('b')]);
+    expect(mockActivities.setMetrics.mock.calls[1][0]).toEqual([metric('c')]);
   });
 
   it('holds nothing when an empty batch is the only pre-init write', () => {

@@ -60,11 +60,12 @@ export function getGroupById(host: DelegateHost, groupId: string): FfiRouteGroup
 }
 
 export function setRouteName(host: DelegateHost, routeId: string, name: string): void {
-  if (!host.ready) return;
   validateId(routeId, 'route ID');
   validateName(name, 'route name');
-  host.timed('setRouteName', () => host.engine.routes().setName(routeId, name));
-  host.notify('groups');
+  host.write('setRouteName', () => {
+    host.engine.routes().setName(routeId, name);
+    host.notify('groups');
+  });
 }
 
 export function getAllRouteNames(host: DelegateHost): Record<string, string> {
@@ -106,11 +107,10 @@ export function excludeActivityFromRoute(
   routeId: string,
   activityId: string
 ): void {
-  if (!host.ready) return;
-  host.timed('excludeActivityFromRoute', () =>
-    host.engine.routes().excludeActivity(routeId, activityId)
-  );
-  host.notify('groups');
+  host.write('excludeActivityFromRoute', () => {
+    host.engine.routes().excludeActivity(routeId, activityId);
+    host.notify('groups');
+  });
 }
 
 export function includeActivityInRoute(
@@ -118,11 +118,10 @@ export function includeActivityInRoute(
   routeId: string,
   activityId: string
 ): void {
-  if (!host.ready) return;
-  host.timed('includeActivityInRoute', () =>
-    host.engine.routes().includeActivity(routeId, activityId)
-  );
-  host.notify('groups');
+  host.write('includeActivityInRoute', () => {
+    host.engine.routes().includeActivity(routeId, activityId);
+    host.notify('groups');
+  });
 }
 
 export function getExcludedRouteActivityIds(host: DelegateHost, routeId: string): string[] {
