@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 224 methods inside `#[uniffi::export] impl` blocks across
+ * 226 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 242 exports (18 standalone + 224 methods)
+ * Total: 244 exports (18 standalone + 226 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -355,7 +355,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'remove',
     camelName: 'remove',
     file: 'objects/activities.rs',
-    line: 247,
+    line: 243,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -365,7 +365,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'debug_clone',
     camelName: 'debugClone',
     file: 'objects/activities.rs',
-    line: 262,
+    line: 258,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
     docs: '',
@@ -375,7 +375,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_highlights_bundle',
     camelName: 'getHighlightsBundle',
     file: 'objects/activities.rs',
-    line: 269,
+    line: 265,
     paramCount: 1,
     returnType: 'Result<crate::FfiActivityHighlightsBundle, VeloqError>',
     docs: 'Combined activity-list highlight bundle: section indicators (PRs + trends) and route highlights for the same batch of activity IDs in a single FFI round-trip. Consumed by `useActivitySectionHighlights`.',
@@ -385,7 +385,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/activities.rs',
-    line: 286,
+    line: 282,
     paramCount: 2,
     returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
     docs: "Everything the activity detail screen paints with, in one engine lock: engine counts, route groups, matched and custom sections, encounters, indicator highlights, this activity's portion of each section it traverses, and the sections where it holds the record. `min_route_activities` filters the returned route groups here, so the screen does not filter them after the fact.",
@@ -422,10 +422,30 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'BasemapManager',
   },
   {
+    name: 'set_source_template',
+    camelName: 'setSourceTemplate',
+    file: 'objects/basemap.rs',
+    line: 38,
+    paramCount: 2,
+    returnType: 'void',
+    docs: "Where one source's tiles come from, as a `{z}/{x}/{y}` template. Handed over at style load: the vector snapshot path and the per-country satellite choice are both decided in the page, not compiled in.",
+    object: 'BasemapManager',
+  },
+  {
+    name: 'get_or_fetch_tile',
+    camelName: 'getOrFetchTile',
+    file: 'objects/basemap.rs',
+    line: 44,
+    paramCount: 4,
+    returnType: 'Option<Vec<u8>>',
+    docs: "One tile's bytes, from the store if it is there and from the tile host if it is not. Blocks until the tile is in hand.",
+    object: 'BasemapManager',
+  },
+  {
     name: 'put_tile',
     camelName: 'putTile',
     file: 'objects/basemap.rs',
-    line: 37,
+    line: 50,
     paramCount: 7,
     returnType: 'Result<(), VeloqError>',
     docs: 'Store one tile. `pinned` marks the pre-seeded offline base, which eviction takes last.',
@@ -435,7 +455,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cache_size',
     camelName: 'getCacheSize',
     file: 'objects/basemap.rs',
-    line: 53,
+    line: 66,
     paramCount: 0,
     returnType: 'u64',
     docs: 'Total bytes across every source, answered without a WebView.',
@@ -445,7 +465,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_source_size',
     camelName: 'getSourceSize',
     file: 'objects/basemap.rs',
-    line: 58,
+    line: 71,
     paramCount: 1,
     returnType: 'u64',
     docs: 'Bytes held for one source.',
@@ -455,7 +475,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_tiles',
     camelName: 'clearTiles',
     file: 'objects/basemap.rs',
-    line: 63,
+    line: 76,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every basemap tile, pinned pre-seed included.',
@@ -465,7 +485,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_source_tiles',
     camelName: 'clearSourceTiles',
     file: 'objects/basemap.rs',
-    line: 68,
+    line: 81,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every tile of one source.',
@@ -475,7 +495,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'evict_to',
     camelName: 'evictTo',
     file: 'objects/basemap.rs',
-    line: 74,
+    line: 87,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Bring one source under a byte budget, least recently read first and the pinned pre-seed last.',
@@ -2435,7 +2455,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1987,
+    line: 1988,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2486,6 +2506,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'new',
   'setPath',
   'getTile',
+  'setSourceTemplate',
+  'getOrFetchTile',
   'putTile',
   'getCacheSize',
   'getSourceSize',
@@ -2737,6 +2759,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_detail_data: 'getDetailData',
   set_path: 'setPath',
   get_tile: 'getTile',
+  set_source_template: 'setSourceTemplate',
+  get_or_fetch_tile: 'getOrFetchTile',
   put_tile: 'putTile',
   get_cache_size: 'getCacheSize',
   get_source_size: 'getSourceSize',

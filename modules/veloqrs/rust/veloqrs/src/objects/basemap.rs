@@ -32,6 +32,19 @@ impl BasemapManager {
         basemap::store()?.get(&source, z, x, y)
     }
 
+    /// Where one source's tiles come from, as a `{z}/{x}/{y}` template.
+    /// Handed over at style load: the vector snapshot path and the per-country
+    /// satellite choice are both decided in the page, not compiled in.
+    fn set_source_template(&self, source: String, url_template: String) {
+        basemap::set_template(source, url_template);
+    }
+
+    /// One tile's bytes, from the store if it is there and from the tile host
+    /// if it is not. Blocks until the tile is in hand.
+    fn get_or_fetch_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        basemap::get_or_fetch(&source, z, x, y)
+    }
+
     /// Store one tile. `pinned` marks the pre-seeded offline base, which
     /// eviction takes last.
     fn put_tile(
