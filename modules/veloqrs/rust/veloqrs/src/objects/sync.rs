@@ -458,6 +458,19 @@ pub fn bodies_stored() -> u64 {
 ///
 /// The observer is called after the engine lock is released, since the binding
 /// blocks this thread until JavaScript returns.
+/// The id a URL upstream needs for a stored activity.
+///
+/// The key is ours; `intervals_id` is the server's. They are equal for every
+/// row an older build stored, and a caller can name an activity no row claims,
+/// so an unknown one falls back to the key it was given.
+pub(crate) async fn upstream_id(activity_id: &str) -> String {
+    let key = activity_id.to_string();
+    crate::persistence::with_persistent_engine_blocking(move |engine| engine.intervals_id(&key))
+        .await
+        .flatten()
+        .unwrap_or_else(|| activity_id.to_string())
+}
+
 async fn store_body<F>(kind: &'static str, activity_id: String, write: F)
 where
     F: FnOnce(&mut PersistentEngine) -> SqlResult<()> + Send + 'static,
@@ -783,14 +796,29 @@ async fn sync_activity_window(
         return Ok(());
     }
 
+    // The server names the activity by its own id; the row it belongs to is
+    // keyed by ours. They are equal for every row an older build stored, so
+    // an id nothing claims stays the key it arrived as. Matching on the
+    // column instead is what stops an activity the device minted and later
+    // uploaded from being stored a second time.
+    let named: Vec<String> = items.iter().map(|(record, _)| record.id.clone()).collect();
+    let local = crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.local_ids_for_intervals_ids(&named)
+    })
+    .await
+    .unwrap_or_default();
+
     let mut bodies = Vec::with_capacity(items.len());
     let mut metrics = Vec::with_capacity(items.len());
-    for (record, body) in items {
+    for (mut record, body) in items {
         let Some(date) = start_date_to_timestamp(record.start_date_local.as_deref()) else {
             // Without a start time the row cannot be windowed or ordered, and
             // a fabricated one would sort into the wrong week.
             continue;
         };
+        if let Some(key) = local.get(&record.id) {
+            record.id = key.clone();
+        }
         bodies.push((record.id.clone(), date, body));
         metrics.push(activity_metrics_row(record, date));
     }
@@ -1042,8 +1070,9 @@ impl SyncManager {
         spawn_once(
             format!("intervals:{}", activity_id),
             move |transport, _athlete_id| async move {
+                let upstream = upstream_id(&activity_id).await;
                 let body =
-                    endpoints::fetch_intervals_body(&transport, &activity_id, Lane::Interactive)
+                    endpoints::fetch_intervals_body(&transport, &upstream, Lane::Interactive)
                         .await?;
                 store_body("intervals", activity_id.clone(), move |engine| {
                     engine.set_interval_body(&activity_id, &body)
@@ -1095,13 +1124,10 @@ impl SyncManager {
         spawn_once(
             format!("streams:{}:{}", activity_id, types),
             move |transport, _athlete_id| async move {
-                let body = endpoints::fetch_streams_body(
-                    &transport,
-                    &activity_id,
-                    &types,
-                    Lane::Interactive,
-                )
-                .await?;
+                let upstream = upstream_id(&activity_id).await;
+                let body =
+                    endpoints::fetch_streams_body(&transport, &upstream, &types, Lane::Interactive)
+                        .await?;
                 store_body("streams", activity_id.clone(), move |engine| {
                     engine.set_stream_body(&activity_id, &types, &body)
                 })
@@ -1117,9 +1143,9 @@ impl SyncManager {
         spawn_once(
             format!("detail:{}", activity_id),
             move |transport, _athlete_id| async move {
-                let body =
-                    endpoints::fetch_activity_body(&transport, &activity_id, Lane::Interactive)
-                        .await?;
+                let upstream = upstream_id(&activity_id).await;
+                let body = endpoints::fetch_activity_body(&transport, &upstream, Lane::Interactive)
+                    .await?;
                 let date = serde_json::from_str::<serde_json::Value>(&body)
                     .ok()
                     .and_then(|v| {
@@ -1155,7 +1181,8 @@ impl SyncManager {
             .unwrap_or_default();
 
             for activity_id in missing {
-                match endpoints::fetch_time_stream(&transport, &activity_id, Lane::Backfill).await {
+                let upstream = upstream_id(&activity_id).await;
+                match endpoints::fetch_time_stream(&transport, &upstream, Lane::Backfill).await {
                     Ok(times) if !times.is_empty() => {
                         store_time_stream(activity_id, times).await;
                     }

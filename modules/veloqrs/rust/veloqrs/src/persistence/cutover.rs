@@ -1103,8 +1103,9 @@ mod tests {
     }
 
     /// Scenario: the run dies between the diff and the promotion.
-    /// Expected behaviour: the archive still holds its line, and the retry
-    /// builds a diff that carries the outgoing geometry.
+    /// Expected behaviour: the archive still holds its line, so the retry can
+    /// see what left. Only the promotion trims those lines, and only the
+    /// counts reach the card: the payload carries no geometry of its own.
     #[test]
     fn a_run_that_dies_before_promotion_keeps_the_lines_for_the_retry() {
         let dir = TempDir::new().expect("tempdir");
@@ -1116,13 +1117,20 @@ mod tests {
 
         let diff = engine.build_cutover_diff().expect("retried diff");
         let payload: serde_json::Value = serde_json::from_str(&diff).expect("json");
-        let gone = payload["sections"]
-            .as_array()
-            .expect("sections")
-            .iter()
-            .find(|s| s["id"] == "s_auto")
-            .expect("the archived section is in the diff");
-        assert_ne!(gone["polyline"].as_str().unwrap_or(""), "");
+        assert!(
+            payload.get("sections").is_none(),
+            "the payload stores no rows: {payload}"
+        );
+        assert_eq!(
+            payload["counts"]["gone"].as_u64(),
+            Some(1),
+            "the retry still sees the archived section leave: {payload}"
+        );
+        assert_eq!(
+            archived_line(&engine).len(),
+            12,
+            "only the promotion trims the archived line"
+        );
     }
 
     /// A second promotion, the shape a retried launch takes, finds nothing
