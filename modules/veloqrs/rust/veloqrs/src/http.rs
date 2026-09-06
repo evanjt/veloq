@@ -163,7 +163,19 @@ impl ActivityFetcher {
             )
             .await
     }
+}
 
+/// The intervals.icu id for each key that has one. Read once per batch, and
+/// empty when the engine is not open, in which case each URL falls back to the
+/// key it was given.
+async fn upstream_ids(activity_ids: &[String]) -> std::collections::HashMap<String, String> {
+    let ids = activity_ids.to_vec();
+    crate::persistence::with_persistent_engine_blocking(move |engine| engine.intervals_ids(&ids))
+        .await
+        .unwrap_or_default()
+}
+
+impl ActivityFetcher {
     /// Fetch map data for multiple activities in parallel
     /// `wide_ids` names the activities inside the stream retention window.
     /// Those download every series the app can use; the rest stay on the three
@@ -191,6 +203,11 @@ impl ActivityFetcher {
 
         let start = Instant::now();
 
+        // The URL names the activity upstream, the result names it locally.
+        // Resolved once for the whole batch rather than per fetch, so the
+        // dispatch loop never waits on the engine lock.
+        let upstream = Arc::new(upstream_ids(&activity_ids).await);
+
         // Per-fetch counters only; the governor owns dispatch pacing.
         let counter = Arc::new(DispatchCounter::new());
 
@@ -203,6 +220,7 @@ impl ActivityFetcher {
                 let total_bytes = Arc::clone(&total_bytes);
                 let callback = on_progress.clone();
                 let start_time = start;
+                let upstream = Arc::clone(&upstream);
                 let wide_ids = Arc::clone(&wide_ids);
                 let wide_bytes = Arc::clone(&wide_bytes);
 
@@ -213,7 +231,8 @@ impl ActivityFetcher {
                     let dispatch_time = start_time.elapsed();
 
                     let wide = wide_ids.contains(&id);
-                    let result = Self::fetch_single_track(transport, &id, wide).await;
+                    let named = upstream.get(&id).map(String::as_str).unwrap_or(&id);
+                    let result = Self::fetch_single_track(transport, &id, named, wide).await;
                     if wide {
                         wide_bytes.fetch_add(result.body_bytes, Ordering::Relaxed);
                     }
@@ -303,9 +322,13 @@ impl ActivityFetcher {
     /// track needs. It is true only for an activity inside the stream
     /// retention window: outside it the prune deletes the extra series the
     /// same second they land, so the bytes buy nothing.
+    /// `activity_id` is the local key the result is filed under, `upstream`
+    /// the intervals.icu id the URL names. Equal for every row an older build
+    /// stored, and the whole point of the column is that they stop being.
     async fn fetch_single_track(
         transport: &Transport,
         activity_id: &str,
+        upstream: &str,
         wide: bool,
     ) -> ActivityMapResult {
         let req_start = Instant::now();
@@ -322,7 +345,7 @@ impl ActivityFetcher {
 
         let bytes = match transport
             .get_bytes(
-                &format!("/activity/{}/streams.json", activity_id),
+                &format!("/activity/{}/streams.json", upstream),
                 &[(
                     "types",
                     if wide {

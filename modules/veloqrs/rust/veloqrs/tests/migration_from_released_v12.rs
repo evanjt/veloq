@@ -396,3 +396,36 @@ fn a_released_v12_database_upgrades_to_the_same_schema_as_a_fresh_install() {
         );
     }
 }
+
+/// The internal key is ours and the intervals.icu id is metadata beside it.
+/// Every key a released build wrote IS the server's id, so the backfill has to
+/// leave every upgraded row able to name itself upstream. A NULL here is an
+/// activity the app can no longer fetch a stream, a body or a FIT file for.
+#[test]
+fn every_upgraded_activity_carries_the_server_id_it_was_keyed_by() {
+    let (_dir, path) = seeded_fixture();
+    drop(PersistentEngine::new(path.to_str().expect("utf-8 path")).expect("upgrade"));
+
+    let conn = Connection::open(&path).expect("reopen");
+    assert_eq!(
+        count(&conn, "SELECT count(*) FROM activities"),
+        FIXTURE_ACTIVITIES,
+        "the upgrade kept the rows it always kept"
+    );
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT count(*) FROM activities WHERE intervals_id IS NULL"
+        ),
+        0,
+        "a row with no server id cannot be fetched for again"
+    );
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT count(*) FROM activities WHERE intervals_id <> id"
+        ),
+        0,
+        "the key a released build wrote is the server's id, verbatim"
+    );
+}

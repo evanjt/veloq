@@ -148,7 +148,8 @@ impl StrengthManager {
             format!("fit:{}", activity_id),
             move |transport, _athlete_id| async move {
                 let fetcher = ActivityFetcher::with_transport(transport);
-                let data = match fetcher.download_fit_file(&activity_id).await {
+                let upstream = sync::upstream_id(&activity_id).await;
+                let data = match fetcher.download_fit_file(&upstream).await {
                     Ok(data) => data,
                     Err(e) => return settle_failed_download(&activity_id, e),
                 };
@@ -195,7 +196,8 @@ impl StrengthManager {
                 let mut parsed = 0usize;
 
                 for activity_id in &activity_ids {
-                    match fetcher.download_fit_file(activity_id).await {
+                    let upstream = sync::upstream_id(activity_id).await;
+                    match fetcher.download_fit_file(&upstream).await {
                         Ok(data) => {
                             store_parsed_sets(activity_id, &data);
                             parsed += 1;

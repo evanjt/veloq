@@ -738,14 +738,23 @@ impl PersistentEngine {
         // (section_activities, signatures, time_streams). A re-ingest must
         // update the row in place so those links and the unnamed columns
         // (date, name, distance) survive.
+        //
+        // `intervals_id` is the server's own id, kept beside the key rather
+        // than as it. Every activity that reaches this path came from
+        // intervals.icu, so the key is that id and the column records it; a
+        // row minted on the device would carry NULL until an upload answers.
+        // `COALESCE` so a re-ingest never overwrites one already recorded.
         self.db.execute(
-            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
-             VALUES (?, ?, ?, ?, ?, ?)
+            "INSERT INTO activities
+                 (id, intervals_id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
+                 intervals_id = COALESCE(activities.intervals_id, excluded.intervals_id),
                  sport_type = excluded.sport_type,
                  min_lat = excluded.min_lat, max_lat = excluded.max_lat,
                  min_lng = excluded.min_lng, max_lng = excluded.max_lng",
             params![
+                id,
                 id,
                 sport_type,
                 bounds.min_lat,
@@ -942,6 +951,99 @@ impl PersistentEngine {
     /// pool moved under a run that has already reported its own result.
     pub fn mark_sections_dirty(&mut self) {
         self.sections_dirty = true;
+    }
+
+    /// The intervals.icu id for a stored activity, or None for one the server
+    /// has never seen.
+    ///
+    /// Every URL that names an activity upstream is built from this, never
+    /// from the key: the two are equal for every row today and the whole
+    /// point of the column is that they stop being.
+    pub fn intervals_id(&self, activity_id: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT intervals_id FROM activities WHERE id = ?",
+                params![activity_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+    }
+
+    /// The intervals.icu id for each of `activity_ids` that has one, keyed by
+    /// the local id. One query, so a batch of URLs never takes the engine lock
+    /// per activity.
+    pub fn intervals_ids(
+        &self,
+        activity_ids: &[String],
+    ) -> std::collections::HashMap<String, String> {
+        let mut out = std::collections::HashMap::with_capacity(activity_ids.len());
+        if activity_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "SELECT id, intervals_id FROM activities
+             WHERE intervals_id IS NOT NULL AND id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let params = rusqlite::params_from_iter(activity_ids.iter());
+        if let Ok(rows) = stmt.query_map(params, |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                out.insert(row.0, row.1);
+            }
+        }
+        out
+    }
+
+    /// The local key for one activity the server named, or None when no
+    /// stored row claims it.
+    pub fn activity_id_for_intervals_id(&self, intervals_id: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT id FROM activities WHERE intervals_id = ?",
+                params![intervals_id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+    }
+
+    /// The local key for each activity the server named, keyed by the server's
+    /// own id, for those a stored row claims.
+    ///
+    /// The sync matches on this, so a row the device minted and later uploaded
+    /// is found rather than stored a second time. A server id nothing claims
+    /// is absent, and the caller then uses it as the key, which is what every
+    /// row an older build stored already did.
+    pub fn local_ids_for_intervals_ids(
+        &self,
+        intervals_ids: &[String],
+    ) -> std::collections::HashMap<String, String> {
+        let mut out = std::collections::HashMap::with_capacity(intervals_ids.len());
+        if intervals_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; intervals_ids.len()].join(",");
+        let sql = format!(
+            "SELECT intervals_id, id FROM activities
+             WHERE intervals_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let params = rusqlite::params_from_iter(intervals_ids.iter());
+        if let Ok(rows) = stmt.query_map(params, |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                out.insert(row.0, row.1);
+            }
+        }
+        out
     }
 
     pub fn get_activity_ids(&self) -> Vec<String> {
