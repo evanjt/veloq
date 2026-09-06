@@ -87,11 +87,11 @@ jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
 }));
 
-const mockUseSectionMatches = jest.fn(() => ({ sections: [], count: 0 }));
+const mockUseSectionMatches = jest.fn((..._args: unknown[]) => ({ sections: [], count: 0 }));
 jest.mock('@/features/routes/hooks/useSectionMatches', () => ({
   useSectionMatches: (...args: unknown[]) => mockUseSectionMatches(...args),
 }));
-const mockUseSectionOverlays = jest.fn(() => ({ sectionOverlays: [] }));
+const mockUseSectionOverlays = jest.fn((..._args: unknown[]) => ({ sectionOverlays: [] }));
 jest.mock('@/features/activity/hooks/useSectionOverlays', () => ({
   useSectionOverlays: (...args: unknown[]) => mockUseSectionOverlays(...args),
 }));
