@@ -11,14 +11,13 @@
 //! existing group structure and threads `existing_reps` through. These tests pin
 //! what that has to deliver: a deterministic byte-stable catalogue, an opaque id
 //! that survives a resync, and a chosen representative, custom name, and
-//! membership that survive with it. The one remaining red is the in-memory
-//! custom name (`#[ignore]`d, the re-hydrate on recompute is still owed).
+//! membership that survive with it. The in-memory custom name was the last red
+//! and the re-hydrate on recompute has since landed, so every gate here runs.
 //!
 //! Method-agnostic persistence behaviour, run on the fast Control arm.
 //!
 //! Run:
-//!   cargo test -p veloqrs --features synthetic --test suite2_routes_lifecycle \
-//!     -- --include-ignored
+//!   cargo test -p veloqrs --features synthetic --test suite2_routes_lifecycle
 
 mod lifecycle_support;
 
