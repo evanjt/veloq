@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { calculateDecoupling } from '@/features/stats/lib/decoupling';
+import { calculateDecoupling } from '@/features/stats';
 import { type PrimarySport } from '@/features/fitness/stores';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
 import { getFormZone, type FormZone } from '../lib';

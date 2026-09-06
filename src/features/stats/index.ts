@@ -30,6 +30,7 @@ export {
 
 export {
   buildChartData,
+  calculateDecoupling,
   computeAllAverages,
   computeIntervalBands,
   type DataSeries,
