@@ -941,10 +941,18 @@ impl PersistentEngine {
 
             let route_word = get_route_word();
 
-            // Collect which numbers are already taken for each sport type (from user-renamed routes)
-            // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
-            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+            // Which numbers are already spoken for. Names are not per sport, so
+            // one set, and the old "Run Route 1" shape still counts against it
+            // until the loader's migration has rewritten those rows.
+            let mut taken_numbers: std::collections::HashSet<u32> =
+                std::collections::HashSet::new();
             for name in existing_names.values() {
+                let prefix = format!("{} ", route_word);
+                if name.starts_with(&prefix) {
+                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
                 for sport in [
                     "Ride",
                     "Run",
@@ -954,13 +962,10 @@ impl PersistentEngine {
                     "VirtualRide",
                     "VirtualRun",
                 ] {
-                    let prefix = format!("{} {} ", sport, route_word);
-                    if name.starts_with(&prefix) {
-                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                            taken_numbers
-                                .entry(sport.to_string())
-                                .or_default()
-                                .insert(num);
+                    let old_prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&old_prefix) {
+                        if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                            taken_numbers.insert(num);
                         }
                     }
                 }
@@ -990,8 +995,8 @@ impl PersistentEngine {
                     .then_with(|| a.group_id.cmp(&b.group_id))
             });
 
-            // Track next available number for each sport type (for sequential assignment)
-            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+            // Track the next available number. Numbering is global, not per sport.
+            let mut counter: u32 = 0;
 
             for group in sorted_groups {
                 let activity_ids_json = serde_json::to_string(&group.activity_ids)
@@ -1012,20 +1017,17 @@ impl PersistentEngine {
 
                 // Generate unique name if route doesn't already have one
                 if !existing_names.contains_key(&group.group_id) {
-                    let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
-                    let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
-
                     // Find next available number (skip taken numbers)
                     loop {
-                        *counter += 1;
-                        if !taken.contains(counter) {
+                        counter += 1;
+                        if !taken_numbers.contains(&counter) {
                             break;
                         }
                     }
 
-                    let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
+                    let new_name = format!("{} {}", route_word, counter);
                     name_stmt.execute(params![group.group_id, new_name])?;
-                    taken.insert(*counter); // Mark this number as taken
+                    taken_numbers.insert(counter); // Mark this number as taken
                 }
             }
 
