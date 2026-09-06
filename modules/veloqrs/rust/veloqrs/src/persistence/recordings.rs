@@ -126,9 +126,9 @@ impl PersistentEngine {
 
     /// Every recording, newest first.
     pub fn list_recordings(&self) -> SqlResult<Vec<FfiRecordingEntry>> {
-        let mut stmt = self
-            .db
-            .prepare(&format!("SELECT {COLUMNS} FROM recordings ORDER BY created_at DESC"))?;
+        let mut stmt = self.db.prepare(&format!(
+            "SELECT {COLUMNS} FROM recordings ORDER BY created_at DESC"
+        ))?;
         let rows = stmt.query_map([], row_to_entry)?;
         rows.collect()
     }
@@ -143,7 +143,11 @@ impl PersistentEngine {
 
     /// The engine key the recording was written under, so a background retry
     /// can still reconcile the upload.
-    pub fn set_recording_engine_activity(&self, id: &str, engine_activity_id: &str) -> SqlResult<()> {
+    pub fn set_recording_engine_activity(
+        &self,
+        id: &str,
+        engine_activity_id: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "UPDATE recordings SET engine_activity_id = ? WHERE id = ?",
             params![engine_activity_id, id],
@@ -159,7 +163,11 @@ impl PersistentEngine {
         Ok(())
     }
 
-    pub fn set_recording_uploaded(&self, id: &str, intervals_activity_id: Option<&str>) -> SqlResult<()> {
+    pub fn set_recording_uploaded(
+        &self,
+        id: &str,
+        intervals_activity_id: Option<&str>,
+    ) -> SqlResult<()> {
         self.db.execute(
             "UPDATE recordings SET upload_status = 'uploaded', intervals_activity_id = ?, \
              last_error = NULL WHERE id = ?",
@@ -339,7 +347,10 @@ mod tests {
         assert!(e.insert_recording(&row).unwrap());
 
         let read = e.get_recording("r1").unwrap().unwrap();
-        assert_eq!(read.streams_path.as_deref(), Some("/recordings/r1.streams.json"));
+        assert_eq!(
+            read.streams_path.as_deref(),
+            Some("/recordings/r1.streams.json")
+        );
         assert_eq!(read.paired_event_id, Some(42));
         assert_eq!(read.engine_activity_id.as_deref(), Some("local-r1"));
         assert_eq!(read.distance_meters, 20_000.0);
@@ -365,7 +376,12 @@ mod tests {
         e.insert_recording(&entry("new", 3_000, "pending")).unwrap();
         e.insert_recording(&entry("mid", 2_000, "pending")).unwrap();
 
-        let ids: Vec<String> = e.list_recordings().unwrap().into_iter().map(|r| r.id).collect();
+        let ids: Vec<String> = e
+            .list_recordings()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
         assert_eq!(ids, vec!["new", "mid", "old"]);
     }
 
@@ -375,12 +391,19 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
 
         for attempt in 1..MAX_AUTO_RETRIES {
-            let count = e.set_recording_upload_failed("r1", "network", 10_000).unwrap();
+            let count = e
+                .set_recording_upload_failed("r1", "network", 10_000)
+                .unwrap();
             assert_eq!(count, attempt);
-            assert_eq!(e.get_recording("r1").unwrap().unwrap().upload_status, "pending");
+            assert_eq!(
+                e.get_recording("r1").unwrap().unwrap().upload_status,
+                "pending"
+            );
         }
 
-        let count = e.set_recording_upload_failed("r1", "network", 10_000).unwrap();
+        let count = e
+            .set_recording_upload_failed("r1", "network", 10_000)
+            .unwrap();
         assert_eq!(count, MAX_AUTO_RETRIES);
         let read = e.get_recording("r1").unwrap().unwrap();
         assert_eq!(read.upload_status, "failed");
@@ -393,13 +416,18 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
         assert!(e.next_pending_recording(0).unwrap().is_some());
 
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
         assert!(
-            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1).unwrap().is_none(),
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
+                .unwrap()
+                .is_none(),
             "an entry that just failed is not due again immediately"
         );
         assert!(
-            e.next_pending_recording(100_000 + BACKOFF_BASE_MS * 2).unwrap().is_some(),
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS * 2)
+                .unwrap()
+                .is_some(),
             "the backoff after one failure is two base intervals"
         );
     }
@@ -407,9 +435,12 @@ mod tests {
     #[test]
     fn only_pending_entries_are_ever_picked_up() {
         let (_dir, e) = engine();
-        e.insert_recording(&entry("local", 1_000, "localOnly")).unwrap();
-        e.insert_recording(&entry("blocked", 2_000, "permissionBlocked")).unwrap();
-        e.insert_recording(&entry("done", 3_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("local", 1_000, "localOnly"))
+            .unwrap();
+        e.insert_recording(&entry("blocked", 2_000, "permissionBlocked"))
+            .unwrap();
+        e.insert_recording(&entry("done", 3_000, "uploaded"))
+            .unwrap();
 
         assert!(e.next_pending_recording(9_999_999).unwrap().is_none());
     }
@@ -426,16 +457,28 @@ mod tests {
     #[test]
     fn an_upgrade_releases_the_blocked_and_a_logout_demotes_the_live_ones() {
         let (_dir, e) = engine();
-        e.insert_recording(&entry("blocked", 1_000, "permissionBlocked")).unwrap();
-        e.insert_recording(&entry("pending", 2_000, "pending")).unwrap();
-        e.insert_recording(&entry("done", 3_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("blocked", 1_000, "permissionBlocked"))
+            .unwrap();
+        e.insert_recording(&entry("pending", 2_000, "pending"))
+            .unwrap();
+        e.insert_recording(&entry("done", 3_000, "uploaded"))
+            .unwrap();
 
         assert_eq!(e.clear_recording_permission_blocked().unwrap(), 1);
-        assert_eq!(e.get_recording("blocked").unwrap().unwrap().upload_status, "pending");
+        assert_eq!(
+            e.get_recording("blocked").unwrap().unwrap().upload_status,
+            "pending"
+        );
 
         assert_eq!(e.demote_recordings_to_local_only().unwrap(), 2);
-        assert_eq!(e.get_recording("done").unwrap().unwrap().upload_status, "uploaded");
-        assert_eq!(e.get_recording("pending").unwrap().unwrap().upload_status, "localOnly");
+        assert_eq!(
+            e.get_recording("done").unwrap().unwrap().upload_status,
+            "uploaded"
+        );
+        assert_eq!(
+            e.get_recording("pending").unwrap().unwrap().upload_status,
+            "localOnly"
+        );
     }
 
     #[test]
@@ -447,7 +490,10 @@ mod tests {
 
         let deleted = e.delete_recording("r1").unwrap().unwrap();
         assert_eq!(deleted.fit_path, "/recordings/r1.fit");
-        assert_eq!(deleted.streams_path.as_deref(), Some("/recordings/r1.streams.json"));
+        assert_eq!(
+            deleted.streams_path.as_deref(),
+            Some("/recordings/r1.streams.json")
+        );
         assert!(e.get_recording("r1").unwrap().is_none());
         assert!(e.delete_recording("r1").unwrap().is_none());
     }
@@ -456,7 +502,8 @@ mod tests {
     fn the_counts_answer_what_the_badges_ask() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
-        e.insert_recording(&entry("b", 2_000, "permissionBlocked")).unwrap();
+        e.insert_recording(&entry("b", 2_000, "permissionBlocked"))
+            .unwrap();
         e.insert_recording(&entry("c", 3_000, "uploaded")).unwrap();
 
         assert_eq!(e.unuploaded_recording_count().unwrap(), 2);
@@ -467,7 +514,8 @@ mod tests {
     fn a_requeue_clears_the_retry_state_the_failure_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
 
         e.requeue_recording("r1").unwrap();
         let read = e.get_recording("r1").unwrap().unwrap();
@@ -481,7 +529,8 @@ mod tests {
     fn a_successful_upload_clears_the_error_the_last_attempt_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
 
         e.set_recording_uploaded("r1", Some("i12345")).unwrap();
         let read = e.get_recording("r1").unwrap().unwrap();
