@@ -13,7 +13,6 @@ import { act, render } from '@testing-library/react-native';
 import DebugScreen from '@/app/debug';
 
 jest.mock('react-native-safe-area-context', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
   return {
     useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
@@ -45,7 +44,6 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
 
 const mockGetStats = jest.fn(() => ({ activityCount: 1 }));
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     EngineClient: { getInstance: () => ({ getStats: mockGetStats }) },
   })

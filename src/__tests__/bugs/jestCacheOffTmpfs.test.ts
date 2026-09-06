@@ -36,7 +36,6 @@ describe('where Jest writes its caches', () => {
   });
 
   it('is ignored, so a cache never reaches a commit', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execFileSync } = require('node:child_process');
     const probe = resolve(jestConfig.cacheDirectory, 'probe');
     const ignored = execFileSync('git', ['check-ignore', probe], {

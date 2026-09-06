@@ -81,7 +81,6 @@ describe('NetworkContext', () => {
     mock.remove.mockClear();
     mock.getNetworkStateAsync.mockReset();
     mock.getNetworkStateAsync.mockImplementation(() => new Promise(() => {}));
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     (require('expo-network').addNetworkStateListener as jest.Mock).mockClear();
     mockSetNetworkOnline.mockClear();
     mockGetEngine.mockClear();
@@ -101,7 +100,6 @@ describe('NetworkContext', () => {
 
     it('subscribes to network state listener on mount', () => {
       renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Network = require('expo-network');
       expect(Network.addNetworkStateListener).toHaveBeenCalledTimes(1);
       expect(getMock().listener).not.toBeNull();

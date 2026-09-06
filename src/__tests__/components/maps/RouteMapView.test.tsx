@@ -13,7 +13,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
 import type { RoutePoint } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({

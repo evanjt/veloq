@@ -18,7 +18,6 @@ import type { ActivityMetrics, FfiMapSignature, Section as NativeSection } from 
 import type { FrequentSection, Section } from '@/types';
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: jest.fn(() => [
       { latitude: -37.8, longitude: 144.9 },

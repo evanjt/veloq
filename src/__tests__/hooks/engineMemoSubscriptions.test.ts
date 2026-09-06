@@ -24,7 +24,6 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // `useEngine` decodes the section polyline, so it imports a value from the
 // binding rather than only types, and the real module registers a TurboModule.
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     // One point per blob, read straight off the bytes, so two different
     // blobs decode to two different points and a re-read is visible.
