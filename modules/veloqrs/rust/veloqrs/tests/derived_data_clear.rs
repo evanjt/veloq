@@ -295,3 +295,112 @@ fn an_empty_engine_clears_to_zero() {
     assert_eq!(cleared.activities_removed, 0);
     assert_eq!(cleared.activities_kept, 0);
 }
+
+/// Scenario: the athlete takes one attempt out of a route and one lap out of a
+/// section they hand-trimmed, on an activity the clear keeps, then clears the
+/// derived data.
+///
+/// Expected behaviour: both decisions stand. `persistence::tables` declares the
+/// `excluded` column of `activity_matches` and `section_activities` as the
+/// record part of two otherwise derived tables, and this is the path that
+/// promises to keep what the athlete made.
+#[test]
+fn a_clear_keeps_the_attempts_and_laps_the_athlete_took_out() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = Connection::open(&path).expect("raw open");
+    db.execute(
+        "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction, excluded)
+         VALUES ('r1', 'rep', 1.0, 'same', 1)",
+        [],
+    )
+    .expect("exclude the attempt");
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, start_index, end_index, excluded)
+         VALUES ('s_trimmed', 'rep', 0, 12, 1)",
+        [],
+    )
+    .expect("exclude the lap");
+
+    let mut engine = open(&path);
+    engine.clear_derived().expect("clear");
+    drop(engine);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) FROM activity_matches
+             WHERE route_id = 'r1' AND activity_id = 'rep' AND excluded = 1"
+        ),
+        1,
+        "the attempt the athlete took out of the route must survive a derived clear"
+    );
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) FROM section_activities
+             WHERE section_id = 's_trimmed' AND activity_id = 'rep' AND excluded = 1"
+        ),
+        1,
+        "the lap the athlete took out of a surviving section must survive a derived clear"
+    );
+}
+
+/// The engine's own reset makes the same promise, and it removes no activity
+/// at all, so nothing else can explain a lost exclusion.
+#[test]
+fn clearing_routes_and_sections_keeps_the_attempts_the_athlete_took_out() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = Connection::open(&path).expect("raw open");
+    db.execute(
+        "UPDATE activity_matches SET excluded = 1 WHERE route_id = 'r1' AND activity_id = 'plain'",
+        [],
+    )
+    .expect("exclude the attempt");
+
+    let mut engine = open(&path);
+    engine
+        .clear_routes_and_sections()
+        .expect("clear routes and sections");
+    drop(engine);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) FROM activity_matches
+             WHERE route_id = 'r1' AND activity_id = 'plain' AND excluded = 1"
+        ),
+        1,
+        "a route reset must not throw away the attempts the athlete took out"
+    );
+}
+
+/// An exclusion the athlete never made must not appear, so the restore is a
+/// restore and not a blanket re-flag.
+#[test]
+fn a_clear_invents_no_exclusion_that_was_never_made() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = Connection::open(&path).expect("raw open");
+
+    let mut engine = open(&path);
+    engine.clear_derived().expect("clear");
+    drop(engine);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) FROM activity_matches WHERE excluded = 1"
+        ),
+        0,
+        "nothing was excluded, so nothing may come back excluded"
+    );
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) FROM section_activities WHERE excluded = 1"
+        ),
+        0
+    );
+}
