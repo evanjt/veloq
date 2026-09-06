@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Pas encore assez de sorties pour situer le domicile.",
     "exportPrivacyCount": "Raccourcit {{touched}} sorties sur {{total}} à {{radius}} m. Rien n'est supprimé.",
     "exportPrivacyNothingTrimmed": "Rien n'est raccourci. Les exports contiennent la trace complète.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Touchez la carte pour déplacer le domicile."
   },
   "stats": {
     "activities": "Activités",

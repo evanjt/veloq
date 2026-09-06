@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { HomeRadiusMap, type LngLat } from '@/features/maps';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import type { SuggestedHome, ExportPrivacyPreview } from 'veloqrs';
@@ -55,7 +56,7 @@ export function ExportPrivacyRow() {
     };
   }, [engine]);
 
-  const [confirmedHome, setConfirmedHome] = useState<SuggestedHome | null>(null);
+  const [confirmedHome, setConfirmedHome] = useState<LngLat | null>(null);
   const [toggled, setToggled] = useState<boolean | null>(null);
 
   const [radius, setRadius] = useState<number | null>(null);
@@ -69,24 +70,37 @@ export function ExportPrivacyRow() {
   // The home the preview is measured against: what is stored, or what was just
   // confirmed in this render pass and not yet read back.
   const home = useMemo(() => {
-    if (confirmedHome) return { lat: confirmedHome.latitude, lng: confirmedHome.longitude };
+    if (confirmedHome) return { lat: confirmedHome[1], lng: confirmedHome[0] };
     const lat = Number(engine?.getSetting?.(HOME_LAT_KEY));
     const lng = Number(engine?.getSetting?.(HOME_LNG_KEY));
     return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
   }, [engine, confirmedHome]);
+
+  // What the map draws: the home if there is one, else the guess on offer. The
+  // circle in the off position is what turning it on would cover.
+  const mapHome = useMemo<LngLat | null>(() => {
+    if (home) return [home.lng, home.lat];
+    return suggestion ? [suggestion.longitude, suggestion.latitude] : null;
+  }, [home, suggestion]);
+  const mapRadius = activeRadius > 0 ? activeRadius : DEFAULT_RADIUS_M;
 
   const preview: ExportPrivacyPreview | null = useMemo(() => {
     if (!home || !engine?.exportPrivacyPreview) return null;
     return engine.exportPrivacyPreview(home.lat, home.lng, activeRadius);
   }, [engine, home, activeRadius]);
 
+  // Placing the pin and confirming the guess are the same two writes.
+  const handleMove = useCallback((next: LngLat) => {
+    const client = getEngine();
+    client?.setSetting?.(HOME_LAT_KEY, String(next[1]));
+    client?.setSetting?.(HOME_LNG_KEY, String(next[0]));
+    setConfirmedHome(next);
+  }, []);
+
   const handleConfirm = useCallback(() => {
     if (!suggestion) return;
-    const client = getEngine();
-    client?.setSetting?.(HOME_LAT_KEY, String(suggestion.latitude));
-    client?.setSetting?.(HOME_LNG_KEY, String(suggestion.longitude));
-    setConfirmedHome(suggestion);
-  }, [suggestion]);
+    handleMove([suggestion.longitude, suggestion.latitude]);
+  }, [suggestion, handleMove]);
 
   const handleToggle = useCallback(
     (next: boolean) => {
@@ -136,6 +150,20 @@ export function ExportPrivacyRow() {
           testID="export-privacy-switch"
         />
       </View>
+
+      {mapHome && (
+        <View style={styles.mapRow}>
+          <HomeRadiusMap
+            home={mapHome}
+            radiusM={mapRadius}
+            onMove={handleMove}
+            testID="export-privacy-map"
+          />
+          <Text style={[styles.hint, isDark && settingsStyles.textMuted]}>
+            {t('settings.exportPrivacyMoveHint', 'Tap the map to move home.')}
+          </Text>
+        </View>
+      )}
 
       {!confirmed && suggestion && (
         <View style={styles.homeRow} testID="export-privacy-home">
@@ -217,6 +245,7 @@ const styles = StyleSheet.create({
   textWrap: { flex: 1, marginLeft: spacing.sm },
   hint: { ...typography.caption, color: colors.textSecondary },
   homeRow: { paddingHorizontal: spacing.md, gap: spacing.xs },
+  mapRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.xs },
   confirm: { ...typography.caption, fontWeight: '600' },
   radiusRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.md },
   radiusChip: { ...typography.caption, color: colors.textSecondary },

@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。",
     "exportPrivacyCount": "在 {{radius}} 米范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
     "exportPrivacyNothingTrimmed": "不做任何裁剪，导出包含完整轨迹。",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "点按地图移动住所位置。"
   },
   "stats": {
     "activities": "活动",

@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen.",
     "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}} m. Es wird nichts gelöscht.",
     "exportPrivacyNothingTrimmed": "Es wird nichts gekürzt. Exporte enthalten den vollständigen Track.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Tippe auf die Karte, um das Zuhause zu verschieben."
   },
   "stats": {
     "activities": "Aktivitäten",

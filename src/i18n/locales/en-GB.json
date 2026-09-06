@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is.",
     "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
     "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Tap the map to move home."
   },
   "stats": {
     "activities": "Activities",

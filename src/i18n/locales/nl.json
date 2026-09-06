@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "Nog niet genoeg ritten om te bepalen waar thuis is.",
     "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}} m. Er wordt niets verwijderd.",
     "exportPrivacyNothingTrimmed": "Er wordt niets ingekort. Exports bevatten het volledige spoor.",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "Tik op de kaart om thuis te verplaatsen."
   },
   "stats": {
     "activities": "Activiteiten",

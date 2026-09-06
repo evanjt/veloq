@@ -1304,7 +1304,8 @@
     "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。",
     "exportPrivacyCount": "{{radius}} m で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
     "exportPrivacyNothingTrimmed": "短縮しません。エクスポートには全トラックが含まれます。",
-    "exportPrivacyRadius": "{{metres}} m"
+    "exportPrivacyRadius": "{{metres}} m",
+    "exportPrivacyMoveHint": "地図をタップして自宅を移動します。"
   },
   "stats": {
     "activities": "アクティビティ",
