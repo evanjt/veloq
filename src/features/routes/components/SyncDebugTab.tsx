@@ -33,7 +33,7 @@ function Section({
   children,
 }: {
   title: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   isDark: boolean;
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -50,7 +50,7 @@ function Section({
         activeOpacity={0.7}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon as any} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
