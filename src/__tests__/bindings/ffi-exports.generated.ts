@@ -6,8 +6,8 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 226 methods inside `#[uniffi::export] impl` blocks across
- * 13 UniFFI Objects.
+ * 231 methods inside `#[uniffi::export] impl` blocks across
+ * 14 UniFFI Objects.
  */
 
 export interface FfiExportInfo {
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 244 exports (18 standalone + 226 methods)
+ * Total: 249 exports (18 standalone + 231 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1115,7 +1115,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/preview.rs',
-    line: 30,
+    line: 33,
     paramCount: 0,
     returnType: 'Arc<Self>',
     docs: '',
@@ -1125,7 +1125,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'centres',
     camelName: 'centres',
     file: 'objects/preview.rs',
-    line: 37,
+    line: 40,
     paramCount: 1,
     returnType: 'Result<Vec<FfiPreviewCentre>, VeloqError>',
     docs: 'Ranked riding areas. Sections substrate (bounds cache + visit_count) when any auto section carries bounds, activity-bbox bins otherwise ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.',
@@ -1135,7 +1135,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'current',
     camelName: 'current',
     file: 'objects/preview.rs',
-    line: 60,
+    line: 63,
     paramCount: 2,
     returnType: 'Result<Option<String>, VeloqError>',
     docs: "The live auto catalogue for the riding area containing (lat, lng), as a JSON array in the same section shape a run's payload carries. Scoped by the same component the run uses, so the screen opens on exactly the catalogue the next run will diff against. None when no activity covers the point.",
@@ -1145,7 +1145,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start',
     camelName: 'start',
     file: 'objects/preview.rs',
-    line: 71,
+    line: 74,
     paramCount: 3,
     returnType: 'Result<bool, VeloqError>',
     docs: "Resolve the whole geo component containing (lat, lng) and start the pure preview detect over it. Only the five exposed fields of `config` overlay the engine's live config. Returns false when a preview or real detect is running, detection is suspended for a backfill, or no activity covers the point.",
@@ -1155,7 +1155,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'poll',
     camelName: 'poll',
     file: 'objects/preview.rs',
-    line: 142,
+    line: 145,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     docs: '"idle" | "running" | "complete" | "cancelled" | "pool_unusable" | "error"',
@@ -1165,7 +1165,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/preview.rs',
-    line: 173,
+    line: 176,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     docs: '',
@@ -1175,7 +1175,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'take_result',
     camelName: 'takeResult',
     file: 'objects/preview.rs',
-    line: 192,
+    line: 195,
     paramCount: 0,
     returnType: 'Result<Option<String>, VeloqError>',
     docs: 'The one JSON payload, once. None while running or after taken.',
@@ -1185,11 +1185,61 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel',
     camelName: 'cancel',
     file: 'objects/preview.rs',
-    line: 210,
+    line: 213,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
     docs: 'Cooperative: aborts within one load chunk; once inside the detect the run completes and is discarded.',
     object: 'SectionPreview',
+  },
+  {
+    name: 'new',
+    camelName: 'new',
+    file: 'objects/preview.rs',
+    line: 250,
+    paramCount: 0,
+    returnType: 'Arc<Self>',
+    docs: '',
+    object: 'RouteGroupingPreview',
+  },
+  {
+    name: 'start',
+    camelName: 'start',
+    file: 'objects/preview.rs',
+    line: 258,
+    paramCount: 2,
+    returnType: 'Result<bool, VeloqError>',
+    docs: "Group the whole library at this strictness. Only the two knobs the control exposes cross the boundary; the rest of the match config is the engine's live one. Returns false when a preview is already running or the library has no signatures to group.",
+    object: 'RouteGroupingPreview',
+  },
+  {
+    name: 'poll',
+    camelName: 'poll',
+    file: 'objects/preview.rs',
+    line: 307,
+    paramCount: 0,
+    returnType: 'Result<String, VeloqError>',
+    docs: '"idle" | "running" | "complete" | "cancelled" | "error"',
+    object: 'RouteGroupingPreview',
+  },
+  {
+    name: 'take_result',
+    camelName: 'takeResult',
+    file: 'objects/preview.rs',
+    line: 334,
+    paramCount: 0,
+    returnType: 'Result<Option<Vec<FfiRouteGroupPreview>>, VeloqError>',
+    docs: 'The one payload, once. None while running or after taken.',
+    object: 'RouteGroupingPreview',
+  },
+  {
+    name: 'cancel',
+    camelName: 'cancel',
+    file: 'objects/preview.rs',
+    line: 361,
+    paramCount: 0,
+    returnType: 'Result<(), VeloqError>',
+    docs: 'Cooperative. The grouping itself is one tracematch call and cannot be interrupted, so a cancel that arrives inside it discards the result rather than shortening the run.',
+    object: 'RouteGroupingPreview',
   },
   {
     name: 'new',
@@ -2455,7 +2505,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1988,
+    line: 1989,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2581,6 +2631,11 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'start',
   'poll',
   'getProgress',
+  'takeResult',
+  'cancel',
+  'new',
+  'start',
+  'poll',
   'takeResult',
   'cancel',
   'new',
@@ -2945,6 +3000,7 @@ export const UNIFFI_OBJECTS = [
   'FitnessManager',
   'MapManager',
   'SectionPreview',
+  'RouteGroupingPreview',
   'RouteManager',
   'SectionManager',
   'SettingsManager',

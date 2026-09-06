@@ -87,6 +87,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   HeatmapManager: 'tiles.rs',
   BasemapManager: 'basemap.rs',
   SyncManager: 'sync.rs',
+  RouteGroupingPreview: 'preview.rs',
   SectionPreview: 'preview.rs',
 };
 
