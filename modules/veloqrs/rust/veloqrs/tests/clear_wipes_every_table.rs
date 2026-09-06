@@ -3,15 +3,20 @@
 //! activity foreign key. So the list of tables cannot be maintained by hand
 //! against a schema that keeps growing. This drives it from `sqlite_master`.
 //!
-//! `settings` and `schema_info` survive on purpose. Every other table empties.
+//! What survives is not a list here. It is `TableClass::Meta` in
+//! `persistence::tables`, so a table added next year says whether it survives
+//! a logout in the same place it says whether a backup carries it.
 
 use std::collections::HashMap;
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::tables::{TableClass, tables_of};
 
-const SURVIVORS: [&str; 2] = ["settings", "schema_info"];
+fn survivors() -> Vec<&'static str> {
+    tables_of(TableClass::Meta).collect()
+}
 
 fn tables(conn: &Connection) -> Vec<String> {
     let mut stmt = conn
@@ -25,9 +30,10 @@ fn tables(conn: &Connection) -> Vec<String> {
         .expect("query")
         .map(|r| r.expect("name"))
         .collect();
+    let survivors = survivors();
     names
         .into_iter()
-        .filter(|n| !SURVIVORS.contains(&n.as_str()))
+        .filter(|n| !survivors.contains(&n.as_str()))
         .collect()
 }
 
@@ -142,7 +148,7 @@ fn clear_wipes_every_table() {
 
     let tables = tables(&conn);
     assert!(tables.len() > 20, "schema looks unmigrated: {tables:?}");
-    for table in tables.iter().map(String::as_str).chain(SURVIVORS) {
+    for table in tables.iter().map(String::as_str).chain(survivors()) {
         seed(&conn, table);
         assert!(count(&conn, table) > 0, "{table} was not seeded");
     }
@@ -154,7 +160,7 @@ fn clear_wipes_every_table() {
         survived.is_empty(),
         "clear() left rows behind, so the next athlete inherits them: {survived:?}"
     );
-    for table in SURVIVORS {
+    for table in survivors() {
         assert!(
             count(&conn, table) > 0,
             "{table} is meant to survive clear()"

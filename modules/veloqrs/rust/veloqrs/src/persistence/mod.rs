@@ -59,6 +59,7 @@ pub mod sections;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
 pub mod streams;
+pub mod tables;
 pub use settings::settings_keys;
 pub mod bodies;
 mod strength;
