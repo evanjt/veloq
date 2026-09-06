@@ -223,6 +223,23 @@ impl ActivityManager {
         })
     }
 
+    /// A key for a ride this device recorded and no server has named. The key
+    /// never moves: `record_upload` writes the server's id beside it.
+    fn mint_local_id(&self) -> String {
+        crate::persistence::mint_local_activity_id()
+    }
+
+    /// Write the id intervals.icu gave a locally keyed ride once its upload
+    /// landed. False when no row was waiting for one.
+    fn record_upload(&self, activity_id: String, intervals_id: String) -> Result<bool, VeloqError> {
+        with_engine(|e| {
+            e.record_upload(&activity_id, &intervals_id)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     pub fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             let referencing = e.sections_referencing_activity(&activity_id);

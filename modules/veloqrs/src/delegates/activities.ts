@@ -30,6 +30,25 @@ export async function addActivities(
   });
 }
 
+/** A key for a ride the device recorded. Empty before the engine opens. */
+export function mintLocalActivityId(host: DelegateHost): string {
+  if (!host.ready) return '';
+  return host.timed('mintLocalActivityId', () => host.engine.activities().mintLocalId());
+}
+
+/** Record the id intervals.icu gave a locally keyed ride. */
+export function recordActivityUpload(
+  host: DelegateHost,
+  activityId: string,
+  intervalsId: string
+): boolean {
+  if (!host.ready) return false;
+  validateId(activityId, 'activity ID');
+  return host.timed('recordActivityUpload', () =>
+    host.engine.activities().recordUpload(activityId, intervalsId)
+  );
+}
+
 export function getActivityIds(host: DelegateHost): string[] {
   if (!host.ready) return [];
   return host.timed('getActivityIds', () => host.engine.activities().getIds());
