@@ -7,7 +7,7 @@
  * neither does the ready nonce `useEngineReady` reads: that store imports
  * `zustand` and nothing else.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useEngineReady } from './useEngineReady';
 
@@ -27,8 +27,10 @@ export function useEngineSubscription(events: EngineEvent[]): number {
   const refreshRef = useRef(() => setTrigger((t) => t + 1));
   refreshRef.current = () => setTrigger((t) => t + 1);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const eventKey = useMemo(() => events.join(','), [events.join(',')]);
+  // The joined list is the identity: callers pass a fresh array literal every
+  // render, so its reference is never stable and the string is what the effect
+  // below can be keyed on. Memoising it on itself bought nothing.
+  const eventKey = events.join(',');
 
   // A subscription that arrives after the first render can have missed a
   // change, so it refreshes on arrival. The first one cannot: the render that
