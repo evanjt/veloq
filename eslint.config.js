@@ -181,6 +181,37 @@ module.exports = [
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
+    // Render instrumentation. `PERF_DEBUG` is `__DEV__`, and what these measure
+    // IS the render, so moving the clock read out of render is the same as
+    // deleting the instrument.
+    files: [
+      'src/app/(tabs)/index.tsx',
+      'src/features/routes/hooks/useSectionChartDataEnriched.ts',
+    ],
+    rules: { 'react-hooks/purity': 'off' },
+  },
+  {
+    // Reanimated worklets, not render. Both reads are inside a
+    // `Gesture.Pan().onUpdate` marked `'worklet'`, so they run on the UI thread
+    // during a drag and the rule is reading them as a render body.
+    files: ['src/features/routes/components/SectionTrimOverlay.tsx'],
+    rules: { 'react-hooks/purity': 'off' },
+  },
+  {
+    // A clock the screen is showing. `useTimer` renders the elapsed time and is
+    // driven by its own one-second interval, `useActivitySummary` falls back to
+    // now for a recording that has not stopped, and the marker fade in
+    // `useMapGeoJSON` ages each activity against today. In all three the
+    // current time is the value being rendered, so there is nothing to lift
+    // out.
+    files: [
+      'src/features/recording/hooks/useTimer.ts',
+      'src/features/recording/hooks/useActivitySummary.ts',
+      'src/features/maps/components/regional/useMapGeoJSON.ts',
+    ],
+    rules: { 'react-hooks/purity': 'off' },
+  },
+  {
     // i18next's default export is the singleton instance, and `use`,
     // `changeLanguage` and the rest are that instance's methods as well as
     // named exports bound to it. Calling them on the instance is the library's

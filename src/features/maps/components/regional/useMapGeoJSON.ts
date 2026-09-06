@@ -100,6 +100,9 @@ export function useMapGeoJSON({
   // complete point set for correct cluster hierarchies and counts at all zoom levels.
   const markersGeoJSON = useMemo(() => {
     let skippedCount = 0;
+    // One clock read for the whole set, so every marker ages against the same
+    // instant rather than against its own microsecond.
+    const now = Date.now();
     const features = allActivities
       .map((activity) => {
         // Use pre-computed center (no format detection during render!)
@@ -120,7 +123,7 @@ export function useMapGeoJSON({
         const config = getActivityTypeConfig(activity.type);
         const size = getMarkerSize(activity.distance);
         // Recency: 0 = today, 1 = 1+ year old (for opacity fade on unclustered points)
-        const ageMs = Date.now() - new Date(activity.date).getTime();
+        const ageMs = now - new Date(activity.date).getTime();
         const age = Math.min(ageMs / (365 * 24 * 60 * 60 * 1000), 1);
 
         return {
