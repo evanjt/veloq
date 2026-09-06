@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient, vec } from '@shopify/react-native-skia';
+import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import { colors, typography, spacing, layout, chartStyles } from '@/theme';
@@ -20,9 +20,12 @@ import {
   useChartGestures,
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
+import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 
 interface FitnessChartProps {
   data: WellnessData[];
+  /** Days the accepted eFTP moved, drawn as a mark on the plot. */
+  markers?: EftpChange[];
   height?: number;
   selectedDate?: string | null;
   /** Shared value for instant crosshair sync between charts */
@@ -50,8 +53,22 @@ const SERIES = {
 };
 const xOf = (d: ChartDataPoint) => d.x;
 
+const MARKER_RADIUS = 4;
+
+/** The chart indices of the days that carry a marker, in chart order. */
+function markerIndicesOf(chartData: { date: string }[], markers: EftpChange[]): number[] {
+  if (markers.length === 0) return [];
+  const dates = new Set(markers.map((m) => m.date));
+  const indices: number[] = [];
+  chartData.forEach((d, idx) => {
+    if (dates.has(d.date)) indices.push(idx);
+  });
+  return indices;
+}
+
 export const FitnessChart = React.memo(function FitnessChart({
   data,
+  markers = [],
   height = 200,
   selectedDate,
   sharedSelectedIdx,
@@ -194,6 +211,8 @@ export const FitnessChart = React.memo(function FitnessChart({
   const currentData = chartData[chartData.length - 1];
   const displayData = tooltipData || currentData;
   const yDomain: [number, number] = [0, maxFitness * 1.1];
+  const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
+  const markerIndices = markerIndicesOf(chartData, markers);
 
   return (
     <ChartErrorBoundary height={height} label="Fitness Chart">
@@ -206,6 +225,14 @@ export const FitnessChart = React.memo(function FitnessChart({
                 ? formatShortDate(tooltipData?.date || selectedDate || '')
                 : t('time.current')}
             </Text>
+            {markerChanges.length > 0 && (
+              <Text
+                testID="fitness-eftp-change"
+                style={[styles.markerText, { color: chartColors.accent }]}
+              >
+                {markerChanges.map(formatEftpChange).join(', ')}
+              </Text>
+            )}
           </View>
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
@@ -284,6 +311,15 @@ export const FitnessChart = React.memo(function FitnessChart({
                         />
                       </>
                     )}
+                    {markerIndices.map((idx) => (
+                      <Circle
+                        key={chartData[idx].date}
+                        cx={points.fitness[idx].x}
+                        cy={bounds.top + MARKER_RADIUS}
+                        r={MARKER_RADIUS}
+                        color={chartColors.accent}
+                      />
+                    ))}
                   </>
                 );
               }}
@@ -384,6 +420,10 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  markerText: {
+    ...typography.caption,
+    marginTop: 2,
   },
   valuesRow: {
     flexDirection: 'row',

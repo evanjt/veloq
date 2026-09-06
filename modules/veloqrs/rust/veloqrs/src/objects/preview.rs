@@ -83,7 +83,7 @@ impl SectionPreview {
         // concurrent starts cannot both pass the emptiness check.
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
 
         // Reap a terminal run first: a cancelled, dead or complete-but-untaken
         // preview must not occupy the slot forever once its poller has gone
@@ -110,7 +110,7 @@ impl SectionPreview {
         {
             let detect_guard = SECTION_DETECTION_HANDLE
                 .lock()
-                .map_err(|_| VeloqError::LockFailed)?;
+                .unwrap_or_else(|e| e.into_inner());
             if detect_guard.is_some() {
                 info!("veloqrs: [SectionPreview] Start refused: a real detect is running");
                 return Ok(false);
@@ -142,7 +142,7 @@ impl SectionPreview {
     pub fn poll(&self) -> Result<String, VeloqError> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         let Some(handle) = slot.as_mut() else {
             return Ok("idle".to_string());
         };
@@ -173,7 +173,7 @@ impl SectionPreview {
     pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
         let slot = SECTION_PREVIEW_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         Ok(slot.as_ref().map(|handle| {
             let phase = handle.progress.get_phase();
             let completed = handle.progress.get_completed();
@@ -192,7 +192,7 @@ impl SectionPreview {
     pub fn take_result(&self) -> Result<Option<String>, VeloqError> {
         let mut slot = SECTION_PREVIEW_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         let Some(handle) = slot.as_mut() else {
             return Ok(None);
         };
@@ -210,11 +210,160 @@ impl SectionPreview {
     pub fn cancel(&self) -> Result<(), VeloqError> {
         let slot = SECTION_PREVIEW_HANDLE
             .lock()
-            .map_err(|_| VeloqError::LockFailed)?;
+            .unwrap_or_else(|e| e.into_inner());
         if let Some(handle) = slot.as_ref() {
             handle.request_cancel();
             info!("veloqrs: [SectionPreview] Cancel requested");
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, seeded_global_engine, serial_global_state};
+
+    fn clear_slot() {
+        *SECTION_PREVIEW_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// A panic while a slot lock is held poisons it. The engine lock and the
+    /// detection object both recover, so the preview screen must not read
+    /// "error" for the rest of the session over the same thing.
+    fn poison<T: Send + 'static>(lock: &'static std::sync::Mutex<T>) {
+        let _ = std::thread::spawn(move || {
+            let _guard = lock.lock().unwrap();
+            panic!("poison the slot on purpose");
+        })
+        .join();
+        assert!(lock.is_poisoned());
+    }
+
+    #[test]
+    fn a_poisoned_slot_lock_does_not_fail_every_later_call() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_slot();
+        let preview = SectionPreview::new();
+        poison(&SECTION_PREVIEW_HANDLE);
+        poison(&SECTION_DETECTION_HANDLE);
+
+        assert_eq!(preview.poll().unwrap(), "idle");
+        assert!(preview.get_progress().unwrap().is_none());
+        assert!(preview.take_result().unwrap().is_none());
+        preview.cancel().unwrap();
+
+        let first = preview.centres(1).unwrap().remove(0);
+        assert!(
+            preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap()
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while preview.poll().unwrap() == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "preview never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        assert!(preview.take_result().unwrap().is_some());
+        clear_slot();
+    }
+
+    #[test]
+    fn an_empty_library_has_no_centres_and_nothing_to_preview() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("preview.db");
+        clear_slot();
+        let preview = SectionPreview::new();
+
+        assert!(preview.centres(5).unwrap().is_empty());
+        assert!(preview.current(46.2, 7.35).unwrap().is_none());
+        assert!(
+            !preview
+                .start(46.2, 7.35, crate::FfiSectionConfig::default())
+                .unwrap()
+        );
+        assert_eq!(preview.poll().unwrap(), "idle");
+        assert!(preview.get_progress().unwrap().is_none());
+        assert!(preview.take_result().unwrap().is_none());
+        preview.cancel().unwrap();
+    }
+
+    #[test]
+    fn a_library_with_no_sections_ranks_its_activity_bins() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_slot();
+        let preview = SectionPreview::new();
+
+        let centres = preview.centres(3).unwrap();
+        assert!(!centres.is_empty());
+        assert!(centres.len() <= 3);
+        assert!(
+            centres
+                .iter()
+                .all(|c| c.source == "activities" && c.section_count == 0)
+        );
+        assert!(
+            centres
+                .windows(2)
+                .all(|w| w[0].visit_total >= w[1].visit_total)
+        );
+
+        let first = &centres[0];
+        assert!(preview.current(first.lat, first.lng).unwrap().is_some());
+        assert!(preview.current(0.0, 0.0).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_preview_runs_to_a_payload_that_is_taken_once() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_slot();
+        let preview = SectionPreview::new();
+        let first = preview.centres(1).unwrap().remove(0);
+
+        assert!(
+            preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap()
+        );
+        assert!(
+            !preview
+                .start(first.lat, first.lng, crate::FfiSectionConfig::default())
+                .unwrap()
+                || preview.poll().unwrap() != "running",
+            "a second start while one runs is refused"
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while preview.poll().unwrap() == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "preview never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        assert_eq!(preview.poll().unwrap(), "complete");
+        assert!(
+            preview.get_progress().unwrap().is_some(),
+            "the slot holds the run until taken"
+        );
+
+        let payload = preview.take_result().unwrap().expect("one payload");
+        let json: serde_json::Value = serde_json::from_str(&payload).expect("a JSON payload");
+        assert_eq!(json["pool"]["activities"], 6, "{payload}");
+        assert_eq!(json["pool"]["unreadable"], 0);
+        assert!(json["sections"].is_array());
+        assert_eq!(
+            json["counts"]["proposed"],
+            json["sections"].as_array().unwrap().len()
+        );
+        assert!(preview.take_result().unwrap().is_none(), "taken once");
+        assert_eq!(preview.poll().unwrap(), "idle");
     }
 }

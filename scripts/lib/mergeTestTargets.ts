@@ -92,10 +92,13 @@ function shellQuote(path: string): string {
 export function mergeTestCommands(targets: MergeTargets): string[] {
   const commands: string[] = [];
 
-  const cargo: string[] = [];
+  // Sixty suites carry `required-features = ["synthetic"]`, and cargo refuses
+  // a `--test` naming one without the feature rather than skipping it. The
+  // feature is additive and it is the lane CI runs, so every command has it.
+  const cargo: string[] = ['--features synthetic'];
   if (targets.rustLib) cargo.push('--lib');
   for (const name of targets.rustTests) cargo.push(`--test ${name}`);
-  if (cargo.length > 0) {
+  if (cargo.length > 1) {
     commands.push(`cargo test --manifest-path ${CRATE}Cargo.toml -p veloqrs ${cargo.join(' ')}`);
   }
   if (targets.tracematchLib) {

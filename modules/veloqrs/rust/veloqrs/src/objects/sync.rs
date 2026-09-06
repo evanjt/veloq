@@ -1563,6 +1563,40 @@ mod tests {
         mock.assert();
     }
 
+    /// The fitness plot marks an eFTP change, which intervals.icu reports per
+    /// activity as the accepted rolling value and its delta. The estimate
+    /// alone cannot stand in: two rides on one day report 168 and 93 W
+    /// against a rolling 155.
+    #[test]
+    fn the_window_sync_asks_for_the_rolling_eftp_pair() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .matches(|req| {
+                    let fields = req
+                        .query_params
+                        .as_ref()
+                        .and_then(|q| q.iter().find(|(k, _)| k == "fields"))
+                        .map(|(_, v)| v.split(',').map(str::to_string).collect::<Vec<_>>())
+                        .unwrap_or_default();
+                    fields.iter().any(|f| f == "icu_rolling_ftp")
+                        && fields.iter().any(|f| f == "icu_rolling_ftp_delta")
+                        && fields.iter().any(|f| f == "icu_pm_ftp_watts")
+                });
+            then.status(200).json_body(json!([]));
+        });
+
+        crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2026-01-01",
+            "2026-01-31",
+        ))
+        .expect("window");
+        mock.assert();
+    }
+
     #[test]
     fn activity_window_sync_stores_bodies_and_metrics() {
         let server = MockServer::start();

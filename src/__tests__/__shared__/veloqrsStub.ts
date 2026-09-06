@@ -44,7 +44,9 @@ export const decodeCoords = jest.fn(
 
 /** Fresh jest.fn PreviewClient, one per test, defaulting to an idle engine. */
 export const createPreviewClientStub = () => ({
+  subscribe: jest.fn(() => () => {}),
   getPreviewCentres: jest.fn(() => []),
+  getPreviewCurrentSections: jest.fn(() => []),
   startPreviewDetect: jest.fn(() => false),
   pollPreviewDetect: jest.fn(() => 'idle'),
   getPreviewProgress: jest.fn(() => null),
@@ -65,7 +67,6 @@ export const getDownloadProgress = jest.fn(() => null);
  * nothing throws instead, and reads as a wrong value rather than as absent.
  */
 export const engine = {
-  create: jest.fn(),
   ready: false,
   getSetting: jest.fn(() => undefined),
   setSetting: jest.fn(),

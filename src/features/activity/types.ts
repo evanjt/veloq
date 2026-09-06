@@ -117,6 +117,8 @@ export interface Activity {
   icu_training_load?: number; // TSS
   icu_ftp?: number; // FTP used for this activity
   icu_pm_ftp_watts?: number; // Estimated FTP from this activity (eFTP)
+  icu_rolling_ftp?: number; // eFTP intervals.icu accepted after this activity
+  icu_rolling_ftp_delta?: number; // Change this activity made to it, zero or absent when none
   icu_intensity?: number; // Intensity Factor as percentage (e.g., 92.26 = 92%)
   icu_efficiency_factor?: number; // Power:HR efficiency
   trimp?: number; // Training impulse (HR-based load)

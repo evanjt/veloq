@@ -12,7 +12,7 @@
 //!
 //! Run:
 //!   VELOQ_CORPUS=~/projects/personal/intervals/tracematch/fullcorpus \
-//!     cargo test --release -p veloqrs --test live_section_replay -- --ignored --nocapture
+//!     cargo test --release -p veloqrs --bench live_section_replay -- --ignored --nocapture
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

@@ -21,9 +21,7 @@
 //! - A geometry edit invalidates the performance cache, so
 //!   get_section_performances does not serve pre-edit laps.
 //!
-//! The last three were defects when this file was written and each was gated
-//! `#[ignore]` until it was fixed. Nothing here is ignored now, so the whole
-//! suite runs in the default lane and no `--include-ignored` is needed.
+//! Every gate runs in the default lane.
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits_geometry`
 

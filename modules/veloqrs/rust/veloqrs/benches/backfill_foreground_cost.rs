@@ -8,7 +8,7 @@
 //! stall the main connection takes while the detect worker reads over its own.
 //!
 //! Baseline only, nothing asserts. Run in release:
-//!   cargo test --release --features synthetic --test backfill_foreground_cost -- --ignored --nocapture
+//!   cargo test --release --features synthetic --bench backfill_foreground_cost -- --ignored --nocapture
 
 #![cfg(feature = "synthetic")]
 

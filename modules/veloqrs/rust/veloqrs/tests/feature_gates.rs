@@ -12,7 +12,9 @@
 //! offenders here.
 //!
 //! `required-features` in Cargo.toml is the correct mechanism: cargo skips the
-//! target outright and says so. This test asserts the two never drift apart.
+//! target outright and says so. This test asserts the two never drift apart,
+//! for the `[[test]]` targets under `tests/` and the `[[bench]]` targets under
+//! `benches/`, which hold the measurement harnesses and fail the same way.
 //!
 //! Deliberately ungated, so it runs in every lane.
 
@@ -45,20 +47,21 @@ fn feature_in_crate_level_cfg(source: &str) -> Option<String> {
     None
 }
 
-/// Names from `[[test]]` stanzas that declare `required-features`.
-fn gated_test_targets(manifest: &str) -> BTreeSet<String> {
+/// Names from `stanza` tables, `[[test]]` or `[[bench]]`, that declare
+/// `required-features`.
+fn gated_targets(manifest: &str, stanza: &str) -> BTreeSet<String> {
     let mut gated = BTreeSet::new();
     let mut name: Option<String> = None;
-    let mut in_test_stanza = false;
+    let mut in_stanza = false;
 
     for line in manifest.lines() {
         let line = line.trim();
         if line.starts_with('[') {
-            in_test_stanza = line == "[[test]]";
+            in_stanza = line == stanza;
             name = None;
             continue;
         }
-        if !in_test_stanza {
+        if !in_stanza {
             continue;
         }
         if let Some(rest) = line.strip_prefix("name = \"") {
@@ -123,24 +126,47 @@ fn feature_in_item_level_test_cfg(source: &str) -> Option<String> {
     None
 }
 
-/// Why this test file's feature gate is invisible to cargo, or `None` when it
-/// is not. Split out from the directory walk so a fixture can be judged
-/// without writing one into `tests/`, where it would itself be scanned.
-fn offender_reason(source: &str, stem: &str, gated: &BTreeSet<String>) -> Option<String> {
+/// A directory of targets and the manifest table that declares them.
+struct TargetKind {
+    dir: &'static str,
+    stanza: &'static str,
+}
+
+const TARGET_KINDS: &[TargetKind] = &[
+    TargetKind {
+        dir: "tests",
+        stanza: "[[test]]",
+    },
+    TargetKind {
+        dir: "benches",
+        stanza: "[[bench]]",
+    },
+];
+
+/// Why this file's feature gate is invisible to cargo, or `None` when it is
+/// not. Split out from the directory walk so a fixture can be judged without
+/// writing one into `tests/`, where it would itself be scanned.
+fn offender_reason(
+    source: &str,
+    kind: &TargetKind,
+    stem: &str,
+    gated: &BTreeSet<String>,
+) -> Option<String> {
     if ALLOWED_WITHOUT_STANZA.contains(&stem) || gated.contains(stem) {
         return None;
     }
+    let (dir, stanza) = (kind.dir, kind.stanza);
     if let Some(feature) = feature_in_crate_level_cfg(source) {
         return Some(format!(
-            "  tests/{stem}.rs gates on feature \"{feature}\" but has no \
-             [[test]] stanza, so it compiles to an empty binary and \
+            "  {dir}/{stem}.rs gates on feature \"{feature}\" but has no \
+             {stanza} stanza, so it compiles to an empty binary and \
              reports `ok. 0 passed` without the feature"
         ));
     }
     let feature = feature_in_item_level_test_cfg(source)?;
     Some(format!(
-        "  tests/{stem}.rs gates a #[test] on feature \"{feature}\" but has no \
-         [[test]] stanza, so those tests compile away and report \
+        "  {dir}/{stem}.rs gates a #[test] on feature \"{feature}\" but has no \
+         {stanza} stanza, so those tests compile away and report \
          `ok. 0 passed` beside the ungated ones that ran"
     ))
 }
@@ -149,31 +175,58 @@ fn offender_reason(source: &str, stem: &str, gated: &BTreeSet<String>) -> Option
 fn every_feature_gate_has_a_cargo_stanza() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let manifest = fs::read_to_string(root.join("Cargo.toml")).expect("read Cargo.toml");
-    let gated = gated_test_targets(&manifest);
 
     let mut offenders = Vec::new();
-    for entry in fs::read_dir(root.join("tests")).expect("read tests dir") {
-        let path = entry.expect("dir entry").path();
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-            continue;
-        }
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .expect("utf8 file stem")
-            .to_string();
-        let source = fs::read_to_string(&path).expect("read test source");
-        if let Some(reason) = offender_reason(&source, &stem, &gated) {
-            offenders.push(reason);
+    for kind in TARGET_KINDS {
+        let gated = gated_targets(&manifest, kind.stanza);
+        for entry in fs::read_dir(root.join(kind.dir)).expect("read target dir") {
+            let path = entry.expect("dir entry").path();
+            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .expect("utf8 file stem")
+                .to_string();
+            let source = fs::read_to_string(&path).expect("read target source");
+            if let Some(reason) = offender_reason(&source, kind, &stem, &gated) {
+                offenders.push(reason);
+            }
         }
     }
 
     assert!(
         offenders.is_empty(),
-        "test files whose feature gate is invisible to cargo:\n{}\n\nAdd to Cargo.toml:\n\
-         [[test]]\nname = \"<file stem>\"\nrequired-features = [\"synthetic\"]",
+        "targets whose feature gate is invisible to cargo:\n{}\n\nAdd to Cargo.toml:\n\
+         [[test]] or [[bench]]\nname = \"<file stem>\"\nrequired-features = [\"synthetic\"]",
         offenders.join("\n")
     );
+}
+
+#[test]
+fn the_manifest_parser_reads_each_stanza_kind_on_its_own() {
+    let manifest = "[[test]]\nname = \"a\"\nrequired-features = [\"synthetic\"]\n\n\
+                    [[bench]]\nname = \"b\"\nrequired-features = [\"synthetic\"]\n\n\
+                    [[bench]]\nname = \"c\"\n";
+    let tests: Vec<String> = gated_targets(manifest, "[[test]]").into_iter().collect();
+    let benches: Vec<String> = gated_targets(manifest, "[[bench]]").into_iter().collect();
+    assert_eq!(tests, vec!["a"]);
+    // `c` declares no features, so it needs no gate and is not listed.
+    assert_eq!(benches, vec!["b"]);
+}
+
+#[test]
+fn a_gated_bench_without_a_stanza_is_an_offender() {
+    let kind = &TARGET_KINDS[1];
+    let source = "#![cfg(feature = \"synthetic\")]\n\nuse std::fs;\n";
+    let reason = offender_reason(source, kind, "harness", &BTreeSet::new()).expect("offender");
+    assert!(reason.contains("benches/harness.rs"));
+    assert!(reason.contains("[[bench]]"));
+
+    let mut gated = BTreeSet::new();
+    gated.insert("harness".to_string());
+    assert_eq!(offender_reason(source, kind, "harness", &gated), None);
 }
 
 #[test]
@@ -203,7 +256,7 @@ fn the_parser_recognises_a_crate_level_gate() {
 fn the_manifest_parser_finds_known_gated_targets() {
     let manifest = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"))
         .expect("read Cargo.toml");
-    let gated = gated_test_targets(&manifest);
+    let gated = gated_targets(&manifest, "[[test]]");
 
     // Non-emptiness anchor: a parser that returns nothing would make the guard
     // above fail loudly rather than pass vacuously, but assert it directly so
@@ -236,7 +289,7 @@ fn an_item_level_gate_on_a_test_without_a_stanza_is_an_offender() {
         "fn gated() {}",
     ]);
 
-    let reason = offender_reason(&source, "thing", &BTreeSet::new());
+    let reason = offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new());
 
     assert!(reason.is_some(), "item-level gate went unreported");
     assert!(reason.unwrap().contains("synthetic"));
@@ -251,7 +304,10 @@ fn an_item_level_gate_is_not_an_offender_once_the_stanza_names_it() {
     ]);
     let gated = BTreeSet::from(["thing".to_string()]);
 
-    assert_eq!(offender_reason(&source, "thing", &gated), None);
+    assert_eq!(
+        offender_reason(&source, &TARGET_KINDS[0], "thing", &gated),
+        None
+    );
 }
 
 #[test]
@@ -262,7 +318,7 @@ fn a_gate_the_test_attribute_precedes_is_the_same_offender() {
         "fn gated() {}",
     ]);
 
-    assert!(offender_reason(&source, "thing", &BTreeSet::new()).is_some());
+    assert!(offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new()).is_some());
 }
 
 #[test]
@@ -273,7 +329,7 @@ fn an_async_test_attribute_counts_as_a_test() {
         "async fn gated() {}",
     ]);
 
-    assert!(offender_reason(&source, "thing", &BTreeSet::new()).is_some());
+    assert!(offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new()).is_some());
 }
 
 #[test]
@@ -288,14 +344,20 @@ fn a_gate_on_something_that_is_not_a_test_is_not_an_offender() {
         "fn runs_everywhere() {}",
     ]);
 
-    assert_eq!(offender_reason(&source, "thing", &BTreeSet::new()), None);
+    assert_eq!(
+        offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new()),
+        None
+    );
 }
 
 #[test]
 fn a_file_with_no_gate_at_all_is_not_an_offender() {
     let source = fixture(&["#[test]", "fn t() {}"]);
 
-    assert_eq!(offender_reason(&source, "thing", &BTreeSet::new()), None);
+    assert_eq!(
+        offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new()),
+        None
+    );
 }
 
 #[test]
@@ -308,5 +370,8 @@ fn a_cfg_that_is_not_a_feature_gate_is_not_an_offender() {
         "fn gated() {}",
     ]);
 
-    assert_eq!(offender_reason(&source, "thing", &BTreeSet::new()), None);
+    assert_eq!(
+        offender_reason(&source, &TARGET_KINDS[0], "thing", &BTreeSet::new()),
+        None
+    );
 }

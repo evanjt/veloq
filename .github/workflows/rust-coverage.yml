@@ -1,6 +1,6 @@
 name: Rust Coverage
 
-# Nightly, not per push: the instrumented run over all 141 test targets takes
+# Nightly, not per push: the instrumented run over all 138 test targets takes
 # about an hour. The floors it holds are in scripts/rust-coverage-baseline.json.
 on:
   schedule:
@@ -40,9 +40,10 @@ jobs:
         with:
           node-version: "22"
 
-      # The one skip is `name_follows_ground_through_recut`, which never
-      # returns under instrumentation and would hold the job to its timeout.
-      # Drop the skip the day that test completes.
+      # The one skip is `name_follows_ground_through_recut`, six full
+      # detects ending in one over 550 activities: 13 minutes in a plain
+      # debug build on 32 threads, and instrumentation multiplies that. It
+      # does return, so the skip buys the hour, not a hang.
       - name: Measure
         working-directory: modules/veloqrs/rust
         run: >

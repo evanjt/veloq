@@ -94,8 +94,8 @@ where
 pub const ACTIVITY_FIELDS: &str = "id,name,type,start_date_local,moving_time,elapsed_time,distance,total_elevation_gain,average_speed,max_speed,icu_average_hr,icu_max_hr,average_heartrate,average_watts,max_watts,icu_average_watts,average_cadence,calories,icu_training_load,has_weather,average_weather_temp,icu_ftp,stream_types,locality,country,skyline_chart_bytes";
 
 /// The additional stats fields appended when `includeStats` is set.
-pub const ACTIVITY_STATS_EXTRA: &str =
-    "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,icu_power_zones,icu_hr_zones";
+pub const ACTIVITY_STATS_EXTRA: &str = "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,\
+     icu_power_zones,icu_hr_zones,icu_rolling_ftp,icu_rolling_ftp_delta";
 
 // ===========================================================================
 // Streams

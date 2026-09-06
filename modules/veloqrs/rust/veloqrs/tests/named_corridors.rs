@@ -11,6 +11,8 @@
 
 mod lifecycle_support;
 
+use std::time::Duration;
+
 use lifecycle_support::*;
 use rusqlite::params;
 use tracematch::GpsPoint;
@@ -22,6 +24,10 @@ use veloqrs::PersistentEngine;
 const NAME: &str = "Col des Planches";
 /// A second user name for precedence scenarios.
 const ROW_NAME: &str = "Evening loop";
+
+/// Measured at 755 s in a debug build on 32 threads, 502 s of it the final
+/// 550-activity detect. A two-core runner is several times slower again.
+const RECUT_BOUND: Duration = Duration::from_secs(60 * 60);
 
 fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
@@ -594,24 +600,31 @@ fn name_survives_restart_and_resync() {
 
 /// The name rides the ground through the growth buckets, sitting on exactly
 /// one visible section at every step even as the cut evolves.
+///
+/// Every step re-batches the whole pool, so this is the suite's slowest test:
+/// six detects, the last over 550 activities, 13 minutes in a debug build on
+/// 32 threads. The bound leaves room for a two-core runner and turns a run
+/// that never returns into a failure rather than a wait.
 #[test]
 fn name_follows_ground_through_recut() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    within(RECUT_BOUND, "name_follows_ground_through_recut", || {
+        let corpus = corpus();
+        let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+        let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+        let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+        engine.set_section_name(&id, Some(NAME)).expect("set name");
 
-    let snap = ingest_step(&mut engine, "b", &refs(&corpus.bucket_b_delta)).snapshot;
-    assert_single_carrier(&engine, &snap, &fp, "after bucket b");
-    let snap = ingest_step(&mut engine, "c", &[&corpus.bucket_c_single]).snapshot;
-    assert_single_carrier(&engine, &snap, &fp, "after bucket c");
-    for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
-        let snap = ingest_step(&mut engine, &format!("d_{i}"), &[a]).snapshot;
-        assert_single_carrier(&engine, &snap, &fp, &format!("after d single {i}"));
-    }
-    let snap = ingest_step(&mut engine, "e", &refs(&corpus.bucket_e_delta)).snapshot;
-    assert_single_carrier(&engine, &snap, &fp, "after bucket e");
+        let snap = ingest_step(&mut engine, "b", &refs(&corpus.bucket_b_delta)).snapshot;
+        assert_single_carrier(&engine, &snap, &fp, "after bucket b");
+        let snap = ingest_step(&mut engine, "c", &[&corpus.bucket_c_single]).snapshot;
+        assert_single_carrier(&engine, &snap, &fp, "after bucket c");
+        for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
+            let snap = ingest_step(&mut engine, &format!("d_{i}"), &[a]).snapshot;
+            assert_single_carrier(&engine, &snap, &fp, &format!("after d single {i}"));
+        }
+        let snap = ingest_step(&mut engine, "e", &refs(&corpus.bucket_e_delta)).snapshot;
+        assert_single_carrier(&engine, &snap, &fp, "after bucket e");
+    });
 }
 
 /// The user ruling on splits: when later traffic cuts the named trunk into
