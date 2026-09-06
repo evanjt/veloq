@@ -88,6 +88,8 @@ export interface RecordingLibraryEntry {
   intervalsActivityId?: string;
   /** The engine key the recording was written under at save time. */
   engineActivityId?: string;
+  /** Whether the engine row carries the id intervals.icu gave the upload. */
+  engineReconciled?: boolean;
 }
 
 /** Crash recovery backup */
