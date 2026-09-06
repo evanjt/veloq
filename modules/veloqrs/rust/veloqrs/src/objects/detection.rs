@@ -327,25 +327,7 @@ impl DetectionManager {
         min_match_pct: f64,
         endpoint_threshold: f64,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.match_config.min_match_percentage = min_match_pct;
-            e.match_config.endpoint_threshold = endpoint_threshold;
-            e.set_setting(
-                crate::persistence::settings_keys::MATCH_MIN_MATCH_PCT,
-                &min_match_pct.to_string(),
-            )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("persist match_min_match_pct failed: {}", err),
-            })?;
-            e.set_setting(
-                crate::persistence::settings_keys::MATCH_ENDPOINT_THRESHOLD,
-                &endpoint_threshold.to_string(),
-            )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("persist match_endpoint_threshold failed: {}", err),
-            })?;
-            Ok::<(), VeloqError>(())
-        })??;
+        with_engine(|e| e.set_match_strictness(min_match_pct, endpoint_threshold))?;
         Ok(())
     }
 

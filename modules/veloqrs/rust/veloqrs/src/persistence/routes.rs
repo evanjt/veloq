@@ -424,6 +424,61 @@ impl PersistentEngine {
     // Route Groups
     // ========================================================================
 
+    /// How tightly rides group into routes, and the two settings rows behind
+    /// it, in one place.
+    ///
+    /// The grouping is recomputed only when `groups_dirty` is set, and until
+    /// this existed that flag was set by the activity ingestion paths alone.
+    /// So the rule could change and the groups it made would stand until an
+    /// unrelated import happened to dirty them. Guarded on equality for the
+    /// same reason `set_section_config` is: re-sending the value already held
+    /// is not a reason to regroup a whole library.
+    pub fn set_match_strictness(&mut self, min_match_pct: f64, endpoint_threshold: f64) {
+        if self.match_config.min_match_percentage == min_match_pct
+            && self.match_config.endpoint_threshold == endpoint_threshold
+        {
+            return;
+        }
+        self.match_config.min_match_percentage = min_match_pct;
+        self.match_config.endpoint_threshold = endpoint_threshold;
+        // Logged rather than propagated, like the detector config's own
+        // persist: the in-memory rule has already changed, and the loader
+        // falls back to the default when a key is absent.
+        for (key, value) in [
+            (
+                crate::persistence::settings_keys::MATCH_MIN_MATCH_PCT,
+                min_match_pct,
+            ),
+            (
+                crate::persistence::settings_keys::MATCH_ENDPOINT_THRESHOLD,
+                endpoint_threshold,
+            ),
+        ] {
+            if let Err(e) = self.set_setting(key, &value.to_string()) {
+                log::warn!(
+                    "veloqrs: [set_match_strictness] persist {} failed: {}",
+                    key,
+                    e
+                );
+            }
+        }
+        self.groups_dirty = true;
+    }
+
+    /// The strictness in force, as `(min_match_percentage, endpoint_threshold)`.
+    pub fn match_strictness(&self) -> (f64, f64) {
+        (
+            self.match_config.min_match_percentage,
+            self.match_config.endpoint_threshold,
+        )
+    }
+
+    /// Whether the grouping is waiting to be recomputed.
+    #[doc(hidden)]
+    pub fn groups_are_dirty(&self) -> bool {
+        self.groups_dirty
+    }
+
     /// Get route groups, recomputing if dirty.
     pub fn get_groups(&mut self) -> &[RouteGroup] {
         if self.groups_dirty {

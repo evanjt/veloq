@@ -545,7 +545,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 352,
+    line: 334,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     docs: '',
