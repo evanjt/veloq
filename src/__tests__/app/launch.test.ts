@@ -63,10 +63,7 @@ jest.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file:///data/documents/',
 }));
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const secureGet = SecureStore.getItemAsync as jest.Mock;
 

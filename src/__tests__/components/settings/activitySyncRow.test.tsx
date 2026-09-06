@@ -16,10 +16,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivitySyncRow } from '@/features/settings/components/ActivitySyncRow';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

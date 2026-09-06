@@ -14,13 +14,9 @@ import { render } from '@testing-library/react-native';
 
 import DetectionPreviewScreen from '@/app/detection-preview';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-native-safe-area-context', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
   return {
     useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),

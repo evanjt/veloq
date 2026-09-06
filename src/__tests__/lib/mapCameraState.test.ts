@@ -8,7 +8,6 @@
  * The module caches the camera at module scope, so each test needs its own
  * module registry and `require` is the only way to reach one.
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 

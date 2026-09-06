@@ -19,7 +19,6 @@ import { SyncState } from 'veloqrs';
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: () => [],
   })

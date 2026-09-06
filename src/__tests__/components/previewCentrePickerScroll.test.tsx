@@ -19,7 +19,6 @@ jest.mock('react-i18next', () => ({
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 jest.mock('expo-linear-gradient', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
   return { LinearGradient: View };
 });

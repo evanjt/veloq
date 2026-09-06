@@ -15,10 +15,7 @@ import { render, screen } from '@testing-library/react-native';
 import { WeekShapeCard } from '@/features/fitness/components/WeekShapeCard';
 import { describeWeekShape } from '@/features/fitness/lib/weekShape';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides({})
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 describe('what the reading is called in words', () => {
