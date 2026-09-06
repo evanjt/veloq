@@ -10,6 +10,7 @@ import NativeVeloqrs from './NativeVeloqrs';
 
 // Import generated functions for top-level aliases
 import {
+  BasemapManager,
   getDownloadProgress as ffiGetDownloadProgress,
   type DownloadProgressResult,
   type FfiActivityMetrics,
@@ -169,13 +170,11 @@ export const engine = EngineClient.getInstance();
  * Not on `EngineClient`: a tile read must not queue behind the engine lock,
  * and the store answers from the filesystem without needing the library open.
  */
-let _basemap: InstanceType<typeof import('./generated/veloqrs').BasemapManager> | null = null;
+let _basemap: BasemapManager | null = null;
 
-export function basemapStore() {
+export function basemapStore(): BasemapManager {
   if (!_basemap) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const gen = require('./generated/veloqrs');
-    _basemap = new gen.BasemapManager();
+    _basemap = new BasemapManager();
   }
-  return _basemap!;
+  return _basemap;
 }

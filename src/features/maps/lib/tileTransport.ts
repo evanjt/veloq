@@ -39,9 +39,10 @@ function extensionOf(template: string): string {
  */
 export function nativeTileUrl(source: string, template: string): string | null {
   try {
-    // Required lazily: a style is built in tests and on web, where the native
-    // module does not load, and the transport is off in both.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // Required lazily, not imported: `veloqrs` reaches the Turbo Module at
+    // import time, and a style is built in tests and on web where that module
+    // does not exist. The transport is off in both.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
     basemapStore().setSourceTemplate(source, template);
   } catch {

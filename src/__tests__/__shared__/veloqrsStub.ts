@@ -75,6 +75,20 @@ export const engine = {
 };
 
 /**
+ * The basemap tile store, closed. `setPath` is what launch hands it, and the
+ * reads answer nothing so a caller falls through the way it does before the
+ * path is set.
+ */
+export const basemap = {
+  setPath: jest.fn(),
+  setSourceTemplate: jest.fn(),
+  getTile: jest.fn(() => undefined),
+  getOrFetchTile: jest.fn(() => undefined),
+};
+
+export const basemapStore = jest.fn(() => basemap);
+
+/**
  * The stub with `overrides` applied. An override replaces the export it names
  * rather than merging into it, so a test that lists the engine methods it
  * expects to be touched still sees only its own.
@@ -89,6 +103,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     takeFetchAndStoreResult,
     getDownloadProgress,
     engine,
+    basemapStore,
     ...overrides,
   };
 }

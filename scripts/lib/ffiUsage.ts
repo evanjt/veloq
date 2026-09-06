@@ -375,6 +375,10 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'BasemapManager.clearTiles': 'the basemap tile store, the whole-store clear',
   'BasemapManager.clearSourceTiles': 'the basemap tile store, the per-source clear',
   'BasemapManager.evictTo': 'the basemap tile store, the budget eviction',
+  'BasemapManager.setSourceTemplate':
+    'handed each source\'s upstream template at style load, through a lazy require the scan does not follow',
+  'BasemapManager.getOrFetchTile':
+    'the interceptor reaches the store through the JNI symbol, not this mirror, and iOS has no interceptor yet',
 
   'DetectionManager.setMatchStrictness':
     'route-grouping strictness, kept for the preview its screen will get',
