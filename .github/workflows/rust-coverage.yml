@@ -1,6 +1,6 @@
 name: Rust Coverage
 
-# Nightly, not per push: the instrumented run over all 141 test targets takes
+# Nightly, not per push: the instrumented run over all 138 test targets takes
 # about an hour. The floors it holds are in scripts/rust-coverage-baseline.json.
 on:
   schedule:

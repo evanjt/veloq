@@ -13,10 +13,8 @@
 //! top, so an id must stay on its ground while that emission order moves
 //! underneath it.
 //!
-//! One gate per curiosity, and all of them run live. The shared-corridor
-//! heading being frozen at first assignment by the identity carry was the
-//! outstanding defect and is fixed. Snapshots read the user-visible DB view, so
-//! every count is what the app renders.
+//! One gate per curiosity, and all of them run in the default lane. Snapshots
+//! read the user-visible DB view, so every count is what the app renders.
 //!
 //! Data is synthetic and deterministic (`LifecycleCorpus`, seeded). A second
 //! geography is a corpus at a shifted origin with namespaced activity ids so

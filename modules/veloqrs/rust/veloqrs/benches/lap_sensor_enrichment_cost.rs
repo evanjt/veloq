@@ -13,7 +13,7 @@
 //! so a reader queues exactly as it would in production.
 //!
 //! Baseline only, nothing asserts. Run in release:
-//!   cargo test --release --features synthetic --test lap_sensor_enrichment_cost -- --ignored --nocapture --test-threads=1
+//!   cargo test --release --features synthetic --bench lap_sensor_enrichment_cost -- --ignored --nocapture --test-threads=1
 
 #![cfg(feature = "synthetic")]
 
