@@ -35,6 +35,8 @@ export interface RecordingEntry {
   lastError?: string;
   intervalsActivityId?: string;
   engineActivityId?: string;
+  /** Whether the engine row has taken the id intervals.icu gave the upload. */
+  engineReconciled: boolean;
 }
 
 function toEntry(row: FfiRecordingEntry): RecordingEntry {
@@ -57,6 +59,7 @@ function toEntry(row: FfiRecordingEntry): RecordingEntry {
     lastError: row.lastError ?? undefined,
     intervalsActivityId: row.intervalsActivityId ?? undefined,
     engineActivityId: row.engineActivityId ?? undefined,
+    engineReconciled: row.engineReconciled,
   };
 }
 
@@ -81,6 +84,7 @@ function toRow(entry: RecordingEntry): FfiRecordingEntry {
     lastError: entry.lastError,
     intervalsActivityId: entry.intervalsActivityId,
     engineActivityId: entry.engineActivityId,
+    engineReconciled: entry.engineReconciled,
   };
 }
 
@@ -110,6 +114,16 @@ export function attachRecordingEngineActivity(
   host.write('attachRecordingEngineActivity', () =>
     host.engine.recordings().attachEngineActivity(id, engineActivityId)
   );
+}
+
+/** The engine row has taken the id intervals.icu gave the upload. */
+export function markRecordingReconciled(host: DelegateHost, id: string): void {
+  host.write('markRecordingReconciled', () => host.engine.recordings().markReconciled(id));
+}
+
+/** Forget the streams sidecar, once the engine holds the ride's track. */
+export function clearRecordingStreamsPath(host: DelegateHost, id: string): void {
+  host.write('clearRecordingStreamsPath', () => host.engine.recordings().clearStreamsPath(id));
 }
 
 export function markRecordingUploading(host: DelegateHost, id: string): void {
