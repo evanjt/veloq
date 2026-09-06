@@ -11,6 +11,16 @@ use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::sections::{build_rtree, find_all_track_portions};
 
+/// What a section row says about itself beyond the catalogue record.
+pub(crate) struct SectionRowIdentity {
+    pub section_type: String,
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
+    pub source_activity_id: Option<String>,
+    pub start_index: Option<u32>,
+    pub end_index: Option<u32>,
+}
+
 impl PersistentEngine {
     /// Column list for full section queries.
     pub(super) const SECTION_COLUMNS: &'static str =
@@ -404,6 +414,28 @@ impl PersistentEngine {
 
     /// The raw DB row without the overlay, what caches must store, so a
     /// later overlay change never serves a baked stale name.
+    /// The row's own account of a section, which the catalogue record lacks:
+    /// its type, its visibility, and the slice a custom section was cut from.
+    pub(crate) fn section_row_identity(&self, section_id: &str) -> Option<SectionRowIdentity> {
+        self.db
+            .query_row(
+                "SELECT section_type, disabled, superseded_by, source_activity_id, start_index, \
+                 end_index FROM sections WHERE id = ?",
+                rusqlite::params![section_id],
+                |row| {
+                    Ok(SectionRowIdentity {
+                        section_type: row.get(0)?,
+                        disabled: row.get::<_, i64>(1)? != 0,
+                        superseded_by: row.get(2)?,
+                        source_activity_id: row.get(3)?,
+                        start_index: row.get(4)?,
+                        end_index: row.get(5)?,
+                    })
+                },
+            )
+            .ok()
+    }
+
     pub(crate) fn get_section_raw(&self, section_id: &str) -> Option<Section> {
         let query = format!(
             "SELECT {} FROM sections WHERE id = ?",
