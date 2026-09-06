@@ -1,0 +1,62 @@
+name: Rust Coverage
+
+# Nightly, not per push: the instrumented run over all 141 test targets takes
+# about an hour. The floors it holds are in scripts/rust-coverage-baseline.json.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Coverage floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: coverage
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      # The one skip is `name_follows_ground_through_recut`, which never
+      # returns under instrumentation and would hold the job to its timeout.
+      # Drop the skip the day that test completes.
+      - name: Measure
+        working-directory: modules/veloqrs/rust
+        run: >
+          cargo llvm-cov -p veloqrs --features synthetic
+          --json --output-path coverage.json
+          -- --skip name_follows_ground_through_recut
+
+      - name: Hold the floors
+        run: node scripts/check-rust-coverage.mjs --report modules/veloqrs/rust/coverage.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage
+          path: modules/veloqrs/rust/coverage.json
+          retention-days: 90
