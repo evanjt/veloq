@@ -62,8 +62,12 @@ impl PersistentEngine {
     ///
     /// An unknown date is outside it. On a first sync no activity has a date
     /// yet, and widening on a guess would download thirteen series apiece for
-    /// a whole library and hand most of them straight to the prune. The detail
-    /// screen's own fetch still fills the store for anything the athlete opens.
+    /// a whole library and hand most of them straight to the prune. An undated
+    /// activity the athlete opens is still stocked by the detail screen's own
+    /// fetch, because the prune keeps a row with no start date. A dated
+    /// activity outside the window is not: the fetch writes it and the same
+    /// call's prune takes it straight back out, which is the window doing what
+    /// it was set to do. The screen still draws it, off the cached body.
     pub fn inside_stream_window(&self, start_date: Option<i64>) -> bool {
         let Some(days) = self.stream_retention_days() else {
             return true;
@@ -117,6 +121,12 @@ impl PersistentEngine {
                 params![activity_id, s.kind, blob, s.data.len() as i64],
             )?;
         }
+        // The prune runs on the way out, so an activity outside the window is
+        // written and deleted inside this one call. That is deliberate: the
+        // window is the athlete's storage budget, and exempting whatever was
+        // written last would only keep it until the next write, which is a
+        // lifetime nobody can reason about. What the athlete sees is served
+        // from `stream_bodies` instead.
         self.prune_streams_outside_retention()?;
         Ok(())
     }
@@ -538,6 +548,42 @@ mod tests {
         engine.set_stream_retention_days(30).unwrap();
         assert!(engine.stored_stream_kinds("edge").unwrap().is_empty());
         assert!(!engine.stored_stream_kinds("recent").unwrap().is_empty());
+    }
+
+    /// Scenario: the detail screen's fetch writes an out-of-window activity's
+    /// series through `write_activity_streams`, whose own prune then deletes
+    /// them before the call returns.
+    ///
+    /// Expected behaviour: the durable store holds nothing for it, which is
+    /// the window doing its job, and the screen is still served from the
+    /// cached body rather than showing a gap.
+    #[test]
+    fn opening_an_old_activity_does_not_stock_the_durable_store() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "old", 400);
+        let body = r#"[{"type":"heartrate","data":[140.0,142.0]}]"#;
+
+        engine.set_stream_body("old", "heartrate", body).unwrap();
+
+        assert!(engine.stored_stream_kinds("old").unwrap().is_empty());
+        assert_eq!(
+            engine.read_stream_body("old", "heartrate").unwrap().as_deref(),
+            Some(body)
+        );
+    }
+
+    /// The same fetch for an activity inside the window does stock it, so the
+    /// test above is measuring the window and not a broken write path.
+    #[test]
+    fn opening_a_recent_activity_stocks_the_durable_store() {
+        let (_dir, engine) = engine();
+        activity_aged(&engine, "recent", 10);
+
+        engine
+            .set_stream_body("recent", "heartrate", r#"[{"type":"heartrate","data":[140.0]}]"#)
+            .unwrap();
+
+        assert_eq!(engine.stored_stream_kinds("recent").unwrap(), vec!["heartrate"]);
     }
 
     #[test]
