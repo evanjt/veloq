@@ -592,3 +592,131 @@ fn walk(dir: &std::path::Path) -> Vec<String> {
     }
     out
 }
+
+// ============================================================================
+// Concurrency
+// ============================================================================
+
+/// Scenario: a map pan asks for dozens of tiles at once and the native
+/// transport answers each on its own WebView thread. `get` used to hold the
+/// store's one mutex, which covers every source, across the file read, so
+/// every one of those threads queued behind whichever read held it.
+///
+/// Expected behaviour: a read that cannot finish blocks nobody else. The
+/// blocked read here is a FIFO with no writer, which `std::fs::read` waits on
+/// at open, so this is deterministic rather than a timing margin.
+#[cfg(unix)]
+#[test]
+fn a_read_that_blocks_forever_does_not_block_another_source() {
+    use std::sync::Arc;
+    use std::sync::mpsc;
+
+    let (store, tmp) = store();
+    let store = Arc::new(store);
+    store
+        .put(SATELLITE, 1, 1, 1, "jpg", &bytes(32, 7), false)
+        .expect("put the tile that must stay readable");
+    store
+        .put(VECTOR, 1, 1, 1, "pbf", &bytes(32, 9), false)
+        .expect("put the tile that becomes a fifo");
+
+    // Replace one tile's file with a fifo nothing ever writes to. The index
+    // still names it, so `get` resolves the path and then waits at the open.
+    let fifo = tmp
+        .path()
+        .join("basemap-tiles")
+        .join(VECTOR)
+        .join("1")
+        .join("1")
+        .join("1.pbf");
+    std::fs::remove_file(&fifo).expect("remove the real tile");
+    let made = std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .expect("run mkfifo");
+    assert!(made.success(), "mkfifo failed");
+
+    let blocked = Arc::clone(&store);
+    let blocker = std::thread::spawn(move || blocked.get(VECTOR, 1, 1, 1));
+
+    // The blocked read has to be in the open before the second one starts, or
+    // this passes without proving anything. A fifo with no writer never
+    // reports readiness, so the wait is on the file existing as one.
+    let (tx, rx) = mpsc::channel();
+    let reader = Arc::clone(&store);
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(200));
+        let _ = tx.send(reader.get(SATELLITE, 1, 1, 1));
+    });
+
+    let answered = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("a read of another source waited on the blocked one");
+    assert_eq!(
+        answered,
+        Some(bytes(32, 7)),
+        "and it answered with its own tile"
+    );
+
+    // Let the blocked thread go, so the test does not leak it.
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&fifo)
+        .expect("open the fifo for writing");
+    let _ = blocker.join();
+}
+
+/// The read still stamps what it read, or eviction loses its order, and it
+/// still corrects a byte count for a file the OS truncated under it.
+#[test]
+fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
+    let (store, tmp) = store();
+    store
+        .put(SATELLITE, 2, 0, 0, "jpg", &bytes(64, 1), false)
+        .expect("put");
+    store
+        .put(SATELLITE, 2, 0, 1, "jpg", &bytes(64, 2), false)
+        .expect("put");
+
+    // Truncate one tile behind the store's back, then read it.
+    let path = tmp
+        .path()
+        .join("basemap-tiles")
+        .join(SATELLITE)
+        .join("2")
+        .join("0")
+        .join("0.jpg");
+    std::fs::write(&path, bytes(8, 1)).expect("truncate");
+    assert_eq!(store.get(SATELLITE, 2, 0, 0), Some(bytes(8, 1)));
+    assert_eq!(
+        store.size_of(SATELLITE),
+        8 + 64,
+        "the byte count follows what was read, not what the index remembered"
+    );
+
+    // The tile just read is the most recent, so eviction takes the other one.
+    store.evict_to(SATELLITE, 8).expect("evict");
+    assert_eq!(store.get(SATELLITE, 2, 0, 1), None);
+    assert_eq!(store.get(SATELLITE, 2, 0, 0), Some(bytes(8, 1)));
+}
+
+/// The index outliving its file is still forgotten rather than answered.
+#[test]
+fn a_read_of_a_file_that_vanished_forgets_the_entry() {
+    let (store, tmp) = store();
+    store
+        .put(SATELLITE, 3, 0, 0, "jpg", &bytes(16, 4), false)
+        .expect("put");
+    std::fs::remove_file(
+        tmp.path()
+            .join("basemap-tiles")
+            .join(SATELLITE)
+            .join("3")
+            .join("0")
+            .join("0.jpg"),
+    )
+    .expect("remove");
+
+    assert_eq!(store.get(SATELLITE, 3, 0, 0), None);
+    assert_eq!(store.size_of(SATELLITE), 0, "and stops counting its bytes");
+}
