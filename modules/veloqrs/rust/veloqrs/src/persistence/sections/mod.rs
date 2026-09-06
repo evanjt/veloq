@@ -79,6 +79,38 @@ pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> St
 /// Haversine distance between two lat/lng points in meters.
 pub(super) use crate::persistence::haversine_distance_meters as haversine_distance;
 
+/// The mean heart rate over one traversal, from the activity's own series.
+///
+/// Indices are the half-open pair every writer of `section_activities` stores,
+/// the same space [`compute_lap_time_from_stream`] reads, so the last sample of
+/// the traversal is `end_index - 1`.
+///
+/// Absent samples are skipped rather than counted as zero: a strap that dropped
+/// out for a minute must not read as a minute at nought beats. `None` when
+/// there is no series, when either index is out of bounds, or when nothing in
+/// the slice was recorded, all of which are "this lap has no heart rate" rather
+/// than a heart rate of nought.
+pub(super) fn mean_over_traversal(
+    series: Option<&[Option<f64>]>,
+    start_index: u32,
+    end_index: u32,
+) -> Option<f64> {
+    let series = series?;
+    if end_index == 0 || end_index as usize > series.len() {
+        return None;
+    }
+    let si = start_index as usize;
+    let ei = end_index as usize - 1;
+    if si >= series.len() || ei < si {
+        return None;
+    }
+    let present: Vec<f64> = series[si..=ei].iter().flatten().copied().collect();
+    if present.is_empty() {
+        return None;
+    }
+    Some(present.iter().sum::<f64>() / present.len() as f64)
+}
+
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
 /// `end_index` is the half-open end every writer of `section_activities` stores,
@@ -1501,15 +1533,38 @@ impl PersistentEngine {
         // Compute lap_time from time_stream when available (in-memory or DB)
         let (lap_time, lap_pace) =
             self.load_lap_time(activity_id, start_index, end_index, distance_meters);
+        // The effort the lap was ridden at, from the same slice, so the
+        // efficiency trend has both halves of its ratio for this pass.
+        let avg_hr = mean_over_traversal(
+            self.load_heartrate_series(activity_id).as_deref(),
+            start_index,
+            end_index,
+        );
 
         self.db
             .execute(
-                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace],
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr],
             )
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
+    }
+
+    /// The activity's stored heart rate series, if it has one.
+    ///
+    /// `activity_streams` is where the sync puts every series but the ones the
+    /// track already carries, so this is one row and one decode.
+    pub(super) fn load_heartrate_series(&self, activity_id: &str) -> Option<Vec<Option<f64>>> {
+        let blob: Vec<u8> = self
+            .db
+            .query_row(
+                "SELECT data FROM activity_streams WHERE activity_id = ? AND kind = 'heartrate'",
+                rusqlite::params![activity_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        codec::decode_series(&blob)
     }
 
     /// Load lap_time from time_stream (in-memory or DB fallback).
