@@ -12,10 +12,6 @@ import { stripMarks, DAY_SPACING_FLOOR, MIN_MARK_HEIGHT } from '@/features/fitne
 import type { StripDay } from '@/features/fitness/lib/stripMarks';
 import type { ActivityType } from '@/types';
 
-jest.mock('@/features/activity/lib/activityUtils', () => ({
-  getActivityColor: (type: string) => `colour-${type}`,
-}));
-
 const WIDTH = 324;
 
 function day(n: number, activities: { type: ActivityType; load: number }[] = []): StripDay {
@@ -70,9 +66,9 @@ describe('stripMarks', () => {
       ],
       WIDTH
     );
-    expect(mixed.segments.map((s) => [s.type, s.color, s.fraction])).toEqual([
-      ['Ride', 'colour-Ride', 80 / 110],
-      ['WeightTraining', 'colour-WeightTraining', 30 / 110],
+    expect(mixed.segments.map((s) => [s.type, s.fraction])).toEqual([
+      ['Ride', 80 / 110],
+      ['WeightTraining', 30 / 110],
     ]);
     expect(tied.segments.map((s) => s.fraction)).toEqual([0.5, 0.5]);
   });
@@ -99,7 +95,7 @@ describe('stripMarks', () => {
     expect(d60.height).toBe(1);
     expect(d40.height).toBeCloseTo(40 / 60);
     expect(walk.height).toBe(MIN_MARK_HEIGHT);
-    expect(walk.segments).toEqual([{ type: 'Walk', color: 'colour-Walk', fraction: 1 }]);
+    expect(walk.segments).toEqual([{ type: 'Walk', fraction: 1 }]);
   });
 
   it('draws nothing for no days, no width, or a window that never trained', () => {

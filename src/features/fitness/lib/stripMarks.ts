@@ -1,4 +1,3 @@
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { ActivityType } from '@/types';
 
 /** What one day on the strip holds. */
@@ -16,7 +15,7 @@ export interface StripMark {
   /** Fraction of the strip's height, 0 to 1. */
   height: number;
   /** Sport shares from the bottom up, largest first. Fractions sum to 1. */
-  segments: { type: ActivityType; color: string; fraction: number }[];
+  segments: { type: ActivityType; fraction: number }[];
 }
 
 /** Below this many points per day the strip draws weeks. */
@@ -41,7 +40,6 @@ function sportShares(days: StripDay[]): StripMark['segments'] {
   // With no load anywhere every sport present takes an equal share.
   const entries = [...byType.entries()].map(([type, load]) => ({
     type,
-    color: getActivityColor(type),
     fraction: total > 0 ? load / total : 1 / byType.size,
   }));
   return entries.sort((a, b) => b.fraction - a.fraction || a.type.localeCompare(b.type));
