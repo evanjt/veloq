@@ -660,3 +660,78 @@ describe('restoreBackup leaves the migration markers alone', () => {
     expect(startDetectorCutoverAfterUpdate).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Scenario: a restore replaces the database file with three raw copies and
+ * names only the main file. SQLite applies a `-wal` it finds beside a database
+ * on the next open, so one left over from the file that was just replaced
+ * would be applied to the file that replaced it.
+ *
+ * Expected behaviour: every copy carries the set, and nothing stale is left
+ * beside a file it does not belong to. The engine is closed first, which would
+ * be enough if it were the last connection, and the backup source and the
+ * detection worker each hold one of their own.
+ */
+describe('restoreDatabaseBackup carries the database sidecars', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+  const DB = '/data/veloq.db';
+
+  /** Every path the run copied to, in order. */
+  function copiedTo(): string[] {
+    return (FileSystem.copyAsync as jest.Mock).mock.calls.map((c) => c[0].to as string);
+  }
+
+  function deleted(): string[] {
+    return (FileSystem.deleteAsync as jest.Mock).mock.calls.map((c) => c[0] as string);
+  }
+
+  beforeEach(() => {
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
+    mockNativeModule.validateBackupDatabase.mockReset().mockReturnValue(LIVE_META);
+    mockNativeModule.engine.initWithPath.mockReset().mockReturnValue(true);
+    mockEngine.getActivityCount.mockReturnValue(100);
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
+  });
+
+  it('clears the replaced database sidecars rather than leaving them beside the new file', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(deleted()).toEqual(expect.arrayContaining([`file://${DB}-wal`, `file://${DB}-shm`]));
+  });
+
+  it('snapshots the sidecars with the database the rollback would restore', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(copiedTo()).toEqual(
+      expect.arrayContaining([`file://${DB}.bak`, `file://${DB}.bak-wal`, `file://${DB}.bak-shm`])
+    );
+  });
+
+  it('puts the whole set back when the restored database will not open', async () => {
+    mockNativeModule.engine.initWithPath.mockReturnValue(false);
+
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    const rolledBack = copiedTo().filter((to) => to.startsWith(`file://${DB}`));
+    expect(rolledBack).toEqual(
+      expect.arrayContaining([`file://${DB}`, `file://${DB}-wal`, `file://${DB}-shm`])
+    );
+  });
+
+  it('drops the snapshot set once the restore has succeeded', async () => {
+    await restoreDatabaseBackup('file:///downloads/veloq.veloqdb');
+
+    expect(deleted()).toEqual(
+      expect.arrayContaining([`file://${DB}.bak`, `file://${DB}.bak-wal`, `file://${DB}.bak-shm`])
+    );
+  });
+});
