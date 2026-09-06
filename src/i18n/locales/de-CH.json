@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Kürzt Anfang und Ende jeder Aufzeichnung im Umkreis von 100 m um das Zuhause. Nur die exportierte Kopie wird gekürzt.",
     "exportPrivacySuggested": "Die meisten deiner Fahrten starten in der Nähe eines Ortes, {{count}} davon.",
     "exportPrivacyConfirm": "Als Zuhause verwenden",
-    "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen."
+    "exportPrivacyNoSuggestion": "Noch nicht genug Fahrten, um das Zuhause zu bestimmen.",
+    "exportPrivacyCount": "Kürzt {{touched}} von {{total}} Fahrten bei {{radius}} m. Es wird nichts gelöscht.",
+    "exportPrivacyNothingTrimmed": "Es wird nichts gekürzt. Exporte enthalten den vollständigen Track.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Aktivitäte",

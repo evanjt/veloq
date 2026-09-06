@@ -8,7 +8,11 @@
  */
 
 import type { DelegateHost } from './host';
-import type { SettingPair, SuggestedHome as FfiSuggestedHome } from '../generated/veloqrs';
+import type {
+  SettingPair,
+  SuggestedHome as FfiSuggestedHome,
+  ExportPrivacyPreview as FfiExportPrivacyPreview,
+} from '../generated/veloqrs';
 
 export function setNameTranslations(
   host: DelegateHost,
@@ -85,6 +89,27 @@ export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
     return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
   } catch (e) {
     console.error('[Engine] suggestExportHome threw:', e);
+    return null;
+  }
+}
+
+/**
+ * What a trim at this home and radius would reach, so the row can name rides
+ * rather than metres. A read, so it returns null rather than queueing.
+ */
+export function exportPrivacyPreview(
+  host: DelegateHost,
+  homeLat: number,
+  homeLng: number,
+  radiusM: number
+): FfiExportPrivacyPreview | null {
+  if (!host.ready) return null;
+  try {
+    return host.timed('exportPrivacyPreview', () =>
+      host.engine.settings().exportPrivacyPreview(homeLat, homeLng, radiusM)
+    );
+  } catch (e) {
+    console.error('[Engine] exportPrivacyPreview threw:', e);
     return null;
   }
 }

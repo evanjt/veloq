@@ -1303,7 +1303,10 @@
     "exportPrivacyDescription": "Przycina początek i koniec każdej trasy w promieniu 100 m od domu. Skracana jest tylko wyeksportowana kopia.",
     "exportPrivacySuggested": "Większość twoich wyjazdów zaczyna się w jednym miejscu, {{count}} z nich.",
     "exportPrivacyConfirm": "Ustaw jako dom",
-    "exportPrivacyNoSuggestion": "Za mało przejazdów, aby ustalić, gdzie jest dom."
+    "exportPrivacyNoSuggestion": "Za mało przejazdów, aby ustalić, gdzie jest dom.",
+    "exportPrivacyCount": "Skraca {{touched}} z {{total}} przejazdów przy {{radius}} m. Nic nie jest usuwane.",
+    "exportPrivacyNothingTrimmed": "Nic nie jest skracane. Eksporty zawierają pełny ślad.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Aktywności",

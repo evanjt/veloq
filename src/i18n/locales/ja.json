@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "自宅から100m以内の軌跡の始点と終点を切り取ります。短くなるのはエクスポートしたコピーだけです。",
     "exportPrivacySuggested": "あなたのライドの多くは同じ場所から始まっています（{{count}}件）。",
     "exportPrivacyConfirm": "ここを自宅にする",
-    "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。"
+    "exportPrivacyNoSuggestion": "自宅を推定するにはライドがまだ足りません。",
+    "exportPrivacyCount": "{{radius}} m で {{total}} 件中 {{touched}} 件のライドを短縮します。削除はされません。",
+    "exportPrivacyNothingTrimmed": "短縮しません。エクスポートには全トラックが含まれます。",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "アクティビティ",

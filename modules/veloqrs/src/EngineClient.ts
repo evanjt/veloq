@@ -10,6 +10,7 @@
 
 import type {
   SuggestedHome,
+  ExportPrivacyPreview,
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
@@ -895,6 +896,13 @@ class EngineClient implements DelegateHost {
 
   /** The export privacy row's suggested home, or null when there is no guess. */
   suggestExportHome = (): SuggestedHome | null => settingsDelegates.suggestExportHome(this);
+
+  exportPrivacyPreview = (
+    homeLat: number,
+    homeLng: number,
+    radiusM: number
+  ): ExportPrivacyPreview | null =>
+    settingsDelegates.exportPrivacyPreview(this, homeLat, homeLng, radiusM);
 
   getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 

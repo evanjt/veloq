@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Knipt het begin en einde van elk spoor binnen 100 m van thuis weg. Alleen de geëxporteerde kopie wordt ingekort.",
     "exportPrivacySuggested": "De meeste van je ritten starten vlak bij één plek, {{count}} ervan.",
     "exportPrivacyConfirm": "Gebruik dit als thuis",
-    "exportPrivacyNoSuggestion": "Nog niet genoeg ritten om te bepalen waar thuis is."
+    "exportPrivacyNoSuggestion": "Nog niet genoeg ritten om te bepalen waar thuis is.",
+    "exportPrivacyCount": "Kort {{touched}} van {{total}} ritten in bij {{radius}} m. Er wordt niets verwijderd.",
+    "exportPrivacyNothingTrimmed": "Er wordt niets ingekort. Exports bevatten het volledige spoor.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Activiteiten",

@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Rogne le début et la fin de chaque trace dans un rayon de 100 m autour du domicile. Seule la copie exportée est raccourcie.",
     "exportPrivacySuggested": "La plupart de vos sorties partent du même endroit, {{count}} d'entre elles.",
     "exportPrivacyConfirm": "L'utiliser comme domicile",
-    "exportPrivacyNoSuggestion": "Pas encore assez de sorties pour situer le domicile."
+    "exportPrivacyNoSuggestion": "Pas encore assez de sorties pour situer le domicile.",
+    "exportPrivacyCount": "Raccourcit {{touched}} sorties sur {{total}} à {{radius}} m. Rien n'est supprimé.",
+    "exportPrivacyNothingTrimmed": "Rien n'est raccourci. Les exports contiennent la trace complète.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Activités",

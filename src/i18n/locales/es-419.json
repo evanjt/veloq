@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Recorta el inicio y el final de cada ruta a 100 m de casa. Solo se acorta la copia exportada.",
     "exportPrivacySuggested": "La mayoría de tus salidas empiezan cerca de un mismo sitio, {{count}} de ellas.",
     "exportPrivacyConfirm": "Usarlo como casa",
-    "exportPrivacyNoSuggestion": "Todavía no hay salidas suficientes para deducir dónde está tu casa."
+    "exportPrivacyNoSuggestion": "Todavía no hay salidas suficientes para deducir dónde está tu casa.",
+    "exportPrivacyCount": "Acorta {{touched}} de {{total}} salidas a {{radius}} m. No se borra nada.",
+    "exportPrivacyNothingTrimmed": "No se recorta nada. Las exportaciones llevan el track completo.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Actividades",

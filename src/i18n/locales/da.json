@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Beskærer starten og slutningen af hvert spor inden for 100 m fra hjemmet. Kun den eksporterede kopi forkortes.",
     "exportPrivacySuggested": "De fleste af dine ture starter nær ét sted, {{count}} af dem.",
     "exportPrivacyConfirm": "Brug det som hjem",
-    "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er."
+    "exportPrivacyNoSuggestion": "Endnu ikke nok ture til at finde ud af, hvor hjemmet er.",
+    "exportPrivacyCount": "Forkorter {{touched}} af {{total}} ture ved {{radius}} m. Intet slettes.",
+    "exportPrivacyNothingTrimmed": "Intet beskæres. Eksporter indeholder hele sporet.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Aktiviteter",
