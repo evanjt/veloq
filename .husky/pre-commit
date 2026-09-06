@@ -20,36 +20,23 @@ staged_tree=$(./scripts/check-staged-tree.sh record)
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_CEILING_DIRECTORIES GIT_CONFIG
 
-# The four gates below are independent. Run them together and report every
-# failure, rather than stopping at the first and paying the wait again.
-logs=$(mktemp -d)
-trap 'rm -rf "$logs"' EXIT
-
-gate() {
-  name=$1
-  shift
-  ("$@" >"$logs/$name.log" 2>&1; echo $? >"$logs/$name.rc") &
-}
-
-gate audit npm run audit
-gate tsc npx tsc --noEmit
-gate lint npm run lint:cached
-gate test npm test
-# Only pays for itself when Rust is staged, and it is the only local check on
-# Rust formatting: cargo fmt runs in CI and nowhere else, so the Rust Lint job
-# was going red on whitespace and staying red.
-gate rustfmt npm run lint:rust-fmt
-wait
+# The gates are independent and the wait is paid once, so they run together
+# and every one of them is reported. The runner records each gate's exit code
+# whatever the gate does: gates started from here inherit this file's `set -e`,
+# and a failing gate that dies on its failing command records nothing, which
+# leaves the hook reading none but zeros.
+#
+# rustfmt only pays for itself when Rust is staged, and it is the only local
+# check on Rust formatting: cargo fmt runs in CI and nowhere else, so the Rust
+# Lint job was going red on whitespace and staying red.
+gates_rc=0
+./scripts/run-gates.sh \
+  "audit:npm run audit" \
+  "tsc:npx tsc --noEmit" \
+  "lint:npm run lint:cached" \
+  "test:npm test" \
+  "rustfmt:npm run lint:rust-fmt" || gates_rc=$?
 
 ./scripts/check-staged-tree.sh verify "$staged_tree"
 
-failed=0
-for rc in "$logs"/*.rc; do
-  name=$(basename "$rc" .rc)
-  if [ "$(cat "$rc")" != "0" ]; then
-    echo "--- $name failed ---"
-    cat "$logs/$name.log"
-    failed=1
-  fi
-done
-exit $failed
+exit $gates_rc
