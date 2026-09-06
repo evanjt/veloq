@@ -7,6 +7,7 @@ mod fitness;
 mod maps;
 pub mod observer;
 mod preview;
+mod recordings;
 mod routes;
 pub mod sections;
 mod settings;

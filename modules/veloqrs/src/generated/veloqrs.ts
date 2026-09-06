@@ -5221,6 +5221,127 @@ const FfiConverterTypeFfiRecentPR = (() => {
 })();
 
 /**
+ * One recording, as the library screen and the upload processor see it.
+ */
+export type FfiRecordingEntry = {
+  id: string;
+  fitPath: string;
+  streamsPath?: string;
+  activityType: string;
+  name: string;
+  /**
+   * Milliseconds since the epoch, when the ride started.
+   */
+  startTime: /*i64*/ bigint;
+  durationSeconds: /*i64*/ bigint;
+  distanceMeters: /*f64*/ number;
+  elevationGain?: /*f64*/ number;
+  avgHeartrate?: /*f64*/ number;
+  pairedEventId?: /*i64*/ bigint;
+  /**
+   * Milliseconds since the epoch, when the recording was saved.
+   */
+  createdAt: /*i64*/ bigint;
+  uploadStatus: string;
+  retryCount: /*u32*/ number;
+  lastAttemptAt?: /*i64*/ bigint;
+  lastError?: string;
+  intervalsActivityId?: string;
+  /**
+   * The engine key the recording was written under at save time.
+   */
+  engineActivityId?: string;
+};
+
+/**
+ * Generated factory for {@link FfiRecordingEntry} record objects.
+ */
+export const FfiRecordingEntry = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecordingEntry, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordingEntry>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordingEntry = (() => {
+  type TypeName = FfiRecordingEntry;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        fitPath: FfiConverterString.read(from),
+        streamsPath: FfiConverterOptionalString.read(from),
+        activityType: FfiConverterString.read(from),
+        name: FfiConverterString.read(from),
+        startTime: FfiConverterInt64.read(from),
+        durationSeconds: FfiConverterInt64.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        elevationGain: FfiConverterOptionalFloat64.read(from),
+        avgHeartrate: FfiConverterOptionalFloat64.read(from),
+        pairedEventId: FfiConverterOptionalInt64.read(from),
+        createdAt: FfiConverterInt64.read(from),
+        uploadStatus: FfiConverterString.read(from),
+        retryCount: FfiConverterUInt32.read(from),
+        lastAttemptAt: FfiConverterOptionalInt64.read(from),
+        lastError: FfiConverterOptionalString.read(from),
+        intervalsActivityId: FfiConverterOptionalString.read(from),
+        engineActivityId: FfiConverterOptionalString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterString.write(value.fitPath, into);
+      FfiConverterOptionalString.write(value.streamsPath, into);
+      FfiConverterString.write(value.activityType, into);
+      FfiConverterString.write(value.name, into);
+      FfiConverterInt64.write(value.startTime, into);
+      FfiConverterInt64.write(value.durationSeconds, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterOptionalFloat64.write(value.elevationGain, into);
+      FfiConverterOptionalFloat64.write(value.avgHeartrate, into);
+      FfiConverterOptionalInt64.write(value.pairedEventId, into);
+      FfiConverterInt64.write(value.createdAt, into);
+      FfiConverterString.write(value.uploadStatus, into);
+      FfiConverterUInt32.write(value.retryCount, into);
+      FfiConverterOptionalInt64.write(value.lastAttemptAt, into);
+      FfiConverterOptionalString.write(value.lastError, into);
+      FfiConverterOptionalString.write(value.intervalsActivityId, into);
+      FfiConverterOptionalString.write(value.engineActivityId, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.fitPath) +
+        FfiConverterOptionalString.allocationSize(value.streamsPath) +
+        FfiConverterString.allocationSize(value.activityType) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterInt64.allocationSize(value.startTime) +
+        FfiConverterInt64.allocationSize(value.durationSeconds) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterOptionalFloat64.allocationSize(value.elevationGain) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgHeartrate) +
+        FfiConverterOptionalInt64.allocationSize(value.pairedEventId) +
+        FfiConverterInt64.allocationSize(value.createdAt) +
+        FfiConverterString.allocationSize(value.uploadStatus) +
+        FfiConverterUInt32.allocationSize(value.retryCount) +
+        FfiConverterOptionalInt64.allocationSize(value.lastAttemptAt) +
+        FfiConverterOptionalString.allocationSize(value.lastError) +
+        FfiConverterOptionalString.allocationSize(value.intervalsActivityId) +
+        FfiConverterOptionalString.allocationSize(value.engineActivityId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A section the ledger remembers and the catalogue no longer holds.
  */
 export type FfiRetiredSection = {
@@ -10206,17 +10327,13 @@ export interface ActivityManagerLike {
     types: string,
   ) /*throws*/ : string | undefined;
   /**
-   * A key for a ride this device recorded and no server has named yet.
-   *
-   * The row is a full citizen from the moment it is written, so the key
-   * never moves: an upload that lands later writes the server's id beside
-   * it through `record_upload` rather than rewriting the row.
+   * A key for a ride this device recorded and no server has named. The key
+   * never moves: `record_upload` writes the server's id beside it.
    */
   mintLocalId(): string;
   /**
    * Write the id intervals.icu gave a locally keyed ride once its upload
-   * landed. False when no row was waiting for one, which a deleted
-   * recording or a second answer for the same ride both produce.
+   * landed. False when no row was waiting for one.
    */
   recordUpload(activityId: string, intervalsId: string) /*throws*/ : boolean;
   remove(activityId: string) /*throws*/ : void;
@@ -10510,11 +10627,8 @@ export class ActivityManager
   }
 
   /**
-   * A key for a ride this device recorded and no server has named yet.
-   *
-   * The row is a full citizen from the moment it is written, so the key
-   * never moves: an upload that lands later writes the server's id beside
-   * it through `record_upload` rather than rewriting the row.
+   * A key for a ride this device recorded and no server has named. The key
+   * never moves: `record_upload` writes the server's id beside it.
    */
   mintLocalId(): string {
     return FfiConverterString.lift(
@@ -10532,8 +10646,7 @@ export class ActivityManager
 
   /**
    * Write the id intervals.icu gave a locally keyed ride once its upload
-   * landed. False when no row was waiting for one, which a deleted
-   * recording or a second answer for the same ride both produce.
+   * landed. False when no row was waiting for one.
    */
   recordUpload(activityId: string, intervalsId: string): boolean /*throws*/ {
     return FfiConverterBool.lift(
@@ -13332,6 +13445,568 @@ const uniffiTypeMapManagerObjectFactory: UniffiObjectFactory<MapManagerLike> =
 // FfiConverter for MapManagerLike
 const FfiConverterTypeMapManager = new FfiConverterObject(
   uniffiTypeMapManagerObjectFactory,
+);
+
+/**
+ * The recording index's FFI surface.
+ *
+ * Every call is one statement against one table, so nothing here needs a
+ * promise chain around it the way the AsyncStorage index did: two writers
+ * racing is what SQLite already answers. The FIT file and the streams sidecar
+ * stay TypeScript's to write and delete, because the upload streams the FIT
+ * rather than reading it into memory.
+ */
+export interface RecordingManagerLike {
+  /**
+   * Add a recording, or leave an existing row with the same id alone.
+   * Returns whether a row was written, which is what the one-off adoption
+   * of the AsyncStorage index counts.
+   */
+  addRecording(entry: FfiRecordingEntry) /*throws*/ : boolean;
+  /**
+   * Remember the engine key the recording was written under, so a
+   * background retry can still reconcile the upload.
+   */
+  attachEngineActivity(id: string, engineActivityId: string) /*throws*/ : void;
+  /**
+   * After an OAuth write upgrade, everything permission-blocked becomes
+   * uploadable again. Returns how many moved.
+   */
+  clearPermissionBlocked() /*throws*/ : /*u32*/ number;
+  /**
+   * Drop every row. A `.veloqdb` restore carries this table like any other
+   * but not the FIT files it points at, so the rows are stale the moment
+   * they land on another install.
+   */
+  clearRecordings() /*throws*/ : /*u32*/ number;
+  /**
+   * Remove one recording, handing back the row so the caller can delete the
+   * files it names.
+   */
+  deleteRecording(id: string) /*throws*/ : FfiRecordingEntry | undefined;
+  /**
+   * On logout: keep every recording on device, but stop auto-uploading so
+   * nothing lands in a different account after the next login.
+   */
+  demotePendingToLocalOnly() /*throws*/ : /*u32*/ number;
+  getRecording(id: string) /*throws*/ : FfiRecordingEntry | undefined;
+  /**
+   * Every recording, newest first.
+   */
+  listRecordings() /*throws*/ : Array<FfiRecordingEntry>;
+  markPermissionBlocked(id: string, nowMs: /*i64*/ bigint) /*throws*/ : void;
+  /**
+   * A server-side rejection automatic retries cannot fix.
+   */
+  markRejected(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ) /*throws*/ : void;
+  /**
+   * A retriable failure. Returns the attempt count it now stands at, so the
+   * caller can log the same "retry n of m" line it used to compute itself.
+   */
+  markUploadFailed(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ) /*throws*/ : /*u32*/ number;
+  markUploaded(
+    id: string,
+    intervalsActivityId: string | undefined,
+  ) /*throws*/ : void;
+  markUploading(id: string) /*throws*/ : void;
+  /**
+   * The next recording due an automatic upload, respecting the backoff.
+   */
+  nextPendingUpload(
+    nowMs: /*i64*/ bigint,
+  ) /*throws*/ : FfiRecordingEntry | undefined;
+  permissionBlockedCount() /*throws*/ : /*u32*/ number;
+  /**
+   * A manual retry, or a requeue after an upgrade.
+   */
+  requeue(id: string) /*throws*/ : void;
+  /**
+   * Recordings intervals.icu does not hold yet.
+   */
+  unuploadedCount() /*throws*/ : /*u32*/ number;
+}
+/**
+ * @deprecated Use `RecordingManagerLike` instead.
+ */
+export type RecordingManagerInterface = RecordingManagerLike;
+
+/**
+ * The recording index's FFI surface.
+ *
+ * Every call is one statement against one table, so nothing here needs a
+ * promise chain around it the way the AsyncStorage index did: two writers
+ * racing is what SQLite already answers. The FIT file and the streams sidecar
+ * stay TypeScript's to write and delete, because the upload streams the FIT
+ * rather than reading it into memory.
+ */
+export class RecordingManager
+  extends UniffiAbstractObject
+  implements RecordingManagerLike
+{
+  readonly [uniffiTypeNameSymbol] = "RecordingManager";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_recordingmanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeRecordingManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Add a recording, or leave an existing row with the same id alone.
+   * Returns whether a row was written, which is what the one-off adoption
+   * of the AsyncStorage index counts.
+   */
+  addRecording(entry: FfiRecordingEntry): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiRecordingEntry.lower(entry),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Remember the engine key the recording was written under, so a
+   * background retry can still reconcile the upload.
+   */
+  attachEngineActivity(id: string, engineActivityId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterString.lower(engineActivityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * After an OAuth write upgrade, everything permission-blocked becomes
+   * uploadable again. Returns how many moved.
+   */
+  clearPermissionBlocked(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_permission_blocked(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Drop every row. A `.veloqdb` restore carries this table like any other
+   * but not the FIT files it points at, so the rows are stale the moment
+   * they land on another install.
+   */
+  clearRecordings(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Remove one recording, handing back the row so the caller can delete the
+   * files it names.
+   */
+  deleteRecording(id: string): FfiRecordingEntry | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiRecordingEntry.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(id),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * On logout: keep every recording on device, but stop auto-uploading so
+   * nothing lands in a different account after the next login.
+   */
+  demotePendingToLocalOnly(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_demote_pending_to_local_only(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getRecording(id: string): FfiRecordingEntry | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiRecordingEntry.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_get_recording(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(id),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Every recording, newest first.
+   */
+  listRecordings(): Array<FfiRecordingEntry> /*throws*/ {
+    return FfiConverterArrayTypeFfiRecordingEntry.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_list_recordings(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  markPermissionBlocked(id: string, nowMs: /*i64*/ bigint): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_permission_blocked(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterInt64.lower(nowMs),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A server-side rejection automatic retries cannot fix.
+   */
+  markRejected(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rejected(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterString.lower(error),
+          FfiConverterInt64.lower(nowMs),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * A retriable failure. Returns the attempt count it now stands at, so the
+   * caller can log the same "retry n of m" line it used to compute itself.
+   */
+  markUploadFailed(
+    id: string,
+    error: string,
+    nowMs: /*i64*/ bigint,
+  ): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_upload_failed(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(id),
+            FfiConverterString.lower(error),
+            FfiConverterInt64.lower(nowMs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  markUploaded(
+    id: string,
+    intervalsActivityId: string | undefined,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploaded(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterOptionalString.lower(intervalsActivityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  markUploading(id: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_uploading(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * The next recording due an automatic upload, respecting the backoff.
+   */
+  nextPendingUpload(
+    nowMs: /*i64*/ bigint,
+  ): FfiRecordingEntry | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiRecordingEntry.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_next_pending_upload(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(nowMs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  permissionBlockedCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_permission_blocked_count(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A manual retry, or a requeue after an upgrade.
+   */
+  requeue(id: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_requeue(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Recordings intervals.icu does not hold yet.
+   */
+  unuploadedCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_unuploaded_count(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeRecordingManagerObjectFactory.pointer(this);
+      uniffiTypeRecordingManagerObjectFactory.freePointer(pointer);
+      uniffiTypeRecordingManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is RecordingManager {
+    return uniffiTypeRecordingManagerObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeRecordingManagerObjectFactory: UniffiObjectFactory<RecordingManagerLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): RecordingManagerLike {
+        const instance = Object.create(RecordingManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "RecordingManager";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_recordingmanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: RecordingManagerLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: RecordingManagerLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_recordingmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_recordingmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is RecordingManagerLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "RecordingManager"
+        );
+      },
+    };
+  })();
+// FfiConverter for RecordingManagerLike
+const FfiConverterTypeRecordingManager = new FfiConverterObject(
+  uniffiTypeRecordingManagerObjectFactory,
 );
 
 export interface RouteManagerLike {
@@ -17319,6 +17994,7 @@ export interface VeloqEngineLike {
    * start.
    */
   pollBackup() /*throws*/ : string;
+  recordings(): RecordingManagerLike;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
   setNameTranslations(routeWord: string, sectionWord: string): void;
@@ -17682,6 +18358,20 @@ export class VeloqEngine
     );
   }
 
+  recordings(): RecordingManagerLike {
+    return FfiConverterTypeRecordingManager.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_recordings(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   routes(): RouteManagerLike {
     return FfiConverterTypeRouteManager.lift(
       uniffiCaller.rustCall(
@@ -17962,6 +18652,11 @@ const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
   FfiConverterTypeFfiHrvTrend,
 );
 
+// FfiConverter for FfiRecordingEntry | undefined
+const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
+  FfiConverterTypeFfiRecordingEntry,
+);
+
 // FfiConverter for FfiRouteGroup | undefined
 const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
   FfiConverterTypeFfiRouteGroup,
@@ -18176,6 +18871,11 @@ const FfiConverterArrayTypeFfiRankedSectionsBySport = new FfiConverterArray(
 // FfiConverter for Array<FfiRecentPr>
 const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
   FfiConverterTypeFfiRecentPR,
+);
+
+// FfiConverter for Array<FfiRecordingEntry>
+const FfiConverterArrayTypeFfiRecordingEntry = new FfiConverterArray(
+  FfiConverterTypeFfiRecordingEntry,
 );
 
 // FfiConverter for Array<FfiRetiredSection>
@@ -18586,7 +19286,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id() !==
-    59359
+    16630
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_mint_local_id",
@@ -18594,7 +19294,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload() !==
-    11479
+    53025
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_record_upload",
@@ -18942,6 +19642,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_poll_backup",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !==
+    31277
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_recordings",
     );
   }
   if (
@@ -19342,6 +20050,142 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_take_result",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_add_recording() !==
+    52400
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_add_recording",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity() !==
+    38031
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked() !==
+    20590
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings() !==
+    57558
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording() !==
+    11870
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_delete_recording",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only() !==
+    37557
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording() !==
+    10161
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_get_recording",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings() !==
+    48617
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_list_recordings",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked() !==
+    6026
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected() !==
+    56986
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed() !==
+    58152
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded() !==
+    11132
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading() !==
+    35611
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_mark_uploading",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_next_pending_upload() !==
+    30066
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_next_pending_upload",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_permission_blocked_count() !==
+    44009
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_permission_blocked_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_requeue() !==
+    50912
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_requeue",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count() !==
+    27861
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_count",
     );
   }
   if (
@@ -20361,6 +21205,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new() !==
+    7397
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_recordingmanager_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new() !==
     38739
   ) {
@@ -20484,6 +21336,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiRetiredSection,
     FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,
@@ -20537,6 +21390,7 @@ export default Object.freeze({
     FfiConverterTypeMapManager,
     FfiConverterTypeNetworkPush,
     FfiConverterTypePersistentEngineStats,
+    FfiConverterTypeRecordingManager,
     FfiConverterTypeRouteManager,
     FfiConverterTypeSectionManager,
     FfiConverterTypeSectionPreview,

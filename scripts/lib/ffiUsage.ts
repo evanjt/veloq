@@ -359,6 +359,7 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'FitnessManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'HeatmapManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'MapManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
+  'RecordingManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'RouteManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SectionManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SettingsManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',

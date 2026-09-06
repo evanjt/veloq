@@ -3,9 +3,10 @@
 //! activity foreign key. So the list of tables cannot be maintained by hand
 //! against a schema that keeps growing. This drives it from `sqlite_master`.
 //!
-//! What survives is not a list here. It is `TableClass::Meta` in
-//! `persistence::tables`, so a table added next year says whether it survives
-//! a logout in the same place it says whether a backup carries it.
+//! What survives is not a list here. It is `TableClass::Meta` and
+//! `TableClass::Device` in `persistence::tables`, so a table added next year
+//! says whether it survives a logout in the same place it says whether a
+//! backup carries it.
 
 use std::collections::HashMap;
 
@@ -15,7 +16,9 @@ use veloqrs::PersistentEngine;
 use veloqrs::persistence::tables::{TableClass, tables_of};
 
 fn survivors() -> Vec<&'static str> {
-    tables_of(TableClass::Meta).collect()
+    tables_of(TableClass::Meta)
+        .chain(tables_of(TableClass::Device))
+        .collect()
 }
 
 fn tables(conn: &Connection) -> Vec<String> {
@@ -166,4 +169,26 @@ fn clear_wipes_every_table() {
             "{table} is meant to survive clear()"
         );
     }
+}
+
+/// A sign-out keeps every recording on the device and only stops the
+/// auto-upload, which the app does by demoting them to `localOnly`. The index
+/// used to sit outside the database, so the move into it must not quietly
+/// start destroying rides that have reached no server.
+#[test]
+fn a_logout_keeps_the_recordings_whose_fit_files_stay_on_disk() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+
+    let conn = Connection::open(&path).expect("second connection");
+    seed(&conn, "recordings");
+    assert!(count(&conn, "recordings") > 0, "recordings was not seeded");
+
+    engine.clear().expect("clear");
+
+    assert!(
+        count(&conn, "recordings") > 0,
+        "clear() destroyed a recording the athlete still has the FIT file for"
+    );
 }

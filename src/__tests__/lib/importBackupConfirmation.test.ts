@@ -18,6 +18,7 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(120),
   getStats: jest.fn().mockReturnValue({ activityCount: 120, newestDate: 1_760_000_000 }),
+  clearRecordings: jest.fn(),
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),
