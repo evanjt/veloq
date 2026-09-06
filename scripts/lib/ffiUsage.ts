@@ -376,8 +376,10 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'BasemapManager.clearSourceTiles': 'the basemap tile store, the per-source clear',
   'BasemapManager.evictTo': 'the basemap tile store, the budget eviction',
 
+  'DetectionManager.setMatchStrictness':
+    'route-grouping strictness, kept for the preview its screen will get',
   'DetectionManager.getMatchStrictness':
-    'the read half of a setter the settings screen has, and its screen is unbuilt',
+    'the read half of that setter, and its screen is unbuilt',
   validateBackupDatabase:
     'reached through a dynamic property off the native module, so no static call exists to find',
   // The engine can answer what shape a week's load had; no screen asks yet,

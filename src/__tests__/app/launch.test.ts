@@ -57,7 +57,6 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/routes.db',
   isEngineReady: () => mockEngineOpen,
-  applyDetectionStrictness: jest.fn(),
 }));
 
 const secureGet = SecureStore.getItemAsync as jest.Mock;

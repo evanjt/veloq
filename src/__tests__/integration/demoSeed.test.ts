@@ -5,11 +5,10 @@
  */
 
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
-import { applyDetectionStrictness, getEngine } from '@/shared/native/engine';
+import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
-  applyDetectionStrictness: jest.fn(),
 }));
 
 const engine = {
@@ -137,13 +136,5 @@ describe('seedDemoEngine', () => {
 
     expect(() => seedDemoEngine()).not.toThrow();
     expect(engine.setAthleteProfile).not.toHaveBeenCalled();
-  });
-
-  it('puts demo on the shipped detector, since every tier0 flow runs here', () => {
-    mockGetEngine.mockReturnValue(engine as never);
-
-    seedDemoEngine();
-
-    expect(applyDetectionStrictness).toHaveBeenCalledWith('default');
   });
 });

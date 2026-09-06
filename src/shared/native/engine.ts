@@ -39,33 +39,9 @@ export function isEngineReady(): boolean {
   return getEngine()?.ready ?? false;
 }
 
-export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
-
-/**
- * Route-grouping params (MatchConfig).
- */
-const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: number }> = {
-  relaxed: { matchPct: 50, endpoint: 300 },
-  default: { matchPct: 55, endpoint: 250 },
-  strict: { matchPct: 65, endpoint: 180 },
-};
-
 // The configuration the detector is validated at, generated from
 // `SectionConfig::default()` so the two cannot drift apart.
 export { UNIFIED_CONFIG } from './unifiedConfig.generated';
-
-/**
- * Apply the route-grouping strictness to the Rust engine. The detector's own
- * parameters are the user's sliders and are not touched: a preset answers
- * how tightly rides group into routes, not how sections are cut. The engine
- * persists match strictness, so the next load picks it up without help.
- */
-export function applyDetectionStrictness(strictness: DetectionStrictness): void {
-  const engine = getEngine();
-  if (!engine) return;
-  const matchPreset = MATCH_PRESETS[strictness];
-  engine.setMatchStrictness(matchPreset.matchPct, matchPreset.endpoint);
-}
 
 /**
  * Get the plain filesystem path for the routes SQLite database.
