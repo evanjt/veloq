@@ -613,9 +613,9 @@ impl From<crate::sections::Section> for FfiSection {
 }
 
 /// The in-memory catalogue reaches TypeScript as the same record the database
-/// path sends. Fields the catalogue does not model are the same "not set" the
-/// database uses: a visible catalogue section is never disabled or superseded,
-/// and it has no custom-section source slice.
+/// path sends. The catalogue does not model type, visibility or a custom
+/// section's source slice, so this fills them as an auto section that is
+/// visible; a read by id overlays the row's own values afterwards.
 impl From<&tracematch::FrequentSection> for FfiSection {
     fn from(s: &tracematch::FrequentSection) -> Self {
         Self {
