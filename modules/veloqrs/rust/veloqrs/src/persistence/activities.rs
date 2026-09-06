@@ -144,9 +144,22 @@ fn wipe_derived_catalogue(db: &rusqlite::Connection) -> SqlResult<usize> {
         &format!("DELETE FROM sections WHERE {DERIVED_SECTION_PREDICATE}"),
         [],
     )?;
+    // An excluded match row is the athlete taking one attempt out of a route,
+    // and `persistence/tables.rs:99` declares it the record part of an
+    // otherwise derived table. The detector already holds this policy, "a
+    // carried id keeps them; only a dissolved route loses them"
+    // (`persistence/sections/detection.rs:446`), and `recompute_groups`
+    // snapshots and restores across its own delete
+    // (`persistence/routes.rs:870,1066`). This wipe was the one that did not,
+    // so a clear took every exclusion the athlete had made.
+    //
+    // The spared row outlives its group until the next regroup re-mints one.
+    // Nothing shows it: every read either joins through `sections` and
+    // `section_activities`, which this wipe empties, or is keyed by a route id
+    // that now has no group.
     db.execute_batch(
         "DELETE FROM route_groups;
-         DELETE FROM activity_matches;
+         DELETE FROM activity_matches WHERE excluded = 0;
          DELETE FROM overlap_cache;",
     )?;
     Ok(sections)
@@ -709,6 +722,8 @@ impl PersistentEngine {
     /// hand-cut, trimmed or disabled section and the stream its geometry is
     /// cut from survive by construction. The ledger, pins, intents, names,
     /// identity registry and cutover archive are records and are not touched.
+    /// So is an excluded match row, which is the athlete taking one attempt
+    /// out of a route: `wipe_derived_catalogue` spares it.
     /// Every spared section comes back memberless until the next detect
     /// re-matches it.
     pub fn clear_derived(&mut self) -> SqlResult<DerivedClear> {

@@ -8,6 +8,7 @@ import {
   migrateLegacyUploadQueue,
   adoptAsyncStorageIndex,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { debug } from '@/shared/debug/debug';
 
@@ -32,6 +33,13 @@ export function useUploadQueueProcessor() {
   // entries the adoption has to see.
   useEffect(() => {
     void migrateLegacyUploadQueue().then(adoptAsyncStorageIndex);
+  }, []);
+
+  // An upload whose engine write missed leaves a row the sync will duplicate.
+  useEffect(() => {
+    reconcileProvisionalUploads().catch((err: unknown) => {
+      log.warn(`Reconcile pass failed: ${String(err)}`);
+    });
   }, []);
 
   const processQueue = useCallback(async () => {
