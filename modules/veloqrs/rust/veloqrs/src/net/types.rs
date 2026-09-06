@@ -280,7 +280,21 @@ pub fn storable_series(raw: &[StreamDto]) -> Vec<StreamDto> {
 
     raw.iter()
         .filter(|s| !FROM_THE_TRACK.contains(&s.kind.as_str()))
-        .filter(|s| s.data.len() == mask.len())
+        // The drop that lets the reader's guard stay defensive rather than
+        // load-bearing. Silent, it would also be the only evidence that a real
+        // body ever arrives misaligned, so it says so on the way out.
+        .filter(|s| {
+            let aligned = s.data.len() == mask.len();
+            if !aligned {
+                log::warn!(
+                    "[Streams] series {} carries {} samples, the latlng index space covers {}, not stored",
+                    s.kind,
+                    s.data.len(),
+                    mask.len()
+                );
+            }
+            aligned
+        })
         .filter_map(|s| {
             let data: Vec<Option<f64>> = mask
                 .iter()
@@ -488,6 +502,43 @@ pub fn activity_counts_by_year(activities: &[ActivityRecord]) -> BTreeMap<String
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// A misaligned series is dropped rather than stored, and the drop says
+    /// so. This is the sync path's filter, the one that lets the writer go on
+    /// trusting its caller.
+    #[test]
+    fn the_sync_path_drops_a_misaligned_series_out_loud() {
+        crate::test_log::capturing();
+        let raw = vec![
+            StreamDto {
+                kind: "latlng".to_string(),
+                data: vec![Some(1.0), Some(1.1), Some(1.2)],
+                data2: Some(vec![Some(2.0), Some(2.1), Some(2.2)]),
+            },
+            StreamDto {
+                kind: "watts".to_string(),
+                data: (0..7).map(|i| Some(f64::from(i))).collect(),
+                data2: None,
+            },
+        ];
+
+        let kept = storable_series(&raw);
+        assert!(
+            kept.is_empty(),
+            "the behaviour is unchanged: the misaligned series is not stored"
+        );
+        let said = crate::test_log::warnings_with("watts carries 7 samples");
+        assert_eq!(
+            said.len(),
+            1,
+            "the drop the decision rests on has to be visible: {said:?}"
+        );
+        assert!(
+            said[0].contains('3'),
+            "and name the space it missed: {}",
+            said[0]
+        );
+    }
 
     #[test]
     fn year_counts_bucket_every_dated_activity() {
