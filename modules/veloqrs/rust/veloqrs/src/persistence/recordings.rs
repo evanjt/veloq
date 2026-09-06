@@ -45,12 +45,16 @@ pub struct FfiRecordingEntry {
     pub intervals_activity_id: Option<String>,
     /// The engine key the recording was written under at save time.
     pub engine_activity_id: Option<String>,
+    /// Whether the engine row has taken the id intervals.icu gave the upload.
+    /// False on a ride uploaded while the engine was closed, which is the case
+    /// the reconcile sweep exists to replay.
+    pub engine_reconciled: bool,
 }
 
 const COLUMNS: &str = "id, fit_path, streams_path, activity_type, name, start_time, \
      duration_seconds, distance_meters, elevation_gain, avg_heartrate, paired_event_id, \
      created_at, upload_status, retry_count, last_attempt_at, last_error, \
-     intervals_activity_id, engine_activity_id";
+     intervals_activity_id, engine_activity_id, engine_reconciled";
 
 fn row_to_entry(row: &Row) -> SqlResult<FfiRecordingEntry> {
     Ok(FfiRecordingEntry {
@@ -72,6 +76,7 @@ fn row_to_entry(row: &Row) -> SqlResult<FfiRecordingEntry> {
         last_error: row.get(15)?,
         intervals_activity_id: row.get(16)?,
         engine_activity_id: row.get(17)?,
+        engine_reconciled: row.get::<_, i64>(18)? != 0,
     })
 }
 
@@ -98,7 +103,7 @@ impl PersistentEngine {
         let changed = self.db.execute(
             &format!(
                 "INSERT OR IGNORE INTO recordings ({COLUMNS}) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
             params![
                 entry.id,
@@ -119,6 +124,7 @@ impl PersistentEngine {
                 entry.last_error,
                 entry.intervals_activity_id,
                 entry.engine_activity_id,
+                i64::from(entry.engine_reconciled),
             ],
         )?;
         Ok(changed > 0)
@@ -126,9 +132,9 @@ impl PersistentEngine {
 
     /// Every recording, newest first.
     pub fn list_recordings(&self) -> SqlResult<Vec<FfiRecordingEntry>> {
-        let mut stmt = self
-            .db
-            .prepare(&format!("SELECT {COLUMNS} FROM recordings ORDER BY created_at DESC"))?;
+        let mut stmt = self.db.prepare(&format!(
+            "SELECT {COLUMNS} FROM recordings ORDER BY created_at DESC"
+        ))?;
         let rows = stmt.query_map([], row_to_entry)?;
         rows.collect()
     }
@@ -141,9 +147,38 @@ impl PersistentEngine {
         rows.next().transpose()
     }
 
+    /// The engine row has taken the id intervals.icu gave the upload, so the
+    /// reconcile sweep can stop replaying this one. Idempotent, and a no-op on
+    /// an id nothing claims: the sweep is best effort and a row deleted
+    /// underneath it is not a failure.
+    pub fn set_recording_reconciled(&self, id: &str) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET engine_reconciled = 1 WHERE id = ?",
+            params![id],
+        )?;
+        Ok(())
+    }
+
+    /// Forget the streams sidecar, once the engine holds the ride's track and
+    /// the file is going. The path is cleared so nothing looks for a file that
+    /// is gone; the FIT is a separate path and stays. Idempotent, and a no-op
+    /// on an id nothing claims, because the caller deletes best effort and a
+    /// failure there must not turn a finished upload into a retry.
+    pub fn clear_recording_streams_path(&self, id: &str) -> SqlResult<()> {
+        self.db.execute(
+            "UPDATE recordings SET streams_path = NULL WHERE id = ?",
+            params![id],
+        )?;
+        Ok(())
+    }
+
     /// The engine key the recording was written under, so a background retry
     /// can still reconcile the upload.
-    pub fn set_recording_engine_activity(&self, id: &str, engine_activity_id: &str) -> SqlResult<()> {
+    pub fn set_recording_engine_activity(
+        &self,
+        id: &str,
+        engine_activity_id: &str,
+    ) -> SqlResult<()> {
         self.db.execute(
             "UPDATE recordings SET engine_activity_id = ? WHERE id = ?",
             params![engine_activity_id, id],
@@ -159,7 +194,11 @@ impl PersistentEngine {
         Ok(())
     }
 
-    pub fn set_recording_uploaded(&self, id: &str, intervals_activity_id: Option<&str>) -> SqlResult<()> {
+    pub fn set_recording_uploaded(
+        &self,
+        id: &str,
+        intervals_activity_id: Option<&str>,
+    ) -> SqlResult<()> {
         self.db.execute(
             "UPDATE recordings SET upload_status = 'uploaded', intervals_activity_id = ?, \
              last_error = NULL WHERE id = ?",
@@ -319,7 +358,58 @@ mod tests {
             last_error: None,
             intervals_activity_id: None,
             engine_activity_id: None,
+            engine_reconciled: false,
         }
+    }
+
+    /// Scenario: the index carried a flag saying the engine row had taken the
+    /// id intervals.icu gave the upload, and the reconcile sweep reads it to
+    /// find the rides whose write was lost to a closed engine. The move to a
+    /// table dropped it.
+    /// Expected behaviour: the flag is a column, it defaults to unreconciled,
+    /// and setting it survives a read.
+    #[test]
+    fn a_reconciled_upload_is_remembered_across_a_read() {
+        let (_dir, e) = engine();
+        e.insert_recording(&entry("r1", 1_000, "uploaded")).unwrap();
+        assert!(
+            !e.get_recording("r1").unwrap().unwrap().engine_reconciled,
+            "a fresh row owes its reconcile"
+        );
+
+        e.set_recording_reconciled("r1").unwrap();
+        assert!(e.get_recording("r1").unwrap().unwrap().engine_reconciled);
+        // The sweep asks the list, not one row at a time.
+        assert!(
+            e.list_recordings()
+                .unwrap()
+                .iter()
+                .all(|r| r.engine_reconciled)
+        );
+    }
+
+    /// Scenario: the streams sidecar is dropped once the engine holds the
+    /// ride's track, and the path is cleared with it so nothing looks for a
+    /// file that is gone. The move to a table left no way to clear it.
+    /// Expected behaviour: the path clears and nothing else on the row moves.
+    #[test]
+    fn clearing_the_streams_path_leaves_the_rest_of_the_row() {
+        let (_dir, e) = engine();
+        let mut row = entry("r1", 1_000, "uploaded");
+        row.streams_path = Some("/recordings/r1.streams.json".to_string());
+        e.insert_recording(&row).unwrap();
+
+        e.clear_recording_streams_path("r1").unwrap();
+        let read = e.get_recording("r1").unwrap().unwrap();
+        assert_eq!(read.streams_path, None);
+        assert_eq!(read.fit_path, row.fit_path, "the FIT is not the sidecar");
+        assert_eq!(read.upload_status, "uploaded");
+        assert_eq!(read.distance_meters, row.distance_meters);
+
+        // Idempotent: the upload path calls it best-effort and a second call
+        // must not read as a failure.
+        e.clear_recording_streams_path("r1").unwrap();
+        e.clear_recording_streams_path("gone").unwrap();
     }
 
     fn engine() -> (TempDir, PersistentEngine) {
@@ -339,7 +429,10 @@ mod tests {
         assert!(e.insert_recording(&row).unwrap());
 
         let read = e.get_recording("r1").unwrap().unwrap();
-        assert_eq!(read.streams_path.as_deref(), Some("/recordings/r1.streams.json"));
+        assert_eq!(
+            read.streams_path.as_deref(),
+            Some("/recordings/r1.streams.json")
+        );
         assert_eq!(read.paired_event_id, Some(42));
         assert_eq!(read.engine_activity_id.as_deref(), Some("local-r1"));
         assert_eq!(read.distance_meters, 20_000.0);
@@ -365,7 +458,12 @@ mod tests {
         e.insert_recording(&entry("new", 3_000, "pending")).unwrap();
         e.insert_recording(&entry("mid", 2_000, "pending")).unwrap();
 
-        let ids: Vec<String> = e.list_recordings().unwrap().into_iter().map(|r| r.id).collect();
+        let ids: Vec<String> = e
+            .list_recordings()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
         assert_eq!(ids, vec!["new", "mid", "old"]);
     }
 
@@ -375,12 +473,19 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
 
         for attempt in 1..MAX_AUTO_RETRIES {
-            let count = e.set_recording_upload_failed("r1", "network", 10_000).unwrap();
+            let count = e
+                .set_recording_upload_failed("r1", "network", 10_000)
+                .unwrap();
             assert_eq!(count, attempt);
-            assert_eq!(e.get_recording("r1").unwrap().unwrap().upload_status, "pending");
+            assert_eq!(
+                e.get_recording("r1").unwrap().unwrap().upload_status,
+                "pending"
+            );
         }
 
-        let count = e.set_recording_upload_failed("r1", "network", 10_000).unwrap();
+        let count = e
+            .set_recording_upload_failed("r1", "network", 10_000)
+            .unwrap();
         assert_eq!(count, MAX_AUTO_RETRIES);
         let read = e.get_recording("r1").unwrap().unwrap();
         assert_eq!(read.upload_status, "failed");
@@ -393,13 +498,18 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
         assert!(e.next_pending_recording(0).unwrap().is_some());
 
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
         assert!(
-            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1).unwrap().is_none(),
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
+                .unwrap()
+                .is_none(),
             "an entry that just failed is not due again immediately"
         );
         assert!(
-            e.next_pending_recording(100_000 + BACKOFF_BASE_MS * 2).unwrap().is_some(),
+            e.next_pending_recording(100_000 + BACKOFF_BASE_MS * 2)
+                .unwrap()
+                .is_some(),
             "the backoff after one failure is two base intervals"
         );
     }
@@ -407,9 +517,12 @@ mod tests {
     #[test]
     fn only_pending_entries_are_ever_picked_up() {
         let (_dir, e) = engine();
-        e.insert_recording(&entry("local", 1_000, "localOnly")).unwrap();
-        e.insert_recording(&entry("blocked", 2_000, "permissionBlocked")).unwrap();
-        e.insert_recording(&entry("done", 3_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("local", 1_000, "localOnly"))
+            .unwrap();
+        e.insert_recording(&entry("blocked", 2_000, "permissionBlocked"))
+            .unwrap();
+        e.insert_recording(&entry("done", 3_000, "uploaded"))
+            .unwrap();
 
         assert!(e.next_pending_recording(9_999_999).unwrap().is_none());
     }
@@ -426,16 +539,28 @@ mod tests {
     #[test]
     fn an_upgrade_releases_the_blocked_and_a_logout_demotes_the_live_ones() {
         let (_dir, e) = engine();
-        e.insert_recording(&entry("blocked", 1_000, "permissionBlocked")).unwrap();
-        e.insert_recording(&entry("pending", 2_000, "pending")).unwrap();
-        e.insert_recording(&entry("done", 3_000, "uploaded")).unwrap();
+        e.insert_recording(&entry("blocked", 1_000, "permissionBlocked"))
+            .unwrap();
+        e.insert_recording(&entry("pending", 2_000, "pending"))
+            .unwrap();
+        e.insert_recording(&entry("done", 3_000, "uploaded"))
+            .unwrap();
 
         assert_eq!(e.clear_recording_permission_blocked().unwrap(), 1);
-        assert_eq!(e.get_recording("blocked").unwrap().unwrap().upload_status, "pending");
+        assert_eq!(
+            e.get_recording("blocked").unwrap().unwrap().upload_status,
+            "pending"
+        );
 
         assert_eq!(e.demote_recordings_to_local_only().unwrap(), 2);
-        assert_eq!(e.get_recording("done").unwrap().unwrap().upload_status, "uploaded");
-        assert_eq!(e.get_recording("pending").unwrap().unwrap().upload_status, "localOnly");
+        assert_eq!(
+            e.get_recording("done").unwrap().unwrap().upload_status,
+            "uploaded"
+        );
+        assert_eq!(
+            e.get_recording("pending").unwrap().unwrap().upload_status,
+            "localOnly"
+        );
     }
 
     #[test]
@@ -447,7 +572,10 @@ mod tests {
 
         let deleted = e.delete_recording("r1").unwrap().unwrap();
         assert_eq!(deleted.fit_path, "/recordings/r1.fit");
-        assert_eq!(deleted.streams_path.as_deref(), Some("/recordings/r1.streams.json"));
+        assert_eq!(
+            deleted.streams_path.as_deref(),
+            Some("/recordings/r1.streams.json")
+        );
         assert!(e.get_recording("r1").unwrap().is_none());
         assert!(e.delete_recording("r1").unwrap().is_none());
     }
@@ -456,7 +584,8 @@ mod tests {
     fn the_counts_answer_what_the_badges_ask() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
-        e.insert_recording(&entry("b", 2_000, "permissionBlocked")).unwrap();
+        e.insert_recording(&entry("b", 2_000, "permissionBlocked"))
+            .unwrap();
         e.insert_recording(&entry("c", 3_000, "uploaded")).unwrap();
 
         assert_eq!(e.unuploaded_recording_count().unwrap(), 2);
@@ -467,7 +596,8 @@ mod tests {
     fn a_requeue_clears_the_retry_state_the_failure_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
 
         e.requeue_recording("r1").unwrap();
         let read = e.get_recording("r1").unwrap().unwrap();
@@ -481,7 +611,8 @@ mod tests {
     fn a_successful_upload_clears_the_error_the_last_attempt_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000).unwrap();
+        e.set_recording_upload_failed("r1", "network", 100_000)
+            .unwrap();
 
         e.set_recording_uploaded("r1", Some("i12345")).unwrap();
         let read = e.get_recording("r1").unwrap().unwrap();

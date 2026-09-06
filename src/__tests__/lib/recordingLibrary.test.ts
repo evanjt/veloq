@@ -134,6 +134,14 @@ const mockEngine = {
     const row = rows.get(id);
     if (row) row.engineActivityId = engineActivityId;
   },
+  markRecordingReconciled: (id: string) => {
+    const row = rows.get(id);
+    if (row) row.engineReconciled = true;
+  },
+  clearRecordingStreamsPath: (id: string) => {
+    const row = rows.get(id);
+    if (row) row.streamsPath = undefined;
+  },
   markRecordingUploading: (id: string) => {
     const row = rows.get(id);
     if (row) row.uploadStatus = 'uploading';

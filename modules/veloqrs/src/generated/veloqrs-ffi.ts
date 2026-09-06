@@ -696,6 +696,11 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_streams_path(
+    ptr: bigint,
+    id: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_delete_recording(
     ptr: bigint,
     id: Uint8Array,
@@ -718,6 +723,11 @@ interface NativeModuleInterface {
     ptr: bigint,
     id: Uint8Array,
     nowMs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_reconciled(
+    ptr: bigint,
+    id: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_mark_rejected(
@@ -1805,11 +1815,13 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_streams_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_recording(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_demote_pending_to_local_only(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_permission_blocked(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_reconciled(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_rejected(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_upload_failed(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_mark_uploaded(): number;
