@@ -36,9 +36,27 @@ const perfIgnores = process.env.VELOQ_PERF === "1" ? [] : ["\\.perf\\.test\\."];
 // it is on disk, still per worktree, and `.jest-cache/` is git-ignored.
 const cacheDirectory = require("path").join(__dirname, "..", ".jest-cache");
 
+// Jest's default is cores-1, which is 31 on the 16-core box this is developed
+// on, and the pre-commit hook runs `npm test` as one of five parallel gates.
+// Several agent sessions run the suite at once, so the default multiplies: the
+// global OOM on 2026-09-05 killed processes across the machine with 74
+// `node-MainThread` workers holding 15.0 GB between them, about 200 MB each,
+// against rustc's 1.8 GB. The suspicion that the Rust builds fill the box was
+// wrong by an order of magnitude. Four is enough to keep a single run near its
+// floor, since the suite is 356 mostly sub-second suites and not a few long
+// ones, and it caps a fleet at 4 per session instead of 31.
+//
+// An interactive run on an otherwise idle machine can have the cores back with
+// JEST_WORKERS, which is also how CI passes its own number.
+const maxWorkers = Number(process.env.JEST_WORKERS) || 4;
+
 module.exports = {
   preset: "jest-expo",
   cacheDirectory,
+  maxWorkers,
+  // A worker that has leaked is recycled rather than held to the end of the
+  // run. The cap is per worker, so this is the ceiling the fleet multiplies.
+  workerIdleMemoryLimit: "512MB",
   testEnvironment: "node",
   silent: true,
   rootDir: "..",
