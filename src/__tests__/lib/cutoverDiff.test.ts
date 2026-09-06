@@ -1,7 +1,8 @@
 /**
  * The cutover diff parser sits between a Rust payload and the change card.
- * A malformed payload must degrade to null or drop the bad row, never throw
- * and never surface a half-built section to the UI.
+ * A malformed payload must degrade to null, never throw. The payload carries
+ * counts and the settings reset only; an older build also wrote a row per
+ * section, which is read past rather than rejected.
  */
 
 import { parseCutoverDiff } from '../../../modules/veloqrs/src/delegates/cutover';
@@ -9,6 +10,11 @@ import { parseCutoverDiff } from '../../../modules/veloqrs/src/delegates/cutover
 const validPayload = {
   token: 'unified-1',
   counts: { current: 12, proposed: 14, unchanged: 9, changed: 3, new: 2, gone: 0 },
+};
+
+/** What an older build stored: both catalogues' geometry, in a row. */
+const olderBuildPayload = {
+  ...validPayload,
   sections: [
     {
       id: 'sec_1',
@@ -22,18 +28,6 @@ const validPayload = {
       elevation_gain_m: 45.5,
       avg_grade_percent: 2.1,
     },
-    {
-      id: 'sec_2',
-      live_id: null,
-      status: 'new',
-      name: null,
-      sport: 'Ride',
-      polyline: 'BBBB',
-      visits: 3,
-      distance_m: 900,
-      elevation_gain_m: null,
-      avg_grade_percent: null,
-    },
   ],
 };
 
@@ -44,11 +38,13 @@ describe('parseCutoverDiff', () => {
     expect(result!.token).toBe('unified-1');
     expect(result!.counts.current).toBe(12);
     expect(result!.counts.gone).toBe(0);
-    expect(result!.sections).toHaveLength(2);
-    expect(result!.sections[0].liveId).toBe('sec_old_1');
-    expect(result!.sections[0].elevationGainM).toBe(45.5);
-    expect(result!.sections[1].liveId).toBeNull();
-    expect(result!.sections[1].elevationGainM).toBeNull();
+  });
+
+  it('reads a payload an older build wrote, rows and all', () => {
+    const result = parseCutoverDiff(JSON.stringify(olderBuildPayload));
+    expect(result).not.toBeNull();
+    expect(result!.counts.current).toBe(12);
+    expect(result).not.toHaveProperty('sections');
   });
 
   it('returns null on invalid JSON', () => {
@@ -59,28 +55,6 @@ describe('parseCutoverDiff', () => {
   it('returns null when the token is missing', () => {
     const { token: _token, ...rest } = validPayload;
     expect(parseCutoverDiff(JSON.stringify(rest))).toBeNull();
-  });
-
-  it('returns null when sections is not an array', () => {
-    expect(parseCutoverDiff(JSON.stringify({ ...validPayload, sections: 'nope' }))).toBeNull();
-  });
-
-  it('drops a row with an unrecognised status rather than failing the payload', () => {
-    const payload = {
-      ...validPayload,
-      sections: [...validPayload.sections, { id: 'sec_3', status: 'exploded' }],
-    };
-    const result = parseCutoverDiff(JSON.stringify(payload));
-    expect(result!.sections).toHaveLength(2);
-  });
-
-  it('drops a row with no id', () => {
-    const payload = {
-      ...validPayload,
-      sections: [{ status: 'new', sport: 'Ride' }],
-    };
-    const result = parseCutoverDiff(JSON.stringify(payload));
-    expect(result!.sections).toHaveLength(0);
   });
 
   it('coerces non-finite counts to zero rather than emitting NaN', () => {
@@ -98,11 +72,15 @@ describe('parseCutoverDiff', () => {
     const payload = {
       token: 'unified-1',
       counts: { current: 0, proposed: 0, unchanged: 0, changed: 0, new: 0, gone: 0 },
-      sections: [],
     };
     const result = parseCutoverDiff(JSON.stringify(payload));
     expect(result).not.toBeNull();
-    expect(result!.sections).toHaveLength(0);
+    expect(result!.counts.current).toBe(0);
+  });
+
+  it('returns null when the counts are missing', () => {
+    const { counts: _counts, ...rest } = validPayload;
+    expect(parseCutoverDiff(JSON.stringify(rest))).toBeNull();
   });
 
   describe('the settings reset', () => {

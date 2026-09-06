@@ -17,20 +17,6 @@ import {
 import type { FfiChangeCardSupport } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-/** One section's fate across the cutover. */
-export interface CutoverSection {
-  id: string;
-  liveId: string | null;
-  status: 'unchanged' | 'changed' | 'new' | 'gone';
-  name: string | null;
-  sport: string;
-  polylineBase64: string;
-  visits: number;
-  distanceM: number;
-  elevationGainM: number | null;
-  avgGradePercent: number | null;
-}
-
 export interface CutoverCounts {
   current: number;
   proposed: number;
@@ -55,10 +41,16 @@ export interface CutoverSettingsReset {
   current: CutoverSettings;
 }
 
+/**
+ * What the change card reads. Counts and the reset only: a section is a
+ * reference activity and the indices of a pass over it, so a row per section
+ * put both catalogues' geometry in a settings row for the life of the
+ * install. An older payload still carries those rows and is read past, not
+ * rejected.
+ */
 export interface CutoverDiff {
   token: string;
   counts: CutoverCounts;
-  sections: CutoverSection[];
   settingsReset: CutoverSettingsReset | null;
 }
 
@@ -189,54 +181,29 @@ export function parseCutoverDiff(json: string): CutoverDiff | null {
     const raw = JSON.parse(json) as {
       token?: unknown;
       counts?: Record<string, unknown>;
-      sections?: unknown[];
       settings_reset?: unknown;
     };
-    if (typeof raw.token !== 'string' || !raw.counts || !Array.isArray(raw.sections)) {
+    if (typeof raw.token !== 'string' || !raw.counts) {
       return null;
     }
     const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-    const counts: CutoverCounts = {
-      current: num(raw.counts.current),
-      proposed: num(raw.counts.proposed),
-      unchanged: num(raw.counts.unchanged),
-      changed: num(raw.counts.changed),
-      new: num(raw.counts.new),
-      gone: num(raw.counts.gone),
-    };
-    const sections: CutoverSection[] = [];
-    for (const entry of raw.sections) {
-      const s = entry as Record<string, unknown>;
-      const status = s.status;
-      if (
-        typeof s.id !== 'string' ||
-        (status !== 'unchanged' && status !== 'changed' && status !== 'new' && status !== 'gone')
-      ) {
-        continue;
-      }
-      sections.push({
-        id: s.id,
-        liveId: typeof s.live_id === 'string' ? s.live_id : null,
-        status,
-        name: typeof s.name === 'string' ? s.name : null,
-        sport: typeof s.sport === 'string' ? s.sport : '',
-        polylineBase64: typeof s.polyline === 'string' ? s.polyline : '',
-        visits: num(s.visits),
-        distanceM: num(s.distance_m),
-        elevationGainM: typeof s.elevation_gain_m === 'number' ? s.elevation_gain_m : null,
-        avgGradePercent: typeof s.avg_grade_percent === 'number' ? s.avg_grade_percent : null,
-      });
-    }
     return {
       token: raw.token,
-      counts,
-      sections,
+      counts: {
+        current: num(raw.counts.current),
+        proposed: num(raw.counts.proposed),
+        unchanged: num(raw.counts.unchanged),
+        changed: num(raw.counts.changed),
+        new: num(raw.counts.new),
+        gone: num(raw.counts.gone),
+      },
       settingsReset: parseSettingsReset(raw.settings_reset),
     };
   } catch {
     return null;
   }
 }
+
 
 export type ChangeCardSupport = FfiChangeCardSupport;
 
