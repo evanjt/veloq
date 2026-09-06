@@ -400,6 +400,11 @@ class EngineClient implements DelegateHost {
   ): Promise<void> =>
     activityDelegates.addActivities(this, activityIds, allCoords, offsets, sportTypes);
 
+  mintLocalActivityId = (): string => activityDelegates.mintLocalActivityId(this);
+
+  recordActivityUpload = (activityId: string, intervalsId: string): boolean =>
+    activityDelegates.recordActivityUpload(this, activityId, intervalsId);
+
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 
   getActivityMetricIds = (): string[] => fitnessDelegates.getActivityMetricIds(this);
