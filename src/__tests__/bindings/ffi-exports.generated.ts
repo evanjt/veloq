@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 222 methods inside `#[uniffi::export] impl` blocks across
+ * 224 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 240 exports (18 standalone + 222 methods)
+ * Total: 242 exports (18 standalone + 224 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -332,10 +332,30 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'ActivityManager',
   },
   {
+    name: 'mint_local_id',
+    camelName: 'mintLocalId',
+    file: 'objects/activities.rs',
+    line: 228,
+    paramCount: 0,
+    returnType: 'String',
+    docs: "A key for a ride this device recorded and no server has named. The key never moves: `record_upload` writes the server's id beside it.",
+    object: 'ActivityManager',
+  },
+  {
+    name: 'record_upload',
+    camelName: 'recordUpload',
+    file: 'objects/activities.rs',
+    line: 234,
+    paramCount: 2,
+    returnType: 'Result<bool, VeloqError>',
+    docs: 'Write the id intervals.icu gave a locally keyed ride once its upload landed. False when no row was waiting for one.',
+    object: 'ActivityManager',
+  },
+  {
     name: 'remove',
     camelName: 'remove',
     file: 'objects/activities.rs',
-    line: 226,
+    line: 247,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -345,7 +365,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'debug_clone',
     camelName: 'debugClone',
     file: 'objects/activities.rs',
-    line: 241,
+    line: 262,
     paramCount: 2,
     returnType: 'Result<u32, VeloqError>',
     docs: '',
@@ -355,7 +375,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_highlights_bundle',
     camelName: 'getHighlightsBundle',
     file: 'objects/activities.rs',
-    line: 248,
+    line: 269,
     paramCount: 1,
     returnType: 'Result<crate::FfiActivityHighlightsBundle, VeloqError>',
     docs: 'Combined activity-list highlight bundle: section indicators (PRs + trends) and route highlights for the same batch of activity IDs in a single FFI round-trip. Consumed by `useActivitySectionHighlights`.',
@@ -365,7 +385,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/activities.rs',
-    line: 265,
+    line: 286,
     paramCount: 2,
     returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
     docs: "Everything the activity detail screen paints with, in one engine lock: engine counts, route groups, matched and custom sections, encounters, indicator highlights, this activity's portion of each section it traverses, and the sections where it holds the record. `min_route_activities` filters the returned route groups here, so the screen does not filter them after the fact.",
@@ -2457,6 +2477,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'setTimeStreams',
   'getMissingTimeStreams',
   'getGpsTrack',
+  'mintLocalId',
+  'recordUpload',
   'remove',
   'debugClone',
   'getHighlightsBundle',
@@ -2707,6 +2729,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   set_time_streams: 'setTimeStreams',
   get_missing_time_streams: 'getMissingTimeStreams',
   get_gps_track: 'getGpsTrack',
+  mint_local_id: 'mintLocalId',
+  record_upload: 'recordUpload',
   remove: 'remove',
   debug_clone: 'debugClone',
   get_highlights_bundle: 'getHighlightsBundle',

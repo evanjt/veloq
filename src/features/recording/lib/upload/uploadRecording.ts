@@ -11,6 +11,7 @@ import {
   markRecordingPermissionBlocked,
   discardRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { classifyUploadError } from './classifyUploadError';
 import type { RecordingLibraryEntry } from '@/types';
 
@@ -93,6 +94,8 @@ export async function uploadRecording(
       pairedEventId: entry.pairedEventId,
     });
     await markRecordingUploaded(entry.id, activityId);
+    // The provisional row keeps its key and gains the server's id.
+    recordProvisionalUpload(entry, activityId);
     // Reads the same FIT, so the discard below has to wait for it.
     await importRecordedStrengthSets(entry, activityId);
     // A finished upload stays finished even if the file cannot be removed.

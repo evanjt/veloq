@@ -86,6 +86,8 @@ export interface RecordingLibraryEntry {
   lastAttemptAt?: number;
   lastError?: string;
   intervalsActivityId?: string;
+  /** The engine key the recording was written under at save time. */
+  engineActivityId?: string;
 }
 
 /** Crash recovery backup */

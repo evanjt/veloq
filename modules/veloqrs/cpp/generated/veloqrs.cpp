@@ -181,6 +181,11 @@ RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer types,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+int8_t uniffi_veloqrs_fn_method_activitymanager_record_upload(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer intervals_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_remove(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -1004,6 +1009,8 @@ uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_ids();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_stream_body();
+uint16_t uniffi_veloqrs_checksum_method_activitymanager_mint_local_id();
+uint16_t uniffi_veloqrs_checksum_method_activitymanager_record_upload();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_remove();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events();
@@ -4638,6 +4645,32 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_record_upload"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_activitymanager_record_upload"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_activitymanager_record_upload(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_activitymanager_remove"] =
@@ -8680,6 +8713,30 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "activitymanager_mint_local_id"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "activitymanager_record_upload"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_activitymanager_record_upload(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -12099,6 +12156,38 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
                                                         args[count - 1]);
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_record_upload(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_activitymanager_record_upload(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_remove(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -17018,6 +17107,22 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_activitymanager_get_stream_body();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_activitymanager_mint_local_id();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_activitymanager_record_upload(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_activitymanager_record_upload();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
