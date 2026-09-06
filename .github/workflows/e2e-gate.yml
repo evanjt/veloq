@@ -222,7 +222,11 @@ jobs:
             gate-report.xml
             flaky-report.xml
             retry-reports/
-          retention-days: 7
+          # Ninety days, the most GitHub allows, because these few kilobytes are
+          # the flake evidence: promotion out of the flaky lane needs twenty
+          # runs and the gate runs about daily. The debug bundle above keeps
+          # its week.
+          retention-days: 90
 
       - name: Publish test results
         if: always()
@@ -324,7 +328,11 @@ jobs:
           path: |
             map-report.xml
             retry-reports/
-          retention-days: 7
+          # Ninety days, the most GitHub allows, because these few kilobytes are
+          # the flake evidence: promotion out of the flaky lane needs twenty
+          # runs and the gate runs about daily. The debug bundle above keeps
+          # its week.
+          retention-days: 90
 
       - name: Publish test results
         if: always()
