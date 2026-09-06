@@ -241,3 +241,214 @@ impl VeloqEngine {
         })?
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+    use crate::with_persistent_engine;
+    use tracematch::GpsPoint;
+
+    fn seed_activity(id: &str) {
+        with_persistent_engine(|e| {
+            let track: Vec<GpsPoint> = (0..8)
+                .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.001, 7.35))
+                .collect();
+            e.add_activity(id.to_string(), track, "Ride".into())
+                .expect("add activity");
+            e.update_activity_metadata(
+                id,
+                Some(1_700_000_000),
+                Some("ride"),
+                Some(1000.0),
+                Some(600),
+            )
+            .expect("metadata");
+        })
+        .expect("engine");
+    }
+
+    #[test]
+    fn create_on_a_live_engine_keeps_it_and_destroy_drops_it() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        seed_activity("a1");
+
+        let engine =
+            VeloqEngine::create(tmp.path().join("other.db").to_string_lossy().into_owned());
+        assert!(engine.is_initialized());
+        assert_eq!(
+            engine.get_activity_count().unwrap(),
+            1,
+            "a second create must not reopen"
+        );
+
+        engine.destroy();
+        assert!(!engine.is_initialized());
+        assert!(matches!(
+            engine.get_activity_count(),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            engine.get_stats(),
+            Err(VeloqError::NotInitialized)
+        ));
+    }
+
+    #[test]
+    fn create_opens_a_database_when_none_is_live() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        VeloqEngine::create(tmp.path().join("fresh.db").to_string_lossy().into_owned()).destroy();
+        let engine =
+            VeloqEngine::create(tmp.path().join("fresh.db").to_string_lossy().into_owned());
+        assert!(engine.is_initialized());
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        engine.destroy();
+    }
+
+    #[test]
+    fn stats_counts_and_backfill_list_read_through_the_object() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        assert_eq!(engine.get_stats().unwrap().activity_count, 0);
+        assert!(
+            engine
+                .get_activities_needing_time_streams()
+                .unwrap()
+                .is_empty()
+        );
+
+        seed_activity("a1");
+        let stats = engine.get_stats().unwrap();
+        assert_eq!(stats.activity_count, 1);
+        assert_eq!(stats.gps_track_count, 1);
+        // The backfill list is section activities without a time stream, so an
+        // activity no section holds is not on it.
+        assert!(
+            engine
+                .get_activities_needing_time_streams()
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn the_three_clears_remove_what_they_say() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        seed_activity("a2");
+
+        engine.clear_routes_and_sections().unwrap();
+        assert_eq!(engine.get_activity_count().unwrap(), 2);
+
+        // A synced activity is re-derivable, so the derived clear takes it and
+        // keeps only what a section still references.
+        let derived = engine.clear_derived_data().unwrap();
+        assert_eq!(derived.activities_removed, 2);
+        assert_eq!(derived.activities_kept, 0);
+        assert_eq!(derived.sections_removed, 0);
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+
+        seed_activity("a3");
+        engine.clear().unwrap();
+        assert_eq!(engine.get_activity_count().unwrap(), 0);
+        engine.mark_for_recomputation().unwrap();
+    }
+
+    #[test]
+    fn name_translations_are_written_to_the_shared_words() {
+        let engine = VeloqEngine;
+        engine.set_name_translations("Strecke".into(), "Abschnitt".into());
+        let words = NAME_TRANSLATIONS.read().unwrap();
+        assert_eq!(words.route_word, "Strecke");
+        assert_eq!(words.section_word, "Abschnitt");
+        drop(words);
+        engine.set_name_translations("Route".into(), "Section".into());
+    }
+
+    #[test]
+    fn every_manager_hangs_off_the_engine() {
+        let engine = VeloqEngine;
+        let _ = engine.sections();
+        let _ = engine.activities();
+        let _ = engine.routes();
+        let _ = engine.maps();
+        let _ = engine.fitness();
+        let _ = engine.settings();
+        let _ = engine.detection();
+        let _ = engine.strength();
+        let _ = engine.heatmap();
+        let _ = engine.sync();
+    }
+
+    #[test]
+    fn backup_runs_once_at_a_time_and_reports_its_metadata() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        assert_eq!(engine.poll_backup().unwrap(), "idle");
+
+        let dest = tmp.path().join("backup.db").to_string_lossy().into_owned();
+        engine.start_backup(dest.clone()).unwrap();
+        let second = engine.start_backup(dest.clone());
+        let mut state = engine.poll_backup().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while state == "running" {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "backup never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            state = engine.poll_backup().unwrap();
+        }
+        assert_eq!(state, "complete");
+        assert!(
+            second.is_err() || std::path::Path::new(&dest).exists(),
+            "a second start while one runs is refused; one that lands after it is a fresh backup"
+        );
+        assert!(std::path::Path::new(&dest).exists());
+        assert_eq!(
+            engine.poll_backup().unwrap(),
+            "idle",
+            "a finished backup clears its slot"
+        );
+
+        let metadata: serde_json::Value =
+            serde_json::from_str(&engine.get_backup_metadata().unwrap()).unwrap();
+        assert_eq!(metadata["activity_count"], 1);
+        assert_eq!(metadata["gps_track_count"], 1);
+        assert_ne!(metadata["schema_version"], "0");
+        assert!(metadata["athlete_id"].is_null());
+    }
+
+    #[test]
+    fn bulk_exports_write_a_file_per_format() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+
+        let gpx = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        let result = engine.bulk_export_gpx(gpx.clone()).unwrap();
+        assert_eq!(result.exported, 1);
+        assert!(std::path::Path::new(&gpx).exists());
+
+        let geojson = tmp
+            .path()
+            .join("all.geojson")
+            .to_string_lossy()
+            .into_owned();
+        let result = engine.bulk_export_geojson(geojson.clone()).unwrap();
+        assert_eq!(result.exported, 1);
+        assert!(
+            std::fs::read_to_string(&geojson)
+                .unwrap()
+                .contains("FeatureCollection")
+        );
+    }
+}
