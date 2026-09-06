@@ -1,7 +1,8 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { SectionChangeCardSlide } from '@/features/settings/components/whatsNew/SectionChangeCardSlide';
 import { getEngine } from '@/shared/native/engine';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -25,6 +26,7 @@ const ALL_BUT_DEVICE = {
 describe('SectionChangeCardSlide', () => {
   it('shows one row per supported claim and never the cross-device row', () => {
     (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
       getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
     const { getByTestId, queryByTestId, getAllByText } = render(<SectionChangeCardSlide />);
@@ -44,6 +46,7 @@ describe('SectionChangeCardSlide', () => {
 
   it('hides a row whose flag is false and the card when nothing is supported', () => {
     (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
       getChangeCardSupport: () => ({
         ...ALL_BUT_DEVICE,
         deterministic: false,
@@ -56,6 +59,7 @@ describe('SectionChangeCardSlide', () => {
     expect(queryByTestId('change-card-row-ledger')).toBeTruthy();
 
     (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
       getChangeCardSupport: () => ({
         ...ALL_BUT_DEVICE,
         deterministic: false,
@@ -73,6 +77,7 @@ describe('SectionChangeCardSlide', () => {
 
   it('announces the one-time elevation download above the claims', () => {
     (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
       getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
     const { getByTestId, getByText } = render(<SectionChangeCardSlide />);
@@ -100,6 +105,7 @@ describe('SectionChangeCardSlide', () => {
 
     function engineWith(progress: unknown, diff: unknown) {
       (getEngine as jest.Mock).mockReturnValue({
+        subscribe: () => () => {},
         getChangeCardSupport: () => ALL_BUT_DEVICE,
         getCutoverProgress: () => progress,
         getCutoverDiff: () => diff,
@@ -154,6 +160,7 @@ describe('SectionChangeCardSlide', () => {
 
     it('keeps the claim rows when the engine has no cutover calls at all', () => {
       (getEngine as jest.Mock).mockReturnValue({
+        subscribe: () => () => {},
         getChangeCardSupport: () => ALL_BUT_DEVICE,
       });
       const { getByTestId, queryByTestId } = render(<SectionChangeCardSlide />);
@@ -163,6 +170,7 @@ describe('SectionChangeCardSlide', () => {
 
     it('shows nothing at all when no claim is supported, run or not', () => {
       (getEngine as jest.Mock).mockReturnValue({
+        subscribe: () => () => {},
         getChangeCardSupport: () => ({
           deterministic: false,
           sameResultDripOrBatch: false,
@@ -245,6 +253,29 @@ describe('SectionChangeCardSlide', () => {
       expect(
         render(<SectionChangeCardSlide />).queryByTestId('change-card-settings-reset')
       ).toBeNull();
+    });
+
+    /**
+     * Scenario: the carousel is shown at app start, and the root layout opens
+     * the engine in an effect. The support read was memoised on an empty deps
+     * list, so a slide that mounted first read `null` and kept it for the life
+     * of the carousel: no rows, and the whole slide returning null.
+     *
+     * Expected behaviour: the read is keyed on the subscription trigger, which
+     * bumps when the engine arrives, so the slide fills in.
+     */
+    it('fills in when the engine opens after the slide has mounted', () => {
+      (getEngine as jest.Mock).mockReturnValue(null);
+      const tree = render(<SectionChangeCardSlide />);
+      expect(tree.queryByTestId('change-card-row-ledger')).toBeNull();
+
+      engineWith({ phase: 'idle', running: false }, null);
+      act(() => {
+        useEngineStatus.setState((prior) => ({ readyNonce: prior.readyNonce + 1 }));
+      });
+      tree.rerender(<SectionChangeCardSlide />);
+
+      expect(tree.getByTestId('change-card-row-ledger')).toBeTruthy();
     });
 
     it('reads draining and archiving as the one preparing line', () => {
