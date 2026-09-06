@@ -68,7 +68,14 @@ function narrowPhase(phase: string): ElevationBackfillPhase {
 function read(): ElevationBackfillState {
   const engine = getEngine();
   if (!engine) return IDLE;
-  const progress = engine.getElevationBackfillProgress();
+  // Defensive like every other FFI read here: a host that cannot answer reads
+  // as idle, never as work owed.
+  let progress;
+  try {
+    progress = engine.getElevationBackfillProgress?.();
+  } catch {
+    return IDLE;
+  }
   if (!progress) return IDLE;
   const phase = narrowPhase(progress.phase);
   const isRunning = phase === 'fetching';
@@ -120,7 +127,12 @@ export function useElevationBackfill(): ElevationBackfillState {
     follow(stateRef.current.isRunning);
 
     const engine = getEngine();
-    const unsubscribe = engine?.subscribe(PHASE_CHANNEL, () => follow(tick().isRunning));
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = engine?.subscribe?.(PHASE_CHANNEL, () => follow(tick().isRunning));
+    } catch {
+      unsubscribe = undefined;
+    }
 
     return () => {
       follow(false);

@@ -49,7 +49,13 @@ export function useDetectionHold(): DetectionHold {
   useEffect(() => {
     const engine = getEngine();
     if (!engine) return undefined;
-    return engine.subscribe('sections', recheck);
+    // Defensive like the read above: a host that cannot answer must not cost
+    // the screen its mount.
+    try {
+      return engine.subscribe?.('sections', recheck);
+    } catch {
+      return undefined;
+    }
   }, [recheck]);
 
   useEffect(() => {

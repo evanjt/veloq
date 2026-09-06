@@ -1279,6 +1279,7 @@
     "previewFailed": "No se pudo completar la vista previa.",
     "previewPoolUnusable": "Algunos de tus registros de actividad no se pueden leer, por lo que la vista previa se detuvo.",
     "previewSuspended": "Actualización de altitud en curso. Intenta de nuevo en un momento.",
+    "previewMigrating": "Tu biblioteca aún se está migrando, así que estos resultados pueden variar un poco al terminar",
     "previewUnchanged": "{{count}} sin cambios",
     "previewChanged": "{{count}} modificadas",
     "previewNew": "{{count}} nuevas",
