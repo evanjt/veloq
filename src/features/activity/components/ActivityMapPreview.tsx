@@ -91,7 +91,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialized());
   useEffect(() => {
-    if (cacheReady) return;
+    if (cacheReady) return undefined;
     return onTerrainCacheReady(() => setCacheReady(true));
   }, [cacheReady]);
 
@@ -221,7 +221,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // once the skeleton has had its moment; a later completion event flips the
   // card to the image.
   useEffect(() => {
-    if (terrainImageUri || snapshotFailed) return;
+    if (terrainImageUri || snapshotFailed) return undefined;
     const timer = setTimeout(() => setSnapshotFailed(true), SNAPSHOT_SKELETON_MS);
     return () => clearTimeout(timer);
   }, [terrainImageUri, snapshotFailed]);

@@ -90,7 +90,7 @@ export default function DetectionSettingsScreen() {
   } = useSectionRescan();
 
   useEffect(() => {
-    if (rescanResult === null) return;
+    if (rescanResult === null) return undefined;
     const timer = setTimeout(clearResult, 5000);
     return () => clearTimeout(timer);
   }, [rescanResult, clearResult]);

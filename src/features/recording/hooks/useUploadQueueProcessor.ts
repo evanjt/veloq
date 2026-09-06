@@ -82,7 +82,7 @@ export function useUploadQueueProcessor() {
 
   // Periodic safety net for backoff-delayed retries
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline) return undefined;
     const interval = setInterval(processQueue, RETRY_TICK_MS);
     return () => clearInterval(interval);
   }, [isOnline, processQueue]);

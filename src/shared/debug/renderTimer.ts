@@ -7,6 +7,8 @@
 
 import { AppState } from 'react-native';
 
+import { hermesStats } from './hermesStats';
+
 // Toggle this to enable/disable performance logging
 export const PERF_DEBUG = __DEV__;
 
@@ -52,7 +54,7 @@ export function logScreenRender(screenName: string): () => void {
  */
 export function logMemory(label: string): void {
   if (!PERF_DEBUG) return;
-  const stats = (global as any).HermesInternal?.getInstrumentedStats?.();
+  const stats = hermesStats();
   if (!stats) return;
   const heapMB = (stats['js_heapSize'] / 1024 / 1024).toFixed(1);
   const allocMB = (stats['js_totalAllocatedBytes'] / 1024 / 1024).toFixed(1);
