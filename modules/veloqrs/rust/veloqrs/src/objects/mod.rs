@@ -14,6 +14,7 @@ pub mod strength;
 mod sync;
 mod tiles;
 
+pub use detection::DetectionManager;
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
 pub use preview::SectionPreview;

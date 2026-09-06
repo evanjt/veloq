@@ -13,6 +13,7 @@ import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
+import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
@@ -238,16 +239,15 @@ export function useRouteDataSync(
             });
 
             // The engine starts detection when the batch lands; follow it.
+            // The end arrives on `detectionApplied`, so nothing here ticks
+            // the drain: a tick that saw completion would take it from
+            // whichever screen is also following the same run.
             const started = nativeModule.engine.pollSectionDetection() === 'running';
             if (started) {
-              const pollInterval = 500;
-              const maxPollTime = 60000;
-              const startTime = Date.now();
-              while (isMountedRef.current && !abortController.signal.aborted) {
-                const detectionStatus = nativeModule.engine.pollSectionDetection();
-                if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
-                await new Promise((resolve) => setTimeout(resolve, pollInterval));
-              }
+              await followDetection(nativeModule.engine as unknown as DetectionEngine, {
+                isActive: () => isMountedRef.current && !abortController.signal.aborted,
+                timeoutMs: 60000,
+              }).settled;
               // Skip side effects if a newer sync took over (cache clear race)
               if (!abortController.signal.aborted) {
                 engine.triggerRefresh('groups');
