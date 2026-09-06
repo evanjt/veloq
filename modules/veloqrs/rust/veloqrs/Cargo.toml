@@ -313,6 +313,10 @@ name = "corpus_migration"
 required-features = ["real-corpus"]
 
 [[test]]
+name = "lap_sensor_enrichment_cost"
+required-features = ["synthetic"]
+
+[[test]]
 name = "evidence_cache_durability"
 required-features = ["synthetic"]
 
