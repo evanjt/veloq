@@ -10,9 +10,10 @@
  * through the status snapshot. Writes are awaited, because whether an upload was
  * accepted decides what happens to the file on the device.
  *
- * The `host.ready` guard only covers calls made before the engine is
- * initialised, returning safe defaults. Field casing matches the generated
- * records (camelCase).
+ * The `host.ready` guard only covers reads made before the engine is
+ * initialised, returning safe defaults. Writes go through `host.write`, which
+ * holds them until it opens. Field casing matches the generated records
+ * (camelCase).
  */
 
 import {
@@ -36,16 +37,14 @@ export function setSyncCredentials(
   secret: string,
   athleteId: string
 ): void {
-  if (!host.ready) return;
-  host.timed('setSyncCredentials', () =>
+  host.write('setSyncCredentials', () =>
     host.engine.sync().setCredentials(method, secret, athleteId)
   );
 }
 
 /** Forget the credential (logout). */
 export function clearSyncCredentials(host: DelegateHost): void {
-  if (!host.ready) return;
-  host.timed('clearSyncCredentials', () => host.engine.sync().clearCredentials());
+  host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
 }
 
 /** Start a sync. Returns instantly; false if one is already running or no
@@ -197,7 +196,13 @@ export function validateSyncCredentials(
   return host.engine.sync().validateCredentials(method, secret);
 }
 
-/** Soft-cancel the running sync. */
+/**
+ * Soft-cancel the running sync.
+ *
+ * Guarded, not written: a cancel held from before the engine opened refers to
+ * a sync that never started, and replaying it would cancel the launch sync the
+ * athlete did start.
+ */
 export function cancelSync(host: DelegateHost): void {
   if (!host.ready) return;
   host.timed('cancelSync', () => host.engine.sync().cancel());

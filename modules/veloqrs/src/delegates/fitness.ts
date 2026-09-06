@@ -118,15 +118,16 @@ export function savePaceSnapshot(
   r2?: number,
   date?: number
 ): void {
-  if (!host.ready) return;
-  const ts = date ?? Math.floor(Date.now() / 1000);
-  try {
-    host.timed('savePaceSnapshot', () =>
-      host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts))
-    );
-  } catch {
-    // Pace snapshot save failed - non-critical
-  }
+  // Stamped at the call, not at the write: a snapshot held until the engine
+  // opens still belongs to the moment the curve was fitted.
+  const ts = BigInt(date ?? Math.floor(Date.now() / 1000));
+  host.write('savePaceSnapshot', () => {
+    try {
+      host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts);
+    } catch {
+      // Pace snapshot save failed - non-critical
+    }
+  });
 }
 
 export function getAvailableSportTypes(host: DelegateHost): string[] {
