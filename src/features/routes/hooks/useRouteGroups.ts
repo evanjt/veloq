@@ -8,6 +8,7 @@ import { useMemo, useCallback } from 'react';
 import { useGroupSummaries } from './useEngine';
 import { getEngine } from '@/shared/native/engine';
 import { toActivityType, type ActivityType } from '@/types';
+import { groupCoversType } from '@/features/routes/lib/routeSportMembership';
 
 interface UseRouteGroupsOptions {
   /** Filter by activity type */
@@ -122,8 +123,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
     // Activity count threshold + name/count sort are applied in Rust.
     // Only `type` (ActivityType) filtering stays in TS because the mapping
-    // is display-layer logic.
-    const filtered = type ? extended.filter((g) => g.type === type) : extended;
+    // is display-layer logic. Membership reads every sport that has traversed
+    // the ground, not the representative's alone: one loop is one route however
+    // many sports have used it.
+    const filtered = type ? extended.filter((g) => groupCoversType(g, type)) : extended;
 
     return {
       groups: filtered,
