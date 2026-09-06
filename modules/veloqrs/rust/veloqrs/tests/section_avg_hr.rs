@@ -205,3 +205,63 @@ fn the_efficiency_trend_reads_the_laps_it_could_never_see() {
         "the trend's own filter is avg_hr IS NOT NULL, so this is what gated it"
     );
 }
+
+/// Scenario: detection writes the junction row itself, with `INSERT OR
+/// REPLACE`, and runs again on every sync. `apply_sections` runs the lazy pass
+/// straight after the save, so the save is checked on its own here: that pass
+/// is the repair, not the writer.
+/// Expected behaviour: the apply's own insert records the effort, and a second
+/// save over the same library leaves it there. Leaving the column to the lazy
+/// pass makes every re-detect blank what the pass had filled, so the pass
+/// redoes the whole library after each one.
+#[test]
+fn the_apply_records_the_effort_and_a_redetect_keeps_it() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    let mut engine = PersistentEngine::new(path.to_str().expect("utf-8")).expect("open");
+    for id in ["a1", "a2", "a3"] {
+        engine
+            .add_activity(id.to_string(), track(), "Ride".to_string())
+            .expect("store");
+        engine
+            .store_activity_streams(id, &[series("heartrate", heart_rates())])
+            .expect("store streams");
+    }
+
+    let handle = engine.detect_sections_background();
+    let (sections, _) = handle.recv().unwrap_or_default();
+    engine.apply_sections_save(sections).expect("apply");
+
+    let recorded = recorded_efforts(&dir);
+    assert!(!recorded.is_empty(), "detection produced no junction rows");
+    assert!(
+        recorded.iter().all(Option::is_some),
+        "every auto lap carries its effort straight from the apply, not from \
+         the lazy pass that follows it: {recorded:?}"
+    );
+
+    engine
+        .recompute_activity_indicators()
+        .expect("the lazy pass");
+    let handle = engine.detect_sections_background();
+    let (sections, _) = handle.recv().unwrap_or_default();
+    engine.apply_sections_save(sections).expect("re-apply");
+
+    assert_eq!(
+        recorded_efforts(&dir),
+        recorded,
+        "a re-detect must not blank the effort its own insert recorded"
+    );
+}
+
+/// Every junction row's `avg_hr`, ordered so two reads compare.
+fn recorded_efforts(dir: &TempDir) -> Vec<Option<f64>> {
+    let db = conn(dir);
+    let mut stmt = db
+        .prepare("SELECT avg_hr FROM section_activities ORDER BY section_id, activity_id")
+        .expect("prepare");
+    let rows = stmt
+        .query_map([], |row| row.get::<_, Option<f64>>(0))
+        .expect("query");
+    rows.map(|r| r.expect("row")).collect()
+}
