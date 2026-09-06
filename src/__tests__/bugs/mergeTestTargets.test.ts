@@ -111,13 +111,33 @@ describe('the commands a merge runs', () => {
     );
 
     expect(commands).toEqual([
-      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --lib',
+      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --lib',
       'cargo test --manifest-path modules/veloqrs/rust/tracematch/Cargo.toml -p tracematch',
     ]);
   });
 
   it('has no commands for a merge of documents alone', () => {
     expect(mergeTestCommands(mergeTestTargets(['README.md']))).toEqual([]);
+  });
+
+  // Sixty of the crate's suites carry `required-features = ["synthetic"]`,
+  // and cargo refuses a `--test` naming one without the feature rather than
+  // skipping it. The feature is additive and it is the lane CI runs, so every
+  // veloqrs command carries it.
+  it('runs the crate with the feature its gated suites require', () => {
+    const [command] = mergeTestCommands(
+      mergeTestTargets([`${CRATE}/tests/suite2_cache_coherence.rs`])
+    );
+
+    expect(command).toBe(
+      'cargo test --manifest-path modules/veloqrs/rust/veloqrs/Cargo.toml -p veloqrs --features synthetic --test suite2_cache_coherence'
+    );
+  });
+
+  it('carries the feature for the unit tests too, so one lane serves both', () => {
+    const [command] = mergeTestCommands(mergeTestTargets([`${CRATE}/src/persistence/wellness.rs`]));
+
+    expect(command).toContain('--features synthetic');
   });
 
   // The hook runs the line through `eval`, and every tab screen lives under
