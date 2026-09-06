@@ -37,7 +37,7 @@ use std::sync::LazyLock;
 mod activities;
 pub use activities::{
     DerivedClear, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
-    ElevationStateCounts,
+    ElevationStateCounts, mint_local_activity_id,
 };
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
