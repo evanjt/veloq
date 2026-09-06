@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +34,6 @@ import { ActivityStatsCard } from '@/features/recording/components/ActivityStats
 import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
 import type { ActivityType } from '@/types';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
 
 export default function ReviewScreen() {
@@ -147,7 +146,8 @@ export default function ReviewScreen() {
   const border = isDark ? darkColors.border : colors.border;
   const activityColor = getActivityColor(type);
   const isProcessing = isUploading;
-  const mapHeight = hasGps ? SCREEN_HEIGHT * MAP_FRACTION : 0;
+  const { height: windowHeight } = useWindowDimensions();
+  const mapHeight = hasGps ? windowHeight * MAP_FRACTION : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>

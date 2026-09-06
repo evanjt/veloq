@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
+import { Modal, View, StyleSheet, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,8 @@ import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
 
-const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
+/** Share of the window the sheet rises to. */
+const SHEET_FRACTION = 0.85;
 
 interface InsightDetailSheetProps {
   insight: Insight | null;
@@ -25,6 +26,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const { height: windowHeight } = useWindowDimensions();
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -47,7 +49,11 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
         <View style={styles.backdropFill} />
       </Pressable>
       <View
-        style={[styles.sheet, isDark && styles.sheetDark, { height: SHEET_HEIGHT }]}
+        style={[
+          styles.sheet,
+          isDark && styles.sheetDark,
+          { height: windowHeight * SHEET_FRACTION },
+        ]}
         testID="insight-detail-sheet"
       >
         {/* Drag handle */}

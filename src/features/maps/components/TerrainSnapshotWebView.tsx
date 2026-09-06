@@ -22,7 +22,7 @@ import React, {
   forwardRef,
   useMemo,
 } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import type { MapStyleType } from './mapStyles';
@@ -67,7 +67,6 @@ const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 30;
 /** Failed renders held for a drain. The queue's cap, for the same reason. */
 const MAX_FAILED_SIZE = 30;
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
 const MAX_SNAPSHOT_RETRIES = 1;
@@ -110,6 +109,7 @@ export const TerrainSnapshotWebView = forwardRef<
   TerrainSnapshotWebViewRef,
   TerrainSnapshotWebViewProps
 >(function TerrainSnapshotWebView({ suspended = false }, ref) {
+  const { width: screenWidth } = useWindowDimensions();
   // Lazy-init worker pool - created once, never recreated
   const workersRef = useRef<WorkerState[] | null>(null);
   if (workersRef.current === null) {
@@ -588,7 +588,7 @@ export const TerrainSnapshotWebView = forwardRef<
   );
 
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View style={[styles.container, { width: screenWidth }]} pointerEvents="none">
       {(suspended ? [] : workers).map((worker) => (
         <WebView
           key={worker.id}
@@ -620,7 +620,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    width: SCREEN_WIDTH,
     height: SNAPSHOT_HEIGHT,
     zIndex: -1,
     opacity: 0.01,
