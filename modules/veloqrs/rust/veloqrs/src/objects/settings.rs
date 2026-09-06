@@ -144,3 +144,142 @@ impl SettingsManager {
         })?
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn a_setting_round_trips_and_a_delete_removes_it() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings.db");
+        let settings = SettingsManager::new();
+
+        assert_eq!(settings.get_setting("theme".into()).unwrap(), None);
+        settings.set_setting("theme".into(), "dark".into()).unwrap();
+        assert_eq!(
+            settings.get_setting("theme".into()).unwrap().as_deref(),
+            Some("dark")
+        );
+        settings
+            .set_setting("theme".into(), "light".into())
+            .unwrap();
+        assert_eq!(
+            settings.get_setting("theme".into()).unwrap().as_deref(),
+            Some("light")
+        );
+        settings.delete_setting("theme".into()).unwrap();
+        assert_eq!(settings.get_setting("theme".into()).unwrap(), None);
+        settings.delete_setting("theme".into()).unwrap();
+    }
+
+    #[test]
+    fn a_batch_write_counts_only_the_pairs_that_changed() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings.db");
+        let settings = SettingsManager::new();
+        let pair = |k: &str, v: &str| SettingPair {
+            key: k.into(),
+            value: v.into(),
+        };
+
+        assert_eq!(settings.set_settings(vec![]).unwrap(), 0);
+        assert_eq!(
+            settings
+                .set_settings(vec![pair("a", "1"), pair("b", "2")])
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            settings
+                .set_settings(vec![pair("a", "1"), pair("b", "3")])
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            settings.get_setting("b".into()).unwrap().as_deref(),
+            Some("3")
+        );
+    }
+
+    #[test]
+    fn profile_blobs_are_stored_apart_and_cleared_together() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings.db");
+        let settings = SettingsManager::new();
+
+        assert_eq!(settings.get_athlete_profile().unwrap(), None);
+        assert_eq!(settings.get_sport_settings().unwrap(), None);
+        settings
+            .set_athlete_profile("{\"id\":\"i1\"}".into())
+            .unwrap();
+        settings.set_sport_settings("{\"ftp\":200}".into()).unwrap();
+        settings.set_setting("kept".into(), "yes".into()).unwrap();
+        assert_eq!(
+            settings.get_athlete_profile().unwrap().as_deref(),
+            Some("{\"id\":\"i1\"}")
+        );
+        assert_eq!(
+            settings.get_sport_settings().unwrap().as_deref(),
+            Some("{\"ftp\":200}")
+        );
+
+        settings.clear_user_profile_caches().unwrap();
+        assert_eq!(settings.get_athlete_profile().unwrap(), None);
+        assert_eq!(settings.get_sport_settings().unwrap(), None);
+        assert_eq!(
+            settings.get_setting("kept".into()).unwrap().as_deref(),
+            Some("yes")
+        );
+    }
+
+    #[test]
+    fn stream_retention_defaults_to_ninety_days_and_zero_keeps_everything() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings.db");
+        let settings = SettingsManager::new();
+
+        assert_eq!(settings.stream_retention_days().unwrap(), 90);
+        assert_eq!(settings.stream_store_bytes().unwrap(), 0);
+        settings.set_stream_retention_days(30).unwrap();
+        assert_eq!(settings.stream_retention_days().unwrap(), 30);
+        settings.set_stream_retention_days(0).unwrap();
+        assert_eq!(settings.stream_retention_days().unwrap(), 0);
+    }
+
+    #[test]
+    fn an_empty_library_offers_no_export_home_and_previews_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings.db");
+        let settings = SettingsManager::new();
+
+        assert!(settings.suggest_export_home().unwrap().is_none());
+        let preview = settings.export_privacy_preview(46.2, 7.35, 500.0).unwrap();
+        assert_eq!(
+            (preview.with_track, preview.touched, preview.dropped),
+            (0, 0, 0)
+        );
+    }
+
+    #[test]
+    fn every_call_reports_not_initialised_without_an_engine() {
+        let _guard = serial_global_state();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+        let settings = SettingsManager::new();
+        assert!(matches!(
+            settings.get_setting("k".into()),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.set_setting("k".into(), "v".into()),
+            Err(VeloqError::NotInitialized)
+        ));
+        assert!(matches!(
+            settings.stream_retention_days(),
+            Err(VeloqError::NotInitialized)
+        ));
+    }
+}

@@ -102,3 +102,51 @@ impl HeatmapManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn cache_size_walks_the_zxy_tree_and_a_missing_tree_is_zero() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let heatmap = HeatmapManager::new();
+        let base = tmp.path().join("tiles");
+        let base_str = base.to_string_lossy().into_owned();
+        assert_eq!(heatmap.get_cache_size(base_str.clone()).unwrap(), 0);
+
+        std::fs::create_dir_all(base.join("12").join("2130")).unwrap();
+        std::fs::write(base.join("12").join("2130").join("1450.png"), [0u8; 300]).unwrap();
+        std::fs::write(base.join("12").join("2130").join("1451.png"), [0u8; 200]).unwrap();
+        std::fs::write(base.join("version.txt"), "ignored, not under z/x/").unwrap();
+        assert_eq!(heatmap.get_cache_size(base_str).unwrap(), 500);
+    }
+
+    #[test]
+    fn the_path_is_set_and_cleared_on_the_engine_and_a_clear_counts_files() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("tiles.db");
+        let heatmap = HeatmapManager::new();
+        let base = tmp.path().join("heat");
+        let base_str = base.to_string_lossy().into_owned();
+
+        heatmap.set_tiles_path(base_str.clone()).unwrap();
+        std::fs::create_dir_all(base.join("10").join("1")).unwrap();
+        std::fs::write(base.join("10").join("1").join("1.png"), [0u8; 10]).unwrap();
+        assert_eq!(heatmap.clear_tiles(base_str.clone()).unwrap(), 1);
+        assert_eq!(heatmap.get_cache_size(base_str).unwrap(), 0);
+        heatmap.clear_tiles_path().unwrap();
+    }
+
+    #[test]
+    fn generation_reads_idle_with_no_worker() {
+        let _guard = serial_global_state();
+        let heatmap = HeatmapManager::new();
+        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+        assert_eq!(heatmap.poll().unwrap(), "idle");
+        assert_eq!(heatmap.get_progress().unwrap(), vec![0, 0]);
+    }
+}

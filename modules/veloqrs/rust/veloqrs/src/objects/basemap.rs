@@ -87,3 +87,48 @@ fn store() -> Result<Arc<basemap::TileStore>, VeloqError> {
 fn tile_store_error(e: std::io::Error) -> VeloqError {
     VeloqError::TileStore { msg: e.to_string() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::serial_global_state;
+
+    #[test]
+    fn a_tile_round_trips_and_the_store_answers_sizes_and_clears() {
+        let _guard = serial_global_state();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let manager = BasemapManager::new();
+        manager.set_path(tmp.path().to_string_lossy().into_owned());
+
+        assert_eq!(manager.get_tile("osm".into(), 3, 4, 2), None);
+        manager
+            .put_tile("osm".into(), 3, 4, 2, "pbf".into(), vec![1, 2, 3, 4], false)
+            .unwrap();
+        manager
+            .put_tile("osm".into(), 3, 4, 3, "pbf".into(), vec![5, 6], true)
+            .unwrap();
+        manager
+            .put_tile("sat".into(), 3, 4, 2, "jpg".into(), vec![7, 8, 9], false)
+            .unwrap();
+        assert_eq!(
+            manager.get_tile("osm".into(), 3, 4, 2),
+            Some(vec![1, 2, 3, 4])
+        );
+        assert_eq!(manager.get_source_size("osm".into()), 6);
+        assert_eq!(manager.get_source_size("sat".into()), 3);
+        assert_eq!(manager.get_cache_size(), 9);
+
+        assert_eq!(manager.evict_to("osm".into(), 2).unwrap(), 1);
+        assert_eq!(
+            manager.get_tile("osm".into(), 3, 4, 2),
+            None,
+            "the unpinned tile goes first"
+        );
+        assert_eq!(manager.get_tile("osm".into(), 3, 4, 3), Some(vec![5, 6]));
+
+        assert_eq!(manager.clear_source_tiles("sat".into()).unwrap(), 1);
+        assert_eq!(manager.get_source_size("sat".into()), 0);
+        assert_eq!(manager.clear_tiles().unwrap(), 1);
+        assert_eq!(manager.get_cache_size(), 0);
+    }
+}
