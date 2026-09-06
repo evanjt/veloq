@@ -20,6 +20,7 @@ export { GlobalErrorBoundary } from './GlobalErrorBoundary';
 export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { DetailHero, HeroNameRow, HeroStatsRow } from './DetailHero';
+export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { TipButtons } from './TipButtons';

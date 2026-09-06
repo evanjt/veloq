@@ -52,7 +52,7 @@ import {
 import { getEngine } from '@/shared/native/engine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { ScreenErrorBoundary } from '@/shared/ui';
+import { ScreenErrorBoundary, useHeroMapHeight } from '@/shared/ui';
 import {
   SectionHeader,
   SectionActionRow,
@@ -63,14 +63,13 @@ import {
   MergeConfirmDialog,
   MergeCandidatesModal,
 } from '@/features/routes/components/section';
-import {
-  MAP_HEIGHT_NORMAL,
-  MAP_HEIGHT_EDIT,
-} from '@/features/routes/components/section/SectionHeader';
 import { styles } from '@/features/routes/components/section/SectionDetail.styles';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { colors } from '@/theme';
 import type { RoutePoint } from '@/types';
+
+/** Trimming needs room to place the handles, so the map grows past the hero fraction. */
+const EDIT_MAP_FRACTION = 0.6;
 
 export default function SectionDetailScreen() {
   // Performance timing
@@ -87,6 +86,8 @@ export default function SectionDetailScreen() {
   }>();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const mapHeight = useHeroMapHeight();
+  const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
 
   // Everything the screen can paint before its time streams land, in one call.
   const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
@@ -385,7 +386,7 @@ export default function SectionDetailScreen() {
           <SectionHeader
             section={section}
             insetTop={insets.top}
-            mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
+            mapHeight={isTrimming ? editMapHeight : mapHeight}
             activityColor={activityColor}
             iconName={iconName}
             activityCount={traversalCount}
