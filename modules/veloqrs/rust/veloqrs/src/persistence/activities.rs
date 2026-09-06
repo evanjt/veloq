@@ -597,11 +597,16 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// Clear all data. Every table except `settings` empties, because this is
-    /// the logout path and anything left behind is one athlete's data shown to
-    /// the next. Nothing cascades here: only three tables carry an activity
-    /// foreign key, so a table missing from this list survives indefinitely.
-    /// `clear_wipes_every_table` holds the list to the schema.
+    /// Clear all data. Every table the declaration does not call
+    /// `TableClass::Meta` empties, because this is the logout path and
+    /// anything left behind is one athlete's data shown to the next. Nothing
+    /// cascades here: only three tables carry an activity foreign key, so a
+    /// table missing from this list survives indefinitely.
+    ///
+    /// The list stays hand-ordered because the order is a foreign-key order,
+    /// not an alphabetical one. What holds it to the schema is
+    /// `clear_wipes_every_table`, and what decides which tables belong in it is
+    /// `persistence::tables`, read by that test rather than restated here.
     pub fn clear(&mut self) -> SqlResult<()> {
         self.db.execute_batch(
             "DELETE FROM section_activities;
