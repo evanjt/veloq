@@ -82,10 +82,10 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
         for field in record.fields() {
             match field.name() {
                 "category" | "exercise_category" => {
-                    exercise_category = extract_first_u16(field);
+                    exercise_category = top_candidate(field.value());
                 }
                 "category_subtype" | "exercise_name" => {
-                    exercise_name_val = extract_first_u16(field);
+                    exercise_name_val = top_candidate(field.value());
                 }
                 "set_type" => {
                     // FIT SDK SetType enum (v21.133): 0=active, 1=rest
@@ -150,22 +150,25 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
     sets
 }
 
-/// Extract the first valid u16 from a FIT field value (handles arrays and single values).
-fn extract_first_u16(field: &fitparser::FitDataField) -> Option<u16> {
-    match field.value() {
+/// The FIT invalid value for a `uint16` field: the slot holds nothing.
+const INVALID_U16: u16 = 0xFFFF;
+
+/// The watch's top candidate from a field that lists several.
+///
+/// `category` and `category_subtype` are parallel arrays ranked by the
+/// watch's confidence, so the first slot is its answer. `0xFFFE` there is the
+/// exercise category `unknown` and means the set was not recognised; reading
+/// past it to a later slot would name the set by its least likely candidate.
+fn top_candidate(value: &fitparser::Value) -> Option<u16> {
+    let first = match value {
         fitparser::Value::UInt16(v) => Some(*v),
-        fitparser::Value::Array(arr) => {
-            for val in arr {
-                if let fitparser::Value::UInt16(v) = val {
-                    if *v != 0xFFFF && *v != 0xFFFE {
-                        return Some(*v);
-                    }
-                }
-            }
-            None
-        }
+        fitparser::Value::Array(arr) => match arr.first() {
+            Some(fitparser::Value::UInt16(v)) => Some(*v),
+            _ => None,
+        },
         _ => None,
-    }
+    };
+    first.filter(|v| *v != INVALID_U16)
 }
 
 // ============================================================================
@@ -327,6 +330,48 @@ pub fn aggregate_muscle_groups(sets: &[FitExerciseSet]) -> Vec<MuscleActivation>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn candidates(slots: &[u16]) -> fitparser::Value {
+        fitparser::Value::Array(slots.iter().map(|v| fitparser::Value::UInt16(*v)).collect())
+    }
+
+    #[test]
+    fn top_candidate_is_the_first_slot() {
+        assert_eq!(top_candidate(&candidates(&[0, 24, 0xFFFE])), Some(0));
+        assert_eq!(top_candidate(&candidates(&[23, 0xFFFE, 7])), Some(23));
+        assert_eq!(top_candidate(&candidates(&[27, 6, 0xFFFE])), Some(27));
+    }
+
+    #[test]
+    fn an_unrecognised_set_stays_unknown_rather_than_its_last_candidate() {
+        assert_eq!(
+            top_candidate(&candidates(&[0xFFFE, 0xFFFE, 7])),
+            Some(0xFFFE)
+        );
+    }
+
+    #[test]
+    fn an_invalid_first_slot_is_no_category() {
+        assert_eq!(top_candidate(&candidates(&[0xFFFF, 0xFFFF, 0xFFFF])), None);
+        assert_eq!(top_candidate(&candidates(&[0xFFFF, 7, 0xFFFF])), None);
+        assert_eq!(top_candidate(&candidates(&[])), None);
+        assert_eq!(top_candidate(&fitparser::Value::UInt16(0xFFFF)), None);
+    }
+
+    #[test]
+    fn a_single_value_is_its_own_candidate() {
+        assert_eq!(top_candidate(&fitparser::Value::UInt16(23)), Some(23));
+        assert_eq!(
+            top_candidate(&fitparser::Value::UInt16(0xFFFE)),
+            Some(0xFFFE)
+        );
+    }
+
+    #[test]
+    fn a_field_of_another_type_is_no_category() {
+        assert_eq!(top_candidate(&fitparser::Value::String("row".into())), None);
+        assert_eq!(top_candidate(&fitparser::Value::UInt8(7)), None);
+    }
 
     #[test]
     fn test_exercise_display_name() {
