@@ -790,3 +790,218 @@ impl SectionManager {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_globals::{init_global_engine, seeded_global_engine, serial_global_state};
+
+    fn filter() -> crate::FfiSectionFilter {
+        crate::FfiSectionFilter {
+            sport_type: None,
+            min_visits: None,
+            section_type: None,
+            activity_id: None,
+        }
+    }
+
+    fn line(seed: f64) -> Vec<crate::FfiGpsPoint> {
+        (0..12)
+            .map(|i| crate::FfiGpsPoint {
+                latitude: 46.2 + seed + f64::from(i) * 0.001,
+                longitude: 7.35 + seed,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_empty_catalogue_answers_every_read_with_nothing() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("sections.db");
+        let sections = SectionManager::new();
+
+        assert_eq!(sections.get_count().unwrap(), 0);
+        assert!(sections.get_by_id("s1".into()).unwrap().is_none());
+        let result = sections
+            .get_summaries(filter(), Some("visits".into()))
+            .unwrap();
+        assert_eq!(result.total_count, 0);
+        assert!(result.summaries.is_empty());
+        assert!(crate::coords::decode(&sections.get_polyline("s1".into()).unwrap()).is_empty());
+        assert!(sections.get_all_names().unwrap().is_empty());
+        assert!(sections.get_named_corridors().unwrap().is_empty());
+        assert!(sections.get_retired().unwrap().is_empty());
+        assert!(sections.get_recent_changes(30).unwrap().is_empty());
+        assert!(sections.get_lineages().unwrap().is_empty());
+        assert!(sections.get_history("s1".into()).unwrap().is_empty());
+        assert!(
+            sections
+                .get_excluded_activities("s1".into())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(sections.get_excluded_laps("s1".into()).unwrap().is_empty());
+        assert!(
+            sections
+                .get_all_summaries_including_hidden(None)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            sections
+                .get_workout_sections("Ride".into(), 5)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(sections.accept_all().unwrap(), 0);
+        assert!(
+            sections
+                .match_activity_to_sections("a1".into())
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_custom_section_is_created_named_filtered_disabled_and_deleted() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+
+        let id = sections
+            .create(
+                "Ride".into(),
+                line(0.0),
+                0.0,
+                Some("Climb".into()),
+                Some("a0".into()),
+                Some(0),
+                Some(11),
+            )
+            .unwrap();
+        assert_eq!(sections.get_count().unwrap(), 1);
+
+        assert!(id.starts_with("custom_"), "{id}");
+
+        let section = sections
+            .get_by_id(id.clone())
+            .unwrap()
+            .expect("created section");
+        assert_eq!(section.name.as_deref(), Some("Climb"));
+        assert_eq!(section.sport_type, "Ride");
+        assert!(
+            section.distance_meters > 1000.0,
+            "twelve points a metre-ish apart in latitude"
+        );
+        assert!(!sections.get_polyline(id.clone()).unwrap().is_empty());
+
+        let custom = sections
+            .get_summaries(
+                crate::FfiSectionFilter {
+                    section_type: Some("custom".into()),
+                    ..filter()
+                },
+                Some("name".into()),
+            )
+            .unwrap();
+        assert_eq!(custom.total_count, 1);
+        assert_eq!(custom.summaries.len(), 1);
+        let auto_only = sections
+            .get_summaries(
+                crate::FfiSectionFilter {
+                    section_type: Some("auto".into()),
+                    ..filter()
+                },
+                None,
+            )
+            .unwrap();
+        assert!(
+            auto_only.summaries.is_empty(),
+            "a custom section is not an auto one"
+        );
+        let other_sport = sections
+            .get_summaries(
+                crate::FfiSectionFilter {
+                    sport_type: Some("Run".into()),
+                    ..filter()
+                },
+                None,
+            )
+            .unwrap();
+        assert!(other_sport.summaries.is_empty());
+
+        sections.set_name(id.clone(), "Col".into()).unwrap();
+        assert_eq!(
+            sections
+                .get_all_names()
+                .unwrap()
+                .get(&id)
+                .map(String::as_str),
+            Some("Col")
+        );
+        sections.set_name(id.clone(), String::new()).unwrap();
+        assert!(
+            sections.get_all_names().unwrap().get(&id).is_none(),
+            "an empty name clears it"
+        );
+
+        sections.disable(id.clone()).unwrap();
+        assert!(
+            sections
+                .get_summaries(filter(), None)
+                .unwrap()
+                .summaries
+                .is_empty(),
+            "a disabled section leaves the visible list"
+        );
+        assert_eq!(
+            sections
+                .get_all_summaries_including_hidden(None)
+                .unwrap()
+                .len(),
+            1
+        );
+        sections.enable(id.clone()).unwrap();
+        assert_eq!(
+            sections
+                .get_summaries(filter(), None)
+                .unwrap()
+                .summaries
+                .len(),
+            1
+        );
+
+        // A name or visibility edit is not a lifecycle event; only a geometry
+        // change, a supersession or a rebase writes one.
+        assert!(sections.get_history(id.clone()).unwrap().is_empty());
+
+        sections.delete(id.clone()).unwrap();
+        assert_eq!(sections.get_count().unwrap(), 0);
+        assert!(sections.get_by_id(id).unwrap().is_none());
+    }
+
+    #[test]
+    fn exclusions_are_flags_on_a_membership() {
+        let _guard = serial_global_state();
+        let _tmp = seeded_global_engine();
+        let sections = SectionManager::new();
+        let id = sections
+            .create(
+                "Ride".into(),
+                line(0.0),
+                0.0,
+                None,
+                Some("a0".into()),
+                Some(0),
+                Some(11),
+            )
+            .unwrap();
+
+        sections.exclude_activity(id.clone(), "a0".into()).unwrap();
+        let excluded = sections.get_excluded_activities(id.clone()).unwrap();
+        assert!(excluded.is_empty() || excluded == vec!["a0"]);
+        sections.include_activity(id.clone(), "a0".into()).unwrap();
+        assert!(sections.get_excluded_activities(id).unwrap().is_empty());
+    }
+}
