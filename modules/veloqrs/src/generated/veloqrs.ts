@@ -10205,6 +10205,20 @@ export interface ActivityManagerLike {
     activityId: string,
     types: string,
   ) /*throws*/ : string | undefined;
+  /**
+   * A key for a ride this device recorded and no server has named yet.
+   *
+   * The row is a full citizen from the moment it is written, so the key
+   * never moves: an upload that lands later writes the server's id beside
+   * it through `record_upload` rather than rewriting the row.
+   */
+  mintLocalId(): string;
+  /**
+   * Write the id intervals.icu gave a locally keyed ride once its upload
+   * landed. False when no row was waiting for one, which a deleted
+   * recording or a second answer for the same ride both produce.
+   */
+  recordUpload(activityId: string, intervalsId: string) /*throws*/ : boolean;
   remove(activityId: string) /*throws*/ : void;
   /**
    * Replace the calendar events in a window, for demo seeding.
@@ -10487,6 +10501,51 @@ export class ActivityManager
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
             FfiConverterString.lower(types),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A key for a ride this device recorded and no server has named yet.
+   *
+   * The row is a full citizen from the moment it is written, so the key
+   * never moves: an upload that lands later writes the server's id beside
+   * it through `record_upload` rather than rewriting the row.
+   */
+  mintLocalId(): string {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_mint_local_id(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Write the id intervals.icu gave a locally keyed ride once its upload
+   * landed. False when no row was waiting for one, which a deleted
+   * recording or a second answer for the same ride both produce.
+   */
+  recordUpload(activityId: string, intervalsId: string): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_record_upload(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterString.lower(intervalsId),
             callStatus,
           );
         },
@@ -18461,6 +18520,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_stream_body",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_mint_local_id() !==
+    59359
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_mint_local_id",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_record_upload() !==
+    11479
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_record_upload",
     );
   }
   if (

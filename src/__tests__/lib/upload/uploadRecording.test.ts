@@ -20,6 +20,7 @@ import {
   markRecordingPermissionBlocked,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
 import { CallKind, engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
@@ -38,6 +39,10 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   discardRecordingFit: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({
+  recordProvisionalUpload: jest.fn(),
+}));
+
 jest.mock('veloqrs', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -49,6 +54,7 @@ const mockUpload = uploadActivityFile as jest.Mock;
 const mockExists = recordingFitExists as jest.Mock;
 const mockReadFit = readRecordingFit as jest.Mock;
 const mockImportSets = engine.importSetsFromFit as jest.Mock;
+const mockRecordProvisional = recordProvisionalUpload as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
@@ -101,6 +107,21 @@ describe('uploadRecording', () => {
     });
     expect(markRecordingUploading).toHaveBeenCalledWith('rec-1');
     expect(markRecordingUploaded).toHaveBeenCalledWith('rec-1', 'i999');
+  });
+
+  it('records the server id on the provisional row a landed upload belongs to', async () => {
+    const entry = { ...ENTRY, engineActivityId: 'local-deadbeef' };
+    await uploadRecording(entry);
+
+    expect(mockRecordProvisional).toHaveBeenCalledWith(entry, 'i999');
+  });
+
+  it('records nothing on the provisional row when the upload was rejected', async () => {
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 422, 'duplicate activity'));
+
+    await uploadRecording({ ...ENTRY, engineActivityId: 'local-deadbeef' });
+
+    expect(mockRecordProvisional).not.toHaveBeenCalled();
   });
 
   it('forwards a paired calendar event', async () => {

@@ -229,6 +229,17 @@ async function patchEntry(
   });
 }
 
+/**
+ * Remember the engine key the recording was written under. It lives in the
+ * index so a background retry can still reconcile the upload.
+ */
+export function attachEngineActivity(
+  id: string,
+  engineActivityId: string
+): Promise<RecordingLibraryEntry | null> {
+  return patchEntry(id, { engineActivityId });
+}
+
 export async function markRecordingUploading(id: string): Promise<void> {
   await patchEntry(id, { uploadStatus: 'uploading' });
 }
