@@ -87,8 +87,17 @@ export async function recordProvisionalUpload(
   intervalsActivityId: string | undefined
 ): Promise<boolean> {
   if (!entry.engineActivityId || !intervalsActivityId) return false;
+  // The engine has to be open before the boolean below can be read. The
+  // delegate answers false for a closed engine without reaching Rust, which
+  // reads exactly like Rust's own "already carries an id", and settling on
+  // that loses the ride to a duplicate on the next sync.
+  if (!engine.ready) {
+    log.warn(`Engine closed, leaving the upload of ${entry.id} for the next pass`);
+    return false;
+  }
   try {
-    // False means the row already carries an id or has gone, both settled.
+    // False here is Rust's own: the row already carries an id or has gone.
+    // Both are settled, so the entry is done either way.
     engine.recordActivityUpload(entry.engineActivityId, intervalsActivityId);
   } catch (err) {
     log.warn(`Could not record the upload of ${entry.id}: ${String(err)}`);

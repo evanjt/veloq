@@ -49,6 +49,11 @@ const upsertBodies = engine.upsertActivityBodies as unknown as jest.Mock;
 const setMetrics = engine.setActivityMetrics as unknown as jest.Mock;
 const recordUpload = engine.recordActivityUpload as unknown as jest.Mock;
 
+/** The stub's readiness, which is what the delegate's false actually means. */
+function setReady(ready: boolean): void {
+  (engine as unknown as { ready: boolean }).ready = ready;
+}
+
 const ENTRY: RecordingLibraryEntry = {
   id: '1757150000000-ab12cd',
   fitPath: 'file:///recordings/1757150000000-ab12cd.fit',
@@ -206,6 +211,44 @@ describe('recordProvisionalUpload', () => {
     ).resolves.toBe(true);
     expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
   });
+
+  /**
+   * A closed engine is the case the reconcile pass exists for. The delegate
+   * answers false there without reaching Rust, which reads exactly like Rust's
+   * own "already carries an id", so settling on it loses the ride to a
+   * duplicate on the next sync.
+   */
+  it('does not settle a ride the closed engine never took', async () => {
+    setReady(false);
+
+    await expect(
+      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
+    ).resolves.toBe(false);
+    expect(recordUpload).not.toHaveBeenCalled();
+    expect(mockMarkReconciled).not.toHaveBeenCalled();
+  });
+
+  it('settles a ride the engine did take', async () => {
+    recordUpload.mockReturnValueOnce(true);
+
+    await expect(
+      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
+    ).resolves.toBe(true);
+    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
+  });
+
+  /**
+   * Rust's own false is settled: the row already carries an id or has gone.
+   * The entry is done and must not be retried forever.
+   */
+  it('settles a ride whose row already carries the id', async () => {
+    recordUpload.mockReturnValueOnce(false);
+
+    await expect(
+      recordProvisionalUpload({ ...ENTRY, engineActivityId: 'local-deadbeef' }, 'i4242')
+    ).resolves.toBe(true);
+    expect(mockMarkReconciled).toHaveBeenCalledWith(ENTRY.id);
+  });
 });
 
 describe('reconcileProvisionalUploads', () => {
@@ -254,5 +297,26 @@ describe('reconcileProvisionalUploads', () => {
     mockList.mockResolvedValue([]);
 
     await expect(reconcileProvisionalUploads()).resolves.toBe(0);
+  });
+});
+
+describe('an unreconciled entry survives a closed engine', () => {
+  it('is retried by the next pass once the engine is ready', async () => {
+    const owed = {
+      ...ENTRY,
+      engineActivityId: 'local-deadbeef',
+      intervalsActivityId: 'i4242',
+      engineReconciled: false,
+    };
+    mockList.mockResolvedValue([owed]);
+    setReady(false);
+
+    await expect(reconcileProvisionalUploads()).resolves.toBe(0);
+    expect(mockMarkReconciled).not.toHaveBeenCalled();
+
+    setReady(true);
+    recordUpload.mockReturnValueOnce(true);
+    await expect(reconcileProvisionalUploads()).resolves.toBe(1);
+    expect(mockMarkReconciled).toHaveBeenCalledWith(owed.id);
   });
 });
