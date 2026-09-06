@@ -1279,6 +1279,7 @@
     "previewFailed": "D Vorschau het nöd chöne fertig werde.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",
+    "previewMigrating": "Deine Bibliothek wird noch migriert, diese Ergebnisse können sich danach leicht ändern",
     "previewUnchanged": "{{count}} unverändert",
     "previewChanged": "{{count}} gänderet",
     "previewNew": "{{count}} neu",

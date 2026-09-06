@@ -1279,6 +1279,7 @@
     "previewFailed": "Die Vorschau konnte nicht abgeschlossen werden.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewSuspended": "Höhenaktualisierung läuft. Bitte gleich erneut versuchen.",
+    "previewMigrating": "Deine Bibliothek wird noch migriert, diese Ergebnisse können sich danach leicht ändern",
     "previewUnchanged": "{{count}} unverändert",
     "previewChanged": "{{count}} geändert",
     "previewNew": "{{count}} neu",

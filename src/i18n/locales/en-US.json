@@ -1301,6 +1301,7 @@
     "previewFailed": "The preview could not finish.",
     "previewPoolUnusable": "Some of your activity tracks cannot be read, so the preview stopped.",
     "previewSuspended": "Elevation update in progress. Try again shortly.",
+    "previewMigrating": "Your library is still migrating, so these results may shift slightly once it finishes",
     "previewUnchanged": "{{count}} unchanged",
     "previewChanged": "{{count}} changed",
     "previewNew": "{{count}} new",

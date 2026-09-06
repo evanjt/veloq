@@ -1279,6 +1279,7 @@
     "previewFailed": "预览未能完成。",
     "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",
+    "previewMigrating": "你的活动库仍在迁移，迁移完成后这些结果可能略有变化",
     "previewUnchanged": "{{count}} 个未变",
     "previewChanged": "{{count}} 个已变",
     "previewNew": "{{count}} 个新增",

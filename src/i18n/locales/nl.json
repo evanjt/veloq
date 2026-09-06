@@ -1279,6 +1279,7 @@
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
     "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
+    "previewMigrating": "Je bibliotheek wordt nog gemigreerd, deze resultaten kunnen daarna iets veranderen",
     "previewUnchanged": "{{count}} ongewijzigd",
     "previewChanged": "{{count}} gewijzigd",
     "previewNew": "{{count}} nieuw",
