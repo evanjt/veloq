@@ -37,6 +37,20 @@ export const MAX_AUTO_RETRIES = 5;
  */
 type EngineEntry = ReturnType<ReturnType<typeof library>['listRecordings']>[number];
 
+/**
+ * The app's entry as the engine row wants it. Two fields differ and both are
+ * the app's looseness, not the engine's: an absent average heart rate is an
+ * absent field rather than a recorded `null`, and a row adopted from the old
+ * AsyncStorage index carries no reconcile flag, which reads as owing one.
+ */
+function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
+  return {
+    ...entry,
+    avgHeartrate: entry.avgHeartrate ?? undefined,
+    engineReconciled: entry.engineReconciled ?? false,
+  };
+}
+
 function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
   return {
     ...row,
@@ -156,7 +170,7 @@ export async function saveRecording(
       retryCount: 0,
     };
 
-    library().addRecording(entry);
+    library().addRecording(toEngineEntry(entry));
     log.log(`Saved recording ${id} (${params.name}, ${params.uploadStatus})`);
     return entry;
   } catch (error) {
@@ -230,8 +244,9 @@ export async function attachEngineActivity(
 }
 
 /** The engine row now carries the id intervals.icu gave the upload. */
-export function markRecordingReconciled(id: string): Promise<RecordingLibraryEntry | null> {
-  return patchEntry(id, { engineReconciled: true });
+export async function markRecordingReconciled(id: string): Promise<RecordingLibraryEntry | null> {
+  library().markRecordingReconciled(id);
+  return getRecording(id);
 }
 
 export async function markRecordingUploading(id: string): Promise<void> {
@@ -319,21 +334,20 @@ export async function discardRecordingFit(id: string): Promise<void> {
  * Best effort by design, the same as the FIT: a delete that throws must not
  * turn a finished upload into a retry.
  */
-export function discardRecordingStreams(id: string): Promise<void> {
-  return withLibraryLock(async () => {
-    const entries = await loadIndex();
-    const idx = entries.findIndex((e) => e.id === id);
-    if (idx < 0 || !entries[idx].streamsPath) return;
-    const path = entries[idx].streamsPath;
-    entries[idx] = { ...entries[idx], streamsPath: undefined };
-    await saveIndex(entries);
-    try {
-      await FileSystem.deleteAsync(path, { idempotent: true });
-      log.log(`Discarded streams sidecar for uploaded recording ${id}`);
-    } catch {
-      // The index no longer names it, and the user's own delete gets the file.
-    }
-  });
+export async function discardRecordingStreams(id: string): Promise<void> {
+  const row = library().getRecording(id);
+  const path = row?.streamsPath;
+  if (!path) return;
+  // The row stops naming the file before the file goes, never after: a delete
+  // that succeeds against a row still pointing at it leaves the library
+  // looking for a path that is not there.
+  library().clearRecordingStreamsPath(id);
+  try {
+    await FileSystem.deleteAsync(path, { idempotent: true });
+    log.log(`Discarded streams sidecar for uploaded recording ${id}`);
+  } catch {
+    // The row no longer names it, and the user's own delete gets the file.
+  }
 }
 
 // ─── Deletion (user-initiated only) ──────────────────────────────────────────
@@ -389,7 +403,7 @@ export async function adoptAsyncStorageIndex(): Promise<number> {
     for (const entry of parsed as RecordingLibraryEntry[]) {
       // An entry with no id has no row to be, and nothing can find it again.
       if (!entry?.id || !entry.fitPath) continue;
-      if (library().addRecording(entry)) adopted += 1;
+      if (library().addRecording(toEngineEntry(entry))) adopted += 1;
     }
 
     await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
@@ -449,7 +463,7 @@ export async function migrateLegacyUploadQueue(): Promise<void> {
           retryCount: 0,
           lastError: old.lastError,
         };
-        library().addRecording(entry);
+        library().addRecording(toEngineEntry(entry));
       } catch (err) {
         log.warn(`Failed to migrate legacy upload ${old.id}:`, err);
       }

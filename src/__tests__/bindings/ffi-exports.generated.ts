@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 245 methods inside `#[uniffi::export] impl` blocks across
+ * 247 methods inside `#[uniffi::export] impl` blocks across
  * 14 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 263 exports (18 standalone + 245 methods)
+ * Total: 265 exports (18 standalone + 247 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1252,10 +1252,30 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'RecordingManager',
   },
   {
+    name: 'mark_reconciled',
+    camelName: 'markReconciled',
+    file: 'objects/recordings.rs',
+    line: 61,
+    paramCount: 1,
+    returnType: 'Result<(), VeloqError>',
+    docs: 'The engine row has taken the id intervals.icu gave the upload, so the reconcile sweep can stop replaying this one.',
+    object: 'RecordingManager',
+  },
+  {
+    name: 'clear_streams_path',
+    camelName: 'clearStreamsPath',
+    file: 'objects/recordings.rs',
+    line: 66,
+    paramCount: 1,
+    returnType: 'Result<(), VeloqError>',
+    docs: "Forget the streams sidecar, once the engine holds the ride's track.",
+    object: 'RecordingManager',
+  },
+  {
     name: 'mark_uploading',
     camelName: 'markUploading',
     file: 'objects/recordings.rs',
-    line: 56,
+    line: 70,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -1265,7 +1285,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'mark_uploaded',
     camelName: 'markUploaded',
     file: 'objects/recordings.rs',
-    line: 60,
+    line: 74,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -1275,7 +1295,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'mark_upload_failed',
     camelName: 'markUploadFailed',
     file: 'objects/recordings.rs',
-    line: 70,
+    line: 87,
     paramCount: 3,
     returnType: 'Result<u32, VeloqError>',
     docs: 'A retriable failure. Returns the attempt count it now stands at, so the caller can log the same "retry n of m" line it used to compute itself.',
@@ -1285,7 +1305,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'mark_rejected',
     camelName: 'markRejected',
     file: 'objects/recordings.rs',
-    line: 80,
+    line: 100,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
     docs: 'A server-side rejection automatic retries cannot fix.',
@@ -1295,7 +1315,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'mark_permission_blocked',
     camelName: 'markPermissionBlocked',
     file: 'objects/recordings.rs',
-    line: 84,
+    line: 104,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -1305,7 +1325,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'requeue',
     camelName: 'requeue',
     file: 'objects/recordings.rs',
-    line: 89,
+    line: 109,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'A manual retry, or a requeue after an upgrade.',
@@ -1315,7 +1335,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_permission_blocked',
     camelName: 'clearPermissionBlocked',
     file: 'objects/recordings.rs',
-    line: 95,
+    line: 115,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'After an OAuth write upgrade, everything permission-blocked becomes uploadable again. Returns how many moved.',
@@ -1325,7 +1345,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'demote_pending_to_local_only',
     camelName: 'demotePendingToLocalOnly',
     file: 'objects/recordings.rs',
-    line: 101,
+    line: 121,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'On logout: keep every recording on device, but stop auto-uploading so nothing lands in a different account after the next login.',
@@ -1335,7 +1355,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'next_pending_upload',
     camelName: 'nextPendingUpload',
     file: 'objects/recordings.rs',
-    line: 106,
+    line: 126,
     paramCount: 1,
     returnType: 'Result<Option<FfiRecordingEntry>, VeloqError>',
     docs: 'The next recording due an automatic upload, respecting the backoff.',
@@ -1345,7 +1365,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'delete_recording',
     camelName: 'deleteRecording',
     file: 'objects/recordings.rs',
-    line: 112,
+    line: 132,
     paramCount: 1,
     returnType: 'Result<Option<FfiRecordingEntry>, VeloqError>',
     docs: 'Remove one recording, handing back the row so the caller can delete the files it names.',
@@ -1355,7 +1375,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'unuploaded_count',
     camelName: 'unuploadedCount',
     file: 'objects/recordings.rs',
-    line: 117,
+    line: 137,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Recordings intervals.icu does not hold yet.',
@@ -1365,7 +1385,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'permission_blocked_count',
     camelName: 'permissionBlockedCount',
     file: 'objects/recordings.rs',
-    line: 121,
+    line: 141,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: '',
@@ -1375,7 +1395,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_recordings',
     camelName: 'clearRecordings',
     file: 'objects/recordings.rs',
-    line: 128,
+    line: 148,
     paramCount: 0,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Drop every row. A `.veloqdb` restore carries this table like any other but not the FIT files it points at, so the rows are stale the moment they land on another install.',
@@ -2779,6 +2799,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'listRecordings',
   'getRecording',
   'attachEngineActivity',
+  'markReconciled',
+  'clearStreamsPath',
   'markUploading',
   'markUploaded',
   'markUploadFailed',
@@ -3043,6 +3065,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   list_recordings: 'listRecordings',
   get_recording: 'getRecording',
   attach_engine_activity: 'attachEngineActivity',
+  mark_reconciled: 'markReconciled',
+  clear_streams_path: 'clearStreamsPath',
   mark_uploading: 'markUploading',
   mark_uploaded: 'markUploaded',
   mark_upload_failed: 'markUploadFailed',

@@ -863,6 +863,14 @@ class EngineClient implements DelegateHost {
   attachRecordingEngineActivity = (id: string, engineActivityId: string): void =>
     recordingDelegates.attachRecordingEngineActivity(this, id, engineActivityId);
 
+  /** The engine row has taken the id intervals.icu gave the upload. */
+  markRecordingReconciled = (id: string): void =>
+    recordingDelegates.markRecordingReconciled(this, id);
+
+  /** Forget the streams sidecar, once the engine holds the ride's track. */
+  clearRecordingStreamsPath = (id: string): void =>
+    recordingDelegates.clearRecordingStreamsPath(this, id);
+
   markRecordingUploading = (id: string): void =>
     recordingDelegates.markRecordingUploading(this, id);
 
