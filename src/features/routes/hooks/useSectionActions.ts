@@ -122,10 +122,16 @@ export function useSectionActions({
 
   // Sync custom name when the section's name changes (e.g. after initial load
   // or after rename invalidates the query cache).
+  //
+  // A nameless section clears it rather than being skipped. A merge navigates
+  // to the survivor with `router.replace` on the same route pattern, so this
+  // hook is handed a new section without remounting, and skipping the empty
+  // case left the previous section's name drawn over a survivor the detector
+  // never named. An optimistic rename is not clobbered by this: it writes
+  // `customName` and leaves `section.name` alone, so the dependency does not
+  // change and this does not run.
   useEffect(() => {
-    if (section?.name) {
-      setCustomName(section.name);
-    }
+    setCustomName(section?.name ?? null);
   }, [section?.name]);
 
   // --- reference selection state ---
