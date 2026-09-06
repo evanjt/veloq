@@ -102,6 +102,9 @@ export function useActivitySectionHighlights(
   routes: Map<string, ActivityRouteHighlight>;
 } {
   const trigger = useEngineSubscription(['sections', 'groups', 'activities']);
+  // The list arrives as a fresh array every render, so the joined ids are what
+  // the memo can be keyed on.
+  const activityKey = activityIds.join(',');
 
   return useMemo(() => {
     const empty = {
@@ -202,5 +205,5 @@ export function useActivitySectionHighlights(
       return empty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityIds.join(','), trigger, preComputedBundle]);
+  }, [activityKey, trigger, preComputedBundle]);
 }
