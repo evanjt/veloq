@@ -19,6 +19,9 @@
 //! identical, so the contention semantics are too. Going through the FFI
 //! init path would require process-global state setup that doesn't compose
 //! with `cargo test`'s parallel-test default.
+//!
+//! Baseline only, nothing asserts. Run in release:
+//!   cargo test --release --features synthetic --bench lock_contention -- --ignored --nocapture
 
 #![cfg(feature = "synthetic")]
 

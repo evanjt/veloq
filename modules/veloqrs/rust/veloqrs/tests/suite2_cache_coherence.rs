@@ -23,8 +23,7 @@
 //!   - Custom sections survive resync intact (timestamp id, never positional,
 //!     never wiped) and reach the in-memory matcher (index_new_activity).
 //!
-//! Geometry edits invalidating PERF is covered by `suite2_edits_geometry`,
-//! which was the one op that left the cache stale and no longer does.
+//! Geometry edits invalidating PERF is covered by `suite2_edits_geometry`.
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_cache_coherence`
 
