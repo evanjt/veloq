@@ -1590,7 +1590,8 @@
     "kind_reverted": "バージョン{{version}}に戻しました",
     "kind_pr_rebased": "現在の範囲で記録を再計算",
     "kind_baseline": "以前のアプリ版から記録",
-    "kind_algorithm_changed": "新しい検出器で再解析"
+    "kind_algorithm_changed": "新しい検出器で再解析",
+    "kind_reference_reanchored": "元のアクティビティが intervals.icu から削除されたため、別のアクティビティから引き直しました"
   },
   "namedCorridors": {
     "title": "つけた名前",

@@ -1590,7 +1590,8 @@
     "kind_reverted": "Restaurado a la versión {{version}}",
     "kind_pr_rebased": "Récord recalculado sobre la extensión actual",
     "kind_baseline": "Registrado desde una versión anterior de la app",
-    "kind_algorithm_changed": "Reanalizado por un detector más reciente"
+    "kind_algorithm_changed": "Reanalizado por un detector más reciente",
+    "kind_reference_reanchored": "Redibujada a partir de otra actividad, la original ya no está en intervals.icu"
   },
   "namedCorridors": {
     "title": "Nombres que pusiste",

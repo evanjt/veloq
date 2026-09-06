@@ -1590,7 +1590,8 @@
     "kind_reverted": "已恢复到版本{{version}}",
     "kind_pr_rebased": "纪录已按当前范围重算",
     "kind_baseline": "来自旧版应用的记录",
-    "kind_algorithm_changed": "由新检测器重新分析"
+    "kind_algorithm_changed": "由新检测器重新分析",
+    "kind_reference_reanchored": "原始活动已从 intervals.icu 移除，已改用另一次活动重新绘制"
   },
   "namedCorridors": {
     "title": "你起的名字",

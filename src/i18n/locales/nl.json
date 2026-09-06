@@ -1590,7 +1590,8 @@
     "kind_reverted": "Teruggezet naar versie {{version}}",
     "kind_pr_rebased": "Record herberekend op het huidige bereik",
     "kind_baseline": "Vastgelegd uit een eerdere versie van de app",
-    "kind_algorithm_changed": "Opnieuw geanalyseerd door een nieuwere detector"
+    "kind_algorithm_changed": "Opnieuw geanalyseerd door een nieuwere detector",
+    "kind_reference_reanchored": "Opnieuw getekend op basis van een andere rit, de oorspronkelijke staat niet meer op intervals.icu"
   },
   "namedCorridors": {
     "title": "Namen die je gaf",

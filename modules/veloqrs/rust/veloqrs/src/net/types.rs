@@ -459,6 +459,10 @@ pub fn oldest_activity_date(activities: &[ActivityRecord]) -> Option<String> {
 pub struct ActivityHistorySummary {
     pub oldest: Option<String>,
     pub counts_by_year: BTreeMap<String, u32>,
+    /// Every id the response carried, in the order it arrived. The same pull
+    /// that answers the timeline slider is the census that says which stored
+    /// activities have left, so throwing them away costs a second request.
+    pub ids: Vec<String>,
 }
 
 /// Count activities per calendar year, keyed by the `YYYY` prefix of

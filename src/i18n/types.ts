@@ -952,6 +952,7 @@ export interface TranslationResource {
     kind_pr_rebased: string;
     kind_baseline: string;
     kind_algorithm_changed: string;
+    kind_reference_reanchored: string;
   };
   namedCorridors: {
     title: string;

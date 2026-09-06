@@ -1590,7 +1590,8 @@
     "kind_reverted": "Restaurado para a versão {{version}}",
     "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
     "kind_baseline": "Registrado de uma versão anterior do app",
-    "kind_algorithm_changed": "Reanalisado por um detector mais recente"
+    "kind_algorithm_changed": "Reanalisado por um detector mais recente",
+    "kind_reference_reanchored": "Redesenhada a partir de outra atividade, a original não está mais no intervals.icu"
   },
   "namedCorridors": {
     "title": "Nomes que você deu",

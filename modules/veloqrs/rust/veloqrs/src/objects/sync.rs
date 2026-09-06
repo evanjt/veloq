@@ -858,6 +858,24 @@ async fn sync_activity_history_summary(
     let summary =
         endpoints::fetch_activity_history_summary(transport, athlete_id, &today, Lane::Backfill)
             .await?;
+
+    // The same pull that answers the timeline slider is the census. A request
+    // that errored never reaches here, and an empty list is indistinguishable
+    // from an athlete who deleted everything, so the reconcile refuses one.
+    let census = summary.ids.clone();
+    if !census.is_empty() {
+        crate::persistence::with_persistent_engine_blocking(move |engine| {
+            let removed = engine.reconcile_against_census(&census);
+            if !removed.is_empty() {
+                log::info!(
+                    "[Sync] {} activities left intervals.icu and were removed",
+                    removed.len()
+                );
+            }
+        })
+        .await;
+    }
+
     let Some(oldest) = summary.oldest else {
         // No activities at all: nothing to record, and writing an empty
         // counts object would read as a real answer of zero everywhere.

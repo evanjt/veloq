@@ -953,6 +953,130 @@ impl PersistentEngine {
         self.sections_dirty = true;
     }
 
+    /// Ids this athlete's sync wrote, as the server names them, paired with
+    /// the local key.
+    ///
+    /// Scoped three ways, and each one is a library wiped if it is dropped. A
+    /// row with no `intervals_id` was never upstream, so the server not naming
+    /// it says nothing. Demo rows are seeded on the device and no census
+    /// carries them. And the comparison is against the server's own id, never
+    /// against the key, or a row the device minted would read as deleted the
+    /// moment it was stored.
+    pub fn census_candidates(&self) -> Vec<(String, String)> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, intervals_id FROM activities
+             WHERE intervals_id IS NOT NULL
+               AND intervals_id NOT LIKE 'demo-test-%'
+               AND intervals_id NOT LIKE 'demo-stress-%'
+               AND id NOT LIKE 'demo-test-%'
+               AND id NOT LIKE 'demo-stress-%'",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                log::warn!("veloqrs: [census] candidate read failed: {}", e);
+                return Vec::new();
+            }
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(e) => {
+                log::warn!("veloqrs: [census] candidate read failed: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    /// Remove every stored activity the census does not carry, re-anchoring
+    /// any section that pointed at one first. Returns the local keys removed.
+    ///
+    /// **`upstream` must be a census that succeeded whole.** A truncated or
+    /// empty list is indistinguishable from an athlete who deleted everything,
+    /// and a blind difference then wipes the library, so an empty one removes
+    /// nothing and says so.
+    pub fn reconcile_against_census(&mut self, upstream: &[String]) -> Vec<String> {
+        if upstream.is_empty() {
+            log::info!("veloqrs: [census] empty census, nothing reconciled");
+            return Vec::new();
+        }
+        let named: std::collections::HashSet<&str> = upstream.iter().map(String::as_str).collect();
+        let vanished: Vec<String> = self
+            .census_candidates()
+            .into_iter()
+            .filter(|(_, intervals_id)| !named.contains(intervals_id.as_str()))
+            .map(|(key, _)| key)
+            .collect();
+        if vanished.is_empty() {
+            return Vec::new();
+        }
+
+        let mut removed = Vec::with_capacity(vanished.len());
+        for key in vanished {
+            // A section's line is a triple into one stored stream, so the
+            // reference moves before the row does: `section_activities`
+            // cascades on the activity and the candidate list would go with it.
+            match self.sections_anchored_to(&key) {
+                anchored if anchored.is_empty() => {}
+                anchored => {
+                    let mut stranded = false;
+                    for section_id in anchored {
+                        match self.reanchor_section_reference(&section_id, &key) {
+                            Ok(Some(_)) => {}
+                            Ok(None) => stranded = true,
+                            Err(e) => {
+                                log::warn!(
+                                    "veloqrs: [census] re-anchor of {} failed: {}",
+                                    section_id,
+                                    e
+                                );
+                                stranded = true;
+                            }
+                        }
+                    }
+                    if stranded {
+                        // Its only visit was this activity, so there is nothing
+                        // to re-cut against. Today's behaviour stands: the row
+                        // is protected and the delete is skipped.
+                        log::info!(
+                            "veloqrs: [census] {} left upstream but a section has no other member, kept",
+                            key
+                        );
+                        continue;
+                    }
+                }
+            }
+            match self.remove_activity(&key) {
+                Ok(()) => removed.push(key),
+                Err(e) => log::warn!("veloqrs: [census] removal of {} failed: {}", key, e),
+            }
+        }
+        if !removed.is_empty() {
+            log::info!(
+                "veloqrs: [census] {} activities left intervals.icu and were removed",
+                removed.len()
+            );
+        }
+        removed
+    }
+
+    /// Sections whose line was sliced from this activity.
+    pub fn sections_anchored_to(&self, activity_id: &str) -> Vec<String> {
+        let mut stmt = match self
+            .db
+            .prepare("SELECT id FROM sections WHERE source_activity_id = ?")
+        {
+            Ok(stmt) => stmt,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params![activity_id], |row| row.get::<_, String>(0));
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
     /// The intervals.icu id for a stored activity, or None for one the server
     /// has never seen.
     ///
