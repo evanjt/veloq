@@ -6,6 +6,11 @@ import { PreviewParamPanel as mockParamPanel } from '@/features/routes/component
 import { PreviewDiffStrip as mockDiffStrip } from '@/features/routes/components/preview/PreviewDiffStrip';
 import { render } from '@testing-library/react-native';
 import DetectionPreviewScreen from '@/app/detection-preview';
+import { layout } from '@/theme';
+
+function flatten(style: unknown) {
+  return Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style;
+}
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
@@ -19,9 +24,10 @@ jest.mock('veloqrs', () =>
  * Scenario: the preview screen puts the picker, the five sliders and the
  * decision row in a vertical ScrollView under the map, so tuning a slider
  * scrolls the map off screen, which is the one thing the screen is for.
- * Expected behaviour: nothing on this screen scrolls vertically. The map and
- * every control share one fixed layout, and the diff strip and decision row
- * arrive without pushing either out of the tree.
+ * Expected behaviour: the column does not scroll. The map and every control
+ * share one fixed layout, and the diff strip and decision row arrive without
+ * pushing either out of the tree. The slider card is the sole exception and
+ * scrolls within itself, which is what B179 traded for a floor under each row.
  */
 
 const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
@@ -120,9 +126,12 @@ const RESULT_WITH_COUNTS = {
   sections: [],
 };
 
-// The count alone, because a failed match on the node prints the whole fiber.
-function verticalScrollViewCount(tree: ReturnType<typeof render>) {
-  return tree.UNSAFE_queryAllByType(ScrollView).filter((node) => !node.props.horizontal).length;
+// The testID alone, because a failed match on the node prints the whole fiber.
+// Identity rather than a count, so a later regression that scrolls the whole
+// column fails here instead of passing on the card's own ScrollView.
+function onlyVerticalScrollView(tree: ReturnType<typeof render>) {
+  const found = tree.UNSAFE_queryAllByType(ScrollView).filter((node) => !node.props.horizontal);
+  return found.map((node) => String(node.props.testID));
 }
 
 describe('preview screen layout', () => {
@@ -130,10 +139,10 @@ describe('preview screen layout', () => {
     mockResult.value = null;
   });
 
-  it('scrolls nothing vertically, so the map cannot leave the screen', () => {
+  it('scrolls the slider card and nothing else, so the map cannot leave the screen', () => {
     const tree = render(<DetectionPreviewScreen />);
 
-    expect(verticalScrollViewCount(tree)).toBe(0);
+    expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
   });
 
   it('keeps the area picker horizontal rather than making the column scroll', () => {
@@ -148,16 +157,26 @@ describe('preview screen layout', () => {
     expect(tree.getByTestId('preview-map')).toBeTruthy();
     const panel = tree.getByTestId('preview-param-panel');
     expect(panel.findAllByType(Slider)).toHaveLength(5);
+    // The card is itself the sole vertical ScrollView, pinned above, so
+    // nothing under it scrolls on its own.
     expect(panel.findAllByType(ScrollView)).toHaveLength(0);
   });
 
   it('lets the slider card absorb the leftover height rather than fixing its own', () => {
     const tree = render(<DetectionPreviewScreen />);
 
-    const style = tree.getByTestId('preview-param-panel').props.style;
-    const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style;
+    const panel = tree
+      .UNSAFE_getAllByType(ScrollView)
+      .filter((node) => node.props.testID === 'preview-param-panel')[0];
+    const flat = flatten(panel.props.style);
     expect(flat.flex).toBe(1);
     expect(flat.height).toBeUndefined();
+    // Without flexGrow on the content the rows cannot expand past the viewport
+    // box, and the row floor below does nothing.
+    expect(flatten(panel.props.contentContainerStyle).flexGrow).toBe(1);
+    for (const slider of panel.findAllByType(Slider)) {
+      expect(flatten(slider.parent?.props.style).minHeight).toBe(layout.minTapTarget);
+    }
   });
 
   it('keeps Preview reachable once a result has arrived', () => {
@@ -175,6 +194,6 @@ describe('preview screen layout', () => {
     expect(tree.getByTestId('preview-discard-button')).toBeTruthy();
     expect(tree.getByTestId('preview-map')).toBeTruthy();
     expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
-    expect(verticalScrollViewCount(tree)).toBe(0);
+    expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
   });
 });

@@ -161,7 +161,7 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     : undefined;
   return {
     id: group.groupId,
-    name: group.customName || `${sportType} Route ${index + 1}`,
+    name: group.customName || `Route ${index + 1}`,
     type: toActivityType(sportType),
     activityCount: group.activityCount,
     activityIds: [],
