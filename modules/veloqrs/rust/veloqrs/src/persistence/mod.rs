@@ -50,6 +50,7 @@ mod indicators;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
 pub(crate) mod records;
+pub mod route_grouping_preview;
 mod route_identity;
 mod routes;
 mod schema;
