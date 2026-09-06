@@ -550,13 +550,17 @@ impl PersistentEngine {
             .filter(|s| !s.is_user_defined)
             .collect();
 
-        // Reuse diff_catalogues with archive = old, live = new.
-        let (counts, sections) = super::sections::preview::diff_catalogues_public(&live, &archived);
+        // Reuse diff_catalogues with archive = old, live = new. Only the
+        // counts are stored: a section is a reference activity and the
+        // indices of a pass over it, and the rows carry an encoded line for
+        // every section on both sides. Keeping them put both catalogues'
+        // geometry in a settings row for the life of the install. The rows
+        // are the preview's, which is the function's other caller.
+        let (counts, _rows) = super::sections::preview::diff_catalogues_public(&live, &archived);
 
         let payload = serde_json::json!({
             "token": CUTOVER_ID,
             "counts": counts,
-            "sections": sections,
             "settings_reset": self.settings_reset()?,
         });
         let json = serde_json::to_string(&payload).unwrap_or_default();
@@ -668,7 +672,35 @@ impl PersistentEngine {
 
     /// The stored diff payload, if any. None before the cutover has run.
     pub fn cutover_diff(&self) -> Option<String> {
-        self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()
+        let stored = self.get_setting(CUTOVER_DIFF_KEY).ok().flatten()?;
+        Some(self.trim_stored_diff(stored))
+    }
+
+    /// Drop the section rows an older build wrote, and rewrite the row.
+    ///
+    /// The key is written once at promotion and deleted only by the sign-out
+    /// wipe, so an install that migrated before this change never runs the
+    /// new build path and would carry both catalogues' geometry for good.
+    /// The read is the only place left to catch it.
+    fn trim_stored_diff(&self, stored: String) -> String {
+        let Ok(mut payload) = serde_json::from_str::<serde_json::Value>(&stored) else {
+            return stored;
+        };
+        let carried_rows = payload
+            .as_object_mut()
+            .is_some_and(|map| map.remove("sections").is_some());
+        if !carried_rows {
+            return stored;
+        }
+        let Ok(trimmed) = serde_json::to_string(&payload) else {
+            return stored;
+        };
+        if let Err(e) = self.set_setting(CUTOVER_DIFF_KEY, &trimmed) {
+            // The caller still gets the trimmed copy; the row is retried on
+            // the next read.
+            log::warn!("veloqrs: [cutover] Failed to trim the stored diff: {}", e);
+        }
+        trimmed
     }
 }
 
@@ -1071,8 +1103,9 @@ mod tests {
     }
 
     /// Scenario: the run dies between the diff and the promotion.
-    /// Expected behaviour: the archive still holds its line, and the retry
-    /// builds a diff that carries the outgoing geometry.
+    /// Expected behaviour: the archive still holds its line, so the retry can
+    /// see what left. Only the promotion trims those lines, and only the
+    /// counts reach the card: the payload carries no geometry of its own.
     #[test]
     fn a_run_that_dies_before_promotion_keeps_the_lines_for_the_retry() {
         let dir = TempDir::new().expect("tempdir");
@@ -1084,13 +1117,20 @@ mod tests {
 
         let diff = engine.build_cutover_diff().expect("retried diff");
         let payload: serde_json::Value = serde_json::from_str(&diff).expect("json");
-        let gone = payload["sections"]
-            .as_array()
-            .expect("sections")
-            .iter()
-            .find(|s| s["id"] == "s_auto")
-            .expect("the archived section is in the diff");
-        assert_ne!(gone["polyline"].as_str().unwrap_or(""), "");
+        assert!(
+            payload.get("sections").is_none(),
+            "the payload stores no rows: {payload}"
+        );
+        assert_eq!(
+            payload["counts"]["gone"].as_u64(),
+            Some(1),
+            "the retry still sees the archived section leave: {payload}"
+        );
+        assert_eq!(
+            archived_line(&engine).len(),
+            12,
+            "only the promotion trims the archived line"
+        );
     }
 
     /// A second promotion, the shape a retried launch takes, finds nothing

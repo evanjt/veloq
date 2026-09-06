@@ -27,6 +27,7 @@ import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams } from '@/features/routes/lib/timeStreamBackfill';
 import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
+import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -52,6 +53,15 @@ interface FetchDeps {
  * Scale a Rust-reported 0–100 percent into an arbitrary sub-range of the
  * overall sync progress bar.
  */
+/**
+ * How long a run is followed before the bar goes indeterminate, and how long
+ * it is followed at all. The old shape polled for 120 s in the foreground and
+ * then spawned a second 300 s poll of its own; one subscription now spans
+ * both, so the lapse only changes what the banner says.
+ */
+const DETECTION_FOREGROUND_MS = 120000;
+const DETECTION_FOLLOW_MS = 420000;
+
 function scalePercent(rustPercent: number, rangeStart: number, rangeEnd: number): number {
   return Math.min(
     Math.round(rangeEnd),
@@ -264,77 +274,39 @@ export function useGpsDataFetcher() {
 
         // Demo: detection 25-75%, tiles 75-100%. The engine starts the
         // run itself when the batch lands; this only follows it.
-        const started = nativeModule.engine.pollSectionDetection() === 'running';
-
-        if (started) {
-          const pollInterval = 500;
-          const maxPollTime = 120000;
-          const startTime = Date.now();
-          let timedOut = false;
-
-          while (isMountedRef.current && !abortSignal.aborted) {
-            const status = nativeModule.engine.pollSectionDetection();
-
-            if (status === 'running') {
-              const progress = nativeModule.engine.getSectionDetectionProgress();
-              if (progress) {
-                updateProgress({
-                  status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: scalePercent(progress.percent, 25, 75),
-                  message: i18n.t('cache.analyzingRoutes'),
-                });
-              }
-            } else if (status === 'complete' || status === 'idle') {
-              break;
-            } else if (status === 'error') {
-              // Surface in production. A silent break here was hiding real
-              // failures from the Rust apply-save path (e.g. transactional
-              // junction-table writes), leaving users staring at a frozen
-              // progress bar with no idea anything went wrong.
-              console.error('[fetchDemoGps] Section detection returned error status');
-              break;
-            }
-
-            if (Date.now() - startTime > maxPollTime) {
+        //
+        // The end arrives on `detectionApplied`, so one subscription covers
+        // the whole run: the foreground budget only switches the banner to
+        // indeterminate, it does not tear the follow down and take the
+        // announcement with it. The timer that remains reads progress alone.
+        if (nativeModule.engine.pollSectionDetection() === 'running') {
+          const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
+            isActive: () => isMountedRef.current && !abortSignal.aborted,
+            timeoutMs: DETECTION_FOLLOW_MS,
+            lapseAfterMs: DETECTION_FOREGROUND_MS,
+            onLapse: () => {
               if (__DEV__) {
                 console.warn(
-                  '[fetchDemoGps] Section detection exceeded foreground poll time, continuing in background'
+                  '[fetchDemoGps] Section detection exceeded foreground poll time, following on'
                 );
               }
-              timedOut = true;
-              break;
-            }
+            },
+            onProgress: (progress) =>
+              updateProgress({
+                status: 'computing',
+                completed: 0,
+                total: 0,
+                percent: scalePercent(progress.percent, 25, 75),
+                message: i18n.t('cache.analyzingRoutes'),
+              }),
+          }).settled;
 
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          }
-
-          if (timedOut && isMountedRef.current) {
-            const bgModule = nativeModule;
-            (async () => {
-              const bgMaxTime = 300000;
-              const bgStart = Date.now();
-              while (Date.now() - bgStart < bgMaxTime) {
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-                try {
-                  const s = bgModule.engine.pollSectionDetection();
-                  if (s === 'complete') {
-                    engine.triggerRefresh('sections');
-                    engine.triggerRefresh('groups');
-                    if (__DEV__) {
-                      log.log(
-                        `[fetchDemoGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
-                      );
-                    }
-                    break;
-                  }
-                  if (s !== 'running') break;
-                } catch {
-                  break;
-                }
-              }
-            })();
+          if (outcome === 'error') {
+            // Surface in production. A silent break here was hiding real
+            // failures from the Rust apply-save path (e.g. transactional
+            // junction-table writes), leaving users staring at a frozen
+            // progress bar with no idea anything went wrong.
+            console.error('[fetchDemoGps] Section detection returned error status');
           }
         }
 
@@ -616,64 +588,18 @@ export function useGpsDataFetcher() {
         // The engine starts detection itself at the end of a stored batch
         // (and a cutover re-cuts everything at its own end), so this only
         // follows a run that is under way.
-        const started = nativeModule.engine.pollSectionDetection() === 'running';
-
-        if (started) {
-          const pollInterval = 500;
-          const maxPollTime = 120000;
-          const startTime = Date.now();
-          let timedOut = false;
-
-          while (isMountedRef.current && !abortSignal.aborted) {
-            const status = nativeModule.engine.pollSectionDetection();
-
-            if (status === 'running') {
-              const progress = nativeModule.engine.getSectionDetectionProgress();
-              if (progress) {
-                updateProgress({
-                  status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: scalePercent(progress.percent, 50, 75),
-                  message: i18n.t('cache.analyzingRoutes'),
-                });
-              }
-            } else if (status === 'complete' || status === 'idle') {
-              break;
-            } else if (status === 'error') {
-              // Surface in production. A silent break here was hiding real
-              // failures from the Rust apply-save path (e.g. transactional
-              // junction-table writes), leaving users staring at a frozen
-              // progress bar with no idea anything went wrong.
-              console.error('[fetchApiGps] Section detection returned error status');
-              break;
-            }
-
-            if (Date.now() - startTime > maxPollTime) {
-              if (__DEV__) {
-                console.warn(
-                  '[fetchApiGps] Section detection exceeded foreground poll time, continuing in background'
-                );
-              }
-              timedOut = true;
-              break;
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          }
-
-          // If the foreground poll timed out, spawn a background poll so the
-          // detection result gets consumed and sections_dirty is cleared.
-          // Without this, the handle stays occupied and blocks all future
-          // detection attempts permanently.
-          if (timedOut && isMountedRef.current) {
-            // Past the 120s foreground budget the bar previously froze on its
-            // last percent, reading as a crash. Surface an INDETERMINATE
-            // ongoing state instead: a zero percent/completed/total triple
-            // with `status: 'computing'` maps to `indeterminate: true` in
-            // formatGpsSyncProgress, so the banner shows a moving marquee
-            // ("still analyzing") rather than a stuck number. A large-corpus
-            // detection legitimately runs for minutes; this keeps it honest.
+        //
+        // The end arrives on `detectionApplied`, so one subscription covers
+        // the whole run. Past the foreground budget the bar used to freeze on
+        // its last percent, reading as a crash: an INDETERMINATE ongoing
+        // state instead, a zero percent/completed/total triple with
+        // `status: 'computing'`, maps to `indeterminate: true` in
+        // `formatGpsSyncProgress`, so the banner shows a moving marquee
+        // rather than a stuck number. A large-corpus detection legitimately
+        // runs for minutes; this keeps it honest.
+        if (nativeModule.engine.pollSectionDetection() === 'running') {
+          let lapsed = false;
+          const indeterminate = () =>
             updateProgress({
               status: 'computing',
               completed: 0,
@@ -682,41 +608,40 @@ export function useGpsDataFetcher() {
               message: i18n.t('cache.analyzingRoutes'),
             });
 
-            const bgModule = nativeModule;
-            (async () => {
-              const bgMaxTime = 300000;
-              const bgStart = Date.now();
-              while (Date.now() - bgStart < bgMaxTime) {
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-                try {
-                  const s = bgModule.engine.pollSectionDetection();
-                  if (s === 'complete') {
-                    engine.triggerRefresh('sections');
-                    engine.triggerRefresh('groups');
-                    if (__DEV__) {
-                      log.log(
-                        `[fetchApiGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
-                      );
-                    }
-                    break;
-                  }
-                  if (s !== 'running') break;
-                  // Still running: keep the indeterminate banner alive so the
-                  // long-running detection doesn't read as dead/frozen.
-                  if (isMountedRef.current) {
-                    updateProgress({
-                      status: 'computing',
-                      completed: 0,
-                      total: 0,
-                      percent: 0,
-                      message: i18n.t('cache.analyzingRoutes'),
-                    });
-                  }
-                } catch {
-                  break;
-                }
+          const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
+            isActive: () => isMountedRef.current && !abortSignal.aborted,
+            timeoutMs: DETECTION_FOLLOW_MS,
+            lapseAfterMs: DETECTION_FOREGROUND_MS,
+            onLapse: () => {
+              lapsed = true;
+              if (__DEV__) {
+                console.warn(
+                  '[fetchApiGps] Section detection exceeded foreground poll time, following on'
+                );
               }
-            })();
+              if (isMountedRef.current) indeterminate();
+            },
+            onProgress: (progress) => {
+              if (lapsed) {
+                indeterminate();
+                return;
+              }
+              updateProgress({
+                status: 'computing',
+                completed: 0,
+                total: 0,
+                percent: scalePercent(progress.percent, 50, 75),
+                message: i18n.t('cache.analyzingRoutes'),
+              });
+            },
+          }).settled;
+
+          if (outcome === 'error') {
+            // Surface in production. A silent break here was hiding real
+            // failures from the Rust apply-save path (e.g. transactional
+            // junction-table writes), leaving users staring at a frozen
+            // progress bar with no idea anything went wrong.
+            console.error('[fetchApiGps] Section detection returned error status');
           }
         }
 

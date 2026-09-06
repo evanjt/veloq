@@ -54,6 +54,15 @@ pub const KIND_PR_REBASED: &str = "pr_rebased";
 /// The user put a stored geometry version back and pinned it there.
 pub const KIND_REVERTED: &str = "reverted";
 
+/// The activity a section's line was sliced from left intervals.icu, so the
+/// line was re-cut from another member's own pass. `details` names the
+/// activity that was the reference, the one that replaced it, and the cause,
+/// because a line must not move without the athlete being able to read why.
+pub const KIND_REFERENCE_REANCHORED: &str = "reference_reanchored";
+
+/// The `cause` a re-anchor gives when the census found the activity gone.
+pub const REANCHOR_CAUSE_ACTIVITY_REMOVED: &str = "activity_removed";
+
 /// The `basis` every re-based PR row carries.
 pub const PR_BASIS_CURRENT_EXTENT: &str = "current_extent";
 

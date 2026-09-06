@@ -1279,6 +1279,7 @@
     "previewFailed": "预览未能完成。",
     "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",
+    "previewMigrating": "你的活动库仍在迁移，迁移完成后这些结果可能略有变化",
     "previewUnchanged": "{{count}} 个未变",
     "previewChanged": "{{count}} 个已变",
     "previewNew": "{{count}} 个新增",
@@ -1590,7 +1591,8 @@
     "kind_reverted": "已恢复到版本{{version}}",
     "kind_pr_rebased": "纪录已按当前范围重算",
     "kind_baseline": "来自旧版应用的记录",
-    "kind_algorithm_changed": "由新检测器重新分析"
+    "kind_algorithm_changed": "由新检测器重新分析",
+    "kind_reference_reanchored": "原始活动已从 intervals.icu 移除，已改用另一次活动重新绘制"
   },
   "namedCorridors": {
     "title": "你起的名字",

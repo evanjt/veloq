@@ -108,3 +108,30 @@ fn a_section_whose_members_left_the_pool_is_not_persisted() {
         victim
     );
 }
+
+#[test]
+#[should_panic(expected = "apply_sections_save was handed a section with no portions")]
+fn an_auto_section_with_no_portions_at_all_trips_the_contract() {
+    let (mut engine, _tmp, _path) = engine_with_sections();
+
+    // Not the unpooled case above: the portions are gone, not stale. Nothing
+    // legitimate emits this, so the assert catches an upstream regression
+    // rather than a state the apply is meant to handle.
+    let mut broken: Vec<_> = engine.get_sections().to_vec();
+    broken[0].activity_portions.clear();
+    let _ = engine.apply_sections(broken);
+}
+
+#[test]
+fn a_user_defined_section_with_no_portions_still_applies() {
+    let (mut engine, _tmp, _path) = engine_with_sections();
+
+    // A hand-drawn section nobody has run yet is a legitimate zero-portion
+    // input, so the contract check exempts it.
+    let mut drawn: Vec<_> = engine.get_sections().to_vec();
+    drawn[0].is_user_defined = true;
+    drawn[0].activity_portions.clear();
+    drawn[0].activity_ids.clear();
+    drawn[0].visit_count = 0;
+    engine.apply_sections(drawn).expect("apply");
+}

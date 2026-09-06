@@ -1279,6 +1279,7 @@
     "previewFailed": "Não foi possível concluir a pré-visualização.",
     "previewPoolUnusable": "Alguns dos seus registos de atividade nao podem ser lidos, por isso a pre-visualizacao parou.",
     "previewSuspended": "Atualização de altitude em curso. Tente novamente dentro de momentos.",
+    "previewMigrating": "A tua biblioteca ainda está a migrar, por isso estes resultados podem mudar ligeiramente no fim",
     "previewUnchanged": "{{count}} sem alterações",
     "previewChanged": "{{count}} alterados",
     "previewNew": "{{count}} novos",
@@ -1590,7 +1591,8 @@
     "kind_reverted": "Reposta a versão {{version}}",
     "kind_pr_rebased": "Recorde recalculado sobre a extensão atual",
     "kind_baseline": "Registado a partir de uma versão anterior da app",
-    "kind_algorithm_changed": "Reanalisado por um detetor mais recente"
+    "kind_algorithm_changed": "Reanalisado por um detetor mais recente",
+    "kind_reference_reanchored": "Redesenhada a partir de outra atividade, a original já não está no intervals.icu"
   },
   "namedCorridors": {
     "title": "Nomes que deu",

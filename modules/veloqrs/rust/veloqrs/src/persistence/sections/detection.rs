@@ -555,6 +555,20 @@ fn apply_on_worker(
     true
 }
 
+/// Announces the end of a detection run to the observer, whatever the run's
+/// outcome. Held by the worker and dropped last, so the sender is already
+/// gone when the notice lands and the poll behind it reads a result or a dead
+/// worker rather than "running". A run that ends without announcing leaves
+/// the bar frozen where it stood: `Died` is only ever visible to a drain, and
+/// the screens no longer tick one.
+struct DetectionEnded;
+
+impl Drop for DetectionEnded {
+    fn drop(&mut self) {
+        crate::objects::observer::notify(|o| o.detection_applied());
+    }
+}
+
 impl PersistentEngine {
     /// A handle for a run that never started: no worker, both senders dropped.
     ///
@@ -792,6 +806,9 @@ impl PersistentEngine {
                     let flag = Arc::clone(flag);
                     let echo_progress = progress.clone();
                     thread::spawn(move || {
+                        // First local, so it drops after `tx`: the notice
+                        // lands once the outcome is readable.
+                        let _ended = DetectionEnded;
                         echo_progress.set_phase("saving", 1);
                         if apply_on_worker(sections_copy, None, &all_ids, &echo_progress) {
                             flag.store(true, Ordering::SeqCst);
@@ -827,6 +844,10 @@ impl PersistentEngine {
 
         DETECTION_WORKERS_STARTED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         thread::spawn(move || {
+            // First local, so it drops after `tx` and `cache_tx`: whether the
+            // run applied, aborted or panicked, the notice lands after the
+            // outcome the poll behind it will read.
+            let _ended = DetectionEnded;
             log::info!(
                 "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
@@ -1188,6 +1209,17 @@ impl PersistentEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
+        // A detected section with no portions at all is a producer bug, not an
+        // input to handle: the detector cannot draw a line nobody traversed.
+        // The unpooled case below is the ordinary one and stays a silent drop.
+        // Release keeps that drop rather than panicking across the UniFFI
+        // boundary, so this catches an upstream regression in debug only.
+        debug_assert!(
+            !sections
+                .iter()
+                .any(|s| !s.is_user_defined && s.activity_portions.is_empty()),
+            "apply_sections_save was handed a section with no portions"
+        );
         // Remap the raw detection batch through the assign-once identity +
         // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
         // the app renders. Run on a clone of the registry so a failed save never
@@ -1201,20 +1233,26 @@ impl PersistentEngine {
         // catalogue. The registry row stays, so the hysteresis still dissolves the
         // ground on its own schedule and its grave can re-emerge under the old id.
         visible.retain(|section| {
-            let alive = section.is_user_defined
-                || section
+            let any_pooled = !section.is_user_defined
+                && section
                     .activity_portions
                     .iter()
                     .any(|p| self.activity_metadata.contains_key(&p.activity_id));
-            if !alive {
-                log::warn!(
-                    "veloqrs: [apply_sections_save] dropping section {} - none of its {} \
-                     portions belong to a pooled activity",
-                    section.id,
-                    section.activity_portions.len(),
-                );
+            match drop_reason(
+                section.is_user_defined,
+                section.activity_portions.len(),
+                any_pooled,
+            ) {
+                Some(why) => {
+                    log::warn!(
+                        "veloqrs: [apply_sections_save] dropping section {} - {}",
+                        section.id,
+                        why,
+                    );
+                    false
+                }
+                None => true,
             }
-            alive
         });
         // The identity layer owns only the auto catalogue. Carry the durable
         // user-defined sections (custom + accepted) already held in memory across
@@ -1531,10 +1569,110 @@ impl PersistentEngine {
     }
 }
 
+/// Why a detected section cannot enter the visible catalogue, or `None` if
+/// it can. Both causes leave it with no junction rows and a "0 visits" card,
+/// but they are different faults wanting different investigations: no
+/// portions at all is the detector emitting nothing to traverse, unpooled
+/// members are ordinary churn as activities leave the pool. One message for
+/// both hid the first behind the second.
+fn drop_reason(is_user_defined: bool, portions: usize, any_pooled: bool) -> Option<&'static str> {
+    if is_user_defined {
+        return None;
+    }
+    if portions == 0 {
+        return Some("it has no portions to traverse");
+    }
+    if !any_pooled {
+        return Some("none of its portions belong to a pooled activity");
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Both causes leave a section with no junction rows, and one message for
+    /// both sent an empty-portion detector bug to whoever was looking at pool
+    /// churn. The wording is the whole fix, so it is pinned.
+    #[test]
+    fn each_cause_of_a_dropped_section_names_itself() {
+        assert_eq!(
+            drop_reason(false, 0, false),
+            Some("it has no portions to traverse"),
+            "an empty portion list is the detector emitting nothing, not a pool problem"
+        );
+        assert_eq!(
+            drop_reason(false, 3, false),
+            Some("none of its portions belong to a pooled activity"),
+            "members that left the pool keep the message that named them"
+        );
+        assert_eq!(
+            drop_reason(false, 3, true),
+            None,
+            "a pooled member persists"
+        );
+        assert_eq!(
+            drop_reason(true, 0, false),
+            None,
+            "a hand-drawn section nobody has run yet is not a drop"
+        );
+    }
+
+    use crate::objects::observer::recorder::Recorder;
+    use crate::objects::observer::set_observer;
     use crate::persistence::route_identity::restore_identity;
+    use crate::test_globals::serial_global_state;
+
+    /// A worker that panics sends nothing, and `Died` is only ever visible to
+    /// a drain the screens no longer tick. The guard is what makes that
+    /// panic reach them, so it has to outlive the unwind.
+    #[test]
+    fn a_worker_that_panics_still_announces_its_end() {
+        let _guard = serial_global_state();
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let worker = thread::spawn(|| {
+            let _ended = DetectionEnded;
+            panic!("the detector fell over");
+        });
+        assert!(worker.join().is_err(), "the worker panicked");
+
+        assert_eq!(
+            recorder.events(),
+            vec!["detection_applied"],
+            "a dead worker still ends the run on screen"
+        );
+        set_observer(None);
+    }
+
+    /// The notice must not outrun the outcome: a subscriber that only polls
+    /// on the event has one chance to read it.
+    #[test]
+    fn the_notice_lands_after_the_sender_is_gone() {
+        let _guard = serial_global_state();
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        thread::spawn(move || {
+            let _ended = DetectionEnded;
+            let _tx = tx;
+        })
+        .join()
+        .expect("worker");
+
+        assert_eq!(recorder.events(), vec!["detection_applied"]);
+        assert!(
+            matches!(
+                rx.try_recv(),
+                Err(std::sync::mpsc::TryRecvError::Disconnected)
+            ),
+            "the sender is already gone when the notice lands"
+        );
+        set_observer(None);
+    }
 
     fn group(id: &str, members: &[&str]) -> RouteGroup {
         RouteGroup {

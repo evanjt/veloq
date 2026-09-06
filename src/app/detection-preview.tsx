@@ -32,6 +32,7 @@ import { useTheme } from '@/shared/app';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
+import { useDetectionHold } from '@/features/routes';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { usePreviewCentres } from '@/features/routes/hooks/usePreviewCentres';
 import { usePreviewCurrentSections } from '@/features/routes/hooks/usePreviewCurrentSections';
@@ -57,6 +58,11 @@ export default function DetectionPreviewScreen() {
   const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
   const { status, progress, result, suspended, start, cancel } = usePreviewDetect(client);
+  // The preview is a settings sandbox: it loads a subset, runs the detector to
+  // show what different settings produce, and touches no catalogue until Keep.
+  // So the cutover hold that refuses every real detect does not reach it, and
+  // what the screen owes is a notice rather than a door.
+  const migrating = useDetectionHold() === 'cutover';
   const { forceRescan } = useSectionRescan();
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
@@ -270,6 +276,11 @@ export default function DetectionPreviewScreen() {
         {suspended && (
           <Text style={[styles.notice, { color: textSecondary }]}>
             {t('settings.previewSuspended')}
+          </Text>
+        )}
+        {migrating && (
+          <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
+            {t('settings.previewMigrating')}
           </Text>
         )}
       </View>

@@ -363,18 +363,26 @@ impl PersistentEngine {
         }
     }
 
-    /// Backfill NULL lap_time values in section_activities from time_streams.
+    /// Backfill the per-lap columns a pass could not fill when it was written.
+    ///
     /// Time streams store cumulative timestamps at each GPS point index, so
-    /// lap_time = times[end_index] - times[start_index].
-    /// Returns the number of rows updated.
+    /// `lap_time = times[end_index] - times[start_index]`, and the heart rate
+    /// series is averaged over the same slice. Both arrive after the apply for
+    /// an activity whose streams land later, which is why they are filled here
+    /// rather than only at insert.
+    ///
+    /// A row is a candidate while either column is still NULL, and each is
+    /// filled on its own: an activity with a time stream and no strap gets its
+    /// lap time and keeps a NULL heart rate for good, which is the truth about
+    /// that lap. Returns the number of rows updated.
     fn backfill_null_lap_times(&self) -> SqlResult<usize> {
-        // Find all section_activities rows with NULL lap_time that have valid indices
-        let portions: Vec<(String, String, u32, u32, f64)> = self
+        let portions: Vec<(String, String, u32, u32, f64, Option<f64>, Option<f64>)> = self
             .db
             .prepare(
-                "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index, sa.distance_meters
+                "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
+                        sa.distance_meters, sa.lap_time, sa.avg_hr
                  FROM section_activities sa
-                 WHERE sa.lap_time IS NULL
+                 WHERE (sa.lap_time IS NULL OR sa.avg_hr IS NULL)
                    AND sa.start_index > 0
                    AND sa.end_index > sa.start_index",
             )?
@@ -385,6 +393,8 @@ impl PersistentEngine {
                     row.get(2)?,
                     row.get(3)?,
                     row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -397,7 +407,7 @@ impl PersistentEngine {
         // Collect unique activity IDs that need time streams
         let activity_ids: std::collections::HashSet<String> = portions
             .iter()
-            .map(|(_, aid, _, _, _)| aid.clone())
+            .map(|(_, aid, _, _, _, _, _)| aid.clone())
             .collect();
 
         // Load time streams for those activities
@@ -417,7 +427,16 @@ impl PersistentEngine {
             }
         }
 
-        if time_streams.is_empty() {
+        // One decode per activity rather than one per lap: a busy section has
+        // hundreds of rows against the same series.
+        let mut heart_rates: HashMap<String, Vec<Option<f64>>> = HashMap::new();
+        for activity_id in &activity_ids {
+            if let Some(series) = self.load_heartrate_series(activity_id) {
+                heart_rates.insert(activity_id.clone(), series);
+            }
+        }
+
+        if time_streams.is_empty() && heart_rates.is_empty() {
             return Ok(0);
         }
 
@@ -426,24 +445,44 @@ impl PersistentEngine {
         let tx = self.db.unchecked_transaction()?;
         let mut updated = 0usize;
         {
+            // COALESCE so a column already filled is never rewritten: the row
+            // is a candidate while EITHER is null, and the other one stands.
             let mut update_stmt = tx.prepare(
                 "UPDATE section_activities
-                 SET lap_time = ?, lap_pace = ?
+                 SET lap_time = COALESCE(lap_time, ?),
+                     lap_pace = COALESCE(lap_pace, ?),
+                     avg_hr = COALESCE(avg_hr, ?)
                  WHERE section_id = ? AND activity_id = ? AND start_index = ?",
             )?;
-            for (section_id, activity_id, start_idx, end_idx, distance) in &portions {
-                let (lap_time, lap_pace) = super::sections::compute_lap_time_from_stream(
-                    time_streams.get(activity_id).map(Vec::as_slice),
-                    *start_idx,
-                    *end_idx,
-                    *distance,
-                );
-                let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) else {
-                    continue;
+            for (section_id, activity_id, start_idx, end_idx, distance, had_time, had_hr) in
+                &portions
+            {
+                let (lap_time, lap_pace) = if had_time.is_some() {
+                    (None, None)
+                } else {
+                    super::sections::compute_lap_time_from_stream(
+                        time_streams.get(activity_id).map(Vec::as_slice),
+                        *start_idx,
+                        *end_idx,
+                        *distance,
+                    )
                 };
+                let avg_hr = if had_hr.is_some() {
+                    None
+                } else {
+                    super::sections::mean_over_traversal(
+                        heart_rates.get(activity_id).map(Vec::as_slice),
+                        *start_idx,
+                        *end_idx,
+                    )
+                };
+                if lap_time.is_none() && avg_hr.is_none() {
+                    continue;
+                }
                 update_stmt.execute(params![
                     lap_time,
                     lap_pace,
+                    avg_hr,
                     section_id,
                     activity_id,
                     start_idx

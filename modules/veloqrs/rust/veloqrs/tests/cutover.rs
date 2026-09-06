@@ -172,6 +172,71 @@ fn diff_payload_is_retrievable_after_restart() {
     );
 }
 
+/// A section is a reference activity and the indices of a pass over it, not
+/// stored geometry, so the change card's payload carries neither the rows nor
+/// the lines. Left in, the install held both catalogues' geometry a second
+/// time for the life of the install.
+#[test]
+fn the_stored_diff_carries_no_section_rows() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().unwrap();
+
+    let payload: serde_json::Value =
+        serde_json::from_str(&veloqrs::ffi::get_cutover_diff().expect("diff is stored"))
+            .expect("diff is valid JSON");
+    assert!(
+        payload.get("sections").is_none(),
+        "the payload keeps token, counts and settings_reset only: {payload}"
+    );
+    assert!(payload["counts"]["current"].as_u64().unwrap_or(0) > 0);
+}
+
+/// An install that migrated on an older build keeps the fat row for ever: the
+/// key is written once at promotion and deleted only by the sign-out wipe. So
+/// the trim has to happen on the way out, once.
+#[test]
+fn a_payload_an_older_build_wrote_is_trimmed_when_it_is_read() {
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    seed_older_build_engine(&path);
+
+    veloqrs::persistence::cutover::run_cutover().unwrap();
+
+    let fat = serde_json::json!({
+        "token": "unified-1",
+        "counts": { "current": 3, "proposed": 4, "unchanged": 2,
+                    "changed": 1, "new": 1, "gone": 0 },
+        "sections": [{ "id": "s1", "status": "gone", "polyline": "yyyy}}}}" }],
+        "settings_reset": serde_json::Value::Null,
+    })
+    .to_string();
+    with_persistent_engine(|e| {
+        e.set_setting("__detector_cutover_diff", &fat)
+            .expect("seed the older build's payload")
+    })
+    .expect("engine");
+
+    let read = veloqrs::ffi::get_cutover_diff().expect("diff is stored");
+    let payload: serde_json::Value = serde_json::from_str(&read).expect("diff is valid JSON");
+    assert!(payload.get("sections").is_none(), "trimmed on the way out");
+    assert_eq!(payload["counts"]["current"].as_u64(), Some(3));
+    assert_eq!(payload["token"].as_str(), Some("unified-1"));
+
+    let stored = with_persistent_engine(|e| e.get_setting("__detector_cutover_diff"))
+        .expect("engine")
+        .expect("setting readable")
+        .expect("still stored");
+    assert!(
+        !stored.contains("\"sections\""),
+        "the row itself is rewritten, not only the copy handed back: {stored}"
+    );
+}
+
 /// A fresh install has nothing to migrate, so the one-shot token must not be
 /// spent on an empty archive.
 #[test]

@@ -1279,6 +1279,7 @@
     "previewFailed": "Forhåndsvisningen kunne ikke fuldføres.",
     "previewPoolUnusable": "Nogle af dine aktivitetsspor kan ikke laeses, saa forhaandsvisningen blev afbrudt.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",
+    "previewMigrating": "Dit bibliotek migrerer stadig, så resultaterne kan ændre sig lidt, når det er færdigt",
     "previewUnchanged": "{{count}} uændrede",
     "previewChanged": "{{count}} ændrede",
     "previewNew": "{{count}} nye",
@@ -1590,7 +1591,8 @@
     "kind_reverted": "Gendannet til version {{version}}",
     "kind_pr_rebased": "Rekord genberegnet mod den nuværende udstrækning",
     "kind_baseline": "Registreret fra en tidligere version af appen",
-    "kind_algorithm_changed": "Analyseret igen af en nyere detektor"
+    "kind_algorithm_changed": "Analyseret igen af en nyere detektor",
+    "kind_reference_reanchored": "Gentegnet ud fra en anden tur, den oprindelige findes ikke længere på intervals.icu"
   },
   "namedCorridors": {
     "title": "Navne du har givet",

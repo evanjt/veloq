@@ -738,14 +738,23 @@ impl PersistentEngine {
         // (section_activities, signatures, time_streams). A re-ingest must
         // update the row in place so those links and the unnamed columns
         // (date, name, distance) survive.
+        //
+        // `intervals_id` is the server's own id, kept beside the key rather
+        // than as it. Every activity that reaches this path came from
+        // intervals.icu, so the key is that id and the column records it; a
+        // row minted on the device would carry NULL until an upload answers.
+        // `COALESCE` so a re-ingest never overwrites one already recorded.
         self.db.execute(
-            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
-             VALUES (?, ?, ?, ?, ?, ?)
+            "INSERT INTO activities
+                 (id, intervals_id, sport_type, min_lat, max_lat, min_lng, max_lng)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
+                 intervals_id = COALESCE(activities.intervals_id, excluded.intervals_id),
                  sport_type = excluded.sport_type,
                  min_lat = excluded.min_lat, max_lat = excluded.max_lat,
                  min_lng = excluded.min_lng, max_lng = excluded.max_lng",
             params![
+                id,
                 id,
                 sport_type,
                 bounds.min_lat,
@@ -942,6 +951,223 @@ impl PersistentEngine {
     /// pool moved under a run that has already reported its own result.
     pub fn mark_sections_dirty(&mut self) {
         self.sections_dirty = true;
+    }
+
+    /// Ids this athlete's sync wrote, as the server names them, paired with
+    /// the local key.
+    ///
+    /// Scoped three ways, and each one is a library wiped if it is dropped. A
+    /// row with no `intervals_id` was never upstream, so the server not naming
+    /// it says nothing. Demo rows are seeded on the device and no census
+    /// carries them. And the comparison is against the server's own id, never
+    /// against the key, or a row the device minted would read as deleted the
+    /// moment it was stored.
+    pub fn census_candidates(&self) -> Vec<(String, String)> {
+        let mut stmt = match self.db.prepare(
+            "SELECT id, intervals_id FROM activities
+             WHERE intervals_id IS NOT NULL
+               AND intervals_id NOT LIKE 'demo-test-%'
+               AND intervals_id NOT LIKE 'demo-stress-%'
+               AND id NOT LIKE 'demo-test-%'
+               AND id NOT LIKE 'demo-stress-%'",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                log::warn!("veloqrs: [census] candidate read failed: {}", e);
+                return Vec::new();
+            }
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(e) => {
+                log::warn!("veloqrs: [census] candidate read failed: {}", e);
+                Vec::new()
+            }
+        }
+    }
+
+    /// Remove every stored activity the census does not carry, re-anchoring
+    /// any section that pointed at one first. Returns the local keys removed.
+    ///
+    /// **`upstream` must be a census that succeeded whole.** A truncated or
+    /// empty list is indistinguishable from an athlete who deleted everything,
+    /// and a blind difference then wipes the library, so an empty one removes
+    /// nothing and says so.
+    pub fn reconcile_against_census(&mut self, upstream: &[String]) -> Vec<String> {
+        if upstream.is_empty() {
+            log::info!("veloqrs: [census] empty census, nothing reconciled");
+            return Vec::new();
+        }
+        let named: std::collections::HashSet<&str> = upstream.iter().map(String::as_str).collect();
+        let vanished: Vec<String> = self
+            .census_candidates()
+            .into_iter()
+            .filter(|(_, intervals_id)| !named.contains(intervals_id.as_str()))
+            .map(|(key, _)| key)
+            .collect();
+        if vanished.is_empty() {
+            return Vec::new();
+        }
+
+        let mut removed = Vec::with_capacity(vanished.len());
+        for key in vanished {
+            // A section's line is a triple into one stored stream, so the
+            // reference moves before the row does: `section_activities`
+            // cascades on the activity and the candidate list would go with it.
+            match self.sections_anchored_to(&key) {
+                anchored if anchored.is_empty() => {}
+                anchored => {
+                    let mut stranded = false;
+                    for section_id in anchored {
+                        match self.reanchor_section_reference(&section_id, &key) {
+                            Ok(Some(_)) => {}
+                            Ok(None) => stranded = true,
+                            Err(e) => {
+                                log::warn!(
+                                    "veloqrs: [census] re-anchor of {} failed: {}",
+                                    section_id,
+                                    e
+                                );
+                                stranded = true;
+                            }
+                        }
+                    }
+                    if stranded {
+                        // Its only visit was this activity, so there is nothing
+                        // to re-cut against. Today's behaviour stands: the row
+                        // is protected and the delete is skipped.
+                        log::info!(
+                            "veloqrs: [census] {} left upstream but a section has no other member, kept",
+                            key
+                        );
+                        continue;
+                    }
+                }
+            }
+            match self.remove_activity(&key) {
+                Ok(()) => removed.push(key),
+                Err(e) => log::warn!("veloqrs: [census] removal of {} failed: {}", key, e),
+            }
+        }
+        if !removed.is_empty() {
+            log::info!(
+                "veloqrs: [census] {} activities left intervals.icu and were removed",
+                removed.len()
+            );
+        }
+        removed
+    }
+
+    /// Sections whose line was sliced from this activity.
+    pub fn sections_anchored_to(&self, activity_id: &str) -> Vec<String> {
+        let mut stmt = match self
+            .db
+            .prepare("SELECT id FROM sections WHERE source_activity_id = ?")
+        {
+            Ok(stmt) => stmt,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params![activity_id], |row| row.get::<_, String>(0));
+        match rows {
+            Ok(rows) => rows.flatten().collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// The intervals.icu id for a stored activity, or None for one the server
+    /// has never seen.
+    ///
+    /// Every URL that names an activity upstream is built from this, never
+    /// from the key: the two are equal for every row today and the whole
+    /// point of the column is that they stop being.
+    pub fn intervals_id(&self, activity_id: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT intervals_id FROM activities WHERE id = ?",
+                params![activity_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+    }
+
+    /// The intervals.icu id for each of `activity_ids` that has one, keyed by
+    /// the local id. One query, so a batch of URLs never takes the engine lock
+    /// per activity.
+    pub fn intervals_ids(
+        &self,
+        activity_ids: &[String],
+    ) -> std::collections::HashMap<String, String> {
+        let mut out = std::collections::HashMap::with_capacity(activity_ids.len());
+        if activity_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let sql = format!(
+            "SELECT id, intervals_id FROM activities
+             WHERE intervals_id IS NOT NULL AND id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let params = rusqlite::params_from_iter(activity_ids.iter());
+        if let Ok(rows) = stmt.query_map(params, |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                out.insert(row.0, row.1);
+            }
+        }
+        out
+    }
+
+    /// The local key for one activity the server named, or None when no
+    /// stored row claims it.
+    pub fn activity_id_for_intervals_id(&self, intervals_id: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT id FROM activities WHERE intervals_id = ?",
+                params![intervals_id],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+    }
+
+    /// The local key for each activity the server named, keyed by the server's
+    /// own id, for those a stored row claims.
+    ///
+    /// The sync matches on this, so a row the device minted and later uploaded
+    /// is found rather than stored a second time. A server id nothing claims
+    /// is absent, and the caller then uses it as the key, which is what every
+    /// row an older build stored already did.
+    pub fn local_ids_for_intervals_ids(
+        &self,
+        intervals_ids: &[String],
+    ) -> std::collections::HashMap<String, String> {
+        let mut out = std::collections::HashMap::with_capacity(intervals_ids.len());
+        if intervals_ids.is_empty() {
+            return out;
+        }
+        let placeholders = vec!["?"; intervals_ids.len()].join(",");
+        let sql = format!(
+            "SELECT intervals_id, id FROM activities
+             WHERE intervals_id IN ({placeholders})"
+        );
+        let Ok(mut stmt) = self.db.prepare(&sql) else {
+            return out;
+        };
+        let params = rusqlite::params_from_iter(intervals_ids.iter());
+        if let Ok(rows) = stmt.query_map(params, |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }) {
+            for row in rows.flatten() {
+                out.insert(row.0, row.1);
+            }
+        }
+        out
     }
 
     pub fn get_activity_ids(&self) -> Vec<String> {

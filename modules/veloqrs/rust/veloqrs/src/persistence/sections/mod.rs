@@ -79,6 +79,38 @@ pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> St
 /// Haversine distance between two lat/lng points in meters.
 pub(super) use crate::persistence::haversine_distance_meters as haversine_distance;
 
+/// The mean heart rate over one traversal, from the activity's own series.
+///
+/// Indices are the half-open pair every writer of `section_activities` stores,
+/// the same space [`compute_lap_time_from_stream`] reads, so the last sample of
+/// the traversal is `end_index - 1`.
+///
+/// Absent samples are skipped rather than counted as zero: a strap that dropped
+/// out for a minute must not read as a minute at nought beats. `None` when
+/// there is no series, when either index is out of bounds, or when nothing in
+/// the slice was recorded, all of which are "this lap has no heart rate" rather
+/// than a heart rate of nought.
+pub(super) fn mean_over_traversal(
+    series: Option<&[Option<f64>]>,
+    start_index: u32,
+    end_index: u32,
+) -> Option<f64> {
+    let series = series?;
+    if end_index == 0 || end_index as usize > series.len() {
+        return None;
+    }
+    let si = start_index as usize;
+    let ei = end_index as usize - 1;
+    if si >= series.len() || ei < si {
+        return None;
+    }
+    let present: Vec<f64> = series[si..=ei].iter().flatten().copied().collect();
+    if present.is_empty() {
+        return None;
+    }
+    Some(present.iter().sum::<f64>() / present.len() as f64)
+}
+
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
 /// `end_index` is the half-open end every writer of `section_activities` stores,
@@ -746,8 +778,16 @@ impl PersistentEngine {
     /// Distinct activities crossing the drawn line, the population the DB view
     /// counts from junction rows. `activity_ids` holds cluster contributors,
     /// which the render trim can differ from, so flooring on it would hide a
-    /// section the summaries show. Falls back when no portions exist, matching
-    /// the detector's own guard on the drawn set.
+    /// section the summaries show.
+    ///
+    /// The empty-portions fallback covers one window and one only: a section
+    /// still in memory from a fold, where the contributors are known and the
+    /// junction rows are not written yet. It cannot fire for a section that
+    /// came off disk, because `load_sections` derives `activity_ids` from the
+    /// portions, so a row with no portions loads with neither and the fallback
+    /// returns the same zero. [`outings_in_sport`](Self::outings_in_sport) and
+    /// [`covers_sport`](Self::covers_sport) carry the same tolerance for the
+    /// same window.
     fn outings(s: &FrequentSection) -> u32 {
         if s.activity_portions.is_empty() {
             return s.activity_ids.len() as u32;
@@ -761,7 +801,8 @@ impl PersistentEngine {
 
     /// Whether a sport traverses this section. Ground is neutral: the section's
     /// own `sport_type` is only the dominant label of its traversals.
-    /// Counts the same population as `outings`.
+    /// Counts the same population as `outings`, and its fallback covers the
+    /// same in-memory window.
     pub(crate) fn covers_sport(&self, s: &FrequentSection, sport: &str) -> bool {
         if s.sport_type == sport {
             return true;
@@ -829,7 +870,8 @@ impl PersistentEngine {
             .collect()
     }
 
-    /// [`outings`](Self::outings) restricted to one sport's traversals.
+    /// [`outings`](Self::outings) restricted to one sport's traversals, with
+    /// the same in-memory fallback.
     pub(crate) fn outings_in_sport(&self, s: &FrequentSection, sport: &str) -> u32 {
         let matches = |id: &String| self.sport_of(id) == Some(sport);
         if s.activity_portions.is_empty() {
@@ -1491,15 +1533,38 @@ impl PersistentEngine {
         // Compute lap_time from time_stream when available (in-memory or DB)
         let (lap_time, lap_pace) =
             self.load_lap_time(activity_id, start_index, end_index, distance_meters);
+        // The effort the lap was ridden at, from the same slice, so the
+        // efficiency trend has both halves of its ratio for this pass.
+        let avg_hr = mean_over_traversal(
+            self.load_heartrate_series(activity_id).as_deref(),
+            start_index,
+            end_index,
+        );
 
         self.db
             .execute(
-                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace],
+                "INSERT OR IGNORE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rusqlite::params![section_id, activity_id, dir_str, start_index, end_index, distance_meters, lap_time, lap_pace, avg_hr],
             )
             .map_err(|e| format!("Failed to insert section_activity: {}", e))?;
         Ok(())
+    }
+
+    /// The activity's stored heart rate series, if it has one.
+    ///
+    /// `activity_streams` is where the sync puts every series but the ones the
+    /// track already carries, so this is one row and one decode.
+    pub(super) fn load_heartrate_series(&self, activity_id: &str) -> Option<Vec<Option<f64>>> {
+        let blob: Vec<u8> = self
+            .db
+            .query_row(
+                "SELECT data FROM activity_streams WHERE activity_id = ? AND kind = 'heartrate'",
+                rusqlite::params![activity_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        codec::decode_series(&blob)
     }
 
     /// Load lap_time from time_stream (in-memory or DB fallback).
@@ -2141,6 +2206,72 @@ impl PersistentEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A section as a fold hands it over: contributors known, junction rows
+    /// not written yet.
+    fn in_memory_section(contributors: &[&str]) -> FrequentSection {
+        FrequentSection {
+            id: "s1".to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline: Vec::new(),
+            distance_meters: 1000.0,
+            visit_count: contributors.len() as u32,
+            created_at: None,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: contributors.iter().map(|s| (*s).to_string()).collect(),
+            activity_portions: Vec::new(),
+            activity_traces: std::collections::HashMap::new(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: Vec::new(),
+            scale: None,
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// The tolerance the three gates carry, and the only window it covers.
+    /// Once the row is on disk `load_sections` derives `activity_ids` from the
+    /// portions, so both are empty and the fallback answers the same zero it
+    /// would without them.
+    #[test]
+    fn a_fold_section_with_no_portions_counts_its_contributors() {
+        let section = in_memory_section(&["r1", "r2"]);
+        assert_eq!(PersistentEngine::outings(&section), 2);
+    }
+
+    #[test]
+    fn a_fold_section_with_neither_counts_nothing() {
+        let section = in_memory_section(&[]);
+        assert_eq!(PersistentEngine::outings(&section), 0);
+    }
+
+    #[test]
+    fn portions_win_over_contributors_wherever_both_are_present() {
+        let mut section = in_memory_section(&["r1", "r2", "r3"]);
+        section.activity_portions = vec![tracematch::sections::SectionPortion {
+            activity_id: "r1".to_string(),
+            direction: Default::default(),
+            start_index: 0,
+            end_index: 10,
+            distance_meters: 100.0,
+        }];
+        assert_eq!(
+            PersistentEngine::outings(&section),
+            1,
+            "the drawn line is the population, not the cluster"
+        );
+    }
 
     #[test]
     fn name_number_reads_current_and_legacy_patterns() {
