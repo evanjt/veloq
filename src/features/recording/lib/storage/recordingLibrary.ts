@@ -240,6 +240,11 @@ export function attachEngineActivity(
   return patchEntry(id, { engineActivityId });
 }
 
+/** The engine row now carries the id intervals.icu gave the upload. */
+export function markRecordingReconciled(id: string): Promise<RecordingLibraryEntry | null> {
+  return patchEntry(id, { engineReconciled: true });
+}
+
 export async function markRecordingUploading(id: string): Promise<void> {
   await patchEntry(id, { uploadStatus: 'uploading' });
 }
