@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Taglia inizio e fine di ogni traccia entro 100 m da casa. Viene accorciata solo la copia esportata.",
     "exportPrivacySuggested": "La maggior parte delle tue uscite parte dallo stesso punto, {{count}} di esse.",
     "exportPrivacyConfirm": "Usalo come casa",
-    "exportPrivacyNoSuggestion": "Non ci sono ancora abbastanza uscite per capire dove sia casa."
+    "exportPrivacyNoSuggestion": "Non ci sono ancora abbastanza uscite per capire dove sia casa.",
+    "exportPrivacyCount": "Accorcia {{touched}} uscite su {{total}} a {{radius}} m. Non viene eliminato nulla.",
+    "exportPrivacyNothingTrimmed": "Non viene accorciato nulla. Gli export contengono la traccia intera.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Attività",

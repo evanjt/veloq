@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 18 standalone `#[uniffi::export]` functions plus
- * 221 methods inside `#[uniffi::export] impl` blocks across
+ * 222 methods inside `#[uniffi::export] impl` blocks across
  * 13 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 239 exports (18 standalone + 221 methods)
+ * Total: 240 exports (18 standalone + 222 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1932,10 +1932,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SettingsManager',
   },
   {
+    name: 'export_privacy_preview',
+    camelName: 'exportPrivacyPreview',
+    file: 'objects/settings.rs',
+    line: 63,
+    paramCount: 3,
+    returnType: 'Result<crate::persistence::ExportPrivacyPreview, VeloqError>',
+    docs: 'What a trim at this home and radius would do to the stored library. The radius row shows a count rather than a number of metres, because metres do not say how much of an archive changes.',
+    object: 'SettingsManager',
+  },
+  {
     name: 'get_setting',
     camelName: 'getSetting',
     file: 'objects/settings.rs',
-    line: 60,
+    line: 78,
     paramCount: 1,
     returnType: 'Result<Option<String>, VeloqError>',
     docs: 'Get a single user preference by key.',
@@ -1945,7 +1955,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_setting',
     camelName: 'setSetting',
     file: 'objects/settings.rs',
-    line: 69,
+    line: 87,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: 'Set a single user preference (upsert).',
@@ -1955,7 +1965,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_settings',
     camelName: 'setSettings',
     file: 'objects/settings.rs',
-    line: 80,
+    line: 98,
     paramCount: 1,
     returnType: 'Result<u32, VeloqError>',
     docs: 'Set several user preferences in one transaction, skipping each pair whose value is already stored. Returns how many were written.',
@@ -1965,7 +1975,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'stream_retention_days',
     camelName: 'streamRetentionDays',
     file: 'objects/settings.rs',
-    line: 96,
+    line: 114,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
     docs: 'Days of stream history the athlete keeps. Zero means keep everything. This only ever evicts stored series: nothing deletes whole activities by age.',
@@ -1975,7 +1985,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_stream_retention_days',
     camelName: 'setStreamRetentionDays',
     file: 'objects/settings.rs',
-    line: 102,
+    line: 120,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'Set the stream retention window in days, then evict what now falls outside it. Zero keeps everything.',
@@ -1985,7 +1995,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'stream_store_bytes',
     camelName: 'streamStoreBytes',
     file: 'objects/settings.rs',
-    line: 112,
+    line: 130,
     paramCount: 0,
     returnType: 'Result<i64, VeloqError>',
     docs: 'Bytes the stream store holds, for the cache readout.',
@@ -1995,7 +2005,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'delete_setting',
     camelName: 'deleteSetting',
     file: 'objects/settings.rs',
-    line: 121,
+    line: 139,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: 'Delete a single user preference.',
@@ -2607,6 +2617,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'setSportSettings',
   'clearUserProfileCaches',
   'suggestExportHome',
+  'exportPrivacyPreview',
   'getSetting',
   'setSetting',
   'setSettings',
@@ -2831,6 +2842,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   set_sport_settings: 'setSportSettings',
   clear_user_profile_caches: 'clearUserProfileCaches',
   suggest_export_home: 'suggestExportHome',
+  export_privacy_preview: 'exportPrivacyPreview',
   get_setting: 'getSetting',
   set_setting: 'setSetting',
   set_settings: 'setSettings',

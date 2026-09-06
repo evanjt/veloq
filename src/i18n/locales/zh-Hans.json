@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "裁去每条轨迹中距住所 100 米以内的起点和终点。只有导出的副本会被缩短。",
     "exportPrivacySuggested": "你的大部分骑行都从同一个地方出发，其中 {{count}} 次。",
     "exportPrivacyConfirm": "设为住所",
-    "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。"
+    "exportPrivacyNoSuggestion": "骑行还不够多，暂时判断不出住所在哪里。",
+    "exportPrivacyCount": "在 {{radius}} 米范围内缩短 {{total}} 次骑行中的 {{touched}} 次。不会删除任何内容。",
+    "exportPrivacyNothingTrimmed": "不做任何裁剪，导出包含完整轨迹。",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "活动",

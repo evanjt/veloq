@@ -1301,7 +1301,10 @@
     "exportPrivacyDescription": "Corta o início e o fim de cada percurso a 100 m de casa. Apenas a cópia exportada é encurtada.",
     "exportPrivacySuggested": "A maioria dos seus treinos começa perto do mesmo lugar, {{count}} deles.",
     "exportPrivacyConfirm": "Usar como casa",
-    "exportPrivacyNoSuggestion": "Ainda não há treinos suficientes para descobrir onde fica sua casa."
+    "exportPrivacyNoSuggestion": "Ainda não há treinos suficientes para descobrir onde fica sua casa.",
+    "exportPrivacyCount": "Encurta {{touched}} de {{total}} treinos a {{radius}} m. Nada é apagado.",
+    "exportPrivacyNothingTrimmed": "Nada é cortado. As exportações levam o trajeto completo.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Atividades",

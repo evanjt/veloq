@@ -868,6 +868,73 @@ const FfiConverterTypeElevationBackfillProgress = (() => {
 })();
 
 /**
+ * What the trim would do to the library as it stands.
+ *
+ * A radius in metres means nothing on its own. The number that makes the
+ * setting concrete is how many rides it reaches, and how many it would leave
+ * out of the archive altogether.
+ */
+export type ExportPrivacyPreview = {
+  /**
+   * Activities an export would write at all, the denominator.
+   */
+  withTrack: /*u32*/ number;
+  /**
+   * Activities whose first or last fix lies inside the radius, so the
+   * exported copy is shorter than the stored one.
+   */
+  touched: /*u32*/ number;
+  /**
+   * Activities the export would leave out and name in the skip ledger.
+   */
+  dropped: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link ExportPrivacyPreview} record objects.
+ */
+export const ExportPrivacyPreview = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      ExportPrivacyPreview,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<ExportPrivacyPreview>,
+  });
+})();
+
+const FfiConverterTypeExportPrivacyPreview = (() => {
+  type TypeName = ExportPrivacyPreview;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        withTrack: FfiConverterUInt32.read(from),
+        touched: FfiConverterUInt32.read(from),
+        dropped: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.withTrack, into);
+      FfiConverterUInt32.write(value.touched, into);
+      FfiConverterUInt32.write(value.dropped, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.withTrack) +
+        FfiConverterUInt32.allocationSize(value.touched) +
+        FfiConverterUInt32.allocationSize(value.dropped)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of the combined fetch and store operation.
  */
 export type FetchAndStoreResult = {
@@ -15420,6 +15487,17 @@ export interface SettingsManagerLike {
    * Delete a single user preference.
    */
   deleteSetting(key: string) /*throws*/ : void;
+  /**
+   * What a trim at this home and radius would do to the stored library.
+   *
+   * The radius row shows a count rather than a number of metres, because
+   * metres do not say how much of an archive changes.
+   */
+  exportPrivacyPreview(
+    homeLat: /*f64*/ number,
+    homeLng: /*f64*/ number,
+    radiusM: /*f64*/ number,
+  ) /*throws*/ : ExportPrivacyPreview;
   getAthleteProfile() /*throws*/ : string | undefined;
   /**
    * Get a single user preference by key.
@@ -15523,6 +15601,36 @@ export class SettingsManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * What a trim at this home and radius would do to the stored library.
+   *
+   * The radius row shows a count rather than a number of metres, because
+   * metres do not say how much of an archive changes.
+   */
+  exportPrivacyPreview(
+    homeLat: /*f64*/ number,
+    homeLng: /*f64*/ number,
+    radiusM: /*f64*/ number,
+  ): ExportPrivacyPreview /*throws*/ {
+    return FfiConverterTypeExportPrivacyPreview.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_export_privacy_preview(
+            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+            FfiConverterFloat64.lower(homeLat),
+            FfiConverterFloat64.lower(homeLng),
+            FfiConverterFloat64.lower(radiusM),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -19652,6 +19760,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview() !==
+    3926
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile() !==
     18956
   ) {
@@ -20157,6 +20273,7 @@ export default Object.freeze({
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
     FfiConverterTypeEngineObserver,
+    FfiConverterTypeExportPrivacyPreview,
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityDetailData,
