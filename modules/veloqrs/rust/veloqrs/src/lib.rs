@@ -69,6 +69,55 @@ pub mod tiles;
 // The Rust-owned basemap tile store: one z/x/y tree per source on disk
 pub mod basemap;
 
+/// Captured log lines, for the tests that assert a path says something rather
+/// than dropping silently. The logger is process-wide and the lib tests share
+/// one process, so the buffer is never cleared: a test filters it for a
+/// fragment only it produces.
+#[cfg(test)]
+pub(crate) mod test_log {
+    use log::{Level, Log, Metadata, Record};
+    use std::sync::{Mutex, OnceLock};
+
+    static LINES: OnceLock<Mutex<Vec<(Level, String)>>> = OnceLock::new();
+
+    fn lines() -> &'static Mutex<Vec<(Level, String)>> {
+        LINES.get_or_init(|| Mutex::new(Vec::new()))
+    }
+
+    struct Capture;
+
+    impl Log for Capture {
+        fn enabled(&self, _: &Metadata) -> bool {
+            true
+        }
+        fn log(&self, record: &Record) {
+            lines()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push((record.level(), record.args().to_string()));
+        }
+        fn flush(&self) {}
+    }
+
+    /// Install the capture. Idempotent: a second call keeps the first logger,
+    /// which is what a parallel test run does.
+    pub(crate) fn capturing() {
+        let _ = log::set_boxed_logger(Box::new(Capture));
+        log::set_max_level(log::LevelFilter::Trace);
+    }
+
+    /// Every warning captured so far carrying `fragment`.
+    pub(crate) fn warnings_with(fragment: &str) -> Vec<String> {
+        lines()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .filter(|(level, line)| *level <= Level::Warn && line.contains(fragment))
+            .map(|(_, line)| line.clone())
+            .collect()
+    }
+}
+
 /// Fixtures for the process-wide engine, detection handle and suspension
 /// counter. They live at the crate root because tests in several modules race
 /// the same globals and have to take the same lock to stay honest.
