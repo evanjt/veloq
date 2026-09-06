@@ -59,7 +59,11 @@ module.exports = [
       'react-hooks/use-memo': 'warn',
 
       'react/jsx-key': 'error',
-      'react/no-unused-prop-types': 'warn',
+      // Off because every report it made here was wrong. It cannot follow a
+      // prop through `forwardRef`, through a `memo` comparator that reads it,
+      // or into a `renderItem` callback, and it reads any inline destructured
+      // object type as a props type.
+      'react/no-unused-prop-types': 'off',
       'react/no-direct-mutation-state': 'error',
     },
   },

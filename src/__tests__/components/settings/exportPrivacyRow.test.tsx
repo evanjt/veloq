@@ -17,12 +17,15 @@ import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+// The interpolated values are the point of the count line, so the stub keeps
+// them and drops only the fallback string.
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, vars?: unknown) =>
-      typeof vars === 'object' && vars !== null && !('defaultValue' in vars)
-        ? `${key}:${JSON.stringify(vars)}`
-        : key,
+    t: (key: string, vars?: unknown) => {
+      if (typeof vars !== 'object' || vars === null) return key;
+      const { defaultValue: _drop, ...rest } = vars as Record<string, unknown>;
+      return Object.keys(rest).length === 0 ? key : `${key}:${JSON.stringify(rest)}`;
+    },
   }),
 }));
 
@@ -35,10 +38,20 @@ const HOME = {
   endpointShare: 0.24,
 };
 
+/** The count the engine reports rises with the radius, as a real library does. */
+const previewFor = (radius: number) => ({
+  withTrack: 402,
+  touched: radius === 0 ? 0 : Math.round(radius / 10),
+  dropped: radius >= 500 ? 3 : 0,
+});
+
 function engineWith(over: Record<string, unknown> = {}) {
   const settings = new Map<string, string>();
   const engine = {
     suggestExportHome: jest.fn(() => HOME),
+    exportPrivacyPreview: jest.fn((_lat: number, _lng: number, radius: number) =>
+      previewFor(radius)
+    ),
     getSetting: jest.fn((key: string) => settings.get(key)),
     setSetting: jest.fn((key: string, value: string) => settings.set(key, value)),
     ...over,
@@ -112,5 +125,59 @@ describe('the export privacy row', () => {
     const tree = render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch').props.value).toBe(true));
+  });
+
+  it('names how many rides the radius reaches, not just the metres', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    const count = await waitFor(() => tree.getByTestId('export-privacy-count'));
+    expect(count.props.children).toContain('10');
+    expect(count.props.children).toContain('402');
+  });
+
+  it('changes the count when the radius changes', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+    const tree = render(<ExportPrivacyRow />);
+    await waitFor(() => expect(tree.getByTestId('export-privacy-radius-500')).toBeTruthy());
+
+    fireEvent.press(tree.getByTestId('export-privacy-radius-500'));
+
+    await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
+    expect(tree.getByTestId('export-privacy-count').props.children).toContain('50');
+  });
+
+  it('reports that nothing is trimmed in the off position', async () => {
+    const { settings } = engineWith();
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '0');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-count')).toBeTruthy());
+    expect(tree.getByTestId('export-privacy-count').props.children).toContain(
+      'settings.exportPrivacyNothingTrimmed'
+    );
+    expect(tree.queryByTestId('export-privacy-radius-500')).toBeNull();
+  });
+
+  it('says nothing about counts when the engine cannot preview', async () => {
+    const { settings } = engineWith({ exportPrivacyPreview: undefined });
+    settings.set('__export_home_lat', String(HOME.latitude));
+    settings.set('__export_home_lng', String(HOME.longitude));
+    settings.set('__export_privacy_radius_m', '100');
+
+    const tree = render(<ExportPrivacyRow />);
+
+    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+    expect(tree.queryByTestId('export-privacy-count')).toBeNull();
   });
 });

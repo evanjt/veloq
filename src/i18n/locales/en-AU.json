@@ -1174,7 +1174,6 @@
     "hideDemoBanner": "Hide the Demo Banner",
     "hideDemoBannerHint": "Hide it for screenies",
     "language": "Lingo",
-    "languageGroups": {},
     "lastSynced": "Last grabbed",
     "light": "Light",
     "maps": "Maps",
@@ -1302,7 +1301,10 @@
     "exportPrivacyDescription": "Trims the start and end of each track within 100 m of home. Only the exported copy is shortened.",
     "exportPrivacySuggested": "Most of your rides start near one place, {{count}} of them.",
     "exportPrivacyConfirm": "Use it as home",
-    "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is."
+    "exportPrivacyNoSuggestion": "Not enough rides yet to work out where home is.",
+    "exportPrivacyCount": "Shortens {{touched}} of {{total}} rides at {{radius}} m. Nothing is deleted.",
+    "exportPrivacyNothingTrimmed": "Nothing is trimmed. Exports carry the full track.",
+    "exportPrivacyRadius": "{{metres}} m"
   },
   "stats": {
     "activities": "Activities",

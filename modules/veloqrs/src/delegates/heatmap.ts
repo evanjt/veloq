@@ -11,24 +11,26 @@ import type { DelegateHost } from './host';
 
 /** Enable heatmap tile generation by setting the tiles path. */
 export function enableHeatmapTiles(host: DelegateHost): void {
-  if (!host.ready) return;
   const tilesPath = `${FileSystem.cacheDirectory}heatmap-tiles/`;
   const normalizedTilesPath = tilesPath.startsWith('file://') ? tilesPath.slice(7) : tilesPath;
-  try {
-    host.engine.heatmap().setTilesPath(normalizedTilesPath);
-  } catch (e) {
-    console.warn('[EngineClient] Failed to set heatmap tiles path:', e);
-  }
+  host.write('enableHeatmapTiles', () => {
+    try {
+      host.engine.heatmap().setTilesPath(normalizedTilesPath);
+    } catch (e) {
+      console.warn('[EngineClient] Failed to set heatmap tiles path:', e);
+    }
+  });
 }
 
 /** Disable heatmap tile generation by clearing the tiles path in the engine. */
 export function disableHeatmapTiles(host: DelegateHost): void {
-  if (!host.ready) return;
-  try {
-    host.engine.heatmap().clearTilesPath();
-  } catch (e) {
-    console.warn('[EngineClient] Failed to clear heatmap tiles path:', e);
-  }
+  host.write('disableHeatmapTiles', () => {
+    try {
+      host.engine.heatmap().clearTilesPath();
+    } catch (e) {
+      console.warn('[EngineClient] Failed to clear heatmap tiles path:', e);
+    }
+  });
 }
 
 /** Get total size of heatmap tile cache in bytes (fast native scan). */

@@ -10,7 +10,7 @@
 //! Cross-sport merge is not a separate call here: `apply_sections` runs it in
 //! its finalize tail, so every `ingest_step` already exercises it.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_merge_evolution -- --include-ignored`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_merge_evolution`
 
 mod lifecycle_support;
 

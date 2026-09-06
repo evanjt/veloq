@@ -6,6 +6,8 @@
 
 use std::io::Write;
 
+use rusqlite::Result as SqlResult;
+
 use super::PersistentEngine;
 use super::codec::TrackRead;
 use crate::GpsPoint;
@@ -625,6 +627,122 @@ impl PrivacyTrim {
         let last = points.iter().rposition(|p| !inside(p))?;
         let kept = &points[first..=last];
         (kept.len() >= MIN_EXPORTABLE_POINTS).then(|| kept.to_vec())
+    }
+}
+
+/// What the trim would do to the library as it stands.
+///
+/// A radius in metres means nothing on its own. The number that makes the
+/// setting concrete is how many rides it reaches, and how many it would leave
+/// out of the archive altogether.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ExportPrivacyPreview {
+    /// Activities an export would write at all, the denominator.
+    pub with_track: u32,
+    /// Activities whose first or last fix lies inside the radius, so the
+    /// exported copy is shorter than the stored one.
+    pub touched: u32,
+    /// Activities the export would leave out and name in the skip ledger.
+    pub dropped: u32,
+}
+
+/// Metres of latitude per degree, close enough to bound a search box.
+const METRES_PER_DEGREE_LAT: f64 = 111_320.0;
+
+/// Longitude degrees spanning `radius_m` at this latitude, bounded so a
+/// latitude near the pole widens the box rather than dividing by zero.
+fn lng_span_degrees(lat: f64, radius_m: f64) -> f64 {
+    let shrink = lat.to_radians().cos().abs().max(1e-6);
+    (radius_m / (METRES_PER_DEGREE_LAT * shrink)).min(180.0)
+}
+
+impl PersistentEngine {
+    /// What a trim at this home and radius would do to the current library.
+    ///
+    /// Reads stored endpoints and bounding boxes only, so the count costs one
+    /// query over two small tables rather than a decode of every track.
+    ///
+    /// `dropped` is deliberately conservative. A bounding box lying wholly
+    /// inside the circle guarantees every point is trimmed, but a box that
+    /// pokes out only guarantees one surviving point where the export needs
+    /// two, so a ride can still be dropped without being counted here. The
+    /// skip ledger the export writes stays the authoritative list.
+    pub fn export_privacy_preview(
+        &self,
+        home_lat: f64,
+        home_lng: f64,
+        radius_m: f64,
+    ) -> SqlResult<ExportPrivacyPreview> {
+        let with_track: u32 = self
+            .db
+            .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| row.get(0))?;
+
+        if !(radius_m > 0.0) || !home_lat.is_finite() || !home_lng.is_finite() {
+            return Ok(ExportPrivacyPreview {
+                with_track,
+                touched: 0,
+                dropped: 0,
+            });
+        }
+
+        let lat_span = radius_m / METRES_PER_DEGREE_LAT;
+        let lng_span = lng_span_degrees(home_lat, radius_m);
+        let (lat_lo, lat_hi) = (home_lat - lat_span, home_lat + lat_span);
+        let (lng_lo, lng_hi) = (home_lng - lng_span, home_lng + lng_span);
+
+        // The box is a prefilter: an endpoint outside it cannot be inside the
+        // circle, and every candidate is measured again below.
+        let mut stmt = self.db.prepare(
+            "SELECT s.start_point_lat, s.start_point_lng, s.end_point_lat, s.end_point_lng,
+                    a.min_lat, a.max_lat, a.min_lng, a.max_lng
+             FROM signatures s
+             JOIN gps_tracks g ON g.activity_id = s.activity_id
+             JOIN activities a ON a.id = s.activity_id
+             WHERE (s.start_point_lat BETWEEN ?1 AND ?2 AND s.start_point_lng BETWEEN ?3 AND ?4)
+                OR (s.end_point_lat BETWEEN ?1 AND ?2 AND s.end_point_lng BETWEEN ?3 AND ?4)",
+        )?;
+
+        let rows = stmt.query_map([lat_lo, lat_hi, lng_lo, lng_hi], |row| {
+            Ok((
+                row.get::<_, f64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, f64>(3)?,
+                row.get::<_, f64>(4)?,
+                row.get::<_, f64>(5)?,
+                row.get::<_, f64>(6)?,
+                row.get::<_, f64>(7)?,
+            ))
+        })?;
+
+        let inside = |lat: f64, lng: f64| {
+            super::haversine_distance_meters(lat, lng, home_lat, home_lng) <= radius_m
+        };
+
+        let mut touched: u32 = 0;
+        let mut dropped: u32 = 0;
+        for row in rows {
+            let (start_lat, start_lng, end_lat, end_lng, min_lat, max_lat, min_lng, max_lng) = row?;
+            if !inside(start_lat, start_lng) && !inside(end_lat, end_lng) {
+                continue;
+            }
+            touched += 1;
+            let corners = [
+                (min_lat, min_lng),
+                (min_lat, max_lng),
+                (max_lat, min_lng),
+                (max_lat, max_lng),
+            ];
+            if corners.iter().all(|(lat, lng)| inside(*lat, *lng)) {
+                dropped += 1;
+            }
+        }
+
+        Ok(ExportPrivacyPreview {
+            with_track,
+            touched,
+            dropped,
+        })
     }
 }
 

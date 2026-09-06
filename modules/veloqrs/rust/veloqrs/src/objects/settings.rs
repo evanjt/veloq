@@ -56,6 +56,24 @@ impl SettingsManager {
         with_engine(|e| e.suggest_export_home())
     }
 
+    /// What a trim at this home and radius would do to the stored library.
+    ///
+    /// The radius row shows a count rather than a number of metres, because
+    /// metres do not say how much of an archive changes.
+    fn export_privacy_preview(
+        &self,
+        home_lat: f64,
+        home_lng: f64,
+        radius_m: f64,
+    ) -> Result<crate::persistence::ExportPrivacyPreview, VeloqError> {
+        with_engine(|e| {
+            e.export_privacy_preview(home_lat, home_lng, radius_m)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {

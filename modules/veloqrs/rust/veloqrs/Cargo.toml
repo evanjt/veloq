@@ -99,6 +99,10 @@ name = "registry_adoption"
 required-features = ["synthetic"]
 
 [[test]]
+name = "lap_sensor_enrichment_cost"
+required-features = ["synthetic"]
+
+[[test]]
 name = "lifecycle_scenarios"
 required-features = ["synthetic"]
 

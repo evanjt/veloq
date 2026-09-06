@@ -7,7 +7,7 @@
 import { baselineOnOrBefore } from '@/features/wellness/lib/wellnessBaseline';
 import type { WellnessData } from '@/types';
 
-function rows(...entries: Array<[string, Partial<WellnessData>]>): WellnessData[] {
+function rows(...entries: [string, Partial<WellnessData>][]): WellnessData[] {
   return entries
     .map(([id, rest]) => ({ id, ...rest }) as WellnessData)
     .sort((a, b) => b.id.localeCompare(a.id));

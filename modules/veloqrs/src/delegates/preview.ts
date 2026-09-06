@@ -288,6 +288,10 @@ export function takePreviewResult(host: DelegateHost): PreviewResult | null {
   }
 }
 
+/**
+ * Guarded, not written: a cancel held from before the engine opened refers to
+ * a preview that never started, and replaying it would cancel a live one.
+ */
 export function cancelPreviewDetect(host: DelegateHost): void {
   if (!host.ready) return;
   try {

@@ -45,7 +45,6 @@ function evalProtocols(
   };
   const caches = { open: async () => cache };
   const win: Record<string, unknown> = { _rn_log: () => {} };
-  // eslint-disable-next-line no-new-func
   new Function('maplibregl', 'caches', 'fetch', 'window', 'Image', 'URL', script)(
     maplibregl,
     caches,

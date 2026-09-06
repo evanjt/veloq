@@ -13,16 +13,16 @@
 //! top, so an id must stay on its ground while that emission order moves
 //! underneath it.
 //!
-//! One gate per curiosity. Three hold today and run live; the shared-corridor
-//! heading is still frozen at first assignment by the identity carry, so that
-//! one is `#[ignore]`d with the defect named. Snapshots read the user-visible
-//! DB view, so every count is what the app renders.
+//! One gate per curiosity, and all of them run live. The shared-corridor
+//! heading being frozen at first assignment by the identity carry was the
+//! outstanding defect and is fixed. Snapshots read the user-visible DB view, so
+//! every count is what the app renders.
 //!
 //! Data is synthetic and deterministic (`LifecycleCorpus`, seeded). A second
 //! geography is a corpus at a shifted origin with namespaced activity ids so
 //! the two never collide in the engine.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_multigeo_sport -- --include-ignored`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_multigeo_sport`
 
 mod lifecycle_support;
 

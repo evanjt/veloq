@@ -28,7 +28,7 @@
     "test:perf": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --verbose",
     "test:perf:ci": "VELOQ_PERF=1 jest --config config/jest.config.js --testPathPattern=perf.test --json --outputFile=perf-results.json",
     "format": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write \"src/**/*.{ts,tsx}\"",
-    "lint": "eslint . --no-warn-ignored --max-warnings 994",
+    "lint": "eslint . --no-warn-ignored --max-warnings 976",
     "format:check": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --check \"src/**/*.{ts,tsx}\"",
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
@@ -75,9 +75,10 @@
     "lint:muscle-polygons": "node scripts/generate-muscle-polygons.mjs --check",
     "lint:reachability": "node scripts/reachability-audit.mjs",
     "lint:render-engine-reads": "node scripts/lint-render-engine-reads.mjs",
+    "lint:feature-imports": "node scripts/lint-feature-imports.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
     "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
-    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids",
+    "audit": "npm run format:check && npm run check:expo && npm run ffi:check && npm run config:sports:check && npm run ffi:reach && npm run crash:guard && npm run lint:engine-bridge && npm run lint:reachability && npm run lint:render-engine-reads && npm run lint:muscle-polygons && npm run lint:detector-ordering && npm run lint:em-dashes && npm run lint:comment-line-refs && npm run lint:au-spelling && npm run lint:audit-ids && npm run lint:feature-imports",
     "lint:cached": "npm run lint -- --cache"
   },
   "dependencies": {
