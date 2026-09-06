@@ -75,8 +75,9 @@ impl SectionManager {
         })
     }
 
-    /// The catalogue record carries no type, visibility or source slice, so
-    /// those come from the row itself.
+    // The catalogue record carries no type, visibility or source slice, so
+    // those come from the row itself. A doc comment here would go into the
+    // UniFFI metadata buffer and move the checksum the bindings assert.
     fn get_by_id(&self, section_id: String) -> Result<Option<crate::FfiSection>, VeloqError> {
         with_engine(|e| {
             let mut section = crate::FfiSection::from(e.get_section_by_id(&section_id)?);
