@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-nati
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { Canvas, Circle, Group } from '@shopify/react-native-skia';
+import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
+import { stripMarks } from '../lib/stripMarks';
 
 // Simple emoji icons for activity types
 const ACTIVITY_EMOJIS: Record<string, string> = {
@@ -189,7 +190,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     }
   }, [selectedDate, dotData, isActive, externalSelectedIdx, selectedData]);
 
-  // Dots sit on an even split of the width, so the crosshair can land on one
+  // One mark per day, or per week once a day has too little width, scaled
+  // by the day's load and stacked by sport share.
+  const marks = useMemo(() => stripMarks(dotData, chartWidth), [dotData, chartWidth]);
+
+  // Days sit on an even split of the width, so the crosshair can land on one
   // even when the selection came from another chart.
   const dotXCoords = useMemo(
     () => dotData.map((_, idx) => (idx / (dotData.length - 1 || 1)) * chartWidth),
@@ -380,17 +385,24 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           {chartWidth > 0 && (
             <Canvas style={styles.canvas}>
               <Group>
-                {dotData.map((dot, idx) => {
-                  if (dot.activities.length === 0) return null;
-
-                  const x = (idx / (dotData.length - 1 || 1)) * chartWidth;
-                  const y = height / 2;
-                  // Size based on number of activities
-                  const radius = Math.min(6, 3 + dot.activities.length);
-                  // Use first activity's color
-                  const color = getActivityColor(dot.activities[0].type);
-
-                  return <Circle key={dot.date} cx={x} cy={y} r={radius} color={color} />;
+                {marks.map((mark) => {
+                  const total = mark.height * height;
+                  let top = height - total;
+                  return mark.segments.map((segment) => {
+                    const y = top;
+                    const segmentHeight = segment.fraction * total;
+                    top += segmentHeight;
+                    return (
+                      <Rect
+                        key={`${mark.dates[0]}-${segment.type}`}
+                        x={mark.x}
+                        y={y}
+                        width={mark.width}
+                        height={segmentHeight}
+                        color={segment.color}
+                      />
+                    );
+                  });
                 })}
               </Group>
             </Canvas>
