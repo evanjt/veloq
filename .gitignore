@@ -79,6 +79,7 @@ modules/veloqrs/ios/cpp/
 modules/veloqrs/android/build/
 modules/veloqrs/android/.gradle/
 modules/veloqrs/android/.cxx/
+modules/veloq-memory/android/build/
 
 # iOS build cache
 modules/veloqrs/ios/build/
