@@ -263,7 +263,7 @@ describe('AuthStore', () => {
         apiKey: 'key',
         accessToken: 'token',
         athleteId: 'id',
-        athlete: { id: 'id', name: 'Test' } as any,
+        athlete: { id: 'id', name: 'Test' },
         isAuthenticated: true,
         isDemoMode: true,
         authMethod: 'oauth',
@@ -294,7 +294,7 @@ describe('AuthStore', () => {
     });
 
     it('enterDemoMode() clears athlete profile', () => {
-      useAuthStore.setState({ athlete: { id: 'i123', name: 'Real User' } as any });
+      useAuthStore.setState({ athlete: { id: 'i123', name: 'Real User' } });
 
       useAuthStore.getState().enterDemoMode();
 

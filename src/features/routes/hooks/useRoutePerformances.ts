@@ -157,7 +157,7 @@ export function useRoutePerformances(
   // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
   const rustData = useMemo((): {
     matchInfoMap: Map<string, RustMatchInfo>;
-    activityMetrics: Map<string, any>; // Activity ID -> metrics
+    activityMetrics: Map<string, FfiActivityMetrics>;
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;

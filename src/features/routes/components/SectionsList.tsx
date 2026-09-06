@@ -444,7 +444,11 @@ export const SectionsList = memo(function SectionsList({
     );
   };
 
-  const sortChips: { key: SectionsSortOption; label: string; icon: string }[] = useMemo(
+  const sortChips: {
+    key: SectionsSortOption;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[] = useMemo(
     () => [
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
       {

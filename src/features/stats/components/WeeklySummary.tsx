@@ -8,6 +8,7 @@ import {
 } from '@/features/fitness/hooks';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { formatDistance, getMonday, getSunday, formatDurationHuman } from '@/shared/format/format';
@@ -28,7 +29,7 @@ const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
 function getTimeRangeLabel(
   range: TimeRange,
-  t: (key: string) => any,
+  t: TFunction,
   weekNumber?: number,
   weekRange?: string
 ): { current: string; previous: string } {
@@ -37,49 +38,48 @@ function getTimeRangeLabel(
       if (weekNumber && weekRange) {
         return {
           current: `${t('stats.thisWeek')}: #${weekNumber} (${weekRange})`,
-          previous: t('stats.vsLastWeek') as string,
+          previous: t('stats.vsLastWeek'),
         };
       }
       return {
-        current: t('stats.thisWeek') as string,
-        previous: t('stats.vsLastWeek') as string,
+        current: t('stats.thisWeek'),
+        previous: t('stats.vsLastWeek'),
       };
     case 'month':
       return {
-        current: t('stats.thisMonth') as string,
-        previous: t('stats.vsLastMonth') as string,
+        current: t('stats.thisMonth'),
+        previous: t('stats.vsLastMonth'),
       };
     case '3m':
       return {
-        current: t('stats.last3Months') as string,
-        previous: t('stats.vsPrevious3Months') as string,
+        current: t('stats.last3Months'),
+        previous: t('stats.vsPrevious3Months'),
       };
     case '6m':
       return {
-        current: t('stats.last6Months') as string,
-        previous: t('stats.vsPrevious6Months') as string,
+        current: t('stats.last6Months'),
+        previous: t('stats.vsPrevious6Months'),
       };
     case 'year':
       return {
-        current: t('stats.thisYear') as string,
-        previous: t('stats.vsLastYear') as string,
+        current: t('stats.thisYear'),
+        previous: t('stats.vsLastYear'),
       };
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getTimeRangeButtonLabel(range: TimeRange, t: (key: string) => any): string {
+function getTimeRangeButtonLabel(range: TimeRange, t: TFunction): string {
   switch (range) {
     case 'week':
-      return t('stats.week') as string;
+      return t('stats.week');
     case 'month':
-      return t('stats.month') as string;
+      return t('stats.month');
     case '3m':
-      return t('stats.threeMonths') as string;
+      return t('stats.threeMonths');
     case '6m':
-      return t('stats.sixMonths') as string;
+      return t('stats.sixMonths');
     case 'year':
-      return t('stats.year') as string;
+      return t('stats.year');
   }
 }
 
@@ -238,7 +238,7 @@ export function WeeklySummary({
           distance: previous?.distance ?? 0,
           tss: Math.round(previous?.training_load ?? 0),
         },
-        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
       };
     }
 
@@ -247,7 +247,7 @@ export function WeeklySummary({
       return {
         currentStats: { count: 0, duration: 0, distance: 0, tss: 0 },
         previousStats: { count: 0, duration: 0, distance: 0, tss: 0 },
-        labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
       };
     }
 
@@ -262,7 +262,7 @@ export function WeeklySummary({
 
     return {
       ...stats,
-      labels: getTimeRangeLabel(timeRange, t as (key: string) => any, weekNum, weekRangeStr),
+      labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
     };
   }, [activities, timeRange, summaryData, t]);
 
@@ -298,7 +298,7 @@ export function WeeklySummary({
                     timeRange === rangeId && styles.timeRangeTextActive,
                   ]}
                 >
-                  {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
+                  {getTimeRangeButtonLabel(rangeId, t)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -337,7 +337,7 @@ export function WeeklySummary({
                   timeRange === rangeId && styles.timeRangeTextActive,
                 ]}
               >
-                {getTimeRangeButtonLabel(rangeId, t as (key: string) => any)}
+                {getTimeRangeButtonLabel(rangeId, t)}
               </Text>
             </TouchableOpacity>
           ))}
