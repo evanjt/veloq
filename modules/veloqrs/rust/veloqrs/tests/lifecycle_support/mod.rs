@@ -18,7 +18,10 @@
 #![allow(dead_code)] // shared across test binaries; not every suite uses every helper
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::time::Instant;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
 use tracematch::GpsPoint;
@@ -34,6 +37,38 @@ pub enum Arm {
 impl Arm {
     pub fn label(self) -> &'static str {
         "battery"
+    }
+}
+
+// ============================================================================
+// A bound on a test, so a runaway is a failure rather than a wait
+// ============================================================================
+
+/// Runs `body` on its own thread and fails the test if it has not returned
+/// within `bound`.
+///
+/// `cargo test` has no per-test timeout: a test that never returns prints
+/// `has been running for over 60 seconds` and then nothing, and a suite that
+/// contains one is indistinguishable from a slow suite. The body's own panic
+/// is re-raised unchanged, so an assertion inside it reads as it always did.
+/// A body that overruns is left running: the panic is the report, and the
+/// process ends with the suite.
+pub fn within(bound: Duration, label: &str, body: impl FnOnce() + Send + 'static) {
+    let (tx, rx) = mpsc::channel();
+    let started = Instant::now();
+    thread::spawn(move || {
+        let outcome = catch_unwind(AssertUnwindSafe(body));
+        tx.send(outcome).ok();
+    });
+    match rx.recv_timeout(bound) {
+        Ok(Ok(())) => {}
+        Ok(Err(payload)) => resume_unwind(payload),
+        Err(_) => panic!(
+            "{label}: still running after {:.0?}, past the {:.0?} bound. \
+             A bound this test has met before is a hang or a regression, not a slow box.",
+            started.elapsed(),
+            bound
+        ),
     }
 }
 
