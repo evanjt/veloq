@@ -21,7 +21,6 @@ const mockSubscribe = jest.fn((event: string, callback: MockListener) => {
 });
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
       subscribe: (event: string, callback: MockListener) => mockSubscribe(event, callback),

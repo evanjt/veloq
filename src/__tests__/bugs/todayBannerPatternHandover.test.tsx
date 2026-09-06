@@ -17,7 +17,6 @@ import { useInsights } from '@/features/insights/hooks/useInsights';
 import { fetchInsightsDataFromEngine } from '@/features/insights/lib/computeInsightsData';
 import { getEngine } from '@/shared/native/engine';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));

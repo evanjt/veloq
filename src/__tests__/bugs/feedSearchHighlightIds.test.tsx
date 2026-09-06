@@ -32,7 +32,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 }));
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: () => [],
   })

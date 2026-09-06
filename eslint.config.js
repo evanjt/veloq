@@ -118,6 +118,15 @@ module.exports = [
     },
   },
   {
+    // A `jest.mock` factory may not reference anything outside its own scope,
+    // so pulling the real module in with `require` inside it is jest's own
+    // documented shape and there is no import form that works. Ninety test
+    // files were carrying a per-line disable saying so, which is the same
+    // decision written ninety times.
+    files: ['**/*.test.{js,jsx,ts,tsx}', 'src/__tests__/**'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     // i18next's default export is the singleton instance, and `use`,
     // `changeLanguage` and the rest are that instance's methods as well as
     // named exports bound to it. Calling them on the instance is the library's

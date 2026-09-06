@@ -8,8 +8,7 @@
  * A test that needs one method to behave differently overrides it rather than
  * writing its own module:
  *
- *     // eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('veloqrs', () =>
+ *     jest.mock('veloqrs', () =>
  *       require('../../__shared__/veloqrsStub').withOverrides({
  *         decodeCoords: () => [{ latitude: 1, longitude: 2 }],
  *       })

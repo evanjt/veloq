@@ -12,10 +12,7 @@
 import { CallKind } from 'veloqrs';
 import { classifyUploadError } from '@/features/recording/lib/upload/classifyUploadError';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
 /** An error shaped the way the upload seam throws one. */
 function refused(kind: CallKind, status?: number, detail?: string, message?: string): unknown {

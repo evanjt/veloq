@@ -14,7 +14,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import type { ActivityDetail } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('react-native-iap', () => ({

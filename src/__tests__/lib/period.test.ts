@@ -27,10 +27,7 @@ import { timeRangeToDays } from '@/features/wellness/hooks/useWellness';
 
 // A picker's hook module reaches the binding, which registers a TurboModule at
 // import time, so the stub stands in for it here.
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const LOCALES = resolve('src/i18n/locales');
 const DAY_MS = 86_400_000;
