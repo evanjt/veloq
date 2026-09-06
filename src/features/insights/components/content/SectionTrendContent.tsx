@@ -10,7 +10,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, shadows, opacity, ink } from '@/theme';
+import { brand, colors, darkColors, spacing, shadows, opacity, ink, verdictColor } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 function getTrendIcon(trend?: number): string {
@@ -20,11 +20,14 @@ function getTrendIcon(trend?: number): string {
   return 'minus';
 }
 
-function getTrendColor(trend?: number, isDark?: boolean): string {
-  if (trend == null) return isDark ? darkColors.textSecondary : colors.textSecondary;
-  if (trend > 0) return colors.success;
-  if (trend < 0) return colors.warning;
-  return isDark ? darkColors.textSecondary : colors.textSecondary;
+// A section trend above zero is a faster time, so a decline is the negative
+// rung and not the caution one: nothing here is a warning about what comes
+// next, it is a judgement on what already happened.
+export function getTrendColor(trend: number | undefined, isDark: boolean): string {
+  if (trend == null) return verdictColor('neutral', isDark);
+  if (trend > 0) return verdictColor('positive', isDark);
+  if (trend < 0) return verdictColor('negative', isDark);
+  return verdictColor('neutral', isDark);
 }
 
 interface SectionTrendContentProps {

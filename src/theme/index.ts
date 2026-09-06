@@ -22,6 +22,8 @@ export {
   mapStylePreview,
   insightIcon,
   statusBadge,
+  verdict,
+  verdictColor,
   amberBanner,
   redBanner,
   contributionRamp,

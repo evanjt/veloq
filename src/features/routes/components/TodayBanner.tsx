@@ -11,7 +11,7 @@ import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
-import { colors, darkColors, spacing, layout, shadows, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, brand, verdictColor } from '@/theme';
 import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
 
@@ -228,7 +228,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
                 </Text>
               )}
               {section.trend && (
-                <Text style={[styles.trendArrow, getTrendStyle(section.trend)]}>
+                <Text style={[styles.trendArrow, getTrendStyle(section.trend, isDark)]}>
                   {section.trend === 'improving'
                     ? ' \u2191'
                     : section.trend === 'declining'
@@ -244,10 +244,10 @@ const SectionHighlights = React.memo(function SectionHighlights({
   );
 });
 
-function getTrendStyle(trend: string) {
-  if (trend === 'improving') return { color: colors.formOptimal };
-  if (trend === 'declining') return { color: colors.formHighRisk };
-  return { color: colors.formGreyZone };
+export function getTrendStyle(trend: string, isDark: boolean) {
+  if (trend === 'improving') return { color: verdictColor('positive', isDark) };
+  if (trend === 'declining') return { color: verdictColor('negative', isDark) };
+  return { color: verdictColor('neutral', isDark) };
 }
 
 const styles = StyleSheet.create({
