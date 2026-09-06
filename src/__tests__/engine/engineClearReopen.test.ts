@@ -20,7 +20,11 @@ const mockNativeEngine = {
 };
 const mockCreate = jest.fn((_dbPath: string) => mockNativeEngine);
 
+// The default export carries the binding's own initialise, which installs the
+// EngineObserver vtable. The client withholds the observer without it.
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  __esModule: true,
+  default: { initialize: jest.fn() },
   VeloqEngine: {
     create: (path: string) => mockCreate(path),
   },

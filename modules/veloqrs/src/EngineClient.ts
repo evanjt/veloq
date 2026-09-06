@@ -167,6 +167,8 @@ class EngineClient implements DelegateHost {
   private notifyScheduled = false;
   private initialized = false;
   private dbPath: string | null = null;
+  /** The generated binding installs its vtables once per process. */
+  private bindingInitialised = false;
   private pendingWrites: PendingWrite[] = [];
 
   // Cached domain object handles (created once via VeloqEngine factory)
@@ -258,10 +260,20 @@ class EngineClient implements DelegateHost {
       // Registered here and not in create(): before this point there is no
       // engine to announce anything, and a failed init must leave Rust with no
       // handle into a listener map nobody is reading.
-      try {
-        this.engine.setObserver(this.observer());
-      } catch (e) {
-        console.warn('[EngineClient] Engine refused the observer:', e);
+      //
+      // The binding's own initialise runs first. It ends by installing the
+      // EngineObserver vtable, and nothing else calls it, so without this
+      // `setObserver` hands Rust a handle into a vtable cell that was never
+      // set and every notify panics inside uniffi rather than reaching a
+      // channel. The observer is withheld if it throws: a handle Rust cannot
+      // call through is worse than none, since the polling fallback still
+      // works and a panic per event does not.
+      if (this.ensureBindingInitialised()) {
+        try {
+          this.engine.setObserver(this.observer());
+        } catch (e) {
+          console.warn('[EngineClient] Engine refused the observer:', e);
+        }
       }
       // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
@@ -269,6 +281,24 @@ class EngineClient implements DelegateHost {
       this.replayPendingWrites();
     }
     return result;
+  }
+
+  /**
+   * Install the generated binding's vtables, once per process.
+   *
+   * It also verifies every FFI checksum, so a Rust library out of step with
+   * the bindings throws here instead of returning nonsense later.
+   */
+  private ensureBindingInitialised(): boolean {
+    if (this.bindingInitialised) return true;
+    try {
+      gen().default.initialize();
+      this.bindingInitialised = true;
+      return true;
+    } catch (e) {
+      console.warn('[EngineClient] Binding init failed, observer withheld:', e);
+      return false;
+    }
   }
 
   /**
