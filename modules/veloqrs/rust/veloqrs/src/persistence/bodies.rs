@@ -334,13 +334,21 @@ impl PersistentEngine {
         // the cursor to the wrong place on the map.
         if wanted.contains(&"time")
             && let Some(times) = self.load_time_stream(activity_id)
-            && times.len() == points.len()
         {
-            items.push(crate::net::types::StreamDto {
-                kind: "time".to_string(),
-                data: times.iter().map(|t| Some(f64::from(*t))).collect(),
-                data2: None,
-            });
+            if times.len() == points.len() {
+                items.push(crate::net::types::StreamDto {
+                    kind: "time".to_string(),
+                    data: times.iter().map(|t| Some(f64::from(*t))).collect(),
+                    data2: None,
+                });
+            } else {
+                log::warn!(
+                    "[Streams] {} series time carries {} samples against {} track points, no scrubber",
+                    activity_id,
+                    times.len(),
+                    points.len()
+                );
+            }
         }
 
         // A stored series is only in the track's index space if it has the same
@@ -353,7 +361,21 @@ impl PersistentEngine {
             }
             match stored.iter().find(|s| &s.kind.as_str() == kind) {
                 Some(s) if s.data.len() == points.len() => items.push(s.clone()),
-                _ => return None,
+                // The whole selection goes, not just this series, so the one
+                // misaligned row costs the athlete the coordinates too. That is
+                // the whole-or-nothing rule above, and the reason the drop is
+                // worth saying out loud.
+                Some(s) => {
+                    log::warn!(
+                        "[Streams] {} series {} carries {} samples against {} track points, selection not served",
+                        activity_id,
+                        kind,
+                        s.data.len(),
+                        points.len()
+                    );
+                    return None;
+                }
+                None => return None,
             }
         }
 
@@ -730,6 +752,98 @@ mod tests {
         // The same series alone is still servable: nothing is being addressed
         // against the track there.
         assert!(engine.read_stream_body("a1", "watts").unwrap().is_some());
+    }
+
+    /// The reader keeps carrying a misaligned series and the writer does not
+    /// refuse it, on one condition: the drop is never silent. Two sites here
+    /// drop one, and a warning is the only evidence an athlete's missing chart
+    /// would ever leave.
+    #[test]
+    fn a_misaligned_stored_series_is_dropped_out_loud() {
+        crate::test_log::capturing();
+        let (_dir, engine) = engine();
+        seed_two_point_track(&engine, "loud-watts");
+        engine
+            .store_activity_streams(
+                "loud-watts",
+                &[crate::net::types::StreamDto {
+                    kind: "watts".to_string(),
+                    data: vec![Some(100.0), Some(110.0), Some(120.0)],
+                    data2: None,
+                }],
+            )
+            .unwrap();
+
+        assert!(
+            engine
+                .read_stream_body("loud-watts", "latlng,watts")
+                .unwrap()
+                .is_none(),
+            "the behaviour is unchanged: the pair is still not served"
+        );
+        let said = crate::test_log::warnings_with("loud-watts");
+        assert_eq!(
+            said.len(),
+            1,
+            "one warning naming the activity, the series and both lengths: {said:?}"
+        );
+        assert!(
+            said[0].contains("watts") && said[0].contains('3') && said[0].contains('2'),
+            "the warning has to carry the kind and both lengths: {}",
+            said[0]
+        );
+    }
+
+    /// The time guard drops only the scrubber and serves the rest, so the
+    /// detail screen gets a body with no cursor and, until now, no reason.
+    #[test]
+    fn a_misaligned_time_stream_is_dropped_out_loud() {
+        crate::test_log::capturing();
+        let (_dir, engine) = engine();
+        seed_two_point_track(&engine, "loud-time");
+        engine.store_time_stream("loud-time", &[0, 1, 2]).unwrap();
+
+        let body = engine
+            .read_stream_body("loud-time", "latlng,time")
+            .unwrap()
+            .expect("the track still serves");
+        assert!(
+            !body.contains("\"time\""),
+            "the behaviour is unchanged: the misaligned clock is left out"
+        );
+        let said = crate::test_log::warnings_with("loud-time");
+        assert_eq!(said.len(), 1, "one warning: {said:?}");
+        assert!(
+            said[0].contains("time") && said[0].contains('3') && said[0].contains('2'),
+            "the warning has to carry the kind and both lengths: {}",
+            said[0]
+        );
+    }
+
+    /// A two-point track under `id`, the shortest thing both reader guards
+    /// measure a series against.
+    fn seed_two_point_track(engine: &PersistentEngine, id: &str) {
+        let points = vec![
+            crate::GpsPoint {
+                latitude: 1.0,
+                longitude: 2.0,
+                elevation: Some(10.0),
+            },
+            crate::GpsPoint {
+                latitude: 1.1,
+                longitude: 2.1,
+                elevation: Some(11.0),
+            },
+        ];
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES (?, 'Ride', 0, 0, 0, 0)",
+                [id],
+            )
+            .unwrap();
+        engine.store_gps_track(id, &points).unwrap();
     }
 
     #[test]
