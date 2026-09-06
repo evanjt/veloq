@@ -26,10 +26,7 @@ const mockCurve: { current: PowerCurve } = {
 };
 
 // The chart reads the theme through the app barrel, which reaches the binding.
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 

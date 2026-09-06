@@ -16,7 +16,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import type { FrequentSection, RoutePoint } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 const askedFor: string[] = [];

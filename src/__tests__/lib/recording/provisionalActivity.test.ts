@@ -23,7 +23,6 @@ import { engine } from 'veloqrs';
 import type { RecordingLibraryEntry, RecordingStreams } from '@/types';
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../__shared__/veloqrsStub').withOverrides({
     engine: {
       ready: true,

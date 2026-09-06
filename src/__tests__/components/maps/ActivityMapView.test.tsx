@@ -12,7 +12,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({

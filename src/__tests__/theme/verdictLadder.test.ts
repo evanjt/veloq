@@ -15,7 +15,6 @@ import { verdict, verdictColor, brand } from '@/theme';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
 import { getTrendColor } from '@/features/insights/components/content/SectionTrendContent';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));

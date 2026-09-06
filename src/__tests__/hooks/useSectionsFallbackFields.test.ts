@@ -11,7 +11,6 @@ import { getEngine } from '@/shared/native/engine';
  * a section is named and ranked the same way whichever builder filled it.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/native/engine', () => ({
