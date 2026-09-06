@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,7 +11,6 @@ import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 12, bottom: 28, left: 8, right: 8 };
-const CHART_WIDTH = Dimensions.get('window').width - spacing.lg * 4;
 
 interface PeriodComparisonContentProps {
   insight: Insight;
@@ -29,6 +28,8 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 }: PeriodComparisonContentProps) {
   const { isDark } = useTheme();
   const chartColors = useChartColors();
+  const { width: windowWidth } = useWindowDimensions();
+  const chartWidth = windowWidth - spacing.lg * 4;
   const comparison = insight.supportingData?.comparisonData;
   const dataPoints = insight.supportingData?.dataPoints;
 
@@ -62,7 +63,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const maxVal = Math.max(...bars.map((b) => b.value), 1);
 
   const barChart = useMemo(() => {
-    const drawW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+    const drawW = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
     const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
     const barCount = bars.length;
     const totalBarSpace = drawW * 0.7;
@@ -87,7 +88,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
         labelY: CHART_PADDING.top + drawH + 4,
       };
     });
-  }, [bars, maxVal]);
+  }, [bars, maxVal, chartWidth]);
 
   if (!comparison) return null;
 
@@ -104,8 +105,8 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
       {/* Bar chart */}
       <ChartErrorBoundary height={CHART_HEIGHT}>
         <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <View style={styles.chartWrapper}>
-            <Canvas style={{ width: CHART_WIDTH, height: CHART_HEIGHT }}>
+          <View style={[styles.chartWrapper, { width: chartWidth }]}>
+            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
               {barChart.map((bar, i) => (
                 <RoundedRect
                   key={`bar-${i}`}
@@ -197,7 +198,6 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     position: 'relative',
-    width: CHART_WIDTH,
     height: CHART_HEIGHT,
   },
   barLabelContainer: {
