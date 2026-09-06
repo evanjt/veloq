@@ -13,7 +13,7 @@ use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
@@ -33,6 +33,9 @@ const CORRUPT_ID_LOG_CAP: usize = 20;
 /// activity, and `tile_exists` would serve it forever, so the next run redraws
 /// the tiles those activities reach whether or not they are readable again.
 const CORRUPT_RECORD: &str = "corrupt-activities.json";
+
+/// Distinguishes two marks written inside the same clock tick.
+static DIRTY_TOKEN: AtomicU64 = AtomicU64::new(0);
 
 /// Every activity's track, plus the ones whose stored blob did not decode.
 struct LoadedTracks {
@@ -71,17 +74,7 @@ impl PersistentEngine {
         let Some(ref path) = self.heatmap_tiles_path else {
             return;
         };
-        let base = Path::new(path);
-        if let Err(e) = std::fs::create_dir_all(base) {
-            log::warn!(
-                "[heatmap] Failed to create tiles directory for dirty marker: {}",
-                e
-            );
-            return;
-        }
-        if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), b"") {
-            log::warn!("[heatmap] Failed to write dirty marker: {}", e);
-        }
+        write_dirty_marker(Path::new(path));
     }
 
     /// Set the filesystem path where heatmap tiles are stored.
@@ -161,6 +154,10 @@ impl PersistentEngine {
         let gen_clone = generated_counter.clone();
         let total_clone = total_counter.clone();
 
+        // Captured before the pass so a sweep that marks the set dirty while
+        // it runs is not cleared by it.
+        let started_on = read_dirty_token(Path::new(&tiles_path));
+
         std::thread::spawn(move || {
             let run = background_generate_tiles(
                 &db_path,
@@ -174,7 +171,7 @@ impl PersistentEngine {
             // as the row stays bad. The redraw the incomplete tiles need is
             // carried by the corrupt record instead, which is scoped to the
             // tiles those activities reach.
-            clear_dirty_marker(&tiles_path);
+            clear_dirty_marker(&tiles_path, started_on);
             if run.corrupt > 0 {
                 log::error!(
                     "[heatmap] Tile set is incomplete: {} activities were unreadable. The tiles they reach are redrawn on the next run.",
@@ -258,11 +255,54 @@ fn bounds_reach_tile(bounds: &Bounds, z: u8, x: u32, y: u32) -> bool {
     x >= x0 && x <= x1 && y >= y0 && y <= y1
 }
 
-/// Remove the dirty marker from the tiles directory after successful generation.
-fn clear_dirty_marker(tiles_path: &str) {
-    let marker = Path::new(tiles_path).join(DIRTY_MARKER);
-    if marker.exists() {
-        if let Err(e) = std::fs::remove_file(&marker) {
+/// Mark the tile set at `tiles_path` as needing regeneration, without the
+/// engine. Callers that sweep tiles on a detached thread hold only the path.
+pub(crate) fn mark_tiles_dirty(tiles_path: &str) {
+    write_dirty_marker(Path::new(tiles_path));
+}
+
+/// Mark the tile set as needing regeneration. Each mark carries its own token
+/// so a run can tell the mark it started on from one that arrived while it was
+/// working.
+fn write_dirty_marker(base: &Path) {
+    if let Err(e) = std::fs::create_dir_all(base) {
+        log::warn!(
+            "[heatmap] Failed to create tiles directory for dirty marker: {}",
+            e
+        );
+        return;
+    }
+    let token = DIRTY_TOKEN.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), format!("{}-{}", nanos, token)) {
+        log::warn!("[heatmap] Failed to write dirty marker: {}", e);
+    }
+}
+
+/// The token of the mark currently standing, or None when the set is clean.
+fn read_dirty_token(base: &Path) -> Option<String> {
+    std::fs::read_to_string(base.join(DIRTY_MARKER)).ok()
+}
+
+/// Remove the dirty marker after a successful generation run, but only the
+/// mark that run started on. A sweep that deletes tiles marks the set dirty,
+/// and clearing that mark would strand the ground it deleted: nothing else
+/// regenerates it, and at low zoom one activity's bounds cover the whole
+/// library, which is how the pyramid emptied below z12.
+fn clear_dirty_marker(tiles_path: &str, started_on: Option<String>) {
+    let base = Path::new(tiles_path);
+    let Some(started_on) = started_on else {
+        return;
+    };
+    if read_dirty_token(base).as_deref() != Some(started_on.as_str()) {
+        info!("[heatmap] Set was re-marked during the run, leaving it dirty");
+        return;
+    }
+    if let Err(e) = std::fs::remove_file(base.join(DIRTY_MARKER)) {
+        if e.kind() != std::io::ErrorKind::NotFound {
             log::warn!("[heatmap] Failed to clear dirty marker: {}", e);
         }
     }
@@ -530,4 +570,79 @@ fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Loade
     }
 
     LoadedTracks { tracks, corrupt }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Scenario: a tile sweep marks the set dirty while a generation run is
+    /// already in flight. Expected behaviour: the run clears only the mark it
+    /// started with, so the sweep's mark survives and the deleted tiles are
+    /// redrawn on the next pass.
+    #[test]
+    fn clear_dirty_marker_keeps_a_mark_written_during_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        write_dirty_marker(base);
+        let token = read_dirty_token(base);
+
+        write_dirty_marker(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(
+            base.join(DIRTY_MARKER).exists(),
+            "a mark written mid-run must outlive the run that did not see it"
+        );
+    }
+
+    #[test]
+    fn clear_dirty_marker_removes_the_mark_the_run_started_with() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        write_dirty_marker(base);
+        let token = read_dirty_token(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(!base.join(DIRTY_MARKER).exists());
+    }
+
+    #[test]
+    fn each_mark_carries_its_own_token() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+
+        write_dirty_marker(base);
+        let first = read_dirty_token(base);
+        write_dirty_marker(base);
+        let second = read_dirty_token(base);
+
+        assert!(first.is_some());
+        assert_ne!(first, second);
+    }
+
+    /// A run that started on a clean set must not clear a mark that arrived
+    /// after it began.
+    #[test]
+    fn a_run_that_saw_no_mark_clears_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path();
+        let path = base.to_str().unwrap().to_string();
+
+        let token = read_dirty_token(base);
+        assert!(token.is_none());
+
+        write_dirty_marker(base);
+        clear_dirty_marker(&path, token);
+
+        assert!(base.join(DIRTY_MARKER).exists());
+    }
 }
