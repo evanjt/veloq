@@ -179,11 +179,11 @@ fn cancel_running_preview() {
 #[uniffi::export]
 impl DetectionManager {
     #[uniffi::constructor]
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Self { _private: () })
     }
 
-    fn start(&self) -> Result<bool, VeloqError> {
+    pub fn start(&self) -> Result<bool, VeloqError> {
         // Refuse before touching the shared handle: installing a refused
         // handle would occupy the slot with a dead run and block the
         // backfill's final re-cut behind it.
@@ -236,7 +236,7 @@ impl DetectionManager {
         Ok(true)
     }
 
-    fn poll(&self) -> Result<String, VeloqError> {
+    pub fn poll(&self) -> Result<String, VeloqError> {
         Ok(match poll_detection_once()? {
             DetectionPoll::Idle => "idle".to_string(),
             DetectionPoll::Running => "running".to_string(),
@@ -245,7 +245,7 @@ impl DetectionManager {
         })
     }
 
-    fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
+    pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
         let handle_guard = SECTION_DETECTION_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -265,7 +265,7 @@ impl DetectionManager {
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
     /// Returns false if detection is already running.
-    fn force_redetect(&self) -> Result<bool, VeloqError> {
+    pub fn force_redetect(&self) -> Result<bool, VeloqError> {
         // Refuse before clearing the processed set: a refused run must not
         // cost the evidence cache, and must not park a dead handle in the
         // slot the backfill's final re-cut needs.
@@ -312,17 +312,17 @@ impl DetectionManager {
         Ok(true)
     }
 
-    fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
+    pub fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_section_config(config.into());
         })
     }
 
-    fn get_config(&self) -> Result<crate::FfiSectionConfig, VeloqError> {
+    pub fn get_config(&self) -> Result<crate::FfiSectionConfig, VeloqError> {
         with_engine(|e| crate::FfiSectionConfig::from(&e.section_config))
     }
 
-    fn set_match_strictness(
+    pub fn set_match_strictness(
         &self,
         min_match_pct: f64,
         endpoint_threshold: f64,
@@ -349,7 +349,7 @@ impl DetectionManager {
         Ok(())
     }
 
-    fn get_match_strictness(&self) -> Result<crate::FfiMatchStrictness, VeloqError> {
+    pub fn get_match_strictness(&self) -> Result<crate::FfiMatchStrictness, VeloqError> {
         with_engine(|e| crate::FfiMatchStrictness {
             min_match_pct: e.match_config.min_match_percentage,
             endpoint_threshold: e.match_config.endpoint_threshold,
@@ -370,12 +370,12 @@ mod tests {
     use std::time::{Duration, Instant};
     use tempfile::TempDir;
 
-    fn init_global_engine() -> TempDir {
+    pub fn init_global_engine() -> TempDir {
         crate::test_globals::init_global_engine("poison.db")
     }
 
     /// Panic under a lock, swallowing the unwind and the hook's output.
-    fn poison<T>(lock: &Mutex<T>) {
+    pub fn poison<T>(lock: &Mutex<T>) {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
         let result = catch_unwind(AssertUnwindSafe(|| {
@@ -388,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn concurrent_starts_spawn_exactly_one_worker() {
+    pub fn concurrent_starts_spawn_exactly_one_worker() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -407,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn concurrent_force_redetects_spawn_exactly_one_worker() {
+    pub fn concurrent_force_redetects_spawn_exactly_one_worker() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -429,7 +429,7 @@ mod tests {
     /// refused without paying for a worker, which is the non-racing shape of
     /// the same guarantee.
     #[test]
-    fn a_second_start_while_running_costs_nothing() {
+    pub fn a_second_start_while_running_costs_nothing() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -458,7 +458,7 @@ mod tests {
     /// Expected behaviour: a suspension refuses every arm, and a refusal must
     /// leave the slot empty so the backfill's own re-cut can take it.
     #[test]
-    fn a_suspended_start_installs_nothing() {
+    pub fn a_suspended_start_installs_nothing() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -490,7 +490,7 @@ mod tests {
     /// `poll_detection_once`: the poll is what applied the result under the
     /// old shape, so polling here would hide the thing under test. Returns
     /// the last phase seen.
-    fn wait_for_the_run_to_apply(manager: &DetectionManager) -> String {
+    pub fn wait_for_the_run_to_apply(manager: &DetectionManager) -> String {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             let phase = manager
@@ -509,7 +509,7 @@ mod tests {
     /// finished, so the 500 ms tick that happens to observe completion has no
     /// write to do on the thread that called it.
     #[test]
-    fn a_run_applies_before_it_reports_finished() {
+    pub fn a_run_applies_before_it_reports_finished() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
@@ -546,7 +546,7 @@ mod tests {
     /// The poll that observes completion, timed. A `Running` poll or two can
     /// precede it: the worker posts its result just after the last phase
     /// marker, so the phase leads the channel by a hair.
-    fn timed_poll_to_completion() -> (DetectionPoll, Duration) {
+    pub fn timed_poll_to_completion() -> (DetectionPoll, Duration) {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             let started = Instant::now();
@@ -561,7 +561,7 @@ mod tests {
 
     /// A section standing on the fixture's own activities, so a catalogue can
     /// be seeded without a detector run finding one.
-    fn seeded_section() -> crate::FrequentSection {
+    pub fn seeded_section() -> crate::FrequentSection {
         let activity_ids = vec!["a0".to_string(), "a1".to_string()];
         crate::FrequentSection {
             id: "seeded-1".to_string(),
@@ -607,7 +607,7 @@ mod tests {
     /// A global engine holding a catalogue with every activity already
     /// processed, which is what the no-new-activities echo needs: it re-sends
     /// the last batch rather than folding anything.
-    fn engine_with_a_catalogue() -> TempDir {
+    pub fn engine_with_a_catalogue() -> TempDir {
         let tmp = seeded_global_engine();
         with_engine(|engine| {
             engine
@@ -631,7 +631,7 @@ mod tests {
     /// batch, which is still a full catalogue write. It applies on a thread
     /// of its own too, so the poll behind it is as cheap as the first.
     #[test]
-    fn a_run_with_nothing_new_applies_off_the_poller_as_well() {
+    pub fn a_run_with_nothing_new_applies_off_the_poller_as_well() {
         let _serial = serial_global_state();
         let _tmp = engine_with_a_catalogue();
         clear_detection_handle();
@@ -663,7 +663,7 @@ mod tests {
     /// failure. Its result went with the attempt, so saving the empty message
     /// it sends behind would replace the catalogue with nothing.
     #[test]
-    fn a_run_that_could_not_apply_itself_saves_nothing() {
+    pub fn a_run_that_could_not_apply_itself_saves_nothing() {
         let _serial = serial_global_state();
         let _tmp = engine_with_a_catalogue();
         clear_detection_handle();
@@ -692,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn detection_survives_a_poisoned_handle_lock() {
+    pub fn detection_survives_a_poisoned_handle_lock() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine();
         clear_detection_handle();
@@ -719,7 +719,7 @@ mod tests {
     }
 
     #[test]
-    fn a_poisoned_preview_lock_still_cancels() {
+    pub fn a_poisoned_preview_lock_still_cancels() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine();
         clear_detection_handle();

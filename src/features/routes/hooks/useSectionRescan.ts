@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { getPhaseDisplayName } from '@/features/routes/lib/detectionProgress';
+import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
 
 interface RescanResult {
   before: number;
@@ -41,57 +42,52 @@ export function useSectionRescan(): SectionRescanState {
   const [progress, setProgress] = useState<SectionRescanState['progress']>(null);
   const [result, setResult] = useState<RescanResult | null>(null);
   const [failed, setFailed] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const followRef = useRef<(() => void) | null>(null);
   const beforeCountRef = useRef(0);
   // A run this hook did not start has no honest "before" to report, so the
   // poll shows its progress and publishes no result when it settles.
   const adoptedRef = useRef(false);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
+  // Rust announces the end on `detectionApplied`, so the terminal status is
+  // read once, there. The timer that remains reads progress alone: it never
+  // drains the worker's channel, so a tick cannot consume the completion.
   const startPolling = useCallback(() => {
+    const engine = getEngine();
+    if (!engine) return;
     setIsScanning(true);
     setResult(null);
     setFailed(false);
-    pollRef.current = setInterval(() => {
-      const engine = getEngine();
-      if (!engine) return;
-      const status = engine.pollSectionDetection();
-      if (status === 'error') {
-        // A detection that aborts must not read as a rescan that changed
-        // nothing: the next poll returns 'idle', which is indistinguishable
-        // from a clean finish.
-        stopPolling();
+
+    const follow = followDetection(engine as unknown as DetectionEngine, {
+      onProgress: (p) =>
+        setProgress({
+          phase: p.phase,
+          displayName: getPhaseDisplayName(p.phase),
+          completed: p.completed,
+          total: p.total,
+          percent: p.percent,
+        }),
+    });
+    followRef.current = follow.cancel;
+
+    void follow.settled.then((outcome) => {
+      if (outcome === 'abandoned') return;
+      followRef.current = null;
+      setIsScanning(false);
+      setProgress(null);
+      // A detection that aborts must not read as a rescan that changed
+      // nothing: a later poll returns 'idle', which is indistinguishable
+      // from a clean finish.
+      if (outcome === 'error') {
         setFailed(true);
-        setIsScanning(false);
-        setProgress(null);
-      } else if (status === 'complete' || status === 'idle') {
-        stopPolling();
-        if (!adoptedRef.current) {
-          setResult({ before: beforeCountRef.current, after: getSectionCount() });
-        }
-        adoptedRef.current = false;
-        setIsScanning(false);
-        setProgress(null);
-      } else {
-        const p = engine.getSectionDetectionProgress();
-        if (p) {
-          setProgress({
-            phase: p.phase,
-            displayName: getPhaseDisplayName(p.phase),
-            completed: p.completed,
-            total: p.total,
-            percent: p.percent,
-          });
-        }
+        return;
       }
-    }, 500);
-  }, [stopPolling]);
+      if (!adoptedRef.current) {
+        setResult({ before: beforeCountRef.current, after: getSectionCount() });
+      }
+      adoptedRef.current = false;
+    });
+  }, []);
 
   const rescan = useCallback(() => {
     const engine = getEngine();
@@ -140,7 +136,8 @@ export function useSectionRescan(): SectionRescanState {
 
   useEffect(() => {
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      followRef.current?.();
+      followRef.current = null;
     };
   }, []);
 
