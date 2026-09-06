@@ -176,6 +176,13 @@ const MERGE_MUTUAL_FLOOR: f64 = 0.0;
 /// Unlike [`MERGE_MUTUAL_FLOOR`] this demotes rather than filters: a dwarfed
 /// prior still competes, so it keeps its own ground wherever that ground is
 /// detected. Sweep it in `unified_lab` with `--hyst-ratio` before moving it.
+///
+/// Swept 2026-09-06 on the 1,203-file private corpus at floor 0.0. Small-senior
+/// captures fall 11 at 0.00 to 7 at 0.25 and 6 at 0.30, and 0.50 buys nothing
+/// over 0.30: same captures, same 343 visible sections, same 67 overlaps, same
+/// 95% id retention. 0.75 reaches 4 and costs an extra visible section, two more
+/// overlaps and three merges given up. This value is the knee. Moving off it
+/// moves detector output, so the bitwise golden report is owed before it moves.
 const MERGE_SIZE_RATIO: f64 = 0.3;
 
 /// One visible or tombstoned section the registry manages: the durable opaque id
@@ -1445,6 +1452,77 @@ mod tests {
     use super::*;
     use crate::persistence::codec;
     use tempfile::TempDir;
+    use tracematch::{
+        CandidateSection as PureCandidate, Decision, IdentityParams, PriorSection, RetireReason,
+        Retirement, plan_identity_tuned,
+    };
+
+    /// Scenario: a short senior prior sits inside a much longer candidate that
+    /// a longer junior also covers. With the size ratio off the senior takes
+    /// the candidate on age alone, so the catalogue's memory of a 1.3 km
+    /// stretch, its name, birth date and PR era, lands on a 200 m one.
+    ///
+    /// Expected behaviour: the value this crate actually ships refuses that
+    /// inherit, and 0.0 allows it. The pure layer covers the mechanism at
+    /// hand-picked ratios; what is pinned here is that the number the engine
+    /// hands it is one of the ones that works, since that constant is a single
+    /// line nothing else guards.
+    #[test]
+    fn the_shipped_merge_size_ratio_refuses_the_small_senior_capture() {
+        let long: Vec<GpsPoint> = (0..120)
+            .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0001, 7.0))
+            .collect();
+        let prior_of = |id: &str, points: &[GpsPoint], created: u64, visits: u32| PriorSection {
+            id: id.to_string(),
+            polyline: points.to_vec(),
+            first_seen: created,
+            visit_count: visits,
+        };
+        let priors = vec![
+            prior_of("s_A", &long[..20], 1, 3),
+            prior_of("s_B", &long[..90], 2, 9),
+        ];
+        let next = vec![PureCandidate {
+            polyline: long.clone(),
+            visit_count: 12,
+        }];
+
+        let shipped = plan_identity_tuned(
+            &priors,
+            &next,
+            &IdentityParams {
+                merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                merge_size_ratio: MERGE_SIZE_RATIO,
+            },
+        );
+        assert_eq!(
+            shipped.decisions,
+            vec![Decision::MergeInherit { id: "s_B".into() }],
+            "the shipped ratio must hand the corridor to the prior that covers it"
+        );
+        assert_eq!(
+            shipped.retired,
+            vec![Retirement {
+                id: "s_A".into(),
+                reason: RetireReason::MergedInto { id: "s_B".into() },
+            }],
+            "and the dwarfed senior retires into it rather than being dissolved"
+        );
+
+        let off = plan_identity_tuned(
+            &priors,
+            &next,
+            &IdentityParams {
+                merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                merge_size_ratio: 0.0,
+            },
+        );
+        assert_eq!(
+            off.decisions,
+            vec![Decision::MergeInherit { id: "s_A".into() }],
+            "at 0.0 the capture is allowed, which is what makes the assertion above a test"
+        );
+    }
 
     /// A section with no elevation, which is every section in a library that
     /// pre-dates the 0.4.0 elevation backfill.
