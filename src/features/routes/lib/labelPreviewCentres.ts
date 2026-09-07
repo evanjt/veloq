@@ -6,9 +6,10 @@
  * already on the device, never a network call. The radius is measured from the
  * bin's centre, the same box the camera frames, so the name and the map agree.
  * The engine's reported point is the mean of the bin's members and can sit near
- * an edge. Centres with no locality get a
- * numbered fallback, numbered in binKey order so the numbering is stable
- * across renders and limits.
+ * an edge. Centres with no locality get a numbered fallback, numbered in the
+ * order they are shown. It used to be binKey order, which is stable across
+ * limits but is not the order the picker lays them out in, so a list of three
+ * drawn from six read "Area 5, Area 6, Area 4" (B411).
  */
 
 import { haversineDistance } from '@/shared/geo/distance';
@@ -27,7 +28,7 @@ export interface CentreLabel {
   binKey: string;
   /** Most common nearby locality, or null when none is known. */
   label: string | null;
-  /** 1-based rank of binKey ascending, for the numbered fallback. */
+  /** 1-based position in the list as given, for the numbered fallback. */
   fallbackNumber: number;
 }
 
@@ -35,10 +36,7 @@ export function labelPreviewCentres(
   centres: PreviewCentre[],
   activities: CentreActivity[]
 ): CentreLabel[] {
-  const ordered = [...centres].sort((a, b) => a.binKey.localeCompare(b.binKey));
-  const numberByBin = new Map(ordered.map((c, i) => [c.binKey, i + 1]));
-
-  return centres.map((centre) => {
+  return centres.map((centre, index) => {
     const anchor = previewAreaAnchor(centre);
     const counts = new Map<string, number>();
     for (const activity of activities) {
@@ -64,7 +62,7 @@ export function labelPreviewCentres(
     return {
       binKey: centre.binKey,
       label,
-      fallbackNumber: numberByBin.get(centre.binKey) ?? 0,
+      fallbackNumber: index + 1,
     };
   });
 }
