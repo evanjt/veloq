@@ -53,17 +53,17 @@ export function useSectionCreation({
   // Track previous external creation state to detect transitions
   const prevExternalCreationStateRef = useRef<CreationState | undefined>(externalCreationState);
 
-  // Reset section creation state when mode changes
-  useEffect(() => {
-    if (__DEV__) {
-      log.log('[useSectionCreation] creationMode effect', { creationMode });
-    }
+  // Reset section creation state when mode changes. Taken while rendering so
+  // entering creation never commits a frame holding the previous run's picks.
+  const [creationModeFor, setCreationModeFor] = useState(creationMode);
+  if (creationMode !== creationModeFor) {
+    setCreationModeFor(creationMode);
     if (creationMode) {
       setCreationState('selectingStart');
       setStartIndex(null);
       setEndIndex(null);
     }
-  }, [creationMode]);
+  }
 
   // Reset internal state ONLY when transitioning from 'error' to undefined (user clicked retry)
   // Do NOT reset when transitioning from 'creating' to undefined (success path)

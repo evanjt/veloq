@@ -61,15 +61,18 @@ export function CollapsibleSection({
   const animation = useSharedValue(expanded ? 1 : 0);
   const measuredHeight = useSharedValue(estimatedHeight);
 
+  // Mounting the children is a render decision, so it is taken while
+  // rendering: an effect would open the section one commit before its content
+  // existed. The animation is an animation and stays in the effect.
+  if (expanded && !hasEverExpanded) {
+    setHasEverExpanded(true);
+  }
   useEffect(() => {
-    if (expanded && !hasEverExpanded) {
-      setHasEverExpanded(true);
-    }
     animation.value = withTiming(expanded ? 1 : 0, {
       duration: 250,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
-  }, [expanded, animation, hasEverExpanded]);
+  }, [expanded, animation]);
 
   const contentStyle = useAnimatedStyle(() => ({
     height: interpolate(animation.value, [0, 1], [0, measuredHeight.value]),
