@@ -4876,6 +4876,10 @@ export type FfiPreviewCentre = {
    * "sections" | "activities"
    */
   source: string;
+  /**
+   * The place the area covers, or None when no activity over it names one.
+   */
+  locality?: string;
 };
 
 /**
@@ -4906,6 +4910,7 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
         visitTotal: FfiConverterUInt32.read(from),
         sectionCount: FfiConverterUInt32.read(from),
         source: FfiConverterString.read(from),
+        locality: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4915,6 +4920,7 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
       FfiConverterUInt32.write(value.visitTotal, into);
       FfiConverterUInt32.write(value.sectionCount, into);
       FfiConverterString.write(value.source, into);
+      FfiConverterOptionalString.write(value.locality, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4923,7 +4929,8 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
         FfiConverterFloat64.allocationSize(value.lng) +
         FfiConverterUInt32.allocationSize(value.visitTotal) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
-        FfiConverterString.allocationSize(value.source)
+        FfiConverterString.allocationSize(value.source) +
+        FfiConverterOptionalString.allocationSize(value.locality)
       );
     }
   }

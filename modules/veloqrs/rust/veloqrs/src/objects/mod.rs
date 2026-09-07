@@ -6,7 +6,7 @@ pub mod error;
 mod fitness;
 mod maps;
 pub mod observer;
-mod preview;
+pub mod preview;
 mod recordings;
 mod routes;
 pub mod sections;
