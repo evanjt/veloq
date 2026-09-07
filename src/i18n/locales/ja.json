@@ -1289,6 +1289,8 @@
     "previewSections": "セクション変更のプレビュー",
     "cutoverRebuilding": "セクションを再構築中: {{phase}}",
     "cutoverFailed": "セクションの再構築が完了しませんでした。",
+    "cutoverStop": "停止",
+    "cutoverStopping": "停止しています。次回 Veloq を開いたときに再開します。",
     "cutoverPhaseDraining": "キューの処理中",
     "cutoverPhaseArchiving": "アーカイブ中",
     "cutoverPhaseDetecting": "検出中",

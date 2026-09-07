@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 20 standalone `#[uniffi::export]` functions plus
+ * 21 standalone `#[uniffi::export]` functions plus
  * 265 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 285 exports (20 standalone + 265 methods)
+ * Total: 286 exports (21 standalone + 265 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -174,10 +174,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     docs: 'Start the cutover on a background thread. Returns whether a run was started: false means no engine, not owed, or already running. A full cut is a cold detect over the whole library, so it must never be driven from the calling thread.',
   },
   {
+    name: 'cancel_detector_cutover',
+    camelName: 'cancelDetectorCutover',
+    file: 'ffi.rs',
+    line: 809,
+    paramCount: 0,
+    returnType: 'void',
+    docs: "Ask the running cutover to stop at its next step boundary. The cut is a cold detect over the whole library, spawned unattended at launch, and the only lever before this was a force-quit, which the in-flight token undid on the next launch anyway. Stopping costs the run's work and nothing else: the migration is still owed and the next launch runs it again from the top.",
+  },
+  {
     name: 'get_cutover_progress',
     camelName: 'getCutoverProgress',
     file: 'ffi.rs',
-    line: 803,
+    line: 815,
     paramCount: 0,
     returnType: 'CutoverProgress',
     docs: 'How far the running cutover has got.',
@@ -186,7 +195,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_change_card_support',
     camelName: 'getChangeCardSupport',
     file: 'ffi.rs',
-    line: 812,
+    line: 824,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
     docs: 'Which claims the change card may make on this build.',
@@ -195,7 +204,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_diff',
     camelName: 'getCutoverDiff',
     file: 'ffi.rs',
-    line: 836,
+    line: 848,
     paramCount: 0,
     returnType: 'Option<String>',
     docs: 'The stored cutover diff payload, if any.',
@@ -524,7 +533,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/detection.rs',
-    line: 365,
+    line: 367,
     paramCount: 0,
     returnType: 'Arc<Self>',
     docs: '',
@@ -534,7 +543,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start',
     camelName: 'start',
     file: 'objects/detection.rs',
-    line: 369,
+    line: 371,
     paramCount: 0,
     returnType: 'Result<FfiStartOutcome, VeloqError>',
     docs: '',
@@ -544,7 +553,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'last_outcome',
     camelName: 'lastOutcome',
     file: 'objects/detection.rs',
-    line: 436,
+    line: 438,
     paramCount: 0,
     returnType: 'String',
     docs: "How the last finished run ended, without taking anything. A status surface reads this and `get_progress`: progress says whether a run holds the slot now, this says how the previous one ended. Neither touches the worker's channel, so neither can settle a run the follower is waiting on, which is what `poll` is for and why only the follower calls it.",
@@ -554,7 +563,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'poll',
     camelName: 'poll',
     file: 'objects/detection.rs',
-    line: 444,
+    line: 446,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     docs: '',
@@ -564,7 +573,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 453,
+    line: 455,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     docs: '',
@@ -574,7 +583,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 473,
+    line: 475,
     paramCount: 0,
     returnType: 'Result<FfiStartOutcome, VeloqError>',
     docs: 'Force full re-detection by clearing processed activity IDs first. This ensures all activities are re-evaluated against sections. Refuses, and says why, if detection is suspended or already running.',
@@ -584,7 +593,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 524,
+    line: 526,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -594,7 +603,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 530,
+    line: 532,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
     docs: '',
@@ -604,7 +613,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 534,
+    line: 536,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -614,7 +623,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 543,
+    line: 545,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     docs: '',
@@ -2889,6 +2898,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'isCutoverPending',
   'isCutoverRunning',
   'startDetectorCutover',
+  'cancelDetectorCutover',
   'getCutoverProgress',
   'getChangeCardSupport',
   'getCutoverDiff',
@@ -3184,6 +3194,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   is_cutover_pending: 'isCutoverPending',
   is_cutover_running: 'isCutoverRunning',
   start_detector_cutover: 'startDetectorCutover',
+  cancel_detector_cutover: 'cancelDetectorCutover',
   get_cutover_progress: 'getCutoverProgress',
   get_change_card_support: 'getChangeCardSupport',
   get_cutover_diff: 'getCutoverDiff',

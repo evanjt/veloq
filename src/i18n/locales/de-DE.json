@@ -1289,6 +1289,8 @@
     "previewSections": "Vorschau der Abschnittsänderungen",
     "cutoverRebuilding": "Abschnitte werden neu aufgebaut: {{phase}}",
     "cutoverFailed": "Der Neuaufbau der Abschnitte wurde nicht abgeschlossen.",
+    "cutoverStop": "Anhalten",
+    "cutoverStopping": "Wird angehalten. Es geht weiter, wenn du Veloq das nächste Mal öffnest.",
     "cutoverPhaseDraining": "Warteschlange wird geleert",
     "cutoverPhaseArchiving": "wird archiviert",
     "cutoverPhaseDetecting": "wird erkannt",
