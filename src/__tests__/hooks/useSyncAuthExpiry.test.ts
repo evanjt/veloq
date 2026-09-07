@@ -45,7 +45,7 @@ describe('useSyncAuthExpiry', () => {
 
     renderHook(() => useSyncAuthExpiry());
 
-    expect(handleSessionExpired).toHaveBeenCalledWith('signed_out');
+    expect(handleSessionExpired).toHaveBeenCalledTimes(1);
   });
 
   it('tears down once while the state stays authExpired', () => {

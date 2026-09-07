@@ -50,14 +50,15 @@ export function pushCredentialsToEngine(): void {
 }
 
 /**
- * Why the session ended. There is one reason because there is one signal: a
- * 401. intervals.icu issues one live token per athlete per app, so a second
- * device signing in takes this one's credential, and that 401 is
- * indistinguishable from an expiry or a revocation at the server.
- * Claiming any of the three would be telling the athlete something the server
- * never said.
+ * Why the session ended. One signal, a 401, but two credentials, so the
+ * wording splits on which one the server rejected: an athlete who pasted a
+ * key needs to hear about that key, not about a token they never saw.
+ * Neither reason claims an expiry or a revocation. intervals.icu issues one
+ * live token per athlete per app, so a second device signing in takes this
+ * one's credential, and that 401 is indistinguishable from either at the
+ * server. Claiming one would be telling the athlete something it never said.
  */
-export type SessionExpiredReason = 'signed_out' | null;
+export type SessionExpiredReason = 'signed_out' | 'key_rejected' | null;
 
 interface AuthState {
   apiKey: string | null;
@@ -69,7 +70,7 @@ interface AuthState {
   isDemoMode: boolean;
   hideDemoBanner: boolean;
   authMethod: AuthMethod;
-  /** Set when OAuth session expires due to 401 response */
+  /** Set when a 401 ends the session, whichever credential carried it */
   sessionExpired: SessionExpiredReason;
 
   // Actions
@@ -85,8 +86,8 @@ interface AuthState {
   enterDemoMode: () => void;
   exitDemoMode: () => void;
   setHideDemoBanner: (hide: boolean) => void;
-  /** Called when OAuth token is rejected with 401 - clears OAuth credentials */
-  handleSessionExpired: (reason?: SessionExpiredReason) => Promise<void>;
+  /** Called when a 401 ends the session - clears the rejected credential */
+  handleSessionExpired: () => Promise<void>;
   /** Clear the session expired state (e.g., after user acknowledges) */
   clearSessionExpired: () => void;
 }
@@ -301,17 +302,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ hideDemoBanner: hide });
   },
 
-  handleSessionExpired: async (reason: SessionExpiredReason = 'signed_out') => {
+  handleSessionExpired: async () => {
     const { authMethod, athleteId: currentAthleteId } = get();
-
-    // Only handle session expiry for OAuth auth method
-    if (authMethod !== 'oauth') {
+    if (authMethod !== 'oauth' && authMethod !== 'apiKey') {
       return;
     }
+    const reason: SessionExpiredReason = authMethod === 'apiKey' ? 'key_rejected' : 'signed_out';
 
     // Unregister push token before clearing credentials (fire-and-forget).
     // Without this the worker would keep trying to deliver pushes to a
-    // device whose OAuth session has been revoked.
+    // device whose session the server no longer accepts.
     try {
       if (currentAthleteId) {
         const {
@@ -327,14 +327,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Push token cleanup is best-effort
     }
 
-    // Clear OAuth credentials from storage
+    // The stored API key survives, because the login form has one field and
+    // the re-entry prefills it from here. The athlete id goes with the token, or
+    // `initialize()` reads the pair back and signs the rejected key straight
+    // in again. Only an explicit sign-out deletes the key itself.
     await Promise.all([
       SecureStore.deleteItemAsync(ACCESS_TOKEN_STORAGE_KEY),
       SecureStore.deleteItemAsync(ATHLETE_ID_STORAGE_KEY),
     ]);
 
-    // Update state to logged out with session expired reason
     set({
+      apiKey: null,
       accessToken: null,
       athleteId: null,
       athlete: null,

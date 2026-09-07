@@ -330,7 +330,7 @@ describe('AuthStore', () => {
         authMethod: 'oauth',
       });
 
-      await useAuthStore.getState().handleSessionExpired('signed_out');
+      await useAuthStore.getState().handleSessionExpired();
 
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(ACCESS_TOKEN_STORAGE_KEY);
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
@@ -343,7 +343,7 @@ describe('AuthStore', () => {
       expect(state.sessionExpired).toBe('signed_out');
     });
 
-    it('only affects OAuth auth method, not API key', async () => {
+    it('signs an API-key session out too, and words the reason for a key', async () => {
       useAuthStore.setState({
         apiKey: 'my-api-key',
         athleteId: 'i12345',
@@ -351,15 +351,55 @@ describe('AuthStore', () => {
         authMethod: 'apiKey',
       });
 
-      await useAuthStore.getState().handleSessionExpired('signed_out');
-
-      // Should NOT have called delete
-      expect(mockDeleteItemAsync).not.toHaveBeenCalled();
+      await useAuthStore.getState().handleSessionExpired();
 
       const state = useAuthStore.getState();
-      expect(state.apiKey).toBe('my-api-key');
-      expect(state.isAuthenticated).toBe(true);
-      expect(state.sessionExpired).toBeNull();
+      expect(state.apiKey).toBeNull();
+      expect(state.athleteId).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.authMethod).toBeNull();
+      expect(state.sessionExpired).toBe('key_rejected');
+    });
+
+    // The login form has one field, the key itself, so deleting the stored key
+    // here would leave the athlete nothing to paste. Only an explicit sign-out
+    // deletes it.
+    it('leaves the stored API key for the re-entry to prefill', async () => {
+      useAuthStore.setState({
+        apiKey: 'my-api-key',
+        athleteId: 'i12345',
+        isAuthenticated: true,
+        authMethod: 'apiKey',
+      });
+
+      await useAuthStore.getState().handleSessionExpired();
+
+      expect(mockDeleteItemAsync).not.toHaveBeenCalledWith(API_KEY_STORAGE_KEY);
+      expect(mockDeleteItemAsync).toHaveBeenCalledWith(ATHLETE_ID_STORAGE_KEY);
+    });
+
+    // Both halves have to go or `initialize()` reads the pair back and signs
+    // the same rejected key straight in again on the next launch.
+    it('leaves a relaunch unauthenticated', async () => {
+      useAuthStore.setState({
+        apiKey: 'my-api-key',
+        athleteId: 'i12345',
+        isAuthenticated: true,
+        authMethod: 'apiKey',
+      });
+      await useAuthStore.getState().handleSessionExpired();
+
+      const deleted = new Set(mockDeleteItemAsync.mock.calls.map(([key]) => key));
+      mockGetItemAsync.mockImplementation(async (key) => {
+        if (deleted.has(key)) return null;
+        if (key === API_KEY_STORAGE_KEY) return 'my-api-key';
+        if (key === ATHLETE_ID_STORAGE_KEY) return 'i12345';
+        return null;
+      });
+
+      await useAuthStore.getState().initialize();
+
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
   });
 

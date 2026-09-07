@@ -1,5 +1,5 @@
 /**
- * The signed-out notice ships four strings. Every locale needs all of them,
+ * The signed-out notice ships five strings. Every locale needs all of them,
  * the athlete line has to keep its placeholder, and none of it may sit there
  * in English. The event line names only the event, so a translation carrying
  * the old "please sign in again" tail would say it twice.
@@ -16,6 +16,7 @@ const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const KEYS = [
   'sessionSignedOut',
+  'sessionKeyRejected',
   'sessionDataKept',
   'sessionRestore',
   'sessionRestoreAthlete',
@@ -56,6 +57,13 @@ describe('session expiry strings', () => {
 
     it('claims no expiry and no revocation', () => {
       expect(login.sessionSignedOut.toLowerCase()).not.toMatch(/expir|revok/);
+      expect(login.sessionKeyRejected.toLowerCase()).not.toMatch(/expir|revok/);
+    });
+
+    it('names the key in the key line', () => {
+      expect(login.sessionKeyRejected.toLowerCase()).toMatch(
+        /api|kľúč|nøgle|schlüssel|clé|clave|chiave|sleutel|klucz|chave|キー|密钥/
+      );
     });
 
     if (!ENGLISH_LOCALES.includes(locale)) {

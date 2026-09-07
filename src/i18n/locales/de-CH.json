@@ -662,6 +662,7 @@
     "securityNote": "Dini Date blibed uf dim Handy",
     "sessionDataKept": "Dini Aktivitäte, Abschnitt und Ystellige sind na uf dem Grät.",
     "sessionSignedOut": "Du wurdest abgemeldet.",
+    "sessionKeyRejected": "Dis API-Schlüssel isch abglehnt worde.",
     "sessionRestore": "Mäld di nomol aa, denn hesch si wieder.",
     "sessionRestoreAthlete": "Mäld di nomol als {{athleteId}} aa, denn hesch si wieder.",
     "subtitle": "Verbinde mit Intervals.icu",
