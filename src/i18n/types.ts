@@ -1036,6 +1036,12 @@ export interface TranslationResource {
     detectionPaused: string;
     detectionPausedElevation: string;
     detectionHeldElevationPaused: string;
+    rescanRefusedBusy: string;
+    rescanRefusedHeld: string;
+    rescanRefusedNotReady: string;
+    rescanRefusedOff: string;
+    rescanRefusedNothingOwed: string;
+    rescanRefusedFailed: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
