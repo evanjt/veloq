@@ -425,6 +425,10 @@ class EngineClient implements DelegateHost {
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
+  /** How the last finished run ended. Reads nothing the follower needs. */
+  lastSectionDetectionOutcome = (): string =>
+    detectionDelegates.lastSectionDetectionOutcome(this);
+
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
 
