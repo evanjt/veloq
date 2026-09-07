@@ -930,8 +930,8 @@ int8_t
 uniffi_veloqrs_fn_func_is_cutover_running(RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
     RustCallStatus *uniffi_out_err);
-int8_t
-uniffi_veloqrs_fn_func_pause_elevation_backfill(RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_func_pause_elevation_backfill(
+    RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_func_resume_elevation_backfill(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_set_network_online(int8_t online,
@@ -17889,11 +17889,11 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_pause_elevation_backfill(
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_pause_elevation_backfill(&status);
+  uniffi_veloqrs_fn_func_pause_elevation_backfill(&status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return jsi::Value::undefined();
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,

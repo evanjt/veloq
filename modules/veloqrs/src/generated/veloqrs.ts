@@ -261,19 +261,17 @@ export function isElevationBackfillPaused(): boolean {
  *
  * The pass in flight ends at its next batch and reports `paused`, and no
  * launch or resume attempt starts another until the app is reopened. Nothing
- * is persisted, so a forgotten pause can never strand the migration. Returns
- * whether a pass was running when the pause landed.
+ * is persisted, so a forgotten pause can never strand the migration. The phase
+ * is what says it is paused, so there is nothing to return.
  */
-export function pauseElevationBackfill(): boolean {
-  return FfiConverterBool.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+export function pauseElevationBackfill(): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -19829,7 +19827,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
-    42876
+    31073
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_pause_elevation_backfill",

@@ -107,8 +107,8 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     file: 'ffi.rs',
     line: 714,
     paramCount: 0,
-    returnType: 'bool',
-    docs: 'Pause the elevation backfill for the rest of this process. The pass in flight ends at its next batch and reports `paused`, and no launch or resume attempt starts another until the app is reopened. Nothing is persisted, so a forgotten pause can never strand the migration. Returns whether a pass was running when the pause landed.',
+    returnType: 'void',
+    docs: 'Pause the elevation backfill for the rest of this process. The pass in flight ends at its next batch and reports `paused`, and no launch or resume attempt starts another until the app is reopened. Nothing is persisted, so a forgotten pause can never strand the migration. The phase is what says it is paused, so there is nothing to return.',
   },
   {
     name: 'resume_elevation_backfill',
