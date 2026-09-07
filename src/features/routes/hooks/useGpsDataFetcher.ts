@@ -29,6 +29,7 @@ import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
 import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
+import { pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -458,34 +459,29 @@ export function useGpsDataFetcher() {
 
         // Poll download progress every 100ms. Rust fetches each activity's map
         // and then its time stream, and only clears `active` once both are done,
-        // so one counter covers the whole download.
+        // so one counter covers the whole download. The poll carries its own
+        // deadline: a fetch thread that unwinds leaves the flag true, and this
+        // loop is the only consumer of it.
         // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
         // When off: download = 0-100%.
-        let pollCount = 0;
-        while (isMountedRef.current && !abortSignal.aborted) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          pollCount++;
-
-          const progress = getDownloadProgress();
-          if (!progress.active) {
-            if (__DEV__) {
-              log.log(
-                `[fetchApiGps] GPS done after ${pollCount} polls: ${progress.completed}/${progress.total}`
-              );
-            }
-            break;
-          }
-
-          const completed = Math.min(stored + progress.completed, activityIds.length);
-          const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
-          const combined = Math.round(gpsFraction * downloadBudget);
-          updateProgress({
-            status: 'fetching',
-            completed,
-            total: activityIds.length,
-            percent: combined,
-            message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
-          });
+        const outcome = await pollDownloadProgress({
+          read: getDownloadProgress,
+          isActive: () => isMountedRef.current && !abortSignal.aborted,
+          onProgress: (progress) => {
+            const completed = Math.min(stored + progress.completed, activityIds.length);
+            const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
+            const combined = Math.round(gpsFraction * downloadBudget);
+            updateProgress({
+              status: 'fetching',
+              completed,
+              total: activityIds.length,
+              percent: combined,
+              message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
+            });
+          },
+        });
+        if (outcome === 'stalled') {
+          console.warn('[fetchApiGps] The download stopped reporting progress, giving up on it');
         }
 
         // Get result (just IDs - no GPS data transfer!)
