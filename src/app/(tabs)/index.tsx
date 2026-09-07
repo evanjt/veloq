@@ -136,7 +136,7 @@ export default function FeedScreen() {
   const allActivitiesRaw = useMemo(() => {
     if (!data?.pages) return [];
     return data.pages.flat();
-  }, [data?.pages]);
+  }, [data]);
   const prevActivitiesRef = useRef(allActivitiesRaw);
   const allActivities = useMemo(() => {
     const prevIds = prevActivitiesRef.current.map((a) => a.id).join(',');

@@ -184,11 +184,10 @@ export default function SettingsScreen() {
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
   // Subtitle: Backup
-  const lastBackupText = useMemo(() => {
-    const ts = getLastBackupTimestamp();
-    if (!ts) return t('backup.lastBackupNever');
-    return new Date(ts).toLocaleDateString();
-  }, [t]);
+  const lastBackupTimestamp = getLastBackupTimestamp();
+  const lastBackupText = lastBackupTimestamp
+    ? new Date(lastBackupTimestamp).toLocaleDateString()
+    : t('backup.lastBackupNever');
 
   // Subtitle: Cache
   const [totalCacheSize, setTotalCacheSize] = useState(0);

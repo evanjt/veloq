@@ -237,7 +237,7 @@ export function useSectionPerformances(
       ids.add(p.activityId);
     }
     return Array.from(ids);
-  }, [section?.activityPortions]);
+  }, [section]);
 
   const {
     ready: fetchComplete,

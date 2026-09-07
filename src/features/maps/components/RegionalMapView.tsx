@@ -368,7 +368,7 @@ export function RegionalMapView({
       .filter((c): c is [number, number] => c !== null)
       .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
       .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
-  }, [selected?.routeCoords, selected?.mapData]);
+  }, [selected]);
 
   // Spider GeoJSON for cluster fan-out at max zoom
   const { spiderPointsGeoJSON, spiderLinesGeoJSON } = useMemo(() => {

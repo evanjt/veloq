@@ -37,7 +37,7 @@ export function useRouteChartData(
     } catch {
       return {};
     }
-  }, [engineGroup?.activityIds, preComputedSignatures]);
+  }, [engineGroup, preComputedSignatures]);
 
   // Prepare chart data using Rust engine performance data
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {

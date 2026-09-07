@@ -213,7 +213,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     if (displayData?.activityId) {
       router.push(`/activity/${displayData.activityId}`);
     }
-  }, [displayData?.activityId]);
+  }, [displayData]);
 
   if (isLoading) {
     return (

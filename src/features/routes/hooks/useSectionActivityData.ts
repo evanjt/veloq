@@ -74,7 +74,7 @@ export function useSectionActivityData(
     return Array.from(counts.entries())
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count);
-  }, [section?.sportType, section?.activityIds, sectionActivitiesUnsorted]);
+  }, [section, sectionActivitiesUnsorted]);
 
   const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
 
@@ -85,7 +85,7 @@ export function useSectionActivityData(
     if (selectedSportType) return selectedSportType;
     if (availableSportTypes.length > 1 && section?.sportType) return section.sportType;
     return undefined;
-  }, [selectedSportType, availableSportTypes.length, section?.sportType]);
+  }, [selectedSportType, availableSportTypes, section]);
 
   // Filter activities by selected sport type for chart data
   const filteredActivities = useMemo(() => {
