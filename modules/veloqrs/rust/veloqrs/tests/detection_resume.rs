@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use lifecycle_support::*;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use tracematch::{GpsPoint, SectionEvidenceCache, detect_sections_unified_incremental_observed};
+use tracematch::{GpsPoint, SectionEvidenceCache, detect_sections_incremental_observed};
 use veloqrs::persistence::{CacheUpdate, PersistentEngine};
 
 /// Three far-apart clusters, each its own corridor library, ids prefixed
@@ -103,7 +103,7 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
     let config = engine.get_section_config();
     let mut cache = SectionEvidenceCache::new();
     let policy = tracematch::SectionUpdatePolicy::default();
-    detect_sections_unified_incremental_observed(
+    detect_sections_incremental_observed(
         &mut cache,
         &[],
         &tracks[..base.len()],
@@ -116,7 +116,7 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
         &mut |_, _, _| {},
     );
     let mut checkpoint: Option<SectionEvidenceCache> = None;
-    detect_sections_unified_incremental_observed(
+    detect_sections_incremental_observed(
         &mut cache,
         &existing,
         &tracks,

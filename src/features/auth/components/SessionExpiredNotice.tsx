@@ -17,7 +17,7 @@ export const SessionExpiredNotice = React.memo(function SessionExpiredNotice({
 }: SessionExpiredNoticeProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { cachedAthleteId } = notice;
+  const { reason, cachedAthleteId } = notice;
 
   const iconColour = isDark ? darkColors.warningAmber : colors.warningAmber;
 
@@ -26,7 +26,7 @@ export const SessionExpiredNotice = React.memo(function SessionExpiredNotice({
       <View style={styles.header}>
         <MaterialCommunityIcons name="account-clock-outline" size={20} color={iconColour} />
         <Text style={[styles.title, isDark && styles.titleDark]}>
-          {t('login.sessionSignedOut')}
+          {reason === 'key_rejected' ? t('login.sessionKeyRejected') : t('login.sessionSignedOut')}
         </Text>
       </View>
       <Text style={[styles.detail, isDark && styles.detailDark]}>{t('login.sessionDataKept')}</Text>

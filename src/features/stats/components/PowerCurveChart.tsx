@@ -35,6 +35,23 @@ function hasPerKg(curve: { watts_per_kg?: number[] } | null | undefined): boolea
   return (curve?.watts_per_kg ?? []).some((v) => v > 0);
 }
 
+/**
+ * The short names for the fits the server sends today. A type this build has
+ * not seen prints as the server named it rather than vanishing.
+ */
+const MODEL_LABELS: Record<string, string> = {
+  MS_2P: '2P',
+  MORTON_3P: '3P',
+  FFT_CURVES: 'FFT',
+  ECP: 'ECP',
+};
+
+/** `12.8kJ` from the joules the server fits, with a whole number left whole. */
+function formatWPrime(joules: number): string {
+  const kj = joules / 1000;
+  return `${kj.toFixed(1).replace(/\.0$/, '')}kJ`;
+}
+
 /** `260w` or `3.25 W/kg`, the way the header and the axis print a value. */
 function formatValue(value: number, perKg: boolean, unit: string): string {
   return perKg ? `${value.toFixed(2)} ${unit}` : `${Math.round(value)}w`;
@@ -60,6 +77,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const [perKgWanted, setPerKgWanted] = useState(false);
   const perKgAvailable = hasPerKg(curve);
   const perKg = perKgWanted && perKgAvailable;
+  const models = curve?.models ?? [];
   const unit = t('units.wattsPerKg');
 
   // Process curve data for the line chart
@@ -261,6 +279,27 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         onInteractionChange={handleInteractionChange}
       />
 
+      {/*
+        The fits the server ran over the whole window. They disagree with each
+        other by a quarter of the smallest and none of them is the eFTP the app
+        shows, so they are named as fits and no one of them is promoted. They
+        stay in watts under the per-kilogram toggle: they are the server's
+        parameters, not a reading of the plotted series.
+      */}
+      {models.length > 0 && (
+        <View style={styles.models} testID="power-curve-models">
+          {models.map((m) => (
+            <Text
+              key={m.type}
+              testID={`power-curve-model-${m.type}`}
+              style={[styles.modelText, isDark && chartStyles.textDark]}
+            >
+              {`${MODEL_LABELS[m.type] ?? m.type} ${Math.round(m.criticalPower)}w ${formatWPrime(m.wPrime)}`}
+            </Text>
+          ))}
+        </View>
+      )}
+
       {/* FTP Legend */}
       {ftpValue && (
         <View style={styles.legend}>
@@ -338,6 +377,17 @@ const styles = StyleSheet.create({
     width: spacing.md,
     height: 2,
     borderRadius: 1,
+  },
+  models: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    columnGap: spacing.sm,
+  },
+  modelText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
   },
   legendText: {
     fontSize: typography.label.fontSize,

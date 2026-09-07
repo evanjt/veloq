@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ActivityType } from '@/types';
@@ -34,30 +34,23 @@ export interface UseActivityNameGeneration {
  * precedence over the generated default. The user can freely edit the name
  * afterwards via the returned `setName`.
  *
- * Generation runs only once on mount - subsequent prop changes do not
- * overwrite user edits.
+ * Generation runs only once, in the state initialiser, so the field carries a
+ * name on the very first render rather than committing an empty one and
+ * replacing it. Subsequent prop changes do not overwrite user edits.
  */
 export function useActivityNameGeneration({
   initialName,
   type,
 }: UseActivityNameGenerationArgs): UseActivityNameGeneration {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
-
-  useEffect(() => {
-    if (initialName) {
-      setName(initialName);
-      return;
-    }
-
+  // Geocoding disabled for Nominatim ToS compliance.
+  // See: https://operations.osmfoundation.org/policies/nominatim/
+  // Will re-enable once a caching proxy is in place.
+  const [name, setName] = useState(() => {
+    if (initialName) return initialName;
     const tod = getTimeOfDayKey();
-    const defaultName = `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
-    setName(defaultName);
-
-    // Geocoding disabled for Nominatim ToS compliance.
-    // See: https://operations.osmfoundation.org/policies/nominatim/
-    // Will re-enable once a caching proxy is in place.
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    return `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
+  });
 
   return { name, setName };
 }

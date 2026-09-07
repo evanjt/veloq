@@ -346,7 +346,16 @@
     "syncError": {
       "title": "同步未能完成",
       "lastSynced": "上次同步 {{when}}",
-      "neverSynced": "尚未完成任何同步"
+      "neverSynced": "尚未完成任何同步",
+      "reason": {
+        "unauthorized": "intervals.icu 拒绝了你的登录",
+        "rateLimited": "intervals.icu 要求放慢速度，同步正在等待",
+        "server": "intervals.icu 返回了应用无法使用的内容",
+        "network": "无法连接 intervals.icu",
+        "storage": "无法读取此设备上的文件",
+        "notConfigured": "此设备未保存 intervals.icu 登录信息",
+        "internal": "同步中断，应用无法说明原因"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "您的凭据安全存储在您的设备上",
     "sessionDataKept": "您的活动、路段和设置仍保存在此设备上。",
     "sessionSignedOut": "您已退出登录。",
+    "sessionKeyRejected": "您的 API 密钥被拒绝。",
     "sessionRestore": "重新登录即可恢复。",
     "sessionRestoreAthlete": "以 {{athleteId}} 身份重新登录即可恢复。",
     "subtitle": "连接到 Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "正在归档",
     "cutoverPhaseDetecting": "正在检测",
     "cutoverPhaseDiffing": "正在比较",
-    "previewAreaFallback": "区域 {{number}}",
+    "previewAreaFallback": "区域 {{letter}}",
     "previewAreaVisits": "{{count}} 次访问",
     "previewAreaSections": "{{count}} 个路段",
     "sectionMaxLength": "最长路段: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "心率、功率和踏频传感器",
     "paired": "已配对的传感器",
     "nonePaired": "还没有配对的传感器。在下方扫描以添加。",
+    "nonePairedShort": "未配对",
+    "pairedCount": "已配对 {{count}} 个",
     "addSensor": "添加传感器",
     "scan": "扫描传感器",
     "stopScan": "停止扫描",

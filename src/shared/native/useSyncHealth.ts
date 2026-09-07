@@ -9,7 +9,7 @@
  * error yet and no memory of the last time data arrived.
  */
 import { useEffect, useRef, useState } from 'react';
-import { SyncState } from 'veloqrs';
+import { SyncState, type SyncErrorReason } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 
@@ -22,6 +22,12 @@ export const LAST_SUCCESS_KEY = 'sync.last_success_at';
 export interface SyncHealth {
   /** The error the last sync settled with, or null while it is healthy. */
   lastError: string | null;
+  /**
+   * Which kind of failure `lastError` describes. The engine classifies it, so
+   * the banner can name it in the athlete's language instead of printing the
+   * engine's own English.
+   */
+  lastErrorReason: SyncErrorReason | null;
   /** ISO time of the last sync that completed cleanly, or null if none has. */
   lastSuccessAt: string | null;
 }
@@ -30,6 +36,7 @@ export function useSyncHealth(): SyncHealth {
   const status = useSyncStatus();
   const state = status?.state;
   const lastError = status?.lastError ?? null;
+  const lastErrorReason = status?.lastErrorReason ?? null;
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
   const [lastSuccessAt, setLastSuccessAt] = useState<string | null>(null);
   const wasSyncingRef = useRef(false);
@@ -56,5 +63,5 @@ export function useSyncHealth(): SyncHealth {
     setLastSuccessAt(at);
   }, [state, lastError]);
 
-  return { lastError, lastSuccessAt };
+  return { lastError, lastErrorReason, lastSuccessAt };
 }

@@ -346,7 +346,16 @@
     "syncError": {
       "title": "A sincronizacao nao esta a passar",
       "lastSynced": "Ultima sincronizacao {{when}}",
-      "neverSynced": "Nenhuma sincronizacao concluida"
+      "neverSynced": "Nenhuma sincronizacao concluida",
+      "reason": {
+        "unauthorized": "O intervals.icu recusou o teu inicio de sessao",
+        "rateLimited": "O intervals.icu pediu uma pausa, a sincronizacao esta a aguardar",
+        "server": "O intervals.icu devolveu algo que a app nao conseguiu usar",
+        "network": "Nao foi possivel contactar o intervals.icu",
+        "storage": "Nao foi possivel ler um ficheiro deste dispositivo",
+        "notConfigured": "Nao ha nenhum inicio de sessao do intervals.icu guardado neste dispositivo",
+        "internal": "A sincronizacao parou por um motivo que a app nao sabe nomear"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "As suas credenciais sao guardadas em seguranca no seu dispositivo",
     "sessionDataKept": "As suas atividades, secções e definições continuam neste dispositivo.",
     "sessionSignedOut": "A sua sessão foi terminada.",
+    "sessionKeyRejected": "A sua chave API foi recusada.",
     "sessionRestore": "Inicie sessão novamente para as recuperar.",
     "sessionRestoreAthlete": "Inicie sessão novamente como {{athleteId}} para as recuperar.",
     "subtitle": "Ligar ao Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "a arquivar",
     "cutoverPhaseDetecting": "a detetar",
     "cutoverPhaseDiffing": "a comparar",
-    "previewAreaFallback": "Zona {{number}}",
+    "previewAreaFallback": "Zona {{letter}}",
     "previewAreaVisits": "{{count}} visitas",
     "previewAreaSections": "{{count}} troços",
     "sectionMaxLength": "Troço mais longo: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Sensores de frequência cardíaca, potência e cadência",
     "paired": "Sensores emparelhados",
     "nonePaired": "Ainda sem sensores emparelhados. Procure abaixo para adicionar um.",
+    "nonePairedShort": "Nenhum emparelhado",
+    "pairedCount": "{{count}} emparelhados",
     "addSensor": "Adicionar um sensor",
     "scan": "Procurar sensores",
     "stopScan": "Parar a procura",

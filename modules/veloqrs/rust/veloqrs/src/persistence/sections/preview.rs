@@ -844,7 +844,7 @@ impl PersistentEngine {
             let seconds = super::track_pool::load_seconds_chunked(&conn, &pool.tracks);
             let seconds_view = super::track_pool::seconds_view(&seconds);
 
-            let detection = tracematch::detect_sections_unified_dated(
+            let detection = tracematch::detect_sections_dated(
                 &pool.tracks,
                 &seconds_view,
                 &sport_map,

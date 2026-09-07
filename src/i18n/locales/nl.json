@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synchronisatie komt niet door",
       "lastSynced": "Laatst gesynchroniseerd {{when}}",
-      "neverSynced": "Nog geen synchronisatie voltooid"
+      "neverSynced": "Nog geen synchronisatie voltooid",
+      "reason": {
+        "unauthorized": "intervals.icu weigerde je login",
+        "rateLimited": "intervals.icu vroeg om rust, de synchronisatie wacht",
+        "server": "intervals.icu stuurde iets terug dat de app niet kon gebruiken",
+        "network": "intervals.icu was niet bereikbaar",
+        "storage": "Een bestand op dit toestel kon niet worden gelezen",
+        "notConfigured": "Er is geen intervals.icu-login op dit toestel opgeslagen",
+        "internal": "De synchronisatie stopte om een reden die de app niet kan benoemen"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Je gegevens worden veilig op je apparaat opgeslagen",
     "sessionDataKept": "Je activiteiten, secties en instellingen staan nog op dit apparaat.",
     "sessionSignedOut": "Je bent afgemeld.",
+    "sessionKeyRejected": "Je API-sleutel is geweigerd.",
     "sessionRestore": "Log opnieuw in om ze terug te krijgen.",
     "sessionRestoreAthlete": "Log opnieuw in als {{athleteId}} om ze terug te krijgen.",
     "subtitle": "Verbinden met Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "archiveren",
     "cutoverPhaseDetecting": "detecteren",
     "cutoverPhaseDiffing": "vergelijken",
-    "previewAreaFallback": "Gebied {{number}}",
+    "previewAreaFallback": "Gebied {{letter}}",
     "previewAreaVisits": "{{count}} bezoeken",
     "previewAreaSections": "{{count}} secties",
     "sectionMaxLength": "Langste sectie: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Hartslag-, vermogens- en cadanssensoren",
     "paired": "Gekoppelde sensoren",
     "nonePaired": "Nog geen sensoren gekoppeld. Zoek hieronder om er een toe te voegen.",
+    "nonePairedShort": "Geen gekoppeld",
+    "pairedCount": "{{count}} gekoppeld",
     "addSensor": "Sensor toevoegen",
     "scan": "Zoeken naar sensoren",
     "stopScan": "Stop met zoeken",

@@ -346,7 +346,16 @@
     "syncError": {
       "title": "La sincronizacion no llega",
       "lastSynced": "Ultima sincronizacion {{when}}",
-      "neverSynced": "Ninguna sincronizacion ha terminado"
+      "neverSynced": "Ninguna sincronizacion ha terminado",
+      "reason": {
+        "unauthorized": "intervals.icu rechazo tu inicio de sesion",
+        "rateLimited": "intervals.icu pidio una pausa, la sincronizacion esta esperando",
+        "server": "intervals.icu devolvio algo que la aplicacion no pudo usar",
+        "network": "No se pudo conectar con intervals.icu",
+        "storage": "No se pudo leer un archivo de este dispositivo",
+        "notConfigured": "No hay ninguna sesion de intervals.icu guardada en este dispositivo",
+        "internal": "La sincronizacion se detuvo por un motivo que la aplicacion no puede nombrar"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Vuestras credenciales se guardan de forma segura en vuestro dispositivo",
     "sessionDataKept": "Vuestras actividades, secciones y ajustes siguen en este dispositivo.",
     "sessionSignedOut": "Se ha cerrado tu sesión.",
+    "sessionKeyRejected": "Vuestra clave API ha sido rechazada.",
     "sessionRestore": "Iniciad sesión de nuevo para recuperarlos.",
     "sessionRestoreAthlete": "Iniciad sesión de nuevo como {{athleteId}} para recuperarlos.",
     "subtitle": "Conectar con Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "archivando",
     "cutoverPhaseDetecting": "detectando",
     "cutoverPhaseDiffing": "comparando",
-    "previewAreaFallback": "Zona {{number}}",
+    "previewAreaFallback": "Zona {{letter}}",
     "previewAreaVisits": "{{count}} visitas",
     "previewAreaSections": "{{count}} secciones",
     "sectionMaxLength": "Sección más larga: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Sensores de frecuencia cardíaca, potencia y cadencia",
     "paired": "Sensores emparejados",
     "nonePaired": "Aún no hay sensores emparejados. Busca abajo para añadir uno.",
+    "nonePairedShort": "Ninguno vinculado",
+    "pairedCount": "{{count}} vinculados",
     "addSensor": "Añadir un sensor",
     "scan": "Buscar sensores",
     "stopScan": "Detener búsqueda",

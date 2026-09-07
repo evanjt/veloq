@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synkronisering kommer ikke igennem",
       "lastSynced": "Sidst synkroniseret {{when}}",
-      "neverSynced": "Ingen synkronisering er gennemfoert"
+      "neverSynced": "Ingen synkronisering er gennemfoert",
+      "reason": {
+        "unauthorized": "intervals.icu afviste dit login",
+        "rateLimited": "intervals.icu bad os saenke farten, saa synkronisering venter",
+        "server": "intervals.icu sendte noget tilbage, appen ikke kunne bruge",
+        "network": "Kunne ikke naa intervals.icu",
+        "storage": "En fil paa denne enhed kunne ikke laeses",
+        "notConfigured": "Der er ikke gemt noget intervals.icu-login paa denne enhed",
+        "internal": "Synkroniseringen stoppede af en grund, appen ikke kan navngive"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Dine legitimationsoplysninger gemmes sikkert på din enhed",
     "sessionDataKept": "Dine aktiviteter, sektioner og indstillinger ligger stadig på denne enhed.",
     "sessionSignedOut": "Du er blevet logget ud.",
+    "sessionKeyRejected": "Din API-nøgle blev afvist.",
     "sessionRestore": "Log ind igen for at få dem tilbage.",
     "sessionRestoreAthlete": "Log ind igen som {{athleteId}} for at få dem tilbage.",
     "subtitle": "Opret forbindelse til Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "arkiverer",
     "cutoverPhaseDetecting": "registrerer",
     "cutoverPhaseDiffing": "sammenligner",
-    "previewAreaFallback": "Område {{number}}",
+    "previewAreaFallback": "Område {{letter}}",
     "previewAreaVisits": "{{count}} besøg",
     "previewAreaSections": "{{count}} sektioner",
     "sectionMaxLength": "Længste sektion: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Puls-, effekt- og kadencesensorer",
     "paired": "Parrede sensorer",
     "nonePaired": "Ingen sensorer parret endnu. Søg nedenfor for at tilføje en.",
+    "nonePairedShort": "Ingen parret",
+    "pairedCount": "{{count}} parret",
     "addSensor": "Tilføj en sensor",
     "scan": "Søg efter sensorer",
     "stopScan": "Stop søgning",

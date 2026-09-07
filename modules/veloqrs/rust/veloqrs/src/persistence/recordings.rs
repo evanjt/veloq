@@ -49,12 +49,16 @@ pub struct FfiRecordingEntry {
     /// False on a ride uploaded while the engine was closed, which is the case
     /// the reconcile sweep exists to replay.
     pub engine_reconciled: bool,
+    /// The athlete signed in when the recording was saved. `None` on a row
+    /// written before the column existed, which is not the same as a row that
+    /// belongs to nobody: an unstamped entry is held rather than uploaded.
+    pub athlete_id: Option<String>,
 }
 
 const COLUMNS: &str = "id, fit_path, streams_path, activity_type, name, start_time, \
      duration_seconds, distance_meters, elevation_gain, avg_heartrate, paired_event_id, \
      created_at, upload_status, retry_count, last_attempt_at, last_error, \
-     intervals_activity_id, engine_activity_id, engine_reconciled";
+     intervals_activity_id, engine_activity_id, engine_reconciled, athlete_id";
 
 fn row_to_entry(row: &Row) -> SqlResult<FfiRecordingEntry> {
     Ok(FfiRecordingEntry {
@@ -77,6 +81,7 @@ fn row_to_entry(row: &Row) -> SqlResult<FfiRecordingEntry> {
         intervals_activity_id: row.get(16)?,
         engine_activity_id: row.get(17)?,
         engine_reconciled: row.get::<_, i64>(18)? != 0,
+        athlete_id: row.get(19)?,
     })
 }
 
@@ -103,7 +108,7 @@ impl PersistentEngine {
         let changed = self.db.execute(
             &format!(
                 "INSERT OR IGNORE INTO recordings ({COLUMNS}) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
             params![
                 entry.id,
@@ -125,6 +130,7 @@ impl PersistentEngine {
                 entry.intervals_activity_id,
                 entry.engine_activity_id,
                 i64::from(entry.engine_reconciled),
+                entry.athlete_id,
             ],
         )?;
         Ok(changed > 0)
@@ -359,6 +365,7 @@ mod tests {
             intervals_activity_id: None,
             engine_activity_id: None,
             engine_reconciled: false,
+            athlete_id: Some("i296629".to_string()),
         }
     }
 

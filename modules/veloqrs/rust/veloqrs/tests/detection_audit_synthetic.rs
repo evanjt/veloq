@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use tracematch::{
     GpsPoint,
     geo_utils::haversine_distance,
-    sections::{SectionConfig, detect_sections_unified},
+    sections::{SectionConfig, detect_sections},
 };
 
 // ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
 fn synthetic_overlap_produces_sections() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
+    let sections = detect_sections(&tracks, &[], &sport_types, &config);
 
     assert!(
         !sections.is_empty(),
@@ -148,7 +148,7 @@ fn synthetic_overlap_produces_sections() {
 fn section_distance_is_reasonable() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
+    let sections = detect_sections(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -166,7 +166,7 @@ fn section_distance_is_reasonable() {
 fn most_activities_appear_in_section() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
+    let sections = detect_sections(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -189,7 +189,7 @@ fn corridor_populates_activity_portions() {
     // "no data" sections in the UI.
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
+    let sections = detect_sections(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()
@@ -230,7 +230,7 @@ fn corridor_populates_activity_portions() {
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let sections = detect_sections_unified(&tracks, &[], &sport_types, &config);
+    let sections = detect_sections(&tracks, &[], &sport_types, &config);
 
     let best = sections
         .iter()

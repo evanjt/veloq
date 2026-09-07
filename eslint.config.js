@@ -118,6 +118,15 @@ module.exports = [
     },
   },
   {
+    // A wrong `!` is worth catching where it is a crash on a device with no
+    // stack anyone sees. In a test it is a TypeError that fails loudly in CI
+    // with the line number, so the rule buys nothing the runner does not
+    // already give. Q212, 2026-09-07: all 337 remaining sites were test files,
+    // and none has ever hidden a defect here.
+    files: ['**/*.test.{js,jsx,ts,tsx}', 'src/__tests__/**'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+  },
+  {
     // A `jest.mock` factory may not reference anything outside its own scope,
     // so pulling the real module in with `require` inside it is jest's own
     // documented shape and there is no import form that works. Ninety test

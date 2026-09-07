@@ -175,6 +175,33 @@ describe('a signed-out session', () => {
   });
 });
 
+describe('a rejected API key', () => {
+  async function showKeyRejected() {
+    useAuthStore.setState({ sessionExpired: 'key_rejected' });
+    render(<LoginScreen />);
+    await settle();
+    expect(screen.getByTestId('login-session-notice')).toBeTruthy();
+  }
+
+  it('says the key was rejected rather than talking about a token', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showKeyRejected();
+
+    expect(screen.getByText('Your API key was rejected.')).toBeTruthy();
+    expect(screen.queryByText('You have been signed out.')).toBeNull();
+  });
+
+  it('keeps the reassurance the signed-out notice gives', async () => {
+    await rememberCachedAthleteId(ATHLETE);
+    await showKeyRejected();
+
+    expect(
+      screen.getByText('Your activities, sections and settings are still on this device.')
+    ).toBeTruthy();
+    expect(screen.getByText(`Sign in again as ${ATHLETE} to get them back.`)).toBeTruthy();
+  });
+});
+
 describe('a login failure', () => {
   it('keeps the red error slot to itself', async () => {
     await rememberCachedAthleteId(ATHLETE);

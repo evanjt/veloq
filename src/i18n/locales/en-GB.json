@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Sync isn't getting through",
       "lastSynced": "Last synced {{when}}",
-      "neverSynced": "No sync has completed yet"
+      "neverSynced": "No sync has completed yet",
+      "reason": {
+        "unauthorized": "intervals.icu refused your login",
+        "rateLimited": "intervals.icu asked us to slow down, so sync is waiting",
+        "server": "intervals.icu sent back something the app could not use",
+        "network": "Could not reach intervals.icu",
+        "storage": "A file on this device could not be read",
+        "notConfigured": "No intervals.icu login is stored on this device",
+        "internal": "Sync stopped for a reason the app cannot name"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Your credentials are stored securely on your device",
     "sessionDataKept": "Your activities, sections and settings are still on this device.",
     "sessionSignedOut": "You have been signed out.",
+    "sessionKeyRejected": "Your API key was rejected.",
     "sessionRestore": "Sign in again to get them back.",
     "sessionRestoreAthlete": "Sign in again as {{athleteId}} to get them back.",
     "subtitle": "Connect to Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "archiving",
     "cutoverPhaseDetecting": "detecting",
     "cutoverPhaseDiffing": "comparing",
-    "previewAreaFallback": "Area {{number}}",
+    "previewAreaFallback": "Area {{letter}}",
     "previewAreaVisits": "{{count}} visits",
     "previewAreaSections": "{{count}} sections",
     "sectionMaxLength": "Longest section: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Heart rate, power & cadence sensors",
     "paired": "Paired sensors",
     "nonePaired": "No sensors paired yet. Scan below to add one.",
+    "nonePairedShort": "None paired",
+    "pairedCount": "{{count}} paired",
     "addSensor": "Add a sensor",
     "scan": "Scan for sensors",
     "stopScan": "Stop scanning",

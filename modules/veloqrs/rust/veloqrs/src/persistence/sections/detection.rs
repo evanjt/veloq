@@ -1125,7 +1125,7 @@ impl PersistentEngine {
                         })
                         .ok();
                 };
-                let fold = tracematch::detect_sections_unified_incremental_observed(
+                let fold = tracematch::detect_sections_incremental_observed(
                     &mut cache,
                     &existing_sections,
                     &tracks,

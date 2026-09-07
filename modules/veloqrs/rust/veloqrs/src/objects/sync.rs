@@ -80,6 +80,76 @@ pub struct FfiSyncStatus {
     pub completed: u32,
     pub total: u32,
     pub last_error: Option<String>,
+    /// Which kind of failure the message describes, so the banner can render a
+    /// translated line rather than the engine's own English.
+    pub last_error_reason: Option<FfiSyncErrorReason>,
+}
+
+/// Why the last sync failed, as the kind the banner branches on.
+///
+/// The message beside it stays, because it carries the detail a bug report
+/// needs, but it is never the thing an athlete reads. A locale table keyed on
+/// the message would break the first time one is reworded, so the classifying
+/// happens here, where the engine already knows which case it is in.
+///
+/// The wire carries the variant's position, so the order here is the contract:
+/// append, never reorder. The discriminants start at one so no member is falsy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum FfiSyncErrorReason {
+    /// The credential was refused, 401.
+    Unauthorized = 1,
+    /// The server asked for a pause, 429, and the retries ran out.
+    RateLimited = 2,
+    /// The server answered, and with something the sync could not use: a
+    /// non-success status, or a body that did not deserialise.
+    Server = 3,
+    /// The server was never reached. A dead radio, a captive portal, a timeout.
+    Network = 4,
+    /// A file on the device could not be read. Not a network failure.
+    Storage = 5,
+    /// There is nothing to sync with: no credential is stored, or the base URL
+    /// will not build a transport.
+    NotConfigured = 6,
+    /// The sync stopped in a way it has no case for, including a panic.
+    Internal = 7,
+}
+
+/// A terminal failure: the kind, and the message that describes it.
+///
+/// The two travel together because every site that knows one knows the other,
+/// and passing them separately is how they drift apart.
+#[derive(Debug, Clone)]
+pub struct SyncFailure {
+    pub reason: FfiSyncErrorReason,
+    pub message: String,
+}
+
+impl SyncFailure {
+    pub fn new(reason: FfiSyncErrorReason, message: impl Into<String>) -> Self {
+        SyncFailure {
+            reason,
+            message: message.into(),
+        }
+    }
+
+    /// The rejected credential, spelt the one way `useSyncAuthExpiry` reads.
+    pub fn unauthorized() -> Self {
+        SyncFailure::new(FfiSyncErrorReason::Unauthorized, "unauthorized")
+    }
+}
+
+impl From<&NetError> for SyncFailure {
+    fn from(e: &NetError) -> Self {
+        let reason = match e {
+            NetError::Unauthorized => FfiSyncErrorReason::Unauthorized,
+            NetError::RateLimited => FfiSyncErrorReason::RateLimited,
+            NetError::Http { .. } | NetError::Decode(_) => FfiSyncErrorReason::Server,
+            NetError::Transport(_) => FfiSyncErrorReason::Network,
+            NetError::Io(_) => FfiSyncErrorReason::Storage,
+        };
+        SyncFailure::new(reason, e.to_string())
+    }
 }
 
 /// How a call ended, as the kind the caller branches on.
@@ -235,6 +305,7 @@ struct SyncInner {
     completed: u32,
     total: u32,
     last_error: Option<String>,
+    last_error_reason: Option<FfiSyncErrorReason>,
     running: bool,
     cancel: bool,
 }
@@ -247,6 +318,7 @@ impl Default for SyncInner {
             completed: 0,
             total: 0,
             last_error: None,
+            last_error_reason: None,
             running: false,
             cancel: false,
         }
@@ -304,11 +376,11 @@ impl SyncService {
     }
 
     /// Build a transport from the held credentials and base URL.
-    fn build_transport(&self) -> Result<(Transport, String), String> {
+    fn build_transport(&self) -> Result<(Transport, String), SyncFailure> {
         let creds_guard = self.creds.lock().unwrap_or_else(|e| e.into_inner());
-        let creds = creds_guard
-            .as_ref()
-            .ok_or_else(|| "no credentials set".to_string())?;
+        let creds = creds_guard.as_ref().ok_or_else(|| {
+            SyncFailure::new(FfiSyncErrorReason::NotConfigured, "no credentials set")
+        })?;
         let base = self
             .base_url
             .lock()
@@ -318,7 +390,8 @@ impl SyncService {
             AuthKind::OAuth => AuthMethod::Bearer(&creds.secret),
             AuthKind::ApiKey => AuthMethod::ApiKey(&creds.secret),
         };
-        let transport = Transport::new(base, auth)?;
+        let transport = Transport::new(base, auth)
+            .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
         Ok((transport, creds.athlete_id.clone()))
     }
 
@@ -336,6 +409,7 @@ impl SyncService {
         inner.in_flight = 1;
         inner.completed = 0;
         inner.last_error = None;
+        inner.last_error_reason = None;
         true
     }
 
@@ -359,7 +433,7 @@ impl SyncService {
 
     /// Terminal transition for a finished job. The one place a job ends, so it
     /// is the one place the settle is announced.
-    pub fn finish(&self, state: SyncState, last_error: Option<String>, success: bool) {
+    pub fn finish(&self, state: SyncState, failure: Option<SyncFailure>, success: bool) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             inner.state = state;
@@ -368,7 +442,8 @@ impl SyncService {
             if success {
                 inner.completed = inner.total;
             }
-            inner.last_error = last_error;
+            inner.last_error_reason = failure.as_ref().map(|f| f.reason);
+            inner.last_error = failure.map(|f| f.message);
         }
         observer::notify(|o| o.sync_settled());
     }
@@ -397,6 +472,7 @@ impl SyncService {
             completed: inner.completed,
             total: inner.total,
             last_error: inner.last_error.clone(),
+            last_error_reason: inner.last_error_reason,
         }
     }
 }
@@ -404,19 +480,43 @@ impl SyncService {
 /// The process-wide sync service.
 pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(SyncService::new);
 
-/// Park the service on a rejected credential.
+/// Ask the credential again, on an endpoint a live one always answers.
+///
+/// One 401 is not evidence. intervals.icu answers 403 for the wrong resource
+/// and 401 only for a credential it will not accept, so a second 401 from the
+/// profile is the server saying so twice. Anything else, a 200, a 5xx, a
+/// timeout or a connection that never opened, says nothing about the
+/// credential and so confirms nothing.
+///
+/// The request goes straight to the transport rather than through a step, so
+/// its own 401 cannot re-enter [`park_auth_expired`] and recurse.
+async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool {
+    matches!(
+        endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await,
+        Err(NetError::Unauthorized)
+    )
+}
+
+/// Park the service on a rejected credential, once the rejection is confirmed.
 ///
 /// Every 401 the app sees ends here, whatever raised it: a sync step, an
-/// on-demand fetch, a write, or the elevation backfill. A rejected credential
-/// signs the athlete out and keeps the database, and this state is what
-/// `useSyncAuthExpiry` reads to do it, so a caller that reports
-/// its own failure instead leaves the dead session standing.
-pub fn park_auth_expired() {
-    SYNC_SERVICE.finish(
-        SyncState::AuthExpired,
-        Some("unauthorized".to_string()),
-        false,
-    );
+/// on-demand fetch, a write, or the elevation backfill. A **confirmed**
+/// rejection signs the athlete out and keeps the database, and this state is
+/// what `useSyncAuthExpiry` reads to do it, so a caller that reports its own
+/// failure instead leaves the dead session standing.
+///
+/// An unconfirmed 401 leaves the state alone and the caller reports its own
+/// error, so a single refusal never signs anybody out.
+pub async fn park_auth_expired(transport: &Transport, athlete_id: &str) {
+    if credential_is_rejected(transport, athlete_id).await {
+        SYNC_SERVICE.finish(
+            SyncState::AuthExpired,
+            Some(SyncFailure::unauthorized()),
+            false,
+        );
+    } else {
+        log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
+    }
 }
 
 /// Releases the running slot when a sync task unwinds.
@@ -430,7 +530,10 @@ impl Drop for FinishGuard {
         if std::thread::panicking() {
             SYNC_SERVICE.finish(
                 SyncState::Idle,
-                Some("sync task panicked".to_string()),
+                Some(SyncFailure::new(
+                    FfiSyncErrorReason::Internal,
+                    "sync task panicked",
+                )),
                 false,
             );
         }
@@ -551,9 +654,12 @@ where
         }
         let _guard = ReleaseGuard(key);
 
+        // Kept back for the confirmation: the job consumes both, and the
+        // confirmation has to ask on the same credential that was refused.
+        let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
         match job(transport, athlete_id).await {
             Ok(()) => {}
-            Err(NetError::Unauthorized) => park_auth_expired(),
+            Err(NetError::Unauthorized) => park_auth_expired(&confirm_on, &confirm_for).await,
             Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
         }
     });
@@ -584,6 +690,13 @@ impl Drop for TestCredentials {
 }
 
 pub fn current_transport() -> Option<Result<Transport, String>> {
+    current_session().map(|r| r.map(|(t, _athlete)| t))
+}
+
+/// The transport and the athlete it belongs to, for a caller that has to ask
+/// on the athlete's own resources. `None` before TypeScript has called
+/// `set_credentials`.
+pub fn current_session() -> Option<Result<(Transport, String), String>> {
     let creds_present = SYNC_SERVICE
         .creds
         .lock()
@@ -592,7 +705,7 @@ pub fn current_transport() -> Option<Result<Transport, String>> {
     if !creds_present {
         return None;
     }
-    Some(SYNC_SERVICE.build_transport().map(|(t, _athlete)| t))
+    Some(SYNC_SERVICE.build_transport().map_err(|e| e.message))
 }
 
 /// Drive a request on the shared runtime and await its outcome.
@@ -625,13 +738,15 @@ where
 {
     let (transport, athlete_id) = match SYNC_SERVICE.build_transport() {
         Ok(pair) => pair,
-        Err(e) => return FfiCallOutcome::internal(e),
+        Err(e) => return FfiCallOutcome::internal(e.message),
     };
+    // Kept back for the confirmation, for the same reason as `spawn_once`.
+    let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
     let outcome = run_on_runtime(job(transport, athlete_id)).await;
     // A write refused for a dead credential parks the service, so an upload
     // reaches the same session-expiry path a failed sync already does.
     if outcome.kind == FfiCallKind::Unauthorized {
-        park_auth_expired();
+        park_auth_expired(&confirm_on, &confirm_for).await;
     }
     outcome
 }
@@ -662,7 +777,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     }
     svc.begin_steps(SYNC_STEPS);
 
-    let mut last_error: Option<String> = None;
+    let mut last_error: Option<SyncFailure> = None;
 
     macro_rules! step {
         ($body:expr) => {
@@ -672,17 +787,29 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
             }
             match $body {
                 Ok(()) => svc.complete_step(),
+                // The loop parks itself rather than calling
+                // `park_auth_expired`: it holds its own service, which under
+                // test is not the process-wide one, and it owes a terminal
+                // finish either way.
                 Err(NetError::Unauthorized) => {
-                    svc.finish(
-                        SyncState::AuthExpired,
-                        Some("unauthorized".to_string()),
-                        false,
-                    );
+                    if credential_is_rejected(&transport, &athlete_id).await {
+                        svc.finish(
+                            SyncState::AuthExpired,
+                            Some(SyncFailure::unauthorized()),
+                            false,
+                        );
+                    } else {
+                        svc.finish(
+                            SyncState::Idle,
+                            Some(SyncFailure::from(&NetError::Unauthorized)),
+                            false,
+                        );
+                    }
                     return;
                 }
                 // A failed step is not a completed one, so the counter stays
                 // an honest count of what actually landed in SQLite.
-                Err(e) => last_error = Some(e.to_string()),
+                Err(e) => last_error = Some(SyncFailure::from(&e)),
             }
         };
     }
@@ -1019,12 +1146,24 @@ impl SyncManager {
                             SYNC_SERVICE.complete_step();
                             SYNC_SERVICE.finish(SyncState::Idle, None, true);
                         }
-                        Err(NetError::Unauthorized) => SYNC_SERVICE.finish(
-                            SyncState::AuthExpired,
-                            Some("unauthorized".to_string()),
-                            false,
-                        ),
-                        Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(e.to_string()), false),
+                        Err(NetError::Unauthorized) => {
+                            if credential_is_rejected(&transport, &athlete_id).await {
+                                SYNC_SERVICE.finish(
+                                    SyncState::AuthExpired,
+                                    Some(SyncFailure::unauthorized()),
+                                    false,
+                                );
+                            } else {
+                                SYNC_SERVICE.finish(
+                                    SyncState::Idle,
+                                    Some(SyncFailure::from(&NetError::Unauthorized)),
+                                    false,
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            SYNC_SERVICE.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false)
+                        }
                     }
                 });
                 Ok(true)
@@ -1404,6 +1543,89 @@ mod tests {
         assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
     }
 
+    /// Scenario: the sync step is refused but the credential still works.
+    ///
+    /// Expected behaviour: one 401 is not evidence, so the confirmation on the
+    /// profile answers 200 and the session stands. The step reports its own
+    /// error, which is what a caller sees for any other failed step.
+    #[test]
+    fn an_unconfirmed_401_leaves_the_session_standing() {
+        let server = MockServer::start();
+        // The profile is the confirmation endpoint, so it answers, and the
+        // step after it is the one that is refused.
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/sport-settings");
+            then.status(401);
+        });
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(
+            s.state,
+            SyncState::Idle,
+            "a single 401 signed the athlete out with a working credential"
+        );
+        assert_eq!(s.completed, 1, "the profile step landed and still counts");
+    }
+
+    /// A credential the server rejects twice is dead, and only then.
+    #[test]
+    fn the_profile_confirms_a_rejected_credential() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(401);
+        });
+        assert!(crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+    }
+
+    /// A credential the profile answers is alive, whatever else refused it.
+    #[test]
+    fn a_profile_that_answers_is_not_a_rejection() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+    }
+
+    /// A server that is broken says nothing about the credential, so it is not
+    /// a confirmation either. Nor is a transport that never connects.
+    #[test]
+    fn only_a_second_401_confirms_a_rejection() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(500);
+        });
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+
+        // A port nothing is listening on: the request fails before any status.
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to("http://127.0.0.1:1".to_string()),
+            "i1"
+        )));
+    }
+
     #[test]
     fn server_error_records_error_but_returns_idle() {
         let server = MockServer::start();
@@ -1419,6 +1641,111 @@ mod tests {
         assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.completed, 0);
         assert!(s.last_error.is_some());
+    }
+
+    /// Scenario: the banner has to name the failure in the athlete's language,
+    /// and a free string written by the engine cannot be translated.
+    ///
+    /// Expected behaviour: every terminal failure carries a reason from the
+    /// closed set beside its message, and a clean settle carries none.
+    #[test]
+    fn a_rejected_credential_settles_with_the_unauthorized_reason() {
+        let server = MockServer::start();
+        mock_profile_slice(&server, 401);
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::Unauthorized)
+        );
+    }
+
+    #[test]
+    fn a_server_error_settles_with_the_server_reason() {
+        let server = MockServer::start();
+        mock_profile_slice(&server, 500);
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::Server)
+        );
+    }
+
+    #[test]
+    fn an_unreachable_host_settles_with_the_network_reason() {
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to("http://127.0.0.1:1".to_string()),
+            "i1".into(),
+        ));
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::Network)
+        );
+    }
+
+    #[test]
+    fn parking_on_a_rejected_credential_carries_the_reason() {
+        let svc = SyncService::new();
+        svc.finish(
+            SyncState::AuthExpired,
+            Some(SyncFailure::unauthorized()),
+            false,
+        );
+        let s = svc.snapshot();
+        assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
+        assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::Unauthorized));
+    }
+
+    #[test]
+    fn missing_credentials_settle_with_the_not_configured_reason() {
+        let svc = SyncService::new();
+        let reason = match svc.build_transport() {
+            Ok(_) => panic!("a service with no credentials built a transport"),
+            Err(e) => e.reason,
+        };
+        assert_eq!(reason, FfiSyncErrorReason::NotConfigured);
+    }
+
+    #[test]
+    fn a_clean_settle_carries_no_reason() {
+        let svc = SyncService::new();
+        svc.finish(SyncState::Idle, None, true);
+        assert_eq!(svc.snapshot().last_error_reason, None);
+    }
+
+    /// A reason that survives the second failure of a different kind: the
+    /// status holds the last one, not the first.
+    #[test]
+    fn the_reason_moves_with_the_message() {
+        let svc = SyncService::new();
+        svc.finish(
+            SyncState::AuthExpired,
+            Some(SyncFailure::unauthorized()),
+            false,
+        );
+        svc.finish(
+            SyncState::Idle,
+            Some(SyncFailure::from(&NetError::RateLimited)),
+            false,
+        );
+        assert_eq!(
+            svc.snapshot().last_error_reason,
+            Some(FfiSyncErrorReason::RateLimited)
+        );
     }
 
     #[test]

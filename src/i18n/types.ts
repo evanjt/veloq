@@ -223,6 +223,7 @@ export interface TranslationResource {
     localModeNote: string;
     apiKeyNoNotifications: string;
     sessionSignedOut: string;
+    sessionKeyRejected: string;
     sessionDataKept: string;
     sessionRestore: string;
     sessionRestoreAthlete: string;
@@ -1098,6 +1099,15 @@ export interface TranslationResource {
       title: string;
       lastSynced: string;
       neverSynced: string;
+      reason: {
+        unauthorized: string;
+        rateLimited: string;
+        server: string;
+        network: string;
+        storage: string;
+        notConfigured: string;
+        internal: string;
+      };
     };
   };
 
@@ -1280,6 +1290,8 @@ export interface TranslationResource {
     manageSensors: string;
     paired: string;
     nonePaired: string;
+    nonePairedShort: string;
+    pairedCount: string;
     addSensor: string;
     scan: string;
     stopScan: string;

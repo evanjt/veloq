@@ -346,7 +346,16 @@
     "syncError": {
       "title": "A sincronizacao nao esta passando",
       "lastSynced": "Ultima sincronizacao {{when}}",
-      "neverSynced": "Nenhuma sincronizacao concluida"
+      "neverSynced": "Nenhuma sincronizacao concluida",
+      "reason": {
+        "unauthorized": "O intervals.icu recusou seu login",
+        "rateLimited": "O intervals.icu pediu uma pausa, a sincronizacao esta esperando",
+        "server": "O intervals.icu devolveu algo que o app nao conseguiu usar",
+        "network": "Nao foi possivel acessar o intervals.icu",
+        "storage": "Nao foi possivel ler um arquivo deste aparelho",
+        "notConfigured": "Nenhum login do intervals.icu esta salvo neste aparelho",
+        "internal": "A sincronizacao parou por um motivo que o app nao sabe nomear"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Suas credenciais sao armazenadas com seguranca no seu dispositivo",
     "sessionDataKept": "Suas atividades, seções e configurações continuam neste dispositivo.",
     "sessionSignedOut": "Você foi desconectado.",
+    "sessionKeyRejected": "Sua chave de API foi recusada.",
     "sessionRestore": "Faça login novamente para recuperá-las.",
     "sessionRestoreAthlete": "Faça login novamente como {{athleteId}} para recuperá-las.",
     "subtitle": "Conectar ao Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "arquivando",
     "cutoverPhaseDetecting": "detectando",
     "cutoverPhaseDiffing": "comparando",
-    "previewAreaFallback": "Área {{number}}",
+    "previewAreaFallback": "Área {{letter}}",
     "previewAreaVisits": "{{count}} visitas",
     "previewAreaSections": "{{count}} trechos",
     "sectionMaxLength": "Trecho mais longo: {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Sensores de frequência cardíaca, potência e cadência",
     "paired": "Sensores pareados",
     "nonePaired": "Nenhum sensor pareado ainda. Busque abaixo para adicionar um.",
+    "nonePairedShort": "Nenhum pareado",
+    "pairedCount": "{{count}} pareados",
     "addSensor": "Adicionar um sensor",
     "scan": "Buscar sensores",
     "stopScan": "Parar busca",

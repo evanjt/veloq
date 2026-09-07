@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synchronizacja nie dochodzi",
       "lastSynced": "Ostatnia synchronizacja {{when}}",
-      "neverSynced": "Zadna synchronizacja sie nie zakonczyla"
+      "neverSynced": "Zadna synchronizacja sie nie zakonczyla",
+      "reason": {
+        "unauthorized": "intervals.icu odrzucil twoje logowanie",
+        "rateLimited": "intervals.icu poprosil o przerwe, synchronizacja czeka",
+        "server": "intervals.icu odeslal cos, czego aplikacja nie potrafi uzyc",
+        "network": "Nie udalo sie polaczyc z intervals.icu",
+        "storage": "Nie udalo sie odczytac pliku na tym urzadzeniu",
+        "notConfigured": "Na tym urzadzeniu nie zapisano logowania do intervals.icu",
+        "internal": "Synchronizacja zatrzymala sie z powodu, ktorego aplikacja nie potrafi nazwac"
+      }
     }
   },
   "engine": {
@@ -664,6 +673,7 @@
     "securityNote": "Twoje dane uwierzytelniające są bezpiecznie przechowywane na urządzeniu",
     "sessionDataKept": "Twoje aktywności, odcinki i ustawienia nadal są na tym urządzeniu.",
     "sessionSignedOut": "Nastąpiło wylogowanie.",
+    "sessionKeyRejected": "Twój klucz API został odrzucony.",
     "sessionRestore": "Zaloguj się ponownie, aby je odzyskać.",
     "sessionRestoreAthlete": "Zaloguj się ponownie jako {{athleteId}}, aby je odzyskać.",
     "subtitle": "Połącz z Intervals.icu",
@@ -1269,7 +1279,7 @@
     "cutoverPhaseArchiving": "archiwizowanie",
     "cutoverPhaseDetecting": "wykrywanie",
     "cutoverPhaseDiffing": "porównywanie",
-    "previewAreaFallback": "Obszar {{number}}",
+    "previewAreaFallback": "Obszar {{letter}}",
     "previewAreaVisits": "{{count}} wizyt",
     "previewAreaSections": "{{count}} sekcji",
     "sectionMaxLength": "Najdłuższa sekcja: {{distance}}",
@@ -1552,6 +1562,8 @@
     "manageSensors": "Czujniki tętna, mocy i kadencji",
     "paired": "Sparowane czujniki",
     "nonePaired": "Brak sparowanych czujników. Wyszukaj poniżej, aby dodać.",
+    "nonePairedShort": "Brak sparowanych",
+    "pairedCount": "Sparowane: {{count}}",
     "addSensor": "Dodaj czujnik",
     "scan": "Szukaj czujników",
     "stopScan": "Zatrzymaj wyszukiwanie",

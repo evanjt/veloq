@@ -346,7 +346,16 @@
     "syncError": {
       "title": "La synchronisation n'aboutit pas",
       "lastSynced": "Derniere synchronisation {{when}}",
-      "neverSynced": "Aucune synchronisation n'a abouti"
+      "neverSynced": "Aucune synchronisation n'a abouti",
+      "reason": {
+        "unauthorized": "intervals.icu a refuse votre connexion",
+        "rateLimited": "intervals.icu demande une pause, la synchronisation attend",
+        "server": "intervals.icu a renvoye quelque chose que l'app n'a pas pu utiliser",
+        "network": "Impossible de joindre intervals.icu",
+        "storage": "Un fichier de cet appareil n'a pas pu etre lu",
+        "notConfigured": "Aucune connexion intervals.icu n'est enregistree sur cet appareil",
+        "internal": "La synchronisation s'est arretee pour une raison que l'app ne sait pas nommer"
+      }
     }
   },
   "engine": {
@@ -662,6 +671,7 @@
     "securityNote": "Vos identifiants sont stockés en toute sécurité sur votre appareil",
     "sessionDataKept": "Vos activités, sections et réglages sont toujours sur cet appareil.",
     "sessionSignedOut": "Vous avez été déconnecté.",
+    "sessionKeyRejected": "Votre clé API a été refusée.",
     "sessionRestore": "Reconnectez-vous pour les retrouver.",
     "sessionRestoreAthlete": "Reconnectez-vous en tant que {{athleteId}} pour les retrouver.",
     "subtitle": "Connexion à Intervals.icu",
@@ -1267,7 +1277,7 @@
     "cutoverPhaseArchiving": "archivage",
     "cutoverPhaseDetecting": "détection",
     "cutoverPhaseDiffing": "comparaison",
-    "previewAreaFallback": "Zone {{number}}",
+    "previewAreaFallback": "Zone {{letter}}",
     "previewAreaVisits": "{{count}} visites",
     "previewAreaSections": "{{count}} sections",
     "sectionMaxLength": "Section la plus longue : {{distance}}",
@@ -1550,6 +1560,8 @@
     "manageSensors": "Capteurs de fréquence cardiaque, puissance et cadence",
     "paired": "Capteurs associés",
     "nonePaired": "Aucun capteur associé. Lancez une recherche ci-dessous pour en ajouter un.",
+    "nonePairedShort": "Aucun appairé",
+    "pairedCount": "{{count}} appairés",
     "addSensor": "Ajouter un capteur",
     "scan": "Rechercher des capteurs",
     "stopScan": "Arrêter la recherche",

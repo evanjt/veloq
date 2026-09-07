@@ -324,6 +324,10 @@ name = "corpus_migration"
 required-features = ["real-corpus"]
 
 [[test]]
+name = "corpus_preview_identity"
+required-features = ["real-corpus"]
+
+[[test]]
 name = "evidence_cache_durability"
 required-features = ["synthetic"]
 

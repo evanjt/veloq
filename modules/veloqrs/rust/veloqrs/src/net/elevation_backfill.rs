@@ -563,18 +563,18 @@ async fn fetch_batch(transport: &Transport, ids: &[String], ask: Ask) -> Vec<(St
 /// so nothing else can claim the detection slot between the last store and
 /// the re-cut, and it runs only when the queue drained to empty, so no
 /// catalogue is ever cut over a half-converted library.
-pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
+pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> BackfillRun {
     let Some(slot) = RunGuard::claim() else {
         log::info!("[Elevation] backfill refused: a run is already in flight");
         return BackfillRun::Refused;
     };
-    run_in_slot(slot, transport)
+    run_in_slot(slot, transport, athlete_id)
 }
 
 /// The pass proper, on a slot the caller already holds. The guard lives to
 /// the end of the run so the slot is released after the terminal phase, and
 /// after the suspension, which was taken later and so drops first.
-fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
+fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> BackfillRun {
     let queue = match with_persistent_engine(|engine| engine.tracks_missing_elevation()) {
         Some(Ok(queue)) => queue,
         Some(Err(e)) => {
@@ -611,7 +611,7 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
             // conversion, so a credential rejected here is reported the way
             // sync reports one. Nothing else would ask until the next sync,
             // and until then the revoked session stands.
-            crate::objects::park_auth_expired();
+            crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
             return BackfillRun::Failed("unauthorized".to_string());
         }
         // Not a failed pass: the rows are untouched and the queue is
@@ -1183,13 +1183,13 @@ fn start_pass() -> bool {
         log::info!("[Elevation] backfill deferred: offline");
         return false;
     }
-    let Some(Ok(transport)) = crate::objects::current_transport() else {
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
         log::info!("[Elevation] backfill deferred: no credential yet");
         return false;
     };
 
     std::thread::spawn(move || {
-        run_in_slot(slot, &transport);
+        run_in_slot(slot, &transport, &athlete_id);
     });
     true
 }
@@ -1543,6 +1543,30 @@ mod tests {
 
             assert_eq!(asked, 2 * BATCH, "a state this old must not refuse work");
             assert!(walk.stopped.is_none());
+
+            connectivity::reset();
+        }
+
+        /// The window is the backgrounded-only fallback, so it has to outlive
+        /// the ladder that runs while backgrounded. A push aged by the resting
+        /// rung is the ordinary case for a device left offline, and it must
+        /// still refuse: an expiry that lands first spends every resting pass
+        /// asking a network the device already said was gone.
+        #[test]
+        fn an_offline_still_refuses_at_the_ladders_resting_rung() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let resting = *RESUME_WAITS.last().expect("the ladder has rungs");
+            connectivity::set_online_at(false, Instant::now() - resting);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 0, "a push younger than the resting rung is a fact");
+            assert!(walk.stopped.is_some());
 
             connectivity::reset();
         }
