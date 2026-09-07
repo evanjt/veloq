@@ -138,6 +138,7 @@ export interface TranslationResource {
     activities: string;
     undo: string;
     remove: string;
+    rename: string;
     restore: string;
     on: string;
     off: string;

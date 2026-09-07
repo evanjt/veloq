@@ -59,6 +59,8 @@ function GlobalErrorFallback({ error }: { error: Error | null }) {
       {__DEV__ && error?.message && <Text style={styles.devError}>{error.message}</Text>}
       {__DEV__ && (
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Reload"
           style={styles.reloadButton}
           onPress={() => {
             // DevSettings is only available in dev builds
