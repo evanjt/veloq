@@ -78,8 +78,10 @@ interface PreviewMapViewProps {
   selectedId: string | null;
   showCurrent: boolean;
   showProposed: boolean;
+  showRemoved: boolean;
   onToggleCurrent: () => void;
   onToggleProposed: () => void;
+  onToggleRemoved: () => void;
   onSelect: (section: PreviewSection | null) => void;
 }
 
@@ -90,8 +92,10 @@ export function PreviewMapView({
   selectedId,
   showCurrent,
   showProposed,
+  showRemoved,
   onToggleCurrent,
   onToggleProposed,
+  onToggleRemoved,
   onSelect,
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
@@ -124,8 +128,14 @@ export function PreviewMapView({
         current.push(feature);
         continue;
       }
-      if (section.status === 'gone') gone.push(feature);
-      else proposed.push(feature);
+      // A removed section draws once, through its own layer. It used to go
+      // into current as well, which put the same line on the map twice and
+      // meant hiding removals left them there in grey (B408).
+      if (section.status === 'gone') {
+        gone.push(feature);
+        continue;
+      }
+      proposed.push(feature);
       if (section.liveId !== null) current.push(feature);
     }
     return { current, proposed, gone };
@@ -141,9 +151,11 @@ export function PreviewMapView({
       proposed: showProposed
         ? { type: 'FeatureCollection', features: features.proposed }
         : EMPTY_FEATURE_COLLECTION,
-      // Gone lines belong to the current catalogue: they are what the live
-      // config keeps and the proposed one retires.
-      gone: showCurrent
+      // Removals belong to the current catalogue, but they are routinely most
+      // of what the map draws, so they toggle on their own. Reading a diff
+      // where removals dominate means being able to take them off without
+      // losing the catalogue they came from (B408).
+      gone: showRemoved
         ? { type: 'FeatureCollection', features: features.gone }
         : EMPTY_FEATURE_COLLECTION,
       selected:
@@ -154,7 +166,7 @@ export function PreviewMapView({
             }
           : EMPTY_FEATURE_COLLECTION,
     });
-  }, [sections, decoded, features, selectedId, showCurrent, showProposed]);
+  }, [sections, decoded, features, selectedId, showCurrent, showProposed, showRemoved]);
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 
@@ -267,6 +279,19 @@ export function PreviewMapView({
           swatch={previewLayerSwatch('proposed-line')}
           on={showProposed}
           onPress={onToggleProposed}
+          background={chipBg}
+          border={chipBorder}
+          text={chipText}
+          textOn={textPrimary}
+        />
+        {/* The popover's own word for this status, rather than a second key
+            carrying the same translation in seventeen locales. */}
+        <LegendChip
+          testID="preview-layer-removed"
+          label={t('settings.previewStatusGone')}
+          swatch={previewLayerSwatch('gone-line')}
+          on={showRemoved}
+          onPress={onToggleRemoved}
           background={chipBg}
           border={chipBorder}
           text={chipText}

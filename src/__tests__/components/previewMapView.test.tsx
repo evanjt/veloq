@@ -83,8 +83,10 @@ describe('PreviewMapView', () => {
         selectedId={null}
         showCurrent
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
@@ -104,8 +106,10 @@ describe('PreviewMapView', () => {
         selectedId={null}
         showCurrent
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
@@ -124,8 +128,10 @@ describe('PreviewMapView', () => {
         selectedId={null}
         showCurrent={false}
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
@@ -166,8 +172,10 @@ describe('PreviewMapView', () => {
         selectedId={null}
         showCurrent
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
@@ -187,8 +195,10 @@ describe('PreviewMapView', () => {
         selectedId="live-a"
         showCurrent
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
@@ -205,8 +215,10 @@ describe('PreviewMapView', () => {
         selectedId={null}
         showCurrent
         showProposed
+        showRemoved
         onToggleCurrent={jest.fn()}
         onToggleProposed={jest.fn()}
+        onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />
     );
