@@ -134,10 +134,14 @@ export function BaseMapView({
     };
   }, [map3DOpacity, bearingAnim]);
 
-  // Reset 3D ready state when toggling off
+  // Reset 3D ready state when toggling off. The flag is dropped while
+  // rendering so no frame commits as ready with 3D already off; the fade is an
+  // animation and stays in the effect.
+  if (!is3DMode && is3DReady) {
+    setIs3DReady(false);
+  }
   useEffect(() => {
     if (!is3DMode) {
-      setIs3DReady(false);
       map3DOpacity.setValue(0);
     }
   }, [is3DMode, map3DOpacity]);

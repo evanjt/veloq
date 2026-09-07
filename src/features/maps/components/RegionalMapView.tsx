@@ -317,18 +317,15 @@ export function RegionalMapView({
   // Spider expansion (cluster fan-out) is part of the activities layer - when
   // activities are hidden, the spider markers/legs must clear too, otherwise
   // they linger and look like rogue activity markers.
-  useEffect(() => {
-    if (!showActivities) {
-      if (selected) setSelected(null);
-      if (spider) setSpider(null);
-    }
-  }, [showActivities, selected, spider]);
-
-  useEffect(() => {
-    if (!showSections && selectedSection) {
-      setSelectedSection(null);
-    }
-  }, [showSections, selectedSection]);
+  // Clearing them while rendering rather than in an effect means the hidden
+  // layer never commits a frame still carrying its selection.
+  if (!showActivities) {
+    if (selected) setSelected(null);
+    if (spider) setSpider(null);
+  }
+  if (!showSections && selectedSection) {
+    setSelectedSection(null);
+  }
 
   const toggleStyle = () => {
     setMapStyleLocal((current) => {
