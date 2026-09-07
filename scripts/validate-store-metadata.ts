@@ -29,11 +29,7 @@ const METADATA_DIR = path.join(FASTLANE_DIR, 'metadata');
 const APP_LOCALES_DIR = path.join(PROJECT_ROOT, 'src', 'i18n', 'locales');
 
 // Required files per platform
-const ANDROID_REQUIRED_FILES = [
-  'title.txt',
-  'short_description.txt',
-  'full_description.txt',
-];
+const ANDROID_REQUIRED_FILES = ['title.txt', 'short_description.txt', 'full_description.txt'];
 
 // Google Play rejects a release note over 500 characters. The count is
 // characters, not bytes: ja-JP's note is 557 bytes and 187 characters.
@@ -108,9 +104,7 @@ interface ValidationError {
 
 function getAppLocales(): string[] {
   const files = fs.readdirSync(APP_LOCALES_DIR);
-  return files
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => f.replace('.json', ''));
+  return files.filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', ''));
 }
 
 function getUniqueStoreLocales(platform: 'android' | 'ios'): string[] {
@@ -124,6 +118,42 @@ function getVersionCodeFromAppJson(): number | null {
 
   const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf-8'));
   return appJson?.expo?.android?.versionCode || null;
+}
+
+/**
+ * Every changelog on disk that is over the cap, not only the current build's.
+ *
+ * `validateMetadata` reads one version code, so a file goes over the cap only
+ * on the release that ships it and is never looked at again. Sixteen of them
+ * had drifted over before anyone counted (`B103`), and the same edit that
+ * lengthens a translation for an old build lengthens it silently.
+ */
+export function oversizedChangelogs(): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const locale of getUniqueStoreLocales('android')) {
+    const changelogDir = path.join(METADATA_DIR, 'android', locale, 'changelogs');
+    if (!fs.existsSync(changelogDir)) continue;
+
+    for (const name of fs.readdirSync(changelogDir).sort()) {
+      if (!name.endsWith('.txt')) continue;
+      const chars = changelogCharCount(fs.readFileSync(path.join(changelogDir, name), 'utf-8'));
+      if (chars > PLAY_CHANGELOG_MAX_CHARS) {
+        errors.push({
+          type: 'changelog_too_long',
+          platform: 'android',
+          locale,
+          file: `changelogs/${name}`,
+          message:
+            `Too long: android/${locale}/changelogs/${name} is ` +
+            `${chars} characters, Play allows ${PLAY_CHANGELOG_MAX_CHARS} ` +
+            `(the trailing newline counts)`,
+        });
+      }
+    }
+  }
+
+  return errors;
 }
 
 export function validateMetadata(versionCode?: number): ValidationError[] {
@@ -185,11 +215,7 @@ export function validateMetadata(versionCode?: number): ValidationError[] {
 
     // Check changelog for current version
     if (versionCode) {
-      const changelogPath = path.join(
-        localeDir,
-        'changelogs',
-        `${versionCode}.txt`
-      );
+      const changelogPath = path.join(localeDir, 'changelogs', `${versionCode}.txt`);
       if (!fs.existsSync(changelogPath)) {
         errors.push({
           type: 'missing_changelog',
@@ -287,7 +313,12 @@ if (require.main === module) {
     console.log(`Version code: ${detectedVersionCode}\n`);
   }
 
-  const errors = validateMetadata(versionCode);
+  // The sweep covers the current version code too, so dedupe by message
+  // rather than reporting that one file twice.
+  const seen = new Set<string>();
+  const errors = [...validateMetadata(versionCode), ...oversizedChangelogs()].filter(
+    (e) => !seen.has(e.message) && seen.add(e.message)
+  );
 
   if (errors.length === 0) {
     console.log('✓ All store metadata validations passed\n');
