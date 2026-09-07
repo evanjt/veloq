@@ -936,6 +936,112 @@ mod tests {
         (boxes, sports)
     }
 
+    /// A section stand-in carrying only the fields `diff_catalogues` reads.
+    fn section(id: &str, polyline: Vec<tracematch::GpsPoint>) -> FrequentSection {
+        FrequentSection {
+            id: id.to_string(),
+            name: None,
+            sport_type: "Ride".to_string(),
+            polyline,
+            distance_meters: 1000.0,
+            visit_count: 5,
+            created_at: None,
+            representative_activity_id: String::new(),
+            representative_range: None,
+            activity_ids: Vec::new(),
+            activity_portions: Vec::new(),
+            activity_traces: HashMap::new(),
+            confidence: 0.0,
+            observation_count: 0,
+            average_spread: 0.0,
+            point_density: Vec::new(),
+            scale: None,
+            is_user_defined: false,
+            stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            version: 1,
+            updated_at: None,
+            enrichment: Default::default(),
+            rank: None,
+            consensus_state: None,
+        }
+    }
+
+    /// A ~2.2 km line at (base_lat, base_lng), 200 points ~11 m apart.
+    fn line(base_lat: f64, base_lng: f64) -> Vec<tracematch::GpsPoint> {
+        (0..200)
+            .map(|i| tracematch::GpsPoint {
+                latitude: base_lat + f64::from(i) * 0.0001,
+                longitude: base_lng,
+                elevation: None,
+            })
+            .collect()
+    }
+
+    /// A catalogue dense enough that the greedy pairing has real competition:
+    /// `count` near-parallel lines 20 m apart, so every one shares ground with
+    /// its neighbours and the pairing must still choose its own twin.
+    fn dense_catalogue(count: usize) -> Vec<FrequentSection> {
+        (0..count)
+            .map(|i| section(&format!("s{i}"), line(5.0, 10.0 + i as f64 * 0.0002)))
+            .collect()
+    }
+
+    /// A catalogue diffed against itself is entirely unchanged. Anything else
+    /// is the pairing rather than the detector, so a run reporting most of its
+    /// rows gone would be a defect here rather than a different cut.
+    ///
+    /// `preview_cluster` already asserts this end to end at three sections.
+    /// This is the same property at the scale the device reported, where the
+    /// greedy pairing has hundreds of ground-sharing pairs to choose among.
+    #[test]
+    fn a_catalogue_diffed_against_itself_is_entirely_unchanged() {
+        for count in [3usize, 30, 118] {
+            let catalogue = dense_catalogue(count);
+            let proposed: Vec<&FrequentSection> = catalogue.iter().collect();
+            let (counts, _rows) = diff_catalogues_public(&proposed, &catalogue);
+
+            assert_eq!(counts.gone, 0, "phantom gone rows at {count} sections");
+            assert_eq!(counts.new, 0, "phantom new rows at {count} sections");
+            assert_eq!(
+                counts.changed, 0,
+                "phantom changed rows at {count} sections"
+            );
+            assert_eq!(counts.unchanged, count as u32);
+        }
+    }
+
+    /// A row that really did go is reported once, not as a gone and a new.
+    #[test]
+    fn a_removed_section_is_one_gone_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let kept: Vec<&FrequentSection> = live.iter().skip(1).collect();
+
+        let (counts, _rows) = diff_catalogues_public(&kept, &live);
+
+        assert_eq!(counts.gone, 1);
+        assert_eq!(counts.new, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 29);
+    }
+
+    /// A line far from every live section is new, and takes nothing with it.
+    #[test]
+    fn an_added_section_is_one_new_and_nothing_else() {
+        let live = dense_catalogue(30);
+        let mut proposed = live.clone();
+        proposed.push(section("far", line(40.0, 60.0)));
+        let refs: Vec<&FrequentSection> = proposed.iter().collect();
+
+        let (counts, _rows) = diff_catalogues_public(&refs, &live);
+
+        assert_eq!(counts.new, 1);
+        assert_eq!(counts.gone, 0);
+        assert_eq!(counts.changed, 0);
+        assert_eq!(counts.unchanged, 30);
+    }
+
     #[test]
     fn another_sport_does_not_chain_two_components_of_this_one() {
         let (boxes, sports) = bridged();
