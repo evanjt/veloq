@@ -1289,6 +1289,7 @@
     "previewRun": "Pré-visualizar",
     "previewRunning": "Analisando {{count}} atividades nesta área",
     "previewFailed": "Não foi possível concluir a pré-visualização.",
+    "previewSlow": "Está demorando mais que o normal. Ainda está em execução.",
     "previewPoolUnusable": "Alguns dos seus registros de atividade nao podem ser lidos, entao a previa foi interrompida.",
     "previewCurrentFailed": "Não foi possível ler os trechos atuais desta área.",
     "previewSuspended": "Atualização de elevação em andamento. Tente novamente em instantes.",
