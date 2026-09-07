@@ -37,7 +37,7 @@ describe('satellite attribution names only what is drawn', () => {
     const layer = getCombinedSatelliteStyle().layers.find(
       (l) => l.id === 'satellite-layer-swisstopo'
     );
-    expect(layer?.minzoom).toBe(8);
+    expect(layer && 'minzoom' in layer ? layer.minzoom : null).toBe(8);
 
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 7)).not.toContain('swisstopo');
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 8)).toContain('swisstopo');
