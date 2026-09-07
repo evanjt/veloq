@@ -8,6 +8,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { initializeI18n, changeLanguage } from '@/i18n';
+import enAU from '@/i18n/locales/en-AU.json';
 import { ElevationBackfillStatus } from '@/features/settings/components/ElevationBackfillStatus';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
@@ -283,7 +284,9 @@ describe('ElevationBackfillStatus pause', () => {
     const text = tree.getByTestId('elevation-backfill-status').props.children as string;
     expect(text).toContain('paused');
     expect(text).toContain('next time you open');
-    expect(text).toContain('Route matching');
+    // Read the label rather than repeating it: the sentence points at that row,
+    // so a rename of either has to move both or this fails.
+    expect(text).toContain(enAU.settings.routeMatching);
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
 
