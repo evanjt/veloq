@@ -90,6 +90,12 @@ export interface RecordingLibraryEntry {
   engineActivityId?: string;
   /** Whether the engine row carries the id intervals.icu gave the upload. */
   engineReconciled?: boolean;
+  /**
+   * The athlete signed in when the recording was saved. Absent on an entry
+   * saved before the stamp existed, or with nobody signed in, and an absent
+   * stamp is never treated as a match: the entry is held rather than uploaded.
+   */
+  athleteId?: string;
 }
 
 /** Crash recovery backup */

@@ -216,6 +216,17 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
 }));
 
+let mockSignedInAthlete: string | null = 'i296629';
+
+jest.mock('@/shared/app/AuthStore', () => ({
+  getStoredCredentials: () => ({
+    apiKey: null,
+    accessToken: 'token',
+    athleteId: mockSignedInAthlete,
+    authMethod: 'oauth',
+  }),
+}));
+
 function makeBuffer(): ArrayBuffer {
   return new Uint8Array([0x0e, 0x10, 0x56, 0x45, 0x4c, 0x4f, 0x51]).buffer;
 }
@@ -259,6 +270,7 @@ beforeEach(() => {
   mockFileStore.clear();
   mockDirStore.clear();
   rows.clear();
+  mockSignedInAthlete = 'i296629';
 });
 
 describe('saveRecording', () => {
@@ -307,6 +319,24 @@ describe('saveRecording', () => {
     await discardRecordingStreams(entry.id);
     await expect(discardRecordingStreams(entry.id)).resolves.toBeUndefined();
     await expect(discardRecordingStreams('never-saved')).resolves.toBeUndefined();
+  });
+
+  it('stamps the athlete who recorded it', async () => {
+    const entry = await saveOne();
+    expect(entry.athleteId).toBe('i296629');
+    expect(rows.get(entry.id)?.athleteId).toBe('i296629');
+  });
+
+  it('leaves the stamp off when nobody is signed in', async () => {
+    mockSignedInAthlete = null;
+    const entry = await saveOne();
+    expect(entry.athleteId).toBeUndefined();
+    expect(rows.get(entry.id)?.athleteId).toBeUndefined();
+  });
+
+  it('stamps a local-only recording too, so a later requeue can tell whose it is', async () => {
+    const entry = await saveOne({ uploadStatus: 'localOnly' });
+    expect(entry.athleteId).toBe('i296629');
   });
 
   it('respects localOnly status for auto-upload off', async () => {
