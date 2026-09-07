@@ -1,5 +1,7 @@
 /**
- * Scenario: en-AU and en-GB carry different voices but the same orthography.
+ * Scenario: en-AU and en-GB share an orthography, and since the register was
+ * flattened they mostly share the wording too. `enAuRegister` holds the
+ * wording; this file is only about spelling.
  *
  * Expected behaviour: the noun is `licence`, so `License` only survives inside
  * the proper name of a licence. en-US is the one variant that keeps the `-se`
