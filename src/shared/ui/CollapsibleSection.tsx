@@ -99,6 +99,9 @@ export function CollapsibleSection({
     <View style={[styles.container, style]}>
       <AnimatedPressable
         testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded }}
         onPress={handlePress}
         pressScale={0.99}
         hapticType="light"

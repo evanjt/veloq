@@ -30,6 +30,11 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
       {sorted.map((product) => (
         <Pressable
           key={product.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${t(
+            (SIZE_LABELS[product.id] ?? product.id) as 'support.tipSmall'
+          )} ${product.displayPrice}`}
+          accessibilityState={{ disabled: isPurchasing }}
           onPress={() => onTip(product.id)}
           disabled={isPurchasing}
           style={[
