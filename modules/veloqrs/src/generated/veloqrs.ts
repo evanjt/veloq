@@ -436,6 +436,25 @@ export function validateBackupDatabase(path: string): string /*throws*/ {
   );
 }
 /**
+ * The quarantine this launch did, if there was one, and never twice.
+ *
+ * Taken rather than read: what it feeds is a one-time notice, and a notice
+ * that survives its own dismissal is the shape a banner takes when it outlives
+ * the resync. A launch that opened the file it was given answers `None`.
+ */
+export function takeQuarantineReport(): FfiQuarantineReport | undefined {
+  return FfiConverterOptionalTypeFfiQuarantineReport.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_take_quarantine_report(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
  * Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
  * Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
@@ -5005,6 +5024,85 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One quarantine, and what came out of the file it replaced.
+ *
+ * Every count is a row a rebuild cannot re-derive. The catalogue is not here
+ * because it is a cache the next sync refills, which is the whole reason a
+ * quarantine is safe.
+ */
+export type FfiQuarantineReport = {
+  /**
+   * Section lifecycle events carried over.
+   */
+  history: /*u32*/ number;
+  /**
+   * Section geometry versions carried over.
+   */
+  geometry: /*u32*/ number;
+  /**
+   * Pinned geometry versions carried over.
+   */
+  pins: /*u32*/ number;
+  /**
+   * User-owned sections: drawn, accepted, renamed, trimmed.
+   */
+  sections: /*u32*/ number;
+  /**
+   * Suppressions, whose contract is that a removed corridor stays removed.
+   */
+  intents: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiQuarantineReport} record objects.
+ */
+export const FfiQuarantineReport = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiQuarantineReport, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiQuarantineReport>,
+  });
+})();
+
+const FfiConverterTypeFfiQuarantineReport = (() => {
+  type TypeName = FfiQuarantineReport;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        history: FfiConverterUInt32.read(from),
+        geometry: FfiConverterUInt32.read(from),
+        pins: FfiConverterUInt32.read(from),
+        sections: FfiConverterUInt32.read(from),
+        intents: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.history, into);
+      FfiConverterUInt32.write(value.geometry, into);
+      FfiConverterUInt32.write(value.pins, into);
+      FfiConverterUInt32.write(value.sections, into);
+      FfiConverterUInt32.write(value.intents, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.history) +
+        FfiConverterUInt32.allocationSize(value.geometry) +
+        FfiConverterUInt32.allocationSize(value.pins) +
+        FfiConverterUInt32.allocationSize(value.sections) +
+        FfiConverterUInt32.allocationSize(value.intents)
       );
     }
   }
@@ -19701,6 +19799,11 @@ const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
   FfiConverterTypeFfiHrvTrend,
 );
 
+// FfiConverter for FfiQuarantineReport | undefined
+const FfiConverterOptionalTypeFfiQuarantineReport = new FfiConverterOptional(
+  FfiConverterTypeFfiQuarantineReport,
+);
+
 // FfiConverter for FfiRecordingEntry | undefined
 const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
   FfiConverterTypeFfiRecordingEntry,
@@ -20260,6 +20363,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_quarantine_report() !==
+    394
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_take_quarantine_report",
     );
   }
   if (
@@ -22529,6 +22640,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
+    FfiConverterTypeFfiQuarantineReport,
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,

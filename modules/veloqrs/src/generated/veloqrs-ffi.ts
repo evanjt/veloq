@@ -1621,6 +1621,9 @@ interface NativeModuleInterface {
     path: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_take_quarantine_report(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
     coordsA: Uint8Array,
     coordsB: Uint8Array,
@@ -1777,6 +1780,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;
   ubrn_uniffi_veloqrs_checksum_func_validate_backup_database(): number;
+  ubrn_uniffi_veloqrs_checksum_func_take_quarantine_report(): number;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
