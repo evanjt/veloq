@@ -674,23 +674,42 @@ fn pattern_library() -> Setup {
 }
 
 /// Every field of every pattern, ordered by the day the pattern sits on.
+///
+/// Destructured rather than read field by field, so a field added to or removed
+/// from the record fails to compile here instead of going unasserted. It read
+/// ten of the twelve fields and named a deleted one before that was enforced.
 fn pattern_shape(patterns: &[veloqrs::FfiActivityPattern]) -> Vec<String> {
     let mut shaped: Vec<String> = patterns
         .iter()
         .map(|p| {
+            let veloqrs::FfiActivityPattern {
+                sport_type,
+                cluster_id,
+                primary_day,
+                season_label,
+                activity_count,
+                avg_duration_secs,
+                avg_tss,
+                avg_distance_meters,
+                frequency_per_month,
+                confidence,
+                silhouette_score,
+                days_since_last,
+            } = p;
             format!(
-                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{:?}",
-                p.sport_type,
-                p.cluster_id,
-                p.primary_day,
-                p.season_label,
-                p.activity_count,
-                p.avg_duration_secs,
-                p.avg_tss,
-                p.avg_distance_meters,
-                p.confidence,
-                p.days_since_last,
-                p.common_sections
+                "{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
+                sport_type,
+                cluster_id,
+                primary_day,
+                season_label,
+                activity_count,
+                avg_duration_secs,
+                avg_tss,
+                avg_distance_meters,
+                frequency_per_month,
+                confidence,
+                silhouette_score,
+                days_since_last
             )
         })
         .collect();
