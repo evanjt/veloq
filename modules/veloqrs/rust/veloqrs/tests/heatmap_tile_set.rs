@@ -8,6 +8,7 @@
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
@@ -23,6 +24,14 @@ fn seed_engine(activities: &[&LifecycleActivity]) -> (PersistentEngine, TempDir)
             .expect("add_activity");
     }
     (engine, tmp)
+}
+
+/// The tile-pass slot and the handle slot are both process-global, so a run
+/// still in flight from one test refuses the other's.
+static SERIAL: Mutex<()> = Mutex::new(());
+
+fn serial() -> MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 fn generate_and_collect(engine: &mut PersistentEngine, tmp: &TempDir) -> BTreeSet<String> {
@@ -102,6 +111,7 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
 
 #[test]
 fn scenario_a_tile_set_snapshot() {
+    let _serial = serial();
     let cfg = LifecycleConfig {
         bucket_a_count: 30,
         bucket_b_delta_count: 0,
@@ -124,6 +134,7 @@ fn scenario_a_tile_set_snapshot() {
 
 #[test]
 fn scenario_e_tile_set_snapshot() {
+    let _serial = serial();
     // Keep E small enough for CI: 60+90+350 = 500 full-year state
     // matches the bench, but we trim it here since we only need a
     // stable structural fingerprint, not timing.

@@ -22,13 +22,27 @@ import { InitOutcome } from 'veloqrs';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { colors, typography } from '@/theme';
 
-/** The line each reason names. `Opened` and `NotAttempted` are not failures. */
-const REASON_KEY: Partial<Record<InitOutcome, string>> = {
-  [InitOutcome.Busy]: 'engine.initReason.busy',
-  [InitOutcome.ForwardSchema]: 'engine.initReason.forwardSchema',
-  [InitOutcome.StorageUnavailable]: 'engine.initReason.storageUnavailable',
-  [InitOutcome.Failed]: 'engine.initReason.failed',
-};
+/**
+ * The line each reason names.
+ *
+ * `Opened` and `NotAttempted` are not failures, and a variant this bundle has
+ * no case for is what an engine newer than it produces. Both fall through to
+ * the general line rather than rendering a key as text.
+ */
+function reasonLine(reason: InitOutcome | null) {
+  switch (reason) {
+    case InitOutcome.Busy:
+      return 'engine.initReason.busy';
+    case InitOutcome.ForwardSchema:
+      return 'engine.initReason.forwardSchema';
+    case InitOutcome.StorageUnavailable:
+      return 'engine.initReason.storageUnavailable';
+    case InitOutcome.Failed:
+      return 'engine.initReason.failed';
+    default:
+      return 'engine.initFailed';
+  }
+}
 
 export function EngineInitBanner() {
   const { t } = useTranslation();
@@ -46,8 +60,7 @@ export function EngineInitBanner() {
     return null;
   }
 
-  const reasonKey =
-    (initFailureReason === null ? undefined : REASON_KEY[initFailureReason]) ?? 'engine.initFailed';
+  const reasonKey = reasonLine(initFailureReason);
 
   return (
     <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>

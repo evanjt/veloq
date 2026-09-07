@@ -5,6 +5,10 @@ import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { InitOutcome } from '../__shared__/veloqrsStub';
 
+type EngineStatusReason = Parameters<
+  ReturnType<typeof useEngineStatus.getState>['setInitFailureReason']
+>[0];
+
 /**
  * Scenario: the engine will not open. A database written by a newer build is
  * fixed by updating the app, a file another connection holds fixes itself, and
@@ -20,8 +24,15 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+/**
+ * The stub's enum is a separate declaration from the generated one the store
+ * is typed against, and `ffiEnumStub.test.ts` is what holds the two together.
+ */
 function failedWith(reason: InitOutcome | null) {
-  useEngineStatus.setState({ initFailed: true, initFailureReason: reason });
+  useEngineStatus.setState({
+    initFailed: true,
+    initFailureReason: reason as unknown as EngineStatusReason,
+  });
 }
 
 describe('EngineInitBanner', () => {

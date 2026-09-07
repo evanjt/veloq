@@ -144,6 +144,10 @@ name = "heatmap_idempotent"
 required-features = ["synthetic"]
 
 [[test]]
+name = "tile_pass_slot"
+required-features = ["synthetic"]
+
+[[test]]
 name = "heatmap_tile_set"
 required-features = ["synthetic"]
 
