@@ -47,3 +47,5 @@ export type {
   SectionTrendData,
   TFunc,
 } from './types';
+
+export { aboutInsightsBody, type InsightsTab } from './lib/aboutCopy';

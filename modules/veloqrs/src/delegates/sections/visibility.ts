@@ -135,6 +135,29 @@ export function setSuperseded(
   }
 }
 
+/**
+ * Auto sections the given custom section covers, above `overlapThreshold`.
+ *
+ * One engine read for the whole library. The caller used to ask per section,
+ * decoding every auto polyline in JavaScript and rebuilding the same R-tree
+ * each time, which held the frame for as long as the section count demanded.
+ */
+export function findSupersededSections(
+  host: DelegateHost,
+  customSectionId: string,
+  overlapThreshold: number
+): string[] {
+  if (!host.ready) return [];
+  try {
+    return host.timed('findSupersededSections', () =>
+      host.engine.sections().findSuperseded(customSectionId, overlapThreshold)
+    );
+  } catch (e) {
+    console.error('[Engine] findSupersededSections failed:', customSectionId, e);
+    return [];
+  }
+}
+
 export function clearSuperseded(host: DelegateHost, customSectionId: string): boolean {
   if (!host.ready) return false;
   try {

@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Export fertig",
     "bulkExport": "Alli Aktivitäte exportiere ({{count}})",
-    "bulkExporting": "GPX mache {{current}}/{{total}}...",
+    "bulkExporting": "GPX mache...",
     "bulkResult": "{{exported}} GPX-Dateie exportiert, {{skipped}} Aktivitäte ohni GPS übersprunge.",
     "bulkSharing": "Teile-Menü ufmache...",
     "error": "GPX-Datei exportiere hät nöd klappet.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetrike sind Schätzige basierend uf publizierte sportwüsseschaftliche Modäll. Individuelli Reaktione variiere. Die Einblicke sind nur informativ, kei medizinische oder Coaching-Raat.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst. Nicht danach, ob die Nachricht gut ist.",
     "efficiencyTrend": {
       "seriesLabel": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
       "title": "HF sinkt uf {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Am meischte bsuecht",
     "sortNameAZ": "Name A bis Z",
     "sortNearby": "In dr Nöchi",
-    "sortSignature": "Signatur",
+    "sortRelevance": "Relevanz",
     "standingBest": "Deine schnellste von {{total}}",
     "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
     "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
@@ -1288,6 +1289,7 @@
     "previewRun": "Vorschau",
     "previewRunning": "Analysiere {{count}} Aktivitäte i dem Gebiet",
     "previewFailed": "D Vorschau het nöd chöne fertig werde.",
+    "previewSlow": "Das dauert länger als üblich. Der Lauf läuft noch.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewCurrentFailed": "Di jetzige Abschnitt für die Gäged händ nöd chöne gläse werde.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",

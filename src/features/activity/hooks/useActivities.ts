@@ -9,6 +9,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { hasStarted } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
@@ -45,10 +46,10 @@ function readActivities(oldest: string, newest: string): Activity[] {
  * both reach further back than that, so a window they open is requested once
  * and the engine event wakes the read when it lands.
  *
- * Only an accepted job is remembered. `syncActivitiesWindow` returns false
- * whenever the exclusive sync slot is held, which the launch sync holds for
- * minutes, and a key recorded for a job that never ran leaves that window
- * blank for the life of the process.
+ * Only an accepted job is remembered. `syncActivitiesWindow` refuses whenever
+ * the exclusive sync slot is held, which the launch sync holds for minutes, and
+ * a key recorded for a job that never ran leaves that window blank for the life
+ * of the process.
  */
 const requestedWindows = new Set<string>();
 
@@ -61,7 +62,7 @@ function requestActivityWindow(oldest: string, newest: string): void {
   const engine = getEngine();
   if (!engine?.syncActivitiesWindow) return;
   try {
-    if (engine.syncActivitiesWindow(oldest, newest)) {
+    if (hasStarted(engine.syncActivitiesWindow(oldest, newest))) {
       requestedWindows.add(windowKey(oldest, newest));
     }
   } catch {

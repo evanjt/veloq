@@ -367,3 +367,21 @@ describe('ElevationBackfillStatus pause', () => {
     }
   });
 });
+
+/**
+ * The pause used to answer whether a pass had been running, which is not the
+ * question anyone asked: the screen wants to know it is paused, and the phase
+ * says that. No caller ever read the answer.
+ */
+describe('the pause call', () => {
+  it('answers nothing, because the phase is what says it is paused', () => {
+    const { pauseElevationBackfill } =
+      require('../../../../modules/veloqrs/src/delegates/elevation') as typeof import('../../../../modules/veloqrs/src/delegates/elevation');
+    const host = {
+      ready: true,
+      timed: <T,>(_name: string, fn: () => T) => fn(),
+    };
+
+    expect(pauseElevationBackfill(host as never)).toBeUndefined();
+  });
+});

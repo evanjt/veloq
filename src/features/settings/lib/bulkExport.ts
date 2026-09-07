@@ -8,19 +8,27 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
+import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 
 export interface BulkExportProgress {
   phase: BulkExportPhase;
-  current: number;
-  total: number;
   sizeBytes: number;
 }
 
 export interface BulkExportResult {
   exported: number;
   skipped: number;
+}
+
+/**
+ * Let the caller's last render reach the screen before the export freezes the
+ * thread that would paint it. The write is one blocking FFI call, so a row
+ * that announces itself in the same tick announces to nobody.
+ */
+function paint(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 export async function bulkExportActivities(
@@ -36,30 +44,14 @@ export async function bulkExportActivities(
   // Strip file:// for Rust (expects plain filesystem path)
   const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;
 
-  onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
+  onProgress?.({ phase: 'generating', sizeBytes: 0 });
+  await paint();
 
   // Single FFI call - Rust streams all tracks into a ZIP on disk
   const result = engine.bulkExportGpx(plainPath);
 
-  onProgress?.({
-    phase: 'generating',
-    current: result.exported + result.skipped,
-    total: result.exported + result.skipped,
-    sizeBytes: result.totalBytes,
-  });
-
-  // Share the file
-  onProgress?.({
-    phase: 'sharing',
-    current: result.exported,
-    total: result.exported,
-    sizeBytes: result.totalBytes,
-  });
-  const Sharing = await import('expo-sharing');
-  await Sharing.shareAsync(destUri, {
-    mimeType: 'application/zip',
-    UTI: 'public.zip-archive',
-  });
+  onProgress?.({ phase: 'sharing', sizeBytes: result.totalBytes });
+  await shareExistingFile(destUri, 'application/zip', 'public.zip-archive');
 
   // Clean up temp file
   await FileSystem.deleteAsync(destUri, { idempotent: true });
@@ -78,21 +70,13 @@ export async function bulkExportActivitiesGeoJson(
   const destUri = `${FileSystem.cacheDirectory}${filename}`;
   const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;
 
-  onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
+  onProgress?.({ phase: 'generating', sizeBytes: 0 });
+  await paint();
 
   const result = engine.bulkExportGeoJson(plainPath);
 
-  onProgress?.({
-    phase: 'sharing',
-    current: result.exported,
-    total: result.exported,
-    sizeBytes: result.totalBytes,
-  });
-  const Sharing = await import('expo-sharing');
-  await Sharing.shareAsync(destUri, {
-    mimeType: 'application/geo+json',
-    UTI: 'public.json',
-  });
+  onProgress?.({ phase: 'sharing', sizeBytes: result.totalBytes });
+  await shareExistingFile(destUri, 'application/geo+json', 'public.json');
 
   await FileSystem.deleteAsync(destUri, { idempotent: true });
 

@@ -436,7 +436,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       // engine-init effect does not re-run on a restore.
       await clearDatabaseStamps();
       await startElevationBackfillAfterUpdate().catch(() => false);
-      await startDetectorCutoverAfterUpdate().catch(() => false);
+      await startDetectorCutoverAfterUpdate().catch(() => {});
 
       // Restore succeeded - drop the rollback snapshot, all of it.
       if (snapshotTaken) {

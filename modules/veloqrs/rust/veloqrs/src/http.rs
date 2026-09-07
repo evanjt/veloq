@@ -65,6 +65,22 @@ pub fn finish_download_progress() {
     DOWNLOAD_PROGRESS.active.store(false, Ordering::Relaxed);
 }
 
+/// Clears the download flag when the fetch thread unwinds.
+///
+/// The crate unwinds rather than aborts, and the panic hook logs and returns,
+/// so a panic in the body of the spawned thread kills that thread alone and
+/// used to skip the `finish_download_progress()` at its tail. The flag then
+/// stayed true for the life of the process, and the only consumer polls it
+/// every 100 ms and breaks on nothing else, so the app span at 10 Hz behind a
+/// sync banner that never cleared. Same shape as `objects::sync::FinishGuard`.
+pub struct DownloadFinishGuard;
+
+impl Drop for DownloadFinishGuard {
+    fn drop(&mut self) {
+        finish_download_progress();
+    }
+}
+
 /// Get current progress state (called by FFI)
 pub fn get_download_progress() -> (u32, u32, bool) {
     (
@@ -439,6 +455,41 @@ mod tests {
     use httpmock::prelude::*;
     use serde_json::json;
 
+    /// Expected behaviour: the download flag is the only thing the GPS poll
+    /// loop breaks on, so it has to be cleared on every way out of the fetch
+    /// thread. An unwind used to skip the clear at the tail and strand it.
+    #[test]
+    fn a_panicking_fetch_thread_still_clears_the_download_flag() {
+        let _serial = crate::test_globals::serial_global_state();
+        reset_download_progress(3);
+        assert!(get_download_progress().2, "a started download reads active");
+
+        let unwound = std::thread::spawn(|| {
+            let _guard = DownloadFinishGuard;
+            panic!("the fetch thread unwound");
+        })
+        .join();
+
+        assert!(unwound.is_err(), "the thread has to have panicked");
+        assert!(
+            !get_download_progress().2,
+            "the flag must not survive the unwind"
+        );
+    }
+
+    #[test]
+    fn the_guard_clears_the_flag_on_a_clean_return_too() {
+        let _serial = crate::test_globals::serial_global_state();
+        reset_download_progress(1);
+        {
+            let _guard = DownloadFinishGuard;
+            increment_download_progress();
+        }
+        let (completed, total, active) = get_download_progress();
+        assert!(!active, "a finished download reads inactive");
+        assert_eq!((completed, total), (1, 1), "the counters still stand");
+    }
+
     /// A fetcher pointed at a mock server rather than the live base URL.
     fn fetcher_to(base: String) -> ActivityFetcher {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
@@ -707,6 +758,8 @@ mod tests {
 
     #[test]
     fn track_fetch_reports_progress_per_activity() {
+        // The fetch loop bumps the process-wide download counters as it goes.
+        let _serial = crate::test_globals::serial_global_state();
         let server = MockServer::start();
         server.mock(|when, then| {
             when.method(GET).path_contains("/streams.json");

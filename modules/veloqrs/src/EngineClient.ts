@@ -49,6 +49,7 @@ import type {
   DerivedClear,
   SettingPair,
 } from './generated/veloqrs';
+import { FfiStartOutcome } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
@@ -170,6 +171,12 @@ class EngineClient implements DelegateHost {
   private dbPath: string | null = null;
   /** The generated binding installs its vtables once per process. */
   private bindingInitialised = false;
+  /**
+   * Whether Rust can announce anything. False until `setObserver` has been
+   * accepted, and it stays false when the checksum check or the call itself
+   * throws. A caller with no polling fallback reads it and polls.
+   */
+  private observerRegistered = false;
   private pendingWrites: PendingWrite[] = [];
   private droppedWrites = 0;
 
@@ -282,9 +289,11 @@ class EngineClient implements DelegateHost {
       // channel. The observer is withheld if it throws: a handle Rust cannot
       // call through is worse than none, since the polling fallback still
       // works and a panic per event does not.
+      this.observerRegistered = false;
       if (this.ensureBindingInitialised()) {
         try {
           this.engine.setObserver(this.observer());
+          this.observerRegistered = true;
         } catch (e) {
           console.warn('[EngineClient] Engine refused the observer:', e);
         }
@@ -377,6 +386,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
+    this.observerRegistered = false;
     this.pendingWrites = [];
   }
 
@@ -407,6 +417,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
+    this.observerRegistered = false;
     this.pendingWrites = [];
     if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
@@ -440,13 +451,12 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  startSectionDetection = (): boolean => detectionDelegates.startSectionDetection(this);
+  startSectionDetection = (): FfiStartOutcome => detectionDelegates.startSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
   /** How the last finished run ended. Reads nothing the follower needs. */
-  lastSectionDetectionOutcome = (): string =>
-    detectionDelegates.lastSectionDetectionOutcome(this);
+  lastSectionDetectionOutcome = (): string => detectionDelegates.lastSectionDetectionOutcome(this);
 
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
@@ -476,7 +486,7 @@ class EngineClient implements DelegateHost {
 
   startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
 
-  pauseElevationBackfill = (): boolean => elevationDelegates.pauseElevationBackfill(this);
+  pauseElevationBackfill = (): void => elevationDelegates.pauseElevationBackfill(this);
   resumeElevationBackfill = (): boolean => elevationDelegates.resumeElevationBackfill(this);
   isElevationBackfillPaused = (): boolean => elevationDelegates.isElevationBackfillPaused(this);
 
@@ -502,9 +512,9 @@ class EngineClient implements DelegateHost {
 
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
-  syncNow = (): boolean => syncDelegates.syncNow(this);
+  syncNow = (): FfiStartOutcome => syncDelegates.syncNow(this);
 
-  syncActivitiesWindow = (oldest: string, newest: string): boolean =>
+  syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
 
   syncPowerCurve = (sport: string, days: number): boolean =>
@@ -1141,6 +1151,9 @@ class EngineClient implements DelegateHost {
   setSuperseded = (autoSectionId: string, customSectionId: string): boolean =>
     sectionDelegates.setSuperseded(this, autoSectionId, customSectionId);
 
+  findSupersededSections = (customSectionId: string, overlapThreshold: number): string[] =>
+    sectionDelegates.findSupersededSections(this, customSectionId, overlapThreshold);
+
   clearSuperseded = (customSectionId: string): boolean =>
     sectionDelegates.clearSuperseded(this, customSectionId);
 
@@ -1292,7 +1305,7 @@ class EngineClient implements DelegateHost {
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
 
-  forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
+  forceRedetectSections = (): FfiStartOutcome => detectionDelegates.forceRedetectSections(this);
 
   setSectionConfig = (config: FfiSectionConfig): void =>
     detectionDelegates.setSectionConfig(this, config);
@@ -1301,6 +1314,17 @@ class EngineClient implements DelegateHost {
 
   setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
     detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
+
+  /**
+   * Whether a subscription can ever fire.
+   *
+   * Withholding the observer is deliberate, see `initWithPath`, but it turns
+   * every announcement into nothing. Paths that follow a run on its event
+   * alone read this to decide whether the event is worth waiting for.
+   */
+  eventsAreLive(): boolean {
+    return this.observerRegistered;
+  }
 
   subscribe(event: string, callback: EngineListener): () => void {
     let set = this.listeners.get(event);

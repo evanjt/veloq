@@ -17,6 +17,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 const mockProgress: { value: unknown } = { value: null };
 const mockStatus = { value: 'idle' };
+const mockLapsed = { value: false };
 
 jest.mock('react-native-safe-area-context', () => {
   const { View } = require('react-native');
@@ -81,6 +82,7 @@ jest.mock('@/features/routes/hooks/usePreviewDetect', () => ({
     progress: mockProgress.value,
     result: null,
     suspended: false,
+    lapsed: mockLapsed.value,
     start: jest.fn(),
     cancel: jest.fn(),
     reset: jest.fn(),
@@ -108,6 +110,7 @@ describe('preview run progress', () => {
   afterEach(() => {
     mockProgress.value = null;
     mockStatus.value = 'idle';
+    mockLapsed.value = false;
   });
 
   it('draws a bar at the reported percentage', () => {
@@ -141,6 +144,19 @@ describe('preview run progress', () => {
     mockProgress.value = null;
 
     expect(barWidth(render(<DetectionPreviewScreen />))).toBe('0%');
+  });
+
+  it('says nothing about a slow run until the run has lapsed', () => {
+    mockStatus.value = 'running';
+
+    expect(render(<DetectionPreviewScreen />).queryByTestId('preview-slow')).toBeNull();
+  });
+
+  it('tells the athlete a lapsed run is still going', () => {
+    mockStatus.value = 'running';
+    mockLapsed.value = true;
+
+    expect(render(<DetectionPreviewScreen />).getByTestId('preview-slow')).toBeTruthy();
   });
 
   it('draws no bar when no run is in flight', () => {

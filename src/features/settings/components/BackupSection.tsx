@@ -7,7 +7,6 @@ import {
   useImportDatabaseBackup,
   useBulkExport,
 } from '@/features/settings/hooks/exportIndex';
-import { formatFileSize } from '@/shared/format/format';
 import { useTheme } from '@/shared/app';
 import { useActivityCount } from '@/shared/native/useActivityCount';
 import {
@@ -37,6 +36,7 @@ import {
   ink,
   typography,
 } from '@/theme';
+import { BulkExportProgress } from './BulkExportProgress';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 
@@ -256,8 +256,6 @@ export function BackupSection() {
     exportAllGeoJson,
     isExporting: bulkExporting,
     phase: bulkPhase,
-    current: bulkCurrent,
-    total: bulkTotal,
     sizeBytes: bulkSizeBytes,
   } = useBulkExport();
 
@@ -583,30 +581,7 @@ export function BackupSection() {
         <View style={styles.actionRow}>
           <MaterialCommunityIcons name="map-marker-path" size={22} color={colors.primary} />
           {bulkExporting ? (
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.actionText, isDark && styles.textLight]}>
-                {bulkPhase === 'sharing'
-                  ? t('export.bulkSharing')
-                  : t('export.bulkExporting', { current: bulkCurrent, total: bulkTotal })}
-              </Text>
-              <View
-                style={[styles.progressBarContainer, isDark && styles.progressBarContainerDark]}
-              >
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width:
-                        bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%',
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.progressDetail, isDark && styles.textMuted]}>
-                {bulkTotal > 0 ? `${Math.round((bulkCurrent / bulkTotal) * 100)}%` : '0%'}
-                {bulkSizeBytes > 0 && ` · ${formatFileSize(bulkSizeBytes)}`}
-              </Text>
-            </View>
+            <BulkExportProgress phase={bulkPhase} sizeBytes={bulkSizeBytes} isDark={isDark} />
           ) : (
             <>
               <Text style={[styles.actionText, isDark && styles.textLight]}>
@@ -702,26 +677,6 @@ const styles = StyleSheet.create({
   },
   dividerDark: {
     backgroundColor: darkColors.border,
-  },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: layout.borderRadiusFull,
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  progressBarContainerDark: {
-    backgroundColor: darkColors.border,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: spacing.xxs,
-  },
-  progressDetail: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   pillRow: {
     flexDirection: 'row',

@@ -1,8 +1,10 @@
 use super::error::{VeloqError, with_engine};
+use super::start::FfiStartOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use log::info;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::time::Duration;
 
 /// How the last run this process finished ended, for surfaces that may look
 /// but must not take.
@@ -35,6 +37,87 @@ pub(crate) enum DetectionPoll {
     Running,
     Applied,
     Died,
+}
+
+// ============================================================================
+// Waiting on the slot
+// ============================================================================
+
+/// The longest any caller waits on the detection slot before giving up.
+///
+/// Matched to what TypeScript already allows a run: `DETECTION_FOLLOW_MS` in
+/// `useGpsDataFetcher.ts` follows a detect for 420 s before answering
+/// `timeout`, and a cold re-cut over a large library legitimately takes
+/// minutes. A limit under that would abandon runs that were going to finish.
+pub(crate) const SLOT_WAIT_LIMIT: Duration = Duration::from_secs(420);
+
+/// How often the slot is re-read while a run holds it.
+pub(crate) const SLOT_POLL: Duration = Duration::from_millis(100);
+
+/// How a wait on the detection slot ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SlotWait {
+    /// Nothing holds the slot.
+    Idle,
+    /// A run finished and its result was applied.
+    Applied,
+    /// The worker died without sending a result.
+    Died,
+    /// The limit ran out with a run still going.
+    TimedOut,
+    /// The poll itself failed.
+    Failed(String),
+}
+
+/// Poll the detection slot until it settles, or until the limit runs out.
+///
+/// Four loops used to do this by hand with no cap and no deadline, one of them
+/// on the launch path: `WorkerPoll::Died` only fires on channel disconnect, so
+/// a worker that hangs rather than panicking held them open for the life of the
+/// process. Every outcome sleeps before the next read, including the terminal
+/// ones a drain walks through, so a slot that keeps answering the same thing
+/// costs the deadline rather than a core.
+///
+/// `stop_at_end` is the difference between the two callers. A drain wants the
+/// slot empty, so it walks past a run that has just finished and reads again. A
+/// follower wants this run's end and stops there.
+///
+/// The clock and the sleep are handed in so the schedule can be exercised
+/// without spending seven minutes on it, the same way `resume_ladder` splits
+/// its waits out.
+pub(crate) fn wait_on_slot_with(
+    limit: Duration,
+    poll_every: Duration,
+    stop_at_end: bool,
+    mut poll: impl FnMut() -> Result<DetectionPoll, VeloqError>,
+    mut sleep: impl FnMut(Duration),
+    mut elapsed: impl FnMut() -> Duration,
+) -> SlotWait {
+    loop {
+        if elapsed() >= limit {
+            return SlotWait::TimedOut;
+        }
+        match poll() {
+            Ok(DetectionPoll::Idle) => return SlotWait::Idle,
+            Ok(DetectionPoll::Applied) if stop_at_end => return SlotWait::Applied,
+            Ok(DetectionPoll::Died) if stop_at_end => return SlotWait::Died,
+            Ok(_) => sleep(poll_every),
+            Err(e) => return SlotWait::Failed(format!("{}", e)),
+        }
+    }
+}
+
+/// [`wait_on_slot_with`] against the real clock and the shared poll.
+pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait {
+    let started = std::time::Instant::now();
+    wait_on_slot_with(
+        SLOT_WAIT_LIMIT,
+        poll_every,
+        stop_at_end,
+        poll_detection_once,
+        std::thread::sleep,
+        || started.elapsed(),
+    )
 }
 
 /// Poll the shared detection handle once and, when the worker has finished,
@@ -206,20 +289,20 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    pub fn start(&self) -> Result<bool, VeloqError> {
+    pub fn start(&self) -> Result<FfiStartOutcome, VeloqError> {
         // Refuse before touching the shared handle: installing a refused
         // handle would occupy the slot with a dead run and block the
         // backfill's final re-cut behind it.
         if crate::persistence::detection_suspended() {
             info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
         // A cheap refusal before the cancel below, so a start that is going to
         // lose does not cost a running preview its answer. The decision that
         // counts is made under the guard held further down.
         if detection_running() {
             info!("veloqrs: [DetectionManager] Section detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         // A real detect supersedes any running preview: the preview's answer
@@ -238,7 +321,7 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!("veloqrs: [DetectionManager] Section detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         let handle = with_engine(|e| {
@@ -251,7 +334,7 @@ impl DetectionManager {
         // would occupy the slot with a run that never happened.
         if crate::persistence::sections::detection_was_refused(&handle) {
             info!("veloqrs: [DetectionManager] Start refused: detection is held");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
 
         *handle_guard = Some(handle);
@@ -260,7 +343,7 @@ impl DetectionManager {
         // moment this one takes the slot.
         record_outcome(OUTCOME_IDLE);
         info!("veloqrs: [DetectionManager] Section detection started");
-        Ok(true)
+        Ok(FfiStartOutcome::Started)
     }
 
     /// How the last finished run ended, without taking anything.
@@ -306,18 +389,18 @@ impl DetectionManager {
 
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
-    /// Returns false if detection is already running.
-    pub fn force_redetect(&self) -> Result<bool, VeloqError> {
+    /// Refuses, and says why, if detection is suspended or already running.
+    pub fn force_redetect(&self) -> Result<FfiStartOutcome, VeloqError> {
         // Refuse before clearing the processed set: a refused run must not
         // cost the evidence cache, and must not park a dead handle in the
         // slot the backfill's final re-cut needs.
         if crate::persistence::detection_suspended() {
             info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
         if detection_running() {
             info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         cancel_running_preview();
@@ -331,7 +414,7 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         // Clear processed activity IDs to force full re-evaluation
@@ -346,13 +429,13 @@ impl DetectionManager {
         })?;
         if crate::persistence::sections::detection_was_refused(&handle) {
             info!("veloqrs: [DetectionManager] Force redetect refused: detection is held");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
 
         *handle_guard = Some(handle);
         record_outcome(OUTCOME_IDLE);
         info!("veloqrs: [DetectionManager] Forced full section re-detection started");
-        Ok(true)
+        Ok(FfiStartOutcome::Started)
     }
 
     pub fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
@@ -385,6 +468,155 @@ impl DetectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The deadline on every wait for the detection slot.
+    ///
+    /// `WorkerPoll::Died` only fires on channel disconnect, so a worker that
+    /// hangs rather than panicking answers `Running` for ever. Four loops
+    /// polled it with no cap and no deadline, and one of them, the cutover's
+    /// drain, is on the launch path.
+    mod slot_wait {
+        use super::super::*;
+        use std::cell::{Cell, RefCell};
+
+        const LIMIT: Duration = Duration::from_secs(420);
+        const POLL: Duration = Duration::from_millis(100);
+        const RUNGS: usize = 4200;
+
+        /// Drives the wait with a fake clock the sleeps advance, so a
+        /// seven-minute deadline is exercised without waiting seven minutes.
+        struct Fake {
+            answers: RefCell<Vec<Result<DetectionPoll, String>>>,
+            last: Result<DetectionPoll, String>,
+            now: Cell<Duration>,
+            slept: Cell<usize>,
+        }
+
+        impl Fake {
+            fn new(
+                answers: Vec<Result<DetectionPoll, String>>,
+                last: Result<DetectionPoll, String>,
+            ) -> Self {
+                Self {
+                    answers: RefCell::new(answers.into_iter().rev().collect()),
+                    last,
+                    now: Cell::new(Duration::ZERO),
+                    slept: Cell::new(0),
+                }
+            }
+
+            fn run(&self, stop_at_end: bool) -> SlotWait {
+                wait_on_slot_with(
+                    LIMIT,
+                    POLL,
+                    stop_at_end,
+                    || {
+                        let next = self.answers.borrow_mut().pop().unwrap_or(self.last.clone());
+                        next.map_err(|msg| VeloqError::Database { msg })
+                    },
+                    |d| {
+                        self.slept.set(self.slept.get() + 1);
+                        self.now.set(self.now.get() + d);
+                    },
+                    || self.now.get(),
+                )
+            }
+        }
+
+        #[test]
+        fn an_empty_slot_answers_at_once_and_sleeps_none() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Idle));
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(fake.slept.get(), 0);
+        }
+
+        #[test]
+        fn a_run_that_finishes_is_waited_out() {
+            let fake = Fake::new(
+                vec![
+                    Ok(DetectionPoll::Running),
+                    Ok(DetectionPoll::Running),
+                    Ok(DetectionPoll::Applied),
+                ],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(
+                fake.slept.get(),
+                3,
+                "the applied read sleeps too, or it spins"
+            );
+        }
+
+        /// The defect itself: this used to never return.
+        #[test]
+        fn a_run_that_hangs_costs_the_limit_and_no_more() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Running));
+            assert_eq!(fake.run(false), SlotWait::TimedOut);
+            assert!(fake.now.get() >= LIMIT, "gave up before the limit");
+            assert_eq!(fake.slept.get(), RUNGS, "one sleep a rung, no spinning");
+        }
+
+        #[test]
+        fn a_follower_stops_at_the_end_of_its_own_run() {
+            let fake = Fake::new(
+                vec![Ok(DetectionPoll::Running), Ok(DetectionPoll::Applied)],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(true), SlotWait::Applied);
+        }
+
+        #[test]
+        fn a_follower_stops_on_a_worker_that_died() {
+            let fake = Fake::new(vec![Ok(DetectionPoll::Died)], Ok(DetectionPoll::Idle));
+            assert_eq!(fake.run(true), SlotWait::Died);
+        }
+
+        /// A drain wants the slot empty, not this run's end, so it reads again
+        /// past a run that has just finished and past a worker that died.
+        #[test]
+        fn a_drain_walks_past_an_end_to_the_empty_slot() {
+            let fake = Fake::new(
+                vec![Ok(DetectionPoll::Died), Ok(DetectionPoll::Applied)],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(fake.slept.get(), 2);
+        }
+
+        /// A slot that keeps answering the same terminal read is the hot-loop
+        /// shape. The deadline holds it, and every read sleeps, so it costs no
+        /// core while it waits.
+        #[test]
+        fn a_drain_that_never_empties_still_ends_without_spinning() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Applied));
+            assert_eq!(fake.run(false), SlotWait::TimedOut);
+            assert_eq!(fake.slept.get(), RUNGS);
+        }
+
+        #[test]
+        fn a_failed_poll_ends_the_wait_and_carries_the_reason() {
+            let fake = Fake::new(vec![Err("locked".to_string())], Ok(DetectionPoll::Idle));
+            match fake.run(false) {
+                SlotWait::Failed(msg) => assert!(msg.contains("locked"), "{}", msg),
+                other => panic!("expected a failure, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn a_limit_of_zero_gives_up_before_it_polls_at_all() {
+            let answered = wait_on_slot_with(
+                Duration::ZERO,
+                POLL,
+                false,
+                || panic!("must not poll"),
+                |_| panic!("must not sleep"),
+                || Duration::ZERO,
+            );
+            assert_eq!(answered, SlotWait::TimedOut);
+        }
+    }
+
     use crate::persistence::sections::detection_workers_started;
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
     use crate::test_globals::{
@@ -419,7 +651,7 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
-        let won = race(|| DetectionManager::new().start().expect("start"));
+        let won = race(|| DetectionManager::new().start().expect("start").started());
 
         assert_eq!(won, 1, "exactly one start may win the race");
         assert_eq!(
@@ -438,7 +670,12 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
-        let won = race(|| DetectionManager::new().force_redetect().expect("redetect"));
+        let won = race(|| {
+            DetectionManager::new()
+                .force_redetect()
+                .expect("redetect")
+                .started()
+        });
 
         assert_eq!(won, 1, "exactly one force redetect may win the race");
         assert_eq!(
@@ -460,15 +697,23 @@ mod tests {
         clear_detection_handle();
 
         let manager = DetectionManager::new();
-        assert!(
+        assert_eq!(
             manager.start().expect("first start"),
+            FfiStartOutcome::Started,
             "the first start wins"
         );
 
         let before = detection_workers_started();
-        assert!(!manager.start().expect("second start"), "the slot is taken");
-        assert!(
-            !manager.force_redetect().expect("second redetect"),
+        // A held slot frees on its own, so the refusal has to say so: a caller
+        // that cannot tell this from a suspension has no way to decide to wait.
+        assert_eq!(
+            manager.start().expect("second start"),
+            FfiStartOutcome::Busy,
+            "the slot is taken"
+        );
+        assert_eq!(
+            manager.force_redetect().expect("second redetect"),
+            FfiStartOutcome::Busy,
             "the slot is taken"
         );
         assert_eq!(
@@ -491,10 +736,15 @@ mod tests {
 
         let _suspension = crate::persistence::suspend_detection();
         let manager = DetectionManager::new();
-        assert!(!manager.start().expect("start"), "suspended start refuses");
-        assert!(
-            !manager.force_redetect().expect("redetect"),
-            "suspended force redetect refuses"
+        assert_eq!(
+            manager.start().expect("start"),
+            FfiStartOutcome::Held,
+            "suspended start refuses, and names the hold"
+        );
+        assert_eq!(
+            manager.force_redetect().expect("redetect"),
+            FfiStartOutcome::Held,
+            "suspended force redetect refuses, and names the hold"
         );
 
         assert!(
@@ -540,7 +790,7 @@ mod tests {
         clear_detection_handle();
 
         let manager = DetectionManager::new();
-        assert!(manager.start().expect("start"), "the run starts");
+        assert!(manager.start().expect("start").started(), "the run starts");
 
         let phase = wait_for_the_run_to_apply(&manager);
         assert_eq!(
@@ -588,7 +838,7 @@ mod tests {
             "nothing has finished in this process yet"
         );
 
-        assert!(manager.start().expect("start"), "the run starts");
+        assert!(manager.start().expect("start").started(), "the run starts");
         wait_for_the_run_to_apply(&manager);
 
         // Read it as often as a one second timer would, before anything polls.
@@ -617,7 +867,7 @@ mod tests {
         );
 
         assert!(
-            manager.start().expect("second start"),
+            manager.start().expect("second start").started(),
             "a second run starts"
         );
         assert_eq!(
@@ -724,7 +974,10 @@ mod tests {
 
         let found = with_engine(|e| e.get_sections().len()).expect("engine");
         let manager = DetectionManager::new();
-        assert!(manager.start().expect("start"), "the echo run starts");
+        assert!(
+            manager.start().expect("start").started(),
+            "the echo run starts"
+        );
         assert_eq!(
             wait_for_the_run_to_apply(&manager),
             "complete",
@@ -793,7 +1046,10 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(
-            manager.start().expect("start must not answer LockFailed"),
+            manager
+                .start()
+                .expect("start must not answer LockFailed")
+                .started(),
             "detection still starts after the handle lock is poisoned"
         );
         assert!(
@@ -818,7 +1074,10 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(
-            manager.start().expect("start must not answer LockFailed"),
+            manager
+                .start()
+                .expect("start must not answer LockFailed")
+                .started(),
             "a detect starts after cancelling through a poisoned preview lock"
         );
 

@@ -337,6 +337,10 @@ pub fn start_fetch_and_store(
 
     // Spawn background thread
     std::thread::spawn(move || {
+        // The flag is cleared on the way out of this thread however it leaves.
+        // A panic unwinds this one thread and the process carries on, so the
+        // tail below is not reached and the only consumer polls forever.
+        let _progress_guard = crate::http::DownloadFinishGuard;
         let thread_start = Instant::now();
         info!(
             "[RUST: start_fetch_and_store] Thread started for {} activities",
@@ -465,6 +469,8 @@ pub fn start_fetch_and_store(
                             crate::objects::observer::notify(|o| {
                                 o.time_streams_stored(vec![activity_id.clone()])
                             });
+                        } else {
+                            crate::objects::sync::discarded("time_stream", &activity_id);
                         }
                     }
                     Ok(_) => {}
@@ -544,8 +550,6 @@ pub fn start_fetch_and_store(
                 total_time_ms: total_time,
             },
         );
-
-        crate::http::finish_download_progress();
 
         info!(
             "[RUST: start_fetch_and_store] Thread complete ({} ms)",
@@ -708,10 +712,10 @@ pub fn start_elevation_backfill() -> bool {
 ///
 /// The pass in flight ends at its next batch and reports `paused`, and no
 /// launch or resume attempt starts another until the app is reopened. Nothing
-/// is persisted, so a forgotten pause can never strand the migration. Returns
-/// whether a pass was running when the pause landed.
+/// is persisted, so a forgotten pause can never strand the migration. The phase
+/// is what says it is paused, so there is nothing to return.
 #[uniffi::export]
-pub fn pause_elevation_backfill() -> bool {
+pub fn pause_elevation_backfill() {
     init_logging();
     crate::net::elevation_backfill::pause_elevation_backfill()
 }

@@ -1,3 +1,4 @@
+import { StartOutcome } from 'veloqrs';
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
@@ -17,7 +18,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
  */
 
 const mockSetSectionConfig = jest.fn();
-const mockForceRedetect = jest.fn(() => true);
+const mockForceRedetect = jest.fn(() => StartOutcome.Started);
 const mockGetSectionConfig = jest.fn(() => ({
   proximityThreshold: 50,
   minSectionLength: 500,
@@ -115,7 +116,7 @@ describe('detection preview sensitivity controls', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
     mockForceRedetect.mockClear();
-    mockForceRedetect.mockReturnValue(true);
+    mockForceRedetect.mockReturnValue(StartOutcome.Started);
     (router.back as jest.Mock).mockClear();
     mockStart.mockClear();
     mockResult = previewResult;
@@ -191,7 +192,7 @@ describe('detection preview sensitivity controls', () => {
   it('stays on the screen when the engine refuses the re-cut', () => {
     // A refusal lands after the config is already persisted and the evidence
     // cache cleared, so closing here would report a change that never ran.
-    mockForceRedetect.mockReturnValue(false);
+    mockForceRedetect.mockReturnValue(StartOutcome.Held);
     confirmNextAlert();
     const tree = render(<DetectionPreviewScreen />);
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
@@ -199,7 +200,7 @@ describe('detection preview sensitivity controls', () => {
   });
 
   it('states why the re-cut did not start', () => {
-    mockForceRedetect.mockReturnValue(false);
+    mockForceRedetect.mockReturnValue(StartOutcome.Held);
     const alert = confirmNextAlert();
     const tree = render(<DetectionPreviewScreen />);
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
@@ -209,11 +210,11 @@ describe('detection preview sensitivity controls', () => {
   });
 
   it('lets a refused accept be retried without leaving the screen', () => {
-    mockForceRedetect.mockReturnValue(false);
+    mockForceRedetect.mockReturnValue(StartOutcome.Held);
     confirmNextAlert();
     const tree = render(<DetectionPreviewScreen />);
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
-    mockForceRedetect.mockReturnValue(true);
+    mockForceRedetect.mockReturnValue(StartOutcome.Started);
     fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockForceRedetect).toHaveBeenCalledTimes(2);
     expect(router.back).toHaveBeenCalledTimes(1);

@@ -1983,6 +1983,126 @@ pub mod persistent_engine_ffi {
         LazyLock::new(|| Mutex::new(None));
 }
 
+/// An R-tree over one polyline, so a run of comparisons against it builds the
+/// tree once. `compute_polyline_overlap` is the single-shot wrapper.
+pub(crate) struct OverlapIndex {
+    rtree: rstar::RTree<[f64; 2]>,
+    min_lat: f64,
+    max_lat: f64,
+    min_lng: f64,
+    max_lng: f64,
+}
+
+impl OverlapIndex {
+    /// `None` when the polyline has fewer than one whole point.
+    pub(crate) fn new(coords: &[f64]) -> Option<Self> {
+        if coords.len() < 2 {
+            return None;
+        }
+        let points: Vec<[f64; 2]> = coords.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+        let mut min_lat = f64::INFINITY;
+        let mut max_lat = f64::NEG_INFINITY;
+        let mut min_lng = f64::INFINITY;
+        let mut max_lng = f64::NEG_INFINITY;
+        for &[lat, lng] in &points {
+            min_lat = min_lat.min(lat);
+            max_lat = max_lat.max(lat);
+            min_lng = min_lng.min(lng);
+            max_lng = max_lng.max(lng);
+        }
+        Some(Self {
+            rtree: rstar::RTree::bulk_load(points),
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        })
+    }
+
+    /// Fraction of `coords` lying within `threshold_meters` of the indexed line.
+    pub(crate) fn fraction_within(&self, coords: &[f64], threshold_meters: f64) -> f64 {
+        if coords.len() < 2 {
+            return 0.0;
+        }
+        let total = coords.len() / 2;
+
+        // Threshold in degrees, with a 1.5x buffer; the haversine below is the
+        // real test. A degree of longitude shrinks with latitude, so padding
+        // both axes by the same amount reaches too little east-west away from
+        // the equator. Same form as bboxes_touch in sections/named.rs.
+        let pad_lat = threshold_meters / 111_320.0 * 1.5;
+
+        let mut matched = 0u32;
+        for chunk in coords.chunks_exact(2) {
+            let lat_a = chunk[0];
+            let lng_a = chunk[1];
+            let pad_lng = pad_lng_degrees(lat_a, threshold_meters);
+
+            let envelope = rstar::AABB::from_corners(
+                [lat_a - pad_lat, lng_a - pad_lng],
+                [lat_a + pad_lat, lng_a + pad_lng],
+            );
+
+            let mut found = false;
+            for &[lat_b, lng_b] in self.rtree.locate_in_envelope(&envelope) {
+                let pa = tracematch::GpsPoint {
+                    latitude: lat_a,
+                    longitude: lng_a,
+                    elevation: None,
+                };
+                let pb = tracematch::GpsPoint {
+                    latitude: lat_b,
+                    longitude: lng_b,
+                    elevation: None,
+                };
+                let dist = tracematch::geo_utils::haversine_distance(&pa, &pb);
+                if dist <= threshold_meters {
+                    found = true;
+                    break;
+                }
+            }
+            if found {
+                matched += 1;
+            }
+        }
+
+        matched as f64 / total as f64
+    }
+
+    /// Whether any point of the given bounding box could be close enough to
+    /// match. A fraction above zero needs at least one point pair within the
+    /// threshold, so a box this far out cannot contribute one and its polyline
+    /// never has to be read.
+    pub(crate) fn bbox_can_reach(
+        &self,
+        min_lat: f64,
+        max_lat: f64,
+        min_lng: f64,
+        max_lng: f64,
+        threshold_meters: f64,
+    ) -> bool {
+        let pad_lat = threshold_meters / 111_320.0 * 1.5;
+        let pad_lng = pad_lng_degrees(
+            self.min_lat
+                .abs()
+                .max(self.max_lat.abs())
+                .max(min_lat.abs())
+                .max(max_lat.abs()),
+            threshold_meters,
+        );
+        min_lat <= self.max_lat + pad_lat
+            && max_lat >= self.min_lat - pad_lat
+            && min_lng <= self.max_lng + pad_lng
+            && max_lng >= self.min_lng - pad_lng
+    }
+}
+
+/// A metre threshold as degrees of longitude at the given latitude, with the
+/// same 1.5x buffer the latitude padding carries.
+fn pad_lng_degrees(lat: f64, threshold_meters: f64) -> f64 {
+    threshold_meters / (111_320.0 * lat.to_radians().cos().max(0.01)) * 1.5
+}
+
 /// Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
 /// Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
 /// Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
@@ -1993,59 +2113,10 @@ pub fn compute_polyline_overlap(
     coords_b: Vec<f64>,
     threshold_meters: f64,
 ) -> f64 {
-    use rstar::{AABB, RTree};
-
-    if coords_a.len() < 2 || coords_b.len() < 2 {
-        return 0.0;
+    match OverlapIndex::new(&coords_b) {
+        Some(index) => index.fraction_within(&coords_a, threshold_meters),
+        None => 0.0,
     }
-
-    let points_a_count = coords_a.len() / 2;
-
-    // Build R-tree from polyline B
-    let points_b: Vec<[f64; 2]> = coords_b.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
-    let rtree = RTree::bulk_load(points_b);
-
-    // Threshold in degrees, with a 1.5x buffer; the haversine below is the real
-    // test. A degree of longitude shrinks with latitude, so padding both axes
-    // by the same amount reaches too little east-west away from the equator.
-    // Same form as bboxes_touch in sections/named.rs.
-    let pad_lat = threshold_meters / 111_320.0 * 1.5;
-
-    let mut matched = 0u32;
-    for chunk in coords_a.chunks_exact(2) {
-        let lat_a = chunk[0];
-        let lng_a = chunk[1];
-        let pad_lng = threshold_meters / (111_320.0 * lat_a.to_radians().cos().max(0.01)) * 1.5;
-
-        let envelope = AABB::from_corners(
-            [lat_a - pad_lat, lng_a - pad_lng],
-            [lat_a + pad_lat, lng_a + pad_lng],
-        );
-
-        let mut found = false;
-        for &[lat_b, lng_b] in rtree.locate_in_envelope(&envelope) {
-            let pa = tracematch::GpsPoint {
-                latitude: lat_a,
-                longitude: lng_a,
-                elevation: None,
-            };
-            let pb = tracematch::GpsPoint {
-                latitude: lat_b,
-                longitude: lng_b,
-                elevation: None,
-            };
-            let dist = tracematch::geo_utils::haversine_distance(&pa, &pb);
-            if dist <= threshold_meters {
-                found = true;
-                break;
-            }
-        }
-        if found {
-            matched += 1;
-        }
-    }
-
-    matched as f64 / points_a_count as f64
 }
 
 // ============================================================================

@@ -239,7 +239,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -274,7 +274,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -996,6 +996,12 @@ interface NativeModuleInterface {
     endIndex: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_find_superseded(
+    ptr: bigint,
+    customSectionId: Uint8Array,
+    overlapThreshold: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1449,7 +1455,7 @@ interface NativeModuleInterface {
     oldest: Uint8Array,
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1475,7 +1481,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
     ptr: bigint,
     sport: Uint8Array,
@@ -1576,7 +1582,7 @@ interface NativeModuleInterface {
   ): number;
   ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): void;
   ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
@@ -1918,6 +1924,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_find_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_summaries_including_hidden(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id(): number;
