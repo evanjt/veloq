@@ -1,6 +1,6 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::persistent_engine_ffi::{BACKUP_HANDLE, BULK_EXPORT_HANDLE};
+use crate::persistence::persistent_engine_ffi::{BACKUP_HANDLE, BULK_EXPORT_HANDLE, CLEAR_HANDLE};
 use crate::persistence::{
     DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
 };
@@ -96,6 +96,58 @@ impl VeloqEngine {
                     msg: format!("{}", e),
                 })
         })?
+    }
+
+    /// Start the route/section wipe on a background thread. Poll
+    /// `poll_clear_routes_and_sections` for the outcome.
+    ///
+    /// The wipe takes the engine write lock like any other writer, so unlike a
+    /// backup it does not get its own connection. What moves off the calling
+    /// thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+    /// caller is the settings toggle, so on the JS thread that is a switch the
+    /// athlete flipped freezing the app.
+    fn start_clear_routes_and_sections(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        // No engine check here on purpose. Reading `PERSISTENT_ENGINE` takes
+        // the read lock, which a live writer holds exclusively, so the check
+        // would reintroduce exactly the wait this method exists to remove. A
+        // missing engine comes back through the poll instead.
+        *guard = Some(crate::persistence::clear_routes_and_sections_background());
+        Ok(())
+    }
+
+    /// Poll the running wipe: "idle" | "running" | "complete". A failed or
+    /// panicking wipe is an error, and either outcome clears the slot so the
+    /// next toggle can start one.
+    fn poll_clear_routes_and_sections(&self) -> Result<String, VeloqError> {
+        let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
     }
 
     /// Empty what the engine can re-derive and keep what the athlete made:
@@ -361,6 +413,83 @@ mod tests {
             engine.get_stats(),
             Err(VeloqError::NotInitialized)
         ));
+    }
+
+    /// Turning route matching off wipes the derived catalogue. Measured at a
+    /// 750-activity library the wipe takes 367 ms, and it ran on the JS thread
+    /// under the engine write lock, so a switch the athlete flipped froze the
+    /// app for its duration.
+    ///
+    /// Expected behaviour: the start returns while another writer still holds
+    /// the lock, so the caller never waits on the wipe; a second start is
+    /// refused while one runs; and the poll carries the terminal state.
+    #[test]
+    fn the_clear_runs_off_the_calling_thread() {
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::{Duration, Instant};
+
+        /// Long enough that a caller which waited for the lock could not be
+        /// mistaken for one that did not.
+        const HOLD: Duration = Duration::from_millis(500);
+        /// A start that took this long went through the lock, not around it.
+        const START_BUDGET: Duration = Duration::from_millis(100);
+
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("clear.db");
+        let engine = VeloqEngine;
+
+        assert_eq!(
+            engine.poll_clear_routes_and_sections().unwrap(),
+            "idle",
+            "nothing has started yet"
+        );
+
+        seed_activity("a1");
+
+        let (holding, held) = mpsc::channel();
+        let writer = thread::spawn(move || {
+            with_persistent_engine(|_| {
+                holding.send(()).ok();
+                thread::sleep(HOLD);
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+
+        let start = Instant::now();
+        engine
+            .start_clear_routes_and_sections()
+            .expect("first start");
+        let returned_in = start.elapsed();
+        assert!(
+            returned_in < START_BUDGET,
+            "start blocked for {returned_in:?}, so it waited on the write lock"
+        );
+
+        assert!(
+            engine.start_clear_routes_and_sections().is_err(),
+            "a second clear started while the first was still running"
+        );
+
+        writer.join().expect("writer thread");
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let terminal = loop {
+            let state = engine.poll_clear_routes_and_sections().unwrap();
+            if state != "running" {
+                break state;
+            }
+            assert!(Instant::now() < deadline, "the clear never settled");
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(terminal, "complete");
+
+        assert_eq!(
+            engine.poll_clear_routes_and_sections().unwrap(),
+            "idle",
+            "the terminal poll clears the slot"
+        );
     }
 
     #[test]

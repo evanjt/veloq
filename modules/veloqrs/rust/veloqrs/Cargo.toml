@@ -307,6 +307,10 @@ name = "lock_contention"
 required-features = ["synthetic"]
 
 [[bench]]
+name = "database_wipe_cost"
+required-features = ["synthetic"]
+
+[[bench]]
 name = "live_section_replay"
 
 [[bin]]

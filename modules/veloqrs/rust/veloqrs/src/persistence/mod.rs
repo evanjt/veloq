@@ -482,6 +482,49 @@ impl SectionDetectionHandle {
     }
 }
 
+/// Handle for a background wipe of the derived catalogue.
+///
+/// Its own type rather than a reuse of `BackupHandle`: the two occupy
+/// different slots and a poll must never read the wrong one.
+pub struct ClearHandle {
+    receiver: mpsc::Receiver<Result<(), String>>,
+}
+
+impl ClearHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<Result<(), String>> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+}
+
+/// Wipe the derived catalogue on a background thread.
+///
+/// The wipe mutates the engine's own in-memory state, so unlike a backup it
+/// cannot run on its own connection: it takes the write lock like any other
+/// writer. What moves off the calling thread is the wait. A 750-activity
+/// library takes 367 ms to wipe, and on the JS thread that is a settings
+/// toggle that freezes the app.
+///
+/// The sender is dropped if the wipe unwinds, so a panicking worker reads back
+/// as `WorkerPoll::Died` rather than leaving the slot claimed forever.
+pub fn clear_routes_and_sections_background() -> ClearHandle {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let result = with_persistent_engine(|engine| {
+            engine
+                .clear_routes_and_sections()
+                .map_err(|e| format!("{}", e))
+        })
+        .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+        tx.send(result).ok();
+    });
+    ClearHandle { receiver: rx }
+}
+
 /// Handle for a background database backup.
 pub struct BackupHandle {
     receiver: mpsc::Receiver<Result<(), String>>,
@@ -2012,6 +2055,10 @@ pub mod persistent_engine_ffi {
 
     /// Handle for the running bulk export, if any.
     pub static BULK_EXPORT_HANDLE: LazyLock<Mutex<Option<BulkExportHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running derived-catalogue wipe, if any.
+    pub static CLEAR_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 }
 
