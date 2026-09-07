@@ -146,6 +146,8 @@ export interface FtpTrend {
   latestDate?: bigint | number;
   previousFtp?: number;
   previousDate?: bigint | number;
+  /** Days of estimate from the one compared against to the newest. */
+  sampleCount?: number;
 }
 
 export interface PaceTrend {
@@ -153,6 +155,8 @@ export interface PaceTrend {
   latestDate?: bigint | number;
   previousPace?: number;
   previousDate?: bigint | number;
+  /** Snapshots the trend was read from. */
+  sampleCount?: number;
 }
 
 export interface SectionPR {
@@ -160,6 +164,8 @@ export interface SectionPR {
   sectionName: string;
   bestTime: number;
   daysAgo: number;
+  /** Lifetime traversals, the population the record stands on. */
+  traversalCount: number;
 }
 
 export interface SectionTrendData {

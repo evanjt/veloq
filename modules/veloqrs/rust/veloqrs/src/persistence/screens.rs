@@ -104,6 +104,7 @@ impl super::PersistentEngine {
                         section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
                         best_time: record.best_time,
                         days_ago,
+                        traversal_count: s.visit_count,
                     }),
                 }
             }

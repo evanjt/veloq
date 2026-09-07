@@ -228,6 +228,7 @@ impl PersistentEngine {
             latest_date: None,
             previous_ftp: None,
             previous_date: None,
+            sample_count: 0,
         };
 
         // A year of days is 365 rows of JSON, parsed once per call, and the
@@ -242,16 +243,22 @@ impl PersistentEngine {
 
         // The newest day at or before the cutoff. Nothing that old means the
         // history is shorter than the window, and one value is not a trend.
-        let previous = rows
+        let previous_at = rows
             .iter()
-            .rev()
-            .find(|(date, _)| date.as_str() <= cutoff.as_str());
+            .rposition(|(date, _)| date.as_str() <= cutoff.as_str());
+        let previous = previous_at.map(|at| &rows[at]);
+
+        // Days from the one compared against to the newest, inclusive. With
+        // nothing to compare against the trend stands on the single day it
+        // holds, which is what the ranker should weigh it as.
+        let sample_count = previous_at.map(|at| rows.len() - at).unwrap_or(1) as u32;
 
         crate::FfiFtpTrend {
             latest_ftp: Some(latest_ftp),
             latest_date: Some(epoch_seconds(&latest_date)),
             previous_ftp: previous.map(|(_, ftp)| *ftp),
             previous_date: previous.map(|(date, _)| epoch_seconds(date)),
+            sample_count,
         }
     }
 
@@ -293,6 +300,7 @@ impl PersistentEngine {
             latest_date: None,
             previous_pace: None,
             previous_date: None,
+            sample_count: 0,
         };
 
         let query = format!(
@@ -330,6 +338,7 @@ impl PersistentEngine {
             latest_date: Some(latest_date),
             previous_pace: previous.map(|(speed, _)| *speed),
             previous_date: previous.map(|(_, date)| *date),
+            sample_count: rows.len() as u32,
         }
     }
 
@@ -1351,6 +1360,71 @@ mod tests {
 
         assert_eq!(trend.latest_ftp, None);
         assert_eq!(trend.previous_ftp, None);
+    }
+
+    /// Scenario: the insight ranker weighs how much data a claim stands on, and
+    /// an FTP step measured off three days reads the same as one off thirty.
+    ///
+    /// Expected behaviour: the trend says how many days carried an estimate
+    /// between the two it compared, so the ranker has a population to weigh.
+    #[test]
+    fn the_ftp_trend_reports_the_days_it_compared_across() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[
+                // Outside the window the comparison reaches back to.
+                wellness_day("2026-07-01", Some(160.0)),
+                wellness_day("2026-08-06", Some(148.0)),
+                wellness_day("2026-08-20", Some(145.0)),
+                wellness_day("2026-09-04", Some(143.0)),
+                wellness_day("2026-09-05", Some(141.0)),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.previous_ftp, Some(148), "the estimate a month back");
+        assert_eq!(
+            trend.sample_count, 4,
+            "the days from the one it compared against to the newest, inclusive"
+        );
+    }
+
+    /// A trend with nothing to compare against stands on the one day it has.
+    #[test]
+    fn a_trend_with_no_earlier_estimate_counts_only_what_it_holds() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_wellness(&[wellness_day("2026-09-05", Some(150.0))])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+
+        assert_eq!(trend.previous_ftp, None, "one value is not a trend");
+        assert_eq!(trend.sample_count, 1, "and it is one value");
+    }
+
+    /// An account with nothing stored counts nothing, rather than one.
+    #[test]
+    fn an_empty_ftp_trend_counts_nothing() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        assert_eq!(engine.get_ftp_trend_to("2026-09-05").sample_count, 0);
+    }
+
+    /// The pace trend stands on its snapshots the same way.
+    #[test]
+    fn the_pace_trend_reports_the_snapshots_behind_it() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000);
+        engine.save_pace_snapshot("Run", 3.2, None, None, 1_700_100_000);
+        engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_200_000);
+
+        assert_eq!(engine.get_pace_trend("Run").sample_count, 3);
+        assert_eq!(
+            engine.get_pace_trend("Pogo").sample_count,
+            0,
+            "a sport with no history stands on nothing"
+        );
     }
 
     // The pace trend was keyed on `Run` alone, so a snapshot saved for a trail
