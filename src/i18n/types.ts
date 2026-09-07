@@ -1128,7 +1128,6 @@ export interface TranslationResource {
     offlineUsingCached: string;
     syncedActivities: string;
     syncedDemoActivities: string;
-    syncingActivities: string;
     fetchingTimeStreams: string;
     finalizingHeatmap: string;
   };

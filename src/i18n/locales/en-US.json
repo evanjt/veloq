@@ -270,7 +270,6 @@
     "syncedDemoActivities": "Synced {{count}} demo activities",
     "downloadingGpsProgress": "Downloading GPS data... {{percent}}%",
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
-    "syncingActivities": "Syncing activities",
     "fetchingActivities": "Fetching activities...",
     "fetchingTimeStreams": "Fetching time data... {{percent}}%",
     "finalizingHeatmap": "Finalizing heatmap... {{percent}}%"

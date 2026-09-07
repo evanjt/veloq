@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useActivities, useActivityBoundsCache } from '@/features/activity/hooks';
+import { useActivities } from '@/features/activity/hooks';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -18,10 +18,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import {
-  formatGpsSyncProgress,
-  formatBoundsSyncProgress,
-} from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import {
   updateSyncNotification,
   dismissSyncNotification,
@@ -132,23 +129,13 @@ export function GlobalDataSync() {
     }
   }, [progress.status, isExpansionLocked, delayedUnlockExpansion]);
 
-  // Bounds sync progress
-  const { progress: boundsProgress } = useActivityBoundsCache();
-
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
     [progress, isFetching, isSyncing, t]
   );
 
-  // Bounds sync display info
-  const boundsDisplayInfo = useMemo(
-    () => formatBoundsSyncProgress(boundsProgress, t),
-    [boundsProgress, t]
-  );
-
-  // Pick which info to show - GPS sync > bounds sync
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo;
+  const displayInfo = gpsDisplayInfo;
 
   // Debounce sync notification: indeterminate states (like "Loading activities..."
   // during a background refetch) only post after 1.5s - if the fetch completes
