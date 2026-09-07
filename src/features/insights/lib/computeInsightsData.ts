@@ -245,8 +245,6 @@ export function computeInsightsFromData(
     const sectionCount = routeMatchingOn ? (ffiData.sectionCount ?? 0) : 0;
     const sectionsReady = sectionCount > 0;
 
-    const allPatterns = ffiData.allPatterns ?? [];
-
     // Build section trends from the ML-ranked sections the bundle carries.
     const sectionTrendMap = new Map<
       string,
@@ -290,28 +288,6 @@ export function computeInsightsFromData(
                 anomaly: rs.anomalyScore,
                 engagement: rs.engagementScore,
               },
-            });
-          }
-        }
-      }
-    }
-
-    // Fallback: pattern-based commonSections
-    if (sectionTrendMap.size === 0 && sectionsReady) {
-      for (const pattern of allPatterns) {
-        if (!pattern.commonSections) continue;
-        for (const section of pattern.commonSections) {
-          if (section.trend == null || !section.sectionId) continue;
-          const existing = sectionTrendMap.get(section.sectionId);
-          if (!existing || section.traversalCount > existing.traversalCount) {
-            sectionTrendMap.set(section.sectionId, {
-              sectionId: section.sectionId,
-              sectionName: section.sectionName || 'Section',
-              trend: section.trend,
-              medianRecentSecs: section.medianRecentSecs,
-              bestTimeSecs: section.bestTimeSecs,
-              traversalCount: section.traversalCount,
-              sportType: pattern.sportType,
             });
           }
         }

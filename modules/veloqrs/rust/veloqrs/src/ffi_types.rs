@@ -1468,27 +1468,6 @@ pub struct FfiActivityPattern {
     pub silhouette_score: f32,
     /// Days since the most recent activity in this cluster
     pub days_since_last: u32,
-    /// Sections commonly traversed by activities in this pattern
-    pub common_sections: Vec<FfiPatternSection>,
-}
-
-/// A section commonly associated with a training pattern.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiPatternSection {
-    /// Section identifier
-    pub section_id: String,
-    /// Section display name
-    pub section_name: String,
-    /// Fraction of cluster activities that traverse this section (0.0-1.0)
-    pub appearance_rate: f32,
-    /// Best (fastest) traversal time in seconds
-    pub best_time_secs: f32,
-    /// Median of the 5 most recent traversal times in seconds
-    pub median_recent_secs: f32,
-    /// Performance trend: None=insufficient data, -1=declining, 0=stable, 1=improving
-    pub trend: Option<i8>,
-    /// Total number of traversals across cluster activities
-    pub traversal_count: u32,
 }
 
 // ============================================================================

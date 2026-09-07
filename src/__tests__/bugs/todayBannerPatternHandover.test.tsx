@@ -59,7 +59,6 @@ const PATTERN = {
   avgTss: 55,
   activityCount: 12,
   confidence: 0.8,
-  commonSections: [],
 };
 
 const engineCall = jest.fn((..._args: unknown[]) => ({ today: PATTERN, all: [PATTERN] }));
