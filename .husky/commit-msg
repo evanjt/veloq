@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+
+# The index is shared with every worktree that merges into this checkout, so a
+# commit with no pathspec can conclude somebody else's merge. See
+# scripts/check-merge-message.sh.
+./scripts/check-merge-message.sh "$1"
