@@ -278,7 +278,6 @@
     "loadingDemoGps": "Demo-GPS-Date werded glade...",
     "noValidGpsData": "Kei gültige GPS-Date",
     "offlineUsingCached": "Offline - bruuched zwüschegspychereti Route",
-    "syncingActivities": "Aktivitäte am synce...",
     "syncedActivities": "{{count}} Aktivitäte synchronisiert",
     "syncedDemoActivities": "{{count}} Demo-Aktivitäte synchronisiert",
     "downloadingGpsProgress": "GPS-Date abelade... {{percent}}%",

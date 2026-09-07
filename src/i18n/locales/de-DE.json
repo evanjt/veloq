@@ -278,7 +278,6 @@
     "loadingDemoGps": "Demo-GPS-Daten werden geladen...",
     "noValidGpsData": "Keine gültigen GPS-Daten",
     "offlineUsingCached": "Offline - verwende zwischengespeicherte Routen",
-    "syncingActivities": "Synchronisiere Aktivitäten",
     "syncedActivities": "{{count}} Aktivitäten synchronisiert",
     "syncedDemoActivities": "{{count}} Demo-Aktivitäten synchronisiert",
     "downloadingGpsProgress": "GPS-Daten werden heruntergeladen... {{percent}}%",
