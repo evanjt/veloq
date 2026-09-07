@@ -278,7 +278,6 @@
     "loadingDemoGps": "Indlæser demo GPS-data...",
     "noValidGpsData": "Ingen gyldige GPS-data",
     "offlineUsingCached": "Offline - bruger cachede ruter",
-    "syncingActivities": "Synkroniserer aktiviteter",
     "syncedActivities": "Synkroniserede {{count}} aktiviteter",
     "syncedDemoActivities": "Synkroniserede {{count}} demoaktiviteter",
     "downloadingGpsProgress": "Downloader GPS-data... {{percent}}%",

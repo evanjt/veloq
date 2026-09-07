@@ -278,7 +278,6 @@
     "loadingDemoGps": "正在加载演示GPS数据...",
     "noValidGpsData": "没有有效的GPS数据",
     "offlineUsingCached": "离线 - 使用缓存路线",
-    "syncingActivities": "正在同步活动",
     "syncedActivities": "已同步 {{count}} 个活动",
     "syncedDemoActivities": "已同步 {{count}} 个演示活动",
     "downloadingGpsProgress": "正在下载GPS数据... {{percent}}%",

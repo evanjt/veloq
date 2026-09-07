@@ -17,7 +17,7 @@ export function SyncRangePanel() {
   const { t } = useTranslation();
 
   // --- Data range state ---
-  const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
+  const { cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
   const { data: yearCounts } = useActivityYearCounts();
 
@@ -39,7 +39,7 @@ export function SyncRangePanel() {
 
   const cachedEndDate = useMemo(() => new Date(), []);
 
-  const isSyncing = progress.status === 'syncing' || isGpsSyncing || isFetchingExtended;
+  const isSyncing = isGpsSyncing || isFetchingExtended;
 
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();

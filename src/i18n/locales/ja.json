@@ -278,7 +278,6 @@
     "loadingDemoGps": "デモGPSデータを読み込み中...",
     "noValidGpsData": "有効なGPSデータがありません",
     "offlineUsingCached": "オフライン - キャッシュされたルートを使用",
-    "syncingActivities": "アクティビティを同期中",
     "syncedActivities": "{{count}}件のアクティビティを同期しました",
     "syncedDemoActivities": "{{count}}件のデモアクティビティを同期しました",
     "downloadingGpsProgress": "GPSデータをダウンロード中... {{percent}}%",
