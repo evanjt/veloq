@@ -1774,6 +1774,7 @@ pub(crate) fn is_transient_open_error(e: &rusqlite::Error) -> bool {
 
 pub mod persistent_engine_ffi {
     use super::*;
+    use crate::objects::init::{FfiInitOutcome, record_init_outcome};
     use log::info;
 
     /// Guards one-time installation of the Rust panic hook.
@@ -1819,8 +1820,13 @@ pub mod persistent_engine_ffi {
         });
     }
 
+    /// How the last init in this process ended, for the banner to translate.
+    pub use crate::objects::init::last_init_outcome;
+
     /// Initialise the persistent engine with a database path.
     /// Called by VeloqEngine::create() - not exported via FFI directly.
+    /// The bare `bool` is "is the engine usable"; `last_init_outcome` carries
+    /// why it is not.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
         install_panic_hook(&db_path);
@@ -1837,7 +1843,7 @@ pub mod persistent_engine_ffi {
                         parent,
                         e
                     );
-                    return false;
+                    return record_init_outcome(FfiInitOutcome::StorageUnavailable);
                 }
                 info!(
                     "veloqrs: [PersistentEngine] Created parent directory: {:?}",
@@ -1858,20 +1864,32 @@ pub mod persistent_engine_ffi {
                     // A newer database is healthy, not broken. Quarantining it
                     // would move the athlete's library aside for being ahead
                     // of the app they downgraded to.
-                    return false;
+                    return record_init_outcome(FfiInitOutcome::ForwardSchema);
                 }
                 if is_transient_open_error(&e) {
                     // The next launch (or the banner retry) can succeed on the
                     // same file. Quarantining here would discard a healthy
                     // cache over lock contention.
-                    return false;
+                    //
+                    // The three codes share that decision and not the reason.
+                    // A held file opens on the retry; SQLITE_CANTOPEN means
+                    // nothing can be written at that path at all, which is a
+                    // full disk or a denied permission and never lifts by
+                    // waiting.
+                    return record_init_outcome(
+                        if e.sqlite_error_code() == Some(rusqlite::ErrorCode::CannotOpen) {
+                            FfiInitOutcome::StorageUnavailable
+                        } else {
+                            FfiInitOutcome::Busy
+                        },
+                    );
                 }
                 // Corruption or a deterministic open/migration failure: the
                 // same file would fail every launch, bricking the engine
                 // permanently. Quarantine and start fresh.
                 match reopen_after_quarantine(&db_path) {
                     Some(engine) => engine,
-                    None => return false,
+                    None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
                 }
             }
         };
@@ -1887,7 +1905,7 @@ pub mod persistent_engine_ffi {
                 drop(engine);
                 engine = match reopen_after_quarantine(&db_path) {
                     Some(engine) => engine,
-                    None => return false,
+                    None => return record_init_outcome(FfiInitOutcome::StorageUnavailable),
                 };
             } else {
                 info!(
@@ -1901,7 +1919,7 @@ pub mod persistent_engine_ffi {
         *guard = Some(engine);
         info!("veloqrs: [PersistentEngine] Initialised successfully");
 
-        true
+        record_init_outcome(FfiInitOutcome::Opened)
     }
 
     /// Move an unusable database aside and open a fresh one in its place.

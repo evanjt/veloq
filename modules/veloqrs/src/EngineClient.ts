@@ -50,7 +50,7 @@ import type {
   SettingPair,
   BulkExportFormat,
 } from './generated/veloqrs';
-import { FfiStartOutcome } from './generated/veloqrs';
+import { FfiInitOutcome, FfiStartOutcome } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
@@ -199,6 +199,19 @@ class EngineClient implements DelegateHost {
 
   private constructor() {}
 
+  /**
+   * Why the last `initWithPath` ended as it did.
+   *
+   * Kept here rather than read on demand, because a failed init leaves no
+   * engine handle to ask.
+   */
+  private lastInitOutcome: FfiInitOutcome = FfiInitOutcome.NotAttempted;
+
+  /** Why the engine did not open, for the banner to translate. */
+  initOutcome(): FfiInitOutcome {
+    return this.lastInitOutcome;
+  }
+
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
   get ready(): boolean {
     return this.engine !== null;
@@ -276,6 +289,10 @@ class EngineClient implements DelegateHost {
       // FFI call silently returns empty data.
       try {
         const engine = gen().VeloqEngine.create(dbPath);
+        // Read the reason from the handle whether or not it opened: a failed
+        // init leaves `this.engine` null, so this is the only moment the
+        // outcome is reachable at all.
+        this.lastInitOutcome = engine.initOutcome();
         if (!engine.isInitialized()) {
           console.warn('[EngineClient] Engine reported failed init for', dbPath);
           return false;
@@ -284,6 +301,7 @@ class EngineClient implements DelegateHost {
         return true;
       } catch (e) {
         console.warn('[EngineClient] Engine init threw:', e);
+        this.lastInitOutcome = FfiInitOutcome.Failed;
         this.engine = null;
         return false;
       }

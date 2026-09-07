@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "O motor de rotas falhou ao inicializar. Rotas e trechos podem não estar disponíveis."
+    "initFailed": "O motor de rotas falhou ao inicializar. Rotas e trechos podem não estar disponíveis.",
+    "initReason": {
+      "busy": "Outra coisa estava usando o banco de dados. Tente de novo em instantes.",
+      "forwardSchema": "Estes dados foram salvos por uma versão mais nova do Veloq. Atualize o app para abri-los.",
+      "storageUnavailable": "Não foi possível gravar o banco de dados. Libere espaço e tente de novo.",
+      "failed": "O motor de rotas parou por um motivo que o app não consegue nomear."
+    }
   },
   "errorState": {
     "defaultTitle": "Algo deu errado",

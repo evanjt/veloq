@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar."
+    "initFailed": "D Route-Engine hät nöd chönne starte. Route und Sektione sind villiicht nöd verfüegbar.",
+    "initReason": {
+      "busy": "Öppis anders het d Datebank bruucht. Probier s glii nöd.",
+      "forwardSchema": "Die Date sind vo n äre nöie Version vo Veloq gspeicheret. Aktualisier d App zum si öffne.",
+      "storageUnavailable": "D Datebank het nöd chönne gschribe werde. Mach Platz frei und probier s nöd.",
+      "failed": "D Route-Engine het gstoppt us eme Grund, wo d App nöd cha benenne."
+    }
   },
   "errorState": {
     "defaultTitle": "Gopferteckel!",

@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Silnik tras nie mógł się uruchomić. Trasy i odcinki mogą być niedostępne."
+    "initFailed": "Silnik tras nie mógł się uruchomić. Trasy i odcinki mogą być niedostępne.",
+    "initReason": {
+      "busy": "Baza danych była właśnie używana przez coś innego. Spróbuj ponownie za chwilę.",
+      "forwardSchema": "Te dane zapisała nowsza wersja Veloq. Zaktualizuj aplikację, aby je otworzyć.",
+      "storageUnavailable": "Nie udało się zapisać bazy danych. Zwolnij miejsce i spróbuj ponownie.",
+      "failed": "Silnik tras zatrzymał się z powodu, którego aplikacja nie potrafi nazwać."
+    }
   },
   "errorState": {
     "defaultTitle": "Coś poszło nie tak",

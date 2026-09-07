@@ -1,9 +1,17 @@
 import { create } from 'zustand';
+import type { InitOutcome } from 'veloqrs';
 
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialize after all retries */
   initFailed: boolean;
   setInitFailed: (v: boolean) => void;
+  /**
+   * Why it failed, as the engine recorded it, or null when nothing was
+   * recorded. A newer build, a held file and an unwritable directory each
+   * need a different sentence, and the banner cannot re-derive which.
+   */
+  initFailureReason: InitOutcome | null;
+  setInitFailureReason: (v: InitOutcome | null) => void;
   /** Whether the user dismissed the engine init failure banner */
   engineBannerDismissed: boolean;
   setEngineBannerDismissed: (v: boolean) => void;
@@ -28,6 +36,8 @@ interface EngineStatusState {
 export const useEngineStatus = create<EngineStatusState>((set) => ({
   initFailed: false,
   setInitFailed: (v: boolean) => set({ initFailed: v }),
+  initFailureReason: null,
+  setInitFailureReason: (v: InitOutcome | null) => set({ initFailureReason: v }),
   engineBannerDismissed: false,
   setEngineBannerDismissed: (v: boolean) => set({ engineBannerDismissed: v }),
   retryNonce: 0,

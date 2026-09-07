@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Il motore dei percorsi non è riuscito ad avviarsi. I percorsi e le sezioni potrebbero non essere disponibili."
+    "initFailed": "Il motore dei percorsi non è riuscito ad avviarsi. I percorsi e le sezioni potrebbero non essere disponibili.",
+    "initReason": {
+      "busy": "Qualcos'altro stava usando il database. Riprova tra un momento.",
+      "forwardSchema": "Questi dati sono stati salvati da una versione più recente di Veloq. Aggiorna l'app per aprirli.",
+      "storageUnavailable": "Non è stato possibile scrivere il database. Libera spazio e riprova.",
+      "failed": "Il motore dei percorsi si è fermato per un motivo che l'app non sa indicare."
+    }
   },
   "errorState": {
     "defaultTitle": "Qualcosa è andato storto",

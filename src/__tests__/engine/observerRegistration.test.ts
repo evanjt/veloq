@@ -14,6 +14,7 @@ const mockFlags = { initialiseThrows: false, setObserverThrows: false };
 
 const mockNativeEngine = {
   isInitialized: () => true,
+  initOutcome: () => 1,
   setObserver: jest.fn(() => {
     if (mockFlags.setObserverThrows) throw new Error('observer refused');
   }),
@@ -21,6 +22,7 @@ const mockNativeEngine = {
 };
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: {
     create: () => mockNativeEngine,
   },
