@@ -5,6 +5,8 @@
  * across the application. Handles localization and unit conversion.
  */
 
+import { I18nManager } from 'react-native';
+
 import { i18n, getCurrentLanguage } from '@/i18n';
 
 // Unit conversion constants
@@ -539,6 +541,27 @@ export interface PerformanceDelta {
 }
 
 /**
+ * Isolate a numeric run so its sign stays with its digits.
+ *
+ * A signed number is weak and neutral characters only, so under a right-to-left
+ * paragraph the bidirectional algorithm resolves the sign from the paragraph and
+ * renders it after the digits: -0.2 % reads as % 0.2-. An isolate gives the run
+ * its own direction, which first-strong resolves to left-to-right for digits,
+ * and the surrounding text still mirrors.
+ *
+ * Left-to-right output is returned untouched, so nothing that ships today moves.
+ *
+ * @example
+ * ```ts
+ * isolateNumeric('-0.2'); // "-0.2" left to right, "\u2068-0.2\u2069" right to left
+ * ```
+ */
+export function isolateNumeric(text: string): string {
+  if (!text || !I18nManager.isRTL) return text;
+  return `\u2068${text}\u2069`;
+}
+
+/**
  * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
  * Returns null if the delta is less than 1 second.
  */
@@ -548,9 +571,9 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const sign = deltaSeconds > 0 ? '+' : '-';
-  return minutes > 0
-    ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-    : `${sign}${seconds}s`;
+  return isolateNumeric(
+    minutes > 0 ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}` : `${sign}${seconds}s`
+  );
 }
 
 /**
