@@ -1318,9 +1318,7 @@ mod tests {
     /// the completion the next test was waiting to take.
     mod a_driver_from_an_earlier_run {
         use super::*;
-        use crate::persistence::sections::conditioning::{
-            conditioning_drivers_live, try_start_conditioning,
-        };
+        use crate::persistence::sections::conditioning::try_start_conditioning;
 
         #[test]
         pub fn does_not_outlive_the_reset() {
@@ -1329,15 +1327,12 @@ mod tests {
             clear_detection_handle();
 
             assert!(try_start_conditioning(), "a conditioning run starts");
-            assert!(
-                conditioning_drivers_live() > 0,
-                "its driver is polling the slot"
-            );
+            assert!(slot_drivers() > 0, "its driver is polling the slot");
 
             clear_detection_handle();
 
             assert_eq!(
-                conditioning_drivers_live(),
+                slot_drivers(),
                 0,
                 "a driver left polling takes the next run's completion"
             );

@@ -223,21 +223,14 @@ pub(crate) mod test_globals {
         *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-        // A conditioning driver from an earlier run polls the same slot every
-        // 250 ms and applies whatever it finds. Emptying the slot is what ends
-        // it, but it ends on its own next tick, and a run installed before
-        // then is one the driver takes: it applies the result, records the
-        // outcome and leaves this test's `last_outcome` reading complete
-        // before anything of its own has polled. So the reset is not done
-        // until every driver has gone.
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while crate::persistence::sections::conditioning::conditioning_drivers_live() > 0 {
-            assert!(
-                Instant::now() < deadline,
-                "a conditioning driver is still polling the detection slot"
-            );
-            std::thread::sleep(Duration::from_millis(10));
-        }
+        // A driver from an earlier run polls the same slot every 250 ms and
+        // applies whatever it finds. Emptying the slot is what ends it, but it
+        // ends on its own next tick, and a run installed before then is one the
+        // driver takes: it applies the result, records the outcome and leaves
+        // this test's `last_outcome` reading complete before anything of its
+        // own has polled. So the reset is not done until every driver has gone,
+        // and no test has to remember to ask.
+        wait_for_slot_drivers();
         // The outcome is the other half of "no run has happened here", and it
         // is a process-wide atomic. Leaving it standing let whichever test
         // cargo happened to run first decide whether the next one saw idle.
