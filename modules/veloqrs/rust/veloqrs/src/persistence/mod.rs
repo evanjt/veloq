@@ -342,6 +342,8 @@ pub struct SectionDetectionHandle {
     /// only for the runs that apply on the worker, so the poll knows whether
     /// the message on `receiver` is a result to save or a run already saved.
     worker_applied: Option<Arc<AtomicBool>>,
+    /// Raised by `request_cancel`, read by the worker between stages.
+    cancel: Arc<AtomicBool>,
 }
 
 /// What a poll that observes completion still has to do.
@@ -370,6 +372,22 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
+    /// Ask the run to stop. Cooperative: the worker checks between stages, so
+    /// a cancel arriving inside the detector's own call does not shorten it.
+    ///
+    /// The grouping and detection calls are atomic, so a cancel that lands
+    /// inside one discards that work rather than saving a partial catalogue.
+    /// The same caveat the preview carries, and for the same reason: a
+    /// half-detected catalogue is worse than none.
+    pub fn request_cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether this run has been asked to stop.
+    pub fn cancel_requested(&self) -> bool {
+        self.cancel.load(Ordering::SeqCst)
+    }
+
     /// Whether this run applied its own result. Only meaningful once the
     /// main channel has answered `Ready`: the worker sets the flag before it
     /// sends.
@@ -642,6 +660,7 @@ impl SectionDetectionHandle {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: Some(Arc::new(AtomicBool::new(false))),
+            cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -698,6 +717,7 @@ mod worker_poll_tests {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
         };
 
         assert!(matches!(handle.poll_state(), WorkerPoll::Running));
@@ -715,6 +735,7 @@ mod worker_poll_tests {
             cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
             worker_applied: None,
+            cancel: Arc::new(AtomicBool::new(false)),
         };
 
         tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();

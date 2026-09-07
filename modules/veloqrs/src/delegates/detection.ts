@@ -15,6 +15,17 @@ export function startSectionDetection(host: DelegateHost): FfiStartOutcome {
   return host.timed('startSectionDetection', () => host.engine.detection().start());
 }
 
+/**
+ * Ask a running detection to stop. False when there was none.
+ *
+ * Cooperative: it returns at once and the worker ends at its next stage
+ * boundary, so a caller watches the progress rather than this answer.
+ */
+export function cancelSectionDetection(host: DelegateHost): boolean {
+  if (!host.ready) return false;
+  return host.timed('cancelSectionDetection', () => host.engine.detection().cancel());
+}
+
 export function pollSectionDetection(host: DelegateHost): string {
   if (!host.ready) return 'idle';
   try {

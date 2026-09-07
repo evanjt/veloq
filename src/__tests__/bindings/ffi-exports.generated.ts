@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 21 standalone `#[uniffi::export]` functions plus
- * 265 methods inside `#[uniffi::export] impl` blocks across
+ * 266 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 286 exports (21 standalone + 265 methods)
+ * Total: 287 exports (21 standalone + 266 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -533,7 +533,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/detection.rs',
-    line: 367,
+    line: 379,
     paramCount: 0,
     returnType: 'Arc<Self>',
     docs: '',
@@ -543,7 +543,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'start',
     camelName: 'start',
     file: 'objects/detection.rs',
-    line: 371,
+    line: 383,
     paramCount: 0,
     returnType: 'Result<FfiStartOutcome, VeloqError>',
     docs: '',
@@ -553,7 +553,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'last_outcome',
     camelName: 'lastOutcome',
     file: 'objects/detection.rs',
-    line: 438,
+    line: 450,
     paramCount: 0,
     returnType: 'String',
     docs: "How the last finished run ended, without taking anything. A status surface reads this and `get_progress`: progress says whether a run holds the slot now, this says how the previous one ended. Neither touches the worker's channel, so neither can settle a run the follower is waiting on, which is what `poll` is for and why only the follower calls it.",
@@ -563,7 +563,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'poll',
     camelName: 'poll',
     file: 'objects/detection.rs',
-    line: 446,
+    line: 458,
     paramCount: 0,
     returnType: 'Result<String, VeloqError>',
     docs: '',
@@ -573,17 +573,27 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 455,
+    line: 467,
     paramCount: 0,
     returnType: 'Result<Option<crate::FfiDetectionProgress>, VeloqError>',
     docs: '',
     object: 'DetectionManager',
   },
   {
+    name: 'cancel',
+    camelName: 'cancel',
+    file: 'objects/detection.rs',
+    line: 491,
+    paramCount: 0,
+    returnType: 'bool',
+    docs: "Ask a running detection to stop. Returns whether there was one. Cooperative: the worker checks between stages, so the call returns at once and the run ends on its own clock. A cancel that lands inside the detector's own call discards that work rather than shortening it, which is the same caveat the preview carries and for the same reason: a half-detected catalogue is worse than none.",
+    object: 'DetectionManager',
+  },
+  {
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 475,
+    line: 508,
     paramCount: 0,
     returnType: 'Result<FfiStartOutcome, VeloqError>',
     docs: 'Force full re-detection by clearing processed activity IDs first. This ensures all activities are re-evaluated against sections. Refuses, and says why, if detection is suspended or already running.',
@@ -593,7 +603,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 526,
+    line: 559,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -603,7 +613,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 532,
+    line: 565,
     paramCount: 0,
     returnType: 'Result<crate::FfiSectionConfig, VeloqError>',
     docs: '',
@@ -613,7 +623,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 536,
+    line: 569,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -623,7 +633,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 545,
+    line: 578,
     paramCount: 0,
     returnType: 'Result<crate::FfiMatchStrictness, VeloqError>',
     docs: '',
@@ -2872,7 +2882,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 2270,
+    line: 2291,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2939,6 +2949,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'lastOutcome',
   'poll',
   'getProgress',
+  'cancel',
   'forceRedetect',
   'setConfig',
   'getConfig',
@@ -3233,6 +3244,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   last_outcome: 'lastOutcome',
   poll: 'poll',
   get_progress: 'getProgress',
+  cancel: 'cancel',
   force_redetect: 'forceRedetect',
   set_config: 'setConfig',
   get_config: 'getConfig',
@@ -3299,7 +3311,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   centres: 'centres',
   current: 'current',
   take_result: 'takeResult',
-  cancel: 'cancel',
   take_quarantine_report: 'takeQuarantineReport',
   add_recording: 'addRecording',
   list_recordings: 'listRecordings',
