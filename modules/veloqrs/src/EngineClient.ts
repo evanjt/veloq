@@ -47,6 +47,7 @@ import type {
   FfiIndexActivitySummary,
   DownloadProgressResult,
   DerivedClear,
+  DerivedClearPoll,
   SettingPair,
   BulkExportFormat,
 } from './generated/veloqrs';
@@ -162,6 +163,12 @@ interface PendingWrite {
  * the engine must not grow the queue without bound.
  */
 const MAX_PENDING_WRITES = 256;
+
+/** Cheap enough to poll at, short enough that a small wipe still returns promptly. */
+const WIPE_POLL_INTERVAL_MS = 50;
+
+/** A wipe that has not finished by here is stuck, not slow. */
+const WIPE_TIMEOUT_MS = 2 * 60 * 1000;
 
 /**
  * Progress and outcome of a running bulk export. `skipped` and `totalBytes`
@@ -396,9 +403,62 @@ class EngineClient implements DelegateHost {
   /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
   pollClearRoutesAndSections(): string {
     if (!this.ready) return 'idle';
-    return this.timed('pollClearRoutesAndSections', () =>
-      this.engine.pollClearRoutesAndSections()
-    );
+    return this.timed('pollClearRoutesAndSections', () => this.engine.pollClearRoutesAndSections());
+  }
+
+  /** Start the clear-cache wipe on a Rust thread. Poll `pollClearDerived`. */
+  startClearDerived(): void {
+    if (!this.ready) return;
+    this.timed('startClearDerived', () => this.engine.startClearDerived());
+  }
+
+  /**
+   * Poll the running clear-cache wipe. `state` is "idle" | "running" |
+   * "complete", and the counts are only meaningful once it is complete.
+   * Throws on failure.
+   */
+  pollClearDerived(): DerivedClearPoll {
+    if (!this.ready) {
+      return { state: 'idle', sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 };
+    }
+    return this.timed('pollClearDerived', () => this.engine.pollClearDerived());
+  }
+
+  /**
+   * Wait out the whole-database wipe this client started.
+   *
+   * The sibling wipes are waited on by `features/routes/lib/engineClears.ts`,
+   * which this cannot use: nothing here may import from `src/`. This one has
+   * to live here anyway, because the re-open that follows it is this class's
+   * own and no caller should be trusted to order it.
+   */
+  private async awaitWipe(): Promise<void> {
+    const deadline = Date.now() + WIPE_TIMEOUT_MS;
+    this.startClearAll();
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, WIPE_POLL_INTERVAL_MS));
+      // A failed wipe throws out of the poll, carrying the Rust message.
+      const state = this.pollClearAll();
+      if (state === 'complete') return;
+      if (state !== 'running') {
+        throw new Error(`Engine wipe stopped without finishing (${state})`);
+      }
+      if (Date.now() > deadline) {
+        throw new Error('Engine wipe did not finish in time');
+      }
+    }
+  }
+
+  /** Start the whole-database wipe on a Rust thread. Poll `pollClearAll`. */
+  startClearAll(): void {
+    if (!this.ready) return;
+    this.timed('startClearAll', () => this.engine.startClearAll());
+  }
+
+  /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
+  pollClearAll(): string {
+    if (!this.ready) return 'idle';
+    return this.timed('pollClearAll', () => this.engine.pollClearAll());
   }
 
   /** Clear only route/section data, keeping GPS tracks and activities.
@@ -445,10 +505,14 @@ class EngineClient implements DelegateHost {
    * that fails leaves the handle closed and reported closed, which is the same
    * state a failed launch leaves.
    */
-  clear(): void {
+  async clear(): Promise<void> {
     const dbPath = this.dbPath;
     try {
-      this.timed('clear', () => this.engine?.clear());
+      // The wipe runs on a Rust thread and this waits for it, so the destroy
+      // and re-open below stay ordered after it rather than racing it. On the
+      // JavaScript thread the same wipe cost 401 ms on a 750-activity library
+      // and froze every caller's screen for it.
+      await this.awaitWipe();
     } catch {
       // Best-effort clear - reset local state regardless
     }
