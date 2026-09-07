@@ -9,6 +9,7 @@ export { BottomTabBar, TAB_BAR_HEIGHT, TAB_BAR_SAFE_PADDING } from './BottomTabB
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export { AnimatedPressable, AnimatedButton } from './AnimatedPressable';
 export { EmptyState, NetworkErrorState, ErrorStatePreset } from './EmptyState';
+export { DenseText, DENSE_TEXT_SCALE } from './DenseText';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { OfflineBanner } from './OfflineBanner';
