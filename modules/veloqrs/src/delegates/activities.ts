@@ -208,6 +208,22 @@ export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput
  * calories, weather, stream_types), so they parse these rather than a
  * reconstruction from `activity_metrics`.
  */
+/**
+ * One activity's untyped body, or null when the engine has not got it.
+ *
+ * `activity_bodies` is keyed by the id, so this is a primary-key lookup. A
+ * caller after one activity uses this rather than `getActivityBodies`, which
+ * hands back a whole window for JavaScript to parse.
+ */
+export function getActivityBody(host: DelegateHost, activityId: string): string | null {
+  if (!host.ready) return null;
+  validateId(activityId, 'activity ID');
+  return host.timed(
+    'getActivityBody',
+    () => host.engine.activities().getActivityBody(activityId) ?? null
+  );
+}
+
 export function getActivityBodies(
   host: DelegateHost,
   oldestTs: number,
