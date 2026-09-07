@@ -1547,6 +1547,30 @@ mod tests {
             connectivity::reset();
         }
 
+        /// The window is the backgrounded-only fallback, so it has to outlive
+        /// the ladder that runs while backgrounded. A push aged by the resting
+        /// rung is the ordinary case for a device left offline, and it must
+        /// still refuse: an expiry that lands first spends every resting pass
+        /// asking a network the device already said was gone.
+        #[test]
+        fn an_offline_still_refuses_at_the_ladders_resting_rung() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let resting = *RESUME_WAITS.last().expect("the ladder has rungs");
+            connectivity::set_online_at(false, Instant::now() - resting);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(&queue(2 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 0, "a push younger than the resting rung is a fact");
+            assert!(walk.stopped.is_some());
+
+            connectivity::reset();
+        }
+
         /// The walk-level read is the one that saves the queue, but a start
         /// that already knows there is no network should not spawn a thread
         /// to find out. Credentials are set here because the start declines
