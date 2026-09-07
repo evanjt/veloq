@@ -284,6 +284,7 @@ export interface TranslationResource {
     elevationBackfillWhyTitle: string;
     elevationBackfillWhyBody: string;
     elevationBackfillPause: string;
+    elevationBackfillResume: string;
     elevationBackfillPaused: string;
     previewSections: string;
     cutoverRebuilding: string;

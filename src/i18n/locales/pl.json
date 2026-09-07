@@ -1313,6 +1313,7 @@
     "previewKeepRefusedTitle": "Ponowna analiza nie ruszyła",
     "previewKeepRefused": "Twoje ustawienia są zapisane. Trwa inna analiza, więc przeliczanie nie ruszyło. Spróbuj ponownie za chwilę.",
     "elevationBackfillPause": "Wstrzymaj pobieranie",
+    "elevationBackfillResume": "Wznów pobieranie",
     "elevationBackfillPaused": "Pobieranie wysokości wstrzymane. Zostanie wznowione przy następnym otwarciu aplikacji. Aby całkowicie wyłączyć wykrywanie sekcji, wyłącz powyżej Dopasowywanie tras.",
     "exportPrivacyTitle": "Nie eksportuj okolic domu",
     "exportPrivacyDescription": "Przycina początek i koniec każdej trasy w promieniu 100 m od domu. Skracana jest tylko wyeksportowana kopia.",

@@ -673,6 +673,23 @@ pub fn pause_elevation_backfill() -> bool {
     crate::net::elevation_backfill::pause_elevation_backfill()
 }
 
+/// Lift a pause on the elevation backfill and start a pass again.
+///
+/// The pause only a new process could clear left detection held and the
+/// detector cutover unable to run, with a force-quit as the only exit. Returns
+/// whether there was a pause to lift.
+#[uniffi::export]
+pub fn resume_elevation_backfill() -> bool {
+    init_logging();
+    crate::net::elevation_backfill::resume_elevation_backfill()
+}
+
+/// Whether the elevation backfill is paused in this process.
+#[uniffi::export]
+pub fn is_elevation_backfill_paused() -> bool {
+    crate::net::elevation_backfill::elevation_backfill_paused()
+}
+
 /// How many stored tracks the backfill still has to ask upstream about.
 /// Zero means the library has been fully asked, so the launch trigger can
 /// stop attempting runs for this install.
