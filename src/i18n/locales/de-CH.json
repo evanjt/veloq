@@ -1268,7 +1268,7 @@
     "cutoverPhaseArchiving": "wird archiviert",
     "cutoverPhaseDetecting": "wird erkannt",
     "cutoverPhaseDiffing": "wird verglichen",
-    "previewAreaFallback": "Gebiet {{number}}",
+    "previewAreaFallback": "Gebiet {{letter}}",
     "previewAreaVisits": "{{count}} Bsüech",
     "previewAreaSections": "{{count}} Abschnitt",
     "sectionMaxLength": "Längschte Abschnitt: {{distance}}",

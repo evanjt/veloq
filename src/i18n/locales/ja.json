@@ -1268,7 +1268,7 @@
     "cutoverPhaseArchiving": "アーカイブ中",
     "cutoverPhaseDetecting": "検出中",
     "cutoverPhaseDiffing": "比較中",
-    "previewAreaFallback": "エリア {{number}}",
+    "previewAreaFallback": "エリア {{letter}}",
     "previewAreaVisits": "{{count}} 回の訪問",
     "previewAreaSections": "{{count}} セクション",
     "sectionMaxLength": "最長セクション: {{distance}}",
