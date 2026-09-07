@@ -14,6 +14,7 @@ import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { withDatabaseSnapshot } from '@/features/settings/lib/clearSnapshot';
 import { formatLocalDate } from '@/shared/format/format';
+import { runDerivedClear } from '@/shared/native/engineClears';
 
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
@@ -165,7 +166,11 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     const dbPath = getRouteDbPath();
     if (engine && dbPath) {
       await withDatabaseSnapshot(engine, dbPath, async () => {
-        engine.clearDerivedData();
+        // 734 ms on a full library, the worst of the three wipes. It runs on a
+        // Rust thread and this waits for it, so the re-detect below still
+        // follows the wipe and the spinner this button already shows covers
+        // the wait instead of the frame being dropped.
+        await runDerivedClear(engine);
         engine.forceRedetectSections();
       });
     }

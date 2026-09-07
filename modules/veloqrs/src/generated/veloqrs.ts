@@ -790,6 +790,63 @@ const FfiConverterTypeDerivedClear = (() => {
 })();
 
 /**
+ * What a running or finished clear-cache wipe removed. The counts are only
+ * meaningful once `state` reads "complete".
+ */
+export type DerivedClearPoll = {
+  state: string;
+  sectionsRemoved: /*u32*/ number;
+  activitiesRemoved: /*u32*/ number;
+  activitiesKept: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link DerivedClearPoll} record objects.
+ */
+export const DerivedClearPoll = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DerivedClearPoll, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DerivedClearPoll>,
+  });
+})();
+
+const FfiConverterTypeDerivedClearPoll = (() => {
+  type TypeName = DerivedClearPoll;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        sectionsRemoved: FfiConverterUInt32.read(from),
+        activitiesRemoved: FfiConverterUInt32.read(from),
+        activitiesKept: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt32.write(value.sectionsRemoved, into);
+      FfiConverterUInt32.write(value.activitiesRemoved, into);
+      FfiConverterUInt32.write(value.activitiesKept, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterUInt32.allocationSize(value.sectionsRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesKept)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Result of polling download progress.
  * Used by TypeScript to show real-time progress without cross-thread callbacks.
  */
@@ -18949,6 +19006,15 @@ export interface VeloqEngineLike {
    */
   pollBulkExport() /*throws*/ : BulkExportPoll;
   /**
+   * Poll the running whole-database wipe: "idle" | "running" | "complete".
+   */
+  pollClearAll() /*throws*/ : string;
+  /**
+   * Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+   * what went once it is complete. Either terminal outcome frees the slot.
+   */
+  pollClearDerived() /*throws*/ : DerivedClearPoll;
+  /**
    * Poll the running wipe: "idle" | "running" | "complete". A failed or
    * panicking wipe is an error, and either outcome clears the slot so the
    * next toggle can start one.
@@ -18977,6 +19043,17 @@ export interface VeloqEngineLike {
    * thread nor the engine's write lock waits for it.
    */
   startBulkExport(format: BulkExportFormat, destPath: string) /*throws*/ : void;
+  /**
+   * Start the whole-database wipe on a Rust thread. Refuses while one runs.
+   *
+   * The caller re-opens the engine once this completes, so the poll is what
+   * keeps the re-open ordered after the wipe rather than racing it.
+   */
+  startClearAll() /*throws*/ : void;
+  /**
+   * Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+   */
+  startClearDerived() /*throws*/ : void;
   /**
    * Start the route/section wipe on a background thread. Poll
    * `poll_clear_routes_and_sections` for the outcome.
@@ -19338,6 +19415,47 @@ export class VeloqEngine
   }
 
   /**
+   * Poll the running whole-database wipe: "idle" | "running" | "complete".
+   */
+  pollClearAll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_all(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+   * what went once it is complete. Either terminal outcome frees the slot.
+   */
+  pollClearDerived(): DerivedClearPoll /*throws*/ {
+    return FfiConverterTypeDerivedClearPoll.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_derived(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Poll the running wipe: "idle" | "running" | "complete". A failed or
    * panicking wipe is an error, and either outcome clears the slot so the
    * next toggle can start one.
@@ -19483,6 +19601,45 @@ export class VeloqEngine
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterTypeBulkExportFormat.lower(format),
           FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the whole-database wipe on a Rust thread. Refuses while one runs.
+   *
+   * The caller re-opens the engine once this completes, so the poll is what
+   * keeps the re-open ordered after the wipe rather than racing it.
+   */
+  startClearAll(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_all(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+   */
+  startClearDerived(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_derived(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
       },
@@ -20727,6 +20884,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_all() !==
+    44497
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_all",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_derived() !==
+    29497
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_derived",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections() !==
     43406
   ) {
@@ -20796,6 +20969,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_all() !==
+    37815
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_all",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_derived() !==
+    39205
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_derived",
     );
   }
   if (
@@ -22470,6 +22659,7 @@ export default Object.freeze({
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,
+    FfiConverterTypeDerivedClearPoll,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
