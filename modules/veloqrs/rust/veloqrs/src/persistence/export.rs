@@ -129,7 +129,12 @@ impl PersistentEngine {
     /// Each activity becomes a Feature with a LineString geometry and properties
     /// (id, name, sport, date, distance, movingTime). Streams one track at a time.
     pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
-        export_geojson(&self.db, dest_path, &BulkExportProgress::default())
+        export_geojson(
+            &self.db,
+            PrivacyTrim::from_settings(self),
+            dest_path,
+            &BulkExportProgress::default(),
+        )
     }
 }
 
@@ -254,7 +259,9 @@ impl PersistentEngine {
         std::thread::spawn(move || {
             let result = open_export_connection(&db_path).and_then(|db| match format {
                 BulkExportFormat::Gpx => export_gpx(&db, trim, &dest_path, &worker_progress),
-                BulkExportFormat::GeoJson => export_geojson(&db, &dest_path, &worker_progress),
+                BulkExportFormat::GeoJson => {
+                    export_geojson(&db, trim, &dest_path, &worker_progress)
+                }
             });
             if let Err(e) = &result {
                 log::error!("[BulkExport] Export to {} failed: {}", dest_path, e);
@@ -1001,6 +1008,7 @@ fn export_gpx(
 /// background thread can run it on a connection of its own.
 fn export_geojson(
     db: &rusqlite::Connection,
+    trim: Option<PrivacyTrim>,
     dest_path: &str,
     progress: &BulkExportProgress,
 ) -> Result<BulkExportResult, String> {
@@ -1078,6 +1086,21 @@ fn export_geojson(
             chrono::DateTime::from_timestamp(ts, 0)
                 .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
         });
+
+        // The exported copy alone is shortened. The stored track and every
+        // index into it are untouched. The setting names no format, so this is
+        // the same trim the GPX writer applies to the same rows.
+        let points = match trim.as_ref().map(|t| t.apply(&points)) {
+            Some(Some(trimmed)) => trimmed,
+            Some(None) => {
+                skipped.push(SkippedActivity::new(
+                    &activity_id,
+                    "trimmed to fewer points than a track",
+                ));
+                continue;
+            }
+            None => points,
+        };
 
         // Build coordinates array: [[lng, lat], ...]
         let coords: Vec<[f64; 2]> = points
