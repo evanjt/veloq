@@ -4,6 +4,7 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use log::info;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::time::Duration;
 
 /// How the last run this process finished ended, for surfaces that may look
 /// but must not take.
@@ -36,6 +37,87 @@ pub(crate) enum DetectionPoll {
     Running,
     Applied,
     Died,
+}
+
+// ============================================================================
+// Waiting on the slot
+// ============================================================================
+
+/// The longest any caller waits on the detection slot before giving up.
+///
+/// Matched to what TypeScript already allows a run: `DETECTION_FOLLOW_MS` in
+/// `useGpsDataFetcher.ts` follows a detect for 420 s before answering
+/// `timeout`, and a cold re-cut over a large library legitimately takes
+/// minutes. A limit under that would abandon runs that were going to finish.
+pub(crate) const SLOT_WAIT_LIMIT: Duration = Duration::from_secs(420);
+
+/// How often the slot is re-read while a run holds it.
+pub(crate) const SLOT_POLL: Duration = Duration::from_millis(100);
+
+/// How a wait on the detection slot ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SlotWait {
+    /// Nothing holds the slot.
+    Idle,
+    /// A run finished and its result was applied.
+    Applied,
+    /// The worker died without sending a result.
+    Died,
+    /// The limit ran out with a run still going.
+    TimedOut,
+    /// The poll itself failed.
+    Failed(String),
+}
+
+/// Poll the detection slot until it settles, or until the limit runs out.
+///
+/// Four loops used to do this by hand with no cap and no deadline, one of them
+/// on the launch path: `WorkerPoll::Died` only fires on channel disconnect, so
+/// a worker that hangs rather than panicking held them open for the life of the
+/// process. Every outcome sleeps before the next read, including the terminal
+/// ones a drain walks through, so a slot that keeps answering the same thing
+/// costs the deadline rather than a core.
+///
+/// `stop_at_end` is the difference between the two callers. A drain wants the
+/// slot empty, so it walks past a run that has just finished and reads again. A
+/// follower wants this run's end and stops there.
+///
+/// The clock and the sleep are handed in so the schedule can be exercised
+/// without spending seven minutes on it, the same way `resume_ladder` splits
+/// its waits out.
+pub(crate) fn wait_on_slot_with(
+    limit: Duration,
+    poll_every: Duration,
+    stop_at_end: bool,
+    mut poll: impl FnMut() -> Result<DetectionPoll, VeloqError>,
+    mut sleep: impl FnMut(Duration),
+    mut elapsed: impl FnMut() -> Duration,
+) -> SlotWait {
+    loop {
+        if elapsed() >= limit {
+            return SlotWait::TimedOut;
+        }
+        match poll() {
+            Ok(DetectionPoll::Idle) => return SlotWait::Idle,
+            Ok(DetectionPoll::Applied) if stop_at_end => return SlotWait::Applied,
+            Ok(DetectionPoll::Died) if stop_at_end => return SlotWait::Died,
+            Ok(_) => sleep(poll_every),
+            Err(e) => return SlotWait::Failed(format!("{}", e)),
+        }
+    }
+}
+
+/// [`wait_on_slot_with`] against the real clock and the shared poll.
+pub(crate) fn wait_on_slot(poll_every: Duration, stop_at_end: bool) -> SlotWait {
+    let started = std::time::Instant::now();
+    wait_on_slot_with(
+        SLOT_WAIT_LIMIT,
+        poll_every,
+        stop_at_end,
+        poll_detection_once,
+        std::thread::sleep,
+        || started.elapsed(),
+    )
 }
 
 /// Poll the shared detection handle once and, when the worker has finished,
@@ -386,6 +468,155 @@ impl DetectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The deadline on every wait for the detection slot.
+    ///
+    /// `WorkerPoll::Died` only fires on channel disconnect, so a worker that
+    /// hangs rather than panicking answers `Running` for ever. Four loops
+    /// polled it with no cap and no deadline, and one of them, the cutover's
+    /// drain, is on the launch path.
+    mod slot_wait {
+        use super::super::*;
+        use std::cell::{Cell, RefCell};
+
+        const LIMIT: Duration = Duration::from_secs(420);
+        const POLL: Duration = Duration::from_millis(100);
+        const RUNGS: usize = 4200;
+
+        /// Drives the wait with a fake clock the sleeps advance, so a
+        /// seven-minute deadline is exercised without waiting seven minutes.
+        struct Fake {
+            answers: RefCell<Vec<Result<DetectionPoll, String>>>,
+            last: Result<DetectionPoll, String>,
+            now: Cell<Duration>,
+            slept: Cell<usize>,
+        }
+
+        impl Fake {
+            fn new(
+                answers: Vec<Result<DetectionPoll, String>>,
+                last: Result<DetectionPoll, String>,
+            ) -> Self {
+                Self {
+                    answers: RefCell::new(answers.into_iter().rev().collect()),
+                    last,
+                    now: Cell::new(Duration::ZERO),
+                    slept: Cell::new(0),
+                }
+            }
+
+            fn run(&self, stop_at_end: bool) -> SlotWait {
+                wait_on_slot_with(
+                    LIMIT,
+                    POLL,
+                    stop_at_end,
+                    || {
+                        let next = self.answers.borrow_mut().pop().unwrap_or(self.last.clone());
+                        next.map_err(|msg| VeloqError::Database { msg })
+                    },
+                    |d| {
+                        self.slept.set(self.slept.get() + 1);
+                        self.now.set(self.now.get() + d);
+                    },
+                    || self.now.get(),
+                )
+            }
+        }
+
+        #[test]
+        fn an_empty_slot_answers_at_once_and_sleeps_none() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Idle));
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(fake.slept.get(), 0);
+        }
+
+        #[test]
+        fn a_run_that_finishes_is_waited_out() {
+            let fake = Fake::new(
+                vec![
+                    Ok(DetectionPoll::Running),
+                    Ok(DetectionPoll::Running),
+                    Ok(DetectionPoll::Applied),
+                ],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(
+                fake.slept.get(),
+                3,
+                "the applied read sleeps too, or it spins"
+            );
+        }
+
+        /// The defect itself: this used to never return.
+        #[test]
+        fn a_run_that_hangs_costs_the_limit_and_no_more() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Running));
+            assert_eq!(fake.run(false), SlotWait::TimedOut);
+            assert!(fake.now.get() >= LIMIT, "gave up before the limit");
+            assert_eq!(fake.slept.get(), RUNGS, "one sleep a rung, no spinning");
+        }
+
+        #[test]
+        fn a_follower_stops_at_the_end_of_its_own_run() {
+            let fake = Fake::new(
+                vec![Ok(DetectionPoll::Running), Ok(DetectionPoll::Applied)],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(true), SlotWait::Applied);
+        }
+
+        #[test]
+        fn a_follower_stops_on_a_worker_that_died() {
+            let fake = Fake::new(vec![Ok(DetectionPoll::Died)], Ok(DetectionPoll::Idle));
+            assert_eq!(fake.run(true), SlotWait::Died);
+        }
+
+        /// A drain wants the slot empty, not this run's end, so it reads again
+        /// past a run that has just finished and past a worker that died.
+        #[test]
+        fn a_drain_walks_past_an_end_to_the_empty_slot() {
+            let fake = Fake::new(
+                vec![Ok(DetectionPoll::Died), Ok(DetectionPoll::Applied)],
+                Ok(DetectionPoll::Idle),
+            );
+            assert_eq!(fake.run(false), SlotWait::Idle);
+            assert_eq!(fake.slept.get(), 2);
+        }
+
+        /// A slot that keeps answering the same terminal read is the hot-loop
+        /// shape. The deadline holds it, and every read sleeps, so it costs no
+        /// core while it waits.
+        #[test]
+        fn a_drain_that_never_empties_still_ends_without_spinning() {
+            let fake = Fake::new(vec![], Ok(DetectionPoll::Applied));
+            assert_eq!(fake.run(false), SlotWait::TimedOut);
+            assert_eq!(fake.slept.get(), RUNGS);
+        }
+
+        #[test]
+        fn a_failed_poll_ends_the_wait_and_carries_the_reason() {
+            let fake = Fake::new(vec![Err("locked".to_string())], Ok(DetectionPoll::Idle));
+            match fake.run(false) {
+                SlotWait::Failed(msg) => assert!(msg.contains("locked"), "{}", msg),
+                other => panic!("expected a failure, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn a_limit_of_zero_gives_up_before_it_polls_at_all() {
+            let answered = wait_on_slot_with(
+                Duration::ZERO,
+                POLL,
+                false,
+                || panic!("must not poll"),
+                |_| panic!("must not sleep"),
+                || Duration::ZERO,
+            );
+            assert_eq!(answered, SlotWait::TimedOut);
+        }
+    }
+
     use crate::persistence::sections::detection_workers_started;
     use crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE;
     use crate::test_globals::{
