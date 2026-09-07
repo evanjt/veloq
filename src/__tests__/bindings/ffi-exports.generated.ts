@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 18 standalone `#[uniffi::export]` functions plus
+ * 17 standalone `#[uniffi::export]` functions plus
  * 252 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 270 exports (18 standalone + 252 methods)
+ * Total: 269 exports (17 standalone + 252 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -181,15 +181,6 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     paramCount: 0,
     returnType: 'Option<String>',
     docs: 'The stored cutover diff payload, if any.',
-  },
-  {
-    name: 'detect_sections_standalone',
-    camelName: 'detectSectionsStandalone',
-    file: 'ffi.rs',
-    line: 786,
-    paramCount: 3,
-    returnType: 'Result<String, crate::VeloqError>',
-    docs: 'Run section detection on arbitrary GPS traces without the persistent engine. Used for illustrations and previews. Takes JSON-encoded inputs and returns JSON-encoded FrequentSection array. Untimed, unlike the real detect and the section preview, which both read the stored streams. Its only caller draws the synthetic detection illustration in settings, whose traces carry neither elevation nor time, so the lift veto takes its early exit whatever is passed here.',
   },
   {
     name: 'new',
@@ -2742,7 +2733,6 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getCutoverProgress',
   'getChangeCardSupport',
   'getCutoverDiff',
-  'detectSectionsStandalone',
   'new',
   'add',
   'getIds',
@@ -3022,7 +3012,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_cutover_progress: 'getCutoverProgress',
   get_change_card_support: 'getChangeCardSupport',
   get_cutover_diff: 'getCutoverDiff',
-  detect_sections_standalone: 'detectSectionsStandalone',
   new: 'new',
   add: 'add',
   get_ids: 'getIds',

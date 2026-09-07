@@ -87,39 +87,6 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
- * Run section detection on arbitrary GPS traces without the persistent engine.
- *
- * Used for illustrations and previews. Takes JSON-encoded inputs and returns
- * JSON-encoded FrequentSection array.
- *
- * Untimed, unlike the real detect and the section preview, which both read
- * the stored streams. Its only caller draws the synthetic detection
- * illustration in settings, whose traces carry neither elevation nor time,
- * so the lift veto takes its early exit whatever is passed here.
- */
-export function detectSectionsStandalone(
-  tracksJson: string,
-  sportTypesJson: string,
-  configJson: string,
-): string /*throws*/ {
-  return FfiConverterString.lift(
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone(
-          FfiConverterString.lower(tracksJson),
-          FfiConverterString.lower(sportTypesJson),
-          FfiConverterString.lower(configJson),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
-  );
-}
-/**
  * Which claims the change card may make on this build.
  */
 export function getChangeCardSupport(): FfiChangeCardSupport {
@@ -19424,14 +19391,6 @@ function uniffiEnsureInitialized() {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
       bindingsContractVersion,
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone() !==
-    65257
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_detect_sections_standalone",
     );
   }
   if (

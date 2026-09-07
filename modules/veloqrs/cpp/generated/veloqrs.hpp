@@ -959,9 +959,6 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_detect_sections_standalone(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_change_card_support(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1198,9 +1195,6 @@ protected:
                                                    const jsi::Value *args,
                                                    size_t count);
   jsi::Value cpp_ffi_veloqrs_rust_future_complete_void(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_detect_sections_standalone(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_change_card_support(

@@ -99,8 +99,8 @@ describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
-      // lifecycle, polyline overlap, backup validation, standalone section
-      // detection, elevation backfill start, pause, progress and remaining,
+      // lifecycle, polyline overlap, backup validation,
+      // elevation backfill start, pause, progress and remaining,
       // the six detector-cutover calls: pending, running, start, progress, diff
       // and change-card support, and the two connectivity calls). Adjust if a
       // new standalone is added - but prefer putting engine-coupled logic on a
@@ -109,7 +109,7 @@ describe('FFI Binding Validation', () => {
       // The connectivity pair is standalone on purpose. It is a process-wide
       // value the network provider pushes before `initWithPath` has run, so
       // an engine method would drop the very first edge.
-      expect(STANDALONE_EXPORTS.length).toBe(18);
+      expect(STANDALONE_EXPORTS.length).toBe(17);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -119,7 +119,10 @@ describe('FFI Binding Validation', () => {
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
-      expect(names.has('detect_sections_standalone')).toBe(true);
+      // Deleted with the synthetic detection illustration, its only caller.
+      // Named here so a re-add has to answer for itself rather than ride in
+      // on a bumped count.
+      expect(names.has('detect_sections_standalone')).toBe(false);
       expect(names.has('start_elevation_backfill')).toBe(true);
       expect(names.has('pause_elevation_backfill')).toBe(true);
       expect(names.has('get_elevation_backfill_progress')).toBe(true);

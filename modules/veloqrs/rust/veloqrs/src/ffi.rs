@@ -773,34 +773,6 @@ pub fn get_cutover_diff() -> Option<String> {
     crate::persistence::with_persistent_engine(|e| e.cutover_diff()).flatten()
 }
 
-/// Run section detection on arbitrary GPS traces without the persistent engine.
-///
-/// Used for illustrations and previews. Takes JSON-encoded inputs and returns
-/// JSON-encoded FrequentSection array.
-///
-/// Untimed, unlike the real detect and the section preview, which both read
-/// the stored streams. Its only caller draws the synthetic detection
-/// illustration in settings, whose traces carry neither elevation nor time,
-/// so the lift veto takes its early exit whatever is passed here.
-#[uniffi::export]
-pub fn detect_sections_standalone(
-    tracks_json: String,
-    sport_types_json: String,
-    config_json: String,
-) -> Result<String, crate::VeloqError> {
-    let tracks: Vec<(String, Vec<GpsPoint>)> = serde_json::from_str(&tracks_json)
-        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
-    let sport_types: std::collections::HashMap<String, String> =
-        serde_json::from_str(&sport_types_json)
-            .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
-    let config: tracematch::SectionConfig = serde_json::from_str(&config_json)
-        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
-
-    let sections = tracematch::detect_sections_unified(&tracks, &[], &sport_types, &config);
-    serde_json::to_string(&sections)
-        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
