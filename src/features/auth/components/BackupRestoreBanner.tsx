@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { brand, colors, colorWithOpacity, darkColors, spacing } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, layout } from '@/theme';
 import type { DetectedBackup } from '@/features/auth/hooks';
 
 interface BackupRestoreBannerProps {
@@ -73,7 +73,7 @@ export const BackupRestoreBanner = React.memo(function BackupRestoreBanner({
 const styles = StyleSheet.create({
   banner: {
     backgroundColor: colorWithOpacity(brand.tealLight, 0.06),
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,

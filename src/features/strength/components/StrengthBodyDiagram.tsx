@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   subtitleDot: {
     width: 7,
     height: 7,
-    borderRadius: 3.5,
+    borderRadius: layout.borderRadiusFull,
   },
   subtitleText: {
     fontSize: 11,
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
   },
   scaleBar: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   scaleGradient: {
     flex: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   scaleLabels: {
     flexDirection: 'row',

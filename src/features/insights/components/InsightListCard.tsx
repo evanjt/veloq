@@ -12,6 +12,7 @@ import {
   colorWithOpacity,
   brand,
   insightCategoryColors,
+  layout,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     marginHorizontal: spacing.md,
     marginBottom: 2,
     overflow: 'hidden',
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   newDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: brand.tealLight,
   },
   subtitle: {

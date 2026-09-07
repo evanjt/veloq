@@ -11,7 +11,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
 
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.gray100,
   },
   searchContainerDark: {

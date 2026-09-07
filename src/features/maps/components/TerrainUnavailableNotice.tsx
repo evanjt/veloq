@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { darkColors } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
+import { layout, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 999,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: darkColors.surfaceElevated,
   },
   text: {

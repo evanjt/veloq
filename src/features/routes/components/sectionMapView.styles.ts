@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
   marker: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
   },
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
   nearbyMarker: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
     opacity: 0.5,
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
     bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     padding: spacing.xs,
   },
   controlsContainer: {

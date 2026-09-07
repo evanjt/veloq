@@ -25,7 +25,7 @@ import { getEngine } from '@/shared/native/engine';
 import { getAllSectionDisplayNames } from '@/features/routes/lib/sectionDisplayNames';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivitySectionsSection');
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusLg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginHorizontal: spacing.md,
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
     borderWidth: 1,
     borderColor: colors.primary,
   },
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   addMatchButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   addMatchButtonText: {

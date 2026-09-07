@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusXl,
     padding: spacing.lg,
     width: '100%',
     maxWidth: 340,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   contextBanner: {
     padding: spacing.sm,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
   },
   contextBannerText: {
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   },
   explanationBox: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     marginBottom: spacing.md,
   },

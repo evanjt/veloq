@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   sectionDark: {

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { TIME_RANGES } from '@/shared/app/constants';
-import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import { type TimeRange } from '@/features/wellness';
 import { useTranslation } from 'react-i18next';
 
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {

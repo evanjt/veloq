@@ -11,7 +11,16 @@ import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography, brand, bodyDiagram, loupeChrome } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  brand,
+  bodyDiagram,
+  loupeChrome,
+  layout,
+} from '@/theme';
 import type { ActivityDetail } from '@/types';
 
 import { useMuscleGroups } from '../hooks/useExerciseSets';
@@ -252,7 +261,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: 'rgba(128,128,128,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -277,7 +286,7 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   legendText: {
     fontSize: 10,
@@ -303,7 +312,7 @@ const styles = StyleSheet.create({
   detailDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   detailName: {
     fontSize: 13,
@@ -338,7 +347,7 @@ const styles = StyleSheet.create({
   detailExDot: {
     width: 5,
     height: 5,
-    borderRadius: 2.5,
+    borderRadius: layout.borderRadiusFull,
     flexShrink: 0,
   },
   detailExName: {

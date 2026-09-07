@@ -11,7 +11,7 @@ import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, layout } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   contextChip: {
     backgroundColor: opacity.overlay.light,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   shimmerCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   shimmerCardDark: {

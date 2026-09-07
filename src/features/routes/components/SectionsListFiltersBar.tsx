@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import type { SectionsSortOption } from './SectionsList';
 
 type HiddenFilters = {
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },

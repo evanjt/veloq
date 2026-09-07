@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 1,
     borderColor: colors.border,
   },

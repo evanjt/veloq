@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   profilePhoto: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',

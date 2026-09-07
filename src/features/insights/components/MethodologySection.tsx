@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 
 interface MethodologySectionProps {
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   // Formula
   formulaContainer: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   activityRowDark: {

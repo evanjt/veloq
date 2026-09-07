@@ -8,7 +8,7 @@ import { useSectionDetail } from '@/features/routes/hooks/useEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
-import { colors, darkColors, spacing, opacity, shadows, insightIcon } from '@/theme';
+import { colors, darkColors, spacing, opacity, shadows, insightIcon, layout } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 interface StalePRContentProps {
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.xs,
   },
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   dataCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,

@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.surface,
     marginHorizontal: layout.screenPadding,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   sectionDark: {
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     height: 4,
     backgroundColor: colors.border,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     marginTop: 6,
     overflow: 'hidden',
   },
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   progressDetail: {
     fontSize: 12,
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   pillDark: {
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     fontSize: 14,
     color: colors.textPrimary,
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   testButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     backgroundColor: colors.primary,
   },
   qrSetupButton: {
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.primary,
     borderStyle: 'dashed',
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '80%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     padding: spacing.lg,
   },
   modalContentDark: {
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   modalOptionSelected: {
     backgroundColor: colorWithOpacity(brand.tealLight, 0.08),
