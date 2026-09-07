@@ -1551,6 +1551,8 @@
     "manageSensors": "Hartslag-, vermogens- en cadanssensoren",
     "paired": "Gekoppelde sensoren",
     "nonePaired": "Nog geen sensoren gekoppeld. Zoek hieronder om er een toe te voegen.",
+    "nonePairedShort": "Geen gekoppeld",
+    "pairedCount": "{{count}} gekoppeld",
     "addSensor": "Sensor toevoegen",
     "scan": "Zoeken naar sensoren",
     "stopScan": "Stop met zoeken",

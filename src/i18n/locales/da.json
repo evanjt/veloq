@@ -1551,6 +1551,8 @@
     "manageSensors": "Puls-, effekt- og kadencesensorer",
     "paired": "Parrede sensorer",
     "nonePaired": "Ingen sensorer parret endnu. Søg nedenfor for at tilføje en.",
+    "nonePairedShort": "Ingen parret",
+    "pairedCount": "{{count}} parret",
     "addSensor": "Tilføj en sensor",
     "scan": "Søg efter sensorer",
     "stopScan": "Stop søgning",

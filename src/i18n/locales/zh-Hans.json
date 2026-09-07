@@ -1551,6 +1551,8 @@
     "manageSensors": "心率、功率和踏频传感器",
     "paired": "已配对的传感器",
     "nonePaired": "还没有配对的传感器。在下方扫描以添加。",
+    "nonePairedShort": "未配对",
+    "pairedCount": "已配对 {{count}} 个",
     "addSensor": "添加传感器",
     "scan": "扫描传感器",
     "stopScan": "停止扫描",

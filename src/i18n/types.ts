@@ -1281,6 +1281,8 @@ export interface TranslationResource {
     manageSensors: string;
     paired: string;
     nonePaired: string;
+    nonePairedShort: string;
+    pairedCount: string;
     addSensor: string;
     scan: string;
     stopScan: string;

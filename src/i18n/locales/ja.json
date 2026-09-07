@@ -1551,6 +1551,8 @@
     "manageSensors": "心拍・パワー・ケイデンスセンサー",
     "paired": "ペアリング済みセンサー",
     "nonePaired": "ペアリング済みのセンサーはありません。下でスキャンして追加してください。",
+    "nonePairedShort": "ペアリングなし",
+    "pairedCount": "{{count}}台ペアリング済み",
     "addSensor": "センサーを追加",
     "scan": "センサーをスキャン",
     "stopScan": "スキャンを停止",
