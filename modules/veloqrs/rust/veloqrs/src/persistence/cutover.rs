@@ -835,17 +835,19 @@ fn run_cutover_claimed() -> Result<CutoverOutcome, String> {
 /// Drive any run already holding the detection slot to its end, applying its
 /// result through the shared poll. Mirrors the backfill's drain: with the
 /// suspension held, an emptied slot stays empty.
+///
+/// Bounded, because this is reached from the launch path and a worker that
+/// hangs rather than panicking never reports `Died`. Giving up abandons this
+/// cutover attempt, which the next launch makes again; holding the launch open
+/// on it is the thing that has no way out.
 fn drain_detection_slot() -> Result<(), String> {
-    use crate::objects::detection::{DetectionPoll, poll_detection_once};
-    const POLL: std::time::Duration = std::time::Duration::from_millis(100);
+    use crate::objects::detection::{SLOT_POLL, SlotWait, wait_on_slot};
 
-    loop {
-        match poll_detection_once() {
-            Ok(DetectionPoll::Idle) => return Ok(()),
-            Ok(DetectionPoll::Running) => std::thread::sleep(POLL),
-            Ok(DetectionPoll::Applied) | Ok(DetectionPoll::Died) => continue,
-            Err(e) => return Err(format!("could not drain the detection slot: {}", e)),
-        }
+    match wait_on_slot(SLOT_POLL, false) {
+        SlotWait::Idle => Ok(()),
+        SlotWait::TimedOut => Err("the detection slot did not empty in time".to_string()),
+        SlotWait::Failed(e) => Err(format!("could not drain the detection slot: {}", e)),
+        other => Err(format!("unexpected drain outcome: {:?}", other)),
     }
 }
 
