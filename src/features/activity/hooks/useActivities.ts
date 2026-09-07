@@ -220,7 +220,7 @@ export function useInfiniteActivities() {
   const allActivities = useMemo(() => {
     if (!query.data?.pages) return [];
     return query.data.pages.flat();
-  }, [query.data?.pages]);
+  }, [query.data]);
 
   return {
     ...query,

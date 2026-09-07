@@ -577,7 +577,7 @@ export function useMapGeoJSON({
         coordinates: validCoords,
       },
     };
-  }, [selected?.routeCoords, selected?.mapData, selected?.activity.id]);
+  }, [selected]);
 
   // Helper to check if routeGeoJSON has data
   const routeHasData =

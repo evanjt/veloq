@@ -275,7 +275,7 @@ export default function SectionDetailScreen() {
   const portionActivityIds = useMemo(() => {
     if (!section?.activityPortions) return [];
     return Array.from(new Set(section.activityPortions.map((p) => p.activityId)));
-  }, [section?.activityPortions]);
+  }, [section]);
   const { ready: streamsReady } = useSectionTimeStreamSync(
     portionActivityIds,
     detail?.missingTimeStreamIds

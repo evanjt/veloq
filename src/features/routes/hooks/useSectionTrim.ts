@@ -181,15 +181,7 @@ export function useSectionTrim(
     const sliced = section.polyline.slice(trimStart, trimEnd + 1);
     if (sliced.length < 2) return 0;
     return polylineDistance(sliced);
-  }, [
-    section?.polyline,
-    section?.distanceMeters,
-    isTrimming,
-    isExpanded,
-    expandContext,
-    trimStart,
-    trimEnd,
-  ]);
+  }, [section, isTrimming, isExpanded, expandContext, trimStart, trimEnd]);
 
   const canReset = hasOriginalBoundsFromBundle;
 
@@ -201,7 +193,7 @@ export function useSectionTrim(
     setIsExpanded(false);
     setExpandContext(null);
     setIsTrimming(true);
-  }, [section?.polyline]);
+  }, [section]);
 
   const toggleExpand = useCallback(() => {
     if (!section?.id || !section?.polyline) return;
@@ -258,7 +250,7 @@ export function useSectionTrim(
         t('sections.expandUnavailable', 'No activity track available for expansion')
       );
     }
-  }, [section?.id, section?.polyline, section?.distanceMeters, isExpanded, t]);
+  }, [section, isExpanded, t]);
 
   const cancelTrim = useCallback(() => {
     setIsTrimming(false);
@@ -329,17 +321,7 @@ export function useSectionTrim(
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
     }
-  }, [
-    section?.id,
-    section?.representativeActivityId,
-    trimStart,
-    trimEnd,
-    isExpanded,
-    expandContext,
-    queryClient,
-    onRefresh,
-    t,
-  ]);
+  }, [section, trimStart, trimEnd, isExpanded, expandContext, queryClient, onRefresh, t]);
 
   const resetBounds = useCallback(() => {
     if (!section?.id) return;
@@ -363,7 +345,7 @@ export function useSectionTrim(
         },
       },
     ]);
-  }, [section?.id, queryClient, onRefresh, t]);
+  }, [section, queryClient, onRefresh, t]);
 
   return {
     isTrimming,

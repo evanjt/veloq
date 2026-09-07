@@ -168,7 +168,7 @@ export default function ActivityDetailScreen() {
       return decodePolyline(activity.polyline);
     }
     return [];
-  }, [streams?.latlng, activity?.polyline]);
+  }, [streams, activity]);
 
   const hasGpsData = coordinates.length > 0;
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
@@ -353,7 +353,7 @@ export default function ActivityDetailScreen() {
         setActivityOverride(activity.id, { terrain3D: is3D });
       }
     },
-    [activity?.id, setActivityOverride]
+    [activity, setActivityOverride]
   );
 
   // Handle map style changes -- persist as per-activity override
@@ -363,7 +363,7 @@ export default function ActivityDetailScreen() {
         setActivityOverride(activity.id, { style });
       }
     },
-    [activity?.id, setActivityOverride]
+    [activity, setActivityOverride]
   );
 
   // Save custom camera angle when user exits 3D mode
@@ -374,7 +374,7 @@ export default function ActivityDetailScreen() {
         setSnackbarVisible(true);
       }
     },
-    [activity?.id]
+    [activity]
   );
 
   // Undo camera override (revert to auto-calculated angle)
@@ -383,7 +383,7 @@ export default function ActivityDetailScreen() {
       deleteCameraOverride(activity.id);
     }
     setSnackbarVisible(false);
-  }, [activity?.id]);
+  }, [activity]);
 
   // Restore saved 3D camera angle, or auto-calculate based on terrain mode
   const terrain3DMode = activity?.type ? getTerrain3DMode(activity.type, activity?.id) : 'off';
@@ -399,7 +399,7 @@ export default function ActivityDetailScreen() {
       return result.camera;
     }
     return null;
-  }, [activity?.id, terrain3DMode, coordinates, streams?.altitude]);
+  }, [activity, terrain3DMode, coordinates, streams]);
 
   // Handle section creation completion
   const handleSectionCreated = useCallback(

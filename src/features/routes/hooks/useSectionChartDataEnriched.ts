@@ -99,7 +99,7 @@ export function useSectionChartDataEnriched({
     } catch {
       return null;
     }
-  }, [section?.id, preComputedCalendarSummary]);
+  }, [section, preComputedCalendarSummary]);
 
   // Enrich chart data with PR info for tooltip display
   const enrichedChartData = useMemo(() => {
