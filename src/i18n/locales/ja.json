@@ -1153,7 +1153,13 @@
     "lapExcluded": "除外済み",
     "partlyExcluded": "一部のラップを除外",
     "avgHr": "平均心拍",
-    "maxGrade": "最大勾配"
+    "maxGrade": "最大勾配",
+    "rescanRefusedBusy": "スキャンはすでに実行中です。",
+    "rescanRefusedHeld": "エンジンが他の処理を終えるまで検出は保留されています。",
+    "rescanRefusedNotReady": "エンジンを準備中です。しばらくしてからもう一度お試しください。",
+    "rescanRefusedOff": "ルートマッチングがオフです。設定でオンにするとスキャンできます。",
+    "rescanRefusedNothingOwed": "すべてスキャン済みです。",
+    "rescanRefusedFailed": "スキャンを開始できませんでした。"
   },
   "settings": {
     "account": "アカウント",

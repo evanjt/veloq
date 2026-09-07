@@ -24,8 +24,9 @@ pub enum FfiStartOutcome {
     Held = 3,
     /// The engine is not open yet. Nothing is wrong, the caller is early.
     NotReady = 4,
-    /// There is no credential, so no amount of waiting helps. The athlete has
-    /// to sign in first.
+    /// The athlete has to change something before this can run: there is no
+    /// credential to sign the call with, or the work is switched off in
+    /// Settings. No amount of waiting helps.
     NotConfigured = 5,
     /// There is no work to do. Refusing is the correct answer and will stay
     /// the correct answer.

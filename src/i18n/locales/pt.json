@@ -1153,7 +1153,13 @@
     "lapExcluded": "Excluída",
     "partlyExcluded": "Algumas voltas excluídas",
     "avgHr": "FC média",
-    "maxGrade": "Inclinação máx."
+    "maxGrade": "Inclinação máx.",
+    "rescanRefusedBusy": "Já está a decorrer uma análise.",
+    "rescanRefusedHeld": "A deteção está em espera enquanto o motor termina outro trabalho.",
+    "rescanRefusedNotReady": "O motor ainda está a abrir. Tenta novamente daqui a pouco.",
+    "rescanRefusedOff": "A correspondência de rotas está desligada. Liga-a nas Definições para analisar.",
+    "rescanRefusedNothingOwed": "Já foi tudo analisado.",
+    "rescanRefusedFailed": "Não foi possível iniciar a análise."
   },
   "settings": {
     "account": "Conta",

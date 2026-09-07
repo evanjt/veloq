@@ -25,6 +25,11 @@ interface SectionRescanState {
    */
   rescan: () => StartOutcome;
   forceRescan: () => StartOutcome;
+  /**
+   * The last refusal, for the screen to name. Held as state because the
+   * verdict is returned once and every consumer of it was dropping it.
+   */
+  refusal: StartOutcome | null;
   isScanning: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
@@ -48,6 +53,7 @@ export function useSectionRescan(): SectionRescanState {
   const [progress, setProgress] = useState<SectionRescanState['progress']>(null);
   const [result, setResult] = useState<RescanResult | null>(null);
   const [failed, setFailed] = useState(false);
+  const [refusal, setRefusal] = useState<StartOutcome | null>(null);
   const followRef = useRef<(() => void) | null>(null);
   const beforeCountRef = useRef(0);
   // A run this hook did not start has no honest "before" to report, so the
@@ -95,29 +101,36 @@ export function useSectionRescan(): SectionRescanState {
     });
   }, []);
 
+  /** Record the verdict, and keep a started run free of a stale refusal. */
+  const adopt = useCallback(
+    (outcome: StartOutcome) => {
+      setRefusal(hasStarted(outcome) ? null : outcome);
+      if (hasStarted(outcome)) startPolling();
+      return outcome;
+    },
+    [startPolling]
+  );
+
   const rescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return StartOutcome.NotReady;
+    if (!engine) return adopt(StartOutcome.NotReady);
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    const outcome = engine.startSectionDetection();
-    if (hasStarted(outcome)) startPolling();
-    return outcome;
-  }, [startPolling]);
+    return adopt(engine.startSectionDetection());
+  }, [adopt]);
 
   const forceRescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return StartOutcome.NotReady;
+    if (!engine) return adopt(StartOutcome.NotReady);
     beforeCountRef.current = getSectionCount();
     adoptedRef.current = false;
-    const outcome = engine.forceRedetectSections();
-    if (hasStarted(outcome)) startPolling();
-    return outcome;
-  }, [startPolling]);
+    return adopt(engine.forceRedetectSections());
+  }, [adopt]);
 
   const clearResult = useCallback(() => {
     setResult(null);
     setFailed(false);
+    setRefusal(null);
   }, []);
 
   // A detect started elsewhere, by another screen or by the preview's Keep,
@@ -147,5 +160,5 @@ export function useSectionRescan(): SectionRescanState {
     };
   }, []);
 
-  return { rescan, forceRescan, isScanning, progress, result, failed, clearResult };
+  return { rescan, forceRescan, refusal, isScanning, progress, result, failed, clearResult };
 }

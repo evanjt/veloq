@@ -1153,7 +1153,13 @@
     "lapExcluded": "Exclu",
     "partlyExcluded": "Certains tours exclus",
     "avgHr": "FC moy.",
-    "maxGrade": "Pente max"
+    "maxGrade": "Pente max",
+    "rescanRefusedBusy": "Une analyse est déjà en cours.",
+    "rescanRefusedHeld": "La détection est en attente pendant que le moteur termine d'autres tâches.",
+    "rescanRefusedNotReady": "Le moteur est en cours d'ouverture. Réessaie dans un instant.",
+    "rescanRefusedOff": "La correspondance d'itinéraires est désactivée. Active-la dans les réglages pour analyser.",
+    "rescanRefusedNothingOwed": "Tout a déjà été analysé.",
+    "rescanRefusedFailed": "L'analyse n'a pas pu démarrer."
   },
   "settings": {
     "account": "Compte",
