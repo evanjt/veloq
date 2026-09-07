@@ -665,10 +665,10 @@ pub fn start_elevation_backfill() -> bool {
 ///
 /// The pass in flight ends at its next batch and reports `paused`, and no
 /// launch or resume attempt starts another until the app is reopened. Nothing
-/// is persisted, so a forgotten pause can never strand the migration. Returns
-/// whether a pass was running when the pause landed.
+/// is persisted, so a forgotten pause can never strand the migration. The phase
+/// is what says it is paused, so there is nothing to return.
 #[uniffi::export]
-pub fn pause_elevation_backfill() -> bool {
+pub fn pause_elevation_backfill() {
     init_logging();
     crate::net::elevation_backfill::pause_elevation_backfill()
 }
