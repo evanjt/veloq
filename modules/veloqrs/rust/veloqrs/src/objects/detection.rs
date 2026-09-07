@@ -1,4 +1,5 @@
 use super::error::{VeloqError, with_engine};
+use super::start::FfiStartOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use log::info;
 use std::sync::Arc;
@@ -183,20 +184,20 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    pub fn start(&self) -> Result<bool, VeloqError> {
+    pub fn start(&self) -> Result<FfiStartOutcome, VeloqError> {
         // Refuse before touching the shared handle: installing a refused
         // handle would occupy the slot with a dead run and block the
         // backfill's final re-cut behind it.
         if crate::persistence::detection_suspended() {
             info!("veloqrs: [DetectionManager] Start refused: detection is suspended");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
         // A cheap refusal before the cancel below, so a start that is going to
         // lose does not cost a running preview its answer. The decision that
         // counts is made under the guard held further down.
         if detection_running() {
             info!("veloqrs: [DetectionManager] Section detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         // A real detect supersedes any running preview: the preview's answer
@@ -215,7 +216,7 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!("veloqrs: [DetectionManager] Section detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         let handle = with_engine(|e| {
@@ -228,12 +229,12 @@ impl DetectionManager {
         // would occupy the slot with a run that never happened.
         if crate::persistence::sections::detection_was_refused(&handle) {
             info!("veloqrs: [DetectionManager] Start refused: detection is held");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
 
         *handle_guard = Some(handle);
         info!("veloqrs: [DetectionManager] Section detection started");
-        Ok(true)
+        Ok(FfiStartOutcome::Started)
     }
 
     pub fn poll(&self) -> Result<String, VeloqError> {
@@ -264,18 +265,18 @@ impl DetectionManager {
 
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
-    /// Returns false if detection is already running.
-    pub fn force_redetect(&self) -> Result<bool, VeloqError> {
+    /// Refuses, and says why, if detection is suspended or already running.
+    pub fn force_redetect(&self) -> Result<FfiStartOutcome, VeloqError> {
         // Refuse before clearing the processed set: a refused run must not
         // cost the evidence cache, and must not park a dead handle in the
         // slot the backfill's final re-cut needs.
         if crate::persistence::detection_suspended() {
             info!("veloqrs: [DetectionManager] Force redetect refused: detection is suspended");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
         if detection_running() {
             info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         cancel_running_preview();
@@ -289,7 +290,7 @@ impl DetectionManager {
             .unwrap_or_else(|e| e.into_inner());
         if handle_guard.is_some() {
             info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Busy);
         }
 
         // Clear processed activity IDs to force full re-evaluation
@@ -304,12 +305,12 @@ impl DetectionManager {
         })?;
         if crate::persistence::sections::detection_was_refused(&handle) {
             info!("veloqrs: [DetectionManager] Force redetect refused: detection is held");
-            return Ok(false);
+            return Ok(FfiStartOutcome::Held);
         }
 
         *handle_guard = Some(handle);
         info!("veloqrs: [DetectionManager] Forced full section re-detection started");
-        Ok(true)
+        Ok(FfiStartOutcome::Started)
     }
 
     pub fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
@@ -376,7 +377,7 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
-        let won = race(|| DetectionManager::new().start().expect("start"));
+        let won = race(|| DetectionManager::new().start().expect("start").started());
 
         assert_eq!(won, 1, "exactly one start may win the race");
         assert_eq!(
@@ -395,7 +396,12 @@ mod tests {
         clear_detection_handle();
         let before = detection_workers_started();
 
-        let won = race(|| DetectionManager::new().force_redetect().expect("redetect"));
+        let won = race(|| {
+            DetectionManager::new()
+                .force_redetect()
+                .expect("redetect")
+                .started()
+        });
 
         assert_eq!(won, 1, "exactly one force redetect may win the race");
         assert_eq!(
@@ -417,15 +423,23 @@ mod tests {
         clear_detection_handle();
 
         let manager = DetectionManager::new();
-        assert!(
+        assert_eq!(
             manager.start().expect("first start"),
+            FfiStartOutcome::Started,
             "the first start wins"
         );
 
         let before = detection_workers_started();
-        assert!(!manager.start().expect("second start"), "the slot is taken");
-        assert!(
-            !manager.force_redetect().expect("second redetect"),
+        // A held slot frees on its own, so the refusal has to say so: a caller
+        // that cannot tell this from a suspension has no way to decide to wait.
+        assert_eq!(
+            manager.start().expect("second start"),
+            FfiStartOutcome::Busy,
+            "the slot is taken"
+        );
+        assert_eq!(
+            manager.force_redetect().expect("second redetect"),
+            FfiStartOutcome::Busy,
             "the slot is taken"
         );
         assert_eq!(
@@ -448,10 +462,15 @@ mod tests {
 
         let _suspension = crate::persistence::suspend_detection();
         let manager = DetectionManager::new();
-        assert!(!manager.start().expect("start"), "suspended start refuses");
-        assert!(
-            !manager.force_redetect().expect("redetect"),
-            "suspended force redetect refuses"
+        assert_eq!(
+            manager.start().expect("start"),
+            FfiStartOutcome::Held,
+            "suspended start refuses, and names the hold"
+        );
+        assert_eq!(
+            manager.force_redetect().expect("redetect"),
+            FfiStartOutcome::Held,
+            "suspended force redetect refuses, and names the hold"
         );
 
         assert!(
@@ -497,7 +516,7 @@ mod tests {
         clear_detection_handle();
 
         let manager = DetectionManager::new();
-        assert!(manager.start().expect("start"), "the run starts");
+        assert!(manager.start().expect("start").started(), "the run starts");
 
         let phase = wait_for_the_run_to_apply(&manager);
         assert_eq!(
@@ -620,7 +639,10 @@ mod tests {
 
         let found = with_engine(|e| e.get_sections().len()).expect("engine");
         let manager = DetectionManager::new();
-        assert!(manager.start().expect("start"), "the echo run starts");
+        assert!(
+            manager.start().expect("start").started(),
+            "the echo run starts"
+        );
         assert_eq!(
             wait_for_the_run_to_apply(&manager),
             "complete",
@@ -689,7 +711,10 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(
-            manager.start().expect("start must not answer LockFailed"),
+            manager
+                .start()
+                .expect("start must not answer LockFailed")
+                .started(),
             "detection still starts after the handle lock is poisoned"
         );
         assert!(
@@ -714,7 +739,10 @@ mod tests {
 
         let manager = DetectionManager::new();
         assert!(
-            manager.start().expect("start must not answer LockFailed"),
+            manager
+                .start()
+                .expect("start must not answer LockFailed")
+                .started(),
             "a detect starts after cancelling through a poisoned preview lock"
         );
 

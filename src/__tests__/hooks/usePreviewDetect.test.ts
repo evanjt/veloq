@@ -7,6 +7,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
+import { isRetryableStart, StartOutcome } from 'veloqrs';
 import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
 import type {
   PreviewClient,
@@ -16,6 +17,8 @@ import type {
   PreviewSection,
 } from '../../../modules/veloqrs/src/delegates/preview';
 import type { FfiSectionConfig } from '../../../modules/veloqrs/src/generated/veloqrs';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const LIVE_CONFIG: FfiSectionConfig = {
   proximityThreshold: 100,
@@ -85,7 +88,7 @@ function makeClient(over: Partial<PreviewClient> = {}) {
     cancelPreviewDetect: jest.fn(),
     getSectionConfig: jest.fn((): FfiSectionConfig | null => ({ ...LIVE_CONFIG })),
     setSectionConfig: jest.fn(),
-    forceRedetectSections: jest.fn(() => true),
+    forceRedetectSections: jest.fn(() => StartOutcome.Started),
     ...over,
   };
 }
@@ -289,16 +292,16 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(2);
   });
 
-  it('reads a refused start as suspension, not failure', () => {
+  it('reads a refused start as a hold that lifts, not failure', () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => false) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let started = true;
+    let outcome = StartOutcome.Started;
     act(() => {
-      started = result.current.start(10, 20, PARAMS);
+      outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(started).toBe(false);
+    expect(outcome).toBe(StartOutcome.Held);
     expect(result.current.suspended).toBe(true);
     expect(result.current.status).toBe('idle');
   });
@@ -375,16 +378,17 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(2);
   });
 
-  it('fails the start when no live config exists', () => {
+  it('fails the start when no live config exists, and says it will not lift', () => {
     const client = makeClient({ getSectionConfig: jest.fn(() => null) });
     const { result } = renderHook(() => usePreviewDetect(client));
 
-    let started = true;
+    let outcome = StartOutcome.Started;
     act(() => {
-      started = result.current.start(10, 20, PARAMS);
+      outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(started).toBe(false);
+    expect(outcome).toBe(StartOutcome.NotConfigured);
+    expect(isRetryableStart(outcome)).toBe(false);
     expect(client.startPreviewDetect).not.toHaveBeenCalled();
     expect(result.current.status).toBe('error');
   });

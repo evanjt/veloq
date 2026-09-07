@@ -7,6 +7,8 @@
  */
 import { restoreBackup } from '@/features/settings/lib/backup';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => null,
   getRouteDbPath: () => '/tmp/routes.db',

@@ -142,7 +142,7 @@ fn a_completed_detection_announces_once_and_the_outcome_is_readable() {
     set_observer(Some(counter.clone()));
 
     let detection = DetectionManager::new();
-    assert!(detection.start().expect("start"));
+    assert!(detection.start().expect("start").started());
     wait_for_notice(&counter, 1);
 
     // The first poll after the notice is terminal: the guard drops after the
@@ -165,11 +165,11 @@ fn a_second_run_announces_again() {
     set_observer(Some(counter.clone()));
 
     let detection = DetectionManager::new();
-    assert!(detection.start().expect("start"));
+    assert!(detection.start().expect("start").started());
     wait_for_notice(&counter, 1);
     assert_eq!(detection.poll().expect("poll"), "complete");
 
-    assert!(detection.force_redetect().expect("second start"));
+    assert!(detection.force_redetect().expect("second start").started());
     wait_for_notice(&counter, 2);
     assert_eq!(
         detection.poll().expect("poll"),
@@ -187,7 +187,7 @@ fn a_run_with_no_observer_registered_still_finishes() {
     set_observer(None);
 
     let detection = DetectionManager::new();
-    assert!(detection.start().expect("start"));
+    assert!(detection.start().expect("start").started());
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
         let status = detection.poll().expect("poll");

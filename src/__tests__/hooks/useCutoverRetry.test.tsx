@@ -14,6 +14,8 @@ import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useCutoverRetry } from '@/features/routes/hooks/useCutoverRetry';
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));

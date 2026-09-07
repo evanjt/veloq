@@ -28,6 +28,7 @@ import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -138,7 +139,7 @@ export default function DetectionPreviewScreen() {
           // backfill holds detection. The config above is already written and
           // the evidence cache already cleared, so closing here would report a
           // change that never ran. Stay, say why, and let Keep be pressed again.
-          if (!forceRescan()) {
+          if (!hasStarted(forceRescan())) {
             Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
             return;
           }
