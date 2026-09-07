@@ -29,6 +29,7 @@ interface EngineState {
     lastError?: string;
   };
   detection: string;
+  lastOutcome: string;
   detectionProgress: { phase: string; completed: number; total: number; percent: number } | null;
   backfill: { phase: string; completed: number; total: number; failed: number } | null;
   remaining: number | null;
@@ -39,6 +40,7 @@ function defaultState(): EngineState {
   return {
     sync: { state: SyncState.Idle, inFlight: 0, completed: 0, total: 0 },
     detection: 'idle',
+    lastOutcome: 'idle',
     detectionProgress: null,
     backfill: { phase: 'idle', completed: 0, total: 0, failed: 0 },
     remaining: null,
@@ -47,12 +49,18 @@ function defaultState(): EngineState {
 }
 
 let state: EngineState;
+/** Every taking read of the completion, which a status surface must not make. */
+let polls = 0;
 const listeners = new Map<string, Set<() => void>>();
 
 function engine() {
   return {
     getSyncStatus: () => state.sync,
-    pollSectionDetection: () => state.detection,
+    pollSectionDetection: () => {
+      polls += 1;
+      return state.detection;
+    },
+    lastSectionDetectionOutcome: () => state.lastOutcome,
     getSectionDetectionProgress: () => state.detectionProgress,
     getElevationBackfillProgress: () => state.backfill,
     getElevationBackfillRemaining: () => state.remaining,
@@ -83,6 +91,7 @@ describe('useBackgroundJobs', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     listeners.clear();
+    polls = 0;
     state = defaultState();
     mockGetEngine.mockImplementation(() => engine());
   });
@@ -157,33 +166,55 @@ describe('useBackgroundJobs', () => {
   it('reads a detection that aborted as failed, not as one that finished', () => {
     const { result } = jobs();
 
-    state.detection = 'error';
+    state.lastOutcome = 'error';
     advance(1000);
 
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('failed');
   });
 
-  it('stops polling detection once the screen is gone', () => {
-    let polls = 0;
+  /**
+   * The completion is a taking read: whichever caller polls it first applies
+   * the run and every other caller then sees idle. A status screen that takes
+   * it settles a run the follower is still waiting on, and the rescan it
+   * belongs to reports no change.
+   */
+  it('never takes the completion, whatever it is showing', () => {
+    const { result } = jobs();
+
+    state.detectionProgress = { phase: 'loading', completed: 1, total: 4, percent: 10 };
+    advance(1000);
+    expect(result.current.find((job) => job.id === 'detection')?.state).toBe('running');
+
+    state.detectionProgress = null;
+    state.lastOutcome = 'complete';
+    advance(1000);
+    expect(result.current.find((job) => job.id === 'detection')?.state).toBe('complete');
+
+    advance(5000);
+    expect(polls).toBe(0);
+  });
+
+  it('stops reading detection once the screen is gone', () => {
+    let reads = 0;
     mockGetEngine.mockImplementation(() => {
       const real = engine() as unknown as Record<string, unknown>;
       return {
         ...real,
-        pollSectionDetection: () => {
-          polls += 1;
-          return state.detection;
+        getSectionDetectionProgress: () => {
+          reads += 1;
+          return state.detectionProgress;
         },
       } as unknown as ReturnType<typeof getEngine>;
     });
 
     const { unmount } = jobs();
     advance(3000);
-    const whileMounted = polls;
+    const whileMounted = reads;
     unmount();
     advance(5000);
 
     expect(whileMounted).toBeGreaterThan(1);
-    expect(polls).toBe(whileMounted);
+    expect(reads).toBe(whileMounted);
   });
 
   it('reads an expired credential as a failed sync', () => {
