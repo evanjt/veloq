@@ -451,7 +451,10 @@ export function useGpsDataFetcher() {
 
       const runPass = async (ids: string[]): Promise<FetchPass | null> => {
         const pending = new Set(ids);
-        startFetchAndStore(
+        // The run id is what makes the result ours. One slot was shared by
+        // this sync, the headless push task and the map's own download, and a
+        // push arriving mid-sync took whichever result landed first.
+        const run = startFetchAndStore(
           ids,
           sportTypes.filter((s) => pending.has(s.activityId))
         );
@@ -489,7 +492,7 @@ export function useGpsDataFetcher() {
         }
 
         // Get result (just IDs - no GPS data transfer!)
-        const passResult = takeFetchAndStoreResult();
+        const passResult = takeFetchAndStoreResult(run);
         if (__DEV__) {
           log.log(
             '[fetchApiGps] takeFetchAndStoreResult returned:',
