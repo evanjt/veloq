@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Sobre os Insights",
     "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Estes insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
+    "aboutRanking": "Os cartoes sao ordenados pelo que tem para dizer: quao recente e, quanto foge ao teu habitual, quanto mudou e com que frequencia o fazes. Nao por a noticia ser boa.",
     "efficiencyTrend": {
       "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
       "title": "FC em queda em {{name}}",
