@@ -212,6 +212,35 @@ module.exports = [
     rules: { 'react-hooks/purity': 'off' },
   },
   {
+    // Reanimated shared values. `sharedValue.value = x` is the library's only
+    // write API and every one of these is in a gesture handler, a worklet or a
+    // layout callback, none of which is a render. The rule cannot tell a
+    // `SharedValue` from an ordinary object, so it reads all of them as a
+    // mutation. Nothing here can be written a way that satisfies it.
+    files: [
+      'src/features/home/components/SupportCard.tsx',
+      'src/features/maps/components/timeline/TimelineSlider.tsx',
+      'src/features/recording/components/TrimSlider.tsx',
+      'src/features/routes/components/SectionTrimOverlay.tsx',
+      'src/features/settings/components/whatsNew/WhatsNewModal.tsx',
+      'src/shared/charts/useChartGestures.ts',
+      'src/shared/ui/AnimatedPressable.tsx',
+      'src/shared/ui/CollapsibleSection.tsx',
+      'src/shared/ui/SwipeableTabs.tsx',
+    ],
+    rules: { 'react-hooks/immutability': 'off' },
+  },
+  {
+    // The zoom level the map handlers read synchronously. It is a
+    // `MutableRefObject` written from `onRegionIsChanging` and
+    // `onRegionDidChange`, which are map events and not render, and a ref
+    // written outside render is what a ref is for. The rule sees the handler as
+    // a function that may mutate a variable after render and cannot tell that
+    // the variable is a ref.
+    files: ['src/features/maps/components/regional/useMapHandlers.ts'],
+    rules: { 'react-hooks/immutability': 'off' },
+  },
+  {
     // i18next's default export is the singleton instance, and `use`,
     // `changeLanguage` and the rest are that instance's methods as well as
     // named exports bound to it. Calling them on the instance is the library's
