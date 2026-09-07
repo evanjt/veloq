@@ -1,11 +1,34 @@
 use super::error::{VeloqError, with_engine};
 use crate::init_logging;
-use crate::persistence::persistent_engine_ffi::{BACKUP_HANDLE, BULK_EXPORT_HANDLE, CLEAR_HANDLE};
+use crate::persistence::persistent_engine_ffi::{
+    BACKUP_HANDLE, BULK_EXPORT_HANDLE, CLEAR_ALL_HANDLE, CLEAR_DERIVED_HANDLE, CLEAR_HANDLE,
+};
 use crate::persistence::{
     DerivedClear, NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats, WorkerPoll,
 };
 use log::info;
 use std::sync::Arc;
+
+/// What a running or finished clear-cache wipe removed. The counts are only
+/// meaningful once `state` reads "complete".
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DerivedClearPoll {
+    pub state: String,
+    pub sections_removed: u32,
+    pub activities_removed: u32,
+    pub activities_kept: u32,
+}
+
+impl DerivedClearPoll {
+    fn idle() -> Self {
+        DerivedClearPoll {
+            state: "idle".to_string(),
+            sections_removed: 0,
+            activities_removed: 0,
+            activities_kept: 0,
+        }
+    }
+}
 
 /// What a running or finished bulk export has done. `skipped` and
 /// `total_bytes` are only meaningful once `state` reads "complete".
@@ -135,6 +158,103 @@ impl VeloqEngine {
     /// next toggle can start one.
     fn poll_clear_routes_and_sections(&self) -> Result<String, VeloqError> {
         let mut guard = CLEAR_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok("idle".to_string());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok("running".to_string()),
+            WorkerPoll::Ready(Ok(())) => {
+                *guard = None;
+                Ok("complete".to_string())
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+
+    /// Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+    fn start_clear_derived(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_DERIVED_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        // No engine check here, for the reason `start_clear_routes_and_sections`
+        // gives: the check itself would take the lock this exists to avoid
+        // waiting on. A missing engine comes back through the poll.
+        *guard = Some(crate::persistence::clear_derived_background());
+        Ok(())
+    }
+
+    /// Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+    /// what went once it is complete. Either terminal outcome frees the slot.
+    fn poll_clear_derived(&self) -> Result<DerivedClearPoll, VeloqError> {
+        let mut guard = CLEAR_DERIVED_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        let Some(handle) = guard.as_ref() else {
+            return Ok(DerivedClearPoll::idle());
+        };
+
+        match handle.poll_state() {
+            WorkerPoll::Running => Ok(DerivedClearPoll {
+                state: "running".to_string(),
+                ..DerivedClearPoll::idle()
+            }),
+            WorkerPoll::Ready(Ok(cleared)) => {
+                *guard = None;
+                Ok(DerivedClearPoll {
+                    state: "complete".to_string(),
+                    sections_removed: cleared.sections_removed,
+                    activities_removed: cleared.activities_removed,
+                    activities_kept: cleared.activities_kept,
+                })
+            }
+            WorkerPoll::Ready(Err(msg)) => {
+                *guard = None;
+                Err(VeloqError::Database { msg })
+            }
+            WorkerPoll::Died => {
+                *guard = None;
+                Err(VeloqError::Database {
+                    msg: "Clear thread died without a result".to_string(),
+                })
+            }
+        }
+    }
+
+    /// Start the whole-database wipe on a Rust thread. Refuses while one runs.
+    ///
+    /// The caller re-opens the engine once this completes, so the poll is what
+    /// keeps the re-open ordered after the wipe rather than racing it.
+    fn start_clear_all(&self) -> Result<(), VeloqError> {
+        let mut guard = CLEAR_ALL_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() {
+            return Err(VeloqError::Database {
+                msg: "A clear is already running".to_string(),
+            });
+        }
+        *guard = Some(crate::persistence::clear_all_background());
+        Ok(())
+    }
+
+    /// Poll the running whole-database wipe: "idle" | "running" | "complete".
+    fn poll_clear_all(&self) -> Result<String, VeloqError> {
+        let mut guard = CLEAR_ALL_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
 
         let Some(handle) = guard.as_ref() else {
             return Ok("idle".to_string());

@@ -49,7 +49,7 @@ export function useRouteProcessing(): UseRouteProcessingResult {
 
   const clearCache = useCallback(async () => {
     const engine = getEngine();
-    if (engine) engine.clear();
+    if (engine) await engine.clear();
     setProgress({ status: 'idle', current: 0, total: 0, message: '' });
   }, []);
 
