@@ -17729,6 +17729,24 @@ export interface SyncManagerLike {
    */
   clearCredentials(): void;
   /**
+   * Answer whether intervals.icu still holds the activity an upload created.
+   *
+   * A 200 from the upload says the server took the bytes, not that the ride
+   * survived: it can be rejected, deduplicated against an existing activity
+   * or lost afterwards, and the device's copy is the only other one. So the
+   * recording is not deleted until this reads the activity back. `Ok` means
+   * present, `Http` with 404 means gone, and everything else means unknown,
+   * which is not an answer and must not be treated as one.
+   *
+   * It goes through `run_write` for the credential handling rather than for
+   * the verb: a confirmation refused for a dead credential parks the service
+   * exactly as a refused upload does.
+   */
+  confirmActivityUploaded(
+    intervalsId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome>;
+  /**
    * Create an activity with no file behind it, for indoor entries.
    */
   createManualActivity(
@@ -17898,6 +17916,56 @@ export class SyncManager
       },
       /*liftString:*/ FfiConverterString.lift,
     );
+  }
+
+  /**
+   * Answer whether intervals.icu still holds the activity an upload created.
+   *
+   * A 200 from the upload says the server took the bytes, not that the ride
+   * survived: it can be rejected, deduplicated against an existing activity
+   * or lost afterwards, and the device's copy is the only other one. So the
+   * recording is not deleted until this reads the activity back. `Ok` means
+   * present, `Http` with 404 means gone, and everything else means unknown,
+   * which is not an answer and must not be treated as one.
+   *
+   * It goes through `run_write` for the credential handling rather than for
+   * the verb: a confirmation refused for a dead credential parks the service
+   * exactly as a refused upload does.
+   */
+  async confirmActivityUploaded(
+    intervalsId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(intervalsId),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
+          FfiConverterTypeFfiCallOutcome,
+        ),
+        /*liftString:*/ FfiConverterString.lift,
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -21452,6 +21520,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_clear_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded() !==
+    16648
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded",
     );
   }
   if (

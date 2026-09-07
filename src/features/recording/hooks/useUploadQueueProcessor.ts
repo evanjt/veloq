@@ -12,6 +12,7 @@ import {
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { reconcileProvisionalUploads } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import { confirmAndDeleteUploaded } from '@/features/recording/lib/upload/confirmUploads';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');
@@ -49,10 +50,15 @@ export function useUploadQueueProcessor() {
   }, [athleteId]);
 
   // An upload whose engine write missed leaves a row the sync will duplicate.
+  // The confirmation runs behind it, over the same entries: an upload is not
+  // finished until the activity has been read back off intervals.icu, and only
+  // then does the recording go.
   useEffect(() => {
-    reconcileProvisionalUploads().catch((err: unknown) => {
-      log.warn(`Reconcile pass failed: ${String(err)}`);
-    });
+    reconcileProvisionalUploads()
+      .then(() => confirmAndDeleteUploaded())
+      .catch((err: unknown) => {
+        log.warn(`Reconcile pass failed: ${String(err)}`);
+      });
   }, []);
 
   const processQueue = useCallback(async () => {

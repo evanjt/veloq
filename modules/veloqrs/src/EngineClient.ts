@@ -511,6 +511,9 @@ class EngineClient implements DelegateHost {
   ): Promise<FfiCallOutcome> =>
     syncDelegates.uploadActivityFile(this, filePath, filename, name, pairedEventId);
 
+  confirmActivityUploaded = (intervalsId: string): Promise<FfiCallOutcome> =>
+    syncDelegates.confirmActivityUploaded(this, intervalsId);
+
   createManualActivity = (activity: FfiManualActivity): Promise<FfiCallOutcome> =>
     syncDelegates.createManualActivity(this, activity);
 
