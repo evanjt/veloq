@@ -19,9 +19,10 @@ import {
   periodStart,
   type Period,
 } from '@/shared/app/period';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { SECTION_TIME_RANGES, RANGE_DAYS } from '@/features/routes/constants';
-import { PERIOD_OPTIONS as MAP_PERIODS } from '@/features/maps/lib/mapPeriod';
+import { PERIOD_OPTIONS as MAP_PERIODS, DEFAULT_MAP_PERIOD } from '@/features/maps/lib/mapPeriod';
 import { STRENGTH_PERIODS } from '@/features/strength/periods';
 import { timeRangeToDays } from '@/features/wellness/hooks/useWellness';
 
@@ -108,5 +109,45 @@ describe('what a period is', () => {
     expect(periodStart('all', new Date('2026-05-15T12:00:00Z')).getFullYear()).toBeLessThanOrEqual(
       2000
     );
+  });
+});
+
+/**
+ * Scenario: the five pickers shared one vocabulary but still opened on four
+ * different windows, so an athlete who set six months on one tab met one month
+ * on the next.
+ *
+ * Expected behaviour: every picker opens on `DEFAULT_PERIOD`, the map opens on
+ * All, and no screen names its opening window with a literal, which is how the
+ * four drifted apart in the first place.
+ */
+describe('what a picker opens on', () => {
+  const READ = (path: string) => readFileSync(resolve(__dirname, '../../..', path), 'utf8');
+
+  it('is six months, and every picker that shares the default offers it', () => {
+    expect(DEFAULT_PERIOD).toBe('6m');
+    for (const options of [TIME_RANGES, SECTION_TIME_RANGES, STRENGTH_PERIODS]) {
+      expect(options.map((o) => o.id)).toContain(DEFAULT_PERIOD);
+    }
+  });
+
+  it('is All on the map, which is the one exception', () => {
+    expect(DEFAULT_MAP_PERIOD).toBe('all');
+    expect(MAP_PERIODS.map((o) => o.id)).toContain(DEFAULT_MAP_PERIOD);
+  });
+
+  it.each([
+    ['src/app/(tabs)/fitness.tsx', 'DEFAULT_PERIOD'],
+    ['src/app/(tabs)/training.tsx', 'DEFAULT_PERIOD'],
+    ['src/features/routes/hooks/useSectionUIState.ts', 'DEFAULT_PERIOD'],
+    ['src/features/insights/components/StrengthTab.tsx', 'DEFAULT_PERIOD'],
+    ['src/app/(tabs)/map.tsx', 'DEFAULT_MAP_PERIOD'],
+  ])('%s opens on %s and not on a literal of its own', (path, constant) => {
+    const source = READ(path);
+    const initialiser = source.match(
+      /useState<(?:TimeRange|SectionTimeRange|StrengthPeriod|MapPeriod)>\(([^)]*)\)/
+    );
+    expect(initialiser).not.toBeNull();
+    expect(initialiser?.[1].trim()).toBe(constant);
   });
 });
