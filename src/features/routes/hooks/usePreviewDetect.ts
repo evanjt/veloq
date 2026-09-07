@@ -94,7 +94,12 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         return false;
       }
       setSuspended(false);
-      setResult(null);
+      // The previous result stands until this run settles. During a run there
+      // is no newer answer, and the old one is still the truth about the last
+      // parameters, so clearing it here left the map blank for the length of
+      // the run. A cancelled or failed run leaves it standing for the same
+      // reason. The screen clears it when the area changes, which is the one
+      // case where the held diff is about somewhere else.
       setProgress(null);
       const started = client.startPreviewDetect(lat, lng, { ...config, ...params });
       if (!started) {
