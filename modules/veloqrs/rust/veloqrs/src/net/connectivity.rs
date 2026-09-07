@@ -21,10 +21,20 @@
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-/// How long a pushed state is believed. TypeScript pushes on every transition
-/// and on foreground, so a value older than this means a push was missed
-/// rather than that the network has been down this whole time.
-pub const STALE_AFTER: Duration = Duration::from_secs(15 * 60);
+/// How long a pushed state is believed.
+///
+/// The foreground push is the real mechanism: `NetworkContext` re-states what
+/// it knows on every `active`, so an app the user opens is never stale by more
+/// than one event. This window only covers the app that is never opened, where
+/// nothing refreshes the state and the only cost of believing it too long is a
+/// deferred pass. The only cost of believing it too briefly is a backgrounded
+/// engine asking a network the device already said was gone.
+///
+/// So it is generous, and longer than the elevation backfill's resting rung of
+/// 1800 s (`net::elevation_backfill::RESUME_WAITS`), which is the slowest thing
+/// that reads it. At an hour an offline push suppresses two resting passes and
+/// then expires, and the transport carries it from there.
+pub const STALE_AFTER: Duration = Duration::from_secs(60 * 60);
 
 static STATE: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
 
