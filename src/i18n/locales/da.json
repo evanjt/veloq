@@ -373,8 +373,8 @@
   "export": {
     "bulkComplete": "Eksport fuldført",
     "bulkExport": "Eksporter alle aktiviteter ({{count}})",
-    "bulkExporting": "Genererer GPX...",
-    "bulkResult": "{{exported}} GPX-filer eksporteret, {{skipped}} aktiviteter uden GPS sprunget over.",
+    "bulkExporting": "Genererer {{format}}...",
+    "bulkResult": "{{exported}} aktiviteter eksporteret som {{format}}, {{skipped}} uden GPS sprunget over.",
     "bulkSharing": "Åbner delingsark...",
     "error": "Kunne ikke eksportere GPX-fil.",
     "exporting": "Eksporterer...",
