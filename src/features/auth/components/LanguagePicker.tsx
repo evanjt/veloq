@@ -10,7 +10,7 @@ import {
   isEnglishVariant,
   getEnglishVariantValue,
 } from '@/shared/app/LanguageStore';
-import { colors, darkColors, spacing, brand, layout } from '@/theme';
+import { colors, darkColors, spacing, brand, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     borderColor: brand.goldLight,
   },
   languageButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   languageDropdown: {
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   languageLabel: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: colors.textPrimary,
   },
   variantChips: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   variantChipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },

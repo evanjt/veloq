@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { SupportingDataSection } from '../SupportingDataSection';
 
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     ...shadows.none,
   },
   contextHeading: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextBody: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     color: colors.textPrimary,
   },
@@ -150,14 +150,14 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   contextMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   contextMetaDark: {
     color: darkColors.textSecondary,
   },
   hrChange: {
-    fontSize: 22,
+    fontSize: typography.sectionTitle.fontSize,
     fontWeight: '700',
     color: colors.formOptimal,
   },
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     color: colors.formFresh,
   },
   hrLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -180,12 +180,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   effortCount: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '700',
     color: colors.formOptimal,
   },
   effortLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.formOptimal,
     fontWeight: '500',
   },
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   sectionName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { amberBanner, redBanner, spacing } from '@/theme';
+import { amberBanner, redBanner, spacing, typography } from '@/theme';
 
 interface DebugWarning {
   level: 'warn' | 'error';
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   text: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
     flex: 1,
   },

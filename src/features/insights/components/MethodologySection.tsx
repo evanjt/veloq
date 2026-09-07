@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 
 interface MethodologySectionProps {
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   formulaText: {
     fontFamily: 'monospace',
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     lineHeight: 20,
   },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   // Algorithm description
   algorithmText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     lineHeight: 19,
   },
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   activitiesSectionLabel: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   activityDate: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     minWidth: 72,
   },
@@ -235,14 +235,14 @@ const styles = StyleSheet.create({
   },
   activityName: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
   },
   activityNameDark: {
     color: darkColors.textPrimary,
   },
   moreActivities: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontStyle: 'italic',
     paddingLeft: spacing.sm,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   referenceText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontStyle: 'italic',
     color: colors.textSecondary,
     lineHeight: 18,

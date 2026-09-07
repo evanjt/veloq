@@ -11,7 +11,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, ink, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, ink, layout, typography } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   chartLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
   },
   xAxisRow: {

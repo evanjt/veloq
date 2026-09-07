@@ -289,11 +289,11 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   hintText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textDisabled,
     marginTop: spacing.xs,
     fontStyle: 'italic',
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   detailName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detailStat: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
     lineHeight: 16,
   },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   detailExName: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     flexShrink: 1,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detailExSub: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     paddingLeft: 8,
   },

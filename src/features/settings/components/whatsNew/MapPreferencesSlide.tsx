@@ -4,7 +4,7 @@ import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { MapStylePreviewPicker } from '@/features/settings/components/MapStylePreviewPicker';
 
 export function MapPreferencesSlide() {
@@ -65,14 +65,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   terrainLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
   },
   segmented: {
     maxWidth: 280,
   },
   hint: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     lineHeight: 15,
     textAlign: 'center',
     paddingHorizontal: spacing.sm,

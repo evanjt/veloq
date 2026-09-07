@@ -9,7 +9,7 @@ import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityPattern, Insight } from '@/types';
 
 interface InsightsPanelProps {
@@ -110,12 +110,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   empty: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,

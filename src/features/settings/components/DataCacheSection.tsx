@@ -27,7 +27,7 @@ import {
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { getEngine } from '@/shared/native/engine';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
 
@@ -218,7 +218,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
 const styles = StyleSheet.create({
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     marginTop: spacing.lg,

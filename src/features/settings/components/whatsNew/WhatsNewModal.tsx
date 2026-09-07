@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, ink } from '@/theme';
+import { colors, darkColors, spacing, layout, ink, typography } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   modeToggleText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   dots: {
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   navText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '500',
   },
   navTextBold: {
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   doneText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
 });

@@ -13,7 +13,16 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, spacing, brand, shadows, layout } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  brand,
+  shadows,
+  layout,
+  typography,
+} from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 
 const HANDLE_SIZE = 28;
@@ -181,11 +190,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   title: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
   },
   timeRange: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
