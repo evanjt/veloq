@@ -29,6 +29,17 @@ fn climb_paused(
     offline: bool,
     paused: impl Fn(usize) -> bool,
 ) -> Run {
+    climb_with(rungs, remaining, offline, paused, |_| false)
+}
+
+/// The same climb with the engine read handed in too, per rung.
+fn climb_with(
+    rungs: usize,
+    remaining: impl Fn(usize) -> Option<u64>,
+    offline: bool,
+    paused: impl Fn(usize) -> bool,
+    engine_gone: impl Fn(usize) -> bool,
+) -> Run {
     let slept = RefCell::new(Vec::new());
     let round = Cell::new(0usize);
     let attempts = Cell::new(0usize);
@@ -44,6 +55,7 @@ fn climb_paused(
         || remaining(round.get()),
         || offline,
         || paused(round.get()),
+        || engine_gone(round.get()),
         || {
             attempts.set(attempts.get() + 1);
         },
@@ -144,10 +156,8 @@ fn nothing_the_ladder_counts_ends_it_on_its_own() {
         "every rung past the cap still attempts"
     );
 
-    // A queue that never reads is the shape a destroyed engine leaves, and the
-    // ladder attempts against it for ever: an unreadable queue is not an empty
-    // one, and nothing here can tell "the read failed" from "the engine is
-    // gone". That is the one gap this exception leaves.
+    // A queue that cannot be read is still asked. It is not an empty one, and a
+    // read that failed for a moment must not kill a ladder still owed work.
     let unreadable = climb(20, |_| None, false);
     assert_eq!(
         unreadable.attempts, 20,
@@ -159,4 +169,57 @@ fn nothing_the_ladder_counts_ends_it_on_its_own() {
     let away = climb(20, |_| Some(5), true);
     assert_eq!(away.attempts, 0);
     assert_eq!(away.slept.len(), 20);
+}
+
+/// Scenario: a restore or a clear destroys the engine under a climbing ladder.
+/// The queue then answers `None` for ever, which is the same answer a read that
+/// failed for a moment gives, so the ladder woke twice an hour for the life of
+/// the process against a handle that was gone.
+///
+/// Expected behaviour: a destroyed engine ends the climb. It is asked
+/// separately from the queue, because only that tells "the engine is gone" from
+/// "the read failed", and the second must not end anything.
+#[test]
+fn a_destroyed_engine_ends_the_climb_and_a_failed_read_does_not() {
+    let gone = climb_with(20, |_| None, false, |_| false, |round| round >= 3);
+    assert_eq!(
+        gone.attempts, 2,
+        "the two rungs before the engine went, and none after"
+    );
+    assert_eq!(
+        gone.slept.len(),
+        3,
+        "it stops on the rung that finds it gone"
+    );
+
+    let transient = climb_with(
+        20,
+        |round| if round % 2 == 0 { None } else { Some(5) },
+        false,
+        |_| false,
+        |_| false,
+    );
+    assert_eq!(
+        transient.attempts, 20,
+        "a queue that reads intermittently is still owed every rung"
+    );
+}
+
+/// The engine is asked every rung, not once at the start: it can go away at any
+/// point in a climb that spans hours.
+#[test]
+fn the_engine_is_asked_on_every_rung() {
+    let asked = Cell::new(0usize);
+    let run = climb_with(
+        6,
+        |_| Some(5),
+        false,
+        |_| false,
+        |_| {
+            asked.set(asked.get() + 1);
+            false
+        },
+    );
+    assert_eq!(run.attempts, 6);
+    assert_eq!(asked.get(), 6, "once per rung");
 }
