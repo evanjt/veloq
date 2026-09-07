@@ -171,6 +171,7 @@ class EngineClient implements DelegateHost {
   /** The generated binding installs its vtables once per process. */
   private bindingInitialised = false;
   private pendingWrites: PendingWrite[] = [];
+  private droppedWrites = 0;
 
   // Cached domain object handles (created once via VeloqEngine factory)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,19 +184,31 @@ class EngineClient implements DelegateHost {
     return this.engine !== null;
   }
 
+  /** How many held writes have been dropped since the last replay. */
+  get droppedPendingWrites(): number {
+    return this.droppedWrites;
+  }
+
   /**
    * Run a write now, or hold it until the engine opens.
    *
    * The oldest write goes when the queue is full: a cold start that never
    * opens the engine must not grow this without bound, and the newest write
-   * to a key is the one the athlete meant.
+   * to a key is the one the athlete meant. Dropping one is still the athlete's
+   * data going, so it is named as it goes and counted for the replay to total.
    */
   write(name: string, run: () => void): void {
     if (this.ready) {
       this.timed(name, run);
       return;
     }
-    if (this.pendingWrites.length >= MAX_PENDING_WRITES) this.pendingWrites.shift();
+    if (this.pendingWrites.length >= MAX_PENDING_WRITES) {
+      const dropped = this.pendingWrites.shift();
+      this.droppedWrites += 1;
+      console.warn(
+        `[EngineClient] Queue full at ${MAX_PENDING_WRITES}, dropped held write ${dropped?.name}`
+      );
+    }
     this.pendingWrites.push({ name, run });
   }
 
@@ -311,6 +324,12 @@ class EngineClient implements DelegateHost {
    * not take the rest of the queue with it.
    */
   private replayPendingWrites(): void {
+    if (this.droppedWrites > 0) {
+      console.warn(
+        `[EngineClient] ${this.droppedWrites} held write(s) were dropped before the engine opened`
+      );
+      this.droppedWrites = 0;
+    }
     if (this.pendingWrites.length === 0) return;
     const held = this.pendingWrites;
     this.pendingWrites = [];
