@@ -1155,7 +1155,13 @@
     "lapExcluded": "Wykluczone",
     "partlyExcluded": "Niektóre okrążenia wykluczone",
     "avgHr": "Śr. tętno",
-    "maxGrade": "Najstromiej"
+    "maxGrade": "Najstromiej",
+    "rescanRefusedBusy": "Skanowanie już trwa.",
+    "rescanRefusedHeld": "Wykrywanie czeka, aż silnik skończy inną pracę.",
+    "rescanRefusedNotReady": "Silnik jeszcze się uruchamia. Spróbuj za chwilę.",
+    "rescanRefusedOff": "Dopasowywanie tras jest wyłączone. Włącz je w Ustawieniach, aby skanować.",
+    "rescanRefusedNothingOwed": "Wszystko zostało już przeskanowane.",
+    "rescanRefusedFailed": "Nie udało się rozpocząć skanowania."
   },
   "settings": {
     "account": "Konto",

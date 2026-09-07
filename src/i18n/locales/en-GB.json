@@ -1153,7 +1153,13 @@
     "lapExcluded": "Excluded",
     "partlyExcluded": "Some laps excluded",
     "avgHr": "Avg HR",
-    "maxGrade": "Steepest"
+    "maxGrade": "Steepest",
+    "rescanRefusedBusy": "A scan is already running.",
+    "rescanRefusedHeld": "Detection is held while the engine finishes other work.",
+    "rescanRefusedNotReady": "The engine is still opening. Try again in a moment.",
+    "rescanRefusedOff": "Route matching is off. Turn it on in Settings to scan.",
+    "rescanRefusedNothingOwed": "Everything has been scanned already.",
+    "rescanRefusedFailed": "The scan could not start."
   },
   "settings": {
     "account": "Account",

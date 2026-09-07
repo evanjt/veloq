@@ -1153,7 +1153,13 @@
     "lapExcluded": "Escluso",
     "partlyExcluded": "Alcuni giri esclusi",
     "avgHr": "FC media",
-    "maxGrade": "Pendenza max"
+    "maxGrade": "Pendenza max",
+    "rescanRefusedBusy": "Una scansione è già in corso.",
+    "rescanRefusedHeld": "Il rilevamento è in attesa mentre il motore completa altro lavoro.",
+    "rescanRefusedNotReady": "Il motore si sta ancora aprendo. Riprova tra un momento.",
+    "rescanRefusedOff": "La corrispondenza dei percorsi è disattivata. Attivala nelle impostazioni per analizzare.",
+    "rescanRefusedNothingOwed": "È già stato analizzato tutto.",
+    "rescanRefusedFailed": "Non è stato possibile avviare la scansione."
   },
   "settings": {
     "account": "Account",

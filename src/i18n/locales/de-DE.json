@@ -1153,7 +1153,13 @@
     "lapExcluded": "Ausgeschlossen",
     "partlyExcluded": "Einige Runden ausgeschlossen",
     "avgHr": "Ø Puls",
-    "maxGrade": "Steilste Stelle"
+    "maxGrade": "Steilste Stelle",
+    "rescanRefusedBusy": "Ein Scan läuft bereits.",
+    "rescanRefusedHeld": "Die Erkennung pausiert, bis die Engine andere Arbeit beendet hat.",
+    "rescanRefusedNotReady": "Die Engine startet noch. Versuche es gleich noch einmal.",
+    "rescanRefusedOff": "Routenabgleich ist aus. Schalte ihn in den Einstellungen ein, um zu scannen.",
+    "rescanRefusedNothingOwed": "Es ist bereits alles gescannt.",
+    "rescanRefusedFailed": "Der Scan konnte nicht gestartet werden."
   },
   "settings": {
     "account": "Konto",
