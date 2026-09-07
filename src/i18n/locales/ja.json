@@ -1042,7 +1042,7 @@
     "sortMostVisited": "最多訪問",
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
-    "sortSignature": "シグネチャ",
+    "sortRelevance": "関連度",
     "standingBest": "{{total}} 回中の自己最速",
     "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
     "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",

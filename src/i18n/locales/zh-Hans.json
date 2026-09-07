@@ -1042,7 +1042,7 @@
     "sortMostVisited": "最常访问",
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
-    "sortSignature": "标志路段",
+    "sortRelevance": "相关性",
     "standingBest": "{{total}} 次中最快的一次",
     "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
     "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
