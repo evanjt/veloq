@@ -8,9 +8,10 @@
 //! made here must be made after the write is committed and the engine lock is
 //! released, never under it.
 
-use std::sync::{Arc, RwLock};
-
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, RwLock};
 
 /// What Rust tells TypeScript when work finishes off the JavaScript thread.
 ///
@@ -57,10 +58,32 @@ pub fn set_observer(observer: Option<Arc<dyn EngineObserver>>) {
     *OBSERVER.write().unwrap_or_else(|e| e.into_inner()) = observer;
 }
 
+/// Announcements that came back as a panic from the foreign side.
+static OBSERVER_PANICS: AtomicU32 = AtomicU32::new(0);
+
+/// How many announcements the foreign side has panicked out of, this process.
+///
+/// The device log is otherwise the only record, and it says nothing about
+/// which announcement or how many the caller lost.
+pub fn observer_panics() -> u32 {
+    OBSERVER_PANICS.load(Ordering::Relaxed)
+}
+
 /// Call the observer if one is registered.
 ///
 /// The handle is cloned out and the read lock dropped before `f` runs, so a
 /// call into JavaScript never holds the registry.
+///
+/// The call is caught. uniffi's dispatch panics with "Foreign pointer not set"
+/// when the vtable slot behind a registered observer was never installed, and
+/// twenty of those were pulled off a device in one log. The crate is
+/// `panic = unwind` and the panic hook logs rather than aborting, so each one
+/// unwound the background thread that announced, past whatever that thread had
+/// left to do: a released flag, a slot to give back, a result to store.
+/// Announcing is not work, it is a notification about work already committed,
+/// so it must not be able to fail the work. `AssertUnwindSafe` because the
+/// only state across the boundary is the foreign handle, which is not ours to
+/// hold invariants for, and the registry lock is already released.
 pub(crate) fn notify<F>(f: F)
 where
     F: FnOnce(&dyn EngineObserver),
@@ -70,8 +93,13 @@ where
         .unwrap_or_else(|e| e.into_inner())
         .as_ref()
         .map(Arc::clone);
-    if let Some(observer) = observer {
-        f(observer.as_ref());
+    if let Some(observer) = observer
+        && catch_unwind(AssertUnwindSafe(|| f(observer.as_ref()))).is_err()
+    {
+        let total = OBSERVER_PANICS.fetch_add(1, Ordering::Relaxed) + 1;
+        log::error!(
+            "veloqrs: [observer] the foreign side panicked on an announcement, {total} so far this process; the event is lost and the caller carries on"
+        );
     }
 }
 
@@ -266,5 +294,129 @@ mod tests {
             recorder.events(),
             vec!["backfill_phase:fetching", "backfill_phase:complete"]
         );
+    }
+
+    /// Scenario: twenty identical panics in one device log, `Foreign pointer
+    /// not set` from uniffi's callback dispatch, each one raised inside a
+    /// `notify` on a Rust background thread. The crate is `panic = unwind` and
+    /// the hook logs rather than aborting, so every one of them unwound the
+    /// thread that announced, past whatever that thread had left to do.
+    ///
+    /// Expected behaviour: announcing is not a thing that can fail the work
+    /// that announced. The foreign side is not ours and a call into it is a
+    /// call across a boundary, so a panic coming back over it is caught here.
+    mod a_foreign_side_that_panics {
+        use super::*;
+        use std::sync::atomic::{AtomicU32, Ordering};
+
+        /// Every method panics the way uniffi's dispatch does when the vtable
+        /// slot was never installed.
+        struct Exploding;
+
+        macro_rules! explode {
+            ($($name:ident($($arg:ident: $ty:ty),*);)*) => {
+                $(fn $name(&self $(, _: $ty)*) {
+                    $(let _ = stringify!($arg);)*
+                    panic!("Foreign pointer not set.  This is likely a uniffi bug.");
+                })*
+            };
+        }
+
+        impl EngineObserver for Exploding {
+            explode! {
+                sync_progress();
+                sync_settled();
+                body_stored(kind: String, activity_id: String);
+                time_streams_stored(activity_ids: Vec<String>);
+                gps_track_stored(activity_id: String);
+                fit_parsed(activity_id: String);
+                detection_applied();
+                tiles_generated();
+                backfill_phase(phase: String);
+                cutover_settled();
+                preview_phase(phase: String);
+                preview_finished();
+            }
+        }
+
+        /// Swallow the hook's output, the way the poisoned-lock tests do, so a
+        /// deliberate panic does not read as a failing run.
+        fn quietly<T>(f: impl FnOnce() -> T) -> T {
+            let previous = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let out = f();
+            std::panic::set_hook(previous);
+            out
+        }
+
+        #[test]
+        fn does_not_unwind_the_thread_that_announced() {
+            let _guard = serial_global_state();
+            set_observer(Some(Arc::new(Exploding)));
+
+            let reached_the_next_line = AtomicU32::new(0);
+            quietly(|| {
+                notify(|o| o.sync_settled());
+                reached_the_next_line.fetch_add(1, Ordering::SeqCst);
+            });
+
+            set_observer(None);
+            assert_eq!(
+                reached_the_next_line.load(Ordering::SeqCst),
+                1,
+                "the announcement took the rest of the thread with it"
+            );
+        }
+
+        #[test]
+        fn is_counted_so_the_log_is_not_the_only_record() {
+            let _guard = serial_global_state();
+            let before = observer_panics();
+            set_observer(Some(Arc::new(Exploding)));
+
+            quietly(|| {
+                notify(|o| o.sync_settled());
+                notify(|o| o.backfill_phase("fetching".into()));
+            });
+
+            set_observer(None);
+            assert_eq!(observer_panics() - before, 2);
+        }
+
+        #[test]
+        fn leaves_the_registry_usable_for_the_next_observer() {
+            let _guard = serial_global_state();
+            set_observer(Some(Arc::new(Exploding)));
+            quietly(|| notify(|o| o.sync_settled()));
+
+            let good = Recorder::new();
+            set_observer(Some(good.clone()));
+            notify(|o| o.sync_settled());
+            set_observer(None);
+
+            assert_eq!(good.events(), vec!["sync_settled"]);
+        }
+
+        /// A real emit site, so this is not only a property of `notify`.
+        #[test]
+        fn does_not_stop_the_backfill_setting_its_phase() {
+            use crate::net::elevation_backfill::{
+                BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, backfill_progress, set_phase,
+            };
+
+            let _guard = serial_global_state();
+            set_observer(Some(Arc::new(Exploding)));
+            quietly(|| {
+                set_phase(BACKFILL_PHASE_FETCHING);
+                set_phase(BACKFILL_PHASE_COMPLETE);
+            });
+            set_observer(None);
+
+            assert_eq!(
+                backfill_progress().phase,
+                BACKFILL_PHASE_COMPLETE,
+                "the phase moved even though announcing it panicked"
+            );
+        }
     }
 }

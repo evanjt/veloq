@@ -4,8 +4,8 @@
  * says the library the athlete had is gone.
  *
  * Expected behaviour: the client passes Rust's report through, once, and
- * answers null before the engine is open and when the call throws. What is
- * shown for it is `Q226`.
+ * answers null before the engine is open and when the call throws. What the
+ * athlete is shown for it is a separate decision and is not covered here.
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
