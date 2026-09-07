@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, Button, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ interface ApiKeyLoginFormProps {
   isLoading: boolean;
   disabled: boolean;
   onOpenDeveloperSettings: () => void;
+  /** The key a rejected session left behind, or null for a first sign-in. */
+  prefillApiKey?: string | null;
 }
 
 export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
@@ -19,12 +21,25 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
   isLoading,
   disabled,
   onOpenDeveloperSettings,
+  prefillApiKey = null,
 }: ApiKeyLoginFormProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
 
   const [apiKey, setApiKey] = useState('');
   const [expanded, setExpanded] = useState(false);
+
+  // The prefill arrives a keychain read after the first paint, and the section
+  // is shut until then, so seeding it also has to open the section or the key
+  // sits behind a tap nobody knows to make. Once only: a second pass would
+  // type over whatever the athlete has since pasted.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !prefillApiKey) return;
+    seeded.current = true;
+    setApiKey(prefillApiKey);
+    setExpanded(true);
+  }, [prefillApiKey]);
 
   const handleSubmit = useCallback(() => {
     onLogin(apiKey);
