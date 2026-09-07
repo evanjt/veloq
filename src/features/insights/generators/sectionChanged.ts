@@ -58,6 +58,7 @@ export function generateSectionChangedInsights(
         sourceTimestamp: change.at,
         comparisonKind: 'none',
         placeName: change.sectionName,
+        sectionId: change.sectionId,
       },
     });
   }
