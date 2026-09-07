@@ -38,14 +38,15 @@ beforeEach(() => {
 });
 
 describe('holding what is not the signing athlete-s', () => {
-  it('asks the engine for the athlete who is signing in, and answers how many were held', async () => {
-    await expect(holdRecordingsOfOtherAthletes('i296629')).resolves.toBe(2);
+  it('asks the engine for the athlete who is signing in', async () => {
+    await holdRecordingsOfOtherAthletes('i296629');
     expect(mockHoldOtherAthletes).toHaveBeenCalledWith('i296629');
   });
 
-  it('says nothing was held when nothing was', async () => {
+  it('asks once per sign-in, whatever the engine answers', async () => {
     mockHoldOtherAthletes.mockReturnValue(0);
-    await expect(holdRecordingsOfOtherAthletes('i296629')).resolves.toBe(0);
+    await holdRecordingsOfOtherAthletes('i296629');
+    expect(mockHoldOtherAthletes).toHaveBeenCalledTimes(1);
   });
 });
 

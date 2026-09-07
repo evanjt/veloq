@@ -182,10 +182,14 @@ export function holdRecordingForAuth(host: DelegateHost, id: string, error: stri
 
 /**
  * An athlete signed in: stop auto-uploading every ride that is not theirs, an
- * unstamped one included. Answers how many were held.
+ * unstamped one included.
+ *
+ * It goes through `write` and not `timed`, so a sign-in that lands before the
+ * engine opens is held and replayed rather than dropped. That is also why it
+ * answers nothing: the count is not known until the write actually runs.
  */
-export function holdRecordingsOfOtherAthletes(host: DelegateHost, athleteId: string): number {
-  return host.write('holdRecordingsOfOtherAthletes', () =>
+export function holdRecordingsOfOtherAthletes(host: DelegateHost, athleteId: string): void {
+  host.write('holdRecordingsOfOtherAthletes', () =>
     host.engine.recordings().holdOtherAthletes(athleteId)
   );
 }
