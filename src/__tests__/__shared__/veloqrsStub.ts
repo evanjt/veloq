@@ -54,6 +54,16 @@ export enum SyncState {
   AuthExpired = 4,
 }
 
+/** `FfiInitOutcome` as generated, held to the source by the same test. */
+export enum InitOutcome {
+  Opened = 1,
+  Busy = 2,
+  ForwardSchema = 3,
+  StorageUnavailable = 4,
+  NotAttempted = 5,
+  Failed = 6,
+}
+
 /** `FfiStartOutcome` as generated, held to the source by the same test. */
 export enum StartOutcome {
   Started = 1,
@@ -73,6 +83,10 @@ export const isRetryableStart = (outcome: StartOutcome): boolean =>
   outcome === StartOutcome.Offline;
 
 export const hasStarted = (outcome: StartOutcome): boolean => outcome === StartOutcome.Started;
+
+export const isRetryableInit = (outcome: InitOutcome): boolean => outcome === InitOutcome.Busy;
+
+export const hasOpened = (outcome: InitOutcome): boolean => outcome === InitOutcome.Opened;
 
 export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
@@ -136,6 +150,9 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     SyncErrorReason,
     BulkExportFormat,
     StartOutcome,
+    InitOutcome,
+    isRetryableInit,
+    hasOpened,
     isRetryableStart,
     hasStarted,
     decodeCoords,

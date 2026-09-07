@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige."
+    "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige.",
+    "initReason": {
+      "busy": "Noget andet brugte databasen. Prøv igen om lidt.",
+      "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
+      "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
+      "failed": "Rutemotoren stoppede af en årsag, appen ikke kan navngive."
+    }
   },
   "errorState": {
     "defaultTitle": "Noget gik galt",

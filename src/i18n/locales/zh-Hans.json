@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "路线引擎初始化失败。路线和区间可能不可用。"
+    "initFailed": "路线引擎初始化失败。路线和区间可能不可用。",
+    "initReason": {
+      "busy": "数据库正被其他操作占用。稍后重试即可。",
+      "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
+      "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
+      "failed": "路线引擎因未知原因停止。"
+    }
   },
   "errorState": {
     "defaultTitle": "出错了",

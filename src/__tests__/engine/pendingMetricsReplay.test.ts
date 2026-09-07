@@ -13,12 +13,14 @@ import type { FfiActivityMetrics } from '../../../modules/veloqrs/src/generated/
 const mockActivities = { setMetrics: jest.fn() };
 const mockNativeEngine = {
   isInitialized: () => true,
+  initOutcome: () => 1,
   setObserver: jest.fn(),
   destroy: jest.fn(),
   activities: () => mockActivities,
 };
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: {
     create: () => mockNativeEngine,
   },

@@ -26,6 +26,7 @@ const mockActivities = { setMetrics: jest.fn(), setCurveBody: jest.fn() };
 let initSucceeds = true;
 const mockNativeEngine = {
   isInitialized: () => initSucceeds,
+  initOutcome: () => 1,
   setObserver: jest.fn(),
   destroy: jest.fn(),
   clear: jest.fn(),
@@ -36,6 +37,7 @@ const mockNativeEngine = {
 };
 
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
+  FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: {
     create: () => mockNativeEngine,
   },
