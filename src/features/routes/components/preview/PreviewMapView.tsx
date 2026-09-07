@@ -171,9 +171,19 @@ export function PreviewMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Frame each area once. Keying the refit on the geometry moved the camera
+  // twice a run, once when the sections emptied and again when the result
+  // landed, and threw away the athlete's own pan and zoom both times. Comparing
+  // two catalogues in one frame is the point of the diff, so a run against the
+  // area already framed leaves the viewport alone. Choosing another area is the
+  // one event that still justifies moving it.
+  const areaKey = centre ? `${centre.lat},${centre.lng}` : null;
+  const framedArea = useRef<string | null>(null);
   useEffect(() => {
-    if (bounds) surfaceRef.current?.fitBounds(bounds, 60, 400);
-  }, [bounds]);
+    if (!bounds || framedArea.current === areaKey) return;
+    framedArea.current = areaKey;
+    surfaceRef.current?.fitBounds(bounds, 60, 400);
+  }, [bounds, areaKey]);
 
   // Attribution is a licence condition, so the credit line has to name the
   // imagery actually drawn. Satellite sources are regional, so it follows the
