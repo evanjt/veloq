@@ -1583,8 +1583,9 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): void;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
+    run: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_validate_backup_database(

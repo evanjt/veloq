@@ -258,17 +258,26 @@ fn store_downloaded_track(
 /// - No ~865KB GPS data transfer from TypeScript back to Rust
 /// - Direct storage in SQLite without serialization overhead
 
+/// Start one fetch+store run and answer its id.
+///
+/// The id is what `take_fetch_and_store_result` reads back with. Three callers
+/// start runs, a silent push arriving during a foreground sync is ordinary, and
+/// before the id they shared one result slot and took each other's answers.
 #[uniffi::export]
-pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<ActivitySportMapping>) {
+pub fn start_fetch_and_store(
+    activity_ids: Vec<String>,
+    sport_types: Vec<ActivitySportMapping>,
+) -> u64 {
     use crate::elapsed_ms;
     use std::collections::HashMap;
     init_logging();
 
     let ffi_start = Instant::now();
+    let run = next_fetch_run();
     let activity_count = activity_ids.len();
     info!(
-        "[RUST: start_fetch_and_store] FFI called with {} activities",
-        activity_count
+        "[RUST: start_fetch_and_store] FFI called with {} activities (run {})",
+        activity_count, run
     );
 
     // Credentials are held by the sync service, never passed per call. Without
@@ -277,18 +286,21 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
     let Ok(fetcher) = crate::http::ActivityFetcher::from_credentials() else {
         info!("[RUST: start_fetch_and_store] No credentials set");
         crate::http::reset_download_progress(activity_count as u32);
-        store_fetch_and_store_result(FetchAndStoreResult {
-            synced_ids: vec![],
-            failed_ids: activity_ids,
-            total: activity_count as u32,
-            success_count: 0,
-            total_points: 0,
-            fetch_time_ms: 0,
-            storage_time_ms: 0,
-            total_time_ms: 0,
-        });
+        store_fetch_run_result(
+            run,
+            FetchAndStoreResult {
+                synced_ids: vec![],
+                failed_ids: activity_ids,
+                total: activity_count as u32,
+                success_count: 0,
+                total_points: 0,
+                fetch_time_ms: 0,
+                storage_time_ms: 0,
+                total_time_ms: 0,
+            },
+        );
         crate::http::finish_download_progress();
-        return;
+        return run;
     };
 
     // Build sport type lookup, and alongside it the set of activities inside
@@ -312,14 +324,6 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
         sport_map.len(),
         elapsed_ms(sport_map_start)
     );
-
-    // Clear any previous results. Recover from a poisoned lock instead of
-    // aborting (panic=abort): a poisoned FETCH_AND_STORE_RESULT only means a
-    // prior writer panicked, the inner Option is still safe to read/replace.
-    FETCH_AND_STORE_RESULT
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take();
 
     // Reset progress counters
     crate::http::reset_download_progress(activity_ids.len() as u32);
@@ -525,17 +529,21 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
             }
         }
 
-        // Store result
-        store_fetch_and_store_result(FetchAndStoreResult {
-            synced_ids,
-            failed_ids,
-            total,
-            success_count,
-            total_points: total_points as u32,
-            fetch_time_ms: fetch_time,
-            storage_time_ms: storage_time,
-            total_time_ms: total_time,
-        });
+        // File the result under this run, so only the caller that started it
+        // can read it back.
+        store_fetch_run_result(
+            run,
+            FetchAndStoreResult {
+                synced_ids,
+                failed_ids,
+                total,
+                success_count,
+                total_points: total_points as u32,
+                fetch_time_ms: fetch_time,
+                storage_time_ms: storage_time,
+                total_time_ms: total_time,
+            },
+        );
 
         crate::http::finish_download_progress();
 
@@ -544,37 +552,72 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
             total_time
         );
     });
+
+    run
 }
 
-/// Storage for fetch+store results
+/// Results of finished fetch+store runs, keyed by the run that produced them.
+///
+/// There was one slot for the whole process and three callers: the foreground
+/// GPS sync, the headless push task and the map's single-activity download. A
+/// silent push arriving during a sync is ordinary, and whichever of them read
+/// first took the other's result and acted on it, while the second read nothing
+/// and reported a download that had really happened as a failure. The map's
+/// caller never reads at all, so it left one behind for the next reader to
+/// find.
+///
+/// A run id is minted per start and the result is filed under it, so a caller
+/// can only ever read back what its own start produced.
+static FETCH_AND_STORE_RESULTS: std::sync::Mutex<Vec<(u64, FetchAndStoreResult)>> =
+    std::sync::Mutex::new(Vec::new());
 
-static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
-    std::sync::Mutex::new(None);
+static NEXT_FETCH_RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
-fn store_fetch_and_store_result(result: FetchAndStoreResult) {
-    let mut guard = FETCH_AND_STORE_RESULT
+/// How many finished-but-unread results are kept. A caller that unmounts before
+/// reading leaves one behind, so this is bounded rather than growing for the
+/// life of the process. The oldest goes first: a result nobody has read after
+/// eight more runs is not going to be read.
+const MAX_UNREAD_FETCH_RESULTS: usize = 8;
+
+fn next_fetch_run() -> u64 {
+    NEXT_FETCH_RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
+fn store_fetch_run_result(run: u64, result: FetchAndStoreResult) {
+    let mut guard = FETCH_AND_STORE_RESULTS
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    *guard = Some(result);
+    guard.retain(|(id, _)| *id != run);
+    guard.push((run, result));
+    while guard.len() > MAX_UNREAD_FETCH_RESULTS {
+        guard.remove(0);
+    }
 }
 
-/// Take the result from a completed fetch+store operation.
+fn take_fetch_run_result(run: u64) -> Option<FetchAndStoreResult> {
+    let mut guard = FETCH_AND_STORE_RESULTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let at = guard.iter().position(|(id, _)| *id == run)?;
+    Some(guard.remove(at).1)
+}
+
+/// Take the result of one fetch+store run.
 ///
-/// Returns None if operation is still in progress.
-/// Returns the result and clears storage when complete.
+/// `run` is what `start_fetch_and_store` answered. None means that run has not
+/// finished, which is what a caller polls on; it never means another caller's
+/// run has finished.
 
 #[uniffi::export]
-pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
+pub fn take_fetch_and_store_result(run: u64) -> Option<FetchAndStoreResult> {
     init_logging();
 
-    let result = FETCH_AND_STORE_RESULT
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take();
+    let result = take_fetch_run_result(run);
 
     if let Some(ref r) = result {
         info!(
-            "[RUST: take_fetch_and_store_result] Returning result: {} synced, {} failed",
+            "[RUST: take_fetch_and_store_result] Run {} returning result: {} synced, {} failed",
+            run,
             r.success_count,
             r.failed_ids.len()
         );
@@ -975,5 +1018,98 @@ mod tests {
         assert_eq!(pts.len(), 2);
         assert_eq!(pts[0].latitude, 46.10);
         assert_eq!(pts[1].latitude, -90.0);
+    }
+}
+
+#[cfg(test)]
+mod fetch_and_store_results {
+    use super::{
+        FetchAndStoreResult, next_fetch_run, store_fetch_run_result, take_fetch_run_result,
+    };
+    use crate::test_globals::serial_global_state;
+
+    fn result(synced: &str) -> FetchAndStoreResult {
+        FetchAndStoreResult {
+            synced_ids: vec![synced.to_string()],
+            failed_ids: vec![],
+            total: 1,
+            success_count: 1,
+            total_points: 100,
+            fetch_time_ms: 1,
+            storage_time_ms: 1,
+            total_time_ms: 2,
+        }
+    }
+
+    /// Scenario: a silent push arrives while the foreground sync is
+    /// downloading. Both callers started a fetch and both read the result,
+    /// and there was one slot for the pair.
+    ///
+    /// Expected behaviour: a run only ever reads back what its own start
+    /// produced, whatever order the two finish in.
+    #[test]
+    fn a_run_reads_its_own_result_and_never_another_run_s() {
+        let _serial = serial_global_state();
+        let foreground = next_fetch_run();
+        let push = next_fetch_run();
+        assert_ne!(foreground, push, "each start gets its own run");
+
+        store_fetch_run_result(push, result("push"));
+
+        assert!(
+            take_fetch_run_result(foreground).is_none(),
+            "the foreground sync must not be handed the push task's result"
+        );
+
+        store_fetch_run_result(foreground, result("foreground"));
+        assert_eq!(
+            take_fetch_run_result(foreground)
+                .expect("its own result")
+                .synced_ids,
+            vec!["foreground".to_string()]
+        );
+        assert_eq!(
+            take_fetch_run_result(push)
+                .expect("still waiting")
+                .synced_ids,
+            vec!["push".to_string()],
+            "reading one result must not consume the other"
+        );
+    }
+
+    #[test]
+    fn a_result_is_read_once_and_a_run_that_never_started_reads_nothing() {
+        let _serial = serial_global_state();
+        let run = next_fetch_run();
+        store_fetch_run_result(run, result("one"));
+
+        assert!(take_fetch_run_result(run).is_some());
+        assert!(
+            take_fetch_run_result(run).is_none(),
+            "a result is taken, not left for the next caller to find"
+        );
+        assert!(take_fetch_run_result(u64::MAX).is_none());
+    }
+
+    /// A caller that unmounts before reading leaves its result behind. The
+    /// map is bounded so those cannot pile up for the life of the process.
+    #[test]
+    fn abandoned_results_are_evicted_oldest_first() {
+        let _serial = serial_global_state();
+        let mut runs = Vec::new();
+        for i in 0..12 {
+            let run = next_fetch_run();
+            store_fetch_run_result(run, result(&format!("run{i}")));
+            runs.push(run);
+        }
+
+        assert!(
+            take_fetch_run_result(runs[0]).is_none(),
+            "the oldest abandoned result is dropped rather than held for ever"
+        );
+        assert!(
+            take_fetch_run_result(*runs.last().unwrap()).is_some(),
+            "the newest is still there for the caller that is waiting on it"
+        );
     }
 }
