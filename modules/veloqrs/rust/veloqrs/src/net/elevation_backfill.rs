@@ -58,7 +58,7 @@ use crate::governor::Lane;
 use crate::net::endpoints::{TRACK_STREAM_TYPES, fetch_altitude, fetch_streams};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::ParsedStreams;
-use crate::objects::detection::{DetectionPoll, poll_detection_once};
+use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::persistence::cutover::CutoverOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::{
@@ -1109,18 +1109,16 @@ fn start_final_detect() -> bool {
     // and clears the handle; the cold re-cut below then supersedes whatever
     // it wrote. The suspension refuses every new start, so once the slot
     // empties it stays empty.
-    loop {
-        match poll_detection_once() {
-            Ok(DetectionPoll::Idle) => break,
-            Ok(DetectionPoll::Running) => std::thread::sleep(DRIVER_POLL),
-            Ok(DetectionPoll::Applied) | Ok(DetectionPoll::Died) => continue,
-            Err(e) => {
-                log::warn!(
-                    "[Elevation] re-cut skipped: could not drain the slot: {}",
-                    e
-                );
-                return false;
-            }
+    match wait_on_slot(DRIVER_POLL, false) {
+        SlotWait::Idle => {}
+        other => {
+            // Bounded, because a worker that hangs rather than panicking never
+            // reports `Died`. The re-cut is skipped and the ladder asks again.
+            log::warn!(
+                "[Elevation] re-cut skipped: could not drain the slot: {:?}",
+                other
+            );
+            return false;
         }
     }
 
@@ -1151,20 +1149,15 @@ fn start_final_detect() -> bool {
     drop(guard);
 
     std::thread::spawn(|| {
-        loop {
-            std::thread::sleep(DRIVER_POLL);
-            match poll_detection_once() {
-                Ok(DetectionPoll::Running) => continue,
-                Ok(DetectionPoll::Applied) => {
-                    log::info!("[Elevation] re-cut applied");
-                    break;
-                }
-                Ok(DetectionPoll::Idle) | Ok(DetectionPoll::Died) => break,
-                Err(e) => {
-                    log::warn!("[Elevation] re-cut poll failed: {}", e);
-                    break;
-                }
+        // Bounded like the drain above: this thread outlives the call, so a
+        // run that hangs would otherwise leave it polling for the life of the
+        // process.
+        match wait_on_slot(DRIVER_POLL, true) {
+            SlotWait::Applied => {
+                log::info!("[Elevation] re-cut applied");
             }
+            SlotWait::Idle | SlotWait::Died => {}
+            other => log::warn!("[Elevation] re-cut not followed to its end: {:?}", other),
         }
     });
     true
