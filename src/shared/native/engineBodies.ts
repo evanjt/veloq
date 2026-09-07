@@ -13,8 +13,17 @@
  * nobody, and the query would then wait for an event that has already
  * happened. Rust keeps a count of stored bodies for exactly this, and the two
  * reads below, one either side of the request, are what close it.
+ *
+ * The other is a request Rust refused outright, which it does by returning a
+ * bare `false` that means both "no credentials" and "folded into an identical
+ * request already in flight". Opposite answers, same value, and the value is
+ * erased at this boundary anyway. A refusal is announced by nothing, so a wait
+ * on the announcement alone never ends and the screen spins until it is
+ * closed. The deadline is what stops that. It does not make the refusal
+ * legible, which is its own item; it makes the wait terminate regardless of
+ * why the body never came.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { getEngine } from './engine';
@@ -24,6 +33,27 @@ import { getEngine } from './engine';
  * the coarse channel a full sync fans out on.
  */
 const CHANNELS = ['bodyStored', 'activities'] as const;
+
+/**
+ * How long a body has to land before the wait is given up. The same budget
+ * `awaitActivityBody` already spends, so a screen and the await it sits above
+ * do not disagree about when a fetch has failed.
+ */
+export const BODY_WAIT_MS = 15_000;
+
+/**
+ * Whether a body is still being waited on. `timedOut` is not an error: the
+ * body may still land and announce itself later, and the caller is free to
+ * keep whatever it is showing. It means only that waiting is no longer a
+ * reason to show a spinner.
+ *
+ * An announcement does not end the wait on its own, because an announcement on
+ * the coarse channel may be about some other body. It invalidates the query,
+ * the query re-reads, and `present` turning true is what ends it. So a landing
+ * that is announced but does not actually store this body still reaches the
+ * deadline.
+ */
+export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut';
 
 /**
  * The stored-body count, or null when the engine cannot answer. Null disables
@@ -47,18 +77,29 @@ export function useEngineBody(
   request: () => void,
   queryKey: QueryKey,
   enabled = true
-): void {
+): EngineBodyStatus {
   const queryClient = useQueryClient();
   const keyId = JSON.stringify(queryKey);
+  // The key whose wait ran out, rather than a bare flag: a change of
+  // parameters is a new request, and a new request starts waiting again
+  // without anything having to reset the flag.
+  const [expiredKey, setExpiredKey] = useState<string | null>(null);
 
   // The count as the request went out, or null when this mount asked for
   // nothing and so has no window to reconcile.
   const countAtRequest = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!enabled || present) return;
+    if (!enabled || present) return undefined;
     countAtRequest.current = bodiesStored();
     request();
+
+    // Nothing announces a refusal, so the wait ends on a clock or not at all.
+    // The clock only ends the wait: it reads nothing and asks for nothing, so
+    // the promise above, that this hook costs no engine call between the
+    // request and the event, still holds.
+    const timer = setTimeout(() => setExpiredKey(keyId), BODY_WAIT_MS);
+    return () => clearTimeout(timer);
     // `request` closes over the parameters already encoded in the key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, present, keyId]);
@@ -83,4 +124,7 @@ export function useEngineBody(
     return () => unsubscribes.forEach((off) => off());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, queryClient, keyId]);
+
+  if (!enabled || present) return 'idle';
+  return expiredKey === keyId ? 'timedOut' : 'waiting';
 }
