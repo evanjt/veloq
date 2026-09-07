@@ -82,7 +82,11 @@ const mockReset = jest.fn();
 const mockPreviewState = {
   status: 'complete' as const,
   progress: null,
-  result: { counts: { current: 2, proposed: 3, unchanged: 1, changed: 1, new: 1, gone: 0 } },
+  result: {
+    counts: { current: 2, proposed: 3, unchanged: 1, changed: 1, new: 1, gone: 0 },
+    pool: { activities: 12, empty: 0, unreadable: 0 },
+    elapsedMs: 900,
+  },
   suspended: false,
   start: jest.fn(() => true),
   cancel: jest.fn(),

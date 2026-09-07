@@ -4,6 +4,7 @@ import Slider from '@react-native-community/slider';
 import { PreviewCentrePicker as mockCentrePicker } from '@/features/routes/components/preview/PreviewCentrePicker';
 import { PreviewParamPanel as mockParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
 import { PreviewDiffStrip as mockDiffStrip } from '@/features/routes/components/preview/PreviewDiffStrip';
+import { PreviewRunCost as mockRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 import { render } from '@testing-library/react-native';
 import DetectionPreviewScreen from '@/app/detection-preview';
 import { layout } from '@/theme';
@@ -122,7 +123,8 @@ jest.mock('@/features/routes/hooks/usePreviewDetect', () => ({
   }),
 }));
 
-// The picker, the sliders and the diff strip are the things that have to fit,
+// The picker, the sliders, the diff strip and the run cost are the things that
+// have to fit,
 // so they render for real and only the map surface is stubbed. They come
 // straight from their own files, aliased through `mock` names because the
 // components index pulls the native module in through RoutesList.
@@ -130,6 +132,7 @@ jest.mock('@/features/routes/components', () => ({
   PreviewCentrePicker: mockCentrePicker,
   PreviewParamPanel: mockParamPanel,
   PreviewDiffStrip: mockDiffStrip,
+  PreviewRunCost: mockRunCost,
   PreviewMapView: () => null,
   PreviewSectionPopover: () => null,
 }));
@@ -137,6 +140,8 @@ jest.mock('@/features/routes/components', () => ({
 const RESULT_WITH_COUNTS = {
   counts: { unchanged: 3, changed: 1, new: 2, gone: 1 },
   sections: [],
+  pool: { activities: 214, empty: 0, unreadable: 0 },
+  elapsedMs: 3210,
 };
 
 // The testID alone, because a failed match on the node prints the whole fiber.

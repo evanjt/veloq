@@ -306,6 +306,9 @@ export interface TranslationResource {
     previewChanged: string;
     previewNew: string;
     previewGone: string;
+    previewPoolCost: string;
+    previewPoolScope: string;
+    previewPoolUnreadable: string;
     previewStatusUnchanged: string;
     previewStatusChanged: string;
     previewStatusNew: string;
