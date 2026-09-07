@@ -636,7 +636,6 @@ mod tests {
     fn bulk_exports_write_a_file_per_format() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
-        let engine = VeloqEngine;
         seed_activity("a1");
 
         let gpx = tmp.path().join("all.zip").to_string_lossy().into_owned();
