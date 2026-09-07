@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Export voltooid",
     "bulkExport": "Alle activiteiten exporteren ({{count}})",
-    "bulkExporting": "GPX genereren {{current}}/{{total}}...",
+    "bulkExporting": "GPX genereren...",
     "bulkResult": "{{exported}} GPX-bestanden geëxporteerd, {{skipped}} activiteiten zonder GPS overgeslagen.",
     "bulkSharing": "Deelvenster openen...",
     "error": "GPX-bestand exporteren mislukt.",
