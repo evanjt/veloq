@@ -899,7 +899,7 @@ export interface TranslationResource {
     sortMostVisited: string;
     sortNameAZ: string;
     sortNearby: string;
-    sortSignature: string;
+    sortRelevance: string;
     lookingForRoutes: string;
     checking: string;
     waiting: string;
