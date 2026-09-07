@@ -191,4 +191,24 @@ describe('detection preview screen', () => {
 
     expect(tree.getByTestId('preview-map-result').props.children).toBe('proposed-a');
   });
+
+  it('says so when the catalogue read fails, rather than drawing a blank map', () => {
+    mockGetPreviewCurrentSections.mockImplementationOnce(() => {
+      throw new Error('engine gone');
+    });
+
+    const tree = render(<DetectionPreviewScreen />);
+
+    expect(tree.getByTestId('preview-current-failed').props.children).toBe(
+      'settings.previewCurrentFailed'
+    );
+  });
+
+  it('stays quiet when the area honestly holds nothing', () => {
+    mockGetPreviewCurrentSections.mockImplementationOnce(() => []);
+
+    const tree = render(<DetectionPreviewScreen />);
+
+    expect(tree.queryByTestId('preview-current-failed')).toBeNull();
+  });
 });

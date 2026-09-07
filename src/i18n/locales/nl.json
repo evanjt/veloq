@@ -1278,6 +1278,7 @@
     "previewRunning": "{{count}} activiteiten in dit gebied analyseren",
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
     "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
+    "previewCurrentFailed": "Kon de huidige secties voor dit gebied niet lezen.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
     "previewMigrating": "Je bibliotheek wordt nog gemigreerd, deze resultaten kunnen daarna iets veranderen",
     "previewUnchanged": "{{count}} ongewijzigd",

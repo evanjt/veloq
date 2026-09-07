@@ -431,7 +431,7 @@ class EngineClient implements DelegateHost {
   getPreviewCentres = (limit: number): PreviewCentre[] =>
     previewDelegates.getPreviewCentres(this, limit);
 
-  getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] =>
+  getPreviewCurrentSections = (lat: number, lng: number): PreviewSection[] | null =>
     previewDelegates.getPreviewCurrentSections(this, lat, lng);
 
   startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>

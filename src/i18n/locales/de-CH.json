@@ -1278,6 +1278,7 @@
     "previewRunning": "Analysiere {{count}} Aktivitäte i dem Gebiet",
     "previewFailed": "D Vorschau het nöd chöne fertig werde.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
+    "previewCurrentFailed": "Di jetzige Abschnitt für die Gäged händ nöd chöne gläse werde.",
     "previewSuspended": "D Höheaktualisierig lauft grad. Probier s gliich nomal.",
     "previewMigrating": "Deine Bibliothek wird noch migriert, diese Ergebnisse können sich danach leicht ändern",
     "previewUnchanged": "{{count}} unverändert",
