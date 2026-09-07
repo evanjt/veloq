@@ -1405,6 +1405,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+    ptr: bigint,
+    intervalsId: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
     ptr: bigint,
     activity: Uint8Array,
@@ -1956,6 +1960,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;

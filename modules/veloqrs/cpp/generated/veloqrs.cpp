@@ -838,6 +838,9 @@ void uniffi_veloqrs_fn_method_syncmanager_cancel(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t
+uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+    /*handle*/ uint64_t ptr, RustBuffer intervals_id);
 /*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
     /*handle*/ uint64_t ptr, RustBuffer activity);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
@@ -1327,6 +1330,7 @@ uint16_t uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_bodies_stored();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_get_sync_status();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_set_credentials();
@@ -7868,6 +7872,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_method_syncmanager_"
+                                    "confirm_activity_uploaded"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11843,6 +11860,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_"
+        "uploaded"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "syncmanager_confirm_activity_uploaded"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_"
         "activity"] = jsi::Function::createFromHostFunction(
       rt,
@@ -17145,6 +17174,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
 
   return jsi::Value::undefined();
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_confirm_activity_uploaded(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -20289,6 +20330,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_syncmanager_confirm_activity_uploaded();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
