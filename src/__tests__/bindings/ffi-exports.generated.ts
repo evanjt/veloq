@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 19 standalone `#[uniffi::export]` functions plus
+ * 20 standalone `#[uniffi::export]` functions plus
  * 261 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 280 exports (19 standalone + 261 methods)
+ * Total: 281 exports (20 standalone + 261 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1309,6 +1309,15 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     returnType: 'Result<(), VeloqError>',
     docs: 'Cooperative. The grouping itself is one tracematch call and cannot be interrupted, so a cancel that arrives inside it discards the result rather than shortening the run.',
     object: 'RouteGroupingPreview',
+  },
+  {
+    name: 'take_quarantine_report',
+    camelName: 'takeQuarantineReport',
+    file: 'objects/quarantine.rs',
+    line: 61,
+    paramCount: 0,
+    returnType: 'Option<FfiQuarantineReport>',
+    docs: 'The quarantine this launch did, if there was one, and never twice. Taken rather than read: what it feeds is a one-time notice, and a notice that survives its own dismissal is the shape a banner takes when it outlives the resync. A launch that opened the file it was given answers `None`.',
   },
   {
     name: 'new',
@@ -2814,7 +2823,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 2208,
+    line: 2212,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2954,6 +2963,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'poll',
   'takeResult',
   'cancel',
+  'takeQuarantineReport',
   'new',
   'addRecording',
   'listRecordings',
@@ -3231,6 +3241,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   current: 'current',
   take_result: 'takeResult',
   cancel: 'cancel',
+  take_quarantine_report: 'takeQuarantineReport',
   add_recording: 'addRecording',
   list_recordings: 'listRecordings',
   get_recording: 'getRecording',

@@ -45,7 +45,7 @@ pub use sections::SectionSummary;
 
 // Domain objects (UniFFI Object API)
 pub mod objects;
-pub use objects::{VeloqEngine, VeloqError};
+pub use objects::{FfiQuarantineReport, VeloqEngine, VeloqError, take_quarantine_report};
 
 // App-layer types that were moved out of tracematch (persistence/UI data containers)
 pub mod types;
