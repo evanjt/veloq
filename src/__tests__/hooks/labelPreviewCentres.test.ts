@@ -53,7 +53,7 @@ describe('labelPreviewCentres', () => {
     expect(label.label).toBe('Alpha');
   });
 
-  it('numbers fallbacks in binKey order regardless of centre order', () => {
+  it('numbers fallbacks in the order they are shown, so the list counts upwards', () => {
     const centres = [
       centre({ binKey: '200:100', lat: 20, lng: 10 }),
       centre({ binKey: '100:100', lat: 10, lng: 10 }),
@@ -61,11 +61,24 @@ describe('labelPreviewCentres', () => {
     ];
 
     const labels = labelPreviewCentres(centres, []);
-    expect(labels.map((l) => l.fallbackNumber)).toEqual([3, 1, 2]);
+    expect(labels.map((l) => l.fallbackNumber)).toEqual([1, 2, 3]);
     expect(labels.every((l) => l.label === null)).toBe(true);
   });
 
-  it('keeps the numbering stable when a centre gains a label', () => {
+  it('counts the shown areas, not every area the engine ranked', () => {
+    // Six centres come back and the picker shows the busiest first. The
+    // athlete on 2026-09-07 read "Area 5, Area 6, Area 4" off three of six,
+    // because the number was the rank of binKey across all of them.
+    const centres = [
+      centre({ binKey: '500:100', lat: 50, lng: 10 }),
+      centre({ binKey: '600:100', lat: 60, lng: 10 }),
+      centre({ binKey: '400:100', lat: 40, lng: 10 }),
+    ];
+
+    expect(labelPreviewCentres(centres, []).map((l) => l.fallbackNumber)).toEqual([1, 2, 3]);
+  });
+
+  it('numbers a labelled centre alongside the rest rather than skipping it', () => {
     const centres = [
       centre({ binKey: 'b', lat: 20, lng: 10 }),
       centre({ binKey: 'a', lat: 10, lng: 10 }),
@@ -73,8 +86,8 @@ describe('labelPreviewCentres', () => {
     const activities = [{ locality: 'Northtown', startLatLng: [10.0, 10.0] as [number, number] }];
 
     const labels = labelPreviewCentres(centres, activities);
-    expect(labels[0]).toMatchObject({ binKey: 'b', label: null, fallbackNumber: 2 });
-    expect(labels[1]).toMatchObject({ binKey: 'a', label: 'Northtown', fallbackNumber: 1 });
+    expect(labels[0]).toMatchObject({ binKey: 'b', label: null, fallbackNumber: 1 });
+    expect(labels[1]).toMatchObject({ binKey: 'a', label: 'Northtown', fallbackNumber: 2 });
   });
 
   it('names the bin the camera frames, not the ground around a mean near its edge', () => {
