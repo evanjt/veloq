@@ -5,6 +5,10 @@
  * Expected behaviour: the next return to the foreground asks again, with the
  * launch trigger's own guards, so a declined launch does not cost the whole
  * process. Demo mode never asks.
+ *
+ * A backfill that drains while the app stays open in the foreground gets no
+ * such cycle, so the engine's own phase announcement asks too. Otherwise the
+ * cutover waits for a background and foreground pair that may be hours away.
  */
 import React from 'react';
 import { AppState } from 'react-native';
@@ -32,12 +36,23 @@ interface EngineParts {
   start?: jest.Mock;
 }
 
+/** The channel the engine announces each backfill phase on. */
+const PHASE_CHANNEL = 'backfillPhase';
+
+let announce: (() => void) | null = null;
+
 function engineWith({ pending = true, running = false, remaining = 0, start }: EngineParts) {
   return {
     isCutoverPending: jest.fn(() => pending),
     isCutoverRunning: jest.fn(() => running),
     getElevationBackfillRemaining: jest.fn(() => remaining),
     startDetectorCutover: start ?? jest.fn(() => true),
+    subscribe: jest.fn((channel: string, handler: () => void) => {
+      if (channel === PHASE_CHANNEL) announce = handler;
+      return () => {
+        announce = null;
+      };
+    }),
   };
 }
 
@@ -55,6 +70,7 @@ describe('useCutoverRetry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     listener = null;
+    announce = null;
     mockGetState.mockReturnValue({ isDemoMode: false });
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, handler) => {
       listener = handler as (status: string) => void;
@@ -129,6 +145,46 @@ describe('useCutoverRetry', () => {
     await foreground();
 
     expect(start).not.toHaveBeenCalled();
+  });
+
+  it('asks again when the backfill announces a phase, with no foreground cycle', async () => {
+    const start = jest.fn(() => true);
+    const engine = engineWith({ remaining: 12, start });
+    useEngine(engine);
+    renderHook(() => useCutoverRetry(), { wrapper });
+
+    await act(async () => announce?.());
+    expect(start).not.toHaveBeenCalled();
+
+    engine.getElevationBackfillRemaining.mockReturnValue(0);
+    await act(async () => announce?.());
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribes to the phase channel and drops it on unmount', () => {
+    const engine = engineWith({});
+    useEngine(engine);
+    const { unmount } = renderHook(() => useCutoverRetry(), { wrapper });
+
+    expect(engine.subscribe).toHaveBeenCalledWith(PHASE_CHANNEL, expect.any(Function));
+    unmount();
+    expect(announce).toBeNull();
+  });
+
+  it('never asks on an announcement in demo mode', async () => {
+    mockGetState.mockReturnValue({ isDemoMode: true });
+    const start = jest.fn(() => true);
+    useEngine(engineWith({ start }));
+    renderHook(() => useCutoverRetry(), { wrapper });
+
+    await act(async () => announce?.());
+
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('survives an engine that cannot be subscribed to at all', () => {
+    mockGetEngine.mockReturnValue(null as unknown as ReturnType<typeof getEngine>);
+    expect(() => renderHook(() => useCutoverRetry(), { wrapper }).unmount()).not.toThrow();
   });
 
   it('survives an engine that throws', async () => {
