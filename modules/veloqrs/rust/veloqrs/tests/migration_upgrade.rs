@@ -618,6 +618,45 @@ fn activity_bodies_round_trip_within_a_date_window() {
     assert_eq!(after, vec![newer.to_string(), revised.to_string()]);
 }
 
+/// Scenario: the push task needs one activity's body and nothing else.
+///
+/// Expected behaviour: the engine answers from the primary key rather than
+/// handing back a window for the caller to search. A miss is None, not an
+/// error, so a caller can wait for the body to land instead of branching on a
+/// failure.
+#[test]
+fn one_activity_body_is_read_by_its_own_id() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let mut engine = PersistentEngine::new(db_path.to_str().unwrap()).expect("open");
+
+    let first = r#"{"id":"a1","name":"Older"}"#;
+    let second = r#"{"id":"a2","name":"Newer"}"#;
+    engine
+        .upsert_activity_bodies(&[
+            ("a1".to_string(), 1_700_000_000, first.to_string()),
+            ("a2".to_string(), 1_700_100_000, second.to_string()),
+        ])
+        .expect("store bodies");
+
+    assert_eq!(engine.get_activity_body("a1").as_deref(), Some(first));
+    assert_eq!(engine.get_activity_body("a2").as_deref(), Some(second));
+
+    // A miss is not an error, and neither is an id that was never stored.
+    assert_eq!(engine.get_activity_body("a3"), None);
+    assert_eq!(engine.get_activity_body(""), None);
+
+    // A re-sync is read back, not the superseded payload.
+    let revised = r#"{"id":"a1","name":"Renamed"}"#;
+    engine
+        .upsert_activity_bodies(&[("a1".to_string(), 1_700_000_000, revised.to_string())])
+        .expect("re-store");
+    assert_eq!(engine.get_activity_body("a1").as_deref(), Some(revised));
+
+    // The date window does not bound it: the push task has no window.
+    assert!(engine.get_activity_body("a1").is_some());
+}
+
 #[test]
 fn upgrading_keeps_wellness_days_written_before_the_body_column() {
     let tmp = TempDir::new().unwrap();
