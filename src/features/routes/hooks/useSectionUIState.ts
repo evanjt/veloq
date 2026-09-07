@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { MergeCandidate } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 import type { SectionTimeRange } from '@/features/routes/constants';
+import { DEFAULT_PERIOD } from '@/shared/app/period';
 
 export function useSectionUIState() {
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export function useSectionUIState() {
   const [showMergePicker, setShowMergePicker] = useState(false);
 
   // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
+  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>(DEFAULT_PERIOD);
 
   // Sport type filter for cross-sport sections
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
