@@ -1551,6 +1551,8 @@
     "manageSensors": "Sensori di frequenza cardiaca, potenza e cadenza",
     "paired": "Sensori associati",
     "nonePaired": "Nessun sensore associato. Cerca qui sotto per aggiungerne uno.",
+    "nonePairedShort": "Nessuno associato",
+    "pairedCount": "{{count}} associati",
     "addSensor": "Aggiungi un sensore",
     "scan": "Cerca sensori",
     "stopScan": "Interrompi ricerca",

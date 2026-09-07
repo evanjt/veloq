@@ -11,6 +11,8 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useRecordingPreferences } from '@/features/recording';
+import { useSensorStore } from '@/features/sensors';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
@@ -180,6 +182,18 @@ export default function SettingsScreen() {
     [routeMatchingEnabled, t]
   );
 
+  // Subtitle: Recording. GPS accuracy is the preference that decides what the
+  // recorder captures, so it is the one worth previewing on the row.
+  const gpsAccuracyMode = useRecordingPreferences((s) => s.gpsAccuracyMode);
+  const recordingSubtitle = t(`recording.gpsModes.${gpsAccuracyMode}` as never);
+
+  // Subtitle: Sensors
+  const pairedSensorCount = useSensorStore((s) => s.knownSensors.length);
+  const sensorsSubtitle =
+    pairedSensorCount > 0
+      ? t('sensors.pairedCount', { count: pairedSensorCount })
+      : t('sensors.nonePairedShort');
+
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);
 
@@ -290,6 +304,22 @@ export default function SettingsScreen() {
               title={t('backgroundJobs.title')}
               onPress={nav('/background-jobs')}
               testID="settings-nav-background-jobs"
+            />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="record-circle-outline"
+              title={t('recording.settings')}
+              subtitle={recordingSubtitle}
+              onPress={nav('/recording-settings')}
+              testID="settings-nav-recording"
+            />
+            <RowDivider isDark={isDark} />
+            <SettingsNavRow
+              icon="bluetooth"
+              title={t('sensors.title')}
+              subtitle={sensorsSubtitle}
+              onPress={nav('/sensor-settings')}
+              testID="settings-nav-sensors"
             />
           </View>
 
