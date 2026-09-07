@@ -91,7 +91,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
           icon={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
           expanded={performanceExpanded}
           onToggle={onPerformanceToggle}
-          estimatedHeight={240}
+          estimatedHeight={sportMode === 'Cycling' ? 270 : 240}
           headerRight={
             sportMode === 'Cycling' && headerFtp ? (
               <Text style={[styles.headerValue, { color: SPORT_COLORS.Cycling }]}>
@@ -110,7 +110,8 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
         >
           <View style={styles.collapsibleContent}>
             {sportMode === 'Cycling' && (
-              <PowerCurveChart height={200} days={days} ftp={currentFTP} />
+              // Taller than the pace charts by the row of fitted models under it.
+              <PowerCurveChart height={230} days={days} ftp={currentFTP} />
             )}
             {sportMode === 'Running' && <PaceCurveChart height={200} days={days} />}
             {sportMode === 'Swimming' && <SwimPaceCurveChart height={200} days={days} />}
