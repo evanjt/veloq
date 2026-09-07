@@ -479,10 +479,33 @@ pub const DETECTION_PHASE_DISABLED: &str = "disabled";
 /// has no worker behind it, so installing it in the shared slot would occupy
 /// the slot with a run that never happened.
 pub fn detection_was_refused(handle: &SectionDetectionHandle) -> bool {
-    matches!(
-        handle.get_progress().0.as_str(),
-        DETECTION_PHASE_SUSPENDED | DETECTION_PHASE_CUTOVER_OWED | DETECTION_PHASE_DISABLED
-    )
+    detection_refusal(handle).is_some()
+}
+
+/// Why the funnel refused, or none when the run is real.
+///
+/// The funnel already knows which of its three gates said no, and every caller
+/// but this one threw that away: a library with route matching switched off
+/// refused with the same word as one waiting out an elevation pass. The two
+/// end differently and only one of them ever ends on its own.
+pub fn detection_refusal(handle: &SectionDetectionHandle) -> Option<DetectionRefusal> {
+    match handle.get_progress().0.as_str() {
+        DETECTION_PHASE_DISABLED => Some(DetectionRefusal::SwitchedOff),
+        DETECTION_PHASE_SUSPENDED => Some(DetectionRefusal::Suspended),
+        DETECTION_PHASE_CUTOVER_OWED => Some(DetectionRefusal::CutoverOwed),
+        _ => None,
+    }
+}
+
+/// Which gate the funnel refused at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DetectionRefusal {
+    /// The athlete has route matching switched off. Waiting never lifts it.
+    SwitchedOff,
+    /// An elevation backfill holds the engine for the length of its pass.
+    Suspended,
+    /// The detector cutover has not run yet, and every detect waits for it.
+    CutoverOwed,
 }
 
 /// Which thread applies a finished run.

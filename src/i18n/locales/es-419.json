@@ -1153,7 +1153,13 @@
     "lapExcluded": "Excluida",
     "partlyExcluded": "Algunas vueltas excluidas",
     "avgHr": "FC media",
-    "maxGrade": "Pendiente máx."
+    "maxGrade": "Pendiente máx.",
+    "rescanRefusedBusy": "Ya hay un análisis en curso.",
+    "rescanRefusedHeld": "La detección está en espera mientras el motor termina otro trabajo.",
+    "rescanRefusedNotReady": "El motor todavía se está abriendo. Inténtalo de nuevo en un momento.",
+    "rescanRefusedOff": "La coincidencia de rutas está desactivada. Actívala en Ajustes para analizar.",
+    "rescanRefusedNothingOwed": "Ya se ha analizado todo.",
+    "rescanRefusedFailed": "No se pudo iniciar el análisis."
   },
   "settings": {
     "account": "Cuenta",

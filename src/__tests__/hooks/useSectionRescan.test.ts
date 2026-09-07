@@ -237,3 +237,87 @@ describe('a refused rescan says why', () => {
     expect(isRetryableStart(started)).toBe(true);
   });
 });
+
+/**
+ * Scenario: the athlete taps rescan and the engine refuses. Every consumer of
+ * this hook used to drop the verdict on the floor, so the screen showed
+ * nothing at all.
+ *
+ * Expected behaviour: the refusal is held as state the screen can render, it
+ * names the reason, and it is cleared by the next attempt and by clearResult.
+ */
+describe('a refusal the screen can show', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    for (const key of Object.keys(listeners)) delete listeners[key];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('holds the refusal until something clears it', () => {
+    const engine = engineWith({
+      startSectionDetection: jest.fn(() => StartOutcome.NotConfigured),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+    expect(result.current.refusal).toBeNull();
+
+    act(() => {
+      result.current.rescan();
+    });
+    expect(result.current.refusal).toBe(StartOutcome.NotConfigured);
+
+    act(() => {
+      result.current.clearResult();
+    });
+    expect(result.current.refusal).toBeNull();
+  });
+
+  it('drops the refusal the moment a rescan starts', () => {
+    const startSectionDetection = jest
+      .fn()
+      .mockReturnValueOnce(StartOutcome.Busy)
+      .mockReturnValue(StartOutcome.Started);
+    const engine = engineWith({ startSectionDetection });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+    act(() => {
+      result.current.rescan();
+    });
+    expect(result.current.refusal).toBe(StartOutcome.Busy);
+
+    act(() => {
+      result.current.rescan();
+    });
+    expect(result.current.refusal).toBeNull();
+    expect(result.current.isScanning).toBe(true);
+  });
+
+  it('records the force path refusal too', () => {
+    const engine = engineWith({
+      forceRedetectSections: jest.fn(() => StartOutcome.Held),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+    act(() => {
+      result.current.forceRescan();
+    });
+    expect(result.current.refusal).toBe(StartOutcome.Held);
+  });
+
+  it('records being early as a refusal the screen can name', () => {
+    mockedGetEngine.mockReturnValue(null);
+
+    const { result } = renderHook(() => useSectionRescan());
+    act(() => {
+      result.current.rescan();
+    });
+    expect(result.current.refusal).toBe(StartOutcome.NotReady);
+  });
+});

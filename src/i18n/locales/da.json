@@ -1153,7 +1153,13 @@
     "lapExcluded": "Udelukket",
     "partlyExcluded": "Nogle omgange udelukket",
     "avgHr": "Gns. puls",
-    "maxGrade": "Stejlest"
+    "maxGrade": "Stejlest",
+    "rescanRefusedBusy": "En scanning kører allerede.",
+    "rescanRefusedHeld": "Registrering er sat på hold, mens motoren gør andet arbejde færdigt.",
+    "rescanRefusedNotReady": "Motoren er ved at åbne. Prøv igen om et øjeblik.",
+    "rescanRefusedOff": "Rutematchning er slået fra. Slå den til i Indstillinger for at scanne.",
+    "rescanRefusedNothingOwed": "Alt er allerede scannet.",
+    "rescanRefusedFailed": "Scanningen kunne ikke starte."
   },
   "settings": {
     "account": "Konto",

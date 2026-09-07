@@ -1153,7 +1153,13 @@
     "lapExcluded": "Uitgesloten",
     "partlyExcluded": "Sommige ronden uitgesloten",
     "avgHr": "Gem. HR",
-    "maxGrade": "Steilste"
+    "maxGrade": "Steilste",
+    "rescanRefusedBusy": "Er loopt al een scan.",
+    "rescanRefusedHeld": "Detectie wacht tot de engine ander werk heeft afgerond.",
+    "rescanRefusedNotReady": "De engine wordt nog geopend. Probeer het zo opnieuw.",
+    "rescanRefusedOff": "Routematching staat uit. Zet het aan in Instellingen om te scannen.",
+    "rescanRefusedNothingOwed": "Alles is al gescand.",
+    "rescanRefusedFailed": "De scan kon niet starten."
   },
   "settings": {
     "account": "Account",

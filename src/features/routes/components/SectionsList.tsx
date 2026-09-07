@@ -287,7 +287,7 @@ export const SectionsList = memo(function SectionsList({
   } = data;
 
   const { removeSection } = useCustomSections();
-  const { rescan, isScanning } = useSectionRescan();
+  const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
   const detectionHold = useDetectionHold();
   const elevationBackfill = useElevationBackfill();
 
@@ -612,6 +612,7 @@ export const SectionsList = memo(function SectionsList({
           acceptAllResult={acceptAllResult}
           isScanning={isScanning}
           detectionHold={detectionHold}
+          rescanRefusal={rescanRefusal}
           elevationBackfill={elevationBackfill}
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
