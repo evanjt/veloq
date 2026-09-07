@@ -18,7 +18,7 @@
 //! makes any interrupted run safely redoable: the next run re-derives the
 //! same catalogue from the durable pool.
 
-use crate::objects::detection::{DetectionPoll, poll_detection_once};
+use crate::objects::detection::{SlotWait, wait_on_slot};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::with_persistent_engine;
 use std::sync::Mutex;
@@ -219,27 +219,23 @@ pub fn try_start_conditioning() -> bool {
 /// with the FFI poll: if the TS side polls first (sync end reached), it
 /// applies and this thread sees Idle and exits.
 fn spawn_conditioning_driver() {
+    const DRIVER_POLL: Duration = Duration::from_millis(250);
+
     std::thread::spawn(|| {
-        loop {
-            std::thread::sleep(Duration::from_millis(250));
-            match poll_detection_once() {
-                Ok(DetectionPoll::Running) => continue,
-                Ok(DetectionPoll::Applied) => {
-                    log::info!("veloqrs: [conditioning] run applied");
-                    // Adds that landed during the run get their run now,
-                    // threshold or not: a flush this run refused was kept
-                    // for exactly this moment.
-                    if condition_pending() {
-                        // The fresh run spawned its own driver.
-                    }
-                    break;
-                }
-                Ok(DetectionPoll::Idle) | Ok(DetectionPoll::Died) => break,
-                Err(e) => {
-                    log::warn!("veloqrs: [conditioning] driver poll failed: {}", e);
-                    break;
+        // Bounded: a worker that hangs rather than panicking never reports
+        // `Died`, and this thread outlives the call that spawned it.
+        match wait_on_slot(DRIVER_POLL, true) {
+            SlotWait::Applied => {
+                log::info!("veloqrs: [conditioning] run applied");
+                // Adds that landed during the run get their run now,
+                // threshold or not: a flush this run refused was kept
+                // for exactly this moment.
+                if condition_pending() {
+                    // The fresh run spawned its own driver.
                 }
             }
+            SlotWait::Idle | SlotWait::Died => {}
+            other => log::warn!("veloqrs: [conditioning] driver gave up: {:?}", other),
         }
     });
 }
