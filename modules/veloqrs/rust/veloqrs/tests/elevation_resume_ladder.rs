@@ -124,3 +124,39 @@ fn an_install_that_is_never_paused_climbs_as_before() {
     let run = climb_paused(4, |_| Some(5), false, |_| false);
     assert_eq!(run.attempts, 4);
 }
+
+/// Scenario: the ladder is the one background loop in the crate with no
+/// external cancel, which is deliberate and was never written down as such.
+/// Every other terminal condition is tested above; this is the statement of
+/// what is deliberately absent.
+///
+/// Expected behaviour: nothing the ladder counts ends it. Not the number of
+/// rungs, not sitting at the capped wait, not a queue it can never read. Only
+/// the queue emptying, a pause, and the sleep refusing to wait, which is the
+/// test harness and never production.
+#[test]
+fn nothing_the_ladder_counts_ends_it_on_its_own() {
+    // Well past the last rung, so the cap is being sat on rather than climbed.
+    let long = climb(RESUME_WAITS.len() + 40, |_| Some(5), false);
+    assert_eq!(
+        long.attempts,
+        RESUME_WAITS.len() + 40,
+        "every rung past the cap still attempts"
+    );
+
+    // A queue that never reads is the shape a destroyed engine leaves, and the
+    // ladder attempts against it for ever: an unreadable queue is not an empty
+    // one, and nothing here can tell "the read failed" from "the engine is
+    // gone". That is the one gap this exception leaves.
+    let unreadable = climb(20, |_| None, false);
+    assert_eq!(
+        unreadable.attempts, 20,
+        "an unreadable queue is still asked"
+    );
+    assert_eq!(unreadable.slept.len(), 20);
+
+    // Offline for the whole climb is the same: no attempt, no end.
+    let away = climb(20, |_| Some(5), true);
+    assert_eq!(away.attempts, 0);
+    assert_eq!(away.slept.len(), 20);
+}
