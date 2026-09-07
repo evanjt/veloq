@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Die Routen-Engine konnte nicht gestartet werden. Routen und Abschnitte sind möglicherweise nicht verfügbar."
+    "initFailed": "Die Routen-Engine konnte nicht gestartet werden. Routen und Abschnitte sind möglicherweise nicht verfügbar.",
+    "initReason": {
+      "busy": "Etwas anderes hat die Datenbank benutzt. Ein erneuter Versuch sollte helfen.",
+      "forwardSchema": "Diese Daten wurden von einer neueren Version von Veloq gespeichert. Aktualisiere die App, um sie zu öffnen.",
+      "storageUnavailable": "Die Datenbank konnte nicht geschrieben werden. Schaffe Speicherplatz und versuche es erneut.",
+      "failed": "Die Routen-Engine wurde aus einem Grund beendet, den die App nicht benennen kann."
+    }
   },
   "errorState": {
     "defaultTitle": "Etwas ist schiefgelaufen",

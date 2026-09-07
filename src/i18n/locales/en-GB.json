@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable."
+    "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable.",
+    "initReason": {
+      "busy": "Something else was using the database. Trying again should sort it.",
+      "forwardSchema": "This data was saved by a newer version of Veloq. Update the app to open it.",
+      "storageUnavailable": "The database could not be written. Free up space, then try again.",
+      "failed": "The route engine stopped for a reason the app cannot name."
+    }
   },
   "errorState": {
     "defaultTitle": "Something went wrong",

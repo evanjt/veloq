@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles."
+    "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles.",
+    "initReason": {
+      "busy": "Autre chose utilisait la base de données. Réessayez dans un instant.",
+      "forwardSchema": "Ces données ont été enregistrées par une version plus récente de Veloq. Mettez l'application à jour pour les ouvrir.",
+      "storageUnavailable": "La base de données n'a pas pu être écrite. Libérez de l'espace, puis réessayez.",
+      "failed": "Le moteur de parcours s'est arrêté pour une raison que l'application ne sait pas nommer."
+    }
   },
   "errorState": {
     "defaultTitle": "Une erreur s'est produite",

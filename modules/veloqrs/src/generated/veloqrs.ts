@@ -9935,6 +9935,93 @@ const FfiConverterTypeFfiCallKind = (() => {
 })();
 
 /**
+ * How the last engine init ended.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiInitOutcome {
+  /**
+   * The engine is open. A database that was quarantined and replaced ends
+   * here too: the athlete lost a cache the next sync refills, and the
+   * engine works.
+   */
+  Opened = 1,
+  /**
+   * Another connection held the file. The same file opens on the retry, so
+   * nothing is wrong with it and nothing is asked of the athlete.
+   */
+  Busy = 2,
+  /**
+   * The database was written by a newer build than this one. It is healthy
+   * and it is deliberately left where it is, so the remedy is to update the
+   * app, never to clear anything.
+   */
+  ForwardSchema = 3,
+  /**
+   * Nothing could be written where the database belongs: the directory
+   * could not be created, or an unusable file could not be replaced. A full
+   * disk and a denied permission both land here.
+   */
+  StorageUnavailable = 4,
+  /**
+   * Init has not run yet in this process.
+   */
+  NotAttempted = 5,
+  /**
+   * The init call itself threw. Rust never answers with this: it is the
+   * outcome TypeScript records when the FFI boundary fails, so a caught
+   * error is still a reason and not another bare `false`.
+   */
+  Failed = 6,
+}
+
+const FfiConverterTypeFfiInitOutcome = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiInitOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiInitOutcome.Opened;
+        case 2:
+          return FfiInitOutcome.Busy;
+        case 3:
+          return FfiInitOutcome.ForwardSchema;
+        case 4:
+          return FfiInitOutcome.StorageUnavailable;
+        case 5:
+          return FfiInitOutcome.NotAttempted;
+        case 6:
+          return FfiInitOutcome.Failed;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiInitOutcome.Opened:
+          return ordinalConverter.write(1, into);
+        case FfiInitOutcome.Busy:
+          return ordinalConverter.write(2, into);
+        case FfiInitOutcome.ForwardSchema:
+          return ordinalConverter.write(3, into);
+        case FfiInitOutcome.StorageUnavailable:
+          return ordinalConverter.write(4, into);
+        case FfiInitOutcome.NotAttempted:
+          return ordinalConverter.write(5, into);
+        case FfiInitOutcome.Failed:
+          return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Why a start was refused, or that it was not refused at all.
  *
  * The wire carries the variant's position, so the order here is the contract:
@@ -9960,8 +10047,9 @@ export enum FfiStartOutcome {
    */
   NotReady = 4,
   /**
-   * There is no credential, so no amount of waiting helps. The athlete has
-   * to sign in first.
+   * The athlete has to change something before this can run: there is no
+   * credential to sign the call with, or the work is switched off in
+   * Settings. No amount of waiting helps.
    */
   NotConfigured = 5,
   /**
@@ -18810,6 +18898,14 @@ export interface VeloqEngineLike {
   getBackupMetadata() /*throws*/ : string;
   getStats() /*throws*/ : PersistentEngineStats;
   heatmap(): HeatmapManagerLike;
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome;
   isInitialized(): boolean;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
@@ -19097,6 +19193,27 @@ export class VeloqEngine
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome {
+    return FfiConverterTypeFfiInitOutcome.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_init_outcome(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -20533,6 +20650,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_heatmap",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_outcome() !==
+    20566
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_init_outcome",
     );
   }
   if (
@@ -22360,6 +22485,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiIndexActivitySummary,
+    FfiConverterTypeFfiInitOutcome,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiInsightsParams,
     FfiConverterTypeFfiManualActivity,

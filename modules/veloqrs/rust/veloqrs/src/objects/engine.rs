@@ -58,6 +58,15 @@ impl VeloqEngine {
         crate::objects::observer::set_observer(observer);
     }
 
+    /// How the last init in this process ended.
+    ///
+    /// `is_initialized` says whether the engine is usable, which is what the
+    /// caller needs to decide what to do next. This says why it is not, which
+    /// is what the athlete needs to decide what to do about it.
+    fn init_outcome(&self) -> crate::objects::init::FfiInitOutcome {
+        crate::objects::init::last_init_outcome()
+    }
+
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
             .read()
