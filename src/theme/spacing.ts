@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /**
  * The spacing and radius scales.
  *
@@ -30,6 +32,13 @@ export const spacing = {
   },
 } as const;
 
+/**
+ * Each platform's own tap-target minimum, not one number for both: 44 pt on
+ * iOS from the Human Interface Guidelines, 48 dp on Android from Material.
+ * Neither is on the 8 pt grid and neither is meant to be.
+ */
+export const MIN_TAP_TARGET = { ios: 44, android: 48 } as const;
+
 export const layout = {
   screenPadding: spacing.md, // 16 - Aligns to 8px grid
   cardPadding: spacing.md, // 16 - Aligns to 8px grid
@@ -41,5 +50,5 @@ export const layout = {
   borderRadiusXl: 20, // 20 - Sheets, large pills
   borderRadiusLg: spacing.lg, // 24 - Large pills, rounded containers
   borderRadiusFull: 9999, // Circles
-  minTapTarget: 44, // Accessibility requirement (not on grid)
+  minTapTarget: MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios'],
 } as const;
