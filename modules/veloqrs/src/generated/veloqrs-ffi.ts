@@ -1520,12 +1520,6 @@ interface NativeModuleInterface {
     path: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone(
-    tracksJson: Uint8Array,
-    sportTypesJson: Uint8Array,
-    configJson: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1716,7 +1710,6 @@ interface NativeModuleInterface {
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress(): number;

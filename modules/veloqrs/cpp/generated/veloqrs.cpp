@@ -896,9 +896,6 @@ RustBuffer uniffi_veloqrs_fn_method_heatmapmanager_poll(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
     /*handle*/ uint64_t ptr, RustBuffer path, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_func_detect_sections_standalone(
-    RustBuffer tracks_json, RustBuffer sport_types_json, RustBuffer config_json,
-    RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_get_change_card_support(RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -1052,7 +1049,6 @@ void ffi_veloqrs_rust_future_free_void(
     /*handle*/ uint64_t handle);
 void ffi_veloqrs_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
-uint16_t uniffi_veloqrs_checksum_func_detect_sections_standalone();
 uint16_t uniffi_veloqrs_checksum_func_get_change_card_support();
 uint16_t uniffi_veloqrs_checksum_func_get_cutover_diff();
 uint16_t uniffi_veloqrs_checksum_func_get_cutover_progress();
@@ -8150,17 +8146,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_detect_sections_standalone(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_func_get_change_card_support"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8875,19 +8860,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_ffi_veloqrs_rust_future_complete_void(rt, thisVal,
                                                                    args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_detect_sections_standalone(
-                    rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_get_change_card_support"] =
       jsi::Function::createFromHostFunction(
@@ -17525,21 +17497,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
 
   return jsi::Value::undefined();
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_detect_sections_standalone(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_detect_sections_standalone(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_change_card_support(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18278,14 +18235,6 @@ jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_void(
                                                         args[count - 1]);
 
   return jsi::Value::undefined();
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_detect_sections_standalone(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_detect_sections_standalone();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_change_card_support(
