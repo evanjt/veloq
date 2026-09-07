@@ -279,7 +279,6 @@
     "loadingDemoGps": "Grabbing demo GPS data...",
     "noValidGpsData": "No valid GPS data in fixtures",
     "offlineUsingCached": "Offline - using stashed routes",
-    "renderingTerrainPreviews": "Rendering map previews",
     "syncingActivities": "Grabbing activities",
     "syncedActivities": "Synced {{count}} activities",
     "syncedDemoActivities": "Synced {{count}} demo activities",

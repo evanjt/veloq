@@ -279,7 +279,6 @@
     "loadingDemoGps": "Ładowanie danych GPS demo...",
     "noValidGpsData": "Brak prawidłowych danych GPS",
     "offlineUsingCached": "Offline - używam tras z pamięci podręcznej",
-    "renderingTerrainPreviews": "Generowanie podglądów map",
     "syncingActivities": "Synchronizacja aktywności",
     "syncedActivities": "Zsynchronizowano {{count}} aktywności",
     "syncedDemoActivities": "Zsynchronizowano {{count}} aktywności demo",

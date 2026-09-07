@@ -1110,7 +1110,6 @@ export interface TranslationResource {
     noValidGpsData: string;
     noValidGpsChecked: string;
     offlineUsingCached: string;
-    renderingTerrainPreviews: string;
     syncedActivities: string;
     syncedDemoActivities: string;
     syncingActivities: string;

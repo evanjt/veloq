@@ -279,7 +279,6 @@
     "loadingDemoGps": "Demo-GPS-Daten werden geladen...",
     "noValidGpsData": "Keine gültigen GPS-Daten",
     "offlineUsingCached": "Offline - verwende zwischengespeicherte Routen",
-    "renderingTerrainPreviews": "Kartenvorschauen werden gerendert",
     "syncingActivities": "Synchronisiere Aktivitäten",
     "syncedActivities": "{{count}} Aktivitäten synchronisiert",
     "syncedDemoActivities": "{{count}} Demo-Aktivitäten synchronisiert",
