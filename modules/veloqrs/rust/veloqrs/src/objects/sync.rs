@@ -570,6 +570,21 @@ pub fn bodies_stored() -> u64 {
     BODIES_STORED.load(Ordering::Relaxed)
 }
 
+/// How many fetched bodies had nowhere to land this session.
+///
+/// The engine answers `None` when it is not there: destroyed, or not yet
+/// initialised. That is not a write that failed, it is bytes that came off the
+/// network and were dropped, and counting it with the failures would hide it.
+static BODIES_DISCARDED: AtomicU64 = AtomicU64::new(0);
+
+/// The count of fetched bodies dropped for want of an engine to write them to.
+/// The running total rides on the warning `discarded` writes, so nothing in
+/// the crate reads it back except the tests that prove it moves.
+#[cfg(test)]
+pub(crate) fn bodies_discarded() -> u64 {
+    BODIES_DISCARDED.load(Ordering::Relaxed)
+}
+
 /// Write one on-demand body, then announce it once it is actually in SQLite.
 ///
 /// Only a successful write announces. A failed store leaves nothing for a
@@ -608,6 +623,10 @@ where
     if landed(stored) {
         BODIES_STORED.fetch_add(1, Ordering::Relaxed);
         observer::notify(|o| o.body_stored(kind.to_string(), activity_id));
+    } else if stored.is_none() {
+        // A write that failed already logged its SQL error. This is the other
+        // half: no engine answered, so nothing was even attempted.
+        discarded(kind, &activity_id);
     }
 }
 
@@ -624,6 +643,8 @@ pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
     .await;
     if stored.is_some() {
         observer::notify(|o| o.time_streams_stored(vec![activity_id]));
+    } else {
+        discarded("time_stream", &activity_id);
     }
 }
 
@@ -631,6 +652,19 @@ pub(crate) async fn store_time_stream(activity_id: String, times: Vec<u32>) {
 /// cold start with nowhere to write, `Some(false)` is a write that failed.
 fn landed(stored: Option<bool>) -> bool {
     stored == Some(true)
+}
+
+/// Record a fetched body that had no engine to be written to.
+///
+/// The engine answers `None` when it is gone or not yet up, and the caller
+/// cannot tell that from a write nobody asked for. Both the count and the line
+/// exist so the loss is visible: the request was made, the bytes came back and
+/// they were dropped.
+pub(crate) fn discarded(kind: &str, activity_id: &str) {
+    let total = BODIES_DISCARDED.fetch_add(1, Ordering::Relaxed) + 1;
+    log::warn!(
+        "[Sync] {kind} discarded, no engine to store it in: {activity_id} ({total} this session)"
+    );
 }
 
 /// Keys for on-demand fetches currently in flight.
@@ -2623,6 +2657,86 @@ mod body_count_tests {
             bodies_stored(),
             before,
             "a store that failed left nothing for a reader to find"
+        );
+    }
+
+    /// Scenario: the engine is destroyed while an on-demand fetch is in the
+    /// air, so the bytes come back with nowhere to be written.
+    ///
+    /// Expected behaviour: the loss is counted and named. Both counts staying
+    /// still is what made a dropped body and a body nobody asked for look the
+    /// same in a log.
+    #[test]
+    fn a_body_with_no_engine_is_counted_and_named() {
+        let _guard = serial_global_state();
+        crate::test_log::capturing();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let stored_before = bodies_stored();
+        let discarded_before = bodies_discarded();
+        crate::runtime::block_on(store_body("fixture", "gone-body".into(), |_engine| Ok(())));
+
+        assert_eq!(
+            bodies_stored(),
+            stored_before,
+            "nothing landed, so nothing may wake a reader"
+        );
+        assert_eq!(
+            bodies_discarded(),
+            discarded_before + 1,
+            "the fetch happened and the bytes are gone, so the loss has a count"
+        );
+        let said = crate::test_log::warnings_with("gone-body");
+        assert_eq!(said.len(), 1, "one warning naming the body: {said:?}");
+        assert!(
+            said[0].contains("fixture"),
+            "the warning has to carry the kind: {}",
+            said[0]
+        );
+    }
+
+    /// A time stream is the same loss on a second path, and the scrubber it
+    /// feeds is what goes missing.
+    #[test]
+    fn a_time_stream_with_no_engine_is_counted_and_named() {
+        let _guard = serial_global_state();
+        crate::test_log::capturing();
+        *crate::persistence::PERSISTENT_ENGINE
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+
+        let discarded_before = bodies_discarded();
+        crate::runtime::block_on(store_time_stream("gone-stream".into(), vec![0, 1, 2]));
+
+        assert_eq!(
+            bodies_discarded(),
+            discarded_before + 1,
+            "a stream fetched with nowhere to put it is a loss like any other"
+        );
+        assert_eq!(
+            crate::test_log::warnings_with("gone-stream").len(),
+            1,
+            "one warning naming the stream"
+        );
+    }
+
+    /// A failed write is not a discard: the engine was there and answered, and
+    /// the SQL error is already logged where it happened.
+    #[test]
+    fn a_failed_write_is_not_counted_as_a_discard() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+
+        let before = bodies_discarded();
+        crate::runtime::block_on(store_body("fixture", "sql-error".into(), |_engine| {
+            Err(rusqlite::Error::InvalidQuery)
+        }));
+        assert_eq!(
+            bodies_discarded(),
+            before,
+            "the engine answered, so this is a write that failed and not a body with nowhere to go"
         );
     }
 

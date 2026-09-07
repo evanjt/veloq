@@ -465,6 +465,8 @@ pub fn start_fetch_and_store(
                             crate::objects::observer::notify(|o| {
                                 o.time_streams_stored(vec![activity_id.clone()])
                             });
+                        } else {
+                            crate::objects::sync::discarded("time_stream", &activity_id);
                         }
                     }
                     Ok(_) => {}
