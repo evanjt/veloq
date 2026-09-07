@@ -1268,7 +1268,7 @@
     "cutoverPhaseArchiving": "archiviazione",
     "cutoverPhaseDetecting": "rilevamento",
     "cutoverPhaseDiffing": "confronto",
-    "previewAreaFallback": "Zona {{number}}",
+    "previewAreaFallback": "Zona {{letter}}",
     "previewAreaVisits": "{{count}} visite",
     "previewAreaSections": "{{count}} sezioni",
     "sectionMaxLength": "Sezione più lunga: {{distance}}",

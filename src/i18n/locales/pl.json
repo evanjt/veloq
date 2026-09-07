@@ -1270,7 +1270,7 @@
     "cutoverPhaseArchiving": "archiwizowanie",
     "cutoverPhaseDetecting": "wykrywanie",
     "cutoverPhaseDiffing": "porównywanie",
-    "previewAreaFallback": "Obszar {{number}}",
+    "previewAreaFallback": "Obszar {{letter}}",
     "previewAreaVisits": "{{count}} wizyt",
     "previewAreaSections": "{{count}} sekcji",
     "sectionMaxLength": "Najdłuższa sekcja: {{distance}}",
