@@ -346,7 +346,16 @@
     "syncError": {
       "title": "同期が通っていません",
       "lastSynced": "最終同期 {{when}}",
-      "neverSynced": "完了した同期はありません"
+      "neverSynced": "完了した同期はありません",
+      "reason": {
+        "unauthorized": "intervals.icu にログインを拒否されました",
+        "rateLimited": "intervals.icu から待機を求められ、同期を止めています",
+        "server": "intervals.icu から扱えない応答が返りました",
+        "network": "intervals.icu に接続できませんでした",
+        "storage": "この端末のファイルを読み取れませんでした",
+        "notConfigured": "この端末に intervals.icu のログイン情報がありません",
+        "internal": "原因を特定できないまま同期が止まりました"
+      }
     }
   },
   "engine": {

@@ -1099,6 +1099,15 @@ export interface TranslationResource {
       title: string;
       lastSynced: string;
       neverSynced: string;
+      reason: {
+        unauthorized: string;
+        rateLimited: string;
+        server: string;
+        network: string;
+        storage: string;
+        notConfigured: string;
+        internal: string;
+      };
     };
   };
 

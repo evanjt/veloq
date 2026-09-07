@@ -346,7 +346,16 @@
     "syncError": {
       "title": "Synchronizacja nie dochodzi",
       "lastSynced": "Ostatnia synchronizacja {{when}}",
-      "neverSynced": "Zadna synchronizacja sie nie zakonczyla"
+      "neverSynced": "Zadna synchronizacja sie nie zakonczyla",
+      "reason": {
+        "unauthorized": "intervals.icu odrzucil twoje logowanie",
+        "rateLimited": "intervals.icu poprosil o przerwe, synchronizacja czeka",
+        "server": "intervals.icu odeslal cos, czego aplikacja nie potrafi uzyc",
+        "network": "Nie udalo sie polaczyc z intervals.icu",
+        "storage": "Nie udalo sie odczytac pliku na tym urzadzeniu",
+        "notConfigured": "Na tym urzadzeniu nie zapisano logowania do intervals.icu",
+        "internal": "Synchronizacja zatrzymala sie z powodu, ktorego aplikacja nie potrafi nazwac"
+      }
     }
   },
   "engine": {

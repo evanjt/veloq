@@ -346,7 +346,16 @@
     "syncError": {
       "title": "La sincronizzazione non arriva",
       "lastSynced": "Ultima sincronizzazione {{when}}",
-      "neverSynced": "Nessuna sincronizzazione completata"
+      "neverSynced": "Nessuna sincronizzazione completata",
+      "reason": {
+        "unauthorized": "intervals.icu ha rifiutato il tuo accesso",
+        "rateLimited": "intervals.icu ha chiesto una pausa, la sincronizzazione sta aspettando",
+        "server": "intervals.icu ha restituito qualcosa che l'app non ha potuto usare",
+        "network": "Impossibile raggiungere intervals.icu",
+        "storage": "Non e stato possibile leggere un file su questo dispositivo",
+        "notConfigured": "Nessun accesso a intervals.icu salvato su questo dispositivo",
+        "internal": "La sincronizzazione si e fermata per un motivo che l'app non sa nominare"
+      }
     }
   },
   "engine": {
