@@ -34,12 +34,6 @@ jest.mock('@/features/maps/components', () => {
   };
 });
 
-let mockGlobalMapStyle = 'light';
-
-jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
-  useMapPreferences: () => ({ getGlobalMapStyle: () => mockGlobalMapStyle }),
-}));
-
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
@@ -78,7 +72,6 @@ const CENTRE = { lat: 47.5, lng: 8.7 };
 describe('PreviewMapView', () => {
   beforeEach(() => {
     capturedSources.length = 0;
-    mockGlobalMapStyle = 'light';
   });
 
   it('draws the live catalogue as current alone before a run', () => {
@@ -221,47 +214,5 @@ describe('PreviewMapView', () => {
     expect(getByTestId('map-attribution-text').props.children).toBe(
       '\u00a9 OpenFreeMap \u00a9 OpenMapTiles \u00a9 OpenStreetMap'
     );
-  });
-
-  it('names the regional satellite sources under the selected area', () => {
-    mockGlobalMapStyle = 'satellite';
-
-    const { getByTestId } = render(
-      <PreviewMapView
-        result={null}
-        currentSections={[section('live-a')]}
-        centre={CENTRE}
-        selectedId={null}
-        showCurrent
-        showProposed
-        onToggleCurrent={jest.fn()}
-        onToggleProposed={jest.fn()}
-        onSelect={jest.fn()}
-      />
-    );
-
-    const text = getByTestId('map-attribution-text').props.children as string;
-    expect(text).toContain('swisstopo');
-    expect(text).toContain('EOX');
-  });
-
-  it('still credits satellite imagery when no area is selected', () => {
-    mockGlobalMapStyle = 'satellite';
-
-    const { getByTestId } = render(
-      <PreviewMapView
-        result={null}
-        currentSections={[]}
-        centre={null}
-        selectedId={null}
-        showCurrent
-        showProposed
-        onToggleCurrent={jest.fn()}
-        onToggleProposed={jest.fn()}
-        onSelect={jest.fn()}
-      />
-    );
-
-    expect(getByTestId('map-attribution-text').props.children).toBe('Sentinel-2 cloudless by EOX');
   });
 });

@@ -22,7 +22,7 @@ import {
   type MapSurfaceRef,
 } from '@/features/maps/components';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
@@ -96,7 +96,6 @@ export function PreviewMapView({
 }: PreviewMapViewProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { getGlobalMapStyle } = useMapPreferences();
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // A finished run supersedes the live catalogue: its rows already carry the
@@ -194,7 +193,12 @@ export function PreviewMapView({
     zoom: number;
   } | null>(null);
 
-  const mapStyle = getGlobalMapStyle();
+  // Every other map in the app takes the athlete's global basemap, and on this
+  // one that is wrong: the screen exists to read a diff, and satellite imagery
+  // carries as much weight as the lines drawn over it. The street style is the
+  // quietest ground the app has, so it takes that and follows the theme
+  // instead of the preference (B407).
+  const mapStyle: MapStyleType = isDark ? 'dark' : 'light';
   const attribution = useMemo(
     () =>
       computeAttribution({
