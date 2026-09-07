@@ -16,6 +16,8 @@
  * - WEBHOOK_SECRET: Shared secret from intervals.icu webhook config
  */
 
+import { secretsMatch } from "./secrets";
+
 interface Env {
   INTERVALS_CLIENT_ID: string;
   INTERVALS_CLIENT_SECRET: string;
@@ -508,8 +510,9 @@ async function handleIntervalsWebhook(
       }[];
     };
 
-    // Validate shared secret
-    if (payload.secret !== env.WEBHOOK_SECRET) {
+    // Validate shared secret. The route is public, so the comparison must not
+    // say how much of a guess was right.
+    if (!(await secretsMatch(payload.secret, env.WEBHOOK_SECRET))) {
       console.error("Invalid webhook secret");
       return jsonResponse({ error: "Unauthorized" }, 401);
     }

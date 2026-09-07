@@ -35,6 +35,6 @@ describe('what the privacy page claims about webhooks', () => {
   });
 
   it('still verifies something, so the page is not claiming an open endpoint', () => {
-    expect(worker).toMatch(/payload\.secret !== env\.WEBHOOK_SECRET/);
+    expect(worker).toMatch(/secretsMatch\(payload\.secret, env\.WEBHOOK_SECRET\)/);
   });
 });
