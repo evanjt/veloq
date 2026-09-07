@@ -6,7 +6,7 @@ import type {
   TFunc,
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import { insightIcon } from '@/theme';
 import { formatDurationCompact } from '@/shared/format/format';
 
@@ -47,6 +47,10 @@ export function generatePeriodComparisonInsights(
         current: formatDurationCompact(cur.totalDuration),
         previous: formatDurationCompact(prev.totalDuration),
       });
+
+  // Both weeks' activities are what the comparison rests on: a week against
+  // one other week is a claim about however many rides made the two.
+  const periodConfidence = confidenceFrom('period_comparison', cur.count + prev.count);
 
   const upKey = useTss ? 'insights.weeklyLoadUp' : 'insights.weeklyVolumeUp';
   const downKey = useTss ? 'insights.weeklyLoadDown' : 'insights.weeklyVolumeDown';
@@ -105,6 +109,7 @@ export function generatePeriodComparisonInsights(
         body,
         navigationTarget: '/insights?tab=routes',
         timestamp: now,
+        confidence: periodConfidence,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
         meta: periodMeta,
@@ -122,6 +127,7 @@ export function generatePeriodComparisonInsights(
         body,
         navigationTarget: '/insights?tab=routes',
         timestamp: now,
+        confidence: periodConfidence,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
         meta: periodMeta,
@@ -162,6 +168,9 @@ function generateLastWeekVsAverageInsight(
       title: t('insights.weeklyLoad.title', { percent, direction }),
       navigationTarget: '/insights?tab=routes',
       timestamp: now,
+      // A week against a chronic average: the week's activities plus the ones
+      // the average was built from.
+      confidence: confidenceFrom('period_comparison', prev.count + chronic.count),
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',
