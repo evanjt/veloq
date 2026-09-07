@@ -102,8 +102,12 @@ export interface InsightMeta {
   comparisonKind?: 'self' | 'other' | 'none';
   /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
   repetitionCount?: number;
-  /** Proximal-specificity tags - drives R5 ranking bonus. */
-  specificity?: { hasNumber: boolean; hasPlace: boolean; hasDate: boolean };
+  /**
+   * The place this insight is about, as the generator knows it. R5 credits it
+   * only when it survives into the rendered copy, so this is the name to look
+   * for and not an assertion that it is there.
+   */
+  placeName?: string;
   /** Optional signal-to-noise delta (|value − baseline| / stddev) - drives R6. */
   signalDelta?: number;
 }

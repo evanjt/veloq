@@ -212,28 +212,24 @@ describe('rules.passesValence (G4)', () => {
 });
 
 describe('rules.specificityScore (R5)', () => {
-  it('awards all3 bonus when all three tags set', () => {
+  it('awards all3 bonus when the copy carries a number, a place and a past moment', () => {
     const insight = makeInsight({
-      meta: { specificity: { hasNumber: true, hasPlace: true, hasDate: true } },
+      title: 'Sunday Climb 6s faster',
+      meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW - 3 * DAY_MS },
     });
     expect(specificityScore(insight)).toBe(10);
   });
 
   it('awards any2 bonus for partial specificity', () => {
     const insight = makeInsight({
-      meta: {
-        specificity: { hasNumber: true, hasPlace: true, hasDate: false },
-      },
+      title: 'Sunday Climb 6s faster',
+      meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW },
     });
     expect(specificityScore(insight)).toBe(5);
   });
 
-  it('returns 0 when no tags set', () => {
-    const insight = makeInsight({
-      meta: {
-        specificity: { hasNumber: false, hasPlace: false, hasDate: false },
-      },
-    });
+  it('returns 0 when the copy carries none of them', () => {
+    const insight = makeInsight({ title: 'Keep going', meta: {} });
     expect(specificityScore(insight)).toBe(0);
   });
 
@@ -281,8 +277,10 @@ describe('rules.scoreInsight', () => {
       category: 'section_pr',
       priority: 1,
       confidence: 1,
+      title: 'Sunday Climb 6s faster',
       meta: {
-        specificity: { hasNumber: true, hasPlace: true, hasDate: true },
+        placeName: 'Sunday Climb',
+        sourceTimestamp: NOW - 3 * DAY_MS,
         comparisonKind: 'self',
         signalDelta: 1.0,
       },

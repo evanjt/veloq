@@ -102,11 +102,7 @@ export function generateSectionTrendInsights(
           sourceTimestamp,
           comparisonKind: 'self',
           repetitionCount: section.traversalCount,
-          specificity: {
-            hasNumber: Number.isFinite(section.medianRecentSecs),
-            hasPlace: Boolean(section.sectionName),
-            hasDate: sourceTimestamp != null,
-          },
+          placeName: section.sectionName,
         },
         supportingData: {
           sections: [
