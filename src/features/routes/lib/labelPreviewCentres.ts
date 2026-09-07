@@ -24,12 +24,25 @@ export interface CentreActivity {
   startLatLng?: [number, number];
 }
 
+/** What one centre's join saw, so a fallback can name its own cause. */
+export interface CentreJoin {
+  /** Candidates offered to the join. */
+  seen: number;
+  /** Of those, how many carried a locality. */
+  withLocality: number;
+  /** Of those, how many carried a finite start position. */
+  withPosition: number;
+  /** Closest any positioned candidate came, or null when none had one. */
+  nearestMetres: number | null;
+}
+
 export interface CentreLabel {
   binKey: string;
   /** Most common nearby locality, or null when none is known. */
   label: string | null;
   /** 1-based position in the list as given, for the numbered fallback. */
   fallbackNumber: number;
+  join: CentreJoin;
 }
 
 export function labelPreviewCentres(
@@ -39,14 +52,23 @@ export function labelPreviewCentres(
   return centres.map((centre, index) => {
     const anchor = previewAreaAnchor(centre);
     const counts = new Map<string, number>();
+    let withLocality = 0;
+    let withPosition = 0;
+    let nearestMetres: number | null = null;
+
     for (const activity of activities) {
-      if (!activity.locality || !activity.startLatLng) continue;
-      const [lat, lng] = activity.startLatLng;
+      if (activity.locality) withLocality += 1;
+
+      const position = activity.startLatLng;
+      if (!position) continue;
+      const [lat, lng] = position;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const metres = anchor
-        ? haversineDistance({ lat, lng }, { lat: anchor[1], lng: anchor[0] })
-        : Number.POSITIVE_INFINITY;
-      if (metres > CENTRE_RADIUS_M) continue;
+      withPosition += 1;
+
+      if (!anchor) continue;
+      const metres = haversineDistance({ lat, lng }, { lat: anchor[1], lng: anchor[0] });
+      if (nearestMetres === null || metres < nearestMetres) nearestMetres = metres;
+      if (metres > CENTRE_RADIUS_M || !activity.locality) continue;
       counts.set(activity.locality, (counts.get(activity.locality) ?? 0) + 1);
     }
 
@@ -63,6 +85,7 @@ export function labelPreviewCentres(
       binKey: centre.binKey,
       label,
       fallbackNumber: index + 1,
+      join: { seen: activities.length, withLocality, withPosition, nearestMetres },
     };
   });
 }
