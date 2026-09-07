@@ -13,7 +13,7 @@ import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { hermesStats } from '@/shared/debug/hermesStats';
@@ -150,7 +150,10 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
       <StatRow label="Legacy purchaser" value={isLegacyPurchaser ? 'Yes' : 'No'} isDark={isDark} />
 
       <Text
-        style={[{ fontSize: 12, marginTop: spacing.sm, marginBottom: 4 }, { color: mutedColor }]}
+        style={[
+          { fontSize: typography.caption.fontSize, marginTop: spacing.sm, marginBottom: 4 },
+          { color: mutedColor },
+        ]}
       >
         Set last shown:
       </Text>
@@ -510,7 +513,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
   },
   sectionContent: {
@@ -523,12 +526,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontFamily: 'monospace',
     color: colors.textPrimary,
     fontWeight: '500',
@@ -540,7 +543,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontStyle: 'italic',
   },
   tableHeader: {
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tableHeaderText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -564,7 +567,7 @@ const styles = StyleSheet.create({
     marginLeft: -2,
   },
   tableCell: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontFamily: 'monospace',
   },
   methodCol: {
@@ -584,7 +587,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   taskRunDetail: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontFamily: 'monospace',
   },
   actionButton: {
@@ -595,7 +598,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   actionButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   shareButton: {
@@ -614,7 +617,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   shareButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
 });

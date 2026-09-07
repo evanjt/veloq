@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 /**
@@ -59,12 +59,12 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
 
 const styles = StyleSheet.create({
   text: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   textMedium: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   textDark: {
     color: darkColors.textSecondary,
@@ -92,14 +92,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   deviceText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   deviceTextDark: {
     color: darkColors.textSecondary,
   },
   attributionText: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     opacity: 0.7,
   },

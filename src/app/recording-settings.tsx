@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   fieldChipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   gpsModeRow: {

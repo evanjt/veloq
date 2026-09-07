@@ -32,7 +32,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, layout } from '@/theme';
+import { colors, darkColors, layout, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   timeAxisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textMuted,
   },
   timeAxisLabelFirst: {
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: typography.pillLabel.fontSize,
     color: colors.textMuted,
   },
   axisLabelDark: {

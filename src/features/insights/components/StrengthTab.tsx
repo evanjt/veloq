@@ -296,12 +296,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
   emptyHint: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,

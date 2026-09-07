@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   proximityText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     color: colors.textDisabled,
   },
   proximityTextDark: {

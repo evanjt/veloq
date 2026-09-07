@@ -73,7 +73,7 @@ export const styles = StyleSheet.create({
   },
   exportGpxButtonText: {
     color: colors.textOnPrimary,
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600' as const,
   },
   // Content section below hero

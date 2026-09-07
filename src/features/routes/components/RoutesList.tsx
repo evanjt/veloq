@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   infoNoticeDark: {},
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textDisabled,
     lineHeight: 16,
   },
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   summaryText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   sportFilterLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sortChipRow: {
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   sortChipLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,

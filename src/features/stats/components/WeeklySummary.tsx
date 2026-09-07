@@ -524,12 +524,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: typography.statsValueLarge.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   trendArrow: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   trendPct: {

@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, shadows, layout } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { WHATS_NEW_SLIDES } from './slides';
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
   },
   tipText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
     textAlign: 'center',
     marginBottom: spacing.sm,
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
   },
   backText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
   },
   divider: {
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm,
   },
   closeText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '500',
   },
 });

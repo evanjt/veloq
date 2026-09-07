@@ -5,7 +5,7 @@ import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/re
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   hrvValue: {
-    fontSize: 32,
+    fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   hrvUnit: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '400',
     color: colors.textSecondary,
   },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   avgText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   avgTextDark: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   chartLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '500',
   },
   xAxisRow: {

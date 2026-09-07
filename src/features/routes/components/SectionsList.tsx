@@ -28,7 +28,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { useSections, generateSectionName } from '@/features/routes/hooks/useSections';
 import { sortSections, type SectionsSortOption } from '@/features/routes/lib/sectionRanking';
 import { Shimmer } from '@/shared/ui';
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   retiredLinkText: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   emptyContainer: {
@@ -688,14 +688,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl * 2,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   infoNoticeDark: {},
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textDisabled,
     lineHeight: 16,
   },
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
   sportFilterLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   sectionCounts: {
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   countText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   countTextHidden: {
@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   suggestionsTitle: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textOnDark,
   },

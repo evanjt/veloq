@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, spacing, layout } from '@/theme';
+import { colors, colorWithOpacity, spacing, layout, typography } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 
 /**
@@ -83,11 +83,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   text: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
   },
   link: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

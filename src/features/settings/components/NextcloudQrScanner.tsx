@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, cameraOverlay, layout } from '@/theme';
+import { colors, spacing, cameraOverlay, layout, typography } from '@/theme';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: cameraOverlay.text,
   },
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   instructionText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     color: cameraOverlay.text,
     textAlign: 'center',
     lineHeight: 20,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     borderColor: cameraOverlay.text,
   },
   permissionText: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     color: cameraOverlay.hint,
     textAlign: 'center',
   },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   grantButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     fontWeight: '600',
     color: cameraOverlay.text,
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: typography.bodyMedium.fontSize,
     color: cameraOverlay.hint,
   },
 });

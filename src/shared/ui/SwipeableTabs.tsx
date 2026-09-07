@@ -12,7 +12,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { brand, colors, darkColors, spacing, layout } from '@/theme';
+import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textSecondary,
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textMuted,
   },
   tabBadgeText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },

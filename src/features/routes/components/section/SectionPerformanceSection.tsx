@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '20',
   },
   pillText: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
   },

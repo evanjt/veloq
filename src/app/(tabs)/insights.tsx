@@ -28,7 +28,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing, amberBanner, layout } from '@/theme';
+import { colors, darkColors, spacing, amberBanner, layout, typography } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -569,16 +569,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
   disabledHintText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   disabledHintLink: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.primary,
     fontWeight: '500',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.cardTitle.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeMessageTitle: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '600',
     color: amberBanner.light.text,
   },
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     color: amberBanner.dark.text,
   },
   routeMessageBody: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: amberBanner.light.text,
     marginTop: 2,
   },
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.xs,
     color: amberBanner.light.text,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     lineHeight: 18,
   },
   engineBannerTextDark: {

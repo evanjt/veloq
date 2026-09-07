@@ -11,7 +11,16 @@ import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
-import { colors, darkColors, spacing, layout, shadows, brand, verdictColor } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  brand,
+  verdictColor,
+  typography,
+} from '@/theme';
 import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
 
@@ -274,14 +283,14 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   readinessLabel: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
     marginRight: spacing.sm,
   },
   readinessValue: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
   },
   textLight: {
@@ -297,12 +306,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   workoutName: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   workoutMeta: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -310,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   patternText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -330,7 +339,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   prSummaryText: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.gold,
     fontVariant: ['tabular-nums'],
@@ -342,7 +351,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   sectionName: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     color: colors.textPrimary,
     flex: 1,
     marginRight: spacing.sm,
@@ -360,30 +369,30 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   prTextCelebration: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
     color: brand.gold,
     fontVariant: ['tabular-nums'],
   },
   prDelta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.tealLight,
     fontVariant: ['tabular-nums'],
   },
   prBadge: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: brand.tealLight,
     fontVariant: ['tabular-nums'],
   },
   trendArrow: {
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '700',
   },
 });

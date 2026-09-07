@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, brand } from '@/theme';
+import { colors, darkColors, brand, typography } from '@/theme';
 import { navigateTo } from '@/shared/app/navigation';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import type { ActivityType } from '@/types';
@@ -167,7 +167,7 @@ export function ManualEntryForm({
         keyboardType="numeric"
       />
       {durationError && (
-        <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
+        <Text style={{ color: errorColor, fontSize: typography.caption.fontSize, marginTop: 2 }}>
           {t('recording.durationRequired', 'Please enter a valid duration.')}
         </Text>
       )}
@@ -196,7 +196,7 @@ export function ManualEntryForm({
         keyboardType="numeric"
       />
       {distanceError && (
-        <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
+        <Text style={{ color: errorColor, fontSize: typography.caption.fontSize, marginTop: 2 }}>
           {t('recording.distanceInvalid', 'Please enter a valid distance (0-999).')}
         </Text>
       )}
@@ -225,7 +225,7 @@ export function ManualEntryForm({
         keyboardType="numeric"
       />
       {hrError && (
-        <Text style={{ color: errorColor, fontSize: 12, marginTop: 2 }}>
+        <Text style={{ color: errorColor, fontSize: typography.caption.fontSize, marginTop: 2 }}>
           {t('recording.hrInvalid', 'Please enter a valid heart rate (30-250).')}
         </Text>
       )}

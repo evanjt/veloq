@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
   sectionNumberBadgeText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     textAlign: 'center',
   },
   startMarker: {

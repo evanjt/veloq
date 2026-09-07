@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     ...typography.caption,
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
   },
   overrideDivider: {
     height: StyleSheet.hairlineWidth,

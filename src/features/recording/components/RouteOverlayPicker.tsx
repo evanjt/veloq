@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   rowMeta: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     marginTop: 1,
   },
   emptyHint: {

@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     ...typography.cardTitle,
-    fontSize: 17,
+    fontSize: typography.cardTitle.fontSize,
     color: colors.textPrimary,
   },
   profileEmail: {
