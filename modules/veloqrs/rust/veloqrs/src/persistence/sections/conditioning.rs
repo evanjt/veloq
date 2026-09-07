@@ -218,10 +218,47 @@ pub fn try_start_conditioning() -> bool {
 /// Drive the in-flight run to completion. Shares `poll_detection_once`
 /// with the FFI poll: if the TS side polls first (sync end reached), it
 /// applies and this thread sees Idle and exits.
+/// Driver threads still polling the shared detection slot.
+///
+/// The driver outlives the call that spawned it by design, and it applies
+/// whatever it finds in the slot. That is right in production, where the slot
+/// holds one run at a time and whichever caller polls first applies. It is not
+/// right across the crate's tests, which share one process: a driver from an
+/// earlier run is still polling when the next test installs its own, and takes
+/// the completion that test was waiting on.
+static CONDITIONING_DRIVERS: AtomicUsize = AtomicUsize::new(0);
+
+/// How many driver threads are still polling. Zero once every one of them has
+/// read the slot as idle and returned.
+pub fn conditioning_drivers_live() -> usize {
+    CONDITIONING_DRIVERS.load(Ordering::SeqCst)
+}
+
+/// Counts one driver for as long as it polls. Release is structural, so a
+/// panic in the driver still takes it off the count.
+struct DriverGuard;
+
+impl Drop for DriverGuard {
+    fn drop(&mut self) {
+        CONDITIONING_DRIVERS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+impl DriverGuard {
+    fn enter() -> Self {
+        CONDITIONING_DRIVERS.fetch_add(1, Ordering::SeqCst);
+        DriverGuard
+    }
+}
+
 fn spawn_conditioning_driver() {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 
-    std::thread::spawn(|| {
+    // Counted before the thread starts, so a caller that asks straight after
+    // `try_start_conditioning` sees the driver rather than a race with it.
+    let counted = DriverGuard::enter();
+    std::thread::spawn(move || {
+        let _counted = counted;
         // Bounded: a worker that hangs rather than panicking never reports
         // `Died`, and this thread outlives the call that spawned it.
         match wait_on_slot(DRIVER_POLL, true) {

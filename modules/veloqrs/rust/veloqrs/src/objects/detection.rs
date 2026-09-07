@@ -1206,4 +1206,64 @@ mod tests {
 
         clear_detection_handle();
     }
+
+    /// Scenario: a conditioning run spawns a driver thread that polls the
+    /// shared detection slot every 250 ms until it reads idle. The thread
+    /// outlives the test that started it, and the crate's tests share one
+    /// process, so it is still polling when the next test installs a run of
+    /// its own. That poll applies the result and records the outcome, which is
+    /// the completion the next test was waiting to take.
+    mod a_driver_from_an_earlier_run {
+        use super::*;
+        use crate::persistence::sections::conditioning::{
+            conditioning_drivers_live, try_start_conditioning,
+        };
+
+        #[test]
+        pub fn does_not_outlive_the_reset() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+
+            assert!(try_start_conditioning(), "a conditioning run starts");
+            assert!(
+                conditioning_drivers_live() > 0,
+                "its driver is polling the slot"
+            );
+
+            clear_detection_handle();
+
+            assert_eq!(
+                conditioning_drivers_live(),
+                0,
+                "a driver left polling takes the next run's completion"
+            );
+            drain_detection();
+        }
+
+        #[test]
+        pub fn cannot_take_the_next_run_s_completion() {
+            let _serial = serial_global_state();
+            let _tmp = seeded_global_engine();
+            clear_detection_handle();
+
+            assert!(try_start_conditioning(), "a conditioning run starts");
+            clear_detection_handle();
+
+            let manager = DetectionManager::new();
+            assert!(manager.start().expect("start").started(), "the run starts");
+            wait_for_the_run_to_apply(&manager);
+
+            assert_eq!(
+                manager.last_outcome(),
+                "idle",
+                "nothing has polled this run, so nothing has settled it"
+            );
+            assert_eq!(
+                timed_poll_to_completion().0,
+                DetectionPoll::Applied,
+                "and the completion is still there for the caller that follows it"
+            );
+        }
+    }
 }
