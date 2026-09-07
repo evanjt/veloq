@@ -66,7 +66,7 @@ fn second_pass_generates_nothing_new() {
     let start = Instant::now();
     let handle = engine
         .generate_tiles_background()
-        .expect("background should still spawn, the function is unconditional");
+        .expect("the cold pass was drained, so the slot is free");
     let warm_generated = handle.recv_blocking().expect("warm run should complete");
     let warm_elapsed = start.elapsed();
 

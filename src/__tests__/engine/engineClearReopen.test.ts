@@ -13,6 +13,7 @@ import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 const mockSettings = { getSetting: jest.fn(), setSetting: jest.fn() };
 const mockNativeEngine = {
   isInitialized: () => true,
+  initOutcome: () => 1,
   setObserver: jest.fn(),
   clear: jest.fn(),
   destroy: jest.fn(),
@@ -25,6 +26,7 @@ const mockCreate = jest.fn((_dbPath: string) => mockNativeEngine);
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   __esModule: true,
   default: { initialize: jest.fn() },
+  FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: {
     create: (path: string) => mockCreate(path),
   },

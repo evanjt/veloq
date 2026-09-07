@@ -69,7 +69,12 @@ export type {
 } from './conversions';
 
 // Re-export EngineClient and its locally-defined types
-export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineClient';
+export {
+  EngineClient,
+  type HeatmapDay,
+  type SectionEncounter,
+  type BulkExportStatus,
+} from './EngineClient';
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
@@ -77,12 +82,20 @@ export type {
   FfiCallOutcome as CallOutcome,
   FfiManualActivity as ManualActivity,
 } from './generated/veloqrs';
-export { FfiCallKind as CallKind, FfiSyncErrorReason as SyncErrorReason } from './generated/veloqrs';
+export {
+  FfiCallKind as CallKind,
+  FfiSyncErrorReason as SyncErrorReason,
+} from './generated/veloqrs';
 
 // The verdict every start answers with, and the one place that says which
 // refusals lift on their own. See `delegates/start.ts`.
 export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
 export { isRetryableStart, hasStarted } from './delegates/start';
+
+// Why the engine did not open, for the banner to translate. See
+// `delegates/init.ts`.
+export { FfiInitOutcome as InitOutcome } from './generated/veloqrs';
+export { isRetryableInit, hasOpened } from './delegates/init';
 
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';

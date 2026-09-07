@@ -13,6 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
+import { isRetryableInit } from 'veloqrs';
+
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
@@ -122,6 +124,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
+  const setEngineInitFailureReason = useEngineStatus((s) => s.setInitFailureReason);
   const engineRetryNonce = useEngineStatus((s) => s.retryNonce);
   const markEngineReady = useEngineStatus((s) => s.markEngineReady);
   useCutoverRetry();
@@ -175,6 +178,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           }
           if (success) {
             setEngineInitFailed(false);
+            setEngineInitFailureReason(null);
             // Effects mounted below this one ran while the handle was null.
             // The bump is what lets them try again, the launch sync first.
             markEngineReady();
@@ -238,8 +242,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                 );
               }
             }
-          } else if (attempt < 2) {
-            // Retry once after delay - handles transient FS issues on first launch
+          } else if (attempt < 2 && isRetryableInit(engine.initOutcome())) {
+            // Retry once after delay - handles transient FS issues on first
+            // launch. Only a held file lifts on its own: a database from a
+            // newer build and a directory nothing can be written to answer the
+            // same way in 500 ms, so the athlete waits a second to be told
+            // what they could have been told at once.
             if (__DEV__) {
               console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
             }
@@ -250,6 +258,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                 `[Engine] Persistent init failed after ${attempt + 1} attempts for path: ${dbPath}`
               );
             }
+            setEngineInitFailureReason(engine.initOutcome());
             setEngineInitFailed(true);
           }
         };
@@ -257,7 +266,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         tryInit(0);
       }
     }
-  }, [isAuthenticated, initializeRange, setEngineInitFailed, engineRetryNonce, markEngineReady]);
+  }, [
+    isAuthenticated,
+    initializeRange,
+    setEngineInitFailed,
+    setEngineInitFailureReason,
+    engineRetryNonce,
+    markEngineReady,
+  ]);
 
   // Reset infinite activities query when the date rolls over while backgrounded.
   // initialPageParam is computed at render time with today's date, but the feed tab

@@ -822,7 +822,7 @@ impl PersistentEngine {
         // construction. A row the device minted carries NULL until an upload
         // answers, which is what makes it a ride nothing upstream has named.
         // `COALESCE` so a re-ingest never overwrites one already recorded.
-        let intervals_id = (!is_local_activity_key(&id)).then(|| id.clone());
+        let intervals_id = (!is_local_activity_key(id)).then_some(id);
         self.db.execute(
             "INSERT INTO activities
                  (id, intervals_id, sport_type, min_lat, max_lat, min_lng, max_lng)

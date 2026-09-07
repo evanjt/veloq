@@ -20,7 +20,12 @@ export interface InsightFields {
   body?: string;
   navigationTarget?: string;
   timestamp: number;
-  confidence?: number;
+  /**
+   * Required, and `null` is a real answer: a generator either counts the
+   * population behind its claim or says it has none. Optional here is what let
+   * thirteen of fifteen emit sites leave it out and take a flat default.
+   */
+  confidence: number | null;
   supportingData?: InsightSupportingData;
   methodology?: InsightMethodology;
   /**

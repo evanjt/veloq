@@ -338,11 +338,11 @@ export function startDetectorCutover(): boolean {
 /**
  * Start the elevation backfill on a background thread.
  *
- * Returns false when nothing is outstanding, when a run is already in flight,
- * or when no credential is set yet, so it is safe to call on every launch.
+ * The verdict names the refusal, so an empty queue reads as the job finished
+ * rather than as a failure to start. Safe to call on every launch.
  */
-export function startElevationBackfill(): boolean {
-  return FfiConverterBool.lift(
+export function startElevationBackfill(): FfiStartOutcome {
+  return FfiConverterTypeFfiStartOutcome.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
@@ -563,6 +563,67 @@ const FfiConverterTypeActivitySportType = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterString.allocationSize(value.sportType)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a running or finished bulk export has done. `skipped` and
+ * `total_bytes` are only meaningful once `state` reads "complete".
+ */
+export type BulkExportPoll = {
+  state: string;
+  exported: /*u32*/ number;
+  total: /*u32*/ number;
+  skipped: /*u32*/ number;
+  totalBytes: /*u64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link BulkExportPoll} record objects.
+ */
+export const BulkExportPoll = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<BulkExportPoll, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<BulkExportPoll>,
+  });
+})();
+
+const FfiConverterTypeBulkExportPoll = (() => {
+  type TypeName = BulkExportPoll;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        exported: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        skipped: FfiConverterUInt32.read(from),
+        totalBytes: FfiConverterUInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt32.write(value.exported, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.skipped, into);
+      FfiConverterUInt64.write(value.totalBytes, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterUInt32.allocationSize(value.exported) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.skipped) +
+        FfiConverterUInt64.allocationSize(value.totalBytes)
       );
     }
   }
@@ -3169,6 +3230,12 @@ export type FfiFtpTrend = {
    * Activity start of that earlier setting (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
+  /**
+   * Days carrying an estimate from the one compared against to the newest,
+   * inclusive. The insight ranker weighs a claim by what it stands on, and
+   * a step measured off three days is not the one measured off thirty.
+   */
+  sampleCount: /*u32*/ number;
 };
 
 /**
@@ -3197,6 +3264,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         latestDate: FfiConverterOptionalInt64.read(from),
         previousFtp: FfiConverterOptionalUInt16.read(from),
         previousDate: FfiConverterOptionalInt64.read(from),
+        sampleCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3204,13 +3272,15 @@ const FfiConverterTypeFfiFtpTrend = (() => {
       FfiConverterOptionalInt64.write(value.latestDate, into);
       FfiConverterOptionalUInt16.write(value.previousFtp, into);
       FfiConverterOptionalInt64.write(value.previousDate, into);
+      FfiConverterUInt32.write(value.sampleCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalUInt16.allocationSize(value.latestFtp) +
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalUInt16.allocationSize(value.previousFtp) +
-        FfiConverterOptionalInt64.allocationSize(value.previousDate)
+        FfiConverterOptionalInt64.allocationSize(value.previousDate) +
+        FfiConverterUInt32.allocationSize(value.sampleCount)
       );
     }
   }
@@ -4683,6 +4753,11 @@ export type FfiPaceTrend = {
    * Date of previous snapshot (Unix timestamp seconds)
    */
   previousDate?: /*i64*/ bigint;
+  /**
+   * Snapshots the trend was read from, for the same reason as
+   * `FfiFtpTrend::sample_count`.
+   */
+  sampleCount: /*u32*/ number;
 };
 
 /**
@@ -4711,6 +4786,7 @@ const FfiConverterTypeFfiPaceTrend = (() => {
         latestDate: FfiConverterOptionalInt64.read(from),
         previousPace: FfiConverterOptionalFloat64.read(from),
         previousDate: FfiConverterOptionalInt64.read(from),
+        sampleCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4718,13 +4794,15 @@ const FfiConverterTypeFfiPaceTrend = (() => {
       FfiConverterOptionalInt64.write(value.latestDate, into);
       FfiConverterOptionalFloat64.write(value.previousPace, into);
       FfiConverterOptionalInt64.write(value.previousDate, into);
+      FfiConverterUInt32.write(value.sampleCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalFloat64.allocationSize(value.latestPace) +
         FfiConverterOptionalInt64.allocationSize(value.latestDate) +
         FfiConverterOptionalFloat64.allocationSize(value.previousPace) +
-        FfiConverterOptionalInt64.allocationSize(value.previousDate)
+        FfiConverterOptionalInt64.allocationSize(value.previousDate) +
+        FfiConverterUInt32.allocationSize(value.sampleCount)
       );
     }
   }
@@ -5091,6 +5169,12 @@ export type FfiRecentPr = {
   sectionName: string;
   bestTime: /*f64*/ number;
   daysAgo: /*u32*/ number;
+  /**
+   * Lifetime traversals of the section. A record set over three outings and
+   * one set over fifty are different claims, and the ranker has no other way
+   * to tell them apart.
+   */
+  traversalCount: /*u32*/ number;
 };
 
 /**
@@ -5119,6 +5203,7 @@ const FfiConverterTypeFfiRecentPR = (() => {
         sectionName: FfiConverterString.read(from),
         bestTime: FfiConverterFloat64.read(from),
         daysAgo: FfiConverterUInt32.read(from),
+        traversalCount: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -5126,13 +5211,15 @@ const FfiConverterTypeFfiRecentPR = (() => {
       FfiConverterString.write(value.sectionName, into);
       FfiConverterFloat64.write(value.bestTime, into);
       FfiConverterUInt32.write(value.daysAgo, into);
+      FfiConverterUInt32.write(value.traversalCount, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.sectionId) +
         FfiConverterString.allocationSize(value.sectionName) +
         FfiConverterFloat64.allocationSize(value.bestTime) +
-        FfiConverterUInt32.allocationSize(value.daysAgo)
+        FfiConverterUInt32.allocationSize(value.daysAgo) +
+        FfiConverterUInt32.allocationSize(value.traversalCount)
       );
     }
   }
@@ -9746,6 +9833,53 @@ const stringConverter = {
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
 
 /**
+ * Which file a bulk export writes.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is
+ * falsy.
+ */
+export enum BulkExportFormat {
+  /**
+   * A ZIP of one GPX file per activity, plus its metadata and skip list.
+   */
+  Gpx = 1,
+  /**
+   * One GeoJSON FeatureCollection holding every track.
+   */
+  GeoJson = 2,
+}
+
+const FfiConverterTypeBulkExportFormat = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = BulkExportFormat;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return BulkExportFormat.Gpx;
+        case 2:
+          return BulkExportFormat.GeoJson;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case BulkExportFormat.Gpx:
+          return ordinalConverter.write(1, into);
+        case BulkExportFormat.GeoJson:
+          return ordinalConverter.write(2, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * How a call ended, as the kind the caller branches on.
  *
  * A closed set crossing as an enum rather than a word, so TypeScript compares
@@ -9827,6 +9961,93 @@ const FfiConverterTypeFfiCallKind = (() => {
 })();
 
 /**
+ * How the last engine init ended.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiInitOutcome {
+  /**
+   * The engine is open. A database that was quarantined and replaced ends
+   * here too: the athlete lost a cache the next sync refills, and the
+   * engine works.
+   */
+  Opened = 1,
+  /**
+   * Another connection held the file. The same file opens on the retry, so
+   * nothing is wrong with it and nothing is asked of the athlete.
+   */
+  Busy = 2,
+  /**
+   * The database was written by a newer build than this one. It is healthy
+   * and it is deliberately left where it is, so the remedy is to update the
+   * app, never to clear anything.
+   */
+  ForwardSchema = 3,
+  /**
+   * Nothing could be written where the database belongs: the directory
+   * could not be created, or an unusable file could not be replaced. A full
+   * disk and a denied permission both land here.
+   */
+  StorageUnavailable = 4,
+  /**
+   * Init has not run yet in this process.
+   */
+  NotAttempted = 5,
+  /**
+   * The init call itself threw. Rust never answers with this: it is the
+   * outcome TypeScript records when the FFI boundary fails, so a caught
+   * error is still a reason and not another bare `false`.
+   */
+  Failed = 6,
+}
+
+const FfiConverterTypeFfiInitOutcome = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiInitOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiInitOutcome.Opened;
+        case 2:
+          return FfiInitOutcome.Busy;
+        case 3:
+          return FfiInitOutcome.ForwardSchema;
+        case 4:
+          return FfiInitOutcome.StorageUnavailable;
+        case 5:
+          return FfiInitOutcome.NotAttempted;
+        case 6:
+          return FfiInitOutcome.Failed;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiInitOutcome.Opened:
+          return ordinalConverter.write(1, into);
+        case FfiInitOutcome.Busy:
+          return ordinalConverter.write(2, into);
+        case FfiInitOutcome.ForwardSchema:
+          return ordinalConverter.write(3, into);
+        case FfiInitOutcome.StorageUnavailable:
+          return ordinalConverter.write(4, into);
+        case FfiInitOutcome.NotAttempted:
+          return ordinalConverter.write(5, into);
+        case FfiInitOutcome.Failed:
+          return ordinalConverter.write(6, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Why a start was refused, or that it was not refused at all.
  *
  * The wire carries the variant's position, so the order here is the contract:
@@ -9852,8 +10073,9 @@ export enum FfiStartOutcome {
    */
   NotReady = 4,
   /**
-   * There is no credential, so no amount of waiting helps. The athlete has
-   * to sign in first.
+   * The athlete has to change something before this can run: there is no
+   * credential to sign the call with, or the work is switched off in
+   * Settings. No amount of waiting helps.
    */
   NotConfigured = 5,
   /**
@@ -9867,6 +10089,12 @@ export enum FfiStartOutcome {
    * caught error is still a reason and not another bare `false`.
    */
   Failed = 7,
+  /**
+   * The device is offline, and the work needs the network. The engine
+   * sleeps on its own connectivity edge rather than a timer, so a caller
+   * that reads this has somewhere to put the retry.
+   */
+  Offline = 8,
 }
 
 const FfiConverterTypeFfiStartOutcome = (() => {
@@ -9889,6 +10117,8 @@ const FfiConverterTypeFfiStartOutcome = (() => {
           return FfiStartOutcome.NotOwed;
         case 7:
           return FfiStartOutcome.Failed;
+        case 8:
+          return FfiStartOutcome.Offline;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -9909,6 +10139,8 @@ const FfiConverterTypeFfiStartOutcome = (() => {
           return ordinalConverter.write(6, into);
         case FfiStartOutcome.Failed:
           return ordinalConverter.write(7, into);
+        case FfiStartOutcome.Offline:
+          return ordinalConverter.write(8, into);
       }
     }
     allocationSize(value: TypeName): number {
@@ -18661,15 +18893,6 @@ const FfiConverterTypeSyncManager = new FfiConverterObject(
 
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
-  /**
-   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-   */
-  bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
-  /**
-   * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time - constant memory regardless of activity count.
-   */
-  bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   clear() /*throws*/ : void;
   /**
    * Empty what the engine can re-derive and keep what the athlete made:
@@ -18701,6 +18924,14 @@ export interface VeloqEngineLike {
   getBackupMetadata() /*throws*/ : string;
   getStats() /*throws*/ : PersistentEngineStats;
   heatmap(): HeatmapManagerLike;
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome;
   isInitialized(): boolean;
   maps(): MapManagerLike;
   markForRecomputation() /*throws*/ : void;
@@ -18710,6 +18941,19 @@ export interface VeloqEngineLike {
    * start.
    */
   pollBackup() /*throws*/ : string;
+  /**
+   * Poll the running export. `state` is "idle" | "running" | "complete",
+   * and `exported` against `total` is what a progress bar reads while it
+   * runs. A failed export is an error, and either outcome clears the slot
+   * so the next export can start.
+   */
+  pollBulkExport() /*throws*/ : BulkExportPoll;
+  /**
+   * Poll the running wipe: "idle" | "running" | "complete". A failed or
+   * panicking wipe is an error, and either outcome clears the slot so the
+   * next toggle can start one.
+   */
+  pollClearRoutesAndSections() /*throws*/ : string;
   recordings(): RecordingManagerLike;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
@@ -18726,6 +18970,24 @@ export interface VeloqEngineLike {
    * so neither the engine lock nor the calling thread waits for it.
    */
   startBackup(destPath: string) /*throws*/ : void;
+  /**
+   * Start a bulk export of every activity with GPS data, in `format`, on a
+   * background thread. Poll `poll_bulk_export` for progress and outcome.
+   * The file is written from a connection of its own, so neither the JS
+   * thread nor the engine's write lock waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string) /*throws*/ : void;
+  /**
+   * Start the route/section wipe on a background thread. Poll
+   * `poll_clear_routes_and_sections` for the outcome.
+   *
+   * The wipe takes the engine write lock like any other writer, so unlike a
+   * backup it does not get its own connection. What moves off the calling
+   * thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+   * caller is the settings toggle, so on the JS thread that is a switch the
+   * athlete flipped freezing the app.
+   */
+  startClearRoutesAndSections() /*throws*/ : void;
   strength(): StrengthManagerLike;
   sync(): SyncManagerLike;
 }
@@ -18769,49 +19031,6 @@ export class VeloqEngine
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_activities(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-   */
-  bulkExportGeojson(destPath: string): BulkExportResult /*throws*/ {
-    return FfiConverterTypeBulkExportResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
-            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            FfiConverterString.lower(destPath),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time - constant memory regardless of activity count.
-   */
-  bulkExportGpx(destPath: string): BulkExportResult /*throws*/ {
-    return FfiConverterTypeBulkExportResult.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
-            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            FfiConverterString.lower(destPath),
             callStatus,
           );
         },
@@ -19009,6 +19228,27 @@ export class VeloqEngine
     );
   }
 
+  /**
+   * How the last init in this process ended.
+   *
+   * `is_initialized` says whether the engine is usable, which is what the
+   * caller needs to decide what to do next. This says why it is not, which
+   * is what the athlete needs to decide what to do about it.
+   */
+  initOutcome(): FfiInitOutcome {
+    return FfiConverterTypeFfiInitOutcome.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_init_outcome(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   isInitialized(): boolean {
     return FfiConverterBool.lift(
       uniffiCaller.rustCall(
@@ -19065,6 +19305,51 @@ export class VeloqEngine
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_backup(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Poll the running export. `state` is "idle" | "running" | "complete",
+   * and `exported` against `total` is what a progress bar reads while it
+   * runs. A failed export is an error, and either outcome clears the slot
+   * so the next export can start.
+   */
+  pollBulkExport(): BulkExportPoll /*throws*/ {
+    return FfiConverterTypeBulkExportPoll.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_bulk_export(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Poll the running wipe: "idle" | "running" | "complete". A failed or
+   * panicking wipe is an error, and either outcome clears the slot so the
+   * next toggle can start one.
+   */
+  pollClearRoutesAndSections(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_routes_and_sections(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -19175,6 +19460,54 @@ export class VeloqEngine
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start a bulk export of every activity with GPS data, in `format`, on a
+   * background thread. Poll `poll_bulk_export` for progress and outcome.
+   * The file is written from a connection of its own, so neither the JS
+   * thread nor the engine's write lock waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_bulk_export(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          FfiConverterTypeBulkExportFormat.lower(format),
+          FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the route/section wipe on a background thread. Poll
+   * `poll_clear_routes_and_sections` for the outcome.
+   *
+   * The wipe takes the engine write lock like any other writer, so unlike a
+   * backup it does not get its own connection. What moves off the calling
+   * thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+   * caller is the settings toggle, so on the JS thread that is a switch the
+   * athlete flipped freezing the app.
+   */
+  startClearRoutesAndSections(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_routes_and_sections(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
       },
@@ -19899,7 +20232,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
-    54941
+    62057
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_elevation_backfill",
@@ -20258,22 +20591,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson() !==
-    442
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx() !==
-    30765
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear() !==
     24270
   ) {
@@ -20362,6 +20679,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_init_outcome() !==
+    20566
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_init_outcome",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized() !==
     10249
   ) {
@@ -20391,6 +20716,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_poll_backup",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export() !==
+    48301
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections() !==
+    43406
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections",
     );
   }
   if (
@@ -20447,6 +20788,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export() !==
+    1034
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_routes_and_sections() !==
+    64776
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_routes_and_sections",
     );
   }
   if (
@@ -22108,6 +22465,8 @@ export default Object.freeze({
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeActivitySportType,
     FfiConverterTypeBasemapManager,
+    FfiConverterTypeBulkExportFormat,
+    FfiConverterTypeBulkExportPoll,
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,
@@ -22152,6 +22511,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiIndexActivitySummary,
+    FfiConverterTypeFfiInitOutcome,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiInsightsParams,
     FfiConverterTypeFfiManualActivity,

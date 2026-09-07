@@ -48,8 +48,9 @@ import type {
   DownloadProgressResult,
   DerivedClear,
   SettingPair,
+  BulkExportFormat,
 } from './generated/veloqrs';
-import { FfiStartOutcome } from './generated/veloqrs';
+import { FfiInitOutcome, FfiStartOutcome } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
@@ -162,6 +163,18 @@ interface PendingWrite {
  */
 const MAX_PENDING_WRITES = 256;
 
+/**
+ * Progress and outcome of a running bulk export. `skipped` and `totalBytes`
+ * only mean anything once `state` reads "complete".
+ */
+export interface BulkExportStatus {
+  state: 'idle' | 'running' | 'complete';
+  exported: number;
+  total: number;
+  skipped: number;
+  totalBytes: number;
+}
+
 class EngineClient implements DelegateHost {
   private static instance: EngineClient;
   private listeners: Map<string, Set<EngineListener>> = new Map();
@@ -185,6 +198,19 @@ class EngineClient implements DelegateHost {
   engine: any = null;
 
   private constructor() {}
+
+  /**
+   * Why the last `initWithPath` ended as it did.
+   *
+   * Kept here rather than read on demand, because a failed init leaves no
+   * engine handle to ask.
+   */
+  private lastInitOutcome: FfiInitOutcome = FfiInitOutcome.NotAttempted;
+
+  /** Why the engine did not open, for the banner to translate. */
+  initOutcome(): FfiInitOutcome {
+    return this.lastInitOutcome;
+  }
 
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
   get ready(): boolean {
@@ -263,6 +289,10 @@ class EngineClient implements DelegateHost {
       // FFI call silently returns empty data.
       try {
         const engine = gen().VeloqEngine.create(dbPath);
+        // Read the reason from the handle whether or not it opened: a failed
+        // init leaves `this.engine` null, so this is the only moment the
+        // outcome is reachable at all.
+        this.lastInitOutcome = engine.initOutcome();
         if (!engine.isInitialized()) {
           console.warn('[EngineClient] Engine reported failed init for', dbPath);
           return false;
@@ -271,6 +301,7 @@ class EngineClient implements DelegateHost {
         return true;
       } catch (e) {
         console.warn('[EngineClient] Engine init threw:', e);
+        this.lastInitOutcome = FfiInitOutcome.Failed;
         this.engine = null;
         return false;
       }
@@ -353,6 +384,21 @@ class EngineClient implements DelegateHost {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /** Start the route/section wipe on a Rust thread. Poll
+   *  `pollClearRoutesAndSections` for the outcome. */
+  startClearRoutesAndSections(): void {
+    if (!this.ready) return;
+    this.timed('startClearRoutesAndSections', () => this.engine.startClearRoutesAndSections());
+  }
+
+  /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
+  pollClearRoutesAndSections(): string {
+    if (!this.ready) return 'idle';
+    return this.timed('pollClearRoutesAndSections', () =>
+      this.engine.pollClearRoutesAndSections()
+    );
   }
 
   /** Clear only route/section data, keeping GPS tracks and activities.
@@ -484,7 +530,7 @@ class EngineClient implements DelegateHost {
 
   getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
-  startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
+  startElevationBackfill = (): FfiStartOutcome => elevationDelegates.startElevationBackfill(this);
 
   pauseElevationBackfill = (): void => elevationDelegates.pauseElevationBackfill(this);
   resumeElevationBackfill = (): boolean => elevationDelegates.resumeElevationBackfill(this);
@@ -1094,25 +1140,27 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust - constant memory. */
-  bulkExportGpx(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+  /**
+   * Start a bulk export of every GPS activity on a Rust thread. Poll
+   * `pollBulkExport` for progress and outcome: the file is written from a
+   * connection of its own, so neither this thread nor the engine's write lock
+   * waits for it.
+   */
+  startBulkExport(format: BulkExportFormat, destPath: string): void {
     if (!this.ready) throw new Error('Engine not initialized');
-    const result = this.timed('bulkExportGpx', () => this.engine.bulkExportGpx(destPath));
-    return {
-      exported: result.exported,
-      skipped: result.skipped,
-      totalBytes: Number(result.totalBytes),
-    };
+    this.timed('startBulkExport', () => this.engine.startBulkExport(format, destPath));
   }
 
-  /** Bulk export all GPS activities as a single GeoJSON FeatureCollection. */
-  bulkExportGeoJson(destPath: string): { exported: number; skipped: number; totalBytes: number } {
+  /** Progress and outcome of the running export. */
+  pollBulkExport(): BulkExportStatus {
     if (!this.ready) throw new Error('Engine not initialized');
-    const result = this.timed('bulkExportGeoJson', () => this.engine.bulkExportGeojson(destPath));
+    const poll = this.timed('pollBulkExport', () => this.engine.pollBulkExport());
     return {
-      exported: result.exported,
-      skipped: result.skipped,
-      totalBytes: Number(result.totalBytes),
+      state: poll.state as BulkExportStatus['state'],
+      exported: poll.exported,
+      total: poll.total,
+      skipped: poll.skipped,
+      totalBytes: Number(poll.totalBytes),
     };
   }
 

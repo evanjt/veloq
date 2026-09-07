@@ -20,6 +20,7 @@ const mockGenerated = {
 jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   __esModule: true,
   default: mockGenerated,
+  FfiInitOutcome: { Opened: 1, NotAttempted: 5, Failed: 6 },
   VeloqEngine: mockGenerated.VeloqEngine,
 }));
 
@@ -33,6 +34,7 @@ function freshClient() {
 function engineStub(calls: string[]) {
   return {
     isInitialized: () => true,
+    initOutcome: () => 1,
     setObserver: () => calls.push('setObserver'),
   };
 }

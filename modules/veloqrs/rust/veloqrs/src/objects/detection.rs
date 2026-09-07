@@ -1,6 +1,7 @@
 use super::error::{VeloqError, with_engine};
 use super::start::FfiStartOutcome;
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+use crate::persistence::sections::DetectionRefusal;
 use log::info;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -23,6 +24,17 @@ const OUTCOME_ERROR: u8 = 2;
 
 fn record_outcome(outcome: u8) {
     LAST_DETECTION_OUTCOME.store(outcome, Ordering::Relaxed);
+}
+
+/// Put the record back to "nothing has finished here".
+///
+/// The atomic is process-wide and the crate's tests share one process, so a
+/// test that finishes a run leaves its outcome standing for whatever runs
+/// next. `clear_detection_handle` calls this, since the handle slot and the
+/// outcome are the same state described twice.
+#[cfg(test)]
+pub(crate) fn reset_last_outcome() {
+    record_outcome(OUTCOME_IDLE);
 }
 
 #[derive(uniffi::Object)]
@@ -282,6 +294,29 @@ fn cancel_running_preview() {
     }
 }
 
+/// The verdict a refusal crosses the FFI as.
+///
+/// A switch the athlete holds is not a hold that lifts, so it answers
+/// `NotConfigured` and reads as not retryable. The other two do lift, one when
+/// the backfill's pass ends and one when the cutover has run, which is exactly
+/// what `Held` says.
+fn refusal_outcome(refusal: DetectionRefusal) -> FfiStartOutcome {
+    match refusal {
+        DetectionRefusal::SwitchedOff => FfiStartOutcome::NotConfigured,
+        DetectionRefusal::Suspended | DetectionRefusal::CutoverOwed => FfiStartOutcome::Held,
+    }
+}
+
+/// The refusal as one line of log, so the reason is in the log as well as in
+/// the return.
+fn refusal_reason(refusal: DetectionRefusal) -> &'static str {
+    match refusal {
+        DetectionRefusal::SwitchedOff => "route matching is switched off",
+        DetectionRefusal::Suspended => "an elevation backfill holds the engine",
+        DetectionRefusal::CutoverOwed => "a detector cutover is owed",
+    }
+}
+
 #[uniffi::export]
 impl DetectionManager {
     #[uniffi::constructor]
@@ -332,9 +367,12 @@ impl DetectionManager {
         // The funnel refuses with a dead handle when a backfill takes the
         // suspension, or the detector cutover is still owed. Installing it
         // would occupy the slot with a run that never happened.
-        if crate::persistence::sections::detection_was_refused(&handle) {
-            info!("veloqrs: [DetectionManager] Start refused: detection is held");
-            return Ok(FfiStartOutcome::Held);
+        if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
+            info!(
+                "veloqrs: [DetectionManager] Start refused: {}",
+                refusal_reason(refusal)
+            );
+            return Ok(refusal_outcome(refusal));
         }
 
         *handle_guard = Some(handle);
@@ -427,9 +465,12 @@ impl DetectionManager {
                 crate::persistence::sections::detection::ApplyOn::Worker,
             )
         })?;
-        if crate::persistence::sections::detection_was_refused(&handle) {
-            info!("veloqrs: [DetectionManager] Force redetect refused: detection is held");
-            return Ok(FfiStartOutcome::Held);
+        if let Some(refusal) = crate::persistence::sections::detection_refusal(&handle) {
+            info!(
+                "veloqrs: [DetectionManager] Force redetect refused: {}",
+                refusal_reason(refusal)
+            );
+            return Ok(refusal_outcome(refusal));
         }
 
         *handle_guard = Some(handle);
@@ -725,6 +766,58 @@ mod tests {
         drain_detection();
     }
 
+    /// Scenario: the athlete has switched route matching off, and a screen
+    /// asks for a scan anyway.
+    ///
+    /// Expected behaviour: the refusal says the work is switched off rather
+    /// than held. A hold lifts on its own and is worth waiting for; a switch
+    /// never lifts until the athlete moves it, so a caller that reads the two
+    /// as one verdict either waits for ever or says nothing at all.
+    #[test]
+    pub fn a_start_with_detection_switched_off_says_so() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let before = detection_workers_started();
+
+        with_engine(|e| e.set_detection_enabled(false))
+            .expect("engine")
+            .expect("switch off");
+
+        let manager = DetectionManager::new();
+        assert_eq!(
+            manager.start().expect("start"),
+            FfiStartOutcome::NotConfigured,
+            "a switched-off library is not a hold that lifts"
+        );
+        assert_eq!(
+            manager.force_redetect().expect("redetect"),
+            FfiStartOutcome::NotConfigured,
+            "the force path answers the same way"
+        );
+        assert!(
+            !manager.start().expect("start").is_retryable(),
+            "nothing changes by asking again"
+        );
+
+        assert!(
+            SECTION_DETECTION_HANDLE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_none(),
+            "a refused run must not occupy the slot"
+        );
+        assert_eq!(
+            detection_workers_started() - before,
+            0,
+            "a refused run must not spawn a worker"
+        );
+
+        with_engine(|e| e.set_detection_enabled(true))
+            .expect("engine")
+            .expect("switch back on");
+    }
+
     /// Expected behaviour: a suspension refuses every arm, and a refusal must
     /// leave the slot empty so the backfill's own re-cut can take it.
     #[test]
@@ -877,6 +970,36 @@ mod tests {
         );
         wait_for_the_run_to_apply(&manager);
         timed_poll_to_completion();
+    }
+
+    /// Scenario: the outcome is a process-wide atomic and the crate's tests
+    /// share one process, so a test that finishes a run leaves its result
+    /// standing for whatever runs next. `serial_global_state()` orders nothing,
+    /// it only serialises, so which test that is comes down to cargo's
+    /// scheduling.
+    ///
+    /// Expected behaviour: the fixture that clears the handle clears the
+    /// outcome with it. They are one state, "no run has happened here", and a
+    /// fixture that resets half of it hands the next test the other half.
+    #[test]
+    fn clearing_the_handle_clears_the_outcome_that_belongs_to_it() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started(), "the run starts");
+        wait_for_the_run_to_apply(&manager);
+        assert_eq!(timed_poll_to_completion().0, DetectionPoll::Applied);
+        assert_eq!(manager.last_outcome(), "complete", "the run finished");
+
+        clear_detection_handle();
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "the outcome outlived the handle, so the next test to clear the \
+             handle starts on this run's result"
+        );
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can

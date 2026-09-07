@@ -24,8 +24,9 @@ pub enum FfiStartOutcome {
     Held = 3,
     /// The engine is not open yet. Nothing is wrong, the caller is early.
     NotReady = 4,
-    /// There is no credential, so no amount of waiting helps. The athlete has
-    /// to sign in first.
+    /// The athlete has to change something before this can run: there is no
+    /// credential to sign the call with, or the work is switched off in
+    /// Settings. No amount of waiting helps.
     NotConfigured = 5,
     /// There is no work to do. Refusing is the correct answer and will stay
     /// the correct answer.
@@ -34,6 +35,10 @@ pub enum FfiStartOutcome {
     /// is the verdict TypeScript records when the FFI call itself fails, so a
     /// caught error is still a reason and not another bare `false`.
     Failed = 7,
+    /// The device is offline, and the work needs the network. The engine
+    /// sleeps on its own connectivity edge rather than a timer, so a caller
+    /// that reads this has somewhere to put the retry.
+    Offline = 8,
 }
 
 impl FfiStartOutcome {
@@ -44,7 +49,10 @@ impl FfiStartOutcome {
     pub fn is_retryable(self) -> bool {
         matches!(
             self,
-            FfiStartOutcome::Busy | FfiStartOutcome::Held | FfiStartOutcome::NotReady
+            FfiStartOutcome::Busy
+                | FfiStartOutcome::Held
+                | FfiStartOutcome::NotReady
+                | FfiStartOutcome::Offline
         )
     }
 
@@ -70,6 +78,7 @@ mod tests {
             FfiStartOutcome::Busy,
             FfiStartOutcome::Held,
             FfiStartOutcome::NotReady,
+            FfiStartOutcome::Offline,
         ] {
             assert!(outcome.is_retryable(), "{outcome:?} lifts on its own");
             assert!(!outcome.started());

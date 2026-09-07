@@ -1,7 +1,7 @@
 import { formatDuration } from '@/shared/format/format';
 import type { Insight, SectionTrendData, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
 const DAY_MS = 86_400_000;
@@ -97,7 +97,7 @@ export function generateSectionTrendInsights(
             }),
         navigationTarget: `/section/${section.sectionId}`,
         timestamp: now,
-        confidence: Math.min(1, section.traversalCount / 10),
+        confidence: confidenceFrom('section_trend', section.traversalCount),
         meta: {
           sourceTimestamp,
           comparisonKind: 'self',

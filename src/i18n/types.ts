@@ -1036,6 +1036,12 @@ export interface TranslationResource {
     detectionPaused: string;
     detectionPausedElevation: string;
     detectionHeldElevationPaused: string;
+    rescanRefusedBusy: string;
+    rescanRefusedHeld: string;
+    rescanRefusedNotReady: string;
+    rescanRefusedOff: string;
+    rescanRefusedNothingOwed: string;
+    rescanRefusedFailed: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;
@@ -1079,6 +1085,13 @@ export interface TranslationResource {
 
   engine: {
     initFailed: string;
+    /** Why it did not open. The general line above stays the fallback. */
+    initReason: {
+      busy: string;
+      forwardSchema: string;
+      storageUnavailable: string;
+      failed: string;
+    };
   };
 
   errorState: {

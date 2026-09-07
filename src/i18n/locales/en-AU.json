@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable."
+    "initFailed": "Route engine failed to initialise. Routes and sections may be unavailable.",
+    "initReason": {
+      "busy": "Something else was using the database. Trying again should sort it.",
+      "forwardSchema": "This data was saved by a newer version of Veloq. Update the app to open it.",
+      "storageUnavailable": "The database could not be written. Free up space, then try again.",
+      "failed": "The route engine stopped for a reason the app cannot name."
+    }
   },
   "errorState": {
     "defaultTitle": "Something went wrong",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "Excluded",
     "partlyExcluded": "Some laps excluded",
     "avgHr": "Avg HR",
-    "maxGrade": "Steepest"
+    "maxGrade": "Steepest",
+    "rescanRefusedBusy": "A scan is already running.",
+    "rescanRefusedHeld": "Detection is held while the engine finishes other work.",
+    "rescanRefusedNotReady": "The engine is still opening. Try again in a moment.",
+    "rescanRefusedOff": "Route matching is off. Turn it on in Settings to scan.",
+    "rescanRefusedNothingOwed": "Everything has been scanned already.",
+    "rescanRefusedFailed": "The scan could not start."
   },
   "settings": {
     "account": "Account",

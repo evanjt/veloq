@@ -142,7 +142,7 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
     const reason = capped ? ` (${capped.reason})` : '';
     // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} conf=${s.breakdown.confidence.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
     );
   }
   // eslint-disable-next-line no-console

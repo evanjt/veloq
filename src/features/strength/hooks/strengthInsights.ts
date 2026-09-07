@@ -1,4 +1,3 @@
-import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import type { Insight } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
@@ -11,6 +10,7 @@ import type {
   StrengthSummary,
 } from '../types';
 import { colors } from '@/theme';
+import { INSIGHTS_CONFIG, confidenceFrom } from '@/features/insights/lib/config';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -38,6 +38,9 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     id: `strength_balance-${pair.id}`,
     category: 'strength_balance',
     priority: pair.status === 'watch' ? 3 : 2,
+    // The sets on both sides are the whole population: a ratio from two sets
+    // says far less about a habit than the same ratio from twenty.
+    confidence: confidenceFrom('strength_balance', pair.leftWeightedSets + pair.rightWeightedSets),
     title,
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
     body,
@@ -136,6 +139,13 @@ function buildStrengthProgressionInsight(
     id: `strength_progression-${muscleSlug}`,
     category: 'strength_progression',
     priority: 3,
+    // The weeks with any volume in them, not every week in the window: a
+    // fortnight of training does not become six weeks of evidence by sitting
+    // inside a six-week window.
+    confidence: confidenceFrom(
+      'strength_progression',
+      progression.points.filter((point) => point.weightedSets > 0).length
+    ),
     title,
     subtitle:
       progression.changePct == null
@@ -234,6 +244,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
     id: 'strength_snapshot',
     category: 'strength_progression',
     priority: 4,
+    confidence: confidenceFrom('strength_progression', summary.activityCount),
     title: t('insights.strengthSnapshot.title', { count: summary.activityCount }),
     subtitle,
     body: t('insights.strengthSnapshot.body', {

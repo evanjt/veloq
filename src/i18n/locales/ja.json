@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。"
+    "initFailed": "ルートエンジンの初期化に失敗しました。ルートとセクションが利用できない場合があります。",
+    "initReason": {
+      "busy": "他の処理がデータベースを使用中です。少ししてからやり直してください。",
+      "forwardSchema": "このデータは新しいバージョンの Veloq で保存されています。アプリを更新してください。",
+      "storageUnavailable": "データベースを書き込めませんでした。空き容量を確保してからやり直してください。",
+      "failed": "ルートエンジンが原因不明で停止しました。"
+    }
   },
   "errorState": {
     "defaultTitle": "問題が発生しました",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "除外済み",
     "partlyExcluded": "一部のラップを除外",
     "avgHr": "平均心拍",
-    "maxGrade": "最大勾配"
+    "maxGrade": "最大勾配",
+    "rescanRefusedBusy": "スキャンはすでに実行中です。",
+    "rescanRefusedHeld": "エンジンが他の処理を終えるまで検出は保留されています。",
+    "rescanRefusedNotReady": "エンジンを準備中です。しばらくしてからもう一度お試しください。",
+    "rescanRefusedOff": "ルートマッチングがオフです。設定でオンにするとスキャンできます。",
+    "rescanRefusedNothingOwed": "すべてスキャン済みです。",
+    "rescanRefusedFailed": "スキャンを開始できませんでした。"
   },
   "settings": {
     "account": "アカウント",

@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "路线引擎初始化失败。路线和区间可能不可用。"
+    "initFailed": "路线引擎初始化失败。路线和区间可能不可用。",
+    "initReason": {
+      "busy": "数据库正被其他操作占用。稍后重试即可。",
+      "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
+      "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
+      "failed": "路线引擎因未知原因停止。"
+    }
   },
   "errorState": {
     "defaultTitle": "出错了",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "已排除",
     "partlyExcluded": "部分圈已排除",
     "avgHr": "平均心率",
-    "maxGrade": "最大坡度"
+    "maxGrade": "最大坡度",
+    "rescanRefusedBusy": "扫描已在进行中。",
+    "rescanRefusedHeld": "引擎正在处理其他工作，检测已暂停。",
+    "rescanRefusedNotReady": "引擎仍在启动，请稍后再试。",
+    "rescanRefusedOff": "路线匹配已关闭。请在设置中开启后再扫描。",
+    "rescanRefusedNothingOwed": "所有内容都已扫描。",
+    "rescanRefusedFailed": "无法开始扫描。"
   },
   "settings": {
     "account": "账户",

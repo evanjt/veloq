@@ -144,6 +144,10 @@ name = "heatmap_idempotent"
 required-features = ["synthetic"]
 
 [[test]]
+name = "tile_pass_slot"
+required-features = ["synthetic"]
+
+[[test]]
 name = "heatmap_tile_set"
 required-features = ["synthetic"]
 
@@ -304,6 +308,10 @@ required-features = ["synthetic"]
 
 [[bench]]
 name = "lock_contention"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "database_wipe_cost"
 required-features = ["synthetic"]
 
 [[bench]]

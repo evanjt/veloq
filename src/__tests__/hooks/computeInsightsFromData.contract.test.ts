@@ -133,12 +133,14 @@ function buildFfiData(): InsightsData {
       latestDate: BigInt(1_745_000_000),
       previousFtp: 270,
       previousDate: BigInt(1_700_000_000),
+      sampleCount: 24,
     },
     runPaceTrend: {
       latestPace: 4.55,
       latestDate: BigInt(1_745_000_000),
       previousPace: 4.7,
       previousDate: BigInt(1_700_000_000),
+      sampleCount: 24,
     },
     allPatterns: [
       makePattern('Ride', 6, 0.9, 3 * 3600, 12),
@@ -151,6 +153,7 @@ function buildFfiData(): InsightsData {
         sectionName: 'Sunday Climb',
         bestTime: 690,
         daysAgo: 3,
+        traversalCount: 14,
       },
     ],
     sectionCount: 42,
@@ -174,18 +177,21 @@ function buildSummaryCardData(): SummaryCardData {
       latestDate: BigInt(1_745_000_000),
       previousFtp: 270,
       previousDate: BigInt(1_700_000_000),
+      sampleCount: 24,
     },
     runPaceTrend: {
       latestPace: 4.55,
       latestDate: BigInt(1_745_000_000),
       previousPace: 4.7,
       previousDate: BigInt(1_700_000_000),
+      sampleCount: 24,
     },
     swimPaceTrend: {
       latestPace: undefined,
       latestDate: undefined,
       previousPace: undefined,
       previousDate: undefined,
+      sampleCount: 24,
     },
   };
 }

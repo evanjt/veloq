@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar."
+    "initFailed": "De route-engine kon niet worden gestart. Routes en secties zijn mogelijk niet beschikbaar.",
+    "initReason": {
+      "busy": "Iets anders gebruikte de database. Probeer het zo nog eens.",
+      "forwardSchema": "Deze gegevens zijn opgeslagen door een nieuwere versie van Veloq. Werk de app bij om ze te openen.",
+      "storageUnavailable": "De database kon niet worden weggeschreven. Maak ruimte vrij en probeer het opnieuw.",
+      "failed": "De route-engine is gestopt om een reden die de app niet kan benoemen."
+    }
   },
   "errorState": {
     "defaultTitle": "Er ging iets mis",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "Uitgesloten",
     "partlyExcluded": "Sommige ronden uitgesloten",
     "avgHr": "Gem. HR",
-    "maxGrade": "Steilste"
+    "maxGrade": "Steilste",
+    "rescanRefusedBusy": "Er loopt al een scan.",
+    "rescanRefusedHeld": "Detectie wacht tot de engine ander werk heeft afgerond.",
+    "rescanRefusedNotReady": "De engine wordt nog geopend. Probeer het zo opnieuw.",
+    "rescanRefusedOff": "Routematching staat uit. Zet het aan in Instellingen om te scannen.",
+    "rescanRefusedNothingOwed": "Alles is al gescand.",
+    "rescanRefusedFailed": "De scan kon niet starten."
   },
   "settings": {
     "account": "Account",

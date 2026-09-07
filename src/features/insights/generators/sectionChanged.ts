@@ -1,5 +1,5 @@
 import type { Insight } from '../types';
-import { maxPerCategoryFor } from '../lib/config';
+import { NO_POPULATION, maxPerCategoryFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
 /**
@@ -53,6 +53,7 @@ export function generateSectionChangedInsights(
       navigationTarget: `/section/${change.sectionId}`,
       timestamp: now,
       isNew: true,
+      confidence: NO_POPULATION,
       meta: { sourceTimestamp: change.at, comparisonKind: 'none' },
     });
   }

@@ -40,12 +40,28 @@ export enum SyncErrorReason {
   Internal = 7,
 }
 
+/** `BulkExportFormat` as generated, held to the source by the same test. */
+export enum BulkExportFormat {
+  Gpx = 1,
+  GeoJson = 2,
+}
+
 /** `SyncState` as generated, held to the source by the same test. */
 export enum SyncState {
   Idle = 1,
   Syncing = 2,
   Paused = 3,
   AuthExpired = 4,
+}
+
+/** `FfiInitOutcome` as generated, held to the source by the same test. */
+export enum InitOutcome {
+  Opened = 1,
+  Busy = 2,
+  ForwardSchema = 3,
+  StorageUnavailable = 4,
+  NotAttempted = 5,
+  Failed = 6,
 }
 
 /** `FfiStartOutcome` as generated, held to the source by the same test. */
@@ -57,14 +73,20 @@ export enum StartOutcome {
   NotConfigured = 5,
   NotOwed = 6,
   Failed = 7,
+  Offline = 8,
 }
 
 export const isRetryableStart = (outcome: StartOutcome): boolean =>
   outcome === StartOutcome.Busy ||
   outcome === StartOutcome.Held ||
-  outcome === StartOutcome.NotReady;
+  outcome === StartOutcome.NotReady ||
+  outcome === StartOutcome.Offline;
 
 export const hasStarted = (outcome: StartOutcome): boolean => outcome === StartOutcome.Started;
+
+export const isRetryableInit = (outcome: InitOutcome): boolean => outcome === InitOutcome.Busy;
+
+export const hasOpened = (outcome: InitOutcome): boolean => outcome === InitOutcome.Opened;
 
 export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
@@ -126,7 +148,11 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     CallKind,
     SyncState,
     SyncErrorReason,
+    BulkExportFormat,
     StartOutcome,
+    InitOutcome,
+    isRetryableInit,
+    hasOpened,
     isRetryableStart,
     hasStarted,
     decodeCoords,

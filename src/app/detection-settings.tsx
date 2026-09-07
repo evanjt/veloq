@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+import { rescanRefusalKey } from '@/features/routes';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import {
   BackgroundJobsLink,
@@ -43,8 +44,13 @@ export default function DetectionSettingsScreen() {
     isScanning,
     result: rescanResult,
     failed: rescanFailed,
+    refusal: rescanRefusal,
     clearResult,
   } = useSectionRescan();
+
+  // The confirm dialog's Reanalyse used to drop the engine's answer, so a
+  // refused rescan closed the alert and showed nothing at all.
+  const refusalKey = rescanRefusalKey(rescanRefusal);
 
   useEffect(() => {
     if (rescanResult === null) return undefined;
@@ -146,6 +152,15 @@ export default function DetectionSettingsScreen() {
           {rescanResult && (
             <Text style={[styles.rescanResult, { color: textSecondary }]}>
               {rescanResult.after} {t('settings.sectionsDetected', 'sections detected')}
+            </Text>
+          )}
+
+          {refusalKey !== null && (
+            <Text
+              testID="detection-rescan-refused"
+              style={[styles.rescanResult, { color: textSecondary }]}
+            >
+              {t(refusalKey)}
             </Text>
           )}
 

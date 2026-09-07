@@ -33,6 +33,7 @@ export interface ScoredInsight {
   score: number;
   breakdown: {
     base: number;
+    confidence: number;
     category: number;
     specificity: number;
     temporalSelf: number;
@@ -167,6 +168,22 @@ export function signalScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CON
 }
 
 /**
+ * R4 - how much population the claim stands on.
+ *
+ * A declared absence (`null`) and a computed confidence are not the same, and
+ * neither is a default. The old `?? 0.5` gave thirteen of fifteen emit sites a
+ * flat fifteen points for a confidence nobody computed, which ranked a
+ * generator that measured nothing above one that measured its own thinness.
+ * An absence claims no evidence weight and leaves the rank to priority and
+ * category, where the number it would have carried is not one anybody has.
+ */
+export function confidenceScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
+  const value = insight.confidence;
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value)) * cfg.scoring.confidenceWeight;
+}
+
+/**
  * R7 - temporal-self framing bonus (Kappen 2018).
  */
 export function temporalSelfScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
@@ -183,7 +200,7 @@ export function scoreInsight(
   cfg: InsightsConfig = INSIGHTS_CONFIG
 ): ScoredInsight {
   const base = (6 - insight.priority) * 50;
-  const confidence = (insight.confidence ?? 0.5) * 30;
+  const confidence = confidenceScore(insight, cfg);
   const category = cfg.scoring.categoryBase[insight.category] ?? 0;
   const specificity = specificityScore(insight, cfg);
   const temporalSelf = temporalSelfScore(insight, cfg);
@@ -195,7 +212,8 @@ export function scoreInsight(
     insight,
     score: total,
     breakdown: {
-      base: base + confidence,
+      base,
+      confidence,
       category,
       specificity,
       temporalSelf,

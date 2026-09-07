@@ -1,7 +1,7 @@
 import type { Insight } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
-import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
 /**
@@ -134,6 +134,9 @@ export function stalePROpportunityToInsight(
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
     priority: 2,
+    // The lifetime traversals are what makes a stale record worth chasing:
+    // one that stood over two visits is a weaker claim than one over twenty.
+    confidence: confidenceFrom('stale_pr', opportunity.traversalCount),
     title: t('insights.stalePr.title', { section: opportunity.sectionName }),
     subtitle: t('insights.stalePr.subtitle', {
       prTime,
@@ -287,6 +290,9 @@ export function generateStalePRInsights(
       id: 'stale_pr-group',
       category: 'stale_pr',
       priority: 2,
+      // The group stands on the thinnest section in it, not the sum: one
+      // well-visited section does not make the others' records solid.
+      confidence: confidenceFrom('stale_pr', Math.min(...filtered.map((o) => o.traversalCount))),
       icon: 'lightning-bolt',
       iconColor: insightIcon.opportunity,
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),

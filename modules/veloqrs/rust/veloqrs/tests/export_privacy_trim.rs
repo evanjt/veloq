@@ -189,3 +189,130 @@ fn a_ride_entirely_inside_the_radius_is_named_in_the_ledger() {
     assert!(body.contains("doorstep"), "the ledger names it: {body}");
     assert!(body.contains("trimmed"), "and says why: {body}");
 }
+
+// The GeoJSON writer queries the same tracks and the setting names no format,
+// so the two have to redact the same thing. They did not: the radius was read
+// by the GPX path alone, and an athlete who picked GeoJSON got the door.
+
+/// The latitudes of one feature's LineString, in order.
+fn exported_geojson_track(path: &std::path::Path, activity_id: &str) -> Vec<f64> {
+    let body = std::fs::read_to_string(path).expect("read geojson");
+    let doc: serde_json::Value = serde_json::from_str(&body).expect("parse geojson");
+    let feature = doc["features"]
+        .as_array()
+        .expect("features")
+        .iter()
+        .find(|f| f["properties"]["id"] == activity_id)
+        .unwrap_or_else(|| panic!("no feature for {activity_id} in {body}"));
+    feature["geometry"]["coordinates"]
+        .as_array()
+        .expect("coordinates")
+        .iter()
+        .map(|c| c[1].as_f64().expect("latitude"))
+        .collect()
+}
+
+#[test]
+fn the_geojson_export_leaves_the_door_behind_too() {
+    let dir = TempDir::new().unwrap();
+    let engine = engine_with_two_rides(&dir);
+    set_trim(&engine, 100.0);
+
+    let dest = dir.path().join("export.geojson");
+    let result = engine
+        .bulk_export_geojson(dest.to_str().unwrap())
+        .expect("geojson export");
+    assert_eq!(result.exported, 2, "both rides are exported");
+
+    let trimmed = exported_geojson_track(&dest, "door");
+    assert_eq!(trimmed.len(), 3, "the two ends inside the radius are gone");
+    for lat in &trimmed {
+        assert!(
+            metres_from_home(*lat) > 100.0,
+            "an exported point sits {} m from home",
+            metres_from_home(*lat)
+        );
+    }
+
+    let stored = engine.get_gps_track("door").expect("stored track");
+    assert_eq!(stored.len(), 7, "the device keeps every point");
+}
+
+/// The one that stops the two drifting again: one library, one home, and the
+/// same coordinates in both files.
+#[test]
+fn both_formats_redact_the_same_library_the_same_way() {
+    let dir = TempDir::new().unwrap();
+    let engine = engine_with_two_rides(&dir);
+    set_trim(&engine, 100.0);
+
+    let zip = dir.path().join("export.zip");
+    let geojson = dir.path().join("export.geojson");
+    engine.bulk_export_gpx(zip.to_str().unwrap()).expect("gpx");
+    engine
+        .bulk_export_geojson(geojson.to_str().unwrap())
+        .expect("geojson");
+
+    for id in ["door", "away"] {
+        assert_eq!(
+            exported_track(&zip, id),
+            exported_geojson_track(&geojson, id),
+            "the two formats disagree about {id}"
+        );
+    }
+}
+
+#[test]
+fn a_geojson_export_with_no_home_set_is_exactly_what_it_was() {
+    let dir = TempDir::new().unwrap();
+    let engine = engine_with_two_rides(&dir);
+
+    let dest = dir.path().join("export.geojson");
+    let result = engine
+        .bulk_export_geojson(dest.to_str().unwrap())
+        .expect("geojson export");
+
+    assert_eq!(result.exported, 2);
+    assert_eq!(result.skipped, 0);
+    assert_eq!(exported_geojson_track(&dest, "door").len(), 7);
+}
+
+#[test]
+fn a_geojson_radius_of_zero_is_off_rather_than_a_trim_of_nothing() {
+    let dir = TempDir::new().unwrap();
+    let engine = engine_with_two_rides(&dir);
+    set_trim(&engine, 0.0);
+
+    let dest = dir.path().join("export.geojson");
+    engine
+        .bulk_export_geojson(dest.to_str().unwrap())
+        .expect("geojson export");
+
+    assert_eq!(exported_geojson_track(&dest, "door").len(), 7);
+}
+
+/// The ledger is already a foreign member of the FeatureCollection, so a ride
+/// the trim removes has somewhere to be named.
+#[test]
+fn a_geojson_ride_entirely_inside_the_radius_is_named_in_the_ledger() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("routes.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let doorstep: Vec<GpsPoint> = [5.0, 30.0, 60.0, 20.0].iter().map(|m| north(*m)).collect();
+    engine
+        .add_activity("doorstep".into(), doorstep, "Walk".into())
+        .expect("add walk");
+    set_trim(&engine, 100.0);
+
+    let dest = dir.path().join("export.geojson");
+    let result = engine
+        .bulk_export_geojson(dest.to_str().unwrap())
+        .expect("geojson export");
+
+    assert_eq!(result.exported, 0);
+    assert_eq!(result.skipped, 1);
+
+    let body = std::fs::read_to_string(&dest).expect("read geojson");
+    assert!(body.contains("doorstep"), "the ledger names it: {body}");
+    assert!(body.contains("trimmed"), "and says why: {body}");
+}

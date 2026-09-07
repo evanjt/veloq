@@ -4,6 +4,7 @@ pub(crate) mod detection;
 mod engine;
 pub mod error;
 mod fitness;
+pub mod init;
 mod maps;
 pub mod observer;
 pub mod preview;
@@ -19,6 +20,7 @@ mod tiles;
 pub use detection::DetectionManager;
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
+pub use init::FfiInitOutcome;
 pub use preview::SectionPreview;
 pub use start::FfiStartOutcome;
 #[cfg(test)]

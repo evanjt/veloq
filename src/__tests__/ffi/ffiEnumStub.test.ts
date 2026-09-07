@@ -11,7 +11,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { CallKind, StartOutcome, SyncErrorReason, SyncState } from '../__shared__/veloqrsStub';
+import {
+  BulkExportFormat,
+  CallKind,
+  InitOutcome,
+  StartOutcome,
+  SyncErrorReason,
+  SyncState,
+} from '../__shared__/veloqrsStub';
 
 const GENERATED = resolve('modules/veloqrs/src/generated/veloqrs.ts');
 
@@ -50,14 +57,25 @@ describe('the binding stub enums', () => {
     expect(membersOf(SyncErrorReason)).toEqual(generatedEnum('FfiSyncErrorReason'));
   });
 
+  it('carry BulkExportFormat as the generated binding declares it', () => {
+    expect(membersOf(BulkExportFormat)).toEqual(generatedEnum('BulkExportFormat'));
+  });
+
   it('carry FfiStartOutcome as the generated binding declares it', () => {
     expect(membersOf(StartOutcome)).toEqual(generatedEnum('FfiStartOutcome'));
+  });
+
+  it('carry FfiInitOutcome as the generated binding declares it', () => {
+    expect(membersOf(InitOutcome)).toEqual(generatedEnum('FfiInitOutcome'));
   });
 
   it('start every member at one so none is falsy', () => {
     for (const value of Object.values(membersOf(CallKind))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncState))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncErrorReason))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(BulkExportFormat)))
+      expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(InitOutcome))) expect(value).toBeGreaterThan(0);
   });
 });

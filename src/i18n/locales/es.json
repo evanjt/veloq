@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles."
+    "initFailed": "El motor de rutas no se pudo inicializar. Las rutas y secciones podrían no estar disponibles.",
+    "initReason": {
+      "busy": "Algo más estaba usando la base de datos. Vuelve a intentarlo en un momento.",
+      "forwardSchema": "Estos datos los guardó una versión más reciente de Veloq. Actualiza la app para abrirlos.",
+      "storageUnavailable": "No se pudo escribir la base de datos. Libera espacio y vuelve a intentarlo.",
+      "failed": "El motor de rutas se detuvo por un motivo que la app no puede nombrar."
+    }
   },
   "errorState": {
     "defaultTitle": "Algo salió mal",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "Excluida",
     "partlyExcluded": "Algunas vueltas excluidas",
     "avgHr": "FC media",
-    "maxGrade": "Pendiente máx."
+    "maxGrade": "Pendiente máx.",
+    "rescanRefusedBusy": "Ya hay un análisis en curso.",
+    "rescanRefusedHeld": "La detección está en espera mientras el motor termina otro trabajo.",
+    "rescanRefusedNotReady": "El motor todavía se está abriendo. Inténtalo de nuevo en un momento.",
+    "rescanRefusedOff": "La coincidencia de rutas está desactivada. Actívala en Ajustes para analizar.",
+    "rescanRefusedNothingOwed": "Ya se ha analizado todo.",
+    "rescanRefusedFailed": "No se pudo iniciar el análisis."
   },
   "settings": {
     "account": "Cuenta",

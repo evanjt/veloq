@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige."
+    "initFailed": "Rutemotor kunne ikke starte. Ruter og sektioner er muligvis ikke tilgængelige.",
+    "initReason": {
+      "busy": "Noget andet brugte databasen. Prøv igen om lidt.",
+      "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
+      "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
+      "failed": "Rutemotoren stoppede af en årsag, appen ikke kan navngive."
+    }
   },
   "errorState": {
     "defaultTitle": "Noget gik galt",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "Udelukket",
     "partlyExcluded": "Nogle omgange udelukket",
     "avgHr": "Gns. puls",
-    "maxGrade": "Stejlest"
+    "maxGrade": "Stejlest",
+    "rescanRefusedBusy": "En scanning kører allerede.",
+    "rescanRefusedHeld": "Registrering er sat på hold, mens motoren gør andet arbejde færdigt.",
+    "rescanRefusedNotReady": "Motoren er ved at åbne. Prøv igen om et øjeblik.",
+    "rescanRefusedOff": "Rutematchning er slået fra. Slå den til i Indstillinger for at scanne.",
+    "rescanRefusedNothingOwed": "Alt er allerede scannet.",
+    "rescanRefusedFailed": "Scanningen kunne ikke starte."
   },
   "settings": {
     "account": "Konto",

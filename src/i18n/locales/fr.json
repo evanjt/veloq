@@ -359,7 +359,13 @@
     }
   },
   "engine": {
-    "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles."
+    "initFailed": "Le moteur de parcours n'a pas pu démarrer. Les parcours et sections pourraient ne pas être disponibles.",
+    "initReason": {
+      "busy": "Autre chose utilisait la base de données. Réessayez dans un instant.",
+      "forwardSchema": "Ces données ont été enregistrées par une version plus récente de Veloq. Mettez l'application à jour pour les ouvrir.",
+      "storageUnavailable": "La base de données n'a pas pu être écrite. Libérez de l'espace, puis réessayez.",
+      "failed": "Le moteur de parcours s'est arrêté pour une raison que l'application ne sait pas nommer."
+    }
   },
   "errorState": {
     "defaultTitle": "Une erreur s'est produite",
@@ -1153,7 +1159,13 @@
     "lapExcluded": "Exclu",
     "partlyExcluded": "Certains tours exclus",
     "avgHr": "FC moy.",
-    "maxGrade": "Pente max"
+    "maxGrade": "Pente max",
+    "rescanRefusedBusy": "Une analyse est déjà en cours.",
+    "rescanRefusedHeld": "La détection est en attente pendant que le moteur termine d'autres tâches.",
+    "rescanRefusedNotReady": "Le moteur est en cours d'ouverture. Réessaie dans un instant.",
+    "rescanRefusedOff": "La correspondance d'itinéraires est désactivée. Active-la dans les réglages pour analyser.",
+    "rescanRefusedNothingOwed": "Tout a déjà été analysé.",
+    "rescanRefusedFailed": "L'analyse n'a pas pu démarrer."
   },
   "settings": {
     "account": "Compte",
