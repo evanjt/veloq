@@ -1362,7 +1362,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1373,7 +1373,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
     ptr: bigint,
     startTs: bigint,
@@ -1488,24 +1488,24 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
     ptr: bigint,
     activityId: Uint8Array,
     types: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1516,18 +1516,18 @@ interface NativeModuleInterface {
     days: bigint,
     gap: number,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
     ptr: bigint,
     filePath: Uint8Array,
