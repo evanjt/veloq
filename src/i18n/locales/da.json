@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Om indsigt",
     "aboutBody": "Træningsmålinger er estimater baseret på publicerede sportsvidenskabelige modeller. Individuelle reaktioner varierer betydeligt. Disse indsigter er kun informative, ikke medicinsk rådgivning eller træningsrådgivning.",
+    "aboutRanking": "Kortene sorteres efter, hvor meget hvert af dem har at sige: hvor nyt det er, hvor meget det skiller sig ud fra dit saedvanlige, hvor meget det har flyttet sig, og hvor ofte du goer det. Ikke efter om nyheden er god.",
     "efficiencyTrend": {
       "seriesLabel": "Puls per tempoenhed, ældste forsøg til nyeste",
       "title": "HR faldende på {{name}}",

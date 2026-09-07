@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Over inzichten",
     "aboutBody": "Trainingsmetrieken zijn schattingen op basis van gepubliceerde sportwetenschappelijke modellen. Individuele reacties variëren aanzienlijk. Deze inzichten zijn alleen informatief, geen medisch of coachingadvies.",
+    "aboutRanking": "Kaarten staan gesorteerd op hoeveel ze te zeggen hebben: hoe recent iets is, hoe sterk het afwijkt van je gewoonte, hoeveel het verschoven is en hoe vaak je het doet. Niet op of het nieuws goed is.",
     "efficiencyTrend": {
       "seriesLabel": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
       "title": "HF dalend op {{name}}",

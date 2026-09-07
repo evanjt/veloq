@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetrike sind Schätzige basierend uf publizierte sportwüsseschaftliche Modäll. Individuelli Reaktione variiere. Die Einblicke sind nur informativ, kei medizinische oder Coaching-Raat.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst. Nicht danach, ob die Nachricht gut ist.",
     "efficiencyTrend": {
       "seriesLabel": "Härzfrequänz pro Tämpoeiheit, vom eltschte bis zum neuschte Versüech",
       "title": "HF sinkt uf {{name}}",

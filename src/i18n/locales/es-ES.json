@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Acerca de las perspectivas",
     "aboutBody": "Las métricas de entrenamiento son estimaciones basadas en modelos de ciencia del ejercicio publicados. Las respuestas individuales varían significativamente. Estas perspectivas son solo informativas, no son consejo médico ni de entrenamiento.",
+    "aboutRanking": "Las tarjetas se ordenan segun lo mucho que tengan que decir: como de reciente es, cuanto se sale de lo habitual en ti, cuanto ha cambiado y con que frecuencia lo haces. No por si la noticia es buena.",
     "efficiencyTrend": {
       "seriesLabel": "Frecuencia cardiaca por unidad de ritmo, del intento más antiguo al más reciente",
       "title": "FC bajando en {{name}}",

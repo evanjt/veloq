@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetriken sind Schätzungen basierend auf veröffentlichten sportwissenschaftlichen Modellen. Individuelle Reaktionen variieren erheblich. Diese Einblicke dienen nur zur Information, keine medizinische oder Trainingsberatung.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst. Nicht danach, ob die Nachricht gut ist.",
     "efficiencyTrend": {
       "seriesLabel": "Herzfrequenz pro Tempoeinheit, ältester bis neuester Versuch",
       "title": "HF sinkend auf {{name}}",

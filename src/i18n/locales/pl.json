@@ -563,6 +563,7 @@
     },
     "aboutTitle": "O analizach",
     "aboutBody": "Metryki treningowe to szacunki oparte na opublikowanych modelach nauk o sporcie. Indywidualne reakcje mogą się znacznie różnić. Te analizy mają charakter wyłącznie informacyjny, nie stanowią porady medycznej ani trenerskiej.",
+    "aboutRanking": "Karty sa uporzadkowane wedlug tego, ile maja do powiedzenia: jak swieze sa, jak bardzo odbiegaja od twojej normy, jak duza jest zmiana i jak czesto to robisz. Nie wedlug tego, czy wiadomosc jest dobra.",
     "efficiencyTrend": {
       "seriesLabel": "Tętno na jednostkę tempa, od najstarszego przejazdu do najnowszego",
       "title": "HR spada na {{name}}",

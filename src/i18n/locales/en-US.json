@@ -552,6 +552,7 @@
     },
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
+    "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it. Not by whether the news is good.",
     "efficiencyTrend": {
       "seriesLabel": "Heart rate per unit of pace, oldest effort to newest",
       "title": "HR trending down on {{name}}",
