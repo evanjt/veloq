@@ -476,10 +476,10 @@ let layerStack: { id: SatelliteSourceId; minzoom: number }[] | null = null;
 function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
   if (!layerStack) {
     layerStack = getCombinedSatelliteStyle()
-      .layers.filter((l) => l.id.startsWith(LAYER_PREFIX))
+      .layers.filter((l) => l.id.startsWith(LAYER_PREFIX) && 'minzoom' in l)
       .map((l) => ({
         id: l.id.slice(LAYER_PREFIX.length) as SatelliteSourceId,
-        minzoom: l.minzoom ?? 0,
+        minzoom: 'minzoom' in l ? l.minzoom : 0,
       }))
       .reverse();
   }
