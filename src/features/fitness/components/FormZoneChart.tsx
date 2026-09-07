@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
+import { colors, darkColors, typography, spacing, chartStyles, layout } from '@/theme';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     paddingHorizontal: 2,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   axisLabelDark: {
     color: darkColors.textPrimary,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     marginRight: 3,
   },
   zoneLabel: {

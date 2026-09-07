@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },

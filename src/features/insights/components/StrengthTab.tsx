@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   periodButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   periodButtonDark: {

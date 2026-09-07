@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
-import { colors, darkColors, typography, spacing, contributionRamp } from '@/theme';
+import { colors, darkColors, typography, spacing, contributionRamp, layout } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { formatLocalDate } from '@/shared/format/format';
@@ -386,11 +386,11 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
   legendCell: {
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   highlightCell: {
     position: 'absolute',
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusXs,
     borderWidth: 2,
     borderColor: colors.primary,
   },

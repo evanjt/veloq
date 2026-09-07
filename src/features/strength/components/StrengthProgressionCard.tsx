@@ -225,10 +225,10 @@ const styles = StyleSheet.create({
   },
   miniBar: {
     width: MINI_BAR_WIDTH,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   trendBadge: {
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   metaBox: {
     flex: 1,
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     alignItems: 'center',
   },

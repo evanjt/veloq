@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: colors.divider,
   },

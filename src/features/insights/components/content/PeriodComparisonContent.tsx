@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   chartCardDark: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   countBox: {
     flex: 1,
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     alignItems: 'center',
   },

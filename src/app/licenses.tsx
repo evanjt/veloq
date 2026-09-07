@@ -537,7 +537,7 @@ const styles = {
     backgroundColor: 'rgba(128, 128, 128, 0.2)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden' as const,
   },
   sectionContent: {
@@ -581,7 +581,7 @@ const styles = {
     marginTop: spacing.sm,
     padding: spacing.sm,
     backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   }),
   licenseText: {
     ...typography.micro,

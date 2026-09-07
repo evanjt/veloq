@@ -5,7 +5,7 @@ import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/re
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     alignItems: 'center',
   },
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   chartCardDark: {

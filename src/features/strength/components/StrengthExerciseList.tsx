@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   exerciseCardDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: brand.tealLight,
   },
   exerciseCardContent: {

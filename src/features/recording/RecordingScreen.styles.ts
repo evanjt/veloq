@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
   lockChip: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   statusText: {
     ...typography.captionBold,

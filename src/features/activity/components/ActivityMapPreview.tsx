@@ -35,7 +35,7 @@ import {
   type AttributionOverlayRef,
 } from '@/features/maps/components/AttributionOverlay';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
+import { brand, colors, mapPreviewColors, colorWithOpacity, layout } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { debug } from '@/shared/debug/debug';
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     bottom: 68,
     right: 10,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusFull,
     width: 24,
     height: 24,
     justifyContent: 'center',

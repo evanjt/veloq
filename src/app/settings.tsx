@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   accountPhoto: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',

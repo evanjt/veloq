@@ -32,7 +32,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, layout } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -537,7 +537,7 @@ export function SectionScatterChart({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
   },
   containerDark: {

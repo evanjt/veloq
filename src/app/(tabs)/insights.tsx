@@ -28,7 +28,7 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { colors, darkColors, spacing, amberBanner } from '@/theme';
+import { colors, darkColors, spacing, amberBanner, layout } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
 
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
   disabledHintText: {
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   routeMessageCard: {
     margin: spacing.md,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     backgroundColor: amberBanner.light.bg,
     borderWidth: 1,
     borderColor: amberBanner.light.border,

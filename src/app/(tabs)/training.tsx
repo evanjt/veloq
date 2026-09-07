@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   timeRangeButtonDark: {
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   smoothingButton: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
     justifyContent: 'center',
     alignItems: 'center',
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   smoothingOption: {
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 2,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     backgroundColor: opacity.overlay.light,
   },
   smoothingOptionDark: {

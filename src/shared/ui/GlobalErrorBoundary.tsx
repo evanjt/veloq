@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { recordCrash } from '@/shared/debug/crashLog';
-import { errorScreen } from '@/theme';
+import { errorScreen, layout } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     borderWidth: 1,
     borderColor: errorScreen.action,
   },

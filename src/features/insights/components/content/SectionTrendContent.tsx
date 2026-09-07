@@ -10,7 +10,17 @@ import { navigateTo } from '@/shared/app/navigation';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, shadows, opacity, ink, verdictColor } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  spacing,
+  shadows,
+  opacity,
+  ink,
+  verdictColor,
+  layout,
+} from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 
 function getTrendIcon(trend?: number): string {
@@ -235,7 +245,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     gap: spacing.xs,
     marginBottom: spacing.xs,
@@ -268,7 +278,7 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -311,7 +321,7 @@ const styles = StyleSheet.create({
   },
   prChip: {
     backgroundColor: brand.gold,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     width: 18,
     height: 18,
     alignItems: 'center',
@@ -348,7 +358,7 @@ const styles = StyleSheet.create({
   },
   shimmerRow: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },
   shimmerRowDark: {

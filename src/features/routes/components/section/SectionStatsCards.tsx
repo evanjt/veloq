@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   calendarDirDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   calendarMonthTime: {
     fontSize: typography.bodySmall.fontSize,

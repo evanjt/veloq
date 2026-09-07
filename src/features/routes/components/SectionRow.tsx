@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
     marginBottom: 2,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: 6,
     ...shadows.pill,
   },
@@ -412,13 +412,13 @@ const styles = StyleSheet.create({
   previewBox: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
   previewPlaceholder: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusXs,
     backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(168, 85, 247, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
     backgroundColor: 'rgba(192, 132, 252, 0.15)',
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(217, 119, 6, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {
     backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),

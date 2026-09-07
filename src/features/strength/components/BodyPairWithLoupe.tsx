@@ -10,7 +10,7 @@ import Animated, {
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { CHART_CONFIG } from '@/constants';
-import { brand, loupeChrome } from '@/theme';
+import { brand, loupeChrome, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { findMuscleAtPoint } from '../lib/polygons';
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   loupeCrosshair: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: loupeChrome.crosshairDot,
     borderWidth: 1,
     borderColor: loupeChrome.crosshairRing,
