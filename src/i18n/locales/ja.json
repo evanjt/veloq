@@ -1288,6 +1288,7 @@
     "previewRun": "プレビュー",
     "previewRunning": "このエリアの {{count}} 件のアクティビティを分析中",
     "previewFailed": "プレビューを完了できませんでした。",
+    "previewSlow": "通常より時間がかかっています。処理は続いています。",
     "previewPoolUnusable": "一部のアクティビティの軌跡を読み取れないため、プレビューを中止しました。",
     "previewCurrentFailed": "このエリアの現在のセクションを読み込めませんでした。",
     "previewSuspended": "標高の更新中です。しばらくしてからもう一度お試しください。",
