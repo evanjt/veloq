@@ -1289,6 +1289,7 @@
     "previewRun": "Forhåndsvisning",
     "previewRunning": "Analyserer {{count}} aktiviteter i dette område",
     "previewFailed": "Forhåndsvisningen kunne ikke fuldføres.",
+    "previewSlow": "Det tager længere tid end normalt. Den kører stadig.",
     "previewPoolUnusable": "Nogle af dine aktivitetsspor kan ikke laeses, saa forhaandsvisningen blev afbrudt.",
     "previewCurrentFailed": "Kunne ikke læse de nuværende afsnit for dette område.",
     "previewSuspended": "Højdeopdatering i gang. Prøv igen om lidt.",

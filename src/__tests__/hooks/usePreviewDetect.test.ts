@@ -8,7 +8,12 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 import { isRetryableStart, StartOutcome } from 'veloqrs';
-import { usePreviewDetect } from '@/features/routes/hooks/usePreviewDetect';
+import {
+  PREVIEW_LAPSE_AFTER_MS,
+  PREVIEW_POLL_INTERVAL_MS,
+  PREVIEW_TIMEOUT_MS,
+  usePreviewDetect,
+} from '@/features/routes/hooks/usePreviewDetect';
 import type {
   PreviewClient,
   PreviewParams,
@@ -522,5 +527,222 @@ describe('usePreviewDetect', () => {
 
     expect(result.current.status).toBe('error');
     expect(result.current.result).toEqual(RESULT);
+  });
+
+  // Scenario: the run's end arrives on an event and nothing else. A dropped
+  // event, an observer that was never registered, or an engine that never
+  // finishes all leave the same spinner, so the run carries its own budgets.
+  describe('when the finish event never arrives', () => {
+    it('settles from the poll when the event is lost', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
+      const client = makeClient({
+        pollPreviewDetect,
+        takePreviewResult: jest.fn(() => RESULT),
+      });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
+      });
+      pollPreviewDetect.mockReturnValue('complete');
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
+      });
+
+      expect(result.current.status).toBe('complete');
+      expect(result.current.result).toEqual(RESULT);
+    });
+
+    it('leaves the run live while the poll still reads running', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS + PREVIEW_POLL_INTERVAL_MS * 5);
+      });
+
+      expect(result.current.status).toBe('running');
+      expect(client.takePreviewResult).not.toHaveBeenCalled();
+    });
+
+    it('reads nothing at all before the lapse budget passes', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS - 1);
+      });
+
+      expect(client.pollPreviewDetect).not.toHaveBeenCalled();
+      expect(result.current.status).toBe('running');
+    });
+
+    it('says the run is slow once its lapse budget passes, and keeps following', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      expect(result.current.lapsed).toBe(false);
+
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
+      });
+
+      expect(result.current.lapsed).toBe(true);
+      expect(result.current.status).toBe('running');
+    });
+
+    it('gives up at the timeout, and cancels the run it stopped following', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS);
+      });
+
+      expect(result.current.status).toBe('error');
+      expect(result.current.progress).toBeNull();
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+    });
+
+    it('takes the poll answer at the timeout when the run had in fact ended', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
+      const client = makeClient({
+        pollPreviewDetect,
+        takePreviewResult: jest.fn(() => RESULT),
+      });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      pollPreviewDetect.mockReturnValue('complete');
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS);
+      });
+
+      expect(result.current.status).toBe('complete');
+      expect(client.cancelPreviewDetect).not.toHaveBeenCalled();
+    });
+  });
+
+  // A settled run owns no timers. A budget that outlives its run would
+  // overwrite the answer the user is already looking at.
+  describe('budgets end with the run', () => {
+    it('drops them when the finish event settles the run', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
+      const client = makeClient({
+        pollPreviewDetect,
+        takePreviewResult: jest.fn(() => RESULT),
+      });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      fireFinished();
+      expect(result.current.status).toBe('complete');
+
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+      });
+
+      expect(result.current.status).toBe('complete');
+      expect(result.current.lapsed).toBe(false);
+      expect(client.cancelPreviewDetect).not.toHaveBeenCalled();
+      expect(client.takePreviewResult).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops them when the user cancels', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        result.current.cancel();
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+      });
+
+      expect(result.current.status).toBe('cancelled');
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops them when the hook unmounts', () => {
+      const client = makeClient();
+      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      unmount();
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_TIMEOUT_MS * 2);
+      });
+
+      expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
+      expect(client.pollPreviewDetect).not.toHaveBeenCalled();
+    });
+
+    it('clears the lapse when the run is reset', () => {
+      const client = makeClient();
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
+      });
+      expect(result.current.lapsed).toBe(true);
+
+      act(() => {
+        result.current.reset();
+      });
+
+      expect(result.current.lapsed).toBe(false);
+    });
+
+    it('starts the budgets of a second run from zero', () => {
+      const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
+      const client = makeClient({ pollPreviewDetect });
+      const { result } = renderHook(() => usePreviewDetect(client));
+
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      fireFinished();
+
+      pollPreviewDetect.mockReturnValue('running');
+      act(() => {
+        result.current.start(10, 20, PARAMS);
+      });
+      act(() => {
+        jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS - 1);
+      });
+      expect(result.current.lapsed).toBe(false);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(result.current.lapsed).toBe(true);
+    });
   });
 });
