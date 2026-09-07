@@ -1043,7 +1043,7 @@
     "sortMostVisited": "Meest bezocht",
     "sortNameAZ": "Naam A-Z",
     "sortNearby": "In de buurt",
-    "sortSignature": "Kenmerkend",
+    "sortRelevance": "Relevantie",
     "standingBest": "Je snelste van {{total}}",
     "standingRank": "Plaats {{rank}} van {{total}}, {{gap}} van je beste",
     "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",

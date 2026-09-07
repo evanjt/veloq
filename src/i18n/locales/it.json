@@ -1043,7 +1043,7 @@
     "sortMostVisited": "Più visitate",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Nelle vicinanze",
-    "sortSignature": "Firma",
+    "sortRelevance": "Rilevanza",
     "standingBest": "Il tuo più veloce su {{total}}",
     "standingRank": "{{rank}}º su {{total}}, {{gap}} dal tuo migliore",
     "standingRankPercentile": "{{rank}}º su {{total}}, più veloce del {{percent}}% di essi, {{gap}} dal tuo migliore",

@@ -1065,7 +1065,7 @@
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
-    "sortSignature": "Signature",
+    "sortRelevance": "Relevance",
     "standingBest": "Your fastest of {{total}}",
     "standingRank": "Ranked {{rank}} of {{total}}, {{gap}} off your best",
     "standingRankPercentile": "Ranked {{rank}} of {{total}}, faster than {{percent}}% of them, {{gap}} off your best",
