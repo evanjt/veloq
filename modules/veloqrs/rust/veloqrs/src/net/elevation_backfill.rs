@@ -155,12 +155,24 @@ impl ResumeGuard {
 
 /// The ladder itself, with everything it waits on handed in.
 ///
-/// `sleep` returns false to end the climb, which is how a test stops it and how
-/// nothing stops it in production. Split out so the schedule can be exercised
-/// without spending an evening on it, the same way `drain_queue_with` splits
-/// the fetch out of the walk. A sleep that ends early still counts as a rung
-/// climbed, so an online edge shortens the wait it lands in without resetting
-/// the ladder, and a flapping connection cannot hold it at its first rung.
+/// Split out so the schedule can be exercised without spending an evening on
+/// it, the same way `drain_queue_with` splits the fetch out of the walk. A
+/// sleep that ends early still counts as a rung climbed, so an online edge
+/// shortens the wait it lands in without resetting the ladder, and a flapping
+/// connection cannot hold it at its first rung.
+///
+/// **This is the one background loop in the crate with no external cancel, and
+/// that is deliberate.** Every other one is either bounded, like both slot
+/// drivers through `wait_on_slot`, or cooperatively stopped. This ends on two
+/// conditions and neither is a caller: the queue reading empty, which is the
+/// job finished for good, and a pause, which lays a fresh ladder on resume. A
+/// cancel would need a terminal state distinguishable from those two, and the
+/// climb it would stop costs one sleeping thread waking at most every half
+/// hour, so there is nothing for a caller to gain by stopping it.
+///
+/// `sleep` returning false ends the climb, which is how a test stops it and
+/// nothing else. `elevation_resume_ladder.rs` pins all of this, the absence
+/// included.
 pub fn resume_ladder(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
@@ -196,8 +208,8 @@ pub fn resume_ladder(
 }
 
 /// What a production rung waits on: its own clock, or the connection coming
-/// back, whichever is first. Always climbs, since nothing stops the ladder in
-/// production but an empty queue.
+/// back, whichever is first. Always climbs, since in production the ladder
+/// ends on the queue or the pause and never on the sleep.
 pub fn resume_sleep(wait: Duration) -> bool {
     crate::net::connectivity::sleep_or_online_edge(wait);
     true
