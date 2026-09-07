@@ -662,6 +662,7 @@
     "securityNote": "認証情報はデバイスに安全に保存されます",
     "sessionDataKept": "アクティビティ、セクション、設定はこの端末に残っています。",
     "sessionSignedOut": "サインアウトされました。",
+    "sessionKeyRejected": "APIキーが拒否されました。",
     "sessionRestore": "もう一度ログインすると元に戻ります。",
     "sessionRestoreAthlete": "{{athleteId}} としてもう一度ログインすると元に戻ります。",
     "subtitle": "Intervals.icuに接続",
