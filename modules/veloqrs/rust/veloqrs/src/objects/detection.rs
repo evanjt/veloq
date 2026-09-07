@@ -129,7 +129,9 @@ pub(crate) fn wait_on_slot_with(
 /// driver left over from earlier work can settle a run somebody else started.
 static SLOT_DRIVERS: AtomicUsize = AtomicUsize::new(0);
 
-/// How many detached drivers are on the slot right now.
+/// How many detached drivers are on the slot right now. Read by the test
+/// globals alone: production never waits on this, it only counts.
+#[cfg(test)]
 pub(crate) fn slot_drivers() -> usize {
     SLOT_DRIVERS.load(Ordering::SeqCst)
 }
