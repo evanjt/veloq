@@ -12,7 +12,7 @@ mod routes;
 pub mod sections;
 mod settings;
 pub mod strength;
-mod sync;
+pub(crate) mod sync;
 mod tiles;
 
 pub use detection::DetectionManager;
