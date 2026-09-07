@@ -60,7 +60,7 @@ afterEach(() => {
 
 /** Let the poll loop's timers run while the export promise is in flight. */
 async function settle(promise: Promise<unknown>) {
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     await Promise.resolve();
     jest.advanceTimersByTime(250);
   }
@@ -106,4 +106,47 @@ test('a failing poll propagates and nothing is shared', async () => {
   await expect(settle(bulkExportActivities())).rejects.toThrow('disk full');
   expect(mockShareAsync).not.toHaveBeenCalled();
   engine.getEngine = original;
+});
+
+/**
+ * Scenario: the Rust export worker neither finishes nor gives its slot back.
+ * The poll loop had no deadline, so it asked at 4 Hz for the life of the
+ * screen and the spinner never stopped.
+ *
+ * Expected behaviour: the wait has a budget, the two failures stay
+ * distinguishable, and the budget is a parameter so a test can shorten it.
+ */
+describe('an export that never ends', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    mockPolls = [];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('gives up on a run that stays running past its budget', async () => {
+    const engine = jest.requireMock('@/shared/native/engine');
+    const original = engine.getEngine;
+    engine.getEngine = () => ({
+      startBulkExport: mockStartBulkExport,
+      pollBulkExport: () => running(1, 3),
+    });
+
+    const promise = runExport(1 as never, '/cache/all.zip', undefined, 1000);
+    const settled = expect(settle(promise)).rejects.toThrow('did not finish in time');
+    await settled;
+
+    engine.getEngine = original;
+  });
+
+  it('says a slot that emptied is not the same failure as a slow one', async () => {
+    mockPolls = [running(0, 3)];
+
+    await expect(settle(runExport(1 as never, '/cache/all.zip'))).rejects.toThrow(
+      'Export did not start'
+    );
+  });
 });
