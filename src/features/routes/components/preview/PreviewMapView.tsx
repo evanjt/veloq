@@ -26,6 +26,7 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
+  previewAreaBounds,
   previewCameraBounds,
   type PreviewAreaCentre,
 } from '@/features/routes/lib/previewMapCamera';
@@ -141,10 +142,42 @@ export function PreviewMapView({
     return { current, proposed, gone };
   }, [result, sections, decoded]);
 
+  // The box the camera clamps to, drawn so the athlete can see which ground
+  // the selected area covers. Same bounds as the camera and the label, so the
+  // three never disagree about what this area is (U44).
+  const areaFeatures = useMemo((): GeoJSON.FeatureCollection => {
+    const area = previewAreaBounds(centre);
+    if (!area) return EMPTY_FEATURE_COLLECTION;
+    const [west, south] = area.sw;
+    const [east, north] = area.ne;
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [west, south],
+                [east, south],
+                [east, north],
+                [west, north],
+                [west, south],
+              ],
+            ],
+          },
+        },
+      ],
+    };
+  }, [centre]);
+
   const sources = useMemo(() => {
     const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
     return buildPreviewSources({
+      area: areaFeatures,
       current: showCurrent
         ? { type: 'FeatureCollection', features: features.current }
         : EMPTY_FEATURE_COLLECTION,
@@ -166,7 +199,16 @@ export function PreviewMapView({
             }
           : EMPTY_FEATURE_COLLECTION,
     });
-  }, [sections, decoded, features, selectedId, showCurrent, showProposed, showRemoved]);
+  }, [
+    sections,
+    decoded,
+    features,
+    selectedId,
+    showCurrent,
+    showProposed,
+    showRemoved,
+    areaFeatures,
+  ]);
 
   const layers = useMemo(() => buildPreviewLayers(), []);
 

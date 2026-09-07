@@ -17,10 +17,13 @@ export interface PreviewLayerInput {
   proposed: GeoJSON.FeatureCollection;
   gone: GeoJSON.FeatureCollection;
   selected: GeoJSON.FeatureCollection;
+  /** The selected area's box, so the athlete can see what a run covers. */
+  area: GeoJSON.FeatureCollection;
 }
 
 export function buildPreviewSources(input: PreviewLayerInput): Record<string, MapSourceSpec> {
   return {
+    'preview-area': { kind: 'geojson', data: input.area },
     'current-sections': { kind: 'geojson', data: input.current },
     'proposed-sections': { kind: 'geojson', data: input.proposed },
     'gone-sections': { kind: 'geojson', data: input.gone },
@@ -31,6 +34,20 @@ export function buildPreviewSources(input: PreviewLayerInput): Record<string, Ma
 export function buildPreviewLayers(): MapLayerSpec[] {
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
+    // Bottom of the stack and not interactive: it says which ground the
+    // selected area covers and must never take a tap meant for a section.
+    {
+      id: 'preview-area-line',
+      type: 'line',
+      source: 'preview-area',
+      layout: roundLine,
+      paint: {
+        'line-color': mapLayerColors.casing,
+        'line-opacity': 0.8,
+        'line-width': 1.5,
+        'line-dasharray': [4, 3],
+      },
+    },
     // The live catalogue is the baseline the whole diff is read against, so it
     // carries the same white casing every other coloured line on the app's
     // maps gets. That is what lets it stay a neutral grey and still be found
