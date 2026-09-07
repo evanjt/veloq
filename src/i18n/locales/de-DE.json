@@ -662,6 +662,7 @@
     "securityNote": "Deine Zugangsdaten werden sicher auf deinem Gerät gespeichert",
     "sessionDataKept": "Deine Aktivitäten, Abschnitte und Einstellungen sind weiterhin auf diesem Gerät.",
     "sessionSignedOut": "Du wurdest abgemeldet.",
+    "sessionKeyRejected": "Dein API-Schlüssel wurde abgelehnt.",
     "sessionRestore": "Melde dich erneut an, dann sind sie wieder da.",
     "sessionRestoreAthlete": "Melde dich erneut als {{athleteId}} an, dann sind sie wieder da.",
     "subtitle": "Mit Intervals.icu verbinden",

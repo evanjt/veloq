@@ -7,9 +7,11 @@
  *
  * The state is named `authExpired` but the 401 behind it is not evidence of an
  * expiry: a second device signing in takes this one's token. What the
- * athlete is told says only that they were signed out.
+ * athlete is told says only that the credential was rejected.
  *
- * `handleSessionExpired` is a no-op for API-key sessions, which never expire.
+ * An API key is rejected the same way a token is, when it is regenerated or
+ * revoked, so it is torn down the same way. The store picks the wording,
+ * because it is the only thing here that knows which credential was in use.
  */
 import { useEffect, useRef } from 'react';
 
@@ -31,6 +33,6 @@ export function useSyncAuthExpiry(): void {
     }
     if (handledRef.current) return;
     handledRef.current = true;
-    void useAuthStore.getState().handleSessionExpired('signed_out');
+    void useAuthStore.getState().handleSessionExpired();
   }, [state]);
 }
