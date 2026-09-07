@@ -352,8 +352,26 @@ impl SyncService {
     }
 
     fn clear_credentials(&self) {
-        let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
-        *g = None;
+        {
+            let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+            *g = None;
+        }
+        // A running sync built its transport before it spawned, with the token
+        // already baked in, so clearing the credential does not stop it on its
+        // own. Stop the dispatch as well, or the signed-out athlete's next step
+        // still goes out and still writes what it fetches.
+        self.request_cancel();
+    }
+
+    /// Whether `athlete_id` is still the athlete this device is signed in as.
+    ///
+    /// A sync carries the athlete it was started for and re-asks between steps,
+    /// so a sign-out or a second athlete signing in stops the run rather than
+    /// letting it write one athlete's data into the other's database. No
+    /// credential at all authorises nobody.
+    fn still_signed_in(&self, athlete_id: &str) -> bool {
+        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        g.as_ref().is_some_and(|c| c.athlete_id == athlete_id)
     }
 
     /// The `Authorization` header value for the held credential, if any.
@@ -657,6 +675,12 @@ where
         // Kept back for the confirmation: the job consumes both, and the
         // confirmation has to ask on the same credential that was refused.
         let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
+        // The transport was built before the spawn, so it still carries a token
+        // the athlete may have signed out of by the time the job is polled.
+        if !SYNC_SERVICE.still_signed_in(&confirm_for) {
+            log::info!("[Sync] dropping an on-demand fetch for an athlete who has signed out");
+            return;
+        }
         match job(transport, athlete_id).await {
             Ok(()) => {}
             Err(NetError::Unauthorized) => park_auth_expired(&confirm_on, &confirm_for).await,
@@ -771,7 +795,7 @@ const SYNC_STEPS: u32 = 5;
 /// Free function over `&SyncService` so tests can drive it with a mock-server
 /// transport against a local service instance.
 pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlete_id: String) {
-    if svc.is_cancelled() {
+    if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
         svc.finish(SyncState::Idle, None, false);
         return;
     }
@@ -781,7 +805,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
 
     macro_rules! step {
         ($body:expr) => {
-            if svc.is_cancelled() {
+            if svc.is_cancelled() || !svc.still_signed_in(&athlete_id) {
                 svc.finish(SyncState::Idle, last_error, false);
                 return;
             }
@@ -1140,6 +1164,10 @@ impl SyncManager {
             Ok((transport, athlete_id)) => {
                 crate::runtime::spawn(async move {
                     let _guard = FinishGuard;
+                    if !SYNC_SERVICE.still_signed_in(&athlete_id) {
+                        SYNC_SERVICE.finish(SyncState::Idle, None, false);
+                        return;
+                    }
                     SYNC_SERVICE.begin_steps(1);
                     match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
                         Ok(()) => {
@@ -1533,6 +1561,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 200);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1552,6 +1581,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1583,6 +1613,7 @@ mod tests {
             then.status(401);
         });
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1652,6 +1683,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1674,6 +1706,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1691,6 +1724,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 500);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1706,6 +1740,7 @@ mod tests {
     #[test]
     fn an_unreachable_host_settles_with_the_network_reason() {
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1769,6 +1804,92 @@ mod tests {
         );
     }
 
+    /// Scenario: a sync builds its transport, with the bearer token baked in,
+    /// before it spawns. The athlete then signs out, or a second athlete signs
+    /// in on the same device, while that sync is still walking its steps.
+    ///
+    /// Expected behaviour: the run stops at the next step. It does not keep
+    /// fetching on a credential nobody holds any more and it does not write
+    /// the signed-out athlete's data into the new athlete's database.
+    #[test]
+    fn a_sync_stops_when_the_credential_is_cleared_under_it() {
+        let server = MockServer::start();
+        let hit = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        let transport = transport_to(server.base_url());
+        assert!(svc.try_begin());
+        svc.clear_credentials();
+
+        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+
+        hit.assert_hits(0);
+        assert_eq!(svc.snapshot().state, SyncState::Idle);
+    }
+
+    #[test]
+    fn a_sync_stops_when_another_athlete_signs_in_under_it() {
+        let server = MockServer::start();
+        let hit = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        let transport = transport_to(server.base_url());
+        assert!(svc.try_begin());
+        svc.set_credentials(AuthKind::ApiKey, "other".into(), "i2".into());
+
+        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+
+        hit.assert_hits(0);
+        assert_eq!(svc.snapshot().state, SyncState::Idle);
+    }
+
+    #[test]
+    fn a_sync_for_the_athlete_who_is_still_signed_in_runs() {
+        let server = MockServer::start();
+        mock_profile_slice(&server, 200);
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        let transport = transport_to(server.base_url());
+        assert!(svc.try_begin());
+
+        crate::runtime::block_on(perform_sync(&svc, transport, "i1".into()));
+
+        let s = svc.snapshot();
+        assert_eq!(s.state, SyncState::Idle);
+        assert!(s.completed > 0, "the run walked no steps");
+    }
+
+    /// Signing out has to stop the dispatch as well as fail the check, so a
+    /// step already in flight is not followed by another one.
+    #[test]
+    fn clearing_the_credential_cancels_a_running_sync() {
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        assert!(!svc.is_cancelled());
+
+        svc.clear_credentials();
+
+        assert!(svc.is_cancelled());
+    }
+
+    /// The check is on the athlete, not on whether any credential exists, so a
+    /// service that never had one does not read as still authorised.
+    #[test]
+    fn a_service_with_no_credential_authorises_nobody() {
+        let svc = SyncService::new();
+        assert!(!svc.still_signed_in("i1"));
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.still_signed_in("i1"));
+        assert!(!svc.still_signed_in("i2"));
+    }
+
     #[test]
     fn one_failing_endpoint_does_not_cost_the_others() {
         // Steps are independent, so a broken sport-settings response must not
@@ -1792,6 +1913,7 @@ mod tests {
         });
 
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
@@ -1807,6 +1929,7 @@ mod tests {
     #[test]
     fn cancel_before_run_skips_work() {
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         svc.request_cancel();
         assert!(svc.is_cancelled());
@@ -2236,6 +2359,7 @@ mod tests {
         let server = MockServer::start();
         mock_profile_slice(&server, 401);
         let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
             &svc,
