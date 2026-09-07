@@ -273,12 +273,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     log.log(`Push received: event=${eventType}, activity=${activityId}, shape=${sourceShape}`);
 
-    // The visible tray push also wakes this task (Expo delivers `notification`
-    // messages through the same TaskBroadcastReceiver as `data` messages), but
-    // with no event_type/activity_id. Bail immediately - the silent push right
-    // behind it carries the real payload.
+    // A wake with no event type. The visible tray push carries none, and it
+    // reaches this task only while the app is in the foreground: backgrounded,
+    // the Firebase SDK renders a `notification` message itself and expo's
+    // delegate hands it to no listener, so nothing here runs. Whichever it was,
+    // the silent push right behind it carries the real payload, so bail.
     if (!eventType) {
-      log.log('No event type (visible-push wake), skipping');
+      log.log('No event type, skipping');
       await appendTaskRun({
         stage: 'bailed',
         sourceShape,

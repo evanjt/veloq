@@ -598,11 +598,15 @@ async function handleIntervalsWebhook(
 }
 
 /**
- * Send a silent push notification via Expo Push Service.
- * Expo handles FCM (Android) and APNs (iOS) routing transparently.
- * No Firebase project or APNs key required. Expo Push is free.
+ * Send one or two pushes for an event via Expo Push Service. Expo handles FCM
+ * (Android) and APNs (iOS) routing transparently. No Firebase project or APNs
+ * key required. Expo Push is free.
  *
- * Payload contains only event_type + activity_id (zero personal data).
+ * With `visible`, a tray push goes first and a silent data push behind it, for
+ * the reason set out below; without it, only the silent one. The visible push
+ * carries generic text the caller wrote and, for an activity event, a `route`
+ * the device reads when the notification is tapped. The silent push carries
+ * event_type and activity_id. No personal data is in either.
  *
  * Returns true if the token is still alive on Expo's side, false if Expo
  * reported DeviceNotRegistered (caller should remove the token from KV).
