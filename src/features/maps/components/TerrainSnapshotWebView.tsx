@@ -392,6 +392,22 @@ export const TerrainSnapshotWebView = forwardRef<
         if (!worker) return;
         if (!data.activityId || !data.base64) return;
 
+        // The worker is not holding this render any more. A timeout, a pause
+        // and a lost WebView all release the worker and either count the
+        // request or put it back on the queue, and the generation only moves
+        // when a new request is assigned, so a worker released with nothing to
+        // take next still matches the abandoned render's generation. Counting
+        // it here counted it twice, which carried `completed` past `total` and
+        // reported the pool done while cards were still queued.
+        if (!worker.processingRef.current) {
+          if (__DEV__) {
+            console.warn(
+              `[TerrainSnapshot:${data.workerId}] Ignoring ${data.activityId}, the render was already abandoned`
+            );
+          }
+          return;
+        }
+
         // Discard stale snapshots from superseded requests
         if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
           if (__DEV__) {
@@ -450,6 +466,22 @@ export const TerrainSnapshotWebView = forwardRef<
         if (typeof data.workerId !== 'number') return;
         const worker = workers[data.workerId];
         if (!worker) return;
+
+        // The worker is not holding this render any more. A timeout, a pause
+        // and a lost WebView all release the worker and either count the
+        // request or put it back on the queue, and the generation only moves
+        // when a new request is assigned, so a worker released with nothing to
+        // take next still matches the abandoned render's generation. Counting
+        // it here counted it twice, which carried `completed` past `total` and
+        // reported the pool done while cards were still queued.
+        if (!worker.processingRef.current) {
+          if (__DEV__) {
+            console.warn(
+              `[TerrainSnapshot:${data.workerId}] Ignoring ${data.activityId}, the render was already abandoned`
+            );
+          }
+          return;
+        }
 
         // Discard stale errors from superseded requests
         if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
