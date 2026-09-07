@@ -17,6 +17,7 @@ import {
   shadows,
   mapStyleSwatch,
   mapStyleSwatchIcon,
+  layout,
 } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 300,
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingVertical: 16,
     ...shadows.modal,
   },
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
   styleCircle: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, opacity, ink } from '@/theme';
+import { colors, opacity, ink, layout } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -153,7 +153,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     alignItems: 'center',
   },

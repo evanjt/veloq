@@ -5,7 +5,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  opacity,
+  colorWithOpacity,
+  layout,
+} from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
@@ -174,7 +182,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.gray300,
   },
   handleDark: {
@@ -198,7 +206,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -251,7 +259,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   navLinkDark: {

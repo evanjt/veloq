@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout } from '@/theme';
 import type { DataPoint } from '@/types';
 
 const CONTEXT_COLORS: Record<string, string> = {
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   contextDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     marginRight: spacing.sm,
   },
   label: {

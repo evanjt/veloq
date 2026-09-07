@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   legendSwatch: {
     width: 14,
     height: 4,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 1,
   },
   legendText: {

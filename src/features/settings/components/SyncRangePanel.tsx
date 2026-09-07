@@ -10,7 +10,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
-import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -150,14 +150,14 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     height: 4,
     backgroundColor: colors.border,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     marginBottom: 4,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   progressText: {
     fontSize: 12,

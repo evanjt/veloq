@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   profilePhoto: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     backgroundColor: colors.divider,
     justifyContent: 'center',
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   zoneDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: layout.borderRadiusFull,
   },
 
   // Sparkline - own row, full width

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, ink } from '@/theme';
+import { colors, darkColors, spacing, opacity, brand, ink, layout } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.sm,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   rowDark: {
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     backgroundColor: brand.gold,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   prText: {
     color: ink.white,

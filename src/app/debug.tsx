@@ -13,7 +13,7 @@ import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { hermesStats } from '@/shared/debug/hermesStats';
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
   },
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.divider,
   },

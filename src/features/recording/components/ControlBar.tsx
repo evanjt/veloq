@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -287,14 +287,14 @@ const styles = StyleSheet.create({
   },
   // Stop button with long-press progress
   stopButtonWrap: {
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
     borderWidth: 2,
     overflow: 'hidden',
   },
   stopButton: {
     height: 56,
     minWidth: 120,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',

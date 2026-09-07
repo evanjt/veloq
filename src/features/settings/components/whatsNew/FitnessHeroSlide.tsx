@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 const FORM_ZONE_COLORS = {
   highRisk: colors.formHighRisk,
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   zoneBar: {
     flexDirection: 'row',
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   zoneSection: {

@@ -7,7 +7,7 @@ import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
 import { TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps/lib/tileCacheBudget';
 import { useTileCacheSettings } from '@/features/maps/lib/storage/tileCacheSettings';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 
 import { StreamHistoryRow } from './StreamHistoryRow';
 
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   storageBar: {
     flexDirection: 'row',
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
   },
   storageBarSegment: {
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   deviceUsageBar: {
     flexDirection: 'row',
     height: 4,
-    borderRadius: 2,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     marginTop: spacing.sm,
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   storageLegendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   storageLegendText: {
     fontSize: 11,
