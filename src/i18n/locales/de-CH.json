@@ -1551,6 +1551,8 @@
     "manageSensors": "Herzfrequenz-, Leistungs- und Trittfrequenzsensoren",
     "paired": "Gekoppelte Sensoren",
     "nonePaired": "Noch keine Sensoren gekoppelt. Suche unten, um einen hinzuzufügen.",
+    "nonePairedShort": "Keine gekoppelt",
+    "pairedCount": "{{count}} gekoppelt",
     "addSensor": "Sensor hinzufügen",
     "scan": "Nach Sensoren suchen",
     "stopScan": "Suche beenden",
