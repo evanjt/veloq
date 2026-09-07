@@ -497,7 +497,7 @@ class EngineClient implements DelegateHost {
 
   getNetworkPush = (): NetworkPush | null => connectivityDelegates.getNetworkPush(this);
 
-  startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
+  startElevationBackfill = (): FfiStartOutcome => elevationDelegates.startElevationBackfill(this);
 
   pauseElevationBackfill = (): void => elevationDelegates.pauseElevationBackfill(this);
   resumeElevationBackfill = (): boolean => elevationDelegates.resumeElevationBackfill(this);

@@ -21,7 +21,8 @@ export function isRetryableStart(outcome: FfiStartOutcome): boolean {
   return (
     outcome === FfiStartOutcome.Busy ||
     outcome === FfiStartOutcome.Held ||
-    outcome === FfiStartOutcome.NotReady
+    outcome === FfiStartOutcome.NotReady ||
+    outcome === FfiStartOutcome.Offline
   );
 }
 

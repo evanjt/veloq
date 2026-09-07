@@ -1595,7 +1595,7 @@ interface NativeModuleInterface {
   ): number;
   ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
