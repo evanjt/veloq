@@ -28,6 +28,7 @@ import { Text } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { hasStarted } from 'veloqrs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -59,7 +60,8 @@ export default function DetectionPreviewScreen() {
 
   const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
-  const { status, progress, result, suspended, start, cancel, reset } = usePreviewDetect(client);
+  const { status, progress, result, suspended, lapsed, start, cancel, reset } =
+    usePreviewDetect(client);
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
   // So the cutover hold that refuses every real detect does not reach it, and
@@ -138,7 +140,7 @@ export default function DetectionPreviewScreen() {
           // backfill holds detection. The config above is already written and
           // the evidence cache already cleared, so closing here would report a
           // change that never ran. Stay, say why, and let Keep be pressed again.
-          if (!forceRescan()) {
+          if (!hasStarted(forceRescan())) {
             Alert.alert(t('settings.previewKeepRefusedTitle'), t('settings.previewKeepRefused'));
             return;
           }
@@ -232,6 +234,11 @@ export default function DetectionPreviewScreen() {
                 ]}
               />
             </View>
+            {lapsed && (
+              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
+                {t('settings.previewSlow')}
+              </Text>
+            )}
           </View>
         ) : (
           // One row, so a result does not cost a second. Keep takes the accent

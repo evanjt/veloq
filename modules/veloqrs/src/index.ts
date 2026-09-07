@@ -84,6 +84,11 @@ export type {
 } from './generated/veloqrs';
 export { FfiCallKind as CallKind, FfiSyncErrorReason as SyncErrorReason } from './generated/veloqrs';
 
+// The verdict every start answers with, and the one place that says which
+// refusals lift on their own. See `delegates/start.ts`.
+export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
+export { isRetryableStart, hasStarted } from './delegates/start';
+
 // Elevation backfill consumer types
 export type { ElevationBackfillPhase } from './delegates/elevation';
 

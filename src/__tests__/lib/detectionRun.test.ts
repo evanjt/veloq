@@ -140,4 +140,55 @@ describe('following a detection run', () => {
 
     await expect(settled).resolves.toBe('error');
   });
+  /**
+   * Scenario: the binding's checksum check threw at launch, so `setObserver`
+   * was withheld and `detectionApplied` never arrives.
+   * Expected behaviour: the ticker reads the terminal status itself, so the
+   * spinner ends. When the channel is live it does not, because a read there
+   * costs an FFI call per tick for an answer the event already carries.
+   */
+  it('reads the status on the timer when the engine cannot announce', async () => {
+    const { engine } = engineWith({ eventsAreLive: () => false });
+    const { settled } = followDetection(engine as never);
+
+    jest.advanceTimersByTime(500);
+    expect(engine.pollSectionDetection).toHaveBeenCalledTimes(2);
+
+    engine.pollSectionDetection.mockReturnValue('complete');
+    jest.advanceTimersByTime(500);
+
+    await expect(settled).resolves.toBe('complete');
+  });
+
+  it('leaves the status alone on the timer when the engine can announce', () => {
+    const { engine } = engineWith({ eventsAreLive: () => true });
+    followDetection(engine as never, { onProgress: jest.fn() });
+
+    jest.advanceTimersByTime(2000);
+
+    expect(engine.pollSectionDetection).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an engine that cannot say as able to announce', () => {
+    const { engine } = engineWith();
+    followDetection(engine as never);
+
+    jest.advanceTimersByTime(2000);
+
+    expect(engine.pollSectionDetection).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends when the engine cannot announce and cannot say why', async () => {
+    const { engine } = engineWith({
+      eventsAreLive: () => {
+        throw new Error('no host');
+      },
+    });
+    const { settled } = followDetection(engine as never);
+
+    engine.pollSectionDetection.mockReturnValue('error');
+    jest.advanceTimersByTime(500);
+
+    await expect(settled).resolves.toBe('error');
+  });
 });

@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
+import { isRetryableStart, StartOutcome } from 'veloqrs';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { getEngine } from '@/shared/native/engine';
 
@@ -8,6 +9,8 @@ import { getEngine } from '@/shared/native/engine';
  * Expected behaviour: mounting the hook while a run holds the slot adopts it
  * and reports its progress, and publishes no before/after it never measured.
  */
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -35,8 +38,8 @@ function engineWith(overrides: Record<string, unknown> = {}) {
       percent: 30,
     })),
     getFilteredSectionSummaries: jest.fn(() => ({ totalCount: 7 })),
-    startSectionDetection: jest.fn(() => true),
-    forceRedetectSections: jest.fn(() => true),
+    startSectionDetection: jest.fn(() => StartOutcome.Started),
+    forceRedetectSections: jest.fn(() => StartOutcome.Started),
     ...overrides,
   };
 }
@@ -180,5 +183,57 @@ describe('following a rescan without draining the worker', () => {
 
     expect(result.current.failed).toBe(true);
     expect(result.current.isScanning).toBe(false);
+  });
+});
+
+/**
+ * Scenario: a rescan the engine refuses used to answer `false` whether a run
+ * already held the slot, the elevation backfill held detection, or the engine
+ * was not open yet.
+ * Expected behaviour: the verdict reaches the caller intact, so a screen can
+ * tell the refusals that lift from the one that does not, and no refusal starts
+ * the poll.
+ */
+describe('a refused rescan says why', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    for (const key of Object.keys(listeners)) delete listeners[key];
+  });
+
+  it('passes the engine refusal through rather than flattening it', () => {
+    const engine = engineWith({
+      startSectionDetection: jest.fn(() => StartOutcome.Busy),
+      forceRedetectSections: jest.fn(() => StartOutcome.Held),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    let started = StartOutcome.Started;
+    act(() => {
+      started = result.current.rescan();
+    });
+    expect(started).toBe(StartOutcome.Busy);
+    expect(isRetryableStart(started)).toBe(true);
+    expect(result.current.isScanning).toBe(false);
+
+    act(() => {
+      started = result.current.forceRescan();
+    });
+    expect(started).toBe(StartOutcome.Held);
+    expect(result.current.isScanning).toBe(false);
+  });
+
+  it('says it was early, not refused, when no engine is open', () => {
+    mockedGetEngine.mockReturnValue(null);
+
+    const { result } = renderHook(() => useSectionRescan());
+
+    let started = StartOutcome.Started;
+    act(() => {
+      started = result.current.rescan();
+    });
+    expect(started).toBe(StartOutcome.NotReady);
+    expect(isRetryableStart(started)).toBe(true);
   });
 });

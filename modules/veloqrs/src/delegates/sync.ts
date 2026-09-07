@@ -18,11 +18,13 @@
 
 import {
   FfiCallKind,
+  FfiStartOutcome,
   type FfiCallOutcome,
   type FfiManualActivity,
   type FfiSyncStatus,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
+import { hasStarted } from './start';
 
 /** Auth scheme passed to `setSyncCredentials` (matches Rust `AuthKind::parse`). */
 export type SyncAuthMethod = 'oauth' | 'api_key';
@@ -47,25 +49,32 @@ export function clearSyncCredentials(host: DelegateHost): void {
   host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
 }
 
-/** Start a sync. Returns instantly; false if one is already running or no
- *  credentials are set. Progress surfaces through `getSyncStatus`. */
-export function syncNow(host: DelegateHost): boolean {
-  if (!host.ready) return false;
-  const started = host.timed('syncNow', () => host.engine.sync().syncNow()) as boolean;
-  if (started) host.notify('sync');
-  return started;
+/** Start a sync. Returns instantly, naming why when it refuses so a caller can
+ *  tell a held slot from a missing credential. Progress surfaces through
+ *  `getSyncStatus`. */
+export function syncNow(host: DelegateHost): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
+  const outcome = host.timed('syncNow', () =>
+    host.engine.sync().syncNow()
+  ) as FfiStartOutcome;
+  if (hasStarted(outcome)) host.notify('sync');
+  return outcome;
 }
 
-/** Fetch and store one date window of activities. Returns instantly; false if
- *  a sync is already running or no credentials are set. The feed asks for
- *  windows older than the default sync covers. */
-export function syncActivitiesWindow(host: DelegateHost, oldest: string, newest: string): boolean {
-  if (!host.ready) return false;
-  const started = host.timed('syncActivitiesWindow', () =>
+/** Fetch and store one date window of activities. Returns instantly, naming why
+ *  when it refuses. The feed asks for windows older than the default sync
+ *  covers. */
+export function syncActivitiesWindow(
+  host: DelegateHost,
+  oldest: string,
+  newest: string
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
+  const outcome = host.timed('syncActivitiesWindow', () =>
     host.engine.sync().syncActivitiesWindow(oldest, newest)
-  ) as boolean;
-  if (started) host.notify('sync');
-  return started;
+  ) as FfiStartOutcome;
+  if (hasStarted(outcome)) host.notify('sync');
+  return outcome;
 }
 
 /** Ask Rust to fetch and store a power curve. Returns false when the same

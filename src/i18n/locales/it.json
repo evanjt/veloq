@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Esportazione completata",
     "bulkExport": "Esporta tutte le attività ({{count}})",
-    "bulkExporting": "Generazione GPX {{current}}/{{total}}...",
+    "bulkExporting": "Generazione GPX...",
     "bulkResult": "{{exported}} file GPX esportati, {{skipped}} attività senza GPS saltate.",
     "bulkSharing": "Apertura foglio di condivisione...",
     "error": "Impossibile esportare il file GPX.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Informazioni sugli approfondimenti",
     "aboutBody": "Le metriche di allenamento sono stime basate su modelli pubblicati di scienza dello sport. Le risposte individuali variano significativamente. Questi approfondimenti sono solo informativi, non costituiscono consiglio medico o di allenamento.",
+    "aboutRanking": "Le schede sono ordinate in base a quanto hanno da dire: quanto sono recenti, quanto si discostano dalle tue abitudini, quanto e cambiato e quanto spesso lo fai. Non in base al fatto che la notizia sia buona.",
     "efficiencyTrend": {
       "seriesLabel": "Frequenza cardiaca per unità di passo, dal passaggio più vecchio al più recente",
       "title": "FC in calo su {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Più visitate",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Nelle vicinanze",
-    "sortSignature": "Firma",
+    "sortRelevance": "Rilevanza",
     "standingBest": "Il tuo più veloce su {{total}}",
     "standingRank": "{{rank}}º su {{total}}, {{gap}} dal tuo migliore",
     "standingRankPercentile": "{{rank}}º su {{total}}, più veloce del {{percent}}% di essi, {{gap}} dal tuo migliore",
@@ -1288,6 +1289,7 @@
     "previewRun": "Anteprima",
     "previewRunning": "Analisi di {{count}} attività in questa zona",
     "previewFailed": "L'anteprima non è stata completata.",
+    "previewSlow": "Sta impiegando più tempo del solito. È ancora in corso.",
     "previewPoolUnusable": "Alcune delle tue tracce di attivita non sono leggibili, quindi l'anteprima si e fermata.",
     "previewCurrentFailed": "Impossibile leggere i tratti attuali di quest'area.",
     "previewSuspended": "Aggiornamento dell'altitudine in corso. Riprova tra poco.",

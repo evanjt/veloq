@@ -11,32 +11,38 @@
  * one question, and would outlive the quarantine that resets the real one.
  */
 
+import { StartOutcome } from 'veloqrs';
+
 import { getEngine } from '@/shared/native/engine';
 
 /** In-process guard so the engine retry ladder cannot fire two runs at once. */
-let inFlight: Promise<boolean> | null = null;
+let inFlight: Promise<StartOutcome> | null = null;
 
-function attempt(): boolean {
+function attempt(): StartOutcome {
   const engine = getEngine();
-  if (!engine) return false;
+  if (!engine) return StartOutcome.NotReady;
 
   try {
-    if (!engine.isCutoverPending()) return false;
-    if (engine.isCutoverRunning()) return false;
+    // Three unrelated reasons used to leave here as one `false`, and the
+    // retry ladder above could not tell the cutover it had already done from
+    // the one it should ask about again on the next launch.
+    if (!engine.isCutoverPending()) return StartOutcome.NotOwed;
+    if (engine.isCutoverRunning()) return StartOutcome.Busy;
     // A half-elevated library vetoes genuine climbs as lifts, so a catalogue
     // cut over it would bake that in. Retry on a later launch instead.
-    if (engine.getElevationBackfillRemaining() !== 0) return false;
-    return engine.startDetectorCutover();
+    if (engine.getElevationBackfillRemaining() !== 0) return StartOutcome.Held;
+    return engine.startDetectorCutover() ? StartOutcome.Started : StartOutcome.Busy;
   } catch {
-    return false;
+    return StartOutcome.Failed;
   }
 }
 
 /**
  * Start the cutover if it is still owed and the library is ready for it.
- * Resolves to whether Rust accepted the run.
+ * Resolves to whether Rust accepted the run and, when it did not, whether a
+ * later launch would fare any better.
  */
-export function startDetectorCutoverAfterUpdate(): Promise<boolean> {
+export function startDetectorCutoverAfterUpdate(): Promise<StartOutcome> {
   if (inFlight) return inFlight;
   inFlight = Promise.resolve(attempt()).finally(() => {
     inFlight = null;

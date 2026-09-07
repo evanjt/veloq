@@ -8,11 +8,14 @@
  * redrawing what the last sync wrote.
  */
 
+import { StartOutcome } from 'veloqrs';
+
 import type { getEngine } from '@/shared/native/engine';
 
 // One instance across `jest.resetModules()`, so the fresh copy of the module
 // under test still talks to the engine each case set up.
 const mockGetEngine = jest.fn();
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: mockGetEngine }));
 
 /**
@@ -20,15 +23,15 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: mockGetEngine }));
  * process. Each case gets its own copy so one pull left pending does not
  * arrive in the next.
  */
-function requestSyncRefresh(): boolean {
+function requestSyncRefresh(): StartOutcome {
   return (
     require('@/shared/native/syncRefresh') as typeof import('@/shared/native/syncRefresh')
   ).requestSyncRefresh();
 }
 
-function engineThatRefuses(answers: boolean[]) {
+function engineThatRefuses(answers: StartOutcome[]) {
   const listeners: Record<string, (() => void)[]> = {};
-  const syncNow = jest.fn(() => answers.shift() ?? true);
+  const syncNow = jest.fn(() => answers.shift() ?? StartOutcome.Started);
   // The real unsubscribe drops the listener, and a fake that only counts calls
   // leaves a retired one to fire again on the next settle.
   const unsubscribe = jest.fn();
@@ -61,9 +64,9 @@ beforeEach(() => {
 
 describe('a refresh refused because a sync holds the slot', () => {
   it('runs when the sync settles', () => {
-    const engine = engineThatRefuses([false]);
+    const engine = engineThatRefuses([StartOutcome.Busy]);
 
-    expect(requestSyncRefresh()).toBe(false);
+    expect(requestSyncRefresh()).toBe(StartOutcome.Busy);
     expect(engine.syncNow).toHaveBeenCalledTimes(1);
 
     engine.settle();
@@ -72,7 +75,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   it('waits for the slot rather than watching every sync event', () => {
-    const engine = engineThatRefuses([false]);
+    const engine = engineThatRefuses([StartOutcome.Busy]);
 
     requestSyncRefresh();
 
@@ -81,7 +84,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   it('lets go of the listener once the deferred refresh has run', () => {
-    const engine = engineThatRefuses([false]);
+    const engine = engineThatRefuses([StartOutcome.Busy]);
 
     requestSyncRefresh();
     engine.settle();
@@ -90,7 +93,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   it('holds one deferred refresh however many times the athlete pulls', () => {
-    const engine = engineThatRefuses([false, false, false]);
+    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy, StartOutcome.Busy]);
 
     requestSyncRefresh();
     requestSyncRefresh();
@@ -103,7 +106,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   it('tries again on the next settle when the slot was taken first', () => {
-    const engine = engineThatRefuses([false, false]);
+    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy]);
 
     requestSyncRefresh();
     engine.settle();
@@ -117,9 +120,9 @@ describe('a refresh refused because a sync holds the slot', () => {
 
 describe('a refresh that is accepted', () => {
   it('defers nothing', () => {
-    const engine = engineThatRefuses([true]);
+    const engine = engineThatRefuses([StartOutcome.Started]);
 
-    expect(requestSyncRefresh()).toBe(true);
+    expect(requestSyncRefresh()).toBe(StartOutcome.Started);
     expect(engine.subscribe).not.toHaveBeenCalled();
   });
 });
@@ -128,6 +131,15 @@ describe('no engine', () => {
   it('is not a refusal to defer, because there is nothing to defer to', () => {
     mockGetEngine.mockReturnValue(null);
 
-    expect(requestSyncRefresh()).toBe(false);
+    expect(requestSyncRefresh()).toBe(StartOutcome.NotReady);
+  });
+});
+
+describe('a refusal no wait can lift', () => {
+  it('is not held, because no settle will make a missing credential appear', () => {
+    const engine = engineThatRefuses([StartOutcome.NotConfigured]);
+
+    expect(requestSyncRefresh()).toBe(StartOutcome.NotConfigured);
+    expect(engine.subscribe).not.toHaveBeenCalled();
   });
 });

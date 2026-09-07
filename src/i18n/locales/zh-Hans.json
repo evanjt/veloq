@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "导出完成",
     "bulkExport": "导出所有活动 ({{count}})",
-    "bulkExporting": "正在生成 GPX {{current}}/{{total}}...",
+    "bulkExporting": "正在生成 GPX...",
     "bulkResult": "已导出 {{exported}} 个 GPX 文件，跳过 {{skipped}} 个无GPS活动。",
     "bulkSharing": "正在打开分享...",
     "error": "导出 GPX 文件失败。",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "关于洞察",
     "aboutBody": "训练指标是基于已发表的运动科学模型的估算值。个体反应差异显著。这些洞察仅供参考，非医疗或教练建议。",
+    "aboutRanking": "卡片按各自能说明的分量排序：是否新近、与你的常态差多少、变化有多大、你做得有多频繁。而不是按消息是好是坏。",
     "efficiencyTrend": {
       "seriesLabel": "单位配速的心率，从最早一次到最新一次",
       "title": "{{name}}上心率呈下降趋势",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "最常访问",
     "sortNameAZ": "名称 A-Z",
     "sortNearby": "附近",
-    "sortSignature": "标志路段",
+    "sortRelevance": "相关性",
     "standingBest": "{{total}} 次中最快的一次",
     "standingRank": "{{total}} 次中第 {{rank}} 名，比最佳成绩慢 {{gap}}",
     "standingRankPercentile": "{{total}} 次中第 {{rank}} 名，快过其中 {{percent}}%，比最佳成绩慢 {{gap}}",
@@ -1288,6 +1289,7 @@
     "previewRun": "预览",
     "previewRunning": "正在分析该区域的 {{count}} 项活动",
     "previewFailed": "预览未能完成。",
+    "previewSlow": "耗时比平常更久，仍在运行中。",
     "previewPoolUnusable": "部分活动轨迹无法读取，因此预览已停止。",
     "previewCurrentFailed": "无法读取该区域的当前路段。",
     "previewSuspended": "海拔更新进行中，请稍后重试。",

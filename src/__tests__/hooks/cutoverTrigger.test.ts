@@ -3,11 +3,17 @@
  * Corridor, and never on one that is already done, mid-run, or still fetching
  * elevation.
  * Expected behaviour: the SQLite token is the only done-marker, so a refusal
- * costs one launch and nothing is written on the JS side.
+ * costs one launch and nothing is written on the JS side. Each refusal names
+ * itself, because a cutover that is already done and one waiting on the
+ * backfill want opposite things from the retry ladder above.
  */
+
+import { isRetryableStart, StartOutcome } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -40,23 +46,27 @@ describe('startDetectorCutoverAfterUpdate', () => {
     const start = jest.fn(() => true);
     mockGetEngine.mockReturnValue(engineWith({ start }));
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(true);
+    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(StartOutcome.Started);
     expect(start).toHaveBeenCalledTimes(1);
   });
 
-  it('does nothing when the migration is not owed', async () => {
+  it('says the migration is not owed, which no later launch changes', async () => {
     const start = jest.fn(() => true);
     mockGetEngine.mockReturnValue(engineWith({ pending: false, start }));
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    const outcome = await startDetectorCutoverAfterUpdate();
+    expect(outcome).toBe(StartOutcome.NotOwed);
+    expect(isRetryableStart(outcome)).toBe(false);
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('does nothing while a run is already in flight', async () => {
+  it('says the slot is busy while a run is already in flight', async () => {
     const start = jest.fn(() => true);
     mockGetEngine.mockReturnValue(engineWith({ running: true, start }));
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    const outcome = await startDetectorCutoverAfterUpdate();
+    expect(outcome).toBe(StartOutcome.Busy);
+    expect(isRetryableStart(outcome)).toBe(true);
     expect(start).not.toHaveBeenCalled();
   });
 
@@ -64,7 +74,9 @@ describe('startDetectorCutoverAfterUpdate', () => {
     const start = jest.fn(() => true);
     mockGetEngine.mockReturnValue(engineWith({ remaining: 12, start }));
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    const outcome = await startDetectorCutoverAfterUpdate();
+    expect(outcome).toBe(StartOutcome.Held);
+    expect(isRetryableStart(outcome)).toBe(true);
     expect(start).not.toHaveBeenCalled();
   });
 
@@ -72,7 +84,7 @@ describe('startDetectorCutoverAfterUpdate', () => {
     const start = jest.fn(() => true);
     mockGetEngine.mockReturnValue(engineWith({ remaining: null, start }));
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(StartOutcome.Held);
     expect(start).not.toHaveBeenCalled();
   });
 
@@ -83,12 +95,28 @@ describe('startDetectorCutoverAfterUpdate', () => {
       }),
     } as unknown as ReturnType<typeof getEngine>);
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(StartOutcome.Failed);
   });
 
-  it('answers false with no engine', async () => {
+  it('says it was early, not refused, with no engine', async () => {
     mockGetEngine.mockReturnValue(null);
 
-    await expect(startDetectorCutoverAfterUpdate()).resolves.toBe(false);
+    const outcome = await startDetectorCutoverAfterUpdate();
+    expect(outcome).toBe(StartOutcome.NotReady);
+    expect(isRetryableStart(outcome)).toBe(true);
+  });
+
+  it('tells the four refusals apart, which one boolean could not', async () => {
+    const seen = new Set<StartOutcome>();
+    for (const parts of [
+      { pending: false },
+      { running: true },
+      { remaining: 9 },
+      {},
+    ] as EngineParts[]) {
+      mockGetEngine.mockReturnValue(engineWith(parts));
+      seen.add(await startDetectorCutoverAfterUpdate());
+    }
+    expect(seen.size).toBe(4);
   });
 });

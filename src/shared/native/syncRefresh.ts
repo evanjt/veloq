@@ -9,17 +9,21 @@
  * discards the answer, so the pull used to resolve over unchanged data with
  * nothing queued behind it. A refused pull is now held and run when the slot
  * frees. One is held however many times the athlete pulls: they asked for
- * current data, not for a sync each.
+ * current data, not for a sync each. The verdict says which refusal it was, so
+ * only the kind that lifts is held. A missing credential is not waited on.
  */
+import { hasStarted, isRetryableStart, StartOutcome } from 'veloqrs';
+
 import { getEngine } from './engine';
 
 let waiting: (() => void) | null = null;
 
-/** Returns false when no engine is open, or when the refresh was deferred. */
-export function requestSyncRefresh(): boolean {
+export function requestSyncRefresh(): StartOutcome {
   const engine = getEngine();
-  if (!engine) return false;
-  if (engine.syncNow()) return true;
+  if (!engine) return StartOutcome.NotReady;
+
+  const outcome = engine.syncNow();
+  if (hasStarted(outcome) || !isRetryableStart(outcome)) return outcome;
 
   // `syncSettled` is the terminal transition, so each retry costs one sync
   // ending. A slot taken again in between waits for the next one rather than
@@ -29,5 +33,5 @@ export function requestSyncRefresh(): boolean {
     waiting = null;
     requestSyncRefresh();
   });
-  return false;
+  return outcome;
 }

@@ -11,12 +11,14 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
+import { shareExistingFile } from '@/features/settings/lib/shareFile';
 import { BulkExportFormat } from 'veloqrs';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 
 export interface BulkExportProgress {
   phase: BulkExportPhase;
+  /** Activities written so far, and how many the export expects to visit. */
   current: number;
   total: number;
   sizeBytes: number;
@@ -66,12 +68,6 @@ export async function runExport(
   }
 }
 
-async function shareAndClean(destUri: string, mimeType: string, uti: string): Promise<void> {
-  const Sharing = await import('expo-sharing');
-  await Sharing.shareAsync(destUri, { mimeType, UTI: uti });
-  await FileSystem.deleteAsync(destUri, { idempotent: true });
-}
-
 /** Strip file:// for Rust, which expects a plain filesystem path. */
 const plain = (uri: string) => (uri.startsWith('file://') ? uri.slice(7) : uri);
 
@@ -89,7 +85,8 @@ export async function bulkExportActivities(
     total: result.exported,
     sizeBytes: result.totalBytes,
   });
-  await shareAndClean(destUri, 'application/zip', 'public.zip-archive');
+  await shareExistingFile(destUri, 'application/zip', 'public.zip-archive');
+  await FileSystem.deleteAsync(destUri, { idempotent: true });
 
   return { exported: result.exported, skipped: result.skipped };
 }
@@ -108,7 +105,8 @@ export async function bulkExportActivitiesGeoJson(
     total: result.exported,
     sizeBytes: result.totalBytes,
   });
-  await shareAndClean(destUri, 'application/geo+json', 'public.json');
+  await shareExistingFile(destUri, 'application/geo+json', 'public.json');
+  await FileSystem.deleteAsync(destUri, { idempotent: true });
 
   return { exported: result.exported, skipped: result.skipped };
 }

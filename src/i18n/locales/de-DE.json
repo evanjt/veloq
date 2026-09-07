@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Export abgeschlossen",
     "bulkExport": "Alle Aktivitäten exportieren ({{count}})",
-    "bulkExporting": "GPX erstellen {{current}}/{{total}}...",
+    "bulkExporting": "GPX erstellen...",
     "bulkResult": "{{exported}} GPX-Dateien exportiert, {{skipped}} Aktivitäten ohne GPS übersprungen.",
     "bulkSharing": "Teilen öffnen...",
     "error": "GPX-Datei konnte nicht exportiert werden.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Über Einblicke",
     "aboutBody": "Trainingsmetriken sind Schätzungen basierend auf veröffentlichten sportwissenschaftlichen Modellen. Individuelle Reaktionen variieren erheblich. Diese Einblicke dienen nur zur Information, keine medizinische oder Trainingsberatung.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst. Nicht danach, ob die Nachricht gut ist.",
     "efficiencyTrend": {
       "seriesLabel": "Herzfrequenz pro Tempoeinheit, ältester bis neuester Versuch",
       "title": "HF sinkend auf {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Am häufigsten besucht",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "In der Nähe",
-    "sortSignature": "Signatur",
+    "sortRelevance": "Relevanz",
     "standingBest": "Deine schnellste von {{total}}",
     "standingRank": "Platz {{rank}} von {{total}}, {{gap}} hinter deiner Bestzeit",
     "standingRankPercentile": "Platz {{rank}} von {{total}}, schneller als {{percent}} % davon, {{gap}} hinter deiner Bestzeit",
@@ -1288,6 +1289,7 @@
     "previewRun": "Vorschau",
     "previewRunning": "Analysiere {{count}} Aktivitäten in diesem Gebiet",
     "previewFailed": "Die Vorschau konnte nicht abgeschlossen werden.",
+    "previewSlow": "Das dauert länger als üblich. Der Lauf läuft noch.",
     "previewPoolUnusable": "Einige deiner Aktivitatsspuren sind nicht lesbar, daher wurde die Vorschau abgebrochen.",
     "previewCurrentFailed": "Die aktuellen Abschnitte für dieses Gebiet konnten nicht gelesen werden.",
     "previewSuspended": "Höhenaktualisierung läuft. Bitte gleich erneut versuchen.",

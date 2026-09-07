@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "エクスポート完了",
     "bulkExport": "すべてのアクティビティをエクスポート ({{count}})",
-    "bulkExporting": "GPX生成中 {{current}}/{{total}}...",
+    "bulkExporting": "GPX生成中...",
     "bulkResult": "{{exported}}件のGPXファイルをエクスポート、{{skipped}}件のGPSなしアクティビティをスキップしました。",
     "bulkSharing": "共有シートを開いています...",
     "error": "GPXファイルのエクスポートに失敗しました。",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "インサイトについて",
     "aboutBody": "トレーニング指標は公開された運動科学モデルに基づく推定値です。個人差が大きく生じます。これらのインサイトは情報提供のみを目的としており、医療やコーチングのアドバイスではありません。",
+    "aboutRanking": "カードは伝えるべき内容の大きさで並びます。どれだけ新しいか、いつもとどれだけ違うか、どれだけ動いたか、どれだけ頻繁に取り組んでいるか。よい知らせかどうかでは並びません。",
     "efficiencyTrend": {
       "seriesLabel": "ペース当たりの心拍数、古い走行から新しい走行へ",
       "title": "{{name}}で心拍数が低下傾向",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "最多訪問",
     "sortNameAZ": "名前 A-Z",
     "sortNearby": "近く",
-    "sortSignature": "シグネチャ",
+    "sortRelevance": "関連度",
     "standingBest": "{{total}} 回中の自己最速",
     "standingRank": "{{total}} 回中 {{rank}} 位、自己ベストとの差 {{gap}}",
     "standingRankPercentile": "{{total}} 回中 {{rank}} 位、うち {{percent}}% より速い、自己ベストとの差 {{gap}}",
@@ -1288,6 +1289,7 @@
     "previewRun": "プレビュー",
     "previewRunning": "このエリアの {{count}} 件のアクティビティを分析中",
     "previewFailed": "プレビューを完了できませんでした。",
+    "previewSlow": "通常より時間がかかっています。処理は続いています。",
     "previewPoolUnusable": "一部のアクティビティの軌跡を読み取れないため、プレビューを中止しました。",
     "previewCurrentFailed": "このエリアの現在のセクションを読み込めませんでした。",
     "previewSuspended": "標高の更新中です。しばらくしてからもう一度お試しください。",

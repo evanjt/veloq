@@ -453,7 +453,7 @@ export const SectionsList = memo(function SectionsList({
       { key: 'nearby', label: t('routes.sortNearby' as never) as string, icon: 'crosshairs-gps' },
       {
         key: 'signature',
-        label: t('routes.sortSignature' as never) as string,
+        label: t('routes.sortRelevance' as never) as string,
         icon: 'star-four-points-outline',
       },
       {

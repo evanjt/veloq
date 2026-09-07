@@ -29,6 +29,8 @@ const mockEngine = {
   notifyAll: jest.fn(),
 };
 
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',

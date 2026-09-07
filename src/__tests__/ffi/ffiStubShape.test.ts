@@ -21,7 +21,25 @@ const BINDING = resolve('modules/veloqrs/src');
 const TESTS = resolve('src/__tests__');
 
 /** Stub-only helpers a test may import; each stands in for a declared shape. */
-const HELPERS = new Set(['createPreviewClientStub', 'withOverrides']);
+const HELPERS = new Set([
+  'createPreviewClientStub',
+  'withOverrides',
+  'isRetryableStart',
+  'hasStarted',
+]);
+
+/**
+ * The enums the generated binding declares. They are numeric, so a stub
+ * default of a number is of the declared kind where a reference type would
+ * otherwise want an object.
+ */
+const GENERATED_ENUMS = new Set(
+  [
+    ...readFileSync(join(BINDING, 'generated', 'veloqrs.ts'), 'utf-8').matchAll(
+      /^export enum (\w+)/gm
+    ),
+  ].map((match) => match[1])
+);
 
 type Member = { kind: 'method' | 'getter' | 'value'; type: ts.TypeNode | undefined };
 type Surface = { members: Map<string, Member>; aliases: Map<string, ts.TypeNode> };
@@ -154,6 +172,7 @@ function ofKind(value: unknown, type: ts.TypeNode | undefined, surface: Surface)
   if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) {
     if (type.typeName.text === 'Promise') return value instanceof Promise;
     if (type.typeName.text === 'Array') return Array.isArray(value);
+    if (GENERATED_ENUMS.has(type.typeName.text)) return typeof value === 'number';
     const alias = surface.aliases.get(type.typeName.text);
     if (alias) return ofKind(value, alias, surface);
   }

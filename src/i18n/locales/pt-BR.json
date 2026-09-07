@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Exportacao concluida",
     "bulkExport": "Exportar todas as atividades ({{count}})",
-    "bulkExporting": "Gerando GPX {{current}}/{{total}}...",
+    "bulkExporting": "Gerando GPX...",
     "bulkResult": "{{exported}} arquivos GPX exportados, {{skipped}} atividades sem GPS ignoradas.",
     "bulkSharing": "Abrindo compartilhamento...",
     "error": "Falha ao exportar o arquivo GPX.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Sobre os Insights",
     "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Esses insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
+    "aboutRanking": "Os cards sao ordenados pelo que tem a dizer: o quao recente e, o quanto foge do seu habitual, o quanto mudou e com que frequencia voce faz. Nao por a noticia ser boa.",
     "efficiencyTrend": {
       "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
       "title": "FC caindo em {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Mais visitadas",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Próximos",
-    "sortSignature": "Assinatura",
+    "sortRelevance": "Relevância",
     "standingBest": "O seu mais rápido de {{total}}",
     "standingRank": "{{rank}}º de {{total}}, {{gap}} do seu melhor",
     "standingRankPercentile": "{{rank}}º de {{total}}, mais rápido que {{percent}}% deles, {{gap}} do seu melhor",
@@ -1288,6 +1289,7 @@
     "previewRun": "Pré-visualizar",
     "previewRunning": "Analisando {{count}} atividades nesta área",
     "previewFailed": "Não foi possível concluir a pré-visualização.",
+    "previewSlow": "Está demorando mais que o normal. Ainda está em execução.",
     "previewPoolUnusable": "Alguns dos seus registros de atividade nao podem ser lidos, entao a previa foi interrompida.",
     "previewCurrentFailed": "Não foi possível ler os trechos atuais desta área.",
     "previewSuspended": "Atualização de elevação em andamento. Tente novamente em instantes.",

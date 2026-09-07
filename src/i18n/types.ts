@@ -301,6 +301,7 @@ export interface TranslationResource {
     previewRun: string;
     previewRunning: string;
     previewFailed: string;
+    previewSlow: string;
     previewPoolUnusable: string;
     previewSuspended: string;
     previewCurrentFailed: string;
@@ -605,6 +606,9 @@ export interface TranslationResource {
       body: string;
     };
     title: string;
+    aboutTitle: string;
+    aboutBody: string;
+    aboutRanking: string;
     noInsights: string;
     noInsightsHint: string;
     sectionPr: string;
@@ -896,7 +900,7 @@ export interface TranslationResource {
     sortMostVisited: string;
     sortNameAZ: string;
     sortNearby: string;
-    sortSignature: string;
+    sortRelevance: string;
     lookingForRoutes: string;
     checking: string;
     waiting: string;

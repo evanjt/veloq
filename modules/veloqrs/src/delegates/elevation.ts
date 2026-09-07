@@ -49,16 +49,15 @@ export function startElevationBackfill(host: DelegateHost): boolean {
 /**
  * Pause the backfill for the rest of this process. The pass in flight ends at
  * its next batch and reports `paused`, nothing starts another until the athlete
- * resumes or the app is reopened, and nothing is persisted. Returns whether a
- * pass was running.
+ * resumes or the app is reopened, and nothing is persisted. The phase is what
+ * says it is paused, so there is nothing to return.
  */
-export function pauseElevationBackfill(host: DelegateHost): boolean {
-  if (!host.ready) return false;
+export function pauseElevationBackfill(host: DelegateHost): void {
+  if (!host.ready) return;
   try {
-    return host.timed('pauseElevationBackfill', () => ffiPauseElevationBackfill());
+    host.timed('pauseElevationBackfill', () => ffiPauseElevationBackfill());
   } catch (e) {
     console.error('[Engine] pauseElevationBackfill threw:', e);
-    return false;
   }
 }
 

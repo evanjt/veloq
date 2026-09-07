@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Export voltooid",
     "bulkExport": "Alle activiteiten exporteren ({{count}})",
-    "bulkExporting": "GPX genereren {{current}}/{{total}}...",
+    "bulkExporting": "GPX genereren...",
     "bulkResult": "{{exported}} GPX-bestanden geëxporteerd, {{skipped}} activiteiten zonder GPS overgeslagen.",
     "bulkSharing": "Deelvenster openen...",
     "error": "GPX-bestand exporteren mislukt.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Over inzichten",
     "aboutBody": "Trainingsmetrieken zijn schattingen op basis van gepubliceerde sportwetenschappelijke modellen. Individuele reacties variëren aanzienlijk. Deze inzichten zijn alleen informatief, geen medisch of coachingadvies.",
+    "aboutRanking": "Kaarten staan gesorteerd op hoeveel ze te zeggen hebben: hoe recent iets is, hoe sterk het afwijkt van je gewoonte, hoeveel het verschoven is en hoe vaak je het doet. Niet op of het nieuws goed is.",
     "efficiencyTrend": {
       "seriesLabel": "Hartslag per tempo-eenheid, oudste poging tot nieuwste",
       "title": "HF dalend op {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Meest bezocht",
     "sortNameAZ": "Naam A-Z",
     "sortNearby": "In de buurt",
-    "sortSignature": "Kenmerkend",
+    "sortRelevance": "Relevantie",
     "standingBest": "Je snelste van {{total}}",
     "standingRank": "Plaats {{rank}} van {{total}}, {{gap}} van je beste",
     "standingRankPercentile": "Plaats {{rank}} van {{total}}, sneller dan {{percent}}% ervan, {{gap}} van je beste",
@@ -1288,6 +1289,7 @@
     "previewRun": "Voorbeeld",
     "previewRunning": "{{count}} activiteiten in dit gebied analyseren",
     "previewFailed": "Het voorbeeld kon niet worden voltooid.",
+    "previewSlow": "Dit duurt langer dan gebruikelijk. De run loopt nog.",
     "previewPoolUnusable": "Sommige van je activiteitensporen zijn onleesbaar, dus de voorbeeldweergave is gestopt.",
     "previewCurrentFailed": "Kon de huidige secties voor dit gebied niet lezen.",
     "previewSuspended": "Hoogte-update bezig. Probeer het zo opnieuw.",
