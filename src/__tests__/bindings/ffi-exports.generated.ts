@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 19 standalone `#[uniffi::export]` functions plus
- * 257 methods inside `#[uniffi::export] impl` blocks across
+ * 258 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
 
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 276 exports (19 standalone + 257 methods)
+ * Total: 277 exports (19 standalone + 258 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -2101,10 +2101,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SectionManager',
   },
   {
+    name: 'find_superseded',
+    camelName: 'findSuperseded',
+    file: 'objects/sections.rs',
+    line: 623,
+    paramCount: 2,
+    returnType: 'Result<Vec<String>, VeloqError>',
+    docs: 'Auto sections the given custom section covers, in one read. The tolerance is the 50 m the overlap call has always defaulted to, and it stays here rather than on the surface: no caller has ever chosen another one.',
+    object: 'SectionManager',
+  },
+  {
     name: 'clear_superseded',
     camelName: 'clearSuperseded',
     file: 'objects/sections.rs',
-    line: 618,
+    line: 633,
     paramCount: 1,
     returnType: 'Result<(), VeloqError>',
     docs: '',
@@ -2114,7 +2124,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_all_summaries_including_hidden',
     camelName: 'getAllSummariesIncludingHidden',
     file: 'objects/sections.rs',
-    line: 626,
+    line: 641,
     paramCount: 1,
     returnType: 'Result<Vec<crate::SectionSummary>, VeloqError>',
     docs: 'Get ALL section summaries including disabled/superseded (for restore UI).',
@@ -2124,7 +2134,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'match_activity_to_sections',
     camelName: 'matchActivityToSections',
     file: 'objects/sections.rs',
-    line: 646,
+    line: 661,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionMatch>, VeloqError>',
     docs: "Match an activity's GPS track against all existing sections. Returns all matches found (may be empty if activity doesn't traverse any section).",
@@ -2134,7 +2144,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'index_new_activity',
     camelName: 'indexNewActivity',
     file: 'objects/sections.rs',
-    line: 692,
+    line: 707,
     paramCount: 1,
     returnType: 'Result<crate::FfiIndexActivitySummary, VeloqError>',
     docs: 'Cheap post-ingest indexing for one freshly downloaded activity: match it against existing sections, insert junction rows, regroup incrementally, and refresh indicators. Does not create new sections - those wait for the next full detection run.',
@@ -2144,7 +2154,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'rematch_activity_to_section',
     camelName: 'rematchActivityToSection',
     file: 'objects/sections.rs',
-    line: 706,
+    line: 721,
     paramCount: 2,
     returnType: 'Result<bool, VeloqError>',
     docs: 'Force-match a single activity to a specific section with relaxed thresholds. Returns true if a match was found and the section_activities row was inserted.',
@@ -2154,7 +2164,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'merge_sections',
     camelName: 'mergeSections',
     file: 'objects/sections.rs',
-    line: 723,
+    line: 738,
     paramCount: 2,
     returnType: 'Result<String, VeloqError>',
     docs: 'Merge two sections. Moves all traversal history from secondary into primary. Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.',
@@ -2164,7 +2174,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_workout_sections',
     camelName: 'getWorkoutSections',
     file: 'objects/sections.rs',
-    line: 740,
+    line: 755,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiWorkoutSection>, VeloqError>',
     docs: 'Home-screen "Sections for you" list. Composes ML ranking + performance lookups in one FFI round-trip instead of N+1 per-section `getPerformances` calls from TS.',
@@ -2174,7 +2184,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_chart_data',
     camelName: 'getChartData',
     file: 'objects/sections.rs',
-    line: 751,
+    line: 766,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionChartData, VeloqError>',
     docs: 'Pre-computed chart payload for the section-detail screen: per-lap points, speed ranks, best/avg/last stats - all in one FFI round-trip. Replaces the 3+ useMemo aggregations in `useSectionChartData`.',
@@ -2184,7 +2194,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_near_point',
     camelName: 'getNearPoint',
     file: 'objects/sections.rs',
-    line: 766,
+    line: 781,
     paramCount: 4,
     returnType: 'Result<Vec<crate::FfiSectionNearPoint>, VeloqError>',
     docs: 'The sections a fix could be entering, nearest start first. Keyed on a coordinate rather than a section, so a live recording can ask what is in front of it. `sport` matches the stored sport exactly.',
@@ -2194,7 +2204,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_data',
     camelName: 'getDetailData',
     file: 'objects/sections.rs',
-    line: 782,
+    line: 797,
     paramCount: 2,
     returnType: 'Result<crate::FfiSectionDetailData, VeloqError>',
     docs: 'Everything the section detail screen can paint before its time streams have been fetched: the section, its neighbours and merge candidates, exclusions, bounds state, per-activity metrics and signatures, and the activities whose streams are still missing.',
@@ -2204,7 +2214,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_detail_performance',
     camelName: 'getDetailPerformance',
     file: 'objects/sections.rs',
-    line: 793,
+    line: 808,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionPerformanceData, VeloqError>',
     docs: 'The lap-time reads for the section detail screen: calendar summary, performance records and chart payload. Call once the streams reported by `get_detail_data` have landed.',
@@ -2774,7 +2784,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1991,
+    line: 2111,
     paramCount: 3,
     returnType: 'f64',
     docs: "Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB. Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...]. Uses an R-tree on polylineB for O(n log m) instead of O(n*m). Returns 0.0-1.0.",
@@ -2993,6 +3003,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'disable',
   'enable',
   'setSuperseded',
+  'findSuperseded',
   'clearSuperseded',
   'getAllSummariesIncludingHidden',
   'matchActivityToSections',
@@ -3250,6 +3261,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   disable: 'disable',
   enable: 'enable',
   set_superseded: 'setSuperseded',
+  find_superseded: 'findSuperseded',
   clear_superseded: 'clearSuperseded',
   get_all_summaries_including_hidden: 'getAllSummariesIncludingHidden',
   match_activity_to_sections: 'matchActivityToSections',
