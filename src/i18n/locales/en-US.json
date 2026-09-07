@@ -37,7 +37,6 @@
     "mapStyle": "Map Style",
     "maxHR": "Max: {{value}} bpm",
     "noDataAvailable": "No data available",
-    "zoneDefault": "Zone {{number}}",
     "noHeartRateData": "No heart rate data",
     "power": "Power",
     "resetToDefault": "Reset to Default",

@@ -37,7 +37,6 @@
     "mapStyle": "Kortstil",
     "maxHR": "Maks: {{value}} bpm",
     "noDataAvailable": "Ingen data tilgængelig",
-    "zoneDefault": "Zone nr. {{number}}",
     "noHeartRateData": "Ingen pulsdata",
     "power": "Kraft",
     "resetToDefault": "Nulstil til standard",

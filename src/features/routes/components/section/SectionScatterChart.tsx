@@ -160,7 +160,7 @@ export function SectionScatterChart({
       forwardTrend: buildTrendWithBand(forwardPoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
       reverseTrend: buildTrendWithBand(reversePoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
     }),
-    [forwardPoints, reversePoints]
+    [forwardPoints, reversePoints, useTimeAxis]
   );
 
   // Time axis labels: start, middle, end - include day when months repeat
