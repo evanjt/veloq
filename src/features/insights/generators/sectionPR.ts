@@ -62,7 +62,7 @@ export function generateSectionPRInsights(
         meta: {
           sourceTimestamp: now - pr.daysAgo * DAY_MS,
           comparisonKind: 'self',
-          specificity: { hasNumber: true, hasPlace: true, hasDate: true },
+          placeName: pr.sectionName,
         },
       })
     );

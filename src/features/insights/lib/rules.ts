@@ -141,12 +141,29 @@ export function passesValence(insight: Insight): GateOutcome {
 
 /**
  * R5 - proximal specificity (Bandura & Schunk 1981). +10 if all three of
- * {concrete number, concrete place, recent date}; +5 for two; 0 otherwise.
+ * {concrete number, concrete place, a moment other than now}; +5 for two.
+ *
+ * Read off the strings the athlete sees rather than asserted by the generator.
+ * Eleven of fifteen emit sites used to assert a constant triple, and an
+ * assertion is a claim about copy that the copy can stop honouring: a locale
+ * that drops the number, or a title rewritten to lose the section name, left
+ * the claim standing and kept the points.
+ *
+ * The date stays structural, because "recent" is a property of the insight and
+ * not of its wording, and no regex reads a relative date across seventeen
+ * locales. It means the insight is about a moment other than the one it was
+ * computed in.
  */
 export function specificityScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
-  const s = insight.meta?.specificity;
-  if (!s) return 0;
-  const count = (s.hasNumber ? 1 : 0) + (s.hasPlace ? 1 : 0) + (s.hasDate ? 1 : 0);
+  const rendered = `${insight.title}\n${insight.subtitle ?? ''}\n${insight.body ?? ''}`;
+  const place = insight.meta?.placeName;
+  const source = insight.meta?.sourceTimestamp;
+
+  const hasNumber = /\d/.test(rendered);
+  const hasPlace = Boolean(place) && rendered.includes(place as string);
+  const hasDate = source != null && source !== insight.timestamp;
+
+  const count = (hasNumber ? 1 : 0) + (hasPlace ? 1 : 0) + (hasDate ? 1 : 0);
   if (count === 3) return cfg.scoring.specificityBonus.all3;
   if (count === 2) return cfg.scoring.specificityBonus.any2;
   return 0;
