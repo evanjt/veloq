@@ -1578,6 +1578,9 @@ interface NativeModuleInterface {
     path: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1775,6 +1778,7 @@ interface NativeModuleInterface {
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress(): number;
