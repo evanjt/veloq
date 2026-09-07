@@ -25,6 +25,17 @@ fn record_outcome(outcome: u8) {
     LAST_DETECTION_OUTCOME.store(outcome, Ordering::Relaxed);
 }
 
+/// Put the record back to "nothing has finished here".
+///
+/// The atomic is process-wide and the crate's tests share one process, so a
+/// test that finishes a run leaves its outcome standing for whatever runs
+/// next. `clear_detection_handle` calls this, since the handle slot and the
+/// outcome are the same state described twice.
+#[cfg(test)]
+pub(crate) fn reset_last_outcome() {
+    record_outcome(OUTCOME_IDLE);
+}
+
 #[derive(uniffi::Object)]
 pub struct DetectionManager {
     pub(crate) _private: (),
@@ -877,6 +888,36 @@ mod tests {
         );
         wait_for_the_run_to_apply(&manager);
         timed_poll_to_completion();
+    }
+
+    /// Scenario: the outcome is a process-wide atomic and the crate's tests
+    /// share one process, so a test that finishes a run leaves its result
+    /// standing for whatever runs next. `serial_global_state()` orders nothing,
+    /// it only serialises, so which test that is comes down to cargo's
+    /// scheduling.
+    ///
+    /// Expected behaviour: the fixture that clears the handle clears the
+    /// outcome with it. They are one state, "no run has happened here", and a
+    /// fixture that resets half of it hands the next test the other half.
+    #[test]
+    fn clearing_the_handle_clears_the_outcome_that_belongs_to_it() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+
+        let manager = DetectionManager::new();
+        assert!(manager.start().expect("start").started(), "the run starts");
+        wait_for_the_run_to_apply(&manager);
+        assert_eq!(timed_poll_to_completion().0, DetectionPoll::Applied);
+        assert_eq!(manager.last_outcome(), "complete", "the run finished");
+
+        clear_detection_handle();
+        assert_eq!(
+            manager.last_outcome(),
+            "idle",
+            "the outcome outlived the handle, so the next test to clear the \
+             handle starts on this run's result"
+        );
     }
 
     /// The poll that observes completion, timed. A `Running` poll or two can
