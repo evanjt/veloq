@@ -11,6 +11,7 @@ export { AnimatedPressable, AnimatedButton } from './AnimatedPressable';
 export { Button, ToggleButton } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant, ToggleButtonProps } from './Button';
 export { EmptyState, NetworkErrorState, ErrorStatePreset } from './EmptyState';
+export { DenseText, DENSE_TEXT_SCALE } from './DenseText';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { OfflineBanner } from './OfflineBanner';

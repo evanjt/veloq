@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { DashPathEffect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
@@ -134,7 +136,11 @@ export function CurveChart<T extends { x: number; y: number }>({
         {placed ? (
           <View style={styles.xAxisPlaced} pointerEvents="none">
             {placedLabels.map((item) => (
-              <Text key={item.label} style={[labelStyle, styles.placedLabel, { left: item.left }]}>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                key={item.label}
+                style={[labelStyle, styles.placedLabel, { left: item.left }]}
+              >
                 {item.label}
               </Text>
             ))}
@@ -142,7 +148,7 @@ export function CurveChart<T extends { x: number; y: number }>({
         ) : (
           <View style={styles.xAxisSpread} pointerEvents="none">
             {(xLabels as readonly string[]).map((label) => (
-              <Text key={label} style={labelStyle}>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} key={label} style={labelStyle}>
                 {label}
               </Text>
             ))}
@@ -150,11 +156,15 @@ export function CurveChart<T extends { x: number; y: number }>({
         )}
 
         <View style={styles.yAxis} pointerEvents="none">
-          <Text testID={topAxisTestID} style={labelStyle}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} testID={topAxisTestID} style={labelStyle}>
             {formatY(yDomain[1])}
           </Text>
-          <Text style={labelStyle}>{formatY(midY)}</Text>
-          <Text style={labelStyle}>{formatY(yDomain[0])}</Text>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
+            {formatY(midY)}
+          </Text>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
+            {formatY(yDomain[0])}
+          </Text>
         </View>
       </View>
     </GestureDetector>

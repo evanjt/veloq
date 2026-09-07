@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -132,12 +134,17 @@ function DataFieldGridInner({
             ]}
           >
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               style={[styles.value, { color: zoned ? hrZone.color : themeColors.text }]}
               numberOfLines={1}
             >
               {formatFieldValue(field, metrics, isMetric)}
             </Text>
-            <Text style={[styles.label, { color: themeColors.textMuted }]} numberOfLines={1}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.label, { color: themeColors.textMuted }]}
+              numberOfLines={1}
+            >
               {zoned
                 ? `${t(`recording.fields.${field}`)} · Z${hrZone.zone}`
                 : t(`recording.fields.${field}`)}
