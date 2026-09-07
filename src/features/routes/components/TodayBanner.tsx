@@ -9,7 +9,7 @@ import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
-import { formatDuration, formatDurationHuman } from '@/shared/format/format';
+import { formatDuration, formatDurationHuman, isolateNumeric } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import { colors, darkColors, spacing, layout, shadows, brand, verdictColor } from '@/theme';
 import type { CalendarEvent, ActivityPattern } from '@/types';
@@ -77,8 +77,7 @@ export const TodayBanner = React.memo(function TodayBanner({ todayPattern }: Tod
             : t('routeIntelligence.today', 'TODAY')}
         </Text>
         <Text style={[styles.readinessValue, { color: formColor }]}>
-          {formLabel} ({tsb > 0 ? '+' : ''}
-          {Math.round(tsb)} TSB)
+          {formLabel} ({isolateNumeric(`${tsb > 0 ? '+' : ''}${Math.round(tsb)}`)} TSB)
         </Text>
       </View>
 
