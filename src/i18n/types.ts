@@ -1085,6 +1085,13 @@ export interface TranslationResource {
 
   engine: {
     initFailed: string;
+    /** Why it did not open. The general line above stays the fallback. */
+    initReason: {
+      busy: string;
+      forwardSchema: string;
+      storageUnavailable: string;
+      failed: string;
+    };
   };
 
   errorState: {
