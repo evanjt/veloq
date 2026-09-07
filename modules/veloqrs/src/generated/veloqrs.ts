@@ -13651,6 +13651,16 @@ export interface RecordingManagerLike {
   demotePendingToLocalOnly() /*throws*/ : /*u32*/ number;
   getRecording(id: string) /*throws*/ : FfiRecordingEntry | undefined;
   /**
+   * A credential was refused mid-upload. The ride goes back in the queue
+   * with its attempts intact, because a 401 is not an attempt it spent.
+   */
+  holdForAuth(id: string, error: string) /*throws*/ : void;
+  /**
+   * An athlete signed in: stop auto-uploading every ride that is not
+   * theirs, unstamped ones included. Returns how many were held.
+   */
+  holdOtherAthletes(athleteId: string) /*throws*/ : /*u32*/ number;
+  /**
    * Every recording, newest first.
    */
   listRecordings() /*throws*/ : Array<FfiRecordingEntry>;
@@ -13893,6 +13903,49 @@ export class RecordingManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_get_recording(
             uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(id),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A credential was refused mid-upload. The ride goes back in the queue
+   * with its attempts intact, because a 401 is not an attempt it spent.
+   */
+  holdForAuth(id: string, error: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_for_auth(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id),
+          FfiConverterString.lower(error),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * An athlete signed in: stop auto-uploading every ride that is not
+   * theirs, unstamped ones included. Returns how many were held.
+   */
+  holdOtherAthletes(athleteId: string): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_hold_other_athletes(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(athleteId),
             callStatus,
           );
         },
@@ -20598,6 +20651,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_get_recording",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth() !==
+    53652
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_hold_for_auth",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes() !==
+    45981
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes",
     );
   }
   if (

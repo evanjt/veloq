@@ -9,6 +9,7 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  holdRecordingForAuth,
   discardRecordingFit,
   discardRecordingStreams,
 } from '@/features/recording/lib/storage/recordingLibrary';
@@ -56,6 +57,7 @@ async function importRecordedStrengthSets(
 export type UploadRecordingOutcome =
   | 'uploaded'
   | 'permissionBlocked'
+  | 'authExpired'
   | 'rejected'
   | 'retriable'
   | 'network'
@@ -120,6 +122,15 @@ export async function uploadRecording(
     if (err.type === 'http403') {
       await markRecordingPermissionBlocked(entry.id);
       return { outcome: 'permissionBlocked' };
+    }
+
+    // A refused credential is not the ride's fault and re-sending the same
+    // bytes against it cannot help, so the entry waits rather than being
+    // parked as rejected, which nothing requeues. The sign-out this 401 also
+    // triggers leaves it for the athlete who recorded it.
+    if (err.httpStatus === 401) {
+      await holdRecordingForAuth(entry.id, err.apiDetail ?? err.errMsg);
+      return { outcome: 'authExpired', errorDetail: err.apiDetail ?? err.errMsg };
     }
 
     if (err.type === 'network') {

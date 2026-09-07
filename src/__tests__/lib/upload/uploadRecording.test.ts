@@ -18,6 +18,8 @@ import {
   markRecordingUploadFailed,
   markRecordingRejected,
   markRecordingPermissionBlocked,
+  holdRecordingForAuth,
+  discardRecordingFit,
   readRecordingFit,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { recordProvisionalUpload } from '@/features/recording/lib/storage/provisionalActivity';
@@ -36,6 +38,7 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingUploadFailed: jest.fn().mockResolvedValue(undefined),
   markRecordingRejected: jest.fn().mockResolvedValue(undefined),
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
+  holdRecordingForAuth: jest.fn().mockResolvedValue(undefined),
   discardRecordingFit: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -190,7 +193,9 @@ describe('uploadRecording', () => {
 
   describe('retriable status mapping', () => {
     const retriable = [408, 429, 500, 502, 503, 504];
-    const terminal = [400, 401, 404, 409, 413, 422];
+    // 401 is not in this list: a refused credential is held for the athlete who
+    // recorded the ride, not parked as a rejection nothing requeues.
+    const terminal = [400, 404, 409, 413, 422];
 
     it.each(retriable)('keeps %s retriable', async (status) => {
       mockUpload.mockRejectedValue(refused(CallKind.Http, status, 'try again'));
@@ -211,14 +216,36 @@ describe('uploadRecording', () => {
     });
   });
 
-  it('treats a rejected credential as terminal, not as something to retry', async () => {
+  it('holds a ride whose credential was refused, rather than parking it for ever', async () => {
     mockUpload.mockRejectedValue(
       refused(CallKind.Unauthorized, 401, undefined, 'unauthorized (401)')
     );
 
     const result = await uploadRecording(ENTRY);
 
+    expect(result.outcome).toBe('authExpired');
+    expect(holdRecordingForAuth).toHaveBeenCalledWith('rec-1', 'unauthorized (401)');
+    expect(markRecordingRejected).not.toHaveBeenCalled();
+    expect(markRecordingUploadFailed).not.toHaveBeenCalled();
+  });
+
+  it('keeps the FIT of a held ride, since nothing has taken it', async () => {
+    mockUpload.mockRejectedValue(
+      refused(CallKind.Unauthorized, 401, undefined, 'unauthorized (401)')
+    );
+
+    await uploadRecording(ENTRY);
+
+    expect(discardRecordingFit).not.toHaveBeenCalled();
+  });
+
+  it('still parks a 400, which retrying the same bytes cannot fix', async () => {
+    mockUpload.mockRejectedValue(refused(CallKind.Http, 400, 'bad file', 'refused (400)'));
+
+    const result = await uploadRecording(ENTRY);
+
     expect(result.outcome).toBe('rejected');
+    expect(holdRecordingForAuth).not.toHaveBeenCalled();
   });
 
   it('keeps a rate-limited upload retriable', async () => {
