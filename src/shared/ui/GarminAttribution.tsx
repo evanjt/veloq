@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 /**
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     alignSelf: 'flex-start',
   },
   blockContainerDark: {

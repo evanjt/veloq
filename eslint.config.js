@@ -83,6 +83,24 @@ module.exports = [
     },
   },
   {
+    // The radius scale lives in src/theme too, and unlike colour it is drawn
+    // from stylesheets in plain .ts files as often as from components. A raw
+    // radius is a rung nobody named, and the scale is what the app already
+    // draws, so this is what keeps a new literal off it.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/__tests__/**', 'src/theme/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Property[key.name="borderRadius"] > Literal[raw=/^[0-9.]+$/]',
+          message:
+            'Raw border radius. Use a layout.borderRadius* token from src/theme. A radius that is half the element is layout.borderRadiusFull.',
+        },
+      ],
+    },
+  },
+  {
     // Node scripts and Jest setup run outside the app bundle.
     files: [
       'config/**/*.js',

@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   statCard: {
     width: '31%', // 3 columns with gaps
     backgroundColor: colors.background,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: 10,
     position: 'relative',
   },

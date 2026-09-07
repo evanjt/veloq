@@ -23,7 +23,7 @@ import {
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, ink, spacing, typography } from '@/theme';
+import { colors, darkColors, ink, spacing, typography, layout } from '@/theme';
 import {
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: layout.borderRadius,
   },
   chipInactive: {
     backgroundColor: 'rgba(0, 0, 0, 0.08)',

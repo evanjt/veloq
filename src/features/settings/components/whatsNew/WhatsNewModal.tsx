@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   dot: {
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
   },
   nav: {
     flexDirection: 'row',

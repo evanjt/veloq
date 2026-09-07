@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   formDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
     marginRight: spacing.xs,
   },
   readinessLabel: {

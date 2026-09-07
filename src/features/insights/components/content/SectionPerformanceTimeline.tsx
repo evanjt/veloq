@@ -11,7 +11,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, ink } from '@/theme';
+import { colors, darkColors, spacing, opacity, ink, layout } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
@@ -250,7 +250,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
   },
   chartCardDark: {

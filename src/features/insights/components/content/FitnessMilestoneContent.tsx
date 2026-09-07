@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, statusBadge } from '@/theme';
+import { colors, darkColors, spacing, opacity, statusBadge, layout } from '@/theme';
 import type { Insight } from '@/types';
 
 interface FitnessMilestoneContentProps {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     alignItems: 'center',
   },
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     marginTop: spacing.xs,
     gap: 4,
   },
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   timelineCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
   },
   timelineCardDark: {
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
   timelineDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusFull,
   },
   timelineDotCurrent: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
   },
   timelineLine: {
     width: 2,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   contextCard: {
     backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusMd,
     padding: spacing.sm,
     gap: 4,
   },

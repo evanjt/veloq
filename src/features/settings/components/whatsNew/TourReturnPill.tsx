@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, shadows } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { WHATS_NEW_SLIDES } from './slides';
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   pillWrapper: {
-    borderRadius: 16,
+    borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     maxWidth: '85%',

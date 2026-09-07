@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 96,
     height: 96,
-    borderRadius: 48, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   iconContainerCompact: {
     width: 64,
     height: 64,
-    borderRadius: 32, // half of width for circle
+    borderRadius: layout.borderRadiusFull,
     marginBottom: spacing.md,
   },
   title: {

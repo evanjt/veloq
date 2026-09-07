@@ -23,7 +23,7 @@ import {
   formatPerformanceDelta,
   formatShortDateWithYear,
 } from '@/shared/format/format';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, layout } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.background,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
   },
   selectedTooltipDark: {
     backgroundColor: darkColors.surfaceElevated,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textMuted + '20',
     paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: layout.borderRadiusXs,
     marginLeft: 4,
   },
   lapBadgeText: {

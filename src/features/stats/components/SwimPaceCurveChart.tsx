@@ -4,7 +4,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors } from '@/shared/charts';
-import { colors, typography, spacing, chartStyles } from '@/theme';
+import { colors, typography, spacing, chartStyles, layout } from '@/theme';
 import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
 
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   legendDash: {
     width: spacing.md,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
   },
   legendText: {
     fontSize: typography.label.fontSize,

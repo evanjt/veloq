@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   balanceHeroBadge: {
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   balanceStatusBadge: {
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusSm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     backgroundColor: opacity.overlay.light,
     marginTop: spacing.xs,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: layout.borderRadiusSm,
     backgroundColor: opacity.overlay.subtle,
   },
   modalCloseText: {

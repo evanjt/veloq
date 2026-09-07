@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: layout.borderRadiusMd,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   handleInner: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: ink.white,
     borderWidth: 2,
     borderColor: colors.primary,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 8,
     height: 2,
-    borderRadius: 1,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
   },
   stepRow: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   stepButton: {
     width: 30,
     height: 28,
-    borderRadius: 6,
+    borderRadius: spacing.xsPlus,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',

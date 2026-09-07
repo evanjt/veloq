@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   radio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: layout.borderRadiusFull,
     borderWidth: 2,
     borderColor: colors.textSecondary,
     justifyContent: 'center',
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   radioInner: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.primary,
   },
   optionContent: {

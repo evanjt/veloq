@@ -356,13 +356,13 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: spacing.xxs,
   },
   runBtn: {
     flexDirection: 'row',
