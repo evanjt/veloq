@@ -54,7 +54,20 @@ pub struct PreviewCentre {
     pub visit_total: u32,
     pub section_count: u32,
     pub source: String,
+    /// The place the bin covers, or None when no activity over it names one.
+    pub locality: Option<String>,
 }
+
+/// The (lat, lng) grid indices a bin key names, or None when it will not parse.
+fn bin_indices(bin_key: &str) -> Option<(i64, i64)> {
+    let (lat, lng) = bin_key.split_once(':')?;
+    Some((lat.parse().ok()?, lng.parse().ok()?))
+}
+
+/// Radius around a bin's anchor that an activity must start within to speak
+/// for its name. Half the bin diagonal plus slack for a box just outside the
+/// border.
+const CENTRE_LOCALITY_RADIUS_M: f64 = 5000.0;
 
 /// The five caller-exposed detection knobs, overlaid onto the engine's live
 /// config. Only these cross the boundary: trusting a whole caller-supplied
@@ -520,6 +533,7 @@ impl PersistentEngine {
                 visit_total: b.visit_total,
                 section_count: b.section_count,
                 source: source.to_string(),
+                locality: None,
             })
             .collect();
         centres.sort_by(|a, b| {
@@ -528,6 +542,7 @@ impl PersistentEngine {
                 .then_with(|| a.bin_key.cmp(&b.bin_key))
         });
         centres.truncate(limit as usize);
+        self.name_centres(&mut centres);
         centres
     }
 
@@ -537,6 +552,82 @@ impl PersistentEngine {
             .values()
             .map(|m| (m.id.clone(), m.sport_type.clone()))
             .collect()
+    }
+
+    /// Give each ranked area the name of the place it covers.
+    ///
+    /// The name is the most common `locality` among activities whose bounding
+    /// box sits within `CENTRE_LOCALITY_RADIUS_M` of the bin's anchor, ties
+    /// broken by name so the label is stable across runs. The position comes
+    /// from the activity's stored box and not from `start_latlng`: the sync
+    /// never asks intervals.icu for that field, so no stored body carries one
+    /// and a join on it matched nothing (B423).
+    ///
+    /// The anchor is the centre of the bin box, which is the box the preview
+    /// camera frames, rather than the mean of the bin's members: that mean can
+    /// sit near an edge and name the neighbouring place.
+    fn name_centres(&self, centres: &mut [PreviewCentre]) {
+        if centres.is_empty() {
+            return;
+        }
+
+        let mut located: Vec<(f64, f64, String)> = Vec::new();
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT a.min_lat, a.max_lat, a.min_lng, a.max_lng,
+                    json_extract(b.raw, '$.locality')
+             FROM activities a JOIN activity_bodies b ON b.activity_id = a.id
+             WHERE json_extract(b.raw, '$.locality') IS NOT NULL",
+        ) {
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, f64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            });
+            if let Ok(rows) = rows {
+                for (min_lat, max_lat, min_lng, max_lng, locality) in rows.flatten() {
+                    if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
+                        continue;
+                    }
+                    located.push((
+                        (min_lat + max_lat) * 0.5,
+                        (min_lng + max_lng) * 0.5,
+                        locality,
+                    ));
+                }
+            }
+        }
+        if located.is_empty() {
+            return;
+        }
+
+        for centre in centres.iter_mut() {
+            let Some((lat_bin, lng_bin)) = bin_indices(&centre.bin_key) else {
+                continue;
+            };
+            let anchor_lat = (lat_bin as f64 + 0.5) * BIN_DEG;
+            let anchor_lng = (lng_bin as f64 + 0.5) * BIN_DEG;
+
+            let mut counts: HashMap<&str, u32> = HashMap::new();
+            for (lat, lng, locality) in &located {
+                let metres =
+                    super::super::haversine_distance_meters(*lat, *lng, anchor_lat, anchor_lng);
+                if metres > CENTRE_LOCALITY_RADIUS_M {
+                    continue;
+                }
+                *counts.entry(locality.as_str()).or_insert(0) += 1;
+            }
+
+            centre.locality = counts
+                .into_iter()
+                .max_by(|(a_name, a_count), (b_name, b_count)| {
+                    a_count.cmp(b_count).then_with(|| b_name.cmp(a_name))
+                })
+                .map(|(name, _)| name.to_string());
+        }
     }
 
     /// The live auto catalogue for the riding area containing (lat, lng), in

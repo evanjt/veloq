@@ -1,91 +1,32 @@
 /**
  * Human labels for preview centres.
  *
- * A centre is a ~5 km riding-area bin. The label is the most common locality
- * among cached activities starting within the bin's radius, read from data
- * already on the device, never a network call. The radius is measured from the
- * bin's centre, the same box the camera frames, so the name and the map agree.
- * The engine's reported point is the mean of the bin's members and can sit near
- * an edge. Centres with no locality get a numbered fallback, numbered in the
- * order they are shown. It used to be binKey order, which is stable across
- * limits but is not the order the picker lays them out in, so a list of three
- * drawn from six read "Area 5, Area 6, Area 4" (B411).
+ * The name itself comes from the engine, which joins each ~5 km bin against
+ * the stored activity bodies over the whole library (`preview_centres` in
+ * `persistence/sections/preview.rs`). It used to be joined here, against a
+ * synced window and on `start_latlng`, a field the sync never fetches, so
+ * every centre fell back (B422, B423).
+ *
+ * What is left here is the fallback: a centre the engine could not name is
+ * numbered in the order it is shown. It used to be binKey order, which is
+ * stable across limits but is not the order the picker lays them out in, so a
+ * list of three drawn from six read "Area 5, Area 6, Area 4" (B411).
  */
 
-import { haversineDistance } from '@/shared/geo/distance';
-import { previewAreaAnchor } from './previewMapCamera';
 import type { PreviewCentre } from '../../../../modules/veloqrs/src/delegates/preview';
-
-/** Half the bin diagonal plus slack for starts just outside a bin border. */
-const CENTRE_RADIUS_M = 5000;
-
-export interface CentreActivity {
-  locality?: string;
-  startLatLng?: [number, number];
-}
-
-/** What one centre's join saw, so a fallback can name its own cause. */
-export interface CentreJoin {
-  /** Candidates offered to the join. */
-  seen: number;
-  /** Of those, how many carried a locality. */
-  withLocality: number;
-  /** Of those, how many carried a finite start position. */
-  withPosition: number;
-  /** Closest any positioned candidate came, or null when none had one. */
-  nearestMetres: number | null;
-}
 
 export interface CentreLabel {
   binKey: string;
-  /** Most common nearby locality, or null when none is known. */
+  /** The engine's name for the area, or null when it has none. */
   label: string | null;
   /** 1-based position in the list as given, for the numbered fallback. */
   fallbackNumber: number;
-  join: CentreJoin;
 }
 
-export function labelPreviewCentres(
-  centres: PreviewCentre[],
-  activities: CentreActivity[]
-): CentreLabel[] {
-  return centres.map((centre, index) => {
-    const anchor = previewAreaAnchor(centre);
-    const counts = new Map<string, number>();
-    let withLocality = 0;
-    let withPosition = 0;
-    let nearestMetres: number | null = null;
-
-    for (const activity of activities) {
-      if (activity.locality) withLocality += 1;
-
-      const position = activity.startLatLng;
-      if (!position) continue;
-      const [lat, lng] = position;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      withPosition += 1;
-
-      if (!anchor) continue;
-      const metres = haversineDistance({ lat, lng }, { lat: anchor[1], lng: anchor[0] });
-      if (nearestMetres === null || metres < nearestMetres) nearestMetres = metres;
-      if (metres > CENTRE_RADIUS_M || !activity.locality) continue;
-      counts.set(activity.locality, (counts.get(activity.locality) ?? 0) + 1);
-    }
-
-    let label: string | null = null;
-    let best = 0;
-    for (const [locality, count] of counts) {
-      if (count > best || (count === best && label !== null && locality < label)) {
-        label = locality;
-        best = count;
-      }
-    }
-
-    return {
-      binKey: centre.binKey,
-      label,
-      fallbackNumber: index + 1,
-      join: { seen: activities.length, withLocality, withPosition, nearestMetres },
-    };
-  });
+export function labelPreviewCentres(centres: PreviewCentre[]): CentreLabel[] {
+  return centres.map((centre, index) => ({
+    binKey: centre.binKey,
+    label: centre.locality ?? null,
+    fallbackNumber: index + 1,
+  }));
 }
