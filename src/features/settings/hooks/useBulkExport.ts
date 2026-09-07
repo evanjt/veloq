@@ -6,26 +6,32 @@ import {
   bulkExportActivitiesGeoJson,
   type BulkExportPhase,
 } from '@/features/settings/lib/bulkExport';
+import {
+  BULK_EXPORT_FORMAT_NAME,
+  type BulkExportKind,
+} from '@/features/settings/lib/bulkExportFormat';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 
 export function useBulkExport() {
   const [state, setState] = useState<ExportState>('idle');
   const [phase, setPhase] = useState<BulkExportPhase>('generating');
+  const [format, setFormat] = useState<BulkExportKind>('gpx');
   const [sizeBytes, setSizeBytes] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const { t } = useTranslation();
 
   const doExport = useCallback(
-    async (format: 'gpx' | 'geojson') => {
+    async (kind: BulkExportKind) => {
       if (state === 'exporting') return;
       setState('exporting');
+      setFormat(kind);
       setPhase('generating');
       setSizeBytes(0);
       setError(null);
 
       try {
-        const exportFn = format === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
+        const exportFn = kind === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
         const result = await exportFn((progress) => {
           setPhase(progress.phase);
           setSizeBytes(progress.sizeBytes);
@@ -37,6 +43,7 @@ export function useBulkExport() {
             t('export.bulkResult', {
               exported: result.exported,
               skipped: result.skipped,
+              format: BULK_EXPORT_FORMAT_NAME[kind],
             })
           );
         }
@@ -59,6 +66,7 @@ export function useBulkExport() {
     exportAll,
     exportAllGeoJson,
     isExporting: state === 'exporting',
+    format,
     phase,
     sizeBytes,
     error,
