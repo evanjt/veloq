@@ -1,6 +1,5 @@
 /**
- * Scenario: 26 test files wrote their own `// eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('veloqrs', ...)` beside
+ * Scenario: 26 test files wrote their own `jest.mock('veloqrs', ...)` beside
  * the nine using the shared stub, so every FFI addition had up to 26 mocks to
  * find, and a test-only engine assertion once existed because one drifted.
  *

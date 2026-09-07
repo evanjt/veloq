@@ -95,11 +95,14 @@ export default function FitnessScreen() {
 
   // Sport mode state - defaults to primary sport, can be toggled
   const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
+  const [sportModeFor, setSportModeFor] = useState(primarySport);
 
-  // Update sport mode when primary sport preference changes
-  useEffect(() => {
+  // Follow the preference when it changes. Taking it while rendering means the
+  // screen never commits a frame still showing the old sport.
+  if (primarySport !== sportModeFor) {
+    setSportModeFor(primarySport);
     setSportMode(primarySport);
-  }, [primarySport]);
+  }
 
   // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
   const {

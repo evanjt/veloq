@@ -15,10 +15,7 @@ import { getEngine } from '@/shared/native/engine';
 import { LAST_SUCCESS_KEY, useSyncHealth } from '@/shared/native/useSyncHealth';
 import { SyncState, type SyncStatus } from 'veloqrs';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

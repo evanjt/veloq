@@ -18,7 +18,6 @@ import {
 import type { ManualActivityData } from '@/types';
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../__shared__/veloqrsStub').withOverrides({
     engine: {
       uploadActivityFile: jest.fn(),

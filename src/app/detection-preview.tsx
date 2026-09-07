@@ -58,7 +58,7 @@ export default function DetectionPreviewScreen() {
 
   const client = useMemo(() => getEngine(), []);
   const { centres, labels } = usePreviewCentres(client);
-  const { status, progress, result, suspended, start, cancel } = usePreviewDetect(client);
+  const { status, progress, result, suspended, start, cancel, reset } = usePreviewDetect(client);
   // The preview is a settings sandbox: it loads a subset, runs the detector to
   // show what different settings produce, and touches no catalogue until Keep.
   // So the cutover hold that refuses every real detect does not reach it, and
@@ -90,11 +90,28 @@ export default function DetectionPreviewScreen() {
   const danger = isDark ? darkColors.error : colors.error;
 
   const selectedCentre = centre ?? centres[0] ?? null;
-  const currentSections = usePreviewCurrentSections(client, selectedCentre);
+  const { sections: currentSections, failed: currentFailed } = usePreviewCurrentSections(
+    client,
+    selectedCentre
+  );
   const running = status === 'running';
   // The engine reports a percentage for a bounded job, so draw it. Clamped
   // because a phase that finishes ahead of its own estimate can overshoot.
   const runPercent = Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0)));
+
+  // A held diff is about one area, so moving to another drops it. The run
+  // itself keeps its result across a re-run of the same area, which is why
+  // nothing else clears it.
+  const handleSelectCentre = useCallback(
+    (next: PreviewCentre) => {
+      if (next.binKey !== selectedCentre?.binKey) {
+        reset();
+        setSelected(null);
+      }
+      setCentre(next);
+    },
+    [selectedCentre, reset]
+  );
 
   const handlePreview = useCallback(() => {
     if (!selectedCentre || running) return;
@@ -182,7 +199,7 @@ export default function DetectionPreviewScreen() {
             centres={centres}
             labels={labels}
             selectedBinKey={selectedCentre?.binKey ?? null}
-            onSelect={(c) => setCentre(c)}
+            onSelect={handleSelectCentre}
           />
         </View>
 
@@ -266,6 +283,11 @@ export default function DetectionPreviewScreen() {
           </View>
         )}
 
+        {currentFailed && (
+          <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
+            {t('settings.previewCurrentFailed')}
+          </Text>
+        )}
         {status === 'error' && (
           <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
         )}

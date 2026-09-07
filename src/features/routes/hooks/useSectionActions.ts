@@ -117,16 +117,27 @@ export function useSectionActions({
   // --- name edit state ---
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const [customName, setCustomName] = useState<string | null>(null);
+  const [customName, setCustomName] = useState<string | null>(section?.name ?? null);
+  const [nameShownFor, setNameShownFor] = useState(section?.name);
   const nameInputRef = useRef<TextInput>(null);
 
   // Sync custom name when the section's name changes (e.g. after initial load
   // or after rename invalidates the query cache).
-  useEffect(() => {
-    if (section?.name) {
-      setCustomName(section.name);
-    }
-  }, [section?.name]);
+  //
+  // A nameless section clears it rather than being skipped. A merge navigates
+  // to the survivor with `router.replace` on the same route pattern, so this
+  // hook is handed a new section without remounting, and skipping the empty
+  // case left the previous section's name drawn over a survivor the detector
+  // never named. An optimistic rename is not clobbered by this: it writes
+  // `customName` and leaves `section.name` alone, so the dependency does not
+  // change and this does not run.
+  // Taking it while rendering rather than in an effect is what keeps the
+  // previous section's name off the survivor: an effect adopts it one commit
+  // late, and that commit is a painted frame.
+  if (section?.name !== nameShownFor) {
+    setNameShownFor(section?.name);
+    setCustomName(section?.name ?? null);
+  }
 
   // --- reference selection state ---
   const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);

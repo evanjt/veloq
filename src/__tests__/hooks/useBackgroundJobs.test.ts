@@ -12,10 +12,7 @@ import { SyncState } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { useBackgroundJobs } from '@/features/settings/hooks/useBackgroundJobs';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

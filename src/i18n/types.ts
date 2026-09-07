@@ -300,6 +300,7 @@ export interface TranslationResource {
     previewFailed: string;
     previewPoolUnusable: string;
     previewSuspended: string;
+    previewCurrentFailed: string;
     previewMigrating: string;
     previewUnchanged: string;
     previewChanged: string;
@@ -754,6 +755,12 @@ export interface TranslationResource {
       insightsBody: string;
       strengthTitle: string;
       strengthBody: string;
+      strengthChest: string;
+      strengthBack: string;
+      strengthShoulders: string;
+      strengthLegs: string;
+      strengthThisWeek: string;
+      strengthLastWeek: string;
       sectionTrimTitle: string;
       sectionTrimBody: string;
       backupTitle: string;

@@ -19,10 +19,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({

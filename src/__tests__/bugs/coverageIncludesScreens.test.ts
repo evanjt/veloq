@@ -9,7 +9,6 @@
 
 import { join } from 'node:path';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const config = require(join(__dirname, '../../../config/jest.config.js')) as {
   collectCoverageFrom: string[];
   coverageThreshold: { global: Record<string, number> };

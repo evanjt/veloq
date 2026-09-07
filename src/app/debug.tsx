@@ -299,7 +299,9 @@ export default function DebugScreen() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const handleShareSnapshot = useCallback(async () => {
+  // Not memoised: ffiSummary and mem are read fresh every render, so any
+  // dependency list here is new on every render anyway.
+  const handleShareSnapshot = async () => {
     const snapshot = {
       timestamp: new Date().toISOString(),
       app: {
@@ -312,7 +314,7 @@ export default function DebugScreen() {
       memory: mem,
     };
     await Share.share({ message: JSON.stringify(snapshot, null, 2) });
-  }, [stats, ffiSummary, mem]);
+  };
 
   return (
     <View

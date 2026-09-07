@@ -11,7 +11,6 @@ import { useSectionMapLayers } from '@/features/routes/components/useSectionMapL
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: () => [],
   })

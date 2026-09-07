@@ -39,7 +39,6 @@ const mockWebView = React.forwardRef(function MockWebView(
   return <View />;
 });
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({

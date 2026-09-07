@@ -26,7 +26,6 @@ const mockEngine = {
 };
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     engine: mockEngine,
   })

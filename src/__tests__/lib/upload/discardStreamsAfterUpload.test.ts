@@ -37,7 +37,6 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 }));
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../__shared__/veloqrsStub').withOverrides({
     engine: { importSetsFromFit: jest.fn() },
   })

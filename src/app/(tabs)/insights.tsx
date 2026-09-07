@@ -262,11 +262,12 @@ export default function InsightsScreen() {
     }
   }, [availableTabKeys, hasStrength, tab]);
 
-  useEffect(() => {
-    if (!availableTabKeys.has(activeTab)) {
-      setActiveTab('insights');
-    }
-  }, [activeTab, availableTabKeys]);
+  // A tab that is no longer offered falls back to insights, which is always
+  // offered, so this converges on the render it runs in rather than committing
+  // a frame with nothing selected.
+  if (!availableTabKeys.has(activeTab)) {
+    setActiveTab('insights');
+  }
 
   useEffect(() => {
     if (userLocation && !routeSortTouchedRef.current) {

@@ -34,7 +34,6 @@ function captions(overrides: Partial<typeof params> = {}) {
   const { UNSAFE_getAllByType } = render(
     <PreviewParamPanel params={{ ...params, ...overrides }} onChange={jest.fn()} />
   );
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Text } = require('react-native');
   return UNSAFE_getAllByType(Text).map((n) => String(n.props.children));
 }

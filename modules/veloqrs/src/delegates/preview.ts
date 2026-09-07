@@ -87,7 +87,8 @@ export interface PreviewClient {
   /** Listen on one engine channel; the returned function detaches. */
   subscribe(event: string, callback: () => void): () => void;
   getPreviewCentres(limit: number): PreviewCentre[];
-  getPreviewCurrentSections(lat: number, lng: number): PreviewSection[];
+  /** Null when the read itself failed, as against an area holding nothing. */
+  getPreviewCurrentSections(lat: number, lng: number): PreviewSection[] | null;
   startPreviewDetect(lat: number, lng: number, config: FfiSectionConfig): boolean;
   pollPreviewDetect(): PreviewPollStatus;
   getPreviewProgress(): SectionDetectionProgress | null;
@@ -219,20 +220,21 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
 /**
  * The live catalogue for the riding area containing (lat, lng). Empty when no
  * activity covers the point, so the screen opens on an empty map rather than a
- * failure.
+ * failure. Null when the read failed: a blank map is the same picture either
+ * way and the caller has to be able to say which one it is drawing.
  */
 export function getPreviewCurrentSections(
   host: DelegateHost,
   lat: number,
   lng: number
-): PreviewSection[] {
+): PreviewSection[] | null {
   if (!host.ready) return [];
   try {
     const json = host.timed('getPreviewCurrentSections', () => previewObj().current(lat, lng));
     return json ? parsePreviewSections(json) : [];
   } catch (e) {
     console.error('[Engine] getPreviewCurrentSections threw:', e);
-    return [];
+    return null;
   }
 }
 

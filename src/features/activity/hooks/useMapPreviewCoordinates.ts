@@ -74,7 +74,7 @@ export function useMapPreviewCoordinates(
       );
     }
     return [];
-  }, [startupTrack, engineResult, streams?.latlng]);
+  }, [startupTrack, engineResult, streams]);
 
   // 5. Altitude data for terrain camera calculations
   const altitude = useMemo((): number[] | undefined => {
@@ -87,7 +87,7 @@ export function useMapPreviewCoordinates(
       return streams.altitude as number[];
     }
     return undefined;
-  }, [startupTrack, engineResult, streams?.altitude]);
+  }, [startupTrack, engineResult, streams]);
 
   return {
     coordinates,

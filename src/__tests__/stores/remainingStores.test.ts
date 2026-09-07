@@ -19,7 +19,6 @@ import {
 
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     EngineClient: {
       setMetricRecorder: jest.fn(),
@@ -56,7 +55,6 @@ describe('declared defaults', () => {
   function freshState(path: string, hookName: string): Record<string, unknown> {
     let state: Record<string, unknown> = {};
     jest.isolateModules(() => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mod = require(path) as Record<string, { getState: () => Record<string, unknown> }>;
       state = mod[hookName].getState();
     });

@@ -13,13 +13,9 @@ import { act, render } from '@testing-library/react-native';
 
 import ActivityDetailScreen from '@/app/activity/[id]';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('react-native-safe-area-context', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
   return {
     useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -46,7 +42,6 @@ jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefin
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 
 jest.mock('@/shared/ui', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
   return {
     ScreenSafeAreaView: View,

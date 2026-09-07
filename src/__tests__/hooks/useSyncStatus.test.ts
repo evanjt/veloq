@@ -13,10 +13,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { SyncState, type SyncStatus } from 'veloqrs';
 
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),

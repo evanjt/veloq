@@ -17,7 +17,6 @@ import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: jest.fn(() => [
       { latitude: 46.2044, longitude: 7.3601 },

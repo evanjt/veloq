@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { RouteGroup as EngineRouteGroup, FfiActivityMetrics } from 'veloqrs';
 
 export function useSportTypeFilter(
@@ -18,19 +18,21 @@ export function useSportTypeFilter(
     return sorted;
   }, [allMetrics]);
 
-  // Auto-select the group's primary sport type when sport types are available
-  useEffect(() => {
-    if (availableSportTypes.length > 1 && selectedSportType === undefined && engineGroup) {
-      setSelectedSportType(engineGroup.sportType || availableSportTypes[0]);
-    }
-  }, [availableSportTypes, selectedSportType, engineGroup]);
+  // The group's primary sport type stands until the athlete picks another. It
+  // is derived rather than written into state by an effect, so the picker is
+  // never drawn with nothing selected.
+  const defaultSportType =
+    availableSportTypes.length > 1 && engineGroup
+      ? engineGroup.sportType || availableSportTypes[0]
+      : undefined;
+  const effectiveSportType = selectedSportType ?? defaultSportType;
 
   // Get performance data filtered by selected sport type (no API call needed)
   // Activity metrics are cached in Rust engine's in-memory HashMap
-  const sportFilter = availableSportTypes.length > 1 ? selectedSportType : undefined;
+  const sportFilter = availableSportTypes.length > 1 ? effectiveSportType : undefined;
 
   return {
-    selectedSportType,
+    selectedSportType: effectiveSportType,
     setSelectedSportType,
     availableSportTypes,
     sportFilter,

@@ -69,7 +69,7 @@ export function useSectionChartData({
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
     return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
-  }, [section?.activityPortions]);
+  }, [section]);
 
   const performanceRecordMap = useMemo(() => {
     if (!performanceRecords) return new Map<string, SectionPerformanceRecord>();

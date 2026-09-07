@@ -23,7 +23,6 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => ({
   VeloqEngine: mockGenerated.VeloqEngine,
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { EngineClient } = require('../../../modules/veloqrs/src/EngineClient');
 
 function freshClient() {

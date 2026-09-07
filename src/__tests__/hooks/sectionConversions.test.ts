@@ -46,7 +46,6 @@ function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayB
 }
 
 jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../__shared__/veloqrsStub').withOverrides({
     decodeCoords: (buf: ArrayBuffer) => {
       const SCALE = 1e7;

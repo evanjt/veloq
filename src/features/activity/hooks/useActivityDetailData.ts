@@ -115,13 +115,16 @@ export function useActivityDetailData(
     [activityId, enabled, trigger]
   );
 
+  // `refresh()` re-reads the bundle out of band, so the state holds its result
+  // until the memo above reads a newer one. Retiring it while rendering rather
+  // than in an effect drops a render pass and, with it, the frame that showed
+  // the superseded bundle.
   const [data, setData] = useState<ActivityDetailBundle | null>(initialData);
-
-  useEffect(() => {
-    if (initialData) {
-      setData(initialData);
-    }
-  }, [initialData]);
+  const [dataFor, setDataFor] = useState(initialData);
+  if (initialData && initialData !== dataFor) {
+    setDataFor(initialData);
+    setData(initialData);
+  }
 
   const refresh = useCallback(() => {
     if (!isMountedRef.current || !activityId) return;

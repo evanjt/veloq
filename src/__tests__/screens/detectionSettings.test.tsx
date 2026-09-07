@@ -6,10 +6,7 @@ import DetectionSettingsScreen from '@/app/detection-settings';
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
-jest.mock('veloqrs', () =>
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('../__shared__/veloqrsStub').withOverrides()
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 /**
  * Scenario: sensitivity is edited in the preview, which shows the consequence
@@ -79,9 +76,10 @@ function mockJobsLink() {
   return React.createElement(View, { testID: 'background-jobs-link' });
 }
 
+// The barrel no longer exports `DetectionIllustration`, so a screen that went
+// back to rendering it would render `undefined` and every test here would fail.
 jest.mock('@/features/settings/components', () => ({
   BackgroundJobsLink: mockJobsLink,
-  DetectionIllustration: () => null,
   ElevationBackfillStatus: () => null,
   CutoverStatus: () => null,
 }));
@@ -89,6 +87,7 @@ jest.mock('@/features/settings/components', () => ({
 describe('detection settings screen', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
+    mockGetSectionConfig.mockClear();
   });
 
   it('offers no sensitivity sliders', () => {
@@ -121,5 +120,22 @@ describe('detection settings screen', () => {
   it('links out to the jobs area rather than being the only home for the backfill', () => {
     const tree = render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('background-jobs-link')).toBeTruthy();
+  });
+
+  it('reads no detector config, since nothing on the screen draws it', () => {
+    render(<DetectionSettingsScreen />);
+    expect(mockGetSectionConfig).not.toHaveBeenCalled();
+  });
+
+  it('puts the preview above the re-analyse button', () => {
+    const tree = render(<DetectionSettingsScreen />);
+    const order = tree.root
+      .findAll((node) => typeof node.props.testID === 'string')
+      .map((node) => node.props.testID as string);
+
+    expect(order.indexOf('detection-preview-row')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('detection-preview-row')).toBeLessThan(
+      order.indexOf('detection-rescan-button')
+    );
   });
 });

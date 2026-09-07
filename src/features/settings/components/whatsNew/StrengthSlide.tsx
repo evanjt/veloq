@@ -2,14 +2,19 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
+import { useTranslation } from 'react-i18next';
+import type { ParseKeys } from 'i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 
+// Illustrative values. The four groups are the coarse ones the body diagram
+// rolls its fifteen muscle slugs up into, so `MUSCLE_DISPLAY_NAMES` has no key
+// for them and they carry their own.
 const MUSCLE_GROUPS = [
-  { label: 'Chest', left: 0.7, right: 0.65 },
-  { label: 'Back', left: 0.85, right: 0.8 },
-  { label: 'Shoulders', left: 0.5, right: 0.55 },
-  { label: 'Legs', left: 0.9, right: 0.75 },
+  { key: 'whatsNew.v030.strengthChest', left: 0.7, right: 0.65 },
+  { key: 'whatsNew.v030.strengthBack', left: 0.85, right: 0.8 },
+  { key: 'whatsNew.v030.strengthShoulders', left: 0.5, right: 0.55 },
+  { key: 'whatsNew.v030.strengthLegs', left: 0.9, right: 0.75 },
 ];
 
 const BAR_WIDTH = 80;
@@ -23,6 +28,7 @@ const LEFT_COLOR = colors.walk;
 const RIGHT_COLOR = colors.swim;
 
 export function StrengthSlide() {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const trackColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
@@ -32,18 +38,22 @@ export function StrengthSlide() {
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: LEFT_COLOR }]} />
-          <Text style={[styles.legendText, { color: mutedColor }]}>This week</Text>
+          <Text style={[styles.legendText, { color: mutedColor }]}>
+            {t('whatsNew.v030.strengthThisWeek')}
+          </Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: RIGHT_COLOR }]} />
-          <Text style={[styles.legendText, { color: mutedColor }]}>Last week</Text>
+          <Text style={[styles.legendText, { color: mutedColor }]}>
+            {t('whatsNew.v030.strengthLastWeek')}
+          </Text>
         </View>
       </View>
       <View style={styles.chartRow}>
         <View style={styles.labels}>
           {MUSCLE_GROUPS.map((g) => (
-            <Text key={g.label} style={[styles.label, { color: mutedColor, height: ROW_HEIGHT }]}>
-              {g.label}
+            <Text key={g.key} style={[styles.label, { color: mutedColor, height: ROW_HEIGHT }]}>
+              {t(g.key as ParseKeys)}
             </Text>
           ))}
         </View>
@@ -51,7 +61,7 @@ export function StrengthSlide() {
           {MUSCLE_GROUPS.map((g, i) => {
             const y = i * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
             return (
-              <React.Fragment key={g.label}>
+              <React.Fragment key={g.key}>
                 {/* Track backgrounds */}
                 <RoundedRect
                   x={0}
