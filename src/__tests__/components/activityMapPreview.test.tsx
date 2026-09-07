@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
 import type { Activity } from '@/types';
 
@@ -16,6 +16,9 @@ import type { Activity } from '@/types';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 let mockMapStyle = 'light';
+let mockHasOverride = false;
+const mockDeleteSuperseded = jest.fn();
+let mockSnapshotLanded: (() => void) | null = null;
 let mockTerrain3DMode = 'never';
 const mockCached = new Set<string>();
 const mockKey = (id: string, style: string, is3D: boolean) =>
@@ -31,6 +34,7 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => mockMapStyle,
     getTerrain3DMode: () => mockTerrain3DMode,
+    hasActivityOverride: () => mockHasOverride,
   }),
 }));
 
@@ -43,6 +47,7 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
   clearPrioritySnapshot: jest.fn(),
   isTerrainCacheInitialized: () => true,
   onTerrainCacheReady: () => () => {},
+  deleteSupersededTerrainPreviews: (...args: unknown[]) => mockDeleteSuperseded(...args),
 }));
 
 jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
@@ -50,7 +55,10 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 
 jest.mock('@/features/maps/lib/terrainSnapshotEvents', () => ({
-  subscribeSnapshot: () => () => {},
+  subscribeSnapshot: (id: string, cb: (uri: string) => void) => {
+    mockSnapshotLanded = () => cb(`file:///snapshots/${id}.jpg`);
+    return () => {};
+  },
   subscribeSnapshotFailure: () => () => {},
 }));
 
@@ -80,6 +88,9 @@ describe('ActivityMapPreview', () => {
   beforeEach(() => {
     mockMapStyle = 'light';
     mockTerrain3DMode = 'never';
+    mockHasOverride = false;
+    mockDeleteSuperseded.mockClear();
+    mockSnapshotLanded = null;
     mockCached.clear();
     mockCached.add(mockKey('demo-1', 'light', false));
     mockCached.add(mockKey('demo-1', 'satellite', false));
@@ -117,6 +128,49 @@ describe('ActivityMapPreview', () => {
     expect(requestSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ activityId: 'demo-1', flat: false })
     );
+  });
+
+  it('sends an overridden card to the head of the queue', () => {
+    mockHasOverride = true;
+    mockTerrain3DMode = 'always';
+    const requestSnapshot = jest.fn();
+    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+
+    render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+
+    expect(requestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ priority: true }));
+  });
+
+  it('leaves an ordinary card in the queue it landed in', () => {
+    mockTerrain3DMode = 'always';
+    const requestSnapshot = jest.fn();
+    const snapshotRef = { current: { requestSnapshot, retryFailed: jest.fn() } };
+
+    render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+
+    expect(requestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ priority: false }));
+  });
+
+  it('deletes the superseded renders once the overridden one has landed', () => {
+    mockHasOverride = true;
+    mockMapStyle = 'satellite';
+    mockTerrain3DMode = 'always';
+
+    render(<ActivityMapPreview activity={activity} />);
+    act(() => mockSnapshotLanded?.());
+
+    expect(mockDeleteSuperseded).toHaveBeenCalledWith('demo-1', 'satellite', true);
+  });
+
+  it('keeps every render for a card the athlete has not overridden', () => {
+    render(<ActivityMapPreview activity={activity} />);
+    act(() => mockSnapshotLanded?.());
+
+    expect(mockDeleteSuperseded).not.toHaveBeenCalled();
   });
 
   it('serves the cached flat render without queuing anything', () => {
