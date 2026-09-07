@@ -8,6 +8,7 @@ pub mod init;
 mod maps;
 pub mod observer;
 pub mod preview;
+pub mod quarantine;
 mod recordings;
 mod routes;
 pub mod sections;
@@ -22,6 +23,7 @@ pub use engine::VeloqEngine;
 pub use error::VeloqError;
 pub use init::FfiInitOutcome;
 pub use preview::SectionPreview;
+pub use quarantine::{FfiQuarantineReport, take_quarantine_report};
 pub use start::FfiStartOutcome;
 #[cfg(test)]
 pub(crate) use sync::test_credentials;

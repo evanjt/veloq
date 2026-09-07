@@ -2088,6 +2088,10 @@ pub mod persistent_engine_ffi {
                 // user's own rows are not. Whatever the quarantined file still
                 // yields comes across.
                 let salvaged = engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
+                // The warning below is the whole record today, and release
+                // keeps it where nobody reads it. This is the same fact where
+                // the app can ask for it.
+                crate::objects::quarantine::record_quarantine(&salvaged);
                 log::warn!(
                     "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
                     salvaged.history,

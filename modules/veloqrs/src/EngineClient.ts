@@ -50,6 +50,7 @@ import type {
   DerivedClearPoll,
   SettingPair,
   BulkExportFormat,
+  FfiQuarantineReport,
 } from './generated/veloqrs';
 import { FfiInitOutcome, FfiStartOutcome } from './generated/veloqrs';
 
@@ -217,6 +218,26 @@ class EngineClient implements DelegateHost {
   /** Why the engine did not open, for the banner to translate. */
   initOutcome(): FfiInitOutcome {
     return this.lastInitOutcome;
+  }
+
+  /**
+   * The quarantine this launch did, if there was one, and never twice.
+   *
+   * A database that could not be opened is renamed aside and a fresh one takes
+   * its place, and init then reports success, so nothing else on this handle
+   * says the library the athlete had is gone. The counts are the rows a rebuild
+   * cannot re-derive and that came across anyway. What the athlete is shown for
+   * it is not decided; reading it here is not showing it, and taking it rather
+   * than reading it is what stops a notice outliving its own dismissal.
+   */
+  takeQuarantineReport(): FfiQuarantineReport | null {
+    if (!this.initialized) return null;
+    try {
+      return gen().takeQuarantineReport() ?? null;
+    } catch (e) {
+      console.warn('[EngineClient] takeQuarantineReport threw:', e);
+      return null;
+    }
   }
 
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
