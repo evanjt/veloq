@@ -19,7 +19,9 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   initWithPath: jest.fn(() => true),
   enableHeatmapTiles: jest.fn(),
-  clearDerivedData: jest.fn(() => ({
+  startClearDerived: jest.fn(),
+  pollClearDerived: jest.fn(() => ({
+    state: 'complete',
     sectionsRemoved: 12,
     activitiesRemoved: 300,
     activitiesKept: 4,
@@ -74,7 +76,8 @@ describe('clearing the cache', () => {
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
     mockEngine.pollBackup.mockReturnValue('complete');
-    mockEngine.clearDerivedData.mockReturnValue({
+    mockEngine.pollClearDerived.mockReturnValue({
+      state: 'complete',
       sectionsRemoved: 12,
       activitiesRemoved: 300,
       activitiesKept: 4,
@@ -84,7 +87,7 @@ describe('clearing the cache', () => {
   it('empties the derived data through the engine rather than reopening the file', async () => {
     await clear();
 
-    expect(mockEngine.clearDerivedData).toHaveBeenCalledTimes(1);
+    expect(mockEngine.startClearDerived).toHaveBeenCalledTimes(1);
     expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
   });
 
@@ -93,7 +96,7 @@ describe('clearing the cache', () => {
 
     expect(mockEngine.startBackup).toHaveBeenCalledWith('/data/routes.db.clear-bak');
     const backupOrder = mockEngine.startBackup.mock.invocationCallOrder[0];
-    const clearOrder = mockEngine.clearDerivedData.mock.invocationCallOrder[0];
+    const clearOrder = mockEngine.startClearDerived.mock.invocationCallOrder[0];
     expect(backupOrder).toBeLessThan(clearOrder);
     expect(mockDeleteAsync).toHaveBeenCalledWith('file:///data/routes.db.clear-bak', {
       idempotent: true,
@@ -101,7 +104,7 @@ describe('clearing the cache', () => {
   });
 
   it('puts the snapshot back when the clear throws', async () => {
-    mockEngine.clearDerivedData.mockImplementation(() => {
+    mockEngine.pollClearDerived.mockImplementation(() => {
       throw new Error('database is locked');
     });
 
@@ -119,12 +122,12 @@ describe('clearing the cache', () => {
 
     expect(mockEngine.forceRedetectSections).toHaveBeenCalledTimes(1);
     expect(mockEngine.forceRedetectSections.mock.invocationCallOrder[0]).toBeGreaterThan(
-      mockEngine.clearDerivedData.mock.invocationCallOrder[0]
+      mockEngine.startClearDerived.mock.invocationCallOrder[0]
     );
   });
 
   it('never re-cuts over a database it could not clear', async () => {
-    mockEngine.clearDerivedData.mockImplementation(() => {
+    mockEngine.pollClearDerived.mockImplementation(() => {
       throw new Error('database is locked');
     });
 
@@ -138,6 +141,6 @@ describe('clearing the cache', () => {
 
     await expect(clear()).rejects.toThrow();
 
-    expect(mockEngine.clearDerivedData).not.toHaveBeenCalled();
+    expect(mockEngine.startClearDerived).not.toHaveBeenCalled();
   });
 });

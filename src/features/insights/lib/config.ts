@@ -30,6 +30,8 @@ export interface InsightsConfig {
   /** G3 - minimum lifetime repetitions for trend-type insights. */
   repetition: {
     section_trend_min: number;
+    /** The declining branch alone, which has to earn more than an improvement. */
+    section_trend_declining_min: number;
     efficiency_trend_min: number;
     stale_pr_min_lifetime: number;
     strength_min_sets: number;
@@ -59,6 +61,15 @@ export interface InsightsConfig {
   scoring: {
     /** R4 - points a confidence of 1 is worth. */
     confidenceWeight: number;
+    /** R9 - points a section the engine rates at its ceiling is worth. */
+    rankingWeight: number;
+    /** R9 - how the engine's four component scores blend for an insight. */
+    rankingWeights: {
+      recency: number;
+      improvement: number;
+      anomaly: number;
+      engagement: number;
+    };
     /**
      * R4 - observations at which a category's claim is as well founded as it
      * gets. Categories absent from this table have no population to count and
@@ -118,6 +129,15 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
 
   repetition: {
     section_trend_min: 3, // Lally 2010 - trend needs ≥3 repetitions
+    // A decline is the one card that tells the athlete they got worse, and it
+    // arrives during the bad patch that produced it. Three traversals inside
+    // the 28-day window is as likely to be weather, traffic or one tired day,
+    // so the declining branch waits for five: the smallest floor a single bad
+    // week on a section ridden every other day cannot reach on its own.
+    // The asymmetry is the decision that the panel is a mirror: a negative
+    // fact is shown when the evidence supports it, and this is what supporting
+    // it means for a trend. Ten is still what saturates the confidence.
+    section_trend_declining_min: 5,
     efficiency_trend_min: 3,
     stale_pr_min_lifetime: 2, // had to have been meaningful at least once
     strength_min_sets: 4,
@@ -140,6 +160,18 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
 
   scoring: {
     confidenceWeight: 30,
+    // R9 sits between confidence (30) and the category base (up to 15): the
+    // engine's read on a section should be able to reorder within a priority
+    // and never across one.
+    rankingWeight: 20,
+    // The engine's own weights, from `persistence/sections/ranking.rs`, which
+    // is the blend the sections tab's Relevance sort already ranks by. The
+    // default reproduces a formula that ships rather than inventing one.
+    //
+    // Read the components and never `relevanceScore`: that field IS this blend
+    // of these four, so a term taking it beside them would weigh every
+    // component twice.
+    rankingWeights: { recency: 0.35, improvement: 0.3, anomaly: 0.2, engagement: 0.15 },
     // Each saturation is a multiple of the category's repetition floor, which
     // is the point the generator may speak at all. Reaching it means the claim
     // has as much behind it as this generator can put there; below it the

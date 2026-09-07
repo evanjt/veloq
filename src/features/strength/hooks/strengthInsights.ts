@@ -52,7 +52,6 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
     },
     supportingData: {
       dataPoints: [
@@ -162,11 +161,6 @@ function buildStrengthProgressionInsight(
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: {
-        hasNumber: true,
-        hasPlace: false,
-        hasDate: true,
-      },
       signalDelta: progressionSignalDelta(progression),
     },
     supportingData: {
@@ -259,7 +253,6 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
     meta: {
       sourceTimestamp: now,
       comparisonKind: 'self',
-      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
     },
     supportingData: {
       dataPoints: [

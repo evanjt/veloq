@@ -68,7 +68,6 @@ export function generateHrvTrendInsight(now: number, t: TFunc): Insight[] {
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
       },
       supportingData: {
         dataPoints: [

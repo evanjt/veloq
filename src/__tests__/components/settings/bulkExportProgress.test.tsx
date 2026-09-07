@@ -17,16 +17,16 @@ jest.mock('react-i18next', () => ({
 }));
 
 it('shows a spinner and the phase while generating, with no count', () => {
-  render(<BulkExportProgress phase="generating" sizeBytes={0} isDark={false} />);
+  render(<BulkExportProgress phase="generating" format="gpx" sizeBytes={0} isDark={false} />);
 
   expect(screen.getByTestId('bulk-export-spinner')).toBeTruthy();
-  expect(screen.getByText('export.bulkExporting')).toBeTruthy();
+  expect(screen.getByText(/export\.bulkExporting/)).toBeTruthy();
   expect(screen.queryByText(/%/)).toBeNull();
   expect(screen.queryByText(/\d+\s*\/\s*\d+/)).toBeNull();
 });
 
 it('shows the size once the export has produced one', () => {
-  render(<BulkExportProgress phase="sharing" sizeBytes={8_400_000} isDark={false} />);
+  render(<BulkExportProgress phase="sharing" format="gpx" sizeBytes={8_400_000} isDark={false} />);
 
   expect(screen.getByText('export.bulkSharing')).toBeTruthy();
   expect(screen.getByText(/8/)).toBeTruthy();
@@ -34,7 +34,7 @@ it('shows the size once the export has produced one', () => {
 });
 
 it('says nothing about a size it does not have yet', () => {
-  render(<BulkExportProgress phase="generating" sizeBytes={0} isDark={false} />);
+  render(<BulkExportProgress phase="generating" format="gpx" sizeBytes={0} isDark={false} />);
 
   expect(screen.queryByText(/B$/)).toBeNull();
 });

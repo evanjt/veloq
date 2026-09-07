@@ -289,6 +289,8 @@ export interface TranslationResource {
     previewSections: string;
     cutoverRebuilding: string;
     cutoverFailed: string;
+    cutoverStop: string;
+    cutoverStopping: string;
     cutoverPhaseDraining: string;
     cutoverPhaseArchiving: string;
     cutoverPhaseDetecting: string;

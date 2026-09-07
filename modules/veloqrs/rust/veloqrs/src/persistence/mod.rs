@@ -525,6 +525,56 @@ pub fn clear_routes_and_sections_background() -> ClearHandle {
     ClearHandle { receiver: rx }
 }
 
+/// Handle for a background wipe of everything the engine can re-derive.
+///
+/// Its own type rather than a reuse of `ClearHandle`: it carries the counts the
+/// clear-cache screen reports, and the two occupy different slots.
+pub struct DerivedClearHandle {
+    receiver: mpsc::Receiver<Result<activities::DerivedClear, String>>,
+}
+
+impl DerivedClearHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<Result<activities::DerivedClear, String>> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+}
+
+/// Empty what the engine can re-derive, on a background thread.
+///
+/// 734 ms on a 750-activity library, the worst of the three wipes, and it sits
+/// behind the clear-cache button. Same shape as the catalogue wipe above: the
+/// write lock is still taken, what moves off the calling thread is the wait.
+pub fn clear_derived_background() -> DerivedClearHandle {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let result =
+            with_persistent_engine(|engine| engine.clear_derived().map_err(|e| format!("{}", e)))
+                .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+        tx.send(result).ok();
+    });
+    DerivedClearHandle { receiver: rx }
+}
+
+/// Wipe every table on a background thread.
+///
+/// 401 ms on a 750-activity library. The caller re-opens the engine after
+/// this, and that re-open must stay ordered against the wipe rather than
+/// racing it, which is what the poll gives it.
+pub fn clear_all_background() -> ClearHandle {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let result = with_persistent_engine(|engine| engine.clear().map_err(|e| format!("{}", e)))
+            .unwrap_or_else(|| Err("Engine is not initialised".to_string()));
+        tx.send(result).ok();
+    });
+    ClearHandle { receiver: rx }
+}
+
 /// Handle for a background database backup.
 pub struct BackupHandle {
     receiver: mpsc::Receiver<Result<(), String>>,
@@ -2038,6 +2088,10 @@ pub mod persistent_engine_ffi {
                 // user's own rows are not. Whatever the quarantined file still
                 // yields comes across.
                 let salvaged = engine.salvage_ledger_from(&format!("{}.corrupt-{}", db_path, ts));
+                // The warning below is the whole record today, and release
+                // keeps it where nobody reads it. This is the same fact where
+                // the app can ask for it.
+                crate::objects::quarantine::record_quarantine(&salvaged);
                 log::warn!(
                     "veloqrs: [PersistentEngine] Salvaged {} history rows, {} geometry versions, {} pins, {} user sections, {} intents from the quarantined database",
                     salvaged.history,
@@ -2077,6 +2131,14 @@ pub mod persistent_engine_ffi {
 
     /// Handle for the running derived-catalogue wipe, if any.
     pub static CLEAR_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running clear-cache wipe, if any.
+    pub static CLEAR_DERIVED_HANDLE: LazyLock<Mutex<Option<DerivedClearHandle>>> =
+        LazyLock::new(|| Mutex::new(None));
+
+    /// Handle for the running whole-database wipe, if any.
+    pub static CLEAR_ALL_HANDLE: LazyLock<Mutex<Option<ClearHandle>>> =
         LazyLock::new(|| Mutex::new(None));
 }
 

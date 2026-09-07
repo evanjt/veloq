@@ -47,8 +47,10 @@ import type {
   FfiIndexActivitySummary,
   DownloadProgressResult,
   DerivedClear,
+  DerivedClearPoll,
   SettingPair,
   BulkExportFormat,
+  FfiQuarantineReport,
 } from './generated/veloqrs';
 import { FfiInitOutcome, FfiStartOutcome } from './generated/veloqrs';
 
@@ -163,6 +165,12 @@ interface PendingWrite {
  */
 const MAX_PENDING_WRITES = 256;
 
+/** Cheap enough to poll at, short enough that a small wipe still returns promptly. */
+const WIPE_POLL_INTERVAL_MS = 50;
+
+/** A wipe that has not finished by here is stuck, not slow. */
+const WIPE_TIMEOUT_MS = 2 * 60 * 1000;
+
 /**
  * Progress and outcome of a running bulk export. `skipped` and `totalBytes`
  * only mean anything once `state` reads "complete".
@@ -210,6 +218,26 @@ class EngineClient implements DelegateHost {
   /** Why the engine did not open, for the banner to translate. */
   initOutcome(): FfiInitOutcome {
     return this.lastInitOutcome;
+  }
+
+  /**
+   * The quarantine this launch did, if there was one, and never twice.
+   *
+   * A database that could not be opened is renamed aside and a fresh one takes
+   * its place, and init then reports success, so nothing else on this handle
+   * says the library the athlete had is gone. The counts are the rows a rebuild
+   * cannot re-derive and that came across anyway. What the athlete is shown for
+   * it is not decided; reading it here is not showing it, and taking it rather
+   * than reading it is what stops a notice outliving its own dismissal.
+   */
+  takeQuarantineReport(): FfiQuarantineReport | null {
+    if (!this.initialized) return null;
+    try {
+      return gen().takeQuarantineReport() ?? null;
+    } catch (e) {
+      console.warn('[EngineClient] takeQuarantineReport threw:', e);
+      return null;
+    }
   }
 
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
@@ -396,9 +424,62 @@ class EngineClient implements DelegateHost {
   /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
   pollClearRoutesAndSections(): string {
     if (!this.ready) return 'idle';
-    return this.timed('pollClearRoutesAndSections', () =>
-      this.engine.pollClearRoutesAndSections()
-    );
+    return this.timed('pollClearRoutesAndSections', () => this.engine.pollClearRoutesAndSections());
+  }
+
+  /** Start the clear-cache wipe on a Rust thread. Poll `pollClearDerived`. */
+  startClearDerived(): void {
+    if (!this.ready) return;
+    this.timed('startClearDerived', () => this.engine.startClearDerived());
+  }
+
+  /**
+   * Poll the running clear-cache wipe. `state` is "idle" | "running" |
+   * "complete", and the counts are only meaningful once it is complete.
+   * Throws on failure.
+   */
+  pollClearDerived(): DerivedClearPoll {
+    if (!this.ready) {
+      return { state: 'idle', sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 };
+    }
+    return this.timed('pollClearDerived', () => this.engine.pollClearDerived());
+  }
+
+  /**
+   * Wait out the whole-database wipe this client started.
+   *
+   * The sibling wipes are waited on by `features/routes/lib/engineClears.ts`,
+   * which this cannot use: nothing here may import from `src/`. This one has
+   * to live here anyway, because the re-open that follows it is this class's
+   * own and no caller should be trusted to order it.
+   */
+  private async awaitWipe(): Promise<void> {
+    const deadline = Date.now() + WIPE_TIMEOUT_MS;
+    this.startClearAll();
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, WIPE_POLL_INTERVAL_MS));
+      // A failed wipe throws out of the poll, carrying the Rust message.
+      const state = this.pollClearAll();
+      if (state === 'complete') return;
+      if (state !== 'running') {
+        throw new Error(`Engine wipe stopped without finishing (${state})`);
+      }
+      if (Date.now() > deadline) {
+        throw new Error('Engine wipe did not finish in time');
+      }
+    }
+  }
+
+  /** Start the whole-database wipe on a Rust thread. Poll `pollClearAll`. */
+  startClearAll(): void {
+    if (!this.ready) return;
+    this.timed('startClearAll', () => this.engine.startClearAll());
+  }
+
+  /** Poll the running wipe: "idle" | "running" | "complete". Throws on failure. */
+  pollClearAll(): string {
+    if (!this.ready) return 'idle';
+    return this.timed('pollClearAll', () => this.engine.pollClearAll());
   }
 
   /** Clear only route/section data, keeping GPS tracks and activities.
@@ -445,10 +526,14 @@ class EngineClient implements DelegateHost {
    * that fails leaves the handle closed and reported closed, which is the same
    * state a failed launch leaves.
    */
-  clear(): void {
+  async clear(): Promise<void> {
     const dbPath = this.dbPath;
     try {
-      this.timed('clear', () => this.engine?.clear());
+      // The wipe runs on a Rust thread and this waits for it, so the destroy
+      // and re-open below stay ordered after it rather than racing it. On the
+      // JavaScript thread the same wipe cost 401 ms on a 750-activity library
+      // and froze every caller's screen for it.
+      await this.awaitWipe();
     } catch {
       // Best-effort clear - reset local state regardless
     }
@@ -547,6 +632,9 @@ class EngineClient implements DelegateHost {
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
 
   startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
+
+  cancelDetectorCutover = (): void => cutoverDelegates.cancelDetectorCutover(this);
+
   getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
 
   getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
@@ -563,25 +651,25 @@ class EngineClient implements DelegateHost {
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
 
-  syncPowerCurve = (sport: string, days: number): boolean =>
+  syncPowerCurve = (sport: string, days: number): FfiStartOutcome =>
     syncDelegates.syncPowerCurve(this, sport, days);
 
-  syncPaceCurve = (sport: string, days: number, gap: boolean): boolean =>
+  syncPaceCurve = (sport: string, days: number, gap: boolean): FfiStartOutcome =>
     syncDelegates.syncPaceCurve(this, sport, days, gap);
 
-  syncActivityIntervals = (activityId: string): boolean =>
+  syncActivityIntervals = (activityId: string): FfiStartOutcome =>
     syncDelegates.syncActivityIntervals(this, activityId);
 
-  syncCalendarEvents = (oldest: string, newest: string): boolean =>
+  syncCalendarEvents = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncCalendarEvents(this, oldest, newest);
 
-  syncActivityStreams = (activityId: string, types: string): boolean =>
+  syncActivityStreams = (activityId: string, types: string): FfiStartOutcome =>
     syncDelegates.syncActivityStreams(this, activityId, types);
 
-  syncActivityDetail = (activityId: string): boolean =>
+  syncActivityDetail = (activityId: string): FfiStartOutcome =>
     syncDelegates.syncActivityDetail(this, activityId);
 
-  syncTimeStreams = (activityIds: string[]): boolean =>
+  syncTimeStreams = (activityIds: string[]): FfiStartOutcome =>
     syncDelegates.syncTimeStreams(this, activityIds);
 
   uploadActivityFile = (
@@ -1271,7 +1359,7 @@ class EngineClient implements DelegateHost {
   isFitProcessed = (activityId: string): boolean =>
     strengthDelegates.isFitProcessed(this, activityId);
 
-  fetchAndParseExerciseSets = (activityId: string): boolean =>
+  fetchAndParseExerciseSets = (activityId: string): FfiStartOutcome =>
     strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
@@ -1290,7 +1378,7 @@ class EngineClient implements DelegateHost {
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
-  batchFetchExerciseSets = (activityIds: string[]): boolean =>
+  batchFetchExerciseSets = (activityIds: string[]): FfiStartOutcome =>
     strengthDelegates.batchFetchExerciseSets(this, activityIds);
 
   /**

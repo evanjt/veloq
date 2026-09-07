@@ -140,7 +140,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const tryInit = (attempt: number) => {
+        const tryInit = async (attempt: number) => {
           let success = engine.initWithPath(dbPath);
           let cachedAthleteId: string | undefined;
           if (success) {
@@ -171,7 +171,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
                   if (cleared) engine.initWithPath(dbPath);
                 });
               } else {
-                engine.clear();
+                // The wipe runs on a Rust thread. This engine is empty, so it
+                // costs nothing, but the re-open below has to follow it rather
+                // than race it.
+                await engine.clear();
                 success = engine.initWithPath(dbPath);
               }
             }
@@ -251,7 +254,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             if (__DEV__) {
               console.warn(`[Engine] Init attempt ${attempt + 1} failed, retrying in 500ms...`);
             }
-            setTimeout(() => tryInit(attempt + 1), 500);
+            setTimeout(() => void tryInit(attempt + 1), 500);
           } else {
             if (__DEV__) {
               console.warn(
@@ -263,7 +266,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           }
         };
 
-        tryInit(0);
+        void tryInit(0);
       }
     }
   }, [

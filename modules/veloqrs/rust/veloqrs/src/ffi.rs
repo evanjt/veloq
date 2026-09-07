@@ -40,6 +40,17 @@ pub struct ActivitySportType {
 /// Returns DownloadProgressResult with completed/total/active fields.
 /// When active is false, the download has completed (or never started).
 
+/// Ask the running fetch-and-store to stop. Returns whether there was one.
+///
+/// Cooperative and scoped to the run: the loop checks between activities, so
+/// the one in flight finishes and lands, and the attach tail still runs over
+/// whatever did. The flag is cleared by the reset every run makes, so a cancel
+/// cannot outlive the download it was aimed at.
+#[uniffi::export]
+pub fn cancel_fetch_and_store() -> bool {
+    crate::http::cancel_download()
+}
+
 #[uniffi::export]
 pub fn get_download_progress() -> DownloadProgressResult {
     let (completed, total, active) = crate::http::get_download_progress();
@@ -382,6 +393,15 @@ pub fn start_fetch_and_store(
         );
 
         for (idx, result) in fetch_results.into_iter().enumerate() {
+            // Between activities, never inside one: a track stops being half
+            // written here, and the rows already stored stay whole.
+            if crate::http::download_cancelled() {
+                info!(
+                    "[RUST: start_fetch_and_store] Cancelled after {}/{} activities",
+                    idx, num_results
+                );
+                break;
+            }
             let activity_start = Instant::now();
             if result.success {
                 if let Some(latlngs) = result.latlngs {
@@ -454,6 +474,10 @@ pub fn start_fetch_and_store(
             })
             .unwrap_or_default();
             for activity_id in missing {
+                if crate::http::download_cancelled() {
+                    info!("[RUST: start_fetch_and_store] Cancelled before the remaining streams");
+                    break;
+                }
                 match crate::runtime::block_on(crate::net::endpoints::fetch_time_stream(
                     fetcher.transport(),
                     &activity_id,
@@ -796,6 +820,18 @@ pub struct CutoverProgress {
 #[uniffi::export]
 pub fn start_detector_cutover() -> bool {
     crate::persistence::cutover::start_cutover()
+}
+
+/// Ask the running cutover to stop at its next step boundary.
+///
+/// The cut is a cold detect over the whole library, spawned unattended at
+/// launch, and the only lever before this was a force-quit, which the
+/// in-flight token undid on the next launch anyway. Stopping costs the run's
+/// work and nothing else: the migration is still owed and the next launch runs
+/// it again from the top.
+#[uniffi::export]
+pub fn cancel_detector_cutover() {
+    crate::persistence::cutover::cancel_cutover();
 }
 
 /// How far the running cutover has got.

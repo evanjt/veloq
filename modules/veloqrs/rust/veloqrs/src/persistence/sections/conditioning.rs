@@ -221,7 +221,13 @@ pub fn try_start_conditioning() -> bool {
 fn spawn_conditioning_driver() {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 
-    std::thread::spawn(|| {
+    // Counted before the thread starts. `wait_on_slot` counts its own caller,
+    // but not until the thread has reached it, so a caller that asks straight
+    // after `try_start_conditioning` would otherwise race the spawn and read
+    // no driver at all.
+    let counted = crate::objects::detection::SlotDriver::started();
+    std::thread::spawn(move || {
+        let _counted = counted;
         // Bounded: a worker that hangs rather than panicking never reports
         // `Died`, and this thread outlives the call that spawned it.
         match wait_on_slot(DRIVER_POLL, true) {

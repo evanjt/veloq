@@ -15,14 +15,20 @@ import { useTranslation } from 'react-i18next';
 import { formatFileSize } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { BulkExportPhase } from '@/features/settings/lib/bulkExport';
+import {
+  BULK_EXPORT_FORMAT_NAME,
+  type BulkExportKind,
+} from '@/features/settings/lib/bulkExportFormat';
 
 interface BulkExportProgressProps {
   phase: BulkExportPhase;
+  /** The two pills drive this one row, so it has to say which is running. */
+  format: BulkExportKind;
   sizeBytes: number;
   isDark: boolean;
 }
 
-export function BulkExportProgress({ phase, sizeBytes, isDark }: BulkExportProgressProps) {
+export function BulkExportProgress({ phase, format, sizeBytes, isDark }: BulkExportProgressProps) {
   const { t } = useTranslation();
 
   return (
@@ -30,7 +36,9 @@ export function BulkExportProgress({ phase, sizeBytes, isDark }: BulkExportProgr
       <ActivityIndicator size="small" color={colors.primary} testID="bulk-export-spinner" />
       <View style={styles.labels}>
         <Text style={[styles.label, isDark && styles.labelDark]}>
-          {phase === 'sharing' ? t('export.bulkSharing') : t('export.bulkExporting')}
+          {phase === 'sharing'
+            ? t('export.bulkSharing')
+            : t('export.bulkExporting', { format: BULK_EXPORT_FORMAT_NAME[format] })}
         </Text>
         {sizeBytes > 0 && (
           <Text style={[styles.detail, isDark && styles.detailDark]}>

@@ -99,18 +99,22 @@ describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
-      // lifecycle, polyline overlap, backup validation,
+      // lifecycle including its cancel, polyline overlap, backup validation,
       // elevation backfill start, pause, resume, paused, progress and
       // remaining,
-      // the six detector-cutover calls: pending, running, start, progress, diff
-      // and change-card support, and the two connectivity calls). Adjust if a
-      // new standalone is added - but prefer putting engine-coupled logic on a
-      // UniFFI Object.
+      // the seven detector-cutover calls: pending, running, start, cancel,
+      // progress, diff and change-card support, the two connectivity calls,
+      // and the
+      // quarantine report). Adjust if a new standalone is added - but prefer
+      // putting engine-coupled logic on a UniFFI Object.
       //
       // The connectivity pair is standalone on purpose. It is a process-wide
       // value the network provider pushes before `initWithPath` has run, so
-      // an engine method would drop the very first edge.
-      expect(STANDALONE_EXPORTS.length).toBe(19);
+      // an engine method would drop the very first edge. The quarantine report
+      // is standalone for the same reason: it is written during init, before
+      // there is a handle to hang it on, and it says the library that handle
+      // opens is not the one the athlete had.
+      expect(STANDALONE_EXPORTS.length).toBe(22);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -119,6 +123,14 @@ describe('FFI Binding Validation', () => {
       expect(names.has('validate_backup_database')).toBe(true);
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
+      // A fetch that could not be called off stranded the progress flag and
+      // spun the reader at 10 Hz for the rest of the session.
+      expect(names.has('cancel_fetch_and_store')).toBe(true);
+      // Standalone with the rest of the fetch lifecycle it belongs to: it
+      // flips a process-wide flag in `http` and never touches the engine, so
+      // an engine method would be the wrong home and would queue behind the
+      // lock the cancel exists to stop taking.
+      expect(names.has('cancel_fetch_and_store')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
       // Deleted with the synthetic detection illustration, its only caller.
       // Named here so a re-add has to answer for itself rather than ride in
@@ -135,8 +147,13 @@ describe('FFI Binding Validation', () => {
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
+      // A cut that could not be stopped left a force-quit as the only lever,
+      // and the in-flight token undid that on the next launch. This is the
+      // lever.
+      expect(names.has('cancel_detector_cutover')).toBe(true);
       expect(names.has('get_cutover_progress')).toBe(true);
       expect(names.has('get_cutover_diff')).toBe(true);
+      expect(names.has('take_quarantine_report')).toBe(true);
       expect(names.has('set_network_online')).toBe(true);
       expect(names.has('get_network_push')).toBe(true);
       // A whole-catalogue rollback is not offered: the detector keeps moving,

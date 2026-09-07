@@ -359,6 +359,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_all(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_derived(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_routes_and_sections(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -399,6 +407,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     format: Uint8Array,
     destPath: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_all(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_derived(
+    ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_routes_and_sections(
@@ -1346,7 +1362,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1357,7 +1373,7 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
     ptr: bigint,
     startTs: bigint,
@@ -1472,24 +1488,24 @@ interface NativeModuleInterface {
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
     ptr: bigint,
     activityId: Uint8Array,
     types: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
     ptr: bigint,
     oldest: Uint8Array,
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1500,18 +1516,18 @@ interface NativeModuleInterface {
     days: bigint,
     gap: number,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
     ptr: bigint,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
-  ): number;
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
     ptr: bigint,
     filePath: Uint8Array,
@@ -1562,6 +1578,12 @@ interface NativeModuleInterface {
     path: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1619,6 +1641,9 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
     path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_take_quarantine_report(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
@@ -1759,6 +1784,8 @@ interface NativeModuleInterface {
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover(): number;
+  ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_change_card_support(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_cutover_progress(): number;
@@ -1777,6 +1804,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;
   ubrn_uniffi_veloqrs_checksum_func_validate_backup_database(): number;
+  ubrn_uniffi_veloqrs_checksum_func_take_quarantine_report(): number;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
@@ -1835,6 +1863,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_backup(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_bulk_export(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_derived(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes(): number;
@@ -1844,6 +1874,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_backup(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_derived(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_routes_and_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_sync(): number;

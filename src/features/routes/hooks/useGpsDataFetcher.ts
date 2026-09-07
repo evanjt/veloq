@@ -14,6 +14,7 @@ import { getNativeModule } from '@/shared/native/engine';
 import {
   engine,
   getDownloadProgress,
+  cancelFetchAndStore,
   startFetchAndStore,
   takeFetchAndStoreResult,
   type ActivitySportMapping,
@@ -29,7 +30,7 @@ import { awaitTilePass } from '@/features/routes/lib/tilePass';
 import { debug } from '@/shared/debug/debug';
 import { followDetection, type DetectionEngine } from '@/features/routes/lib/detectionRun';
 import { fetchWithRetry, type FetchPass } from '@/features/routes/lib/gpsFetchRetry';
-import { pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
+import { abandonDownload, pollDownloadProgress } from '@/features/routes/lib/gpsDownloadPoll';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -486,6 +487,11 @@ export function useGpsDataFetcher() {
         if (outcome === 'stalled') {
           console.warn('[fetchApiGps] The download stopped reporting progress, giving up on it');
         }
+        // Giving up on the poll is not giving up on the download: the fetch
+        // thread runs to its end on its own. Tell it to stop. Called rather
+        // than passed by name, so the binding is invoked where it is read and
+        // the reachability guard can see a call site.
+        abandonDownload(outcome, () => cancelFetchAndStore());
 
         // Get result (just IDs - no GPS data transfer!)
         const passResult = takeFetchAndStoreResult(run);

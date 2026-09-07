@@ -155,17 +155,30 @@ impl ResumeGuard {
 
 /// The ladder itself, with everything it waits on handed in.
 ///
-/// `sleep` returns false to end the climb, which is how a test stops it and how
-/// nothing stops it in production. Split out so the schedule can be exercised
-/// without spending an evening on it, the same way `drain_queue_with` splits
-/// the fetch out of the walk. A sleep that ends early still counts as a rung
-/// climbed, so an online edge shortens the wait it lands in without resetting
-/// the ladder, and a flapping connection cannot hold it at its first rung.
+/// Split out so the schedule can be exercised without spending an evening on
+/// it, the same way `drain_queue_with` splits the fetch out of the walk. A
+/// sleep that ends early still counts as a rung climbed, so an online edge
+/// shortens the wait it lands in without resetting the ladder, and a flapping
+/// connection cannot hold it at its first rung.
+///
+/// **This is the one background loop in the crate with no external cancel, and
+/// that is deliberate.** Every other one is either bounded, like both slot
+/// drivers through `wait_on_slot`, or cooperatively stopped. This ends on two
+/// conditions and neither is a caller: the queue reading empty, which is the
+/// job finished for good, and a pause, which lays a fresh ladder on resume. A
+/// cancel would need a terminal state distinguishable from those two, and the
+/// climb it would stop costs one sleeping thread waking at most every half
+/// hour, so there is nothing for a caller to gain by stopping it.
+///
+/// `sleep` returning false ends the climb, which is how a test stops it and
+/// nothing else. `elevation_resume_ladder.rs` pins all of this, the absence
+/// included.
 pub fn resume_ladder(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
     mut offline: impl FnMut() -> bool,
     mut paused: impl FnMut() -> bool,
+    mut engine_gone: impl FnMut() -> bool,
     mut attempt: impl FnMut(),
 ) {
     let mut attempts = 0usize;
@@ -177,6 +190,15 @@ pub fn resume_ladder(
         // Zero is the one answer that ends the ladder for good. A queue that
         // cannot be read is not an empty one, so it climbs and asks again.
         if remaining() == Some(0) {
+            return;
+        }
+        // A destroyed engine reads as an unreadable queue and so climbed for the
+        // life of the process, waking twice an hour against a handle that was
+        // gone. Asked separately because that is the only way to tell it from a
+        // read that failed for a moment, and a moment must end nothing. A
+        // restore re-arms the ladder itself and a clear empties the queue, so
+        // neither path needs this climb to survive the engine it works for.
+        if engine_gone() {
             return;
         }
         // A paused install climbed this ladder for ever, calling a `start_pass`
@@ -196,8 +218,8 @@ pub fn resume_ladder(
 }
 
 /// What a production rung waits on: its own clock, or the connection coming
-/// back, whichever is first. Always climbs, since nothing stops the ladder in
-/// production but an empty queue.
+/// back, whichever is first. Always climbs, since in production the ladder
+/// ends on the queue or the pause and never on the sleep.
 pub fn resume_sleep(wait: Duration) -> bool {
     crate::net::connectivity::sleep_or_online_edge(wait);
     true
@@ -216,6 +238,19 @@ fn spawn_resume_ladder(
 }
 
 /// Put a ladder behind the pass, unless one is already climbing.
+/// Whether the engine this ladder works for is still installed.
+///
+/// A read of the queue answers `None` for a destroyed engine and for a read
+/// that failed, and the ladder must end on the first and never on the second.
+/// This is the cheap, unambiguous half: no lock is taken for long and there is
+/// no query behind it.
+fn engine_gone() -> bool {
+    crate::persistence::PERSISTENT_ENGINE
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_none()
+}
+
 fn arm_resume_ladder() {
     spawn_resume_ladder(|| {
         resume_ladder(
@@ -226,6 +261,7 @@ fn arm_resume_ladder() {
             },
             crate::net::connectivity::is_offline,
             elevation_backfill_paused,
+            engine_gone,
             || {
                 start_pass();
             },
@@ -1118,6 +1154,11 @@ fn terminal_cut() -> bool {
         // either way something else is doing the cold detect this pass would
         // have started, so starting a second one duplicates it.
         Ok(CutoverOutcome::NotOwed) => false,
+        // The athlete stopped it. The migration is still owed and the next
+        // launch runs it again, so this pass starts nothing of its own: a
+        // final detect here would rebuild the catalogue the cancel was asking
+        // the app to stop rebuilding.
+        Ok(CutoverOutcome::Cancelled) => false,
         Err(e) => {
             log::warn!("[Elevation] cutover handover failed: {}", e);
             false
@@ -1826,6 +1867,7 @@ mod tests {
                     resume_sleep(d)
                 },
                 &remaining,
+                || false,
                 || false,
                 || false,
                 || {

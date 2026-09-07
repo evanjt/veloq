@@ -93,7 +93,6 @@ export function generatePeriodComparisonInsights(
   const periodMeta = {
     sourceTimestamp: now,
     comparisonKind: 'self' as const,
-    specificity: { hasNumber: true, hasPlace: false, hasDate: true },
   };
 
   const insights: Insight[] = [];
@@ -174,7 +173,6 @@ function generateLastWeekVsAverageInsight(
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
       },
       supportingData: {
         comparisonData: {

@@ -32,10 +32,15 @@ export function generateSectionTrendInsights(
 ): Insight[] {
   if (!sectionTrends || sectionTrends.length === 0) return [];
 
-  const minTraversals = INSIGHTS_CONFIG.repetition.section_trend_min;
+  // The floor is the direction's, not the category's: a decline says the
+  // athlete got worse and has to stand on more than an improvement does.
+  const floorFor = (trend: number) =>
+    trend < 0
+      ? INSIGHTS_CONFIG.repetition.section_trend_declining_min
+      : INSIGHTS_CONFIG.repetition.section_trend_min;
   const maxAgeDays = maxAgeDaysFor('section_trend');
   const eligible = sectionTrends.filter((s) => {
-    if (s.traversalCount < minTraversals) return false;
+    if (s.traversalCount < floorFor(s.trend)) return false;
     if (s.trend === 0) return false;
     // Recency: keep sections of unknown age (no daysSinceLast) and those
     // within the active window; drop stale ones.
@@ -102,11 +107,9 @@ export function generateSectionTrendInsights(
           sourceTimestamp,
           comparisonKind: 'self',
           repetitionCount: section.traversalCount,
-          specificity: {
-            hasNumber: Number.isFinite(section.medianRecentSecs),
-            hasPlace: Boolean(section.sectionName),
-            hasDate: sourceTimestamp != null,
-          },
+          placeName: section.sectionName,
+          sectionId: section.sectionId,
+          ranking: section.ranking,
         },
         supportingData: {
           sections: [

@@ -474,3 +474,68 @@ fn the_probe_reports_the_version_a_fresh_database_gets() {
         Some(stamped.to_string().as_str())
     );
 }
+
+/// Scenario: a library is quarantined and replaced. Init then reports success,
+/// so the athlete opens the app to an empty library with no message and a sync
+/// that starts from scratch, and the only record is a `log::warn` nobody reads.
+///
+/// Expected behaviour: the engine says a quarantine happened and how much came
+/// across, once. What the athlete is shown for it is a separate decision and
+/// is not this test's business.
+#[test]
+fn a_quarantine_is_readable_once_with_what_it_salvaged() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("told.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+    let line: Vec<GpsPoint> = (0..20)
+        .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0005, 7.0))
+        .collect();
+    {
+        let mut engine = PersistentEngine::new(&db_str).unwrap();
+        engine
+            .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
+            .unwrap();
+        let v1 = engine
+            .record_section_geometry("sec_told", &line, true, Some(("act_1", 3, 22)))
+            .unwrap();
+        engine
+            .append_section_history("sec_told", "formed", None, Some(v1))
+            .unwrap();
+        assert!(engine.pin_section_geometry("sec_told", v1).unwrap());
+    }
+
+    veloqrs::take_quarantine_report();
+    corrupt_activities_pages(&db_path, &db_str);
+    let recovered = (0..20).any(|attempt| {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        persistent_engine_init(db_str.clone())
+    });
+    assert!(recovered, "init must quarantine and start fresh");
+
+    let report = veloqrs::take_quarantine_report().expect("the quarantine is reported");
+    assert_eq!(report.history, 1);
+    assert_eq!(report.geometry, 1);
+    assert_eq!(report.pins, 1);
+
+    assert!(
+        veloqrs::take_quarantine_report().is_none(),
+        "a one-time notice is read once, so a second read has nothing"
+    );
+}
+
+/// An init that opens the file it was given has nothing to report, so a launch
+/// on a healthy library never shows the notice.
+#[test]
+fn a_clean_open_reports_no_quarantine() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_str = tmp.path().join("healthy.db").to_string_lossy().into_owned();
+
+    veloqrs::take_quarantine_report();
+    assert!(persistent_engine_init(db_str));
+
+    assert!(veloqrs::take_quarantine_report().is_none());
+}

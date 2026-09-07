@@ -87,6 +87,52 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
+ * Ask the running cutover to stop at its next step boundary.
+ *
+ * The cut is a cold detect over the whole library, spawned unattended at
+ * launch, and the only lever before this was a force-quit, which the
+ * in-flight token undid on the next launch anyway. Stopping costs the run's
+ * work and nothing else: the migration is still owed and the next launch runs
+ * it again from the top.
+ */
+export function cancelDetectorCutover(): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
+  );
+}
+/**
+ * Get current download progress for FFI polling.
+ *
+ * TypeScript should poll this every 100ms during fetch operations
+ * to get smooth progress updates without cross-thread callback issues.
+ *
+ * Returns DownloadProgressResult with completed/total/active fields.
+ * When active is false, the download has completed (or never started).
+ * Ask the running fetch-and-store to stop. Returns whether there was one.
+ *
+ * Cooperative and scoped to the run: the loop checks between activities, so
+ * the one in flight finishes and lands, and the attach tail still runs over
+ * whatever did. The flag is cleared by the reset every run makes, so a cancel
+ * cannot outlive the download it was aimed at.
+ */
+export function cancelFetchAndStore(): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Which claims the change card may make on this build.
  */
 export function getChangeCardSupport(): FfiChangeCardSupport {
@@ -131,15 +177,6 @@ export function getCutoverProgress(): CutoverProgress {
     ),
   );
 }
-/**
- * Get current download progress for FFI polling.
- *
- * TypeScript should poll this every 100ms during fetch operations
- * to get smooth progress updates without cross-thread callback issues.
- *
- * Returns DownloadProgressResult with completed/total/active fields.
- * When active is false, the download has completed (or never started).
- */
 export function getDownloadProgress(): DownloadProgressResult {
   return FfiConverterTypeDownloadProgressResult.lift(
     uniffiCaller.rustCall(
@@ -428,6 +465,25 @@ export function validateBackupDatabase(path: string): string /*throws*/ {
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
           FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
+ * The quarantine this launch did, if there was one, and never twice.
+ *
+ * Taken rather than read: what it feeds is a one-time notice, and a notice
+ * that survives its own dismissal is the shape a banner takes when it outlives
+ * the resync. A launch that opened the file it was given answers `None`.
+ */
+export function takeQuarantineReport(): FfiQuarantineReport | undefined {
+  return FfiConverterOptionalTypeFfiQuarantineReport.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_take_quarantine_report(
           callStatus,
         );
       },
@@ -780,6 +836,63 @@ const FfiConverterTypeDerivedClear = (() => {
     }
     allocationSize(value: TypeName): number {
       return (
+        FfiConverterUInt32.allocationSize(value.sectionsRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesRemoved) +
+        FfiConverterUInt32.allocationSize(value.activitiesKept)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a running or finished clear-cache wipe removed. The counts are only
+ * meaningful once `state` reads "complete".
+ */
+export type DerivedClearPoll = {
+  state: string;
+  sectionsRemoved: /*u32*/ number;
+  activitiesRemoved: /*u32*/ number;
+  activitiesKept: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link DerivedClearPoll} record objects.
+ */
+export const DerivedClearPoll = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<DerivedClearPoll, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<DerivedClearPoll>,
+  });
+})();
+
+const FfiConverterTypeDerivedClearPoll = (() => {
+  type TypeName = DerivedClearPoll;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        sectionsRemoved: FfiConverterUInt32.read(from),
+        activitiesRemoved: FfiConverterUInt32.read(from),
+        activitiesKept: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt32.write(value.sectionsRemoved, into);
+      FfiConverterUInt32.write(value.activitiesRemoved, into);
+      FfiConverterUInt32.write(value.activitiesKept, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
         FfiConverterUInt32.allocationSize(value.sectionsRemoved) +
         FfiConverterUInt32.allocationSize(value.activitiesRemoved) +
         FfiConverterUInt32.allocationSize(value.activitiesKept)
@@ -5005,6 +5118,85 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
       return (
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One quarantine, and what came out of the file it replaced.
+ *
+ * Every count is a row a rebuild cannot re-derive. The catalogue is not here
+ * because it is a cache the next sync refills, which is the whole reason a
+ * quarantine is safe.
+ */
+export type FfiQuarantineReport = {
+  /**
+   * Section lifecycle events carried over.
+   */
+  history: /*u32*/ number;
+  /**
+   * Section geometry versions carried over.
+   */
+  geometry: /*u32*/ number;
+  /**
+   * Pinned geometry versions carried over.
+   */
+  pins: /*u32*/ number;
+  /**
+   * User-owned sections: drawn, accepted, renamed, trimmed.
+   */
+  sections: /*u32*/ number;
+  /**
+   * Suppressions, whose contract is that a removed corridor stays removed.
+   */
+  intents: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiQuarantineReport} record objects.
+ */
+export const FfiQuarantineReport = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiQuarantineReport, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiQuarantineReport>,
+  });
+})();
+
+const FfiConverterTypeFfiQuarantineReport = (() => {
+  type TypeName = FfiQuarantineReport;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        history: FfiConverterUInt32.read(from),
+        geometry: FfiConverterUInt32.read(from),
+        pins: FfiConverterUInt32.read(from),
+        sections: FfiConverterUInt32.read(from),
+        intents: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.history, into);
+      FfiConverterUInt32.write(value.geometry, into);
+      FfiConverterUInt32.write(value.pins, into);
+      FfiConverterUInt32.write(value.sections, into);
+      FfiConverterUInt32.write(value.intents, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.history) +
+        FfiConverterUInt32.allocationSize(value.geometry) +
+        FfiConverterUInt32.allocationSize(value.pins) +
+        FfiConverterUInt32.allocationSize(value.sections) +
+        FfiConverterUInt32.allocationSize(value.intents)
       );
     }
   }
@@ -17614,7 +17806,7 @@ export interface StrengthManagerLike {
    * caller is the sync path on the JS thread, and this loop is one blocking
    * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): boolean;
+  batchFetchExerciseSets(activityIds: Array<string>): FfiStartOutcome;
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network or FIT-file pipeline. Demo mode uses this to seed synthetic
@@ -17636,7 +17828,7 @@ export interface StrengthManagerLike {
    * took. The sets land in SQLite and are read back through
    * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(activityId: string): boolean;
+  fetchAndParseExerciseSets(activityId: string): FfiStartOutcome;
   /**
    * Get activities for a specific exercise filtered by muscle group.
    * Returns activities sorted by date descending with per-activity stats.
@@ -17753,8 +17945,8 @@ export class StrengthManager
    * caller is the sync path on the JS thread, and this loop is one blocking
    * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): boolean {
-    return FfiConverterBool.lift(
+  batchFetchExerciseSets(activityIds: Array<string>): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
@@ -17805,8 +17997,8 @@ export class StrengthManager
    * took. The sets land in SQLite and are read back through
    * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  fetchAndParseExerciseSets(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
@@ -18251,21 +18443,21 @@ export interface SyncManagerLike {
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
    */
-  syncActivityDetail(activityId: string): boolean;
+  syncActivityDetail(activityId: string): FfiStartOutcome;
   /**
    * Fetch and store an activity's work/recovery intervals.
    */
-  syncActivityIntervals(activityId: string): boolean;
+  syncActivityIntervals(activityId: string): FfiStartOutcome;
   /**
    * Fetch and store an activity's streams for a series selection. The
    * types string is the cache key, so callers must pass it consistently.
    */
-  syncActivityStreams(activityId: string, types: string): boolean;
+  syncActivityStreams(activityId: string, types: string): FfiStartOutcome;
   /**
    * Fetch and store the calendar events in a date window, replacing what
    * was there so an event cancelled upstream disappears here too.
    */
-  syncCalendarEvents(oldest: string, newest: string): boolean;
+  syncCalendarEvents(oldest: string, newest: string): FfiStartOutcome;
   /**
    * Start a sync. Returns instantly, naming whether the job started and, if
    * not, whether asking again later would. Work runs on the shared runtime;
@@ -18276,18 +18468,22 @@ export interface SyncManagerLike {
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
    */
-  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean;
+  syncPaceCurve(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ): FfiStartOutcome;
   /**
    * Fetch and store a power curve for a sport and window. Returns false if
    * the same curve is already being fetched or no credentials are set.
    */
-  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean;
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome;
   /**
    * Fetch and store the `time` streams the section-performance maths needs.
    * Activities that already have one are skipped, so a repeat call over the
    * same list costs nothing.
    */
-  syncTimeStreams(activityIds: Array<string>): boolean;
+  syncTimeStreams(activityIds: Array<string>): FfiStartOutcome;
   /**
    * Upload a recorded activity file.
    *
@@ -18556,8 +18752,8 @@ export class SyncManager
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
    */
-  syncActivityDetail(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityDetail(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
@@ -18574,8 +18770,8 @@ export class SyncManager
   /**
    * Fetch and store an activity's work/recovery intervals.
    */
-  syncActivityIntervals(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityIntervals(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
@@ -18593,8 +18789,8 @@ export class SyncManager
    * Fetch and store an activity's streams for a series selection. The
    * types string is the cache key, so callers must pass it consistently.
    */
-  syncActivityStreams(activityId: string, types: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityStreams(activityId: string, types: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
@@ -18613,8 +18809,8 @@ export class SyncManager
    * Fetch and store the calendar events in a date window, replacing what
    * was there so an event cancelled upstream disappears here too.
    */
-  syncCalendarEvents(oldest: string, newest: string): boolean {
-    return FfiConverterBool.lift(
+  syncCalendarEvents(oldest: string, newest: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
@@ -18655,8 +18851,12 @@ export class SyncManager
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
    */
-  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean {
-    return FfiConverterBool.lift(
+  syncPaceCurve(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
@@ -18676,8 +18876,8 @@ export class SyncManager
    * Fetch and store a power curve for a sport and window. Returns false if
    * the same curve is already being fetched or no credentials are set.
    */
-  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean {
-    return FfiConverterBool.lift(
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
@@ -18697,8 +18897,8 @@ export class SyncManager
    * Activities that already have one are skipped, so a repeat call over the
    * same list costs nothing.
    */
-  syncTimeStreams(activityIds: Array<string>): boolean {
-    return FfiConverterBool.lift(
+  syncTimeStreams(activityIds: Array<string>): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
@@ -18949,6 +19149,15 @@ export interface VeloqEngineLike {
    */
   pollBulkExport() /*throws*/ : BulkExportPoll;
   /**
+   * Poll the running whole-database wipe: "idle" | "running" | "complete".
+   */
+  pollClearAll() /*throws*/ : string;
+  /**
+   * Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+   * what went once it is complete. Either terminal outcome frees the slot.
+   */
+  pollClearDerived() /*throws*/ : DerivedClearPoll;
+  /**
    * Poll the running wipe: "idle" | "running" | "complete". A failed or
    * panicking wipe is an error, and either outcome clears the slot so the
    * next toggle can start one.
@@ -18977,6 +19186,17 @@ export interface VeloqEngineLike {
    * thread nor the engine's write lock waits for it.
    */
   startBulkExport(format: BulkExportFormat, destPath: string) /*throws*/ : void;
+  /**
+   * Start the whole-database wipe on a Rust thread. Refuses while one runs.
+   *
+   * The caller re-opens the engine once this completes, so the poll is what
+   * keeps the re-open ordered after the wipe rather than racing it.
+   */
+  startClearAll() /*throws*/ : void;
+  /**
+   * Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+   */
+  startClearDerived() /*throws*/ : void;
   /**
    * Start the route/section wipe on a background thread. Poll
    * `poll_clear_routes_and_sections` for the outcome.
@@ -19338,6 +19558,47 @@ export class VeloqEngine
   }
 
   /**
+   * Poll the running whole-database wipe: "idle" | "running" | "complete".
+   */
+  pollClearAll(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_all(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Poll the running clear-cache wipe: "idle" | "running" | "complete", and
+   * what went once it is complete. Either terminal outcome frees the slot.
+   */
+  pollClearDerived(): DerivedClearPoll /*throws*/ {
+    return FfiConverterTypeDerivedClearPoll.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_derived(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Poll the running wipe: "idle" | "running" | "complete". A failed or
    * panicking wipe is an error, and either outcome clears the slot so the
    * next toggle can start one.
@@ -19483,6 +19744,45 @@ export class VeloqEngine
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterTypeBulkExportFormat.lower(format),
           FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the whole-database wipe on a Rust thread. Refuses while one runs.
+   *
+   * The caller re-opens the engine once this completes, so the poll is what
+   * keeps the re-open ordered after the wipe rather than racing it.
+   */
+  startClearAll(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_all(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the clear-cache wipe on a Rust thread. Refuses while one runs.
+   */
+  startClearDerived(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_derived(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
       },
@@ -19699,6 +19999,11 @@ const FfiConverterOptionalTypeFfiEfficiencyTrend = new FfiConverterOptional(
 // FfiConverter for FfiHrvTrend | undefined
 const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
   FfiConverterTypeFfiHrvTrend,
+);
+
+// FfiConverter for FfiQuarantineReport | undefined
+const FfiConverterOptionalTypeFfiQuarantineReport = new FfiConverterOptional(
+  FfiConverterTypeFfiQuarantineReport,
 );
 
 // FfiConverter for FfiRecordingEntry | undefined
@@ -20119,6 +20424,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover() !==
+    38367
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_cancel_detector_cutover",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store() !==
+    25572
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_cancel_fetch_and_store",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
     55123
   ) {
@@ -20144,7 +20465,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_download_progress() !==
-    60736
+    59677
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_download_progress",
@@ -20260,6 +20581,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_validate_backup_database",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_take_quarantine_report() !==
+    394
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_take_quarantine_report",
     );
   }
   if (
@@ -20727,6 +21056,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_all() !==
+    44497
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_all",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_derived() !==
+    29497
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_derived",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections() !==
     43406
   ) {
@@ -20796,6 +21141,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_start_bulk_export",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_all() !==
+    37815
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_all",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_derived() !==
+    39205
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_derived",
     );
   }
   if (
@@ -22032,7 +22393,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
-    57349
+    65029
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
@@ -22048,7 +22409,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    1736
+    54066
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
@@ -22208,7 +22569,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail() !==
-    9245
+    10193
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail",
@@ -22216,7 +22577,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals() !==
-    1542
+    13849
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals",
@@ -22224,7 +22585,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams() !==
-    63568
+    51084
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams",
@@ -22232,7 +22593,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events() !==
-    3539
+    27274
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events",
@@ -22248,7 +22609,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve() !==
-    23002
+    20342
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve",
@@ -22256,7 +22617,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !==
-    11625
+    17156
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",
@@ -22264,7 +22625,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams() !==
-    13380
+    14233
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
@@ -22470,6 +22831,7 @@ export default Object.freeze({
     FfiConverterTypeBulkExportResult,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,
+    FfiConverterTypeDerivedClearPoll,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeElevationBackfillProgress,
@@ -22529,6 +22891,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPeriodStats,
     FfiConverterTypeFfiPreviewCentre,
     FfiConverterTypeFfiPreviewTrack,
+    FfiConverterTypeFfiQuarantineReport,
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,

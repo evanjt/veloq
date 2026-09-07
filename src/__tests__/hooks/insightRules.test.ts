@@ -212,28 +212,24 @@ describe('rules.passesValence (G4)', () => {
 });
 
 describe('rules.specificityScore (R5)', () => {
-  it('awards all3 bonus when all three tags set', () => {
+  it('awards all3 bonus when the copy carries a number, a place and a past moment', () => {
     const insight = makeInsight({
-      meta: { specificity: { hasNumber: true, hasPlace: true, hasDate: true } },
+      title: 'Sunday Climb 6s faster',
+      meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW - 3 * DAY_MS },
     });
     expect(specificityScore(insight)).toBe(10);
   });
 
   it('awards any2 bonus for partial specificity', () => {
     const insight = makeInsight({
-      meta: {
-        specificity: { hasNumber: true, hasPlace: true, hasDate: false },
-      },
+      title: 'Sunday Climb 6s faster',
+      meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW },
     });
     expect(specificityScore(insight)).toBe(5);
   });
 
-  it('returns 0 when no tags set', () => {
-    const insight = makeInsight({
-      meta: {
-        specificity: { hasNumber: false, hasPlace: false, hasDate: false },
-      },
-    });
+  it('returns 0 when the copy carries none of them', () => {
+    const insight = makeInsight({ title: 'Keep going', meta: {} });
     expect(specificityScore(insight)).toBe(0);
   });
 
@@ -281,8 +277,10 @@ describe('rules.scoreInsight', () => {
       category: 'section_pr',
       priority: 1,
       confidence: 1,
+      title: 'Sunday Climb 6s faster',
       meta: {
-        specificity: { hasNumber: true, hasPlace: true, hasDate: true },
+        placeName: 'Sunday Climb',
+        sourceTimestamp: NOW - 3 * DAY_MS,
         comparisonKind: 'self',
         signalDelta: 1.0,
       },
@@ -311,6 +309,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     breakdown: {
       base: 0,
       confidence: 0,
+      ranking: 0,
       category: 0,
       specificity: 0,
       temporalSelf: 0,
@@ -387,6 +386,52 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     ];
     const { kept } = applyMixAndCap(scored);
     expect(kept.map((i) => i.id)).toEqual(['high', 'mid', 'low']);
+  });
+});
+
+/**
+ * Scenario: a decline and an improvement stand on the same three traversals
+ * inside 28 days, which is as likely to be weather, traffic or one tired day
+ * as a real loss of fitness. The decline is the one that tells the athlete
+ * they got worse, during the bad patch that produced it.
+ *
+ * Expected behaviour: the declining branch earns more evidence than the
+ * improving one before it may speak, and the improving branch is untouched.
+ */
+describe('the evidence a declining section trend has to stand on', () => {
+  const improvingFloor = INSIGHTS_CONFIG.repetition.section_trend_min;
+  const decliningFloor = INSIGHTS_CONFIG.repetition.section_trend_declining_min;
+
+  it('asks more of a decline than of an improvement', () => {
+    expect(decliningFloor).toBeGreaterThan(improvingFloor);
+  });
+
+  it('says nothing about a decline under its own floor', () => {
+    const thin = sectionTrend('thin', 2, decliningFloor - 1, -1);
+
+    expect(generateSectionTrendInsights([thin], new Set(), NOW, mockT)).toHaveLength(0);
+  });
+
+  it('speaks once the decline reaches it', () => {
+    const earned = sectionTrend('earned', 2, decliningFloor, -1);
+    const result = generateSectionTrendInsights([earned], new Set(), NOW, mockT);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('section_trend-earned');
+  });
+
+  it('leaves the improving branch on its own floor, which is the regression', () => {
+    const improving = sectionTrend('rising', 2, improvingFloor, 1);
+    const belowImproving = sectionTrend('short', 2, improvingFloor - 1, 1);
+
+    expect(generateSectionTrendInsights([improving], new Set(), NOW, mockT)).toHaveLength(1);
+    expect(generateSectionTrendInsights([belowImproving], new Set(), NOW, mockT)).toHaveLength(0);
+  });
+
+  it('holds an improvement at the declining floor too, so the change is one-sided', () => {
+    const improving = sectionTrend('rising', 2, decliningFloor, 1);
+
+    expect(generateSectionTrendInsights([improving], new Set(), NOW, mockT)).toHaveLength(1);
   });
 });
 
