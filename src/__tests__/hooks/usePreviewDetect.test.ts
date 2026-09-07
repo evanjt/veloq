@@ -429,4 +429,94 @@ describe('usePreviewDetect', () => {
     fireFinished();
     expect(result.current.status).toBe('idle');
   });
+
+  it('keeps the finished diff on screen while the next run computes', () => {
+    const client = makeClient({
+      pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
+      takePreviewResult: jest.fn(() => RESULT),
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+    expect(result.current.result).toEqual(RESULT);
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+
+    expect(result.current.status).toBe('running');
+    expect(result.current.result).toEqual(RESULT);
+  });
+
+  it('swaps the held result for the new one when the run settles', () => {
+    const second: PreviewResult = { ...RESULT, elapsedMs: 999 };
+    const takePreviewResult = jest.fn(() => RESULT);
+    const client = makeClient({
+      pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
+      takePreviewResult,
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+
+    takePreviewResult.mockReturnValue(second);
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+
+    expect(result.current.result).toEqual(second);
+  });
+
+  it('leaves the last diff standing when a run is cancelled', () => {
+    const client = makeClient({
+      pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
+      takePreviewResult: jest.fn(() => RESULT),
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    act(() => {
+      result.current.cancel();
+    });
+
+    expect(result.current.status).toBe('cancelled');
+    expect(result.current.result).toEqual(RESULT);
+  });
+
+  it('leaves the last diff standing when a run fails', () => {
+    const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
+    const client = makeClient({
+      takePreviewResult: jest.fn(() => RESULT),
+      pollPreviewDetect,
+    });
+    const { result } = renderHook(() => usePreviewDetect(client));
+
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+
+    pollPreviewDetect.mockReturnValue('error');
+    act(() => {
+      result.current.start(10, 20, PARAMS);
+    });
+    fireFinished();
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.result).toEqual(RESULT);
+  });
 });
