@@ -18,7 +18,9 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   initWithPath: jest.fn(() => true),
   enableHeatmapTiles: jest.fn(),
-  clearDerivedData: jest.fn(() => ({
+  startClearDerived: jest.fn(),
+  pollClearDerived: jest.fn(() => ({
+    state: 'complete',
     sectionsRemoved: 0,
     activitiesRemoved: 0,
     activitiesKept: 0,

@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
-import { runCatalogueClear } from '@/features/routes/lib/runCatalogueClear';
+import { runCatalogueClear } from '@/shared/native/engineClears';
 
 const log = debug.create('RouteSettings');
 

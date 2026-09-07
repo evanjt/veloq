@@ -203,7 +203,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
   // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
   const engine = getEngine();
-  if (engine) engine.clear();
+  if (engine) await engine.clear();
 
   await Promise.all([
     clearAllGpsTracks(),

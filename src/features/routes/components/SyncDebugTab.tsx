@@ -220,9 +220,10 @@ export function SyncDebugTab() {
           text: 'Clear & Re-sync',
           style: 'destructive',
           onPress: () => {
-            engine.clear();
-            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-            Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
+            void engine.clear().then(() => {
+              queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+              Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
+            });
           },
         },
       ]
