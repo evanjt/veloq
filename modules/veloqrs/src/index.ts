@@ -95,6 +95,7 @@ export { isRetryableStart, hasStarted } from './delegates/start';
 // Why the engine did not open, for the banner to translate. See
 // `delegates/init.ts`.
 export { FfiInitOutcome as InitOutcome } from './generated/veloqrs';
+export type { FfiQuarantineReport as QuarantineReport } from './generated/veloqrs';
 export { isRetryableInit, hasOpened } from './delegates/init';
 
 // Elevation backfill consumer types
