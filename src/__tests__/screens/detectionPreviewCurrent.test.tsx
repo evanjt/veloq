@@ -109,6 +109,7 @@ jest.mock('@/features/routes/components', () => {
     PreviewCentrePicker: () => null,
     PreviewParamPanel: () => null,
     PreviewDiffStrip: () => null,
+    PreviewRunCost: () => null,
     PreviewSectionPopover: () => null,
     PreviewMapView: ({
       currentSections,
