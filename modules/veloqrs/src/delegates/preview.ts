@@ -9,7 +9,11 @@
  */
 
 import { SectionPreview } from '../generated/veloqrs';
-import type { FfiSectionConfig, SectionPreviewLike } from '../generated/veloqrs';
+import type {
+  FfiSectionConfig,
+  FfiStartOutcome,
+  SectionPreviewLike,
+} from '../generated/veloqrs';
 import type { SectionDetectionProgress } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -98,7 +102,7 @@ export interface PreviewClient {
   cancelPreviewDetect(): void;
   getSectionConfig(): FfiSectionConfig | null;
   setSectionConfig(config: FfiSectionConfig): void;
-  forceRedetectSections(): boolean;
+  forceRedetectSections(): FfiStartOutcome;
 }
 
 interface RawPreviewSection {

@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Exportación completada",
     "bulkExport": "Exportar todas las actividades ({{count}})",
-    "bulkExporting": "Generando GPX {{current}}/{{total}}...",
+    "bulkExporting": "Generando GPX...",
     "bulkResult": "{{exported}} archivos GPX exportados, {{skipped}} actividades sin GPS omitidas.",
     "bulkSharing": "Abriendo hoja para compartir...",
     "error": "Error al exportar el archivo GPX.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Acerca de las perspectivas",
     "aboutBody": "Las métricas de entrenamiento son estimaciones basadas en modelos de ciencia del ejercicio publicados. Las respuestas individuales varían significativamente. Estas perspectivas son solo informativas, no son consejo médico ni de entrenamiento.",
+    "aboutRanking": "Las tarjetas se ordenan segun lo mucho que tengan que decir: como de reciente es, cuanto se sale de lo habitual en ti, cuanto ha cambiado y con que frecuencia lo haces. No por si la noticia es buena.",
     "efficiencyTrend": {
       "seriesLabel": "Frecuencia cardiaca por unidad de ritmo, del intento más antiguo al más reciente",
       "title": "FC bajando en {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Más visitadas",
     "sortNameAZ": "Nombre A-Z",
     "sortNearby": "Cercanos",
-    "sortSignature": "Firma",
+    "sortRelevance": "Relevancia",
     "standingBest": "Tu más rápido de {{total}}",
     "standingRank": "Puesto {{rank}} de {{total}}, {{gap}} de tu mejor marca",
     "standingRankPercentile": "Puesto {{rank}} de {{total}}, más rápido que el {{percent}} % de ellos, {{gap}} de tu mejor marca",
@@ -1288,6 +1289,7 @@
     "previewRun": "Vista previa",
     "previewRunning": "Analizando {{count}} actividades en esta zona",
     "previewFailed": "La vista previa no pudo completarse.",
+    "previewSlow": "Está tardando más de lo habitual. Sigue en marcha.",
     "previewPoolUnusable": "Algunos de tus registros de actividad no se pueden leer, por lo que la vista previa se detuvo.",
     "previewCurrentFailed": "No se han podido leer los tramos actuales de esta zona.",
     "previewSuspended": "Actualización de altitud en curso. Inténtalo de nuevo en breve.",

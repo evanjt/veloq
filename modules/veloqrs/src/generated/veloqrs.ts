@@ -261,19 +261,17 @@ export function isElevationBackfillPaused(): boolean {
  *
  * The pass in flight ends at its next batch and reports `paused`, and no
  * launch or resume attempt starts another until the app is reopened. Nothing
- * is persisted, so a forgotten pause can never strand the migration. Returns
- * whether a pass was running when the pause landed.
+ * is persisted, so a forgotten pause can never strand the migration. The phase
+ * is what says it is paused, so there is nothing to return.
  */
-export function pauseElevationBackfill(): boolean {
-  return FfiConverterBool.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift,
-    ),
+export function pauseElevationBackfill(): void {
+  uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      nativeModule().ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift,
   );
 }
 /**
@@ -9937,6 +9935,98 @@ const FfiConverterTypeFfiCallKind = (() => {
 })();
 
 /**
+ * Why a start was refused, or that it was not refused at all.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiStartOutcome {
+  /**
+   * The job is running.
+   */
+  Started = 1,
+  /**
+   * Something else holds the exclusive slot. Asking again once it frees
+   * starts the job unchanged.
+   */
+  Busy = 2,
+  /**
+   * A stage that does finish holds the work back: an elevation backfill
+   * mid-flight, or a detector cutover still owed.
+   */
+  Held = 3,
+  /**
+   * The engine is not open yet. Nothing is wrong, the caller is early.
+   */
+  NotReady = 4,
+  /**
+   * There is no credential, so no amount of waiting helps. The athlete has
+   * to sign in first.
+   */
+  NotConfigured = 5,
+  /**
+   * There is no work to do. Refusing is the correct answer and will stay
+   * the correct answer.
+   */
+  NotOwed = 6,
+  /**
+   * The start threw rather than refusing. Rust never answers with this: it
+   * is the verdict TypeScript records when the FFI call itself fails, so a
+   * caught error is still a reason and not another bare `false`.
+   */
+  Failed = 7,
+}
+
+const FfiConverterTypeFfiStartOutcome = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = FfiStartOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return FfiStartOutcome.Started;
+        case 2:
+          return FfiStartOutcome.Busy;
+        case 3:
+          return FfiStartOutcome.Held;
+        case 4:
+          return FfiStartOutcome.NotReady;
+        case 5:
+          return FfiStartOutcome.NotConfigured;
+        case 6:
+          return FfiStartOutcome.NotOwed;
+        case 7:
+          return FfiStartOutcome.Failed;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value) {
+        case FfiStartOutcome.Started:
+          return ordinalConverter.write(1, into);
+        case FfiStartOutcome.Busy:
+          return ordinalConverter.write(2, into);
+        case FfiStartOutcome.Held:
+          return ordinalConverter.write(3, into);
+        case FfiStartOutcome.NotReady:
+          return ordinalConverter.write(4, into);
+        case FfiStartOutcome.NotConfigured:
+          return ordinalConverter.write(5, into);
+        case FfiStartOutcome.NotOwed:
+          return ordinalConverter.write(6, into);
+        case FfiStartOutcome.Failed:
+          return ordinalConverter.write(7, into);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return ordinalConverter.allocationSize(0);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Why the last sync failed, as the kind the banner branches on.
  *
  * The message beside it stays, because it carries the detail a bug report
@@ -11577,9 +11667,9 @@ export interface DetectionManagerLike {
   /**
    * Force full re-detection by clearing processed activity IDs first.
    * This ensures all activities are re-evaluated against sections.
-   * Returns false if detection is already running.
+   * Refuses, and says why, if detection is suspended or already running.
    */
-  forceRedetect() /*throws*/ : boolean;
+  forceRedetect() /*throws*/ : FfiStartOutcome;
   getConfig() /*throws*/ : FfiSectionConfig;
   getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
@@ -11599,7 +11689,7 @@ export interface DetectionManagerLike {
     minMatchPct: /*f64*/ number,
     endpointThreshold: /*f64*/ number,
   ) /*throws*/ : void;
-  start() /*throws*/ : boolean;
+  start() /*throws*/ : FfiStartOutcome;
 }
 /**
  * @deprecated Use `DetectionManagerLike` instead.
@@ -11631,10 +11721,10 @@ export class DetectionManager
   /**
    * Force full re-detection by clearing processed activity IDs first.
    * This ensures all activities are re-evaluated against sections.
-   * Returns false if detection is already running.
+   * Refuses, and says why, if detection is suspended or already running.
    */
-  forceRedetect(): boolean /*throws*/ {
-    return FfiConverterBool.lift(
+  forceRedetect(): FfiStartOutcome /*throws*/ {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -11777,8 +11867,8 @@ export class DetectionManager
     );
   }
 
-  start(): boolean /*throws*/ {
-    return FfiConverterBool.lift(
+  start(): FfiStartOutcome /*throws*/ {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -17985,11 +18075,14 @@ export interface SyncManagerLike {
     athleteId: string,
   ) /*throws*/ : void;
   /**
-   * Fetch and store one date window of activities. Returns instantly: true
-   * if the job started, false if a sync is already running or credentials
-   * are missing. The feed calls this for windows the default sync misses.
+   * Fetch and store one date window of activities. Returns instantly,
+   * naming whether the job started and, if not, whether asking again later
+   * would. The feed calls this for windows the default sync misses.
    */
-  syncActivitiesWindow(oldest: string, newest: string) /*throws*/ : boolean;
+  syncActivitiesWindow(
+    oldest: string,
+    newest: string,
+  ) /*throws*/ : FfiStartOutcome;
   /**
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
@@ -18010,11 +18103,11 @@ export interface SyncManagerLike {
    */
   syncCalendarEvents(oldest: string, newest: string): boolean;
   /**
-   * Start a sync. Returns instantly: true if a new sync started, false if one
-   * was already running or credentials are missing. Work runs on the shared
-   * runtime; observe progress via `get_sync_status`.
+   * Start a sync. Returns instantly, naming whether the job started and, if
+   * not, whether asking again later would. Work runs on the shared runtime;
+   * observe progress via `get_sync_status`.
    */
-  syncNow() /*throws*/ : boolean;
+  syncNow() /*throws*/ : FfiStartOutcome;
   /**
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
@@ -18269,12 +18362,15 @@ export class SyncManager
   }
 
   /**
-   * Fetch and store one date window of activities. Returns instantly: true
-   * if the job started, false if a sync is already running or credentials
-   * are missing. The feed calls this for windows the default sync misses.
+   * Fetch and store one date window of activities. Returns instantly,
+   * naming whether the job started and, if not, whether asking again later
+   * would. The feed calls this for windows the default sync misses.
    */
-  syncActivitiesWindow(oldest: string, newest: string): boolean /*throws*/ {
-    return FfiConverterBool.lift(
+  syncActivitiesWindow(
+    oldest: string,
+    newest: string,
+  ): FfiStartOutcome /*throws*/ {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -18370,12 +18466,12 @@ export class SyncManager
   }
 
   /**
-   * Start a sync. Returns instantly: true if a new sync started, false if one
-   * was already running or credentials are missing. Work runs on the shared
-   * runtime; observe progress via `get_sync_status`.
+   * Start a sync. Returns instantly, naming whether the job started and, if
+   * not, whether asking again later would. Work runs on the shared runtime;
+   * observe progress via `get_sync_status`.
    */
-  syncNow(): boolean /*throws*/ {
-    return FfiConverterBool.lift(
+  syncNow(): FfiStartOutcome /*throws*/ {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -19847,7 +19943,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill() !==
-    42876
+    31073
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_pause_elevation_backfill",
@@ -20159,7 +20255,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !==
-    43403
+    30611
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_force_redetect",
@@ -20223,7 +20319,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start() !==
-    23853
+    50806
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_start",
@@ -21815,7 +21911,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window() !==
-    20311
+    61289
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window",
@@ -21855,7 +21951,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
-    4704
+    53800
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
@@ -22181,6 +22277,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionTrace,
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiStalePrOpportunity,
+    FfiConverterTypeFfiStartOutcome,
     FfiConverterTypeFfiStartupData,
     FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthSummary,

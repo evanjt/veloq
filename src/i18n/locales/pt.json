@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Exportacao concluida",
     "bulkExport": "Exportar todas as atividades ({{count}})",
-    "bulkExporting": "A gerar GPX {{current}}/{{total}}...",
+    "bulkExporting": "A gerar GPX...",
     "bulkResult": "{{exported}} ficheiros GPX exportados, {{skipped}} atividades sem GPS ignoradas.",
     "bulkSharing": "A abrir painel de partilha...",
     "error": "Falha ao exportar o ficheiro GPX.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "Sobre os Insights",
     "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Estes insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
+    "aboutRanking": "Os cartoes sao ordenados pelo que tem para dizer: quao recente e, quanto foge ao teu habitual, quanto mudou e com que frequencia o fazes. Nao por a noticia ser boa.",
     "efficiencyTrend": {
       "seriesLabel": "Frequência cardíaca por unidade de ritmo, da passagem mais antiga à mais recente",
       "title": "FC em queda em {{name}}",
@@ -1042,7 +1043,7 @@
     "sortMostVisited": "Mais visitadas",
     "sortNameAZ": "Nome A-Z",
     "sortNearby": "Próximos",
-    "sortSignature": "Assinatura",
+    "sortRelevance": "Relevância",
     "standingBest": "O teu mais rápido de {{total}}",
     "standingRank": "{{rank}}.º de {{total}}, {{gap}} do teu melhor",
     "standingRankPercentile": "{{rank}}.º de {{total}}, mais rápido do que {{percent}}% deles, {{gap}} do teu melhor",
@@ -1288,6 +1289,7 @@
     "previewRun": "Pré-visualizar",
     "previewRunning": "A analisar {{count}} atividades nesta zona",
     "previewFailed": "Não foi possível concluir a pré-visualização.",
+    "previewSlow": "Está a demorar mais do que o habitual. Ainda está a correr.",
     "previewPoolUnusable": "Alguns dos seus registos de atividade nao podem ser lidos, por isso a pre-visualizacao parou.",
     "previewCurrentFailed": "Não foi possível ler as secções atuais desta área.",
     "previewSuspended": "Atualização de altitude em curso. Tente novamente dentro de momentos.",

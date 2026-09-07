@@ -361,7 +361,7 @@
   "export": {
     "bulkComplete": "Export Complete",
     "bulkExport": "Export All Activities ({{count}})",
-    "bulkExporting": "Generating GPX {{current}}/{{total}}...",
+    "bulkExporting": "Generating GPX...",
     "bulkResult": "{{exported}} GPX files exported, {{skipped}} activities without GPS skipped.",
     "bulkSharing": "Opening share sheet...",
     "error": "Failed to export GPX file.",
@@ -552,6 +552,7 @@
     },
     "aboutTitle": "About Insights",
     "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
+    "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it. Not by whether the news is good.",
     "efficiencyTrend": {
       "seriesLabel": "Heart rate per unit of pace, oldest effort to newest",
       "title": "HR trending down on {{name}}",
@@ -1064,7 +1065,7 @@
     "sortMostVisited": "Most visited",
     "sortNameAZ": "Name A-Z",
     "sortNearby": "Nearby",
-    "sortSignature": "Signature",
+    "sortRelevance": "Relevance",
     "standingBest": "Your fastest of {{total}}",
     "standingRank": "Ranked {{rank}} of {{total}}, {{gap}} off your best",
     "standingRankPercentile": "Ranked {{rank}} of {{total}}, faster than {{percent}}% of them, {{gap}} off your best",
@@ -1310,6 +1311,7 @@
     "previewRun": "Preview",
     "previewRunning": "Analyzing {{count}} activities in this area",
     "previewFailed": "The preview could not finish.",
+    "previewSlow": "This is taking longer than usual. It is still running.",
     "previewPoolUnusable": "Some of your activity tracks cannot be read, so the preview stopped.",
     "previewCurrentFailed": "Could not read the current sections for this area.",
     "previewSuspended": "Elevation update in progress. Try again shortly.",

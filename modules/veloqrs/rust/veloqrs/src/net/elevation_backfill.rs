@@ -130,6 +130,28 @@ pub fn resume_wait(attempts: usize) -> Duration {
 /// joins the ladder that is already running rather than laying a parallel one.
 static RESUME_ARMED: AtomicBool = AtomicBool::new(false);
 
+/// Holds the single-ladder slot. Release is structural, like `RunGuard`'s, so a
+/// panic anywhere in the climb cannot leave the resume armed for the life of
+/// the process. The crate unwinds and the panic hook logs rather than aborting,
+/// so a release written as the last statement of the thread body is skipped.
+struct ResumeGuard;
+
+impl Drop for ResumeGuard {
+    fn drop(&mut self) {
+        RESUME_ARMED.store(false, Ordering::SeqCst);
+    }
+}
+
+impl ResumeGuard {
+    /// Claim the slot, or `None` when a ladder is already climbing.
+    fn claim() -> Option<Self> {
+        RESUME_ARMED
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| ResumeGuard)
+    }
+}
+
 /// The ladder itself, with everything it waits on handed in.
 ///
 /// `sleep` returns false to end the climb, which is how a test stops it and how
@@ -180,15 +202,21 @@ pub fn resume_sleep(wait: Duration) -> bool {
     true
 }
 
+/// Put a climb on a thread, unless one is already running. Returns the thread
+/// so a test can wait on it; production drops the handle and lets it run.
+fn spawn_resume_ladder(
+    climb: impl FnOnce() + Send + 'static,
+) -> Option<std::thread::JoinHandle<()>> {
+    let slot = ResumeGuard::claim()?;
+    Some(std::thread::spawn(move || {
+        let _slot = slot;
+        climb();
+    }))
+}
+
 /// Put a ladder behind the pass, unless one is already climbing.
 fn arm_resume_ladder() {
-    if RESUME_ARMED
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        return;
-    }
-    std::thread::spawn(|| {
+    spawn_resume_ladder(|| {
         resume_ladder(
             resume_sleep,
             || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
@@ -199,7 +227,6 @@ fn arm_resume_ladder() {
             elevation_backfill_paused,
             start_pass,
         );
-        RESUME_ARMED.store(false, Ordering::SeqCst);
     });
 }
 
@@ -233,15 +260,14 @@ static PAUSED: AtomicBool = AtomicBool::new(false);
 ///
 /// The pass in flight ends at its next batch boundary and reports
 /// [`BACKFILL_PHASE_PAUSED`] itself; with no pass in flight the phase is set
-/// here so the page reads paused at once. Returns whether a pass was running.
-pub fn pause_elevation_backfill() -> bool {
+/// here so the page reads paused at once. Either way the phase is what says it,
+/// so there is nothing for this to answer.
+pub fn pause_elevation_backfill() {
     PAUSED.store(true, Ordering::SeqCst);
-    let running = BACKFILL.running.load(Ordering::SeqCst);
-    if !running {
+    if !BACKFILL.running.load(Ordering::SeqCst) {
         set_phase(BACKFILL_PHASE_PAUSED);
     }
     log::info!("[Elevation] backfill paused until the next launch");
-    running
 }
 
 /// Whether the download is paused in this process.
@@ -1837,7 +1863,12 @@ mod tests {
             reset_pause();
             set_phase(BACKFILL_PHASE_PARTIAL);
 
-            assert!(!pause_elevation_backfill(), "nothing was running to stop");
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "nothing was running to stop"
+            );
+
+            pause_elevation_backfill();
             assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
             assert!(elevation_backfill_paused());
 
@@ -1918,6 +1949,86 @@ mod tests {
             assert!(!pass_running(), "and holds no slot");
 
             reset_pause();
+        }
+    }
+
+    /// Scenario: the crate unwinds on panic and the panic hook logs rather
+    /// than aborting, so a panic anywhere inside the climb runs past the line
+    /// that clears the flag. The ladder would then be armed for the life of
+    /// the process and the elevation resume dead with it.
+    mod resume_slot {
+        use super::*;
+
+        #[test]
+        fn a_panicking_climb_releases_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let climb = spawn_resume_ladder(|| panic!("resume_ladder")).expect("the slot was free");
+            assert!(climb.join().is_err(), "the climb panicked");
+
+            assert!(
+                !RESUME_ARMED.load(Ordering::SeqCst),
+                "a panicked climb left the ladder armed for the process"
+            );
+        }
+
+        #[test]
+        fn a_climb_that_returns_releases_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            spawn_resume_ladder(|| {})
+                .expect("the slot was free")
+                .join()
+                .expect("the climb returned");
+
+            assert!(!RESUME_ARMED.load(Ordering::SeqCst));
+        }
+
+        /// One ladder at a time: the second arm joins the climb that is
+        /// already running rather than laying a parallel one.
+        #[test]
+        fn a_second_arm_is_refused_while_one_climbs() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+            let first = spawn_resume_ladder(move || {
+                release_rx.recv().ok();
+            })
+            .expect("the slot was free");
+
+            assert!(
+                spawn_resume_ladder(|| {}).is_none(),
+                "a second ladder was laid beside the first"
+            );
+
+            release_tx.send(()).unwrap();
+            first.join().unwrap();
+
+            assert!(
+                spawn_resume_ladder(|| {})
+                    .expect("the slot was free again")
+                    .join()
+                    .is_ok()
+            );
+        }
+
+        /// The slot is released after a panic, so the next arm gets it. A flag
+        /// cleared but a ladder nobody can lay again is the same outage.
+        #[test]
+        fn the_next_arm_after_a_panic_gets_the_slot() {
+            let _serial = serial_global_state();
+            RESUME_ARMED.store(false, Ordering::SeqCst);
+
+            let _ = spawn_resume_ladder(|| panic!("resume_ladder"))
+                .expect("the slot was free")
+                .join();
+
+            let second = spawn_resume_ladder(|| {}).expect("the slot was free again");
+            second.join().expect("the second climb returned");
+            assert!(!RESUME_ARMED.load(Ordering::SeqCst));
         }
     }
 }

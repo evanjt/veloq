@@ -373,7 +373,7 @@
   "export": {
     "bulkComplete": "Eksport zakończony",
     "bulkExport": "Eksportuj wszystkie aktywności ({{count}})",
-    "bulkExporting": "Generowanie GPX {{current}}/{{total}}...",
+    "bulkExporting": "Generowanie GPX...",
     "bulkResult": "Wyeksportowano {{exported}} plików GPX, pominięto {{skipped}} aktywności bez GPS.",
     "bulkSharing": "Otwieranie udostępniania...",
     "error": "Nie udało się wyeksportować pliku GPX.",
@@ -563,6 +563,7 @@
     },
     "aboutTitle": "O analizach",
     "aboutBody": "Metryki treningowe to szacunki oparte na opublikowanych modelach nauk o sporcie. Indywidualne reakcje mogą się znacznie różnić. Te analizy mają charakter wyłącznie informacyjny, nie stanowią porady medycznej ani trenerskiej.",
+    "aboutRanking": "Karty sa uporzadkowane wedlug tego, ile maja do powiedzenia: jak swieze sa, jak bardzo odbiegaja od twojej normy, jak duza jest zmiana i jak czesto to robisz. Nie wedlug tego, czy wiadomosc jest dobra.",
     "efficiencyTrend": {
       "seriesLabel": "Tętno na jednostkę tempa, od najstarszego przejazdu do najnowszego",
       "title": "HR spada na {{name}}",
@@ -1044,7 +1045,7 @@
     "sortMostVisited": "Najczęściej odwiedzane",
     "sortNameAZ": "Nazwa A-Z",
     "sortNearby": "W pobliżu",
-    "sortSignature": "Charakterystyczne",
+    "sortRelevance": "Trafność",
     "standingBest": "Twój najszybszy z {{total}}",
     "standingRank": "Miejsce {{rank}} z {{total}}, {{gap}} do najlepszego",
     "standingRankPercentile": "Miejsce {{rank}} z {{total}}, szybciej niż {{percent}}% z nich, {{gap}} do najlepszego",
@@ -1290,6 +1291,7 @@
     "previewRun": "Podgląd",
     "previewRunning": "Analizowanie {{count}} aktywności w tym obszarze",
     "previewFailed": "Nie udało się ukończyć podglądu.",
+    "previewSlow": "Trwa to dłużej niż zwykle. Analiza wciąż działa.",
     "previewPoolUnusable": "Niektorych sladow aktywnosci nie mozna odczytac, wiec podglad zostal zatrzymany.",
     "previewCurrentFailed": "Nie udało się odczytać bieżących odcinków dla tego obszaru.",
     "previewSuspended": "Trwa aktualizacja wysokości. Spróbuj ponownie za chwilę.",
