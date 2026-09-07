@@ -1031,6 +1031,7 @@ export interface TranslationResource {
     defaultName: string;
     detectionPaused: string;
     detectionPausedElevation: string;
+    detectionHeldElevationPaused: string;
     deleteSection: string;
     deleteSectionConfirm: string;
     duplicateNameMessage: string;

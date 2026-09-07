@@ -1066,6 +1066,7 @@
     "deleteSectionConfirm": "Er du sikker på, at du vil slette denne sektion? Denne handling kan ikke fortrydes.",
     "detectionPaused": "Registrering sat på pause, mens dine sektioner migreres",
     "detectionPausedElevation": "Registrering sat på pause, mens højde hentes",
+    "detectionHeldElevationPaused": "Registrering er sat på pause, indtil du genoptager højdedownloadet i Indstillinger",
     "disabled": "Deaktiveret",
     "removeSection": "Fjern sektion",
     "removeSectionConfirm": "Denne sektion vises ikke i aktivitetsdetaljer eller indsigter. Du kan gendanne den fra sektionslisten.",

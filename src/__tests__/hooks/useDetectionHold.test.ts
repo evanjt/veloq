@@ -7,11 +7,16 @@
  * Expected behaviour: the page names which of the two, because the two end
  * differently. A cutover clears itself; a backfill waits on the network. The
  * backfill runs first and the cutover waits behind it, so it answers first.
+ *
+ * And the backfill's own three states are told apart. A pass working through
+ * its queue, a queue nothing is working on, and a download the athlete paused
+ * all used to read the same, so a library stuck for a fortnight looked
+ * exactly like one that was busy.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
+import { isElevationHold, useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -23,8 +28,10 @@ function engineWith({
   cutoverRunning = false,
   phase = 'idle',
   remaining = 0 as number | null,
+  paused = false,
 }) {
   return {
+    isElevationBackfillPaused: jest.fn(() => paused),
     isCutoverPending: jest.fn(() => cutoverPending),
     isCutoverRunning: jest.fn(() => cutoverRunning),
     getElevationBackfillProgress: jest.fn(() => ({
@@ -64,15 +71,49 @@ describe('useDetectionHold', () => {
 
     const { result } = renderHook(() => useDetectionHold());
 
-    expect(result.current).toBe('elevation');
+    expect(result.current).toBe('elevation-running');
   });
 
-  it('names the backfill while the queue is non-empty with no pass in flight', () => {
+  it('tells a queue nothing is working on apart from a pass in flight', () => {
     (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 12 }));
 
     const { result } = renderHook(() => useDetectionHold());
 
-    expect(result.current).toBe('elevation');
+    expect(result.current).toBe('elevation-waiting');
+  });
+
+  it('names the pause, which is the one hold the athlete can lift', () => {
+    (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 12, paused: true }));
+
+    const { result } = renderHook(() => useDetectionHold());
+
+    expect(result.current).toBe('elevation-paused');
+  });
+
+  it('names the pause over a pass still finishing its batch', () => {
+    (getEngine as jest.Mock).mockReturnValue(
+      engineWith({ phase: 'fetching', remaining: null, paused: true })
+    );
+
+    const { result } = renderHook(() => useDetectionHold());
+
+    expect(result.current).toBe('elevation-paused');
+  });
+
+  it('does not hold on a pause once the queue is empty', () => {
+    (getEngine as jest.Mock).mockReturnValue(engineWith({ remaining: 0, paused: true }));
+
+    const { result } = renderHook(() => useDetectionHold());
+
+    expect(result.current).toBeNull();
+  });
+
+  it('groups the three elevation holds and excludes the cutover', () => {
+    expect(isElevationHold('elevation-running')).toBe(true);
+    expect(isElevationHold('elevation-waiting')).toBe(true);
+    expect(isElevationHold('elevation-paused')).toBe(true);
+    expect(isElevationHold('cutover')).toBe(false);
+    expect(isElevationHold(null)).toBe(false);
   });
 
   it('names the cutover once the queue is empty', () => {
@@ -88,7 +129,7 @@ describe('useDetectionHold', () => {
 
     const { result } = renderHook(() => useDetectionHold());
 
-    expect(result.current).toBe('elevation');
+    expect(result.current).toBe('elevation-waiting');
   });
 
   it('names the cutover while one is actually running', () => {
@@ -144,7 +185,7 @@ describe('useDetectionHold', () => {
     );
 
     const { result } = renderHook(() => useDetectionHold());
-    expect(result.current).toBe('elevation');
+    expect(result.current).toBe('elevation-waiting');
 
     left = 0;
     emit('backfillPhase');

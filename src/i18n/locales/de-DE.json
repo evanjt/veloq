@@ -1066,6 +1066,7 @@
     "deleteSectionConfirm": "Möchtest du diesen Abschnitt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
     "detectionPaused": "Erkennung pausiert, während deine Abschnitte migriert werden",
     "detectionPausedElevation": "Erkennung pausiert, während Höhendaten geladen werden",
+    "detectionHeldElevationPaused": "Die Erkennung pausiert, bis du den Höhendaten-Download in den Einstellungen fortsetzt",
     "disabled": "Deaktiviert",
     "removeSection": "Abschnitt entfernen",
     "removeSectionConfirm": "Dieser Abschnitt wird nicht mehr in Aktivitätsdetails oder Insights angezeigt. Du kannst ihn aus der Abschnittsliste wiederherstellen.",

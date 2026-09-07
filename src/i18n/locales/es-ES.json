@@ -1066,6 +1066,7 @@
     "deleteSectionConfirm": "¿Estás seguro de que quieres eliminar esta sección? Esta acción no se puede deshacer.",
     "detectionPaused": "Detección en pausa mientras se migran tus secciones",
     "detectionPausedElevation": "Detección en pausa mientras se descarga la elevación",
+    "detectionHeldElevationPaused": "La detección está en espera hasta que reanudes la descarga de altitud en Ajustes",
     "disabled": "Desactivada",
     "removeSection": "Eliminar sección",
     "removeSectionConfirm": "Esta sección no aparecerá en los detalles de actividad ni en las estadísticas. Puedes restaurarla desde la lista de secciones.",
