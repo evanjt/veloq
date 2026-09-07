@@ -319,6 +319,9 @@ export function applyMixAndCap(
 
 function repetitionMinFor(category: InsightCategory, cfg: InsightsConfig): number | null {
   switch (category) {
+    // The category floor. The declining branch's higher floor is applied where
+    // the direction is known, in the generator, and a decline that reaches
+    // this gate has already cleared the larger of the two.
     case 'section_trend':
       return cfg.repetition.section_trend_min;
     case 'efficiency_trend':
