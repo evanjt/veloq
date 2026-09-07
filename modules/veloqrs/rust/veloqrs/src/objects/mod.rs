@@ -23,5 +23,5 @@ pub use preview::SectionPreview;
 pub(crate) use sync::test_credentials;
 pub use sync::{
     FfiCallKind, FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SYNC_SERVICE, SyncManager,
-    SyncState, current_transport, park_auth_expired,
+    SyncState, current_session, current_transport, park_auth_expired,
 };

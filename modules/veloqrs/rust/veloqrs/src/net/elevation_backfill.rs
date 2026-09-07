@@ -563,18 +563,18 @@ async fn fetch_batch(transport: &Transport, ids: &[String], ask: Ask) -> Vec<(St
 /// so nothing else can claim the detection slot between the last store and
 /// the re-cut, and it runs only when the queue drained to empty, so no
 /// catalogue is ever cut over a half-converted library.
-pub fn run_elevation_backfill(transport: &Transport) -> BackfillRun {
+pub fn run_elevation_backfill(transport: &Transport, athlete_id: &str) -> BackfillRun {
     let Some(slot) = RunGuard::claim() else {
         log::info!("[Elevation] backfill refused: a run is already in flight");
         return BackfillRun::Refused;
     };
-    run_in_slot(slot, transport)
+    run_in_slot(slot, transport, athlete_id)
 }
 
 /// The pass proper, on a slot the caller already holds. The guard lives to
 /// the end of the run so the slot is released after the terminal phase, and
 /// after the suspension, which was taken later and so drops first.
-fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
+fn run_in_slot(_slot: RunGuard, transport: &Transport, athlete_id: &str) -> BackfillRun {
     let queue = match with_persistent_engine(|engine| engine.tracks_missing_elevation()) {
         Some(Ok(queue)) => queue,
         Some(Err(e)) => {
@@ -611,7 +611,7 @@ fn run_in_slot(_slot: RunGuard, transport: &Transport) -> BackfillRun {
             // conversion, so a credential rejected here is reported the way
             // sync reports one. Nothing else would ask until the next sync,
             // and until then the revoked session stands.
-            crate::objects::park_auth_expired();
+            crate::runtime::block_on(crate::objects::park_auth_expired(transport, athlete_id));
             return BackfillRun::Failed("unauthorized".to_string());
         }
         // Not a failed pass: the rows are untouched and the queue is
@@ -1183,13 +1183,13 @@ fn start_pass() -> bool {
         log::info!("[Elevation] backfill deferred: offline");
         return false;
     }
-    let Some(Ok(transport)) = crate::objects::current_transport() else {
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
         log::info!("[Elevation] backfill deferred: no credential yet");
         return false;
     };
 
     std::thread::spawn(move || {
-        run_in_slot(slot, &transport);
+        run_in_slot(slot, &transport, &athlete_id);
     });
     true
 }
