@@ -404,19 +404,43 @@ impl SyncService {
 /// The process-wide sync service.
 pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(SyncService::new);
 
-/// Park the service on a rejected credential.
+/// Ask the credential again, on an endpoint a live one always answers.
+///
+/// One 401 is not evidence. intervals.icu answers 403 for the wrong resource
+/// and 401 only for a credential it will not accept, so a second 401 from the
+/// profile is the server saying so twice. Anything else, a 200, a 5xx, a
+/// timeout or a connection that never opened, says nothing about the
+/// credential and so confirms nothing.
+///
+/// The request goes straight to the transport rather than through a step, so
+/// its own 401 cannot re-enter [`park_auth_expired`] and recurse.
+async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool {
+    matches!(
+        endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await,
+        Err(NetError::Unauthorized)
+    )
+}
+
+/// Park the service on a rejected credential, once the rejection is confirmed.
 ///
 /// Every 401 the app sees ends here, whatever raised it: a sync step, an
-/// on-demand fetch, a write, or the elevation backfill. A rejected credential
-/// signs the athlete out and keeps the database, and this state is what
-/// `useSyncAuthExpiry` reads to do it, so a caller that reports
-/// its own failure instead leaves the dead session standing.
-pub fn park_auth_expired() {
-    SYNC_SERVICE.finish(
-        SyncState::AuthExpired,
-        Some("unauthorized".to_string()),
-        false,
-    );
+/// on-demand fetch, a write, or the elevation backfill. A **confirmed**
+/// rejection signs the athlete out and keeps the database, and this state is
+/// what `useSyncAuthExpiry` reads to do it, so a caller that reports its own
+/// failure instead leaves the dead session standing.
+///
+/// An unconfirmed 401 leaves the state alone and the caller reports its own
+/// error, so a single refusal never signs anybody out.
+pub async fn park_auth_expired(transport: &Transport, athlete_id: &str) {
+    if credential_is_rejected(transport, athlete_id).await {
+        SYNC_SERVICE.finish(
+            SyncState::AuthExpired,
+            Some("unauthorized".to_string()),
+            false,
+        );
+    } else {
+        log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
+    }
 }
 
 /// Releases the running slot when a sync task unwinds.
@@ -551,9 +575,12 @@ where
         }
         let _guard = ReleaseGuard(key);
 
+        // Kept back for the confirmation: the job consumes both, and the
+        // confirmation has to ask on the same credential that was refused.
+        let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
         match job(transport, athlete_id).await {
             Ok(()) => {}
-            Err(NetError::Unauthorized) => park_auth_expired(),
+            Err(NetError::Unauthorized) => park_auth_expired(&confirm_on, &confirm_for).await,
             Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
         }
     });
@@ -584,6 +611,13 @@ impl Drop for TestCredentials {
 }
 
 pub fn current_transport() -> Option<Result<Transport, String>> {
+    current_session().map(|r| r.map(|(t, _athlete)| t))
+}
+
+/// The transport and the athlete it belongs to, for a caller that has to ask
+/// on the athlete's own resources. `None` before TypeScript has called
+/// `set_credentials`.
+pub fn current_session() -> Option<Result<(Transport, String), String>> {
     let creds_present = SYNC_SERVICE
         .creds
         .lock()
@@ -592,7 +626,7 @@ pub fn current_transport() -> Option<Result<Transport, String>> {
     if !creds_present {
         return None;
     }
-    Some(SYNC_SERVICE.build_transport().map(|(t, _athlete)| t))
+    Some(SYNC_SERVICE.build_transport())
 }
 
 /// Drive a request on the shared runtime and await its outcome.
@@ -627,11 +661,13 @@ where
         Ok(pair) => pair,
         Err(e) => return FfiCallOutcome::internal(e),
     };
+    // Kept back for the confirmation, for the same reason as `spawn_once`.
+    let (confirm_on, confirm_for) = (transport.clone(), athlete_id.clone());
     let outcome = run_on_runtime(job(transport, athlete_id)).await;
     // A write refused for a dead credential parks the service, so an upload
     // reaches the same session-expiry path a failed sync already does.
     if outcome.kind == FfiCallKind::Unauthorized {
-        park_auth_expired();
+        park_auth_expired(&confirm_on, &confirm_for).await;
     }
     outcome
 }
@@ -672,12 +708,24 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
             }
             match $body {
                 Ok(()) => svc.complete_step(),
+                // The loop parks itself rather than calling
+                // `park_auth_expired`: it holds its own service, which under
+                // test is not the process-wide one, and it owes a terminal
+                // finish either way.
                 Err(NetError::Unauthorized) => {
-                    svc.finish(
-                        SyncState::AuthExpired,
-                        Some("unauthorized".to_string()),
-                        false,
-                    );
+                    if credential_is_rejected(&transport, &athlete_id).await {
+                        svc.finish(
+                            SyncState::AuthExpired,
+                            Some("unauthorized".to_string()),
+                            false,
+                        );
+                    } else {
+                        svc.finish(
+                            SyncState::Idle,
+                            Some(NetError::Unauthorized.to_string()),
+                            false,
+                        );
+                    }
                     return;
                 }
                 // A failed step is not a completed one, so the counter stays
@@ -1019,11 +1067,21 @@ impl SyncManager {
                             SYNC_SERVICE.complete_step();
                             SYNC_SERVICE.finish(SyncState::Idle, None, true);
                         }
-                        Err(NetError::Unauthorized) => SYNC_SERVICE.finish(
-                            SyncState::AuthExpired,
-                            Some("unauthorized".to_string()),
-                            false,
-                        ),
+                        Err(NetError::Unauthorized) => {
+                            if credential_is_rejected(&transport, &athlete_id).await {
+                                SYNC_SERVICE.finish(
+                                    SyncState::AuthExpired,
+                                    Some("unauthorized".to_string()),
+                                    false,
+                                );
+                            } else {
+                                SYNC_SERVICE.finish(
+                                    SyncState::Idle,
+                                    Some(NetError::Unauthorized.to_string()),
+                                    false,
+                                );
+                            }
+                        }
                         Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(e.to_string()), false),
                     }
                 });
@@ -1402,6 +1460,89 @@ mod tests {
         assert_eq!(s.state, SyncState::AuthExpired);
         assert_eq!(s.completed, 0);
         assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
+    }
+
+    /// Scenario: the sync step is refused but the credential still works.
+    ///
+    /// Expected behaviour: one 401 is not evidence, so the confirmation on the
+    /// profile answers 200 and the session stands. The step reports its own
+    /// error, which is what a caller sees for any other failed step.
+    #[test]
+    fn an_unconfirmed_401_leaves_the_session_standing() {
+        let server = MockServer::start();
+        // The profile is the confirmation endpoint, so it answers, and the
+        // step after it is the one that is refused.
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/sport-settings");
+            then.status(401);
+        });
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(
+            s.state,
+            SyncState::Idle,
+            "a single 401 signed the athlete out with a working credential"
+        );
+        assert_eq!(s.completed, 1, "the profile step landed and still counts");
+    }
+
+    /// A credential the server rejects twice is dead, and only then.
+    #[test]
+    fn the_profile_confirms_a_rejected_credential() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(401);
+        });
+        assert!(crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+    }
+
+    /// A credential the profile answers is alive, whatever else refused it.
+    #[test]
+    fn a_profile_that_answers_is_not_a_rejection() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+    }
+
+    /// A server that is broken says nothing about the credential, so it is not
+    /// a confirmation either. Nor is a transport that never connects.
+    #[test]
+    fn only_a_second_401_confirms_a_rejection() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(500);
+        });
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to(server.base_url()),
+            "i1"
+        )));
+
+        // A port nothing is listening on: the request fails before any status.
+        assert!(!crate::runtime::block_on(credential_is_rejected(
+            &transport_to("http://127.0.0.1:1".to_string()),
+            "i1"
+        )));
     }
 
     #[test]
