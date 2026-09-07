@@ -50,6 +50,7 @@ function closedClient() {
   (client as any).dbPath = null;
   (client as any).engine = null;
   (client as any).pendingWrites = [];
+  (client as any).droppedWrites = 0;
   /* eslint-enable @typescript-eslint/no-explicit-any */
   return client;
 }
@@ -203,6 +204,64 @@ describe('writes made before the engine opens', () => {
     expect(mockSettings.setSetting).toHaveBeenCalledTimes(256);
     expect(mockSettings.setSetting.mock.calls[0][0]).toBe('key-44');
     expect(mockSettings.setSetting.mock.calls[255][0]).toBe('key-299');
+  });
+
+  // The bound is right. Losing writes without a word is not: a cold start that
+  // never opens the engine drops the athlete's oldest writes, and nothing said
+  // so.
+  it('says so when it drops a write, naming it', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = closedClient();
+
+    for (let i = 0; i < 258; i += 1) {
+      client.setSetting(`key-${i}`, String(i));
+    }
+
+    const dropped = warn.mock.calls.map(([message]) => String(message));
+    expect(dropped).toHaveLength(2);
+    expect(dropped[0]).toContain('setSetting');
+    warn.mockRestore();
+  });
+
+  it('counts what it dropped, so a diagnostic can read it', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = closedClient();
+
+    for (let i = 0; i < 300; i += 1) {
+      client.setSetting(`key-${i}`, String(i));
+    }
+
+    expect(client.droppedPendingWrites).toBe(44);
+  });
+
+  it('reports the total once at replay, where the loss finally matters', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = closedClient();
+    for (let i = 0; i < 300; i += 1) {
+      client.setSetting(`key-${i}`, String(i));
+    }
+    warn.mockClear();
+
+    client.initWithPath(DB);
+
+    expect(warn.mock.calls.map(([message]) => String(message)).join('\n')).toContain('44');
+    expect(client.droppedPendingWrites).toBe(0);
+    warn.mockRestore();
+  });
+
+  it('says nothing when the queue never filled', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = closedClient();
+
+    client.setSetting('units', 'metric');
+    client.initWithPath(DB);
+
+    const aboutDrops = warn.mock.calls
+      .map(([message]) => String(message))
+      .filter((message) => message.includes('drop'));
+    expect(aboutDrops).toEqual([]);
+    expect(client.droppedPendingWrites).toBe(0);
+    warn.mockRestore();
   });
 
   it('replays the writes that follow one that throws', () => {
