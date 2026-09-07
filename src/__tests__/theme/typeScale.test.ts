@@ -9,11 +9,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { typography } from '@/theme/typography';
+
+const ROOT = join(__dirname, '../../..');
 
 /** Every size the scale declares, from the smallest role to the largest. */
 const SIZES = [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 44, 48];
@@ -40,29 +40,34 @@ describe('the type scale', () => {
 });
 
 describe('the font size lint', () => {
-  const roots: string[] = [];
-
-  afterAll(() => {
-    for (const root of roots) rmSync(root, { recursive: true, force: true });
-  });
-
+  // Through stdin, under a name the rule's `src/**` glob matches. A real file
+  // written into `src/` is what a whole-tree gate in another worker then
+  // catches half-there, and it fails on the ENOENT rather than on what it
+  // measures.
   function lint(source: string): string {
-    const root = mkdtempSync(join(tmpdir(), 'type-lint-'));
-    roots.push(root);
-    const file = join(process.cwd(), 'src', `typeLintFixture.${root.split('-').pop()}.ts`);
-    writeFileSync(file, source);
     try {
-      execFileSync('npx', ['eslint', '--no-warn-ignored', '--format', 'json', file], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: process.cwd(),
-      });
+      execFileSync(
+        'npx',
+        [
+          'eslint',
+          '--stdin',
+          '--stdin-filename',
+          'src/typeLintFixture.ts',
+          '--no-warn-ignored',
+          '--format',
+          'json',
+        ],
+        {
+          input: source,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: ROOT,
+        }
+      );
       return '';
     } catch (error) {
       const e = error as { stdout?: string; stderr?: string };
       return `${e.stdout ?? ''}${e.stderr ?? ''}`;
-    } finally {
-      rmSync(file, { force: true });
     }
   }
 
