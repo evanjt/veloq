@@ -302,10 +302,9 @@ export async function holdRecordingForAuth(id: string, error: string): Promise<v
  * so nothing lands in the wrong account. Neither is deleted, and either can
  * still be sent up by hand.
  */
-export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<number> {
-  const held = library().holdRecordingsOfOtherAthletes(athleteId);
-  if (held > 0) log.log(`Held ${held} recording(s) belonging to another athlete`);
-  return held;
+export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<void> {
+  library().holdRecordingsOfOtherAthletes(athleteId);
+  log.log(`Held any recording not belonging to ${athleteId}`);
 }
 
 /** Manual retry (or post-upgrade requeue): back to 'pending' with a clean slate. */
