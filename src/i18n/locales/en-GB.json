@@ -1064,6 +1064,7 @@
     "acceptedCount": "Accepted {{count}} sections",
     "detectionPaused": "Detection paused while your sections migrate",
     "detectionPausedElevation": "Detection paused while elevation downloads",
+    "detectionHeldElevationPaused": "Detection is held until you resume the elevation download in Settings",
     "pinned": "Pinned to a version",
     "elevationGain": "Elevation gain",
     "avgGrade": "Avg grade",

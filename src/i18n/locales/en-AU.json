@@ -1066,6 +1066,7 @@
     "deleteSectionConfirm": "Are you sure you want to delete this section? This action cannot be undone.",
     "detectionPaused": "Detection paused while your sections migrate",
     "detectionPausedElevation": "Detection paused while elevation downloads",
+    "detectionHeldElevationPaused": "Detection is held until you resume the elevation download in Settings",
     "disabled": "Disabled",
     "removeSection": "Remove Section",
     "removeSectionConfirm": "This section won't appear in activity details or insights. You can restore it from the sections list.",
