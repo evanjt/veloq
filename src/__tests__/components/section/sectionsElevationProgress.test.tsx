@@ -14,6 +14,8 @@ import type { ElevationBackfillState } from '@/features/routes/hooks/useElevatio
  * the duration of the migration and goes when nothing is owed.
  */
 
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));

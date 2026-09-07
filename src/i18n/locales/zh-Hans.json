@@ -1153,7 +1153,13 @@
     "lapExcluded": "已排除",
     "partlyExcluded": "部分圈已排除",
     "avgHr": "平均心率",
-    "maxGrade": "最大坡度"
+    "maxGrade": "最大坡度",
+    "rescanRefusedBusy": "扫描已在进行中。",
+    "rescanRefusedHeld": "引擎正在处理其他工作，检测已暂停。",
+    "rescanRefusedNotReady": "引擎仍在启动，请稍后再试。",
+    "rescanRefusedOff": "路线匹配已关闭。请在设置中开启后再扫描。",
+    "rescanRefusedNothingOwed": "所有内容都已扫描。",
+    "rescanRefusedFailed": "无法开始扫描。"
   },
   "settings": {
     "account": "账户",
