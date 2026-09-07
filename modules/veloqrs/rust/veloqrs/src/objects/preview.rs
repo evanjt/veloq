@@ -20,6 +20,8 @@ pub struct FfiPreviewCentre {
     pub section_count: u32,
     /// "sections" | "activities"
     pub source: String,
+    /// The place the area covers, or None when no activity over it names one.
+    pub locality: Option<String>,
 }
 
 #[derive(uniffi::Object)]
@@ -50,6 +52,7 @@ impl SectionPreview {
                     visit_total: c.visit_total,
                     section_count: c.section_count,
                     source: c.source,
+                    locality: c.locality,
                 })
                 .collect()
         })

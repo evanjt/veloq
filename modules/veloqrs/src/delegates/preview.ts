@@ -21,6 +21,8 @@ export interface PreviewCentre {
   visitTotal: number;
   sectionCount: number;
   source: 'sections' | 'activities';
+  /** The place the area covers, joined in the engine, or null when unnamed. */
+  locality: string | null;
 }
 
 export type PreviewSectionStatus = 'unchanged' | 'changed' | 'new' | 'gone';
@@ -209,6 +211,7 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
           visitTotal: c.visitTotal,
           sectionCount: c.sectionCount,
           source: c.source === 'sections' ? ('sections' as const) : ('activities' as const),
+          locality: c.locality ?? null,
         }))
     );
   } catch (e) {

@@ -18,6 +18,7 @@ const CENTRE: PreviewCentre = {
   visitTotal: 40,
   sectionCount: 3,
   source: 'sections',
+  locality: null,
 };
 
 const OTHER_CENTRE: PreviewCentre = {
@@ -27,6 +28,7 @@ const OTHER_CENTRE: PreviewCentre = {
   visitTotal: 12,
   sectionCount: 1,
   source: 'sections',
+  locality: null,
 };
 
 function section(id: string): PreviewSection {
