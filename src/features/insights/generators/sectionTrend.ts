@@ -103,6 +103,8 @@ export function generateSectionTrendInsights(
           comparisonKind: 'self',
           repetitionCount: section.traversalCount,
           placeName: section.sectionName,
+          sectionId: section.sectionId,
+          ranking: section.ranking,
         },
         supportingData: {
           sections: [

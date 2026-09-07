@@ -78,6 +78,7 @@ export function generateEfficiencyTrendInsights(
         comparisonKind: 'self',
         repetitionCount: trend.effortCount,
         placeName: trend.sectionName,
+        sectionId: trend.sectionId,
       },
       supportingData: {
         // The engine already ships one HR/pace ratio per matched effort, so

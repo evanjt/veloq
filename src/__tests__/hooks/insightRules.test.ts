@@ -309,6 +309,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     breakdown: {
       base: 0,
       confidence: 0,
+      ranking: 0,
       category: 0,
       specificity: 0,
       temporalSelf: 0,
