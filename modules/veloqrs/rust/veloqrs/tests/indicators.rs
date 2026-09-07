@@ -296,3 +296,86 @@ fn a_lone_interval_session_does_not_compare_against_its_own_laps() {
         "a single session is not a trend, however many laps it holds"
     );
 }
+
+// ============================================================================
+// A personal record is beaten, not matched
+// ============================================================================
+
+/// Expected behaviour: two outings at the same time leave neither of them a
+/// record. Equalling the best is not beating it.
+#[test]
+fn matching_the_best_time_earns_no_pr_row() {
+    let s = setup();
+    insert_oval(&s.raw);
+    insert_dated_activity(&s.raw, "act_first", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_tie", 1_700_500_000);
+    insert_timed_pass(&s.raw, "act_first", 0, 100.0);
+    insert_timed_pass(&s.raw, "act_tie", 0, 100.0);
+    set_indicator_version(&s.raw, 1);
+
+    let _ = s
+        .engine
+        .get_activity_indicators(&["act_first".to_string(), "act_tie".to_string()]);
+
+    for id in ["act_first", "act_tie"] {
+        assert!(
+            !indicator_rows(&s.raw, id)
+                .iter()
+                .any(|(kind, _)| kind == "section_pr"),
+            "{id} matched the best time and must carry no PR row"
+        );
+    }
+}
+
+/// Expected behaviour: a hundredth of a second is inside the noise the
+/// tolerance exists to absorb, so it is not a beat. A whole second is.
+#[test]
+fn a_beat_has_to_clear_the_noise_the_tolerance_absorbs() {
+    for (lap, expect_pr) in [(99.995_f64, false), (99.0_f64, true)] {
+        let s = setup();
+        insert_oval(&s.raw);
+        insert_dated_activity(&s.raw, "act_first", 1_700_000_000);
+        insert_dated_activity(&s.raw, "act_now", 1_700_500_000);
+        insert_timed_pass(&s.raw, "act_first", 0, 100.0);
+        insert_timed_pass(&s.raw, "act_now", 0, lap);
+        set_indicator_version(&s.raw, 1);
+
+        let _ = s.engine.get_activity_indicators(&["act_now".to_string()]);
+
+        let has_pr = indicator_rows(&s.raw, "act_now")
+            .iter()
+            .any(|(kind, _)| kind == "section_pr");
+        assert_eq!(has_pr, expect_pr, "{lap} against a best of 100.0");
+    }
+}
+
+/// Expected behaviour: an outing that was beaten later is no longer the best,
+/// so it holds no record however far it beat what came before it.
+#[test]
+fn an_outing_that_was_later_beaten_holds_no_record() {
+    let s = setup();
+    insert_oval(&s.raw);
+    insert_dated_activity(&s.raw, "act_slow", 1_700_000_000);
+    insert_dated_activity(&s.raw, "act_middle", 1_700_500_000);
+    insert_dated_activity(&s.raw, "act_fast", 1_701_000_000);
+    insert_timed_pass(&s.raw, "act_slow", 0, 120.0);
+    insert_timed_pass(&s.raw, "act_middle", 0, 100.0);
+    insert_timed_pass(&s.raw, "act_fast", 0, 90.0);
+    set_indicator_version(&s.raw, 1);
+
+    let ids: Vec<String> = ["act_slow", "act_middle", "act_fast"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let _ = s.engine.get_activity_indicators(&ids);
+
+    let pr_holders: Vec<&str> = ["act_slow", "act_middle", "act_fast"]
+        .into_iter()
+        .filter(|id| {
+            indicator_rows(&s.raw, id)
+                .iter()
+                .any(|(kind, _)| kind == "section_pr")
+        })
+        .collect();
+    assert_eq!(pr_holders, vec!["act_fast"]);
+}
