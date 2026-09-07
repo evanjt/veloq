@@ -1291,6 +1291,8 @@
     "previewSections": "Podgląd zmian sekcji",
     "cutoverRebuilding": "Przebudowa odcinków: {{phase}}",
     "cutoverFailed": "Przebudowa odcinków nie została ukończona.",
+    "cutoverStop": "Zatrzymaj",
+    "cutoverStopping": "Zatrzymywanie. Wznowi się przy następnym uruchomieniu Veloq.",
     "cutoverPhaseDraining": "opróżnianie kolejki",
     "cutoverPhaseArchiving": "archiwizowanie",
     "cutoverPhaseDetecting": "wykrywanie",

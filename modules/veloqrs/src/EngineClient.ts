@@ -632,6 +632,9 @@ class EngineClient implements DelegateHost {
   isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
 
   startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
+
+  cancelDetectorCutover = (): void => cutoverDelegates.cancelDetectorCutover(this);
+
   getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
 
   getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);

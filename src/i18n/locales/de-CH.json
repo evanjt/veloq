@@ -1289,6 +1289,8 @@
     "previewSections": "Vorschau vo de Abschnittsänderige",
     "cutoverRebuilding": "Abschnitte werden neu aufgebaut: {{phase}}",
     "cutoverFailed": "Der Neuaufbau der Abschnitte wurde nicht abgeschlossen.",
+    "cutoverStop": "Stoppe",
+    "cutoverStopping": "Haltet aa. Es macht wyter, s nächschte Mal wo du Veloq ufmachsch.",
     "cutoverPhaseDraining": "Warteschlange wird geleert",
     "cutoverPhaseArchiving": "wird archiviert",
     "cutoverPhaseDetecting": "wird erkannt",

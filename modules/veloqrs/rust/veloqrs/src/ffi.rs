@@ -822,6 +822,18 @@ pub fn start_detector_cutover() -> bool {
     crate::persistence::cutover::start_cutover()
 }
 
+/// Ask the running cutover to stop at its next step boundary.
+///
+/// The cut is a cold detect over the whole library, spawned unattended at
+/// launch, and the only lever before this was a force-quit, which the
+/// in-flight token undid on the next launch anyway. Stopping costs the run's
+/// work and nothing else: the migration is still owed and the next launch runs
+/// it again from the top.
+#[uniffi::export]
+pub fn cancel_detector_cutover() {
+    crate::persistence::cutover::cancel_cutover();
+}
+
 /// How far the running cutover has got.
 #[uniffi::export]
 pub fn get_cutover_progress() -> CutoverProgress {

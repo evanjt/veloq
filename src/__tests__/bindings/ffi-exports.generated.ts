@@ -5,7 +5,7 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 21 standalone `#[uniffi::export]` functions plus
+ * 22 standalone `#[uniffi::export]` functions plus
  * 265 methods inside `#[uniffi::export] impl` blocks across
  * 15 UniFFI Objects.
  */
@@ -35,7 +35,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 286 exports (21 standalone + 265 methods)
+ * Total: 287 exports (22 standalone + 265 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -183,10 +183,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     docs: 'Start the cutover on a background thread. Returns whether a run was started: false means no engine, not owed, or already running. A full cut is a cold detect over the whole library, so it must never be driven from the calling thread.',
   },
   {
+    name: 'cancel_detector_cutover',
+    camelName: 'cancelDetectorCutover',
+    file: 'ffi.rs',
+    line: 833,
+    paramCount: 0,
+    returnType: 'void',
+    docs: "Ask the running cutover to stop at its next step boundary. The cut is a cold detect over the whole library, spawned unattended at launch, and the only lever before this was a force-quit, which the in-flight token undid on the next launch anyway. Stopping costs the run's work and nothing else: the migration is still owed and the next launch runs it again from the top.",
+  },
+  {
     name: 'get_cutover_progress',
     camelName: 'getCutoverProgress',
     file: 'ffi.rs',
-    line: 827,
+    line: 839,
     paramCount: 0,
     returnType: 'CutoverProgress',
     docs: 'How far the running cutover has got.',
@@ -195,7 +204,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_change_card_support',
     camelName: 'getChangeCardSupport',
     file: 'ffi.rs',
-    line: 836,
+    line: 848,
     paramCount: 0,
     returnType: 'crate::FfiChangeCardSupport',
     docs: 'Which claims the change card may make on this build.',
@@ -204,7 +213,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_cutover_diff',
     camelName: 'getCutoverDiff',
     file: 'ffi.rs',
-    line: 860,
+    line: 872,
     paramCount: 0,
     returnType: 'Option<String>',
     docs: 'The stored cutover diff payload, if any.',
@@ -2899,6 +2908,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'isCutoverPending',
   'isCutoverRunning',
   'startDetectorCutover',
+  'cancelDetectorCutover',
   'getCutoverProgress',
   'getChangeCardSupport',
   'getCutoverDiff',
@@ -3195,6 +3205,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   is_cutover_pending: 'isCutoverPending',
   is_cutover_running: 'isCutoverRunning',
   start_detector_cutover: 'startDetectorCutover',
+  cancel_detector_cutover: 'cancelDetectorCutover',
   get_cutover_progress: 'getCutoverProgress',
   get_change_card_support: 'getChangeCardSupport',
   get_cutover_diff: 'getCutoverDiff',

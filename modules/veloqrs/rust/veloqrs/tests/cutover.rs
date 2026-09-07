@@ -938,3 +938,137 @@ fn a_038_blob_with_retired_fields_still_loads() {
         "a blob without pool_sports must default it on"
     );
 }
+
+/// Scenario: the cut fires unattended at launch, rebuilds the whole catalogue,
+/// and the only lever the athlete had was force-quit, which the in-flight
+/// token undid on the next launch.
+///
+/// Expected behaviour: a cancel ends the run at the next step boundary and
+/// leaves the library in a state the crash path already handles, so the next
+/// launch resumes it. Cancelling is "not this session", never "not ever": the
+/// token is what says the migration is still owed and a cancel must not
+/// promote it.
+///
+/// The stop signal is handed in rather than raced. A real cancel against this
+/// fixture would have to arrive inside a run that finishes in milliseconds,
+/// which tests the clock rather than the boundary.
+mod a_cancelled_cutover {
+    use super::*;
+    use veloqrs::persistence::cutover::{
+        PHASE_ARCHIVING, PHASE_DETECTING, PHASE_DRAINING, cancel_cutover, cutover_cancelled,
+        cutover_running, run_cutover, run_cutover_with,
+    };
+
+    fn seeded() -> (TempDir, usize) {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        seed_older_build_engine(&path);
+        let sections = with_persistent_engine(|e| e.get_sections().len()).unwrap();
+        assert!(sections > 0, "the seed detect produced no sections");
+        (dir, sections)
+    }
+
+    fn stop_in(phase: &'static str) -> impl Fn(&str) -> bool + Sync {
+        move |at: &str| at == phase
+    }
+
+    /// Before the archive: nothing has been written, so the athlete keeps the
+    /// catalogue they had and the migration is owed exactly as it was.
+    #[test]
+    fn stopped_in_the_drain_changes_nothing() {
+        let _serial = serial();
+        let (_dir, before) = seeded();
+
+        let outcome = run_cutover_with(&stop_in(PHASE_DRAINING)).expect("cancelled, not failed");
+
+        assert_eq!(outcome, CutoverOutcome::Cancelled);
+        assert!(veloqrs::ffi::is_cutover_pending(), "still owed");
+        assert_eq!(
+            with_persistent_engine(|e| e.get_sections().len()).unwrap(),
+            before,
+            "the catalogue was rebuilt anyway"
+        );
+        assert!(!cutover_running(), "the slot is given back");
+    }
+
+    /// After the archive and before the switch. The archive is additive and
+    /// idempotent per token, which is what makes this the same state a crash
+    /// here already leaves.
+    #[test]
+    fn stopped_after_the_archive_leaves_the_athlete_on_the_old_detector() {
+        let _serial = serial();
+        let (_dir, before) = seeded();
+
+        let outcome = run_cutover_with(&stop_in(PHASE_ARCHIVING)).expect("cancelled");
+
+        assert_eq!(outcome, CutoverOutcome::Cancelled);
+        assert!(veloqrs::ffi::is_cutover_pending(), "still owed");
+        assert_eq!(
+            with_persistent_engine(|e| e.get_sections().len()).unwrap(),
+            before
+        );
+    }
+
+    /// Past the switch the token is in flight, and an in-flight token is
+    /// always owed. That is what makes the next launch run this again from the
+    /// top rather than waving a half-migrated install through.
+    #[test]
+    fn stopped_after_the_switch_leaves_the_token_in_flight() {
+        let _serial = serial();
+        let (_dir, _before) = seeded();
+
+        let outcome = run_cutover_with(&stop_in(PHASE_DETECTING)).expect("cancelled");
+
+        assert_eq!(outcome, CutoverOutcome::Cancelled);
+        assert!(
+            veloqrs::ffi::is_cutover_pending(),
+            "an in-flight token is owed, so the next launch resumes"
+        );
+    }
+
+    /// Every stopping point is one the next run recovers from, so the run
+    /// after a cancel finishes the job rather than inheriting a broken half.
+    #[test]
+    fn is_finished_by_the_run_that_follows_it() {
+        let _serial = serial();
+        let (_dir, _before) = seeded();
+
+        for phase in [PHASE_DRAINING, PHASE_ARCHIVING, PHASE_DETECTING] {
+            assert_eq!(
+                run_cutover_with(&stop_in(phase)).expect("cancelled"),
+                CutoverOutcome::Cancelled,
+                "stopping in {phase}"
+            );
+        }
+
+        let finished = run_cutover().expect("the next run is not refused");
+        assert!(
+            matches!(finished, CutoverOutcome::Completed(_)),
+            "got {finished:?}"
+        );
+        assert!(!veloqrs::ffi::is_cutover_pending());
+    }
+
+    /// The cancel belongs to the run it stopped. A flag left standing would
+    /// refuse the next launch's run before it started, which is the "not ever"
+    /// this is not.
+    #[test]
+    fn does_not_carry_into_the_next_run() {
+        let _serial = serial();
+        let (_dir, _before) = seeded();
+
+        cancel_cutover();
+        assert!(cutover_cancelled(), "the flag is set");
+
+        let outcome = run_cutover().expect("cutover");
+
+        assert!(
+            matches!(outcome, CutoverOutcome::Completed(_)),
+            "a cancel with no run in flight must not arm itself against the next one, got {outcome:?}"
+        );
+        assert!(
+            !cutover_cancelled(),
+            "and the run clears it as it claims the slot"
+        );
+    }
+}

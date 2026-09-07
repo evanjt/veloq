@@ -1289,6 +1289,8 @@
     "previewSections": "预览路段变化",
     "cutoverRebuilding": "正在重建路段：{{phase}}",
     "cutoverFailed": "路段重建未能完成。",
+    "cutoverStop": "停止",
+    "cutoverStopping": "正在停止。下次打开 Veloq 时会继续。",
     "cutoverPhaseDraining": "正在清空队列",
     "cutoverPhaseArchiving": "正在归档",
     "cutoverPhaseDetecting": "正在检测",

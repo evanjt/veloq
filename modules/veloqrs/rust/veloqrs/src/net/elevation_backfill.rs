@@ -1154,6 +1154,11 @@ fn terminal_cut() -> bool {
         // either way something else is doing the cold detect this pass would
         // have started, so starting a second one duplicates it.
         Ok(CutoverOutcome::NotOwed) => false,
+        // The athlete stopped it. The migration is still owed and the next
+        // launch runs it again, so this pass starts nothing of its own: a
+        // final detect here would rebuild the catalogue the cancel was asking
+        // the app to stop rebuilding.
+        Ok(CutoverOutcome::Cancelled) => false,
         Err(e) => {
             log::warn!("[Elevation] cutover handover failed: {}", e);
             false
