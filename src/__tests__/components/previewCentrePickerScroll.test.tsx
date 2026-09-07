@@ -11,6 +11,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { PreviewCentrePicker } from '@/features/routes/components/preview/PreviewCentrePicker';
+import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -40,7 +41,7 @@ function renderPicker(count: number) {
   const labels = centres.map((c, i) => ({
     binKey: c.binKey,
     label: null,
-    fallbackNumber: i + 1,
+    fallbackLetter: fallbackLetter(i),
   }));
   return render(
     <PreviewCentrePicker

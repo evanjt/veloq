@@ -46,7 +46,7 @@ const SETTINGS_KEYS = [
 const SECTIONS_KEYS = ['elevationGain', 'avgGrade'] as const;
 
 const PLACEHOLDERS: Record<string, string[]> = {
-  previewAreaFallback: ['{{number}}'],
+  previewAreaFallback: ['{{letter}}'],
   previewAreaVisits: ['{{count}}'],
   previewAreaSections: ['{{count}}'],
   sectionMaxLength: ['{{distance}}'],

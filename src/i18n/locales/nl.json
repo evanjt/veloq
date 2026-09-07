@@ -1267,7 +1267,7 @@
     "cutoverPhaseArchiving": "archiveren",
     "cutoverPhaseDetecting": "detecteren",
     "cutoverPhaseDiffing": "vergelijken",
-    "previewAreaFallback": "Gebied {{number}}",
+    "previewAreaFallback": "Gebied {{letter}}",
     "previewAreaVisits": "{{count}} bezoeken",
     "previewAreaSections": "{{count}} secties",
     "sectionMaxLength": "Langste sectie: {{distance}}",

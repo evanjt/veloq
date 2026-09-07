@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
 import type { PreviewCentre } from '../../../../../modules/veloqrs/src/delegates/preview';
 
@@ -79,7 +80,9 @@ export function PreviewCentrePicker({
           const active = centre.binKey === selectedBinKey;
           const label =
             labels[i]?.label ??
-            t('settings.previewAreaFallback', { number: labels[i]?.fallbackNumber ?? i + 1 });
+            t('settings.previewAreaFallback', {
+              letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
+            });
           const detail =
             centre.source === 'sections'
               ? t('settings.previewAreaSections', { count: centre.sectionCount })
