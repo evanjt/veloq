@@ -287,4 +287,12 @@
       android:src="@drawable/widget_record_glyph"
       android:contentDescription="@null" />
   </LinearLayout>
+  <TextView
+    android:id="@+id/large_updated"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="2dp"
+    android:maxLines="1"
+    android:textSize="@dimen/widget_text_caption"
+    android:textColor="@color/widget_text_secondary" />
 </LinearLayout>
