@@ -165,6 +165,30 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   }
 }
 
+/**
+ * Drop every cached snapshot for one activity except the one just rendered.
+ *
+ * Called after a render lands, never before, so a failed re-render leaves the
+ * card with the image it already had. Without it every style and render the
+ * athlete has ever tried for an activity stays on disk under its own key, an
+ * unbounded set of orphaned JPEGs per card on anyone who experiments (B416).
+ */
+export async function deleteSupersededTerrainPreviews(
+  activityId: string,
+  style: string,
+  is3D: boolean
+): Promise<void> {
+  const keep = cacheKey(activityId, style, is3D);
+  const prefix = `${activityId}_`;
+  const toDelete = cachedKeys.filter((k) => k.startsWith(prefix) && k !== keep);
+  if (toDelete.length === 0) return;
+  cachedKeys = cachedKeys.filter((k) => !toDelete.includes(k));
+
+  for (const key of toDelete) {
+    await FileSystem.deleteAsync(`${TERRAIN_DIR}${key}.jpg`, { idempotent: true }).catch(() => {});
+  }
+}
+
 export async function clearTerrainPreviews(): Promise<void> {
   try {
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);

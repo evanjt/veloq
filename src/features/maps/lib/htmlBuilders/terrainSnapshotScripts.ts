@@ -11,6 +11,11 @@ export interface SnapshotRequest {
   routeColor: string;
   /** Flat top-down basemap - no terrain drape, sky, or hillshade */
   flat?: boolean;
+  /**
+   * The athlete asked for this one render on the card they are looking at, so
+   * it goes to the head of the queue and survives an overflow (B416).
+   */
+  priority?: boolean;
   _retryAttempt?: number;
 }
 

@@ -568,11 +568,18 @@ export const TerrainSnapshotWebView = forwardRef<
         // so it comes back off the total too: leaving it counted is what kept
         // completed from ever catching total while cards kept mounting, and
         // the progress notification posted for the whole session.
+        //
+        // An override is dropped last, not first: the front of the queue is
+        // where it was just put, so the oldest ordinary request goes instead.
         if (queueRef.current.length >= MAX_QUEUE_SIZE) {
-          queueRef.current.shift();
+          const oldest = queueRef.current.findIndex((r) => !r.priority);
+          queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
           queueTotalRef.current--;
         }
-        queueRef.current.push(request);
+        // A direct instruction about the card in front of the athlete jumps
+        // every card the feed happens to have mounted (B416).
+        if (request.priority) queueRef.current.unshift(request);
+        else queueRef.current.push(request);
         queueTotalRef.current++;
         updateProgress();
         processNext();

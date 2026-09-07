@@ -17,6 +17,7 @@ import {
   clearPrioritySnapshot,
   isTerrainCacheInitialized,
   onTerrainCacheReady,
+  deleteSupersededTerrainPreviews,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import {
@@ -78,7 +79,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Read focus locally so a tab switch re-renders only this leaf preview, not the
   // whole ActivityCard. The snapshot effect below defers requests when unfocused.
   const screenFocused = useIsFocused();
-  const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
+  const { getStyleForActivity, getTerrain3DMode, hasActivityOverride } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const activityColor = getActivityColor(activity.type);
   const terrain3DMode = getTerrain3DMode(activity.type, activity.id);
@@ -202,13 +203,20 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     }
   }, [mapStyle, activity.id, cacheReady, flat]);
 
-  // Subscribe to snapshot completion/failure events for this activity
+  // Subscribe to snapshot completion/failure events for this activity.
+  //
+  // A card the athlete has overridden keeps one render. The renders it
+  // supersedes go once the new one has landed, never before, so a failed
+  // re-render leaves the card with the image it already had (B416).
   useEffect(() => {
     return subscribeSnapshot(activity.id, (uri) => {
       setSnapshotFailed(false);
       setTerrainImageUri(uri);
+      if (hasActivityOverride(activity.id)) {
+        void deleteSupersededTerrainPreviews(activity.id, mapStyle, !flat);
+      }
     });
-  }, [activity.id]);
+  }, [activity.id, hasActivityOverride, mapStyle, flat]);
 
   useEffect(() => {
     return subscribeSnapshotFailure(activity.id, () => {
@@ -280,6 +288,9 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       mapStyle,
       routeColor: activityColor,
       flat,
+      // The athlete changed this one card's map, so it does not wait behind
+      // every card the feed has mounted (B416).
+      priority: hasActivityOverride(activity.id),
     });
   }, [
     screenFocused,
@@ -292,6 +303,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     activityColor,
     snapshotRef,
     snapshotReady,
+    hasActivityOverride,
   ]);
 
   if (__DEV__ && mapPreviewStart && index < 3) {
