@@ -454,21 +454,6 @@ export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {
  * Get combined attribution for all satellite sources visible in the current viewport.
  * Uses precise polygon boundaries for accurate attribution.
  */
-// Each regional source and the zoom gate that governs it. Attribution is
-// derived from the same bounds MapLibre clips the raster to, so the credit
-// line always names the imagery actually drawn.
-const REGIONAL_ATTRIBUTION_SOURCES: [SatelliteSourceId, keyof typeof REGIONS][] = [
-  ['swisstopo', 'switzerland'],
-  ['luxembourg', 'luxembourg'],
-  ['austria', 'austria'],
-  ['netherlands', 'netherlands'],
-  ['ign', 'france'],
-  ['czechia', 'czechia'],
-  ['spain', 'spain'],
-  ['poland', 'poland'],
-  ['naip', 'usa'],
-];
-
 function boundsContain(
   bounds: [number, number, number, number] | undefined,
   lng: number,
@@ -479,16 +464,49 @@ function boundsContain(
   return lng >= west && lng <= east && lat >= south && lat <= north;
 }
 
+const LAYER_PREFIX = 'satellite-layer-';
+
+/**
+ * The satellite raster stack, top down, read off the style itself rather than
+ * written out a second time. A source that moves in the layer list, or whose
+ * `minzoom` changes, moves here with it.
+ */
+let layerStack: { id: SatelliteSourceId; minzoom: number }[] | null = null;
+
+function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
+  if (!layerStack) {
+    layerStack = getCombinedSatelliteStyle()
+      .layers.filter((l) => l.id.startsWith(LAYER_PREFIX))
+      .map((l) => ({
+        id: l.id.slice(LAYER_PREFIX.length) as SatelliteSourceId,
+        minzoom: l.minzoom ?? 0,
+      }))
+      .reverse();
+  }
+  return layerStack;
+}
+
+/**
+ * The credit for the satellite imagery drawn at (lat, lng) on this zoom.
+ *
+ * Every regional raster is opaque and they are stacked in one fixed order, so
+ * at any one point exactly one of them is visible: the topmost whose bounds
+ * contain the point and whose layer `minzoom` is met. EOX sits under all of
+ * them and is credited only where nothing covers it.
+ *
+ * It used to credit every source whose box contained the point plus EOX
+ * unconditionally, which over Valais named IGN France for ground it does not
+ * draw and Sentinel-2 underneath imagery that fully covers it (B410).
+ */
 export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
-  const attributions = REGIONAL_ATTRIBUTION_SOURCES.filter(
-    ([id, region]) =>
-      zoom >= REGIONS[region].minZoom && boundsContain(SATELLITE_SOURCES[id].bounds, lng, lat)
-  ).map(([id]) => SATELLITE_SOURCES[id].attribution);
-
-  // Always include EOX as the global base
-  attributions.push(SATELLITE_SOURCES.eox.attribution);
-
-  return attributions.join(' | ');
+  for (const { id, minzoom } of satelliteLayerStack()) {
+    if (zoom < minzoom) continue;
+    const source = SATELLITE_SOURCES[id];
+    // No bounds means global coverage, which is EOX and the end of the stack.
+    if (source.bounds && !boundsContain(source.bounds, lng, lat)) continue;
+    return source.attribution;
+  }
+  return SATELLITE_SOURCES.eox.attribution;
 }
 
 /**

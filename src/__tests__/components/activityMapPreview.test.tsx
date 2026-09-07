@@ -93,14 +93,16 @@ describe('ActivityMapPreview', () => {
     );
   });
 
-  it('names the regional satellite sources the snapshot camera covers', () => {
+  it('names the satellite source drawing under the snapshot camera, and only it', () => {
     mockMapStyle = 'satellite';
 
     const { getByTestId } = render(<ActivityMapPreview activity={activity} />);
 
     const text = getByTestId('map-attribution-text').props.children as string;
     expect(text).toContain('swisstopo');
-    expect(text).toContain('EOX');
+    // Swisstopo is opaque and sits on top, so the global base is not drawn here
+    // and crediting it would be a licence claim nobody made (B410).
+    expect(text).not.toMatch(/EOX|Sentinel/i);
   });
 
   it('queues a render when the activity is cached flat and the card wants the drape', () => {
