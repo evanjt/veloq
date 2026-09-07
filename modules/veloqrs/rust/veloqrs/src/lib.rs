@@ -223,6 +223,10 @@ pub(crate) mod test_globals {
         *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
+        // The outcome is the other half of "no run has happened here", and it
+        // is a process-wide atomic. Leaving it standing let whichever test
+        // cargo happened to run first decide whether the next one saw idle.
+        crate::objects::detection::reset_last_outcome();
     }
 
     /// Drive the winning run to its end so the worker is finished with the
