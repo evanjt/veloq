@@ -171,6 +171,12 @@ class EngineClient implements DelegateHost {
   private dbPath: string | null = null;
   /** The generated binding installs its vtables once per process. */
   private bindingInitialised = false;
+  /**
+   * Whether Rust can announce anything. False until `setObserver` has been
+   * accepted, and it stays false when the checksum check or the call itself
+   * throws. A caller with no polling fallback reads it and polls.
+   */
+  private observerRegistered = false;
   private pendingWrites: PendingWrite[] = [];
   private droppedWrites = 0;
 
@@ -283,9 +289,11 @@ class EngineClient implements DelegateHost {
       // channel. The observer is withheld if it throws: a handle Rust cannot
       // call through is worse than none, since the polling fallback still
       // works and a panic per event does not.
+      this.observerRegistered = false;
       if (this.ensureBindingInitialised()) {
         try {
           this.engine.setObserver(this.observer());
+          this.observerRegistered = true;
         } catch (e) {
           console.warn('[EngineClient] Engine refused the observer:', e);
         }
@@ -378,6 +386,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
+    this.observerRegistered = false;
     this.pendingWrites = [];
   }
 
@@ -408,6 +417,7 @@ class EngineClient implements DelegateHost {
     this.initialized = false;
     this.dbPath = null;
     this.engine = null;
+    this.observerRegistered = false;
     this.pendingWrites = [];
     if (dbPath) this.initWithPath(dbPath);
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
@@ -1302,6 +1312,17 @@ class EngineClient implements DelegateHost {
 
   setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
     detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
+
+  /**
+   * Whether a subscription can ever fire.
+   *
+   * Withholding the observer is deliberate, see `initWithPath`, but it turns
+   * every announcement into nothing. Paths that follow a run on its event
+   * alone read this to decide whether the event is worth waiting for.
+   */
+  eventsAreLive(): boolean {
+    return this.observerRegistered;
+  }
 
   subscribe(event: string, callback: EngineListener): () => void {
     let set = this.listeners.get(event);
