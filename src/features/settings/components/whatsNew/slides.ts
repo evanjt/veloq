@@ -68,7 +68,9 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       titleKey: 'whatsNew.v030.strengthTitle',
       bodyKey: 'whatsNew.v030.strengthBody',
       icon: 'arm-flex-outline',
-      showMeRoute: '/fitness',
+      // The strength sub-tab, where the body diagram this slide describes is
+      // drawn. Fitness carries no strength surface at all.
+      showMeRoute: '/insights?tab=strength',
       get Component() {
         return require('./StrengthSlide').StrengthSlide;
       },
