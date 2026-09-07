@@ -54,7 +54,11 @@ export function generateSectionChangedInsights(
       timestamp: now,
       isNew: true,
       confidence: NO_POPULATION,
-      meta: { sourceTimestamp: change.at, comparisonKind: 'none' },
+      meta: {
+        sourceTimestamp: change.at,
+        comparisonKind: 'none',
+        placeName: change.sectionName,
+      },
     });
   }
   return insights;

@@ -162,7 +162,7 @@ export function stalePROpportunityToInsight(
       // The age of the last traversal, not of the card. The recency gate reads
       // this, and stamping it with `now` would age every card at zero days.
       sourceTimestamp: timestamp - opportunity.daysSinceLast * 86_400_000,
-      specificity: { hasNumber: true, hasPlace: true, hasDate: false },
+      placeName: opportunity.sectionName,
     },
     supportingData: {
       dataPoints: [
@@ -315,7 +315,6 @@ export function generateStalePRInsights(
         // group through a gate that member would fail alone.
         sourceTimestamp: now - Math.min(...filtered.map((o) => o.daysSinceLast)) * 86_400_000,
         repetitionCount: Math.min(...filtered.map((o) => o.traversalCount)),
-        specificity: { hasNumber: true, hasPlace: false, hasDate: false },
       },
       supportingData: {
         sections: filtered.map((o) => ({

@@ -75,7 +75,6 @@ function addPaceMilestoneInsight(
       meta: {
         sourceTimestamp: dateToMs(pace.latestDate) ?? now,
         comparisonKind: 'self',
-        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
       },
       supportingData: {
         dataPoints: [
@@ -143,7 +142,6 @@ export function generateFitnessMilestoneInsights(
           meta: {
             sourceTimestamp: dateToMs(ftp.latestDate) ?? now,
             comparisonKind: 'self',
-            specificity: { hasNumber: true, hasPlace: false, hasDate: true },
           },
           supportingData: {
             dataPoints: [
