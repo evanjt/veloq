@@ -31,6 +31,23 @@ export function buildPreviewSources(input: PreviewLayerInput): Record<string, Ma
 export function buildPreviewLayers(): MapLayerSpec[] {
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
+    // The live catalogue is the baseline the whole diff is read against, so it
+    // carries the same white casing every other coloured line on the app's
+    // maps gets. That is what lets it stay a neutral grey and still be found
+    // over satellite imagery. It reads as subordinate to the proposed lines
+    // through its narrower width and its dashes, not through an opacity that
+    // erased it (B406).
+    {
+      id: 'current-casing',
+      type: 'line',
+      source: 'current-sections',
+      layout: roundLine,
+      paint: {
+        'line-color': mapLayerColors.casing,
+        'line-opacity': 0.85,
+        'line-width': 5,
+      },
+    },
     {
       id: 'current-line',
       type: 'line',
@@ -38,7 +55,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': colors.neutralLine,
-        'line-opacity': 0.4,
+        'line-opacity': 1,
         'line-width': 3,
         'line-dasharray': [2, 2],
       },
