@@ -57,12 +57,14 @@ export enum StartOutcome {
   NotConfigured = 5,
   NotOwed = 6,
   Failed = 7,
+  Offline = 8,
 }
 
 export const isRetryableStart = (outcome: StartOutcome): boolean =>
   outcome === StartOutcome.Busy ||
   outcome === StartOutcome.Held ||
-  outcome === StartOutcome.NotReady;
+  outcome === StartOutcome.NotReady ||
+  outcome === StartOutcome.Offline;
 
 export const hasStarted = (outcome: StartOutcome): boolean => outcome === StartOutcome.Started;
 

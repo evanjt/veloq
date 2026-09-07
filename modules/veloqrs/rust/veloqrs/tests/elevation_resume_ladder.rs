@@ -46,7 +46,6 @@ fn climb_paused(
         || paused(round.get()),
         || {
             attempts.set(attempts.get() + 1);
-            true
         },
     );
     Run {
