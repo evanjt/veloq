@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -182,6 +184,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                 const y = CHART_PADDING.top + drawH - ((tick - yMin) / yRange) * drawH;
                 return (
                   <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                     key={`y-${i}`}
                     style={[
                       styles.axisLabel,
@@ -208,10 +211,18 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                     { left: CHART_PADDING.left, right: CHART_PADDING.right },
                   ]}
                 >
-                  <Text style={[styles.axisLabel, { color: textMuted }]}>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[styles.axisLabel, { color: textMuted }]}
+                  >
                     {formatDaysAgo(t, sparklineData.length - 1)}
                   </Text>
-                  <Text style={[styles.axisLabel, { color: textMuted }]}>{t('time.today')}</Text>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[styles.axisLabel, { color: textMuted }]}
+                  >
+                    {t('time.today')}
+                  </Text>
                 </View>
               ) : null}
             </View>

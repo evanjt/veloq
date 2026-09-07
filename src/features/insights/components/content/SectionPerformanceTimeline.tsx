@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import {
   Canvas,
   Path,
@@ -215,6 +217,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
             const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
             return (
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 key={`y-${i}`}
                 style={[
                   styles.axisLabel,
@@ -236,7 +239,11 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
           {/* X-axis date labels */}
           <View style={[styles.xAxisRow, { left: CHART_PADDING.left, right: CHART_PADDING.right }]}>
             {xLabels.map((label, i) => (
-              <Text key={`x-${i}`} style={[styles.axisLabel, { color: textMuted }]}>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                key={`x-${i}`}
+                style={[styles.axisLabel, { color: textMuted }]}
+              >
                 {label.label}
               </Text>
             ))}

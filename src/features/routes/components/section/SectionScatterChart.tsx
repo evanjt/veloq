@@ -13,6 +13,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from 'react-native-paper';
+
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { ChartCanvas, bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts';
@@ -469,10 +471,16 @@ export function SectionScatterChart({
         {/* Y-axis labels */}
         {!mini && (
           <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
             </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+            >
               {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
             </Text>
           </View>
@@ -484,6 +492,7 @@ export function SectionScatterChart({
         <View style={styles.timeAxis}>
           {timeAxisLabels.map((date, idx) => (
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               key={idx}
               style={[
                 styles.timeAxisLabel,

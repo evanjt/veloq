@@ -4,6 +4,8 @@
  */
 import React, { memo, useCallback, useRef } from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Platform } from 'react-native';
+
+import { DENSE_TEXT_SCALE } from './DenseText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -147,6 +149,7 @@ function BottomTabBarComponent() {
                   />
                 </View>
                 <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[
                     styles.label,
                     { color: isActive ? activeColor : inactiveColor },
