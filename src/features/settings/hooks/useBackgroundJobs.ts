@@ -68,31 +68,43 @@ const DETECTION_IDLE: DetectionStatus = {
   phase: null,
 };
 
+/**
+ * This screen watches detection, it does not settle it.
+ *
+ * `pollSectionDetection` is a taking read: it receives the completion from the
+ * worker's channel, so whoever polls first applies the run and everyone else
+ * then sees idle. This row used to poll on a one second timer, which took the
+ * completion out from under the follower waiting on the same run, and the
+ * rescan behind it reported no change on a run that had really finished.
+ *
+ * So the state is read from two things that consume nothing: the progress says
+ * whether a run holds the slot now, and the outcome says how the last finished
+ * one ended.
+ */
 function readDetection(previous: DetectionStatus): DetectionStatus {
   const engine = getEngine();
   if (!engine) return DETECTION_IDLE;
-  let status: string;
-  try {
-    status = engine.pollSectionDetection?.() ?? 'idle';
-  } catch {
-    return DETECTION_IDLE;
-  }
-  if (status === 'error') return { ...DETECTION_IDLE, state: 'failed' };
-  // A finished run keeps whatever the last poll saw, so the row does not snap
-  // back to zero the instant it settles.
-  if (status !== 'running') {
-    const settled: BackgroundJobState = status === 'complete' ? 'complete' : 'idle';
-    return previous.state === settled && previous.phase === null
-      ? previous
-      : { ...previous, state: settled, phase: null };
-  }
   let progress: { phase: string; completed: number; total: number; percent: number } | null = null;
   try {
     progress = engine.getSectionDetectionProgress?.() ?? null;
   } catch {
-    progress = null;
+    return DETECTION_IDLE;
   }
-  if (!progress) return { ...DETECTION_IDLE, state: 'running' };
+  if (!progress) {
+    let outcome = 'idle';
+    try {
+      outcome = engine.lastSectionDetectionOutcome?.() ?? 'idle';
+    } catch {
+      outcome = 'idle';
+    }
+    if (outcome === 'error') return { ...DETECTION_IDLE, state: 'failed' };
+    // A finished run keeps whatever the last read saw, so the row does not
+    // snap back to zero the instant it settles.
+    const settled: BackgroundJobState = outcome === 'complete' ? 'complete' : 'idle';
+    return previous.state === settled && previous.phase === null
+      ? previous
+      : { ...previous, state: settled, phase: null };
+  }
   return {
     state: 'running',
     completed: progress.completed,

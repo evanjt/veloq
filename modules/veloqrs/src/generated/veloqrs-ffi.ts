@@ -247,6 +247,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_last_outcome(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_poll(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1775,6 +1779,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_last_outcome(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness(): number;
