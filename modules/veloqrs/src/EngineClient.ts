@@ -887,6 +887,13 @@ class EngineClient implements DelegateHost {
   markRecordingPermissionBlocked = (id: string, nowMs: number): void =>
     recordingDelegates.markRecordingPermissionBlocked(this, id, nowMs);
 
+  holdRecordingForAuth = (id: string, error: string): void =>
+    recordingDelegates.holdRecordingForAuth(this, id, error);
+
+  /** Answers how many rides were held because they are not this athlete's. */
+  holdRecordingsOfOtherAthletes = (athleteId: string): number =>
+    recordingDelegates.holdRecordingsOfOtherAthletes(this, athleteId);
+
   requeueRecording = (id: string): void => recordingDelegates.requeueRecording(this, id);
 
   clearRecordingPermissionBlocked = (): void =>
