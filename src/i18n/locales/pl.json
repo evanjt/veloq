@@ -1553,6 +1553,8 @@
     "manageSensors": "Czujniki tętna, mocy i kadencji",
     "paired": "Sparowane czujniki",
     "nonePaired": "Brak sparowanych czujników. Wyszukaj poniżej, aby dodać.",
+    "nonePairedShort": "Brak sparowanych",
+    "pairedCount": "Sparowane: {{count}}",
     "addSensor": "Dodaj czujnik",
     "scan": "Szukaj czujników",
     "stopScan": "Zatrzymaj wyszukiwanie",
