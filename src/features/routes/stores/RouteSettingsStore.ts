@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
+import { runCatalogueClear } from '@/features/routes/lib/runCatalogueClear';
 
 const log = debug.create('RouteSettings');
 
@@ -106,8 +107,15 @@ export const useRouteSettings = create<RouteSettingsState>((set) => ({
         // the window between the two.
         engine.setSetting?.(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
         if (!enabled) {
-          // Clear route/section data from SQLite (GPS tracks preserved for heatmap)
-          engine.clearRoutesAndSections();
+          // Clear route/section data from SQLite (GPS tracks preserved for
+          // heatmap). The wipe runs on a Rust thread because on a full library
+          // it takes long enough to drop frames, and the refresh below waits
+          // for it so the screens never read a catalogue still draining. A
+          // wipe that fails is logged and the refresh still runs: a stuck
+          // switch is worse than a stale list.
+          await runCatalogueClear(engine).catch((error) => {
+            log.error('Failed to clear routes and sections:', error);
+          });
         }
         // Notify UI to update sections/routes visibility
         engine.triggerRefresh('sections');
