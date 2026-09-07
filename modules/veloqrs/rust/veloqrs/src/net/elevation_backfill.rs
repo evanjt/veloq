@@ -233,15 +233,14 @@ static PAUSED: AtomicBool = AtomicBool::new(false);
 ///
 /// The pass in flight ends at its next batch boundary and reports
 /// [`BACKFILL_PHASE_PAUSED`] itself; with no pass in flight the phase is set
-/// here so the page reads paused at once. Returns whether a pass was running.
-pub fn pause_elevation_backfill() -> bool {
+/// here so the page reads paused at once. Either way the phase is what says it,
+/// so there is nothing for this to answer.
+pub fn pause_elevation_backfill() {
     PAUSED.store(true, Ordering::SeqCst);
-    let running = BACKFILL.running.load(Ordering::SeqCst);
-    if !running {
+    if !BACKFILL.running.load(Ordering::SeqCst) {
         set_phase(BACKFILL_PHASE_PAUSED);
     }
     log::info!("[Elevation] backfill paused until the next launch");
-    running
 }
 
 /// Whether the download is paused in this process.
@@ -1837,7 +1836,12 @@ mod tests {
             reset_pause();
             set_phase(BACKFILL_PHASE_PARTIAL);
 
-            assert!(!pause_elevation_backfill(), "nothing was running to stop");
+            assert!(
+                !BACKFILL.running.load(Ordering::SeqCst),
+                "nothing was running to stop"
+            );
+
+            pause_elevation_backfill();
             assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PAUSED);
             assert!(elevation_backfill_paused());
 
