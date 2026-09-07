@@ -1280,6 +1280,7 @@
     "previewRunning": "Analizowanie {{count}} aktywności w tym obszarze",
     "previewFailed": "Nie udało się ukończyć podglądu.",
     "previewPoolUnusable": "Niektorych sladow aktywnosci nie mozna odczytac, wiec podglad zostal zatrzymany.",
+    "previewCurrentFailed": "Nie udało się odczytać bieżących odcinków dla tego obszaru.",
     "previewSuspended": "Trwa aktualizacja wysokości. Spróbuj ponownie za chwilę.",
     "previewMigrating": "Twoja biblioteka wciąż jest migrowana, więc wyniki mogą się nieco zmienić po zakończeniu",
     "previewUnchanged": "{{count}} bez zmian",

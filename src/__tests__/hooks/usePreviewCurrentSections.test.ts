@@ -3,7 +3,8 @@
  * detector holds for that area today, before anything is previewed.
  * Expected behaviour: the live catalogue is read once per area, re-read when
  * the area changes, and an engine that has nothing or throws leaves the screen
- * with an empty catalogue rather than a crash.
+ * with an empty catalogue rather than a crash. An area with nothing in it and a
+ * read that failed are told apart, so the screen can say which it is.
  */
 
 import { renderHook } from '@testing-library/react-native';
@@ -52,7 +53,8 @@ describe('usePreviewCurrentSections', () => {
     const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(getPreviewCurrentSections).toHaveBeenCalledWith(CENTRE.lat, CENTRE.lng);
-    expect(result.current.map((s) => s.id)).toEqual(['a', 'b']);
+    expect(result.current.sections.map((s) => s.id)).toEqual(['a', 'b']);
+    expect(result.current.failed).toBe(false);
   });
 
   it('re-reads when the chosen area changes and not otherwise', () => {
@@ -77,7 +79,8 @@ describe('usePreviewCurrentSections', () => {
 
     const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
-    expect(result.current).toEqual([]);
+    expect(result.current.sections).toEqual([]);
+    expect(result.current.failed).toBe(false);
   });
 
   it('holds an empty catalogue when there is no client or no area', () => {
@@ -85,14 +88,16 @@ describe('usePreviewCurrentSections', () => {
     const client = { getPreviewCurrentSections } as never;
 
     const withoutClient = renderHook(() => usePreviewCurrentSections(null, CENTRE));
-    expect(withoutClient.result.current).toEqual([]);
+    expect(withoutClient.result.current.sections).toEqual([]);
+    expect(withoutClient.result.current.failed).toBe(false);
 
     const withoutCentre = renderHook(() => usePreviewCurrentSections(client, null));
-    expect(withoutCentre.result.current).toEqual([]);
+    expect(withoutCentre.result.current.sections).toEqual([]);
+    expect(withoutCentre.result.current.failed).toBe(false);
     expect(getPreviewCurrentSections).not.toHaveBeenCalled();
   });
 
-  it('survives an engine that throws', () => {
+  it('survives an engine that throws, and says the read failed', () => {
     const client = {
       getPreviewCurrentSections: jest.fn(() => {
         throw new Error('engine gone');
@@ -101,7 +106,35 @@ describe('usePreviewCurrentSections', () => {
 
     const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
-    expect(result.current).toEqual([]);
+    expect(result.current.sections).toEqual([]);
+    expect(result.current.failed).toBe(true);
+  });
+
+  it('says the read failed when the engine hands back no answer at all', () => {
+    const client = { getPreviewCurrentSections: jest.fn(() => null) } as never;
+
+    const { result } = renderHook(() => usePreviewCurrentSections(client, CENTRE));
+
+    expect(result.current.sections).toEqual([]);
+    expect(result.current.failed).toBe(true);
+  });
+
+  it('clears a failure once a later area reads cleanly', () => {
+    const getPreviewCurrentSections = jest.fn((lat: number) => {
+      if (lat === CENTRE.lat) throw new Error('engine gone');
+      return [section('a')];
+    });
+    const client = { getPreviewCurrentSections } as never;
+
+    const { result, rerender } = renderHook(
+      ({ centre }: { centre: PreviewCentre }) => usePreviewCurrentSections(client, centre),
+      { initialProps: { centre: CENTRE } }
+    );
+    expect(result.current.failed).toBe(true);
+
+    rerender({ centre: OTHER_CENTRE });
+    expect(result.current.failed).toBe(false);
+    expect(result.current.sections.map((s) => s.id)).toEqual(['a']);
   });
 
   it('reads again when the screen is opened a second time', () => {
@@ -113,6 +146,6 @@ describe('usePreviewCurrentSections', () => {
     const second = renderHook(() => usePreviewCurrentSections(client, CENTRE));
 
     expect(getPreviewCurrentSections).toHaveBeenCalledTimes(2);
-    expect(second.result.current.map((s) => s.id)).toEqual(['a']);
+    expect(second.result.current.sections.map((s) => s.id)).toEqual(['a']);
   });
 });

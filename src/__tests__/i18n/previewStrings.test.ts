@@ -1,5 +1,5 @@
 /**
- * The detection preview ships twenty-six settings strings and two section
+ * The detection preview ships twenty-seven settings strings and two section
  * metric labels. Every locale needs a real translation with the interpolation
  * placeholders intact, otherwise the screen reads as English or renders a raw
  * `{{count}}`.
@@ -21,6 +21,7 @@ const SETTINGS_KEYS = [
   'previewRunning',
   'previewFailed',
   'previewSuspended',
+  'previewCurrentFailed',
   'previewUnchanged',
   'previewChanged',
   'previewNew',

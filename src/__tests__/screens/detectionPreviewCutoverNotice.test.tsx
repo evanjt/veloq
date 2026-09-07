@@ -71,7 +71,7 @@ jest.mock('@/features/routes/hooks/usePreviewCentres', () => ({
   usePreviewCentres: () => ({ centres: [], labels: {} }),
 }));
 jest.mock('@/features/routes/hooks/usePreviewCurrentSections', () => ({
-  usePreviewCurrentSections: () => [],
+  usePreviewCurrentSections: () => ({ sections: [], failed: false }),
 }));
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({ forceRescan: jest.fn() }),
