@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.text.format.DateUtils
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
@@ -172,7 +173,35 @@ object WidgetRenderer {
     val chartW = (chartWidthDp(minWidthDp, 300) - 8) / 2
     bindTrendChart(context, v, R.id.med_sparkline, snap, heroKey, chartW.coerceAtLeast(120), 48)
     bindCycleTap(context, v, R.id.med_hero, widgetId)
+    bindUpdatedAt(context, v, R.id.med_updated, snap)
     return v
+  }
+
+  /**
+   * When the app last wrote this snapshot, as the system phrases it.
+   *
+   * The widget is stale exactly for the athlete whose app has not run, and the
+   * numbers on it give no clue how old they are. The line is computed at render
+   * rather than carried in the payload: a pre-formatted "just now" written at
+   * save time would still say "just now" a day later.
+   *
+   * A snapshot from before the field carries zero and the line is hidden, which
+   * says nothing rather than saying 1970.
+   */
+  private fun bindUpdatedAt(context: Context, v: RemoteViews, id: Int, snap: WidgetSnapshot?) {
+    val seconds = snap?.generatedAt ?: 0L
+    if (seconds <= 0L) {
+      v.setViewVisibility(id, View.GONE)
+      return
+    }
+    val label =
+      DateUtils.getRelativeTimeSpanString(
+        seconds * 1000L,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS,
+        DateUtils.FORMAT_ABBREV_RELATIVE)
+    v.setViewVisibility(id, View.VISIBLE)
+    v.setTextViewText(id, label)
   }
 
   private class RowIds(val row: Int, val label: Int, val value: Int, val trend: Int)
@@ -286,6 +315,7 @@ object WidgetRenderer {
     } else {
       v.setViewVisibility(R.id.large_record, View.GONE)
     }
+    bindUpdatedAt(context, v, R.id.large_updated, snap)
     return v
   }
 

@@ -666,6 +666,31 @@ struct SmallWidgetView: View {
 // Medium: left hero (configurable) + compact fitness/fatigue rows; right sparkline
 // + latest activity with structured impact. Summary mode swaps in the app-configured
 // entries instead of the fixed rows.
+/**
+ * When the app last wrote the snapshot it is rendering.
+ *
+ * The widget is stale exactly for the athlete whose app has not run, and the
+ * numbers give no clue how old they are. `.relative` is the system's own
+ * phrasing and it ticks on its own, so the line stays honest between refreshes,
+ * which a string formatted at save time would not.
+ *
+ * A snapshot from before the field carries zero and shows nothing rather than
+ * a date in 1970.
+ */
+struct SnapshotAgeLine: View {
+  let generatedAt: Double?
+  let palette: WidgetPalette
+
+  var body: some View {
+    if let seconds = generatedAt, seconds > 0 {
+      Text(Date(timeIntervalSince1970: seconds), style: .relative)
+        .font(.system(size: WidgetTheme.TypeScale.caption))
+        .foregroundColor(palette.textSecondary)
+        .lineLimit(1)
+    }
+  }
+}
+
 struct MediumWidgetView: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
@@ -722,6 +747,7 @@ struct MediumWidgetView: View {
           fallbackLine: snapshot?.display.impactLine,
           palette: palette)
         Spacer(minLength: 0)
+        SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -833,6 +859,7 @@ struct LargeWidgetView: View {
         palette: palette)
       Spacer(minLength: 0)
       footer
+      SnapshotAgeLine(generatedAt: snapshot?.generatedAt, palette: palette)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .padding(WidgetTheme.Layout.padding)
