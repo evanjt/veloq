@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { PreviewMapView } from '@/features/routes/components/preview/PreviewMapView';
 
 const capturedStyles: string[] = [];
@@ -33,9 +33,13 @@ jest.mock('@/features/maps/components', () => {
 });
 
 const mockGetGlobalMapStyle = jest.fn(() => 'satellite');
+const mockSetGlobalMapStyle = jest.fn();
 
 jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
-  useMapPreferences: () => ({ getGlobalMapStyle: () => mockGetGlobalMapStyle() }),
+  useMapPreferences: () => ({
+    getGlobalMapStyle: () => mockGetGlobalMapStyle(),
+    setGlobalMapStyle: mockSetGlobalMapStyle,
+  }),
 }));
 
 let mockIsDark = false;
@@ -70,6 +74,7 @@ describe('the detection preview basemap', () => {
     capturedStyles.length = 0;
     mockIsDark = false;
     mockGetGlobalMapStyle.mockClear();
+    mockSetGlobalMapStyle.mockClear();
   });
 
   it('takes the street style even when the athlete rides on satellite', () => {
@@ -97,5 +102,74 @@ describe('the detection preview basemap', () => {
     expect(tree.getByTestId('map-attribution-text').props.children).toBe(
       '© OpenFreeMap © OpenMapTiles © OpenStreetMap'
     );
+  });
+});
+
+/**
+ * The ground a proposed section runs over is a question the street style
+ * cannot answer, so the athlete can switch. The choice is this screen's, not
+ * the app's: nothing here writes the global preference.
+ */
+describe('the preview basemap cycler', () => {
+  beforeEach(() => {
+    capturedStyles.length = 0;
+    mockIsDark = false;
+    mockSetGlobalMapStyle.mockClear();
+  });
+
+  function latestStyle() {
+    return capturedStyles[capturedStyles.length - 1];
+  }
+
+  it('moves off the street style on a tap', () => {
+    const tree = renderMap();
+
+    fireEvent.press(tree.getByTestId('preview-map-style'));
+
+    expect(latestStyle()).toBe('dark');
+  });
+
+  it('reaches satellite on the first tap under a dark theme', () => {
+    mockIsDark = true;
+    const tree = renderMap();
+
+    fireEvent.press(tree.getByTestId('preview-map-style'));
+
+    expect(latestStyle()).toBe('satellite');
+  });
+
+  it('leaves the global preference alone', () => {
+    const tree = renderMap();
+
+    fireEvent.press(tree.getByTestId('preview-map-style'));
+    fireEvent.press(tree.getByTestId('preview-map-style'));
+
+    expect(mockSetGlobalMapStyle).not.toHaveBeenCalled();
+    expect(mockGetGlobalMapStyle).not.toHaveBeenCalled();
+  });
+
+  it('opens on street again on the next visit', () => {
+    mockIsDark = true;
+    const first = renderMap();
+    fireEvent.press(first.getByTestId('preview-map-style'));
+    first.unmount();
+
+    capturedStyles.length = 0;
+    renderMap();
+
+    expect(capturedStyles[0]).toBe('dark');
+  });
+
+  // The imagery source is whichever one covers the viewport, so the assertion
+  // is that the credit followed the switch, not which provider it names.
+  it('credits the imagery the athlete switched to', () => {
+    mockIsDark = true;
+    const tree = renderMap();
+
+    fireEvent.press(tree.getByTestId('preview-map-style'));
+
+    const credit = tree.getByTestId('map-attribution-text').props.children;
+    expect(credit).not.toContain('OpenFreeMap');
+    expect(credit.length).toBeGreaterThan(0);
   });
 });

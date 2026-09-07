@@ -9,7 +9,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
@@ -22,7 +23,11 @@ import {
   type MapSurfaceRef,
 } from '@/features/maps/components';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import {
+  getNextStyle,
+  getStyleIcon,
+  type MapStyleType,
+} from '@/features/maps/components/mapStyles';
 import { EMPTY_FEATURE_COLLECTION, type LngLat } from '@/features/maps/lib/coordinates';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
@@ -250,9 +255,19 @@ export function PreviewMapView({
   // Every other map in the app takes the athlete's global basemap, and on this
   // one that is wrong: the screen exists to read a diff, and satellite imagery
   // carries as much weight as the lines drawn over it. The street style is the
-  // quietest ground the app has, so it takes that and follows the theme
-  // instead of the preference (B407).
-  const mapStyle: MapStyleType = isDark ? 'dark' : 'light';
+  // quietest ground the app has, so it opens on that and follows the theme
+  // instead of the preference.
+  //
+  // The ground a proposed section runs over is still a fair question, so the
+  // athlete can cycle off it. Until they do, the choice is null and the theme
+  // answers, which is what a theme flip mid-screen should still do. The choice
+  // is this component's and dies with it: nothing here writes the global
+  // preference, so the next visit opens on street again.
+  const [chosenStyle, setChosenStyle] = useState<MapStyleType | null>(null);
+  const mapStyle: MapStyleType = chosenStyle ?? (isDark ? 'dark' : 'light');
+  const cycleStyle = useCallback(() => {
+    setChosenStyle(getNextStyle(mapStyle));
+  }, [mapStyle]);
   const attribution = useMemo(
     () =>
       computeAttribution({
@@ -303,6 +318,17 @@ export function PreviewMapView({
         testID="preview-map"
       />
       <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
+      {/* Opposite corner to the legend, which owns the right-hand side. */}
+      <TouchableOpacity
+        style={[styles.styleButton, { backgroundColor: chipBg, borderColor: chipBorder }]}
+        onPress={cycleStyle}
+        activeOpacity={0.8}
+        testID="preview-map-style"
+        accessibilityRole="button"
+        accessibilityLabel={t('maps.toggleStyle')}
+      >
+        <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={20} color={textPrimary} />
+      </TouchableOpacity>
       <View style={styles.legend} pointerEvents="box-none">
         <LegendChip
           testID="preview-layer-current"
@@ -397,6 +423,14 @@ function LegendChip({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  styleButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    padding: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   legend: {
     position: 'absolute',
     top: spacing.sm,
