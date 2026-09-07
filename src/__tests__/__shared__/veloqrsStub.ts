@@ -48,6 +48,24 @@ export enum SyncState {
   AuthExpired = 4,
 }
 
+/** `FfiStartOutcome` as generated, held to the source by the same test. */
+export enum StartOutcome {
+  Started = 1,
+  Busy = 2,
+  Held = 3,
+  NotReady = 4,
+  NotConfigured = 5,
+  NotOwed = 6,
+  Failed = 7,
+}
+
+export const isRetryableStart = (outcome: StartOutcome): boolean =>
+  outcome === StartOutcome.Busy ||
+  outcome === StartOutcome.Held ||
+  outcome === StartOutcome.NotReady;
+
+export const hasStarted = (outcome: StartOutcome): boolean => outcome === StartOutcome.Started;
+
 export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
 );
@@ -64,7 +82,7 @@ export const createPreviewClientStub = () => ({
   cancelPreviewDetect: jest.fn(),
   getSectionConfig: jest.fn(() => null),
   setSectionConfig: jest.fn(),
-  forceRedetectSections: jest.fn(() => false),
+  forceRedetectSections: jest.fn(() => StartOutcome.Held),
 });
 export const startFetchAndStore = jest.fn();
 export const takeFetchAndStoreResult = jest.fn(() => null);
@@ -108,6 +126,9 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     CallKind,
     SyncState,
     SyncErrorReason,
+    StartOutcome,
+    isRetryableStart,
+    hasStarted,
     decodeCoords,
     createPreviewClientStub,
     startFetchAndStore,

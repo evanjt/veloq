@@ -247,7 +247,7 @@ void uniffi_veloqrs_fn_free_detectionmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_detectionmanager_new(
     RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
+RustBuffer uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_config(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
@@ -264,7 +264,7 @@ void uniffi_veloqrs_fn_method_detectionmanager_set_config(
 void uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
     /*handle*/ uint64_t ptr, double min_match_pct, double endpoint_threshold,
     RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_detectionmanager_start(
+RustBuffer uniffi_veloqrs_fn_method_detectionmanager_start(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_veloqengine(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
@@ -859,7 +859,7 @@ RustBuffer uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
 void uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     /*handle*/ uint64_t ptr, RustBuffer method, RustBuffer secret,
     RustBuffer athlete_id, RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
+RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
     /*handle*/ uint64_t ptr, RustBuffer oldest, RustBuffer newest,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
@@ -874,7 +874,7 @@ int8_t uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
 int8_t uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
     /*handle*/ uint64_t ptr, RustBuffer oldest, RustBuffer newest,
     RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_syncmanager_sync_now(
+RustBuffer uniffi_veloqrs_fn_method_syncmanager_sync_now(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
     /*handle*/ uint64_t ptr, RustBuffer sport, int64_t days, int8_t gap,
@@ -13649,7 +13649,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_get_config(
@@ -13769,7 +13769,7 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_veloqengine(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -17479,7 +17479,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
@@ -17559,7 +17559,7 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_now(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(

@@ -49,6 +49,7 @@ import type {
   DerivedClear,
   SettingPair,
 } from './generated/veloqrs';
+import { FfiStartOutcome } from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
@@ -440,7 +441,7 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  startSectionDetection = (): boolean => detectionDelegates.startSectionDetection(this);
+  startSectionDetection = (): FfiStartOutcome => detectionDelegates.startSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
@@ -502,9 +503,9 @@ class EngineClient implements DelegateHost {
 
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
-  syncNow = (): boolean => syncDelegates.syncNow(this);
+  syncNow = (): FfiStartOutcome => syncDelegates.syncNow(this);
 
-  syncActivitiesWindow = (oldest: string, newest: string): boolean =>
+  syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
 
   syncPowerCurve = (sport: string, days: number): boolean =>
@@ -1292,7 +1293,7 @@ class EngineClient implements DelegateHost {
   getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
     routeDelegates.getActivityRouteHighlights(this, activityIds);
 
-  forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
+  forceRedetectSections = (): FfiStartOutcome => detectionDelegates.forceRedetectSections(this);
 
   setSectionConfig = (config: FfiSectionConfig): void =>
     detectionDelegates.setSectionConfig(this, config);
