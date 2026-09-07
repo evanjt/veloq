@@ -372,6 +372,65 @@ fn route_membership_not_frozen() {
 // Curiosity 5. FIRST / SINGLE ATTEMPT SAFETY of route highlights
 // ============================================================================
 
+/// Expected behaviour: two runs of a route at the same moving time leave
+/// neither of them a record. Equalling the best is not beating it.
+#[test]
+fn route_highlights_do_not_award_a_pr_for_a_tie() {
+    let corpus = route_corpus(COLD_N);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let routes = route_snapshot(&mut engine);
+    let (_id, busiest) = busiest_route(&routes).expect("a multi-member route");
+
+    let mut members: Vec<&String> = busiest.activity_ids.iter().collect();
+    members.sort_by_key(|id| corpus_activity(&corpus, id).start_date_unix);
+
+    // Every attempt at the same moving time, so whichever direction bucket an
+    // attempt lands in, the best of the others is that same time and nothing
+    // clears it.
+    let metrics: Vec<ActivityMetrics> = members
+        .iter()
+        .map(|id| metrics_for(corpus_activity(&corpus, id), 500))
+        .collect();
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
+
+    let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
+    let highlights = engine.get_activity_route_highlights(&ids);
+    assert!(!highlights.is_empty(), "expected highlights for the route");
+    assert!(
+        highlights.iter().all(|h| !h.is_pr),
+        "a tie at the fastest time is not a record for either attempt"
+    );
+
+    // Break the tie for the earliest attempt and no other attempt may take the
+    // record. Which direction bucket each attempt lands in is the function's
+    // own business, so the earliest is not asserted to win: that route
+    // highlights still award a PR at all is
+    // `route_highlights_trend_is_running_average_safe` below.
+    let metrics: Vec<ActivityMetrics> = members
+        .iter()
+        .enumerate()
+        .map(|(i, id)| metrics_for(corpus_activity(&corpus, id), if i == 0 { 400 } else { 500 }))
+        .collect();
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
+
+    let winners: Vec<&str> = engine
+        .get_activity_route_highlights(&ids)
+        .iter()
+        .filter(|h| h.is_pr)
+        .map(|h| h.activity_id.as_str())
+        .map(|id| ids.iter().find(|i| i.as_str() == id).unwrap().as_str())
+        .collect();
+    assert!(
+        winners.iter().all(|w| *w == ids[0].as_str()),
+        "only the attempt that broke the tie may hold the record, got {winners:?}"
+    );
+}
+
 /// Guard: route-highlight trend/delta are first/single-attempt safe and the
 /// trend is decoupled from the PR.
 ///   - every trend is one of {-1, 0, 1} (never NaN, the field is an i8);
@@ -434,7 +493,8 @@ fn route_highlights_trend_is_running_average_safe() {
         "a PR attempt should be able to have trend != 1, trend must not be derived from the PR",
     );
 
-    // Single-attempt (singleton) route: exercised safely, trend 0, is_pr true.
+    // Single-attempt (singleton) route: exercised safely, trend 0, and no PR.
+    // A first outing has beaten nothing, so it holds no record.
     let single = routes
         .groups
         .values()
@@ -447,7 +507,7 @@ fn route_highlights_trend_is_running_average_safe() {
     let sh = engine.get_activity_route_highlights(&[only.clone()]);
     if let Some(h) = sh.first() {
         assert_eq!(h.trend, 0, "single attempt must be trend 0");
-        assert!(h.is_pr, "single attempt is trivially its own PR");
+        assert!(!h.is_pr, "a single attempt has beaten nothing and is no PR");
         assert_eq!(
             h.pr_improvement_seconds, None,
             "single attempt has no previous best to improve on"

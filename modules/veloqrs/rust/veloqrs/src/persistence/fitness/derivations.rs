@@ -939,10 +939,17 @@ impl PersistentEngine {
                 group_cache.get(&cache_key)
             {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
-                let is_pr = crate::persistence::records::is_personal_record(
+                // The record is beaten, not matched, so this effort is judged
+                // against the best of the others: the second best when it holds
+                // the best itself, and nothing at all when it is alone.
+                let rival = crate::persistence::records::rival_of(
                     moving_time as f64,
-                    *best_moving_time as f64,
+                    (*best_moving_time > 0).then_some(*best_moving_time as f64),
+                    (*second_best_moving_time != u32::MAX)
+                        .then_some(*second_best_moving_time as f64),
                 );
+                let is_pr =
+                    crate::persistence::records::is_personal_record(moving_time as f64, rival);
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {
@@ -1053,15 +1060,18 @@ impl PersistentEngine {
 
             let mut history_times: Vec<f64> = Vec::new();
             let mut history_ids: Vec<String> = Vec::new();
-            let mut best_time: f64 = f64::MAX;
+            // The best of the outings other than this one. This activity's own
+            // rows are excluded rather than merely out-competed, so a lapped
+            // session cannot manufacture a record against its own laps.
+            let mut rival: Option<f64> = None;
 
             if let Ok(rows) = hist_stmt.query_map(
                 rusqlite::params![trav.section_id, trav.direction, activity_id],
                 |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
             ) {
                 for row in rows.flatten() {
-                    if row.0 < best_time {
-                        best_time = row.0;
+                    if row.1 != activity_id && rival.is_none_or(|r| row.0 < r) {
+                        rival = Some(row.0);
                     }
                     history_times.push(row.0);
                     history_ids.push(row.1);
@@ -1069,8 +1079,7 @@ impl PersistentEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            let is_pr =
-                crate::persistence::records::matches_personal_record(trav.lap_time, best_time);
+            let is_pr = crate::persistence::records::is_personal_record(trav.lap_time, rival);
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
