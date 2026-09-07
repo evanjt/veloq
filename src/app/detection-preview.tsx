@@ -90,7 +90,10 @@ export default function DetectionPreviewScreen() {
   const danger = isDark ? darkColors.error : colors.error;
 
   const selectedCentre = centre ?? centres[0] ?? null;
-  const currentSections = usePreviewCurrentSections(client, selectedCentre);
+  const { sections: currentSections, failed: currentFailed } = usePreviewCurrentSections(
+    client,
+    selectedCentre
+  );
   const running = status === 'running';
   // The engine reports a percentage for a bounded job, so draw it. Clamped
   // because a phase that finishes ahead of its own estimate can overshoot.
@@ -266,6 +269,11 @@ export default function DetectionPreviewScreen() {
           </View>
         )}
 
+        {currentFailed && (
+          <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
+            {t('settings.previewCurrentFailed')}
+          </Text>
+        )}
         {status === 'error' && (
           <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
         )}

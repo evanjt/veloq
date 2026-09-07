@@ -1300,6 +1300,7 @@
     "previewRunning": "Analyzing {{count}} activities in this area",
     "previewFailed": "The preview could not finish.",
     "previewPoolUnusable": "Some of your activity tracks cannot be read, so the preview stopped.",
+    "previewCurrentFailed": "Could not read the current sections for this area.",
     "previewSuspended": "Elevation update in progress. Try again shortly.",
     "previewMigrating": "Your library is still migrating, so these results may shift slightly once it finishes",
     "previewUnchanged": "{{count}} unchanged",
