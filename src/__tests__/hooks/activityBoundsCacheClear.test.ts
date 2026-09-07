@@ -105,3 +105,30 @@ describe('the cache panel count after a clear', () => {
     expect(seen.slice(before)).not.toContain(0);
   });
 });
+
+/**
+ * The bounds pass moved into the engine, which owns activity storage and the
+ * spatial index. What was left behind was a `progress` value with no setter,
+ * frozen at idle since the restructure, and an `isSyncing` derived from it that
+ * no caller read. Four surfaces branched on the two and none of those branches
+ * could ever be taken.
+ */
+describe('the bounds sync progress that no longer exists', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setEngineCount(0);
+    mockEngine.subscribe.mockReturnValue(() => {});
+  });
+
+  it('is not offered by the hook', () => {
+    const { result } = renderHook(() => useActivityBoundsCache());
+
+    expect(result.current).not.toHaveProperty('progress');
+  });
+
+  it('is not offered as a cache statistic either', () => {
+    const { result } = renderHook(() => useActivityBoundsCache());
+
+    expect(result.current.cacheStats).not.toHaveProperty('isSyncing');
+  });
+});

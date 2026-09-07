@@ -278,7 +278,6 @@
     "loadingDemoGps": "Ładowanie danych GPS demo...",
     "noValidGpsData": "Brak prawidłowych danych GPS",
     "offlineUsingCached": "Offline - używam tras z pamięci podręcznej",
-    "syncingActivities": "Synchronizacja aktywności",
     "syncedActivities": "Zsynchronizowano {{count}} aktywności",
     "syncedDemoActivities": "Zsynchronizowano {{count}} aktywności demo",
     "downloadingGpsProgress": "Pobieranie danych GPS... {{percent}}%",

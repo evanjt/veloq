@@ -1,15 +1,12 @@
 /**
  * Tests for sync progress formatting utilities.
  *
- * Covers: formatGpsSyncProgress, formatBoundsSyncProgress
+ * Covers: formatGpsSyncProgress
  * Bug fix validated: completed > total produces >100%
  */
 
 import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
-import {
-  formatGpsSyncProgress,
-  formatBoundsSyncProgress,
-} from '@/features/routes/lib/syncProgressFormat';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 
 import type { TFunction } from 'i18next';
 const t = ((key: string, opts?: Record<string, unknown>) =>
@@ -115,39 +112,5 @@ describe('formatGpsSyncProgress', () => {
     };
     const result = formatGpsSyncProgress(fetching, false, t);
     expect(result!.text).toBe('routesScreen.downloadingGps');
-  });
-});
-
-describe('formatBoundsSyncProgress', () => {
-  it('returns null when status is not syncing', () => {
-    expect(formatBoundsSyncProgress({ status: 'idle', completed: 0, total: 0 }, t)).toBeNull();
-    expect(
-      formatBoundsSyncProgress({ status: 'complete', completed: 10, total: 10 }, t)
-    ).toBeNull();
-  });
-
-  it('shows sync progress when syncing', () => {
-    const result = formatBoundsSyncProgress({ status: 'syncing', completed: 50, total: 100 }, t);
-    expect(result).not.toBeNull();
-    expect(result!.icon).toBe('cloud-sync-outline');
-    expect(result!.percent).toBe(50);
-    expect(result!.countText).toBe('50/100');
-    expect(result!.indeterminate).toBe(false);
-  });
-
-  it('shows 0% when total is 0', () => {
-    const result = formatBoundsSyncProgress({ status: 'syncing', completed: 0, total: 0 }, t);
-    expect(result!.percent).toBe(0);
-    expect(result!.countText).toBeNull();
-  });
-
-  it('clamps to 100% when completed > total (BUG FIX)', () => {
-    const result = formatBoundsSyncProgress({ status: 'syncing', completed: 150, total: 100 }, t);
-    expect(result!.percent).toBe(100);
-  });
-
-  it('calls correct i18n key', () => {
-    const result = formatBoundsSyncProgress({ status: 'syncing', completed: 1, total: 10 }, t);
-    expect(result!.text).toBe('cache.syncingActivities');
   });
 });

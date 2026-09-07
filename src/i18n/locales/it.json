@@ -278,7 +278,6 @@
     "loadingDemoGps": "Caricamento dati GPS demo...",
     "noValidGpsData": "Nessun dato GPS valido",
     "offlineUsingCached": "Offline - utilizzo percorsi in cache",
-    "syncingActivities": "Sincronizzazione attività",
     "syncedActivities": "{{count}} attività sincronizzate",
     "syncedDemoActivities": "{{count}} attività demo sincronizzate",
     "downloadingGpsProgress": "Download dati GPS... {{percent}}%",
