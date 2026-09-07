@@ -110,6 +110,11 @@ impl std::fmt::Display for NetError {
 impl std::error::Error for NetError {}
 
 /// Pooled HTTP transport bound to one base URL and one credential.
+///
+/// Cloning shares the pool: `Client` is a handle and the governor is an `Arc`,
+/// so a clone is the same connections and the same rate limit, not a second
+/// one. Cheap enough to hand a copy to a caller that outlives the original.
+#[derive(Clone)]
 pub struct Transport {
     client: Client,
     base_url: String,
