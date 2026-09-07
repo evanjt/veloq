@@ -2,6 +2,7 @@ import type { Insight, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { getEngine } from '@/shared/native/engine';
 import { insightIcon } from '@/theme';
+import { confidenceFrom } from '../lib/config';
 
 const HRV_WINDOW_DAYS = 7;
 
@@ -47,7 +48,7 @@ export function generateHrvTrendInsight(now: number, t: TFunc): Insight[] {
     trendIcon = 'minus';
   }
 
-  const confidence = Math.min(1, trend.dataPoints / 7);
+  const confidence = confidenceFrom('hrv_trend', trend.dataPoints);
 
   return [
     makeInsight({

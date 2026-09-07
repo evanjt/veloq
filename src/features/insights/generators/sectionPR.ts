@@ -2,7 +2,7 @@ import { formatDuration } from '@/shared/format/format';
 import { brand } from '@/theme/colors';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
-import { maxPerCategoryFor } from '../lib/config';
+import { NO_POPULATION, maxPerCategoryFor } from '../lib/config';
 
 const DAY_MS = 86_400_000;
 
@@ -33,6 +33,7 @@ export function generateSectionPRInsights(
         }),
         navigationTarget: `/section/${pr.sectionId}`,
         timestamp: now,
+        confidence: NO_POPULATION,
         supportingData: {
           sections: [
             {
