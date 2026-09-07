@@ -313,11 +313,11 @@ export const TerrainSnapshotWebView = forwardRef<
         queueCompletedRef.current += drained;
         updateProgress();
       }
-      if (queueRef.current.length === 0) {
+      const request = queueRef.current.shift();
+      if (!request) {
         break;
       }
 
-      const request = queueRef.current.shift()!;
       worker.processingRef.current = true;
       worker.currentRequestRef.current = request;
       worker.generationRef.current++;

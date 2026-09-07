@@ -100,10 +100,12 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       const date = activity.start_date_local?.split('T')[0];
       if (!date) continue;
 
-      if (!map.has(date)) {
-        map.set(date, []);
+      let onDay = map.get(date);
+      if (!onDay) {
+        onDay = [];
+        map.set(date, onDay);
       }
-      map.get(date)!.push({
+      onDay.push({
         id: activity.id,
         name: activity.name,
         type: activity.type,

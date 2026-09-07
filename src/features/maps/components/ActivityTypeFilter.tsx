@@ -137,10 +137,12 @@ export function groupTypesByCategory(types: string[]): Map<string, string[]> {
 
   for (const type of types) {
     const category = getActivityCategory(type);
-    if (!groups.has(category)) {
-      groups.set(category, []);
+    let inCategory = groups.get(category);
+    if (!inCategory) {
+      inCategory = [];
+      groups.set(category, inCategory);
     }
-    groups.get(category)!.push(type);
+    inCategory.push(type);
   }
 
   return groups;

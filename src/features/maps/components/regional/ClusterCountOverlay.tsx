@@ -54,14 +54,18 @@ export const ClusterCountOverlay = React.forwardRef<
       const features = await surface.queryViewportFeatures([CLUSTER_CIRCLE_LAYER_ID]);
       if (seq !== latestSeq.current) return;
       setClusters(
-        features
-          .filter((feature) => feature.screen != null)
-          .map((feature) => ({
-            id: Number(feature.properties.cluster_id ?? 0),
-            count: Number(feature.properties.point_count ?? 0),
-            x: feature.screen!.x,
-            y: feature.screen!.y,
-          }))
+        features.flatMap((feature) =>
+          feature.screen
+            ? [
+                {
+                  id: Number(feature.properties.cluster_id ?? 0),
+                  count: Number(feature.properties.point_count ?? 0),
+                  x: feature.screen.x,
+                  y: feature.screen.y,
+                },
+              ]
+            : []
+        )
       );
     } catch {
       // The page may not be ready yet. The next region change retries.

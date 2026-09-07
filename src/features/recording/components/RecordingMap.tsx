@@ -68,26 +68,28 @@ function RecordingMapInner({
     [coordinates]
   );
 
-  // Build route GeoJSON - when trimming, split into active and excluded portions
-  const hasTrim =
-    fitBounds &&
-    trimStart != null &&
-    trimEnd != null &&
-    (trimStart > 0 || trimEnd < coordinates.length - 1);
+  // Build route GeoJSON - when trimming, split into active and excluded portions.
+  // The pair is carried together rather than as a flag beside two loose ends,
+  // so the slices below cannot be reached with either end missing.
+  const trim = useMemo(() => {
+    if (!fitBounds || trimStart == null || trimEnd == null) return null;
+    if (trimStart <= 0 && trimEnd >= coordinates.length - 1) return null;
+    return { start: trimStart, end: trimEnd };
+  }, [fitBounds, trimStart, trimEnd, coordinates.length]);
 
   const activeRoute = useMemo(() => {
     if (validCoords.length < 2) return featureCollection([]);
-    const active = hasTrim ? validCoords.slice(trimStart!, trimEnd! + 1) : validCoords;
+    const active = trim ? validCoords.slice(trim.start, trim.end + 1) : validCoords;
     return featureCollection([lineFeature(active)]);
-  }, [validCoords, hasTrim, trimStart, trimEnd]);
+  }, [validCoords, trim]);
 
   const excludedRoute = useMemo(() => {
-    if (!hasTrim || validCoords.length < 2) return featureCollection([]);
+    if (!trim || validCoords.length < 2) return featureCollection([]);
     return featureCollection([
-      trimStart! > 0 ? lineFeature(validCoords.slice(0, trimStart! + 1)) : null,
-      trimEnd! < validCoords.length - 1 ? lineFeature(validCoords.slice(trimEnd!)) : null,
+      trim.start > 0 ? lineFeature(validCoords.slice(0, trim.start + 1)) : null,
+      trim.end < validCoords.length - 1 ? lineFeature(validCoords.slice(trim.end)) : null,
     ]);
-  }, [validCoords, hasTrim, trimStart, trimEnd]);
+  }, [validCoords, trim]);
 
   const overlayRoute = useMemo(
     () => featureCollection([lineFeature(routeOverlay ? lngLatFromShort(routeOverlay) : [])]),

@@ -14,16 +14,14 @@ const listeners = new Map<string, Set<Listener>>();
  * Returns an unsubscribe function.
  */
 export function subscribeSnapshot(activityId: string, cb: Listener): () => void {
-  let set = listeners.get(activityId);
-  if (!set) {
-    set = new Set();
-    listeners.set(activityId, set);
-  }
+  const existing = listeners.get(activityId);
+  const set = existing ?? new Set<Listener>();
+  if (!existing) listeners.set(activityId, set);
   set.add(cb);
 
   return () => {
-    set!.delete(cb);
-    if (set!.size === 0) {
+    set.delete(cb);
+    if (set.size === 0) {
       listeners.delete(activityId);
     }
   };
@@ -52,16 +50,14 @@ type FailureListener = () => void;
 const failureListeners = new Map<string, Set<FailureListener>>();
 
 export function subscribeSnapshotFailure(activityId: string, cb: FailureListener): () => void {
-  let set = failureListeners.get(activityId);
-  if (!set) {
-    set = new Set();
-    failureListeners.set(activityId, set);
-  }
+  const existing = failureListeners.get(activityId);
+  const set = existing ?? new Set<FailureListener>();
+  if (!existing) failureListeners.set(activityId, set);
   set.add(cb);
 
   return () => {
-    set!.delete(cb);
-    if (set!.size === 0) {
+    set.delete(cb);
+    if (set.size === 0) {
       failureListeners.delete(activityId);
     }
   };

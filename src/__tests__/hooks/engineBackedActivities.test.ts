@@ -190,6 +190,16 @@ describe('useActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
+  it('runs an open-ended window to today rather than to nothing', async () => {
+    renderHook(() => useActivities({ oldest: '2024-01-01' }), { wrapper });
+
+    await waitFor(() => expect(engine.getActivityBodies).toHaveBeenCalled());
+    const [oldestTs, newestTs] = engine.getActivityBodies.mock.calls[0];
+    expect(Number.isFinite(Number(newestTs))).toBe(true);
+    expect(Number(newestTs)).toBeGreaterThan(Number(oldestTs));
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledWith('2024-01-01', expect.any(String));
+  });
+
   it('reads a window as end-of-day inclusive', async () => {
     renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), { wrapper });
 

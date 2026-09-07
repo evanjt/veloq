@@ -124,16 +124,14 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
-  const fitnessSparklineVisible =
-    sparklinesReady &&
-    showSparkline &&
-    !isHrvMode &&
-    fitnessData &&
-    fitnessData.length > 0 &&
-    formData &&
-    formData.length > 0;
-  const hrvSparklineVisible =
-    sparklinesReady && showSparkline && isHrvMode && hrvData && hrvData.length >= 2;
+  // The series a sparkline needs are carried on the flag rather than checked
+  // again at the call site, so the plot cannot be reached without them.
+  const showAny = sparklinesReady && showSparkline;
+  const fitnessSparkline =
+    showAny && !isHrvMode && fitnessData?.length && formData?.length
+      ? { fitness: fitnessData, form: formData }
+      : null;
+  const hrvSparkline = showAny && isHrvMode && hrvData && hrvData.length >= 2 ? hrvData : null;
 
   // During scrub, override the hero display
   const displayValue =
@@ -214,7 +212,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           disabled={!onHeroPress}
           activeOpacity={onHeroPress ? 0.7 : 1}
         >
-          {fitnessSparklineVisible ? (
+          {fitnessSparkline ? (
             <View>
               <View style={styles.heroValueRow}>
                 <Text style={[styles.heroValueFixed, { color: colors.fitnessBlue }]}>
@@ -234,7 +232,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 </Text>
               </View>
             </View>
-          ) : hrvSparklineVisible ? (
+          ) : hrvSparkline ? (
             <View style={styles.heroValueRow}>
               <Text style={[styles.heroValueFixed, { color: colors.chartPink }]}>{currentHrv}</Text>
               <Text style={[styles.heroLabel, { color: colors.chartPink }]}>HRV</Text>
@@ -271,12 +269,12 @@ export const SummaryCard = React.memo(function SummaryCard({
       </View>
 
       {/* Sparkline row - fitness or HRV depending on hero metric */}
-      {fitnessSparklineVisible && (
+      {fitnessSparkline && (
         <View testID="summary-card-sparkline" style={styles.sparklineRow}>
           <SummaryCardSparkline
-            fitnessData={fitnessData!}
+            fitnessData={fitnessSparkline.fitness}
             fatigueData={fatigueData}
-            formData={formData!}
+            formData={fitnessSparkline.form}
             width={sparklineWidth}
             showLabels={showSparklineLabels}
             onScrub={showSparklineLabels ? undefined : handleScrub}
@@ -284,10 +282,10 @@ export const SummaryCard = React.memo(function SummaryCard({
           />
         </View>
       )}
-      {hrvSparklineVisible && (
+      {hrvSparkline && (
         <View style={styles.sparklineRow}>
           <SummaryCardHRVSparkline
-            hrvData={hrvData!}
+            hrvData={hrvSparkline}
             rhrData={rhrData}
             width={sparklineWidth}
             showLabels={showSparklineLabels}

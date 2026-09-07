@@ -29,11 +29,17 @@ export const queryKeys = {
     exerciseSets: (activityId: string) => ['strength', 'exercise-sets', activityId] as const,
     muscleGroups: (activityId: string) => ['strength', 'muscle-groups', activityId] as const,
     volume: (period: string) => ['strength', 'volume', period] as const,
-    progression: (muscleSlug: string) => ['strength', 'progression', muscleSlug] as const,
-    exercisesForMuscle: (period: string, muscleSlug: string) =>
+    // The muscle and exercise keys take the null the screen holds before a
+    // selection. The query is disabled then, but the key is still built, so a
+    // non-null type here only moved the missing value behind an assertion.
+    progression: (muscleSlug: string | null) => ['strength', 'progression', muscleSlug] as const,
+    exercisesForMuscle: (period: string, muscleSlug: string | null) =>
       ['strength', 'exercises-for-muscle', period, muscleSlug] as const,
-    activitiesForExercise: (period: string, muscleSlug: string, exerciseCategory: number) =>
-      ['strength', 'activities-for-exercise', period, muscleSlug, exerciseCategory] as const,
+    activitiesForExercise: (
+      period: string,
+      muscleSlug: string | null,
+      exerciseCategory: number | null
+    ) => ['strength', 'activities-for-exercise', period, muscleSlug, exerciseCategory] as const,
   },
 
   wellness: {

@@ -98,23 +98,20 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   const { days, oldest, newest, enabled = true } = options;
   const athleteId = useAuthStore((s) => s.athleteId);
 
-  // Calculate date range
-  let queryOldest = oldest;
-  let queryNewest = newest;
-
-  if (!oldest) {
-    const today = new Date();
-    const daysAgo = new Date(today);
-    daysAgo.setDate(daysAgo.getDate() - (days || 30));
-    queryOldest = formatLocalDate(daysAgo);
-    queryNewest = newest || formatLocalDate(today);
-  }
+  // Both ends are always resolved. An `oldest` with no `newest` used to leave
+  // the far end undefined, which reaches the engine as NaN and reads back an
+  // empty window, so an open-ended range read nothing at all (B424).
+  const today = new Date();
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - (days || 30));
+  const queryOldest = oldest ?? formatLocalDate(windowStart);
+  const queryNewest = newest ?? formatLocalDate(today);
 
   useEngineChannel('activities', queryKeys.activities.all);
 
   const askForWindow = useCallback(() => {
     if (!enabled || !athleteId) return;
-    requestActivityWindow(queryOldest!, queryNewest!);
+    requestActivityWindow(queryOldest, queryNewest);
   }, [enabled, athleteId, queryOldest, queryNewest]);
 
   useEffect(askForWindow, [askForWindow]);
@@ -123,7 +120,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   // nothing, and the mount effect never re-runs for an unchanged window.
   useReconnect(() => {
     if (!enabled || !athleteId) return;
-    forgetActivityWindow(queryOldest!, queryNewest!);
+    forgetActivityWindow(queryOldest, queryNewest);
     askForWindow();
   });
 
@@ -135,8 +132,8 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   useSyncSettled(askForWindow);
 
   return useQuery<Activity[]>({
-    queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest!, queryNewest!),
-    queryFn: () => readActivities(queryOldest!, queryNewest!),
+    queryKey: queryKeys.activities.list(athleteId ?? 'anon', queryOldest, queryNewest),
+    queryFn: () => readActivities(queryOldest, queryNewest),
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation

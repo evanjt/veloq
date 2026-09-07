@@ -17,13 +17,14 @@ export const demoWellness: WellnessData[] = fixtures.wellness.map((w) => ({
 })) as WellnessData[];
 
 export function getWellness(params?: { oldest?: string; newest?: string }): ApiWellness[] {
+  const { oldest, newest } = params ?? {};
   let result = [...fixtures.wellness];
 
-  if (params?.oldest) {
-    result = result.filter((w) => w.id >= params.oldest!);
+  if (oldest) {
+    result = result.filter((w) => w.id >= oldest);
   }
-  if (params?.newest) {
-    result = result.filter((w) => w.id <= params.newest!);
+  if (newest) {
+    result = result.filter((w) => w.id <= newest);
   }
 
   return result;

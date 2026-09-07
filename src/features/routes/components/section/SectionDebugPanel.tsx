@@ -29,6 +29,11 @@ function formatDensity(pointDensity: number[] | undefined): string {
   return `${sorted.length} ${unit}, ${sorted[0]}-${sorted[sorted.length - 1]}, med ${median}`;
 }
 
+/** A measured value, or null for absent, NaN and infinity alike. */
+function finite(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebugPanelProps) {
   const ffiEntries = pageMetrics.reduce<
     Record<string, { calls: number; totalMs: number; maxMs: number }>
@@ -79,7 +84,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           { label: 'Type', value: section.sectionType },
           {
             label: 'Stability',
-            value: Number.isFinite(section.stability) ? section.stability!.toFixed(3) : '-',
+            value: finite(section.stability)?.toFixed(3) ?? '-',
           },
           {
             label: 'Version',
@@ -95,7 +100,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           },
           {
             label: 'Confidence',
-            value: Number.isFinite(section.confidence) ? section.confidence!.toFixed(2) : '-',
+            value: finite(section.confidence)?.toFixed(2) ?? '-',
           },
           {
             label: 'Observations',
@@ -103,9 +108,7 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           },
           {
             label: 'Avg Spread',
-            value: Number.isFinite(section.averageSpread)
-              ? section.averageSpread!.toFixed(1) + 'm'
-              : '-',
+            value: finite(section.averageSpread)?.toFixed(1).concat('m') ?? '-',
           },
           {
             label: 'Reference',
