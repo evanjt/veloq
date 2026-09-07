@@ -149,7 +149,7 @@ fn a_preview_over_a_component_matches_the_cold_batch_over_its_activities() {
         .filter(|(id, _, _)| id.starts_with("chain"))
         .map(|(id, _, epoch)| (id.clone(), *epoch))
         .collect();
-    let cold = tracematch::detect_sections_unified_dated(
+    let cold = tracematch::detect_sections_dated(
         &component,
         &[],
         &sport_map,

@@ -476,8 +476,7 @@ fn redetect_and_compare(conn: &Connection) {
     );
 
     let start = std::time::Instant::now();
-    let sections =
-        tracematch::sections::detect_sections_unified(&tracks, &[], &sport_map, &section_config);
+    let sections = tracematch::sections::detect_sections(&tracks, &[], &sport_map, &section_config);
     let elapsed = start.elapsed();
 
     println!("Detection time: {:.1}s", elapsed.as_secs_f64());
