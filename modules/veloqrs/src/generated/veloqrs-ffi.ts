@@ -1562,7 +1562,13 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_is_elevation_backfill_paused(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_func_resume_elevation_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_func_set_network_online(
@@ -1734,7 +1740,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_get_network_push(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending(): number;
   ubrn_uniffi_veloqrs_checksum_func_is_cutover_running(): number;
+  ubrn_uniffi_veloqrs_checksum_func_is_elevation_backfill_paused(): number;
   ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill(): number;
+  ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_network_online(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;

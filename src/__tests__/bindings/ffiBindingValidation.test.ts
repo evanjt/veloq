@@ -100,7 +100,8 @@ describe('FFI Binding Validation', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation,
-      // elevation backfill start, pause, progress and remaining,
+      // elevation backfill start, pause, resume, paused, progress and
+      // remaining,
       // the six detector-cutover calls: pending, running, start, progress, diff
       // and change-card support, and the two connectivity calls). Adjust if a
       // new standalone is added - but prefer putting engine-coupled logic on a
@@ -109,7 +110,7 @@ describe('FFI Binding Validation', () => {
       // The connectivity pair is standalone on purpose. It is a process-wide
       // value the network provider pushes before `initWithPath` has run, so
       // an engine method would drop the very first edge.
-      expect(STANDALONE_EXPORTS.length).toBe(17);
+      expect(STANDALONE_EXPORTS.length).toBe(19);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -125,6 +126,10 @@ describe('FFI Binding Validation', () => {
       expect(names.has('detect_sections_standalone')).toBe(false);
       expect(names.has('start_elevation_backfill')).toBe(true);
       expect(names.has('pause_elevation_backfill')).toBe(true);
+      // A pause with no inverse held detection for the rest of the process,
+      // with a force-quit as the only exit. This is that inverse.
+      expect(names.has('resume_elevation_backfill')).toBe(true);
+      expect(names.has('is_elevation_backfill_paused')).toBe(true);
       expect(names.has('get_elevation_backfill_progress')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
       expect(names.has('is_cutover_pending')).toBe(true);

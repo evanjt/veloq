@@ -19,6 +19,16 @@ struct Run {
 }
 
 fn climb(rungs: usize, remaining: impl Fn(usize) -> Option<u64>, offline: bool) -> Run {
+    climb_paused(rungs, remaining, offline, |_| false)
+}
+
+/// The same climb with the pause read handed in, per rung.
+fn climb_paused(
+    rungs: usize,
+    remaining: impl Fn(usize) -> Option<u64>,
+    offline: bool,
+    paused: impl Fn(usize) -> bool,
+) -> Run {
     let slept = RefCell::new(Vec::new());
     let round = Cell::new(0usize);
     let attempts = Cell::new(0usize);
@@ -33,6 +43,7 @@ fn climb(rungs: usize, remaining: impl Fn(usize) -> Option<u64>, offline: bool) 
         },
         || remaining(round.get()),
         || offline,
+        || paused(round.get()),
         || {
             attempts.set(attempts.get() + 1);
             true
@@ -97,4 +108,20 @@ fn the_wait_for_a_rung_is_the_ladder_capped_at_its_last() {
         assert_eq!(resume_wait(i), *expected);
     }
     assert_eq!(resume_wait(99), RESUME_WAITS[RESUME_WAITS.len() - 1]);
+}
+
+/// A paused install used to climb this ladder for ever, calling a `start_pass`
+/// that declined on the pause every half hour. Resuming lays a new ladder, so
+/// ending the climb loses nothing.
+#[test]
+fn a_pause_ends_the_climb_rather_than_attempting_for_ever() {
+    let run = climb_paused(8, |_| Some(5), false, |round| round >= 3);
+    assert_eq!(run.slept.len(), 3, "the rung that read paused is the last");
+    assert_eq!(run.attempts, 2, "and it attempts nothing");
+}
+
+#[test]
+fn an_install_that_is_never_paused_climbs_as_before() {
+    let run = climb_paused(4, |_| Some(5), false, |_| false);
+    assert_eq!(run.attempts, 4);
 }
