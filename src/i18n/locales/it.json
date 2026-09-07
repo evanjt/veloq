@@ -1289,6 +1289,8 @@
     "previewSections": "Anteprima delle modifiche alle sezioni",
     "cutoverRebuilding": "Ricostruzione delle sezioni: {{phase}}",
     "cutoverFailed": "La ricostruzione delle sezioni non è terminata.",
+    "cutoverStop": "Interrompi",
+    "cutoverStopping": "In arresto. Riprende la prossima volta che apri Veloq.",
     "cutoverPhaseDraining": "svuotamento della coda",
     "cutoverPhaseArchiving": "archiviazione",
     "cutoverPhaseDetecting": "rilevamento",

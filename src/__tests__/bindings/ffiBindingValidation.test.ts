@@ -102,8 +102,9 @@ describe('FFI Binding Validation', () => {
       // lifecycle, polyline overlap, backup validation,
       // elevation backfill start, pause, resume, paused, progress and
       // remaining,
-      // the six detector-cutover calls: pending, running, start, progress, diff
-      // and change-card support, the two connectivity calls, and the
+      // the seven detector-cutover calls: pending, running, start, cancel,
+      // progress, diff and change-card support, the two connectivity calls,
+      // and the
       // quarantine report). Adjust if a new standalone is added - but prefer
       // putting engine-coupled logic on a UniFFI Object.
       //
@@ -113,7 +114,7 @@ describe('FFI Binding Validation', () => {
       // is standalone for the same reason: it is written during init, before
       // there is a handle to hang it on, and it says the library that handle
       // opens is not the one the athlete had.
-      expect(STANDALONE_EXPORTS.length).toBe(20);
+      expect(STANDALONE_EXPORTS.length).toBe(21);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -138,6 +139,10 @@ describe('FFI Binding Validation', () => {
       expect(names.has('is_cutover_pending')).toBe(true);
       expect(names.has('is_cutover_running')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
+      // A cut that could not be stopped left a force-quit as the only lever,
+      // and the in-flight token undid that on the next launch. This is the
+      // lever.
+      expect(names.has('cancel_detector_cutover')).toBe(true);
       expect(names.has('get_cutover_progress')).toBe(true);
       expect(names.has('get_cutover_diff')).toBe(true);
       expect(names.has('take_quarantine_report')).toBe(true);
