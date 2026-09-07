@@ -1,7 +1,7 @@
 import type { EfficiencyTrend } from 'veloqrs';
 
 import type { Insight } from '../types';
-import { INSIGHTS_CONFIG, maxPerCategoryFor } from '../lib/config';
+import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { insightIcon } from '@/theme';
 
 /**
@@ -72,6 +72,7 @@ export function generateEfficiencyTrendInsights(
       navigationTarget: `/section/${trend.sectionId}`,
       timestamp: now,
       isNew: false,
+      confidence: confidenceFrom('efficiency_trend', trend.effortCount),
       meta: {
         sourceTimestamp: now,
         comparisonKind: 'self',
