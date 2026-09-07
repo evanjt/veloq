@@ -9,11 +9,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { layout, spacing } from '@/theme/spacing';
+
+const ROOT = join(__dirname, '../../..');
 
 /** The rungs the scale was settled on, taken from what the app already drew. */
 const RADII = [4, 8, 12, 16, 20, 24, 9999];
@@ -44,29 +44,34 @@ describe('the radius scale', () => {
 });
 
 describe('the radius lint', () => {
-  const roots: string[] = [];
-
-  afterAll(() => {
-    for (const root of roots) rmSync(root, { recursive: true, force: true });
-  });
-
+  // Through stdin, under a name the rule's `src/**` glob matches. A real file
+  // written into `src/` is what a whole-tree gate in another worker then
+  // catches half-there, and it fails on the ENOENT rather than on what it
+  // measures.
   function lint(source: string): string {
-    const root = mkdtempSync(join(tmpdir(), 'radius-lint-'));
-    roots.push(root);
-    const file = join(process.cwd(), 'src', `radiusLintFixture.${root.split('-').pop()}.ts`);
-    writeFileSync(file, source);
     try {
-      execFileSync('npx', ['eslint', '--no-warn-ignored', '--format', 'json', file], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: process.cwd(),
-      });
+      execFileSync(
+        'npx',
+        [
+          'eslint',
+          '--stdin',
+          '--stdin-filename',
+          'src/radiusLintFixture.ts',
+          '--no-warn-ignored',
+          '--format',
+          'json',
+        ],
+        {
+          input: source,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: ROOT,
+        }
+      );
       return '';
     } catch (error) {
       const e = error as { stdout?: string; stderr?: string };
       return `${e.stdout ?? ''}${e.stderr ?? ''}`;
-    } finally {
-      rmSync(file, { force: true });
     }
   }
 
