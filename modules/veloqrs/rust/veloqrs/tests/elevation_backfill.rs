@@ -83,6 +83,25 @@ fn fast_oauth_transport(base: String) -> Transport {
     Transport::with_governor(base, AuthMethod::Bearer("t"), gov).expect("transport")
 }
 
+/// The athlete every pass in this file runs for. It only matters to the tests
+/// that drive a 401: the id names the profile endpoint the rejection is
+/// confirmed on.
+const ATHLETE: &str = "i1";
+
+/// A pass for [`ATHLETE`], so the id stays out of the tests that do not care.
+fn run_backfill(transport: &Transport) -> BackfillRun {
+    run_elevation_backfill(transport, ATHLETE)
+}
+
+/// Answer the confirmation the park now asks for, so a 401 on a track counts
+/// as a rejected credential rather than a single unexplained refusal.
+fn confirm_rejection(server: &MockServer) {
+    server.mock(|when, then| {
+        when.path("/athlete/i1");
+        then.status(401);
+    });
+}
+
 /// The process-wide sync service is shared across these tests, so each one
 /// that reads it starts from a live session rather than the last test's park.
 fn live_session() {
@@ -215,7 +234,7 @@ fn the_queue_is_the_not_yet_fetched_set_and_shrinks_as_work_lands() {
         });
     }
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -249,7 +268,7 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
         then.status(404);
     });
 
-    let first = run_elevation_backfill(&fast_transport(server.base_url()));
+    let first = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = first else {
         panic!("a failing activity must not fail the pass, got {:?}", first);
     };
@@ -276,7 +295,7 @@ fn an_interrupted_pass_resumes_and_does_not_redo_completed_work() {
         then.status(200).json_body(elevated_streams(0.10));
     });
 
-    let second = run_elevation_backfill(&fast_transport(server.base_url()));
+    let second = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = second else {
         panic!("expected a finished pass, got {:?}", second);
     };
@@ -316,7 +335,7 @@ fn detection_is_suspended_for_the_whole_pass_and_released_at_the_end() {
     }
 
     let base = server.base_url();
-    let runner = std::thread::spawn(move || run_elevation_backfill(&fast_transport(base)));
+    let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
 
     wait_for_fetching();
     let mut samples = 0;
@@ -356,7 +375,7 @@ fn detection_is_released_when_the_pass_fails() {
         then.status(401);
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     assert!(
         matches!(run, BackfillRun::Failed(_)),
         "a rejected credential fails the pass, got {:?}",
@@ -397,7 +416,7 @@ fn exactly_one_detect_fires_and_it_fires_at_the_end() {
     }
 
     let base = server.base_url();
-    let runner = std::thread::spawn(move || run_elevation_backfill(&fast_transport(base)));
+    let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
 
     wait_for_fetching();
     while backfill_progress().phase == BACKFILL_PHASE_FETCHING {
@@ -444,7 +463,7 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
         then.status(200).json_body(flat_streams(0.05));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -469,7 +488,7 @@ fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
 
     // The same library again: the pass has no work at all, so nothing is
     // re-requested. The count is the two asks the first pass made, unchanged.
-    let again = run_elevation_backfill(&fast_transport(server.base_url()));
+    let again = run_backfill(&fast_transport(server.base_url()));
     assert_eq!(again, BackfillRun::Finished(Default::default()));
     bare.assert_hits(2);
 }
@@ -495,7 +514,7 @@ fn a_single_network_failure_does_not_sink_the_pass() {
         then.status(200).json_body(elevated_streams(0.10));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -529,7 +548,7 @@ fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
         then.status(200).json_body(json!([]));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -544,7 +563,7 @@ fn an_empty_response_is_retried_rather_than_recorded_unavailable() {
         then.status(200).json_body(elevated_streams(0.0));
     });
 
-    let second = run_elevation_backfill(&fast_transport(server.base_url()));
+    let second = run_backfill(&fast_transport(server.base_url()));
     assert!(matches!(second, BackfillRun::Finished(_)));
     assert_eq!(state_of("a1"), FETCHED);
     drain_detection();
@@ -579,7 +598,7 @@ fn section_links_survive_the_reingest() {
         then.status(200).json_body(elevated_streams(0.0));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     assert!(matches!(run, BackfillRun::Finished(_)));
     assert_eq!(state_of("a1"), FETCHED);
 
@@ -623,7 +642,7 @@ fn a_standing_detection_run_does_not_cancel_the_recut() {
         });
     }
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -656,10 +675,10 @@ fn a_second_start_while_one_runs_is_refused() {
     }
 
     let base = server.base_url();
-    let runner = std::thread::spawn(move || run_elevation_backfill(&fast_transport(base)));
+    let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
 
     wait_for_fetching();
-    let second = run_elevation_backfill(&fast_transport(server.base_url()));
+    let second = run_backfill(&fast_transport(server.base_url()));
     assert_eq!(
         second,
         BackfillRun::Refused,
@@ -692,7 +711,7 @@ fn a_finished_pass_leaves_nothing_not_fetched() {
         });
     }
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     assert!(matches!(run, BackfillRun::Finished(_)));
 
     assert_eq!(outstanding(), 0);
@@ -840,7 +859,7 @@ fn a_drained_pass_hands_an_owed_catalogue_to_the_cutover() {
         });
     }
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -894,7 +913,7 @@ fn a_partial_pass_leaves_the_cutover_owed() {
         then.status(500);
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -932,7 +951,7 @@ fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
     }
     let base = server.base_url();
 
-    run_elevation_backfill(&fast_transport(base.clone()));
+    run_backfill(&fast_transport(base.clone()));
     let first = archived_rows(&path);
     assert!(first > 0, "the first pass did not archive");
     drain_detection();
@@ -956,7 +975,7 @@ fn a_second_drained_pass_does_not_re_archive_over_the_first_snapshot() {
     });
 
     assert!(!veloqrs::ffi::is_cutover_pending());
-    run_elevation_backfill(&fast_transport(base));
+    run_backfill(&fast_transport(base));
 
     assert_eq!(
         archived_rows(&path),
@@ -1012,7 +1031,7 @@ fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() 
     let server = MockServer::start();
     answer_all(&server, &ids, 500, false);
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("a dead connection is not a failed pass, it is an unfinished one: {run:?}");
     };
@@ -1043,7 +1062,7 @@ fn an_exhausted_budget_stops_the_pass_the_same_way() {
     let server = MockServer::start();
     answer_all(&server, &ids, 429, true);
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("an exhausted budget is not a failed pass: {run:?}");
     };
@@ -1064,7 +1083,7 @@ fn an_answer_about_one_activity_does_not_stop_the_pass() {
     let server = MockServer::start();
     answer_all(&server, &ids, 404, false);
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
@@ -1096,7 +1115,7 @@ fn work_landing_between_the_failures_keeps_the_pass_going() {
         });
     }
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
@@ -1163,7 +1182,7 @@ fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
         then.status(200).json_body(elevated_streams(0.4));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
@@ -1194,7 +1213,7 @@ fn the_re_asking_is_bounded_and_waits_longer_each_round() {
     });
 
     let started = Instant::now();
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let elapsed = started.elapsed();
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
@@ -1239,7 +1258,7 @@ fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
         then.status(404).body("no such activity");
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
     };
@@ -1261,7 +1280,7 @@ fn a_connection_that_is_gone_is_not_re_asked_at_all() {
     answer_all(&server, &ids, 429, true);
 
     let started = Instant::now();
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let elapsed = started.elapsed();
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {run:?}");
@@ -1290,7 +1309,7 @@ fn re_asking_never_reports_more_progress_than_the_queue_held() {
         then.status(200).json_body(elevated_streams(0.4));
     });
 
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
 
     let progress = backfill_progress();
     assert_eq!(progress.total, 2);
@@ -1318,8 +1337,9 @@ fn a_rejected_credential_parks_the_sync_service() {
         when.path_contains("/streams.json");
         then.status(401);
     });
+    confirm_rejection(&server);
 
-    let run = run_elevation_backfill(&fast_oauth_transport(server.base_url()));
+    let run = run_backfill(&fast_oauth_transport(server.base_url()));
     assert!(
         matches!(run, BackfillRun::Failed(_)),
         "a rejected credential fails the pass, got {:?}",
@@ -1348,10 +1368,72 @@ fn an_api_key_401_parks_the_service_too() {
         when.path_contains("/streams.json");
         then.status(401);
     });
+    confirm_rejection(&server);
 
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
 
     assert_eq!(sync_state(), SyncState::AuthExpired);
+}
+
+/// Scenario: a track is refused but the credential still works.
+///
+/// Expected behaviour: one 401 is not evidence, so the profile is asked and
+/// answers, and the session stands. The pass still fails, because the track it
+/// wanted was refused, but nobody is signed out over it.
+#[test]
+fn a_single_401_does_not_sign_the_athlete_out() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(401);
+    });
+    server.mock(|when, then| {
+        when.path("/athlete/i1");
+        then.status(200).json_body(json!({"id": "i1"}));
+    });
+
+    let run = run_backfill(&fast_transport(server.base_url()));
+
+    assert!(
+        matches!(run, BackfillRun::Failed(_)),
+        "the refused track still fails the pass, got {:?}",
+        run
+    );
+    assert_eq!(
+        sync_state(),
+        SyncState::Idle,
+        "a single 401 signed the athlete out with a working credential"
+    );
+}
+
+/// A confirmation the server cannot answer confirms nothing either.
+#[test]
+fn a_confirmation_that_errors_leaves_the_session_alone() {
+    let _serial = serial();
+    let (_dir, _path) = seeded_engine(&["a1"]);
+    live_session();
+
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.path_contains("/streams.json");
+        then.status(401);
+    });
+    server.mock(|when, then| {
+        when.path("/athlete/i1");
+        then.status(500);
+    });
+
+    run_backfill(&fast_transport(server.base_url()));
+
+    assert_eq!(
+        sync_state(),
+        SyncState::Idle,
+        "a 5xx on the confirmation is not the server rejecting the credential"
+    );
 }
 
 /// A connection that is gone says nothing about the credential, so the pass
@@ -1368,7 +1450,7 @@ fn a_connectivity_failure_leaves_the_session_alone() {
         then.status(503);
     });
 
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
 
     assert_eq!(
         sync_state(),
@@ -1390,7 +1472,7 @@ fn a_clean_pass_leaves_the_session_alone() {
         then.status(200).json_body(elevated_streams(0.0));
     });
 
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
     drain_detection();
 
     assert_eq!(sync_state(), SyncState::Idle);
@@ -1410,12 +1492,13 @@ fn a_second_rejected_pass_parks_again() {
         when.path_contains("/streams.json");
         then.status(401);
     });
+    confirm_rejection(&server);
 
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
     assert_eq!(sync_state(), SyncState::AuthExpired);
 
     live_session();
-    run_elevation_backfill(&fast_transport(server.base_url()));
+    run_backfill(&fast_transport(server.base_url()));
     assert_eq!(
         sync_state(),
         SyncState::AuthExpired,
@@ -1474,7 +1557,7 @@ fn elevation_is_spliced_onto_the_stored_track_and_the_coordinates_do_not_move() 
         then.status(200).json_body(moved_streams(before.len()));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -1528,7 +1611,7 @@ fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
         then.status(200).json_body(moved_streams(moved));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -1569,7 +1652,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
         then.status(200).json_body(moved_streams(before.len()));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -1619,7 +1702,7 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
         then.status(200).json_body(json!([]));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -1653,7 +1736,7 @@ fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {
         then.status(200).json_body(flat_streams(0.05));
     });
 
-    let run = run_elevation_backfill(&fast_transport(server.base_url()));
+    let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
         panic!("expected a finished pass, got {:?}", run);
     };
@@ -1693,7 +1776,7 @@ fn a_pass_finishing_an_earlier_pass_still_cuts() {
         then.status(200).json_body(elevated_streams(0.0));
     });
 
-    let first = run_elevation_backfill(&fast_transport(server.base_url()));
+    let first = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(first) = first else {
         panic!("expected a finished pass");
     };
@@ -1707,7 +1790,7 @@ fn a_pass_finishing_an_earlier_pass_still_cuts() {
         then.status(200).json_body(flat_streams(0.05));
     });
 
-    let second = run_elevation_backfill(&fast_transport(server.base_url()));
+    let second = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(second) = second else {
         panic!("expected a finished pass");
     };
@@ -1746,7 +1829,7 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
     }
 
     let base = server.base_url();
-    let runner = std::thread::spawn(move || run_elevation_backfill(&fast_transport(base)));
+    let runner = std::thread::spawn(move || run_backfill(&fast_transport(base)));
     wait_for_fetching();
     assert!(pause_elevation_backfill(), "a pass was in flight to stop");
 
