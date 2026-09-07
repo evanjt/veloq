@@ -77,13 +77,18 @@ export function syncActivitiesWindow(
   return outcome;
 }
 
-/** Ask Rust to fetch and store a power curve. Returns false when the same
- *  curve is already in flight or no credentials are set. */
-export function syncPowerCurve(host: DelegateHost, sport: string, days: number): boolean {
-  if (!host.ready) return false;
+/** Ask Rust to fetch and store a power curve. The verdict says whether waiting
+ *  helps: `Busy` is the same curve already in flight, `NotConfigured` is no
+ *  credential and never becomes one by asking again. */
+export function syncPowerCurve(
+  host: DelegateHost,
+  sport: string,
+  days: number
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncPowerCurve', () =>
     host.engine.sync().syncPowerCurve(sport, BigInt(days))
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to fetch and store a pace curve. `gap` is honoured for running only. */
@@ -92,27 +97,27 @@ export function syncPaceCurve(
   sport: string,
   days: number,
   gap: boolean
-): boolean {
-  if (!host.ready) return false;
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncPaceCurve', () =>
     host.engine.sync().syncPaceCurve(sport, BigInt(days), gap)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to fetch and store an activity's work/recovery intervals. */
-export function syncActivityIntervals(host: DelegateHost, activityId: string): boolean {
-  if (!host.ready) return false;
+export function syncActivityIntervals(host: DelegateHost, activityId: string): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncActivityIntervals', () =>
     host.engine.sync().syncActivityIntervals(activityId)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to refresh the calendar events in a date window. */
-export function syncCalendarEvents(host: DelegateHost, oldest: string, newest: string): boolean {
-  if (!host.ready) return false;
+export function syncCalendarEvents(host: DelegateHost, oldest: string, newest: string): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncCalendarEvents', () =>
     host.engine.sync().syncCalendarEvents(oldest, newest)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to fetch and store an activity's streams for a series selection.
@@ -121,28 +126,30 @@ export function syncActivityStreams(
   host: DelegateHost,
   activityId: string,
   types: string
-): boolean {
-  if (!host.ready) return false;
+): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncActivityStreams', () =>
     host.engine.sync().syncActivityStreams(activityId, types)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to fetch and store an activity's full detail body. */
-export function syncActivityDetail(host: DelegateHost, activityId: string): boolean {
-  if (!host.ready) return false;
+export function syncActivityDetail(host: DelegateHost, activityId: string): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
   return host.timed('syncActivityDetail', () =>
     host.engine.sync().syncActivityDetail(activityId)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /** Ask Rust to fetch the `time` streams the section maths needs. Activities
  *  that already have one are skipped inside Rust. */
-export function syncTimeStreams(host: DelegateHost, activityIds: string[]): boolean {
-  if (!host.ready || activityIds.length === 0) return false;
+export function syncTimeStreams(host: DelegateHost, activityIds: string[]): FfiStartOutcome {
+  if (!host.ready) return FfiStartOutcome.NotReady;
+  // Nothing asked for is no work, not a refusal to do it.
+  if (activityIds.length === 0) return FfiStartOutcome.NotOwed;
   return host.timed('syncTimeStreams', () =>
     host.engine.sync().syncTimeStreams(activityIds)
-  ) as boolean;
+  ) as FfiStartOutcome;
 }
 
 /**

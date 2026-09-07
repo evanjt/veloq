@@ -697,20 +697,24 @@ pub(crate) fn discarded(kind: &str, activity_id: &str) {
 static IN_FLIGHT: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// Run an on-demand fetch unless one with the same key is already running.
-/// Returns false when the request was folded into an in-flight one, or when
-/// there are no credentials to fetch with.
-pub(crate) fn spawn_once<F, Fut>(key: String, job: F) -> bool
+///
+/// The two refusals are opposite answers and used to be the same `false`: no
+/// credential never becomes one by asking again, and a key already in flight
+/// stops being held the moment that job lands. A caller that cannot tell them
+/// apart either retries for ever or gives up on the one it should have waited
+/// for.
+pub(crate) fn spawn_once<F, Fut>(key: String, job: F) -> FfiStartOutcome
 where
     F: FnOnce(Transport, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
 {
     let Ok((transport, athlete_id)) = SYNC_SERVICE.build_transport() else {
-        return false;
+        return FfiStartOutcome::NotConfigured;
     };
     {
         let mut guard = IN_FLIGHT.lock().unwrap_or_else(|e| e.into_inner());
         if !guard.insert(key.clone()) {
-            return false;
+            return FfiStartOutcome::Busy;
         }
     }
     crate::runtime::spawn(async move {
@@ -742,7 +746,7 @@ where
             Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
         }
     });
-    true
+    FfiStartOutcome::Started
 }
 
 /// A transport built from the process-wide credential, so every outbound
@@ -1248,7 +1252,7 @@ impl SyncManager {
 
     /// Fetch and store a power curve for a sport and window. Returns false if
     /// the same curve is already being fetched or no credentials are set.
-    fn sync_power_curve(&self, sport: String, days: i64) -> bool {
+    fn sync_power_curve(&self, sport: String, days: i64) -> FfiStartOutcome {
         spawn_once(
             format!("power:{}:{}", sport, days),
             move |transport, athlete_id| async move {
@@ -1271,7 +1275,7 @@ impl SyncManager {
 
     /// Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
     /// is only honoured for running.
-    fn sync_pace_curve(&self, sport: String, days: i64, gap: bool) -> bool {
+    fn sync_pace_curve(&self, sport: String, days: i64, gap: bool) -> FfiStartOutcome {
         spawn_once(
             format!("pace:{}:{}:{}", sport, days, gap),
             move |transport, athlete_id| async move {
@@ -1294,7 +1298,7 @@ impl SyncManager {
     }
 
     /// Fetch and store an activity's work/recovery intervals.
-    fn sync_activity_intervals(&self, activity_id: String) -> bool {
+    fn sync_activity_intervals(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
             format!("intervals:{}", activity_id),
             move |transport, _athlete_id| async move {
@@ -1313,7 +1317,7 @@ impl SyncManager {
 
     /// Fetch and store the calendar events in a date window, replacing what
     /// was there so an event cancelled upstream disappears here too.
-    fn sync_calendar_events(&self, oldest: String, newest: String) -> bool {
+    fn sync_calendar_events(&self, oldest: String, newest: String) -> FfiStartOutcome {
         spawn_once(
             format!("calendar:{}:{}", oldest, newest),
             move |transport, athlete_id| async move {
@@ -1348,7 +1352,7 @@ impl SyncManager {
 
     /// Fetch and store an activity's streams for a series selection. The
     /// types string is the cache key, so callers must pass it consistently.
-    fn sync_activity_streams(&self, activity_id: String, types: String) -> bool {
+    fn sync_activity_streams(&self, activity_id: String, types: String) -> FfiStartOutcome {
         spawn_once(
             format!("streams:{}:{}", activity_id, types),
             move |transport, _athlete_id| async move {
@@ -1367,7 +1371,7 @@ impl SyncManager {
 
     /// Fetch and store an activity's full detail body, replacing the lighter
     /// row the list sync wrote.
-    fn sync_activity_detail(&self, activity_id: String) -> bool {
+    fn sync_activity_detail(&self, activity_id: String) -> FfiStartOutcome {
         spawn_once(
             format!("detail:{}", activity_id),
             move |transport, _athlete_id| async move {
@@ -1396,9 +1400,11 @@ impl SyncManager {
     /// Fetch and store the `time` streams the section-performance maths needs.
     /// Activities that already have one are skipped, so a repeat call over the
     /// same list costs nothing.
-    fn sync_time_streams(&self, activity_ids: Vec<String>) -> bool {
+    fn sync_time_streams(&self, activity_ids: Vec<String>) -> FfiStartOutcome {
         if activity_ids.is_empty() {
-            return false;
+            // Nothing was asked for, so refusing is the right answer and will
+            // stay the right answer.
+            return FfiStartOutcome::NotOwed;
         }
         let key = format!("timestreams:{}", activity_ids.join(","));
         spawn_once(key, move |transport, _athlete_id| async move {
@@ -1556,6 +1562,55 @@ mod tests {
         assert_eq!(s.state, SyncState::Idle);
         assert_eq!(s.in_flight, 0);
         assert!(s.last_error.is_none());
+    }
+
+    /// Scenario: a screen asks for a power curve. Either there is no
+    /// credential, so no amount of asking will ever produce one, or the same
+    /// curve is already being fetched, so the next ask succeeds the moment it
+    /// lands. Both used to answer `false`.
+    ///
+    /// Expected behaviour: the two answers are different, and only one of them
+    /// is worth asking again for.
+    #[test]
+    fn spawn_once_tells_a_missing_credential_from_a_job_already_running() {
+        let _serial = crate::test_globals::serial_global_state();
+        IN_FLIGHT
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove("test:key");
+        SYNC_SERVICE.clear_credentials();
+
+        let refused = spawn_once("test:key".to_string(), |_transport, _athlete| async {
+            Ok::<(), NetError>(())
+        });
+        assert_eq!(
+            refused,
+            FfiStartOutcome::NotConfigured,
+            "no credential is not a busy key"
+        );
+        assert!(!refused.is_retryable());
+
+        let _creds = test_credentials();
+        // Hold the key the way a running job does, without spawning one.
+        IN_FLIGHT
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert("test:key".to_string());
+
+        let busy = spawn_once("test:key".to_string(), |_transport, _athlete| async {
+            Ok::<(), NetError>(())
+        });
+        assert_eq!(
+            busy,
+            FfiStartOutcome::Busy,
+            "a key already in flight is not a missing credential"
+        );
+        assert!(busy.is_retryable());
+
+        IN_FLIGHT
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove("test:key");
     }
 
     #[test]
@@ -2603,7 +2658,11 @@ mod body_count_tests {
         aim_service_at(&server);
 
         let before = bodies_stored();
-        assert!(SyncManager::new().sync_activity_intervals("a1".into()));
+        assert!(
+            SyncManager::new()
+                .sync_activity_intervals("a1".into())
+                .started()
+        );
         assert!(
             count_reaches(before + 1),
             "the interval body reached SQLite but the count never moved"
@@ -2624,7 +2683,11 @@ mod body_count_tests {
         aim_service_at(&server);
 
         let before = bodies_stored();
-        assert!(SyncManager::new().sync_activity_intervals("a2".into()));
+        assert!(
+            SyncManager::new()
+                .sync_activity_intervals("a2".into())
+                .started()
+        );
         assert!(
             count_stays_at(before),
             "a failed fetch stored nothing, so there is nothing to wake a reader for"
@@ -2646,7 +2709,11 @@ mod body_count_tests {
         aim_service_at(&server);
 
         let before = bodies_stored();
-        assert!(SyncManager::new().sync_calendar_events("2026-01-01".into(), "2026-01-31".into()));
+        assert!(
+            SyncManager::new()
+                .sync_calendar_events("2026-01-01".into(), "2026-01-31".into())
+                .started()
+        );
         assert!(
             count_reaches(before + 1),
             "the emptied window never announced itself"
@@ -2673,9 +2740,9 @@ mod body_count_tests {
 
         let before = bodies_stored();
         let manager = SyncManager::new();
-        assert!(manager.sync_activity_intervals("b1".into()));
+        assert!(manager.sync_activity_intervals("b1".into()).started());
         assert!(count_reaches(before + 1), "the first body never counted");
-        assert!(manager.sync_activity_intervals("b2".into()));
+        assert!(manager.sync_activity_intervals("b2".into()).started());
         assert!(count_reaches(before + 2), "the second body never counted");
         restore_service();
     }
@@ -2788,7 +2855,11 @@ mod body_count_tests {
         aim_service_at(&server);
         let recorder = Bodies::record();
 
-        assert!(SyncManager::new().sync_activity_intervals("e1".into()));
+        assert!(
+            SyncManager::new()
+                .sync_activity_intervals("e1".into())
+                .started()
+        );
         assert!(
             recorder.reaches(1),
             "the body landed but nothing announced it"
@@ -2813,7 +2884,11 @@ mod body_count_tests {
         aim_service_at(&server);
         let recorder = Bodies::record();
 
-        assert!(SyncManager::new().sync_power_curve("Ride".into(), 42));
+        assert!(
+            SyncManager::new()
+                .sync_power_curve("Ride".into(), 42)
+                .started()
+        );
         assert!(
             recorder.reaches(1),
             "the curve landed but nothing announced it"

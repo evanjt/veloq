@@ -17769,7 +17769,7 @@ export interface StrengthManagerLike {
    * caller is the sync path on the JS thread, and this loop is one blocking
    * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): boolean;
+  batchFetchExerciseSets(activityIds: Array<string>): FfiStartOutcome;
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network or FIT-file pipeline. Demo mode uses this to seed synthetic
@@ -17791,7 +17791,7 @@ export interface StrengthManagerLike {
    * took. The sets land in SQLite and are read back through
    * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(activityId: string): boolean;
+  fetchAndParseExerciseSets(activityId: string): FfiStartOutcome;
   /**
    * Get activities for a specific exercise filtered by muscle group.
    * Returns activities sorted by date descending with per-activity stats.
@@ -17908,8 +17908,8 @@ export class StrengthManager
    * caller is the sync path on the JS thread, and this loop is one blocking
    * request per activity.
    */
-  batchFetchExerciseSets(activityIds: Array<string>): boolean {
-    return FfiConverterBool.lift(
+  batchFetchExerciseSets(activityIds: Array<string>): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
@@ -17960,8 +17960,8 @@ export class StrengthManager
    * took. The sets land in SQLite and are read back through
    * `get_exercise_sets`, the same path a cache hit takes.
    */
-  fetchAndParseExerciseSets(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  fetchAndParseExerciseSets(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
@@ -18406,21 +18406,21 @@ export interface SyncManagerLike {
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
    */
-  syncActivityDetail(activityId: string): boolean;
+  syncActivityDetail(activityId: string): FfiStartOutcome;
   /**
    * Fetch and store an activity's work/recovery intervals.
    */
-  syncActivityIntervals(activityId: string): boolean;
+  syncActivityIntervals(activityId: string): FfiStartOutcome;
   /**
    * Fetch and store an activity's streams for a series selection. The
    * types string is the cache key, so callers must pass it consistently.
    */
-  syncActivityStreams(activityId: string, types: string): boolean;
+  syncActivityStreams(activityId: string, types: string): FfiStartOutcome;
   /**
    * Fetch and store the calendar events in a date window, replacing what
    * was there so an event cancelled upstream disappears here too.
    */
-  syncCalendarEvents(oldest: string, newest: string): boolean;
+  syncCalendarEvents(oldest: string, newest: string): FfiStartOutcome;
   /**
    * Start a sync. Returns instantly, naming whether the job started and, if
    * not, whether asking again later would. Work runs on the shared runtime;
@@ -18431,18 +18431,22 @@ export interface SyncManagerLike {
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
    */
-  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean;
+  syncPaceCurve(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ): FfiStartOutcome;
   /**
    * Fetch and store a power curve for a sport and window. Returns false if
    * the same curve is already being fetched or no credentials are set.
    */
-  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean;
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome;
   /**
    * Fetch and store the `time` streams the section-performance maths needs.
    * Activities that already have one are skipped, so a repeat call over the
    * same list costs nothing.
    */
-  syncTimeStreams(activityIds: Array<string>): boolean;
+  syncTimeStreams(activityIds: Array<string>): FfiStartOutcome;
   /**
    * Upload a recorded activity file.
    *
@@ -18711,8 +18715,8 @@ export class SyncManager
    * Fetch and store an activity's full detail body, replacing the lighter
    * row the list sync wrote.
    */
-  syncActivityDetail(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityDetail(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
@@ -18729,8 +18733,8 @@ export class SyncManager
   /**
    * Fetch and store an activity's work/recovery intervals.
    */
-  syncActivityIntervals(activityId: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityIntervals(activityId: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
@@ -18748,8 +18752,8 @@ export class SyncManager
    * Fetch and store an activity's streams for a series selection. The
    * types string is the cache key, so callers must pass it consistently.
    */
-  syncActivityStreams(activityId: string, types: string): boolean {
-    return FfiConverterBool.lift(
+  syncActivityStreams(activityId: string, types: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
@@ -18768,8 +18772,8 @@ export class SyncManager
    * Fetch and store the calendar events in a date window, replacing what
    * was there so an event cancelled upstream disappears here too.
    */
-  syncCalendarEvents(oldest: string, newest: string): boolean {
-    return FfiConverterBool.lift(
+  syncCalendarEvents(oldest: string, newest: string): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
@@ -18810,8 +18814,12 @@ export class SyncManager
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
    */
-  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean {
-    return FfiConverterBool.lift(
+  syncPaceCurve(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
@@ -18831,8 +18839,8 @@ export class SyncManager
    * Fetch and store a power curve for a sport and window. Returns false if
    * the same curve is already being fetched or no credentials are set.
    */
-  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean {
-    return FfiConverterBool.lift(
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
@@ -18852,8 +18860,8 @@ export class SyncManager
    * Activities that already have one are skipped, so a repeat call over the
    * same list costs nothing.
    */
-  syncTimeStreams(activityIds: Array<string>): boolean {
-    return FfiConverterBool.lift(
+  syncTimeStreams(activityIds: Array<string>): FfiStartOutcome {
+    return FfiConverterTypeFfiStartOutcome.lift(
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
@@ -22332,7 +22340,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
-    57349
+    65029
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
@@ -22348,7 +22356,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    1736
+    54066
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
@@ -22508,7 +22516,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail() !==
-    9245
+    10193
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail",
@@ -22516,7 +22524,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals() !==
-    1542
+    13849
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals",
@@ -22524,7 +22532,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams() !==
-    63568
+    51084
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams",
@@ -22532,7 +22540,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events() !==
-    3539
+    27274
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events",
@@ -22548,7 +22556,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve() !==
-    23002
+    20342
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve",
@@ -22556,7 +22564,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !==
-    11625
+    17156
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",
@@ -22564,7 +22572,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams() !==
-    13380
+    14233
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
