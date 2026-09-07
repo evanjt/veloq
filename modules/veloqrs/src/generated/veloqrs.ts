@@ -18670,6 +18670,12 @@ export interface VeloqEngineLike {
    * start.
    */
   pollBackup() /*throws*/ : string;
+  /**
+   * Poll the running wipe: "idle" | "running" | "complete". A failed or
+   * panicking wipe is an error, and either outcome clears the slot so the
+   * next toggle can start one.
+   */
+  pollClearRoutesAndSections() /*throws*/ : string;
   recordings(): RecordingManagerLike;
   routes(): RouteManagerLike;
   sections(): SectionManagerLike;
@@ -18686,6 +18692,17 @@ export interface VeloqEngineLike {
    * so neither the engine lock nor the calling thread waits for it.
    */
   startBackup(destPath: string) /*throws*/ : void;
+  /**
+   * Start the route/section wipe on a background thread. Poll
+   * `poll_clear_routes_and_sections` for the outcome.
+   *
+   * The wipe takes the engine write lock like any other writer, so unlike a
+   * backup it does not get its own connection. What moves off the calling
+   * thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+   * caller is the settings toggle, so on the JS thread that is a switch the
+   * athlete flipped freezing the app.
+   */
+  startClearRoutesAndSections() /*throws*/ : void;
   strength(): StrengthManagerLike;
   sync(): SyncManagerLike;
 }
@@ -19034,6 +19051,28 @@ export class VeloqEngine
     );
   }
 
+  /**
+   * Poll the running wipe: "idle" | "running" | "complete". A failed or
+   * panicking wipe is an error, and either outcome clears the slot so the
+   * next toggle can start one.
+   */
+  pollClearRoutesAndSections(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_poll_clear_routes_and_sections(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   recordings(): RecordingManagerLike {
     return FfiConverterTypeRecordingManager.lift(
       uniffiCaller.rustCall(
@@ -19135,6 +19174,31 @@ export class VeloqEngine
         nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_backup(
           uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           FfiConverterString.lower(destPath),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start the route/section wipe on a background thread. Poll
+   * `poll_clear_routes_and_sections` for the outcome.
+   *
+   * The wipe takes the engine write lock like any other writer, so unlike a
+   * backup it does not get its own connection. What moves off the calling
+   * thread is the wait: a 750-activity library takes 367 ms to wipe, and the
+   * caller is the settings toggle, so on the JS thread that is a switch the
+   * athlete flipped freezing the app.
+   */
+  startClearRoutesAndSections(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_start_clear_routes_and_sections(
+          uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
           callStatus,
         );
       },
@@ -20354,6 +20418,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections() !==
+    43406
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_poll_clear_routes_and_sections",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings() !==
     31277
   ) {
@@ -20407,6 +20479,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_start_backup",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_start_clear_routes_and_sections() !==
+    64776
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_start_clear_routes_and_sections",
     );
   }
   if (
