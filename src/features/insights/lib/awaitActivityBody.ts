@@ -18,7 +18,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
   getActivityBody: (activityId: string) => string | null;
-  syncActivityDetail: (activityId: string) => boolean;
+  syncActivityDetail: (activityId: string) => StartOutcome;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
 

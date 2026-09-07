@@ -5,7 +5,7 @@ import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
-import { engine } from 'veloqrs';
+import { engine, hasStarted } from 'veloqrs';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
@@ -192,11 +192,11 @@ export function useRouteDataSync(
               try {
                 // Fire and forget: the downloads run on a Rust thread and the
                 // sets are read back from SQLite when a strength screen asks.
-                const started = nativeModule.engine.batchFetchExerciseSets(unprocessed);
+                const outcome = nativeModule.engine.batchFetchExerciseSets(unprocessed);
                 if (__DEV__) {
                   log.log(
                     `[RouteDataSync] FIT batch for ${unprocessed.length} activities: ${
-                      started ? 'started' : 'already running'
+                      hasStarted(outcome) ? 'started' : `refused (${outcome})`
                     }`
                   );
                 }
