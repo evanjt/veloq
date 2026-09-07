@@ -21,7 +21,6 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
-  formatTerrainSnapshotProgress,
 } from '@/features/routes/lib/syncProgressFormat';
 import {
   updateSyncNotification,
@@ -136,9 +135,6 @@ export function GlobalDataSync() {
   // Bounds sync progress
   const { progress: boundsProgress } = useActivityBoundsCache();
 
-  // Terrain snapshot rendering progress
-  const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
-
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
@@ -151,14 +147,8 @@ export function GlobalDataSync() {
     [boundsProgress, t]
   );
 
-  // Terrain snapshot display info
-  const terrainDisplayInfo = useMemo(
-    () => formatTerrainSnapshotProgress(terrainSnapshotProgress, t),
-    [terrainSnapshotProgress, t]
-  );
-
-  // Pick which info to show - GPS sync > bounds sync > terrain
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
+  // Pick which info to show - GPS sync > bounds sync
+  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo;
 
   // Debounce sync notification: indeterminate states (like "Loading activities..."
   // during a background refetch) only post after 1.5s - if the fetch completes
