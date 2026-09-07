@@ -37,7 +37,6 @@
     "mapStyle": "Kaartstijl",
     "maxHR": "Max.: {{value}} bpm",
     "noDataAvailable": "Geen gegevens beschikbaar",
-    "zoneDefault": "Zone {{number}}",
     "noHeartRateData": "Geen hartslaggegevens",
     "power": "Vermogen",
     "resetToDefault": "Standaard herstellen",

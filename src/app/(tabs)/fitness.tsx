@@ -87,9 +87,9 @@ export default function FitnessScreen() {
     sharedSelectedIdx.value = -1;
     setSelectedDate(null);
     setSelectedValues(null);
-    // Note: sharedSelectedIdx is a Reanimated SharedValue and should NOT be in deps
-    // (it's intentionally outside the React render cycle)
-  }, [timeRange, setSelectedDate, setSelectedValues]);
+    // sharedSelectedIdx is a Reanimated SharedValue, whose identity never
+    // changes, so listing it re-runs nothing that was not re-running already.
+  }, [timeRange, setSelectedDate, setSelectedValues, sharedSelectedIdx]);
 
   const { primarySport } = useSportPreference();
 

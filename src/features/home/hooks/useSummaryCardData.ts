@@ -245,7 +245,7 @@ export function useSummaryCardData(
         'css'
       ),
     };
-  }, [precomputedCardData, awaitPrecomputed, engineTrigger]);
+  }, [precomputedCardData, awaitPrecomputed, engineTrigger, sportSettings]);
 
   // Merged quick stats - recomputes only when either source changes
   const quickStats = useMemo(

@@ -160,6 +160,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, []);
 
   // Bridge to JS only when index changes (for metrics panel and parent notification)
+  // Calculate averages for display when not scrubbing
+  // Compute averages for ALL available chart types (not just selected)
+  const allAverages = useMemo(
+    () => computeAllAverages(chartConfigs, streams, isMetric),
+    [chartConfigs, streams, isMetric]
+  );
+
   const updateMetricsOnJS = useCallback(
     (idx: number) => {
       if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
@@ -237,7 +244,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         onPointSelectRef.current(indexMap[idx]);
       }
     },
-    [chartData, seriesInfo, indexMap, isMetric]
+    [chartData, seriesInfo, indexMap, isMetric, allAverages]
   );
 
   // React to index changes and bridge to JS for metrics updates
@@ -286,13 +293,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, []);
 
   const xUnit = xAxisMode === 'time' ? '' : isMetric ? 'km' : 'mi';
-
-  // Calculate averages for display when not scrubbing
-  // Compute averages for ALL available chart types (not just selected)
-  const allAverages = useMemo(
-    () => computeAllAverages(chartConfigs, streams, isMetric),
-    [chartConfigs, streams, isMetric]
-  );
 
   // Emit all averages to parent when not scrubbing
   React.useEffect(() => {

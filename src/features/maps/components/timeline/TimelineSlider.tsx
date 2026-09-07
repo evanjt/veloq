@@ -146,7 +146,7 @@ export function TimelineSlider({
   useEffect(() => {
     startPos.value = dateToPosition(startDate);
     endPos.value = dateToPosition(endDate);
-  }, [startDate, endDate, dateToPosition]);
+  }, [startDate, endDate, dateToPosition, startPos, endPos]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setTrackWidth(e.nativeEvent.layout.width);
@@ -270,7 +270,7 @@ export function TimelineSlider({
 
       updateDatesFromPositions(startResult.position, endResult.position);
     },
-    [snapToNearest, updateDatesFromPositions, triggerHaptic]
+    [snapToNearest, updateDatesFromPositions, triggerHaptic, startPos, endPos]
   );
 
   // Handle tap on track to move left handle
@@ -296,7 +296,15 @@ export function TimelineSlider({
         updateDatesFromPositions(targetPos, endPos.value);
       }
     },
-    [trackWidth, snapToNearest, triggerHaptic, updateDatesFromPositions, expandOnly]
+    [
+      trackWidth,
+      snapToNearest,
+      triggerHaptic,
+      updateDatesFromPositions,
+      expandOnly,
+      startPos,
+      endPos,
+    ]
   );
 
   // Gestures

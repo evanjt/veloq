@@ -426,7 +426,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 
       // After style change, re-apply GeoJSON overlay layers once the new style settles
       setTimeout(() => updateLayers(), 500);
-    }, [mapStyle, routeColor, terrainExaggeration, updateLayers]);
+    }, [mapStyle, routeColor, terrainExaggeration, updateLayers, showHeatmap]);
 
     // Expose reset method to parent
     useImperativeHandle(
@@ -666,6 +666,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         showHeatmap,
         devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
       });
+      // `mapStyle` is read above and deliberately not a dependency: it is
+      // applied by setStyle() injection, and listing it here would regenerate
+      // the whole HTML on every style change.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [coordinates, bounds, routeColor, initialPitch, terrainExaggeration, showHeatmap]);
 
     return (

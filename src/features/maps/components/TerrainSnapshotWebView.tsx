@@ -224,7 +224,7 @@ export const TerrainSnapshotWebView = forwardRef<
       });
       armStalenessTimer();
     }
-  }, [workers, armStalenessTimer]);
+  }, [armStalenessTimer]);
 
   // A killed WebView renderer (Android reclaims background webview processes)
   // would otherwise leave the worker permanently dead: mapReady never re-fires,
@@ -643,7 +643,7 @@ export const TerrainSnapshotWebView = forwardRef<
         if (hasTerrainPreview(request.activityId, request.mapStyle, !request.flat)) return;
         if (queueRef.current.some((r) => requestKey(r) === requestKey(request))) return;
         if (
-          workers.some(
+          (workersRef.current ?? []).some(
             (w) =>
               w.processingRef.current &&
               w.currentRequestRef.current !== null &&
